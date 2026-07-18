@@ -33,6 +33,7 @@ import {
   buildAttachmentStackGroups,
 } from '../../utils/attachment-stack';
 import { canDropCardsOnZone, isKnownCommanderCard, knownCommanderInstanceIds } from '../../utils/command-zone-drop';
+import { type BattlefieldStackSelectionRef } from '../../services/game-table-selection.service';
 
 type NativeDragPayload = NonNullable<ReturnType<GameTableDragService['dragPayload']>>;
 
@@ -44,6 +45,9 @@ export interface GameTableDragDropContext {
   readonly players: () => readonly PlayerView[];
   readonly selectedCards: () => readonly SelectedCard[];
   readonly setSelectedCards: (cards: SelectedCard[]) => void;
+  readonly resolvedBattlefieldSelection: (playerId: string, draggedInstanceId: string) => readonly SelectedCard[];
+  readonly ensureStackGroupSelected: (ref: BattlefieldStackSelectionRef, rootCard: GameCardInstance) => void;
+  readonly isStackGroupSelected: (stackId: string) => boolean;
   readonly canControlOwnedCard: (playerId: string, card: GameCardInstance) => boolean;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
   readonly pointerDragActionContext: () => GameTablePointerDragActionContext;
@@ -75,8 +79,7 @@ export class GameTableDragDropStore {
   private readonly pointerDragActions = inject(GameTablePointerDragActionsService);
   private landStackDropPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingLandStackDropPreview: LandStackDropPreview | null = null;
-  private pendingTopLandStackSelection: SelectedCard[] | null = null;
-  private pendingTopAttachmentStackSelection: SelectedCard[] | null = null;
+  private pendingTopLandStackRef: BattlefieldStackSelectionRef | null = null;
 
   readonly draggingCardInstanceId = this.battlefieldDragState.draggingCardInstanceId;
   readonly manaLaneDropPlayerId = this.battlefieldDragState.manaLaneDropPlayerId;
@@ -392,12 +395,22 @@ export class GameTableDragDropStore {
     context.clearCardPreview();
     this.drag.clearNativeDragPayload();
     this.clearLandStackDropPreview();
-    this.pendingTopLandStackSelection = null;
-    this.pendingTopAttachmentStackSelection = null;
+    this.pendingTopLandStackRef = null;
     this.battlefieldDragState.endCardDrag();
   }
 
-  selectedDragInstanceIds(context: Pick<GameTableDragDropContext, 'selectedCards'>, playerId: string, zone: GameZoneName, instanceId: string): string[] {
+  selectedDragInstanceIds(
+    context: Pick<GameTableDragDropContext, 'selectedCards'> & Partial<Pick<GameTableDragDropContext, 'resolvedBattlefieldSelection'>>,
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+  ): string[] {
+    if (zone === 'battlefield' && context.resolvedBattlefieldSelection) {
+      const resolved = context.resolvedBattlefieldSelection(playerId, instanceId);
+      if (resolved.length > 0) {
+        return resolved.map((item) => item.card.instanceId);
+      }
+    }
     const selected = context.selectedCards();
     const canUseSelection = selected.length > 1
       && selected.some((item) => item.card.instanceId === instanceId)
@@ -437,8 +450,7 @@ export class GameTableDragDropStore {
     this.clearLandStackDropPreview();
     this.battlefieldDragState.setLandStackDetachSource(null);
     this.battlefieldDragState.setAttachmentStackDetachSource(null);
-    this.pendingTopLandStackSelection = null;
-    this.pendingTopAttachmentStackSelection = null;
+    this.pendingTopLandStackRef = null;
     const player = context.players().find((candidate) => candidate.id === playerId);
     if (!player) {
       return;
@@ -452,7 +464,14 @@ export class GameTableDragDropStore {
     }
 
     if (group.topCard.instanceId === card.instanceId) {
-      this.pendingTopLandStackSelection = group.members.map((member) => ({ playerId, zone: 'battlefield', card: member.card }));
+      this.pendingTopLandStackRef = {
+        kind: 'battlefield-stack',
+        stackId: group.id,
+        rootInstanceId: group.topCard.instanceId,
+        playerId,
+        zone: 'battlefield',
+        memberCount: group.members.length,
+      };
     } else {
       const detachSource = landStackDetachSource(playerId, group, card.instanceId);
       this.battlefieldDragState.setLandStackDetachSource(detachSource);
@@ -479,10 +498,6 @@ export class GameTableDragDropStore {
     }
 
     if (group.targetCard.instanceId === card.instanceId) {
-      this.pendingTopAttachmentStackSelection = this.mergeSelections(
-        this.pendingTopLandStackSelection ?? [],
-        group.members.map((member) => ({ playerId, zone: 'battlefield' as const, card: member.card })),
-      );
       return;
     }
 
@@ -779,15 +794,12 @@ export class GameTableDragDropStore {
   }
 
   private ensureDraggingBattlefieldSelection(context: GameTableDragDropContext, instanceId: string): void {
-    const attachmentStackSelection = this.topAttachmentStackSelection(instanceId);
-    if (attachmentStackSelection) {
-      context.setSelectedCards(attachmentStackSelection);
-      return;
-    }
-
-    const stackSelection = this.topLandStackSelection(context, instanceId);
-    if (stackSelection) {
-      context.setSelectedCards(stackSelection);
+    const stackRef = this.pendingTopLandStackRef;
+    if (stackRef?.rootInstanceId === instanceId) {
+      const root = this.battlefieldSelectionByInstanceId(context, instanceId)?.card;
+      if (root && !context.isStackGroupSelected(stackRef.stackId)) {
+        context.ensureStackGroupSelected(stackRef, root);
+      }
       return;
     }
 
@@ -814,22 +826,6 @@ export class GameTableDragDropStore {
     }
   }
 
-  private topLandStackSelection(context: GameTableDragDropContext, instanceId: string): SelectedCard[] | null {
-    if (this.pendingTopLandStackSelection?.some((item) => item.card.instanceId === instanceId)) {
-      return this.pendingTopLandStackSelection;
-    }
-
-    return null;
-  }
-
-  private topAttachmentStackSelection(instanceId: string): SelectedCard[] | null {
-    if (this.pendingTopAttachmentStackSelection?.some((item) => item.card.instanceId === instanceId)) {
-      return this.pendingTopAttachmentStackSelection;
-    }
-
-    return null;
-  }
-
   private isDraggingWholeLandStack(context: GameTableDragDropContext, instanceId: string): boolean {
     const selected = this.battlefieldSelectionByInstanceId(context, instanceId);
     if (!selected) {
@@ -841,13 +837,12 @@ export class GameTableDragDropStore {
       return false;
     }
 
-    if (this.pendingTopLandStackSelection?.some((item) => item.card.instanceId === instanceId)) {
-      const pendingIds = this.pendingTopLandStackSelection.map((item) => item.card.instanceId);
-
-      return pendingIds.length === selectedIds.length && pendingIds.every((pendingId) => selectedIds.includes(pendingId));
-    }
-
-    return false;
+    const stack = this.pendingTopLandStackRef?.rootInstanceId === instanceId
+      ? context.snapshot()?.battlefieldStacks?.find((candidate) => candidate.id === this.pendingTopLandStackRef?.stackId)
+      : null;
+    return Boolean(stack
+      && stack.orderedMemberIds.length === selectedIds.length
+      && stack.orderedMemberIds.every((memberId) => selectedIds.includes(memberId)));
   }
 
   private isHandDropTargetActiveForInstance(context: Pick<GameTableDragDropContext, 'players'>, instanceId: string): boolean {
@@ -862,15 +857,6 @@ export class GameTableDragDropStore {
     }
 
     return target.playerId === selected.playerId;
-  }
-
-  private mergeSelections(left: readonly SelectedCard[], right: readonly SelectedCard[]): SelectedCard[] {
-    const byId = new Map<string, SelectedCard>();
-    for (const item of [...left, ...right]) {
-      byId.set(item.card.instanceId, item);
-    }
-
-    return [...byId.values()];
   }
 
   private isOriginalDetachStackTarget(targetInstanceId: string): boolean {

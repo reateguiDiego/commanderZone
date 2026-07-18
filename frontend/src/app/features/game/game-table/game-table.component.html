@@ -9,6 +9,8 @@
   [attr.data-player-count]="store.players().length"
   [attr.data-container-width]="responsiveContainerWidth()"
   [attr.data-container-height]="responsiveContainerHeight()"
+  [attr.data-spatial-navigation-steps]="spatialNavigationSteps()"
+  [attr.data-spatial-navigation-last-ms]="spatialNavigationLastDurationMs()"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
   (pointerdown)="handleTablePointerDown()"
   (click)="handleTableClick($event)"
@@ -297,6 +299,20 @@
             (contextmenu)="$event.stopPropagation()"
           />
 
+          <button
+            type="button"
+            class="touch-select-area-mode"
+            data-testid="touch-select-area-mode"
+            [attr.aria-pressed]="touchAreaSelectionMode()"
+            [attr.aria-label]="'game.selection.selectArea' | runtimeTranslate"
+            [disabled]="!marqueeEnabled() || !responsiveSupported()"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="toggleTouchAreaSelectionMode($event)"
+            (contextmenu)="$event.stopPropagation()"
+          >
+            <span>{{ 'game.selection.selectArea' | runtimeTranslate }}</span>
+          </button>
+
           @if (store.selectedCards().length > 0) {
             <div
               class="selection-status"
@@ -309,6 +325,11 @@
               <span data-testid="selection-count">
                 {{ 'game.selection.selectedCount' | runtimeTranslate: { count: store.selectedCards().length } }}
               </span>
+              @if (store.selectedGroupRefs().length > 0) {
+                <span data-testid="selection-group-count">
+                  {{ 'game.selection.selectedStackCount' | runtimeTranslate: { count: store.selectedGroupRefs().length } }}
+                </span>
+              }
               <button
                 type="button"
                 data-testid="clear-selection"
@@ -364,7 +385,9 @@
             [responsiveState]="responsiveState()"
             [isCurrentPlayer]="isCurrentPlayer"
             [selectedInstanceIds]="selectedIdsForFocusedBattlefield()"
+            [selectedGroupRefs]="store.selectedGroupRefs()"
             [marqueeEnabled]="marqueeEnabled()"
+            [touchMarqueeMode]="touchAreaSelectionMode()"
             [marqueeBlocked]="marqueeBlocked()"
             [marqueeLayoutKey]="marqueeLayoutKey()"
             [allowArrowTargetSelection]="manualRelationTargetingActive()"
@@ -427,6 +450,7 @@
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
             (battlefieldEmptyClicked)="handleBattlefieldEmptyClicked()"
             (marqueeSelectionCommitted)="store.applyMarqueeSelection($event.playerId, $event.cards, $event.mode)"
+            (touchMarqueeModeChanged)="updateTouchAreaSelectionMode($event)"
           />
 
           <div class="bottom-play-area">

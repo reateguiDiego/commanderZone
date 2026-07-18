@@ -485,6 +485,18 @@
           (itemSelected)="selectMoveTo($event)"
         />
         @if (canRemoveLandStack()) {
+          <button type="button" data-testid="select-stack-group" (click)="actionSelected.emit({ type: 'selectStackGroup' })">
+            <span class="menu-item-label">
+              <lucide-icon name="layers-3" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.selection.selectStackGroup') }}</span>
+            </span>
+          </button>
+          <button type="button" data-testid="select-stack-root-only" (click)="actionSelected.emit({ type: 'selectStackRootOnly' })">
+            <span class="menu-item-label">
+              <lucide-icon name="check" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.selection.selectStackRootOnly') }}</span>
+            </span>
+          </button>
           <button type="button" (click)="actionSelected.emit({ type: 'removeStack' })">
             <span class="menu-item-label">
               <span class="menu-item-remove-stack-icon" aria-hidden="true">

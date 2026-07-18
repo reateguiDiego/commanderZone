@@ -426,6 +426,36 @@ describe('FocusedBattlefieldComponent', () => {
     expect(committed.mock.calls[0]?.[0].cards.map((card: GameCardInstance) => card.instanceId)).toEqual([
       'target', 'equipment', 'stack-root',
     ]);
+    expect(cardElement(fixture, 'equipment').dataset['selectionTargetKind']).toBe('attachment');
+    expect(cardElement(fixture, 'stack-root').dataset['selectionTargetKind']).toBe('stack-group');
+    expect(cardElement(fixture, 'stack-root').dataset['selectionGroupId']).toBe('stack-1');
+    expect(cardElement(fixture, 'stack-member').dataset['selectionHidden']).toBe('true');
+  });
+
+  it('distinguishes a selected stack group from an individually selected root', async () => {
+    const cards = [
+      { instanceId: 'stack-root', name: 'Island', typeLine: 'Land', tapped: false },
+      { instanceId: 'stack-member', name: 'Forest', typeLine: 'Land', tapped: false },
+    ] satisfies GameCardInstance[];
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: cards,
+      selectedInstanceIds: ['stack-root'],
+      selectedGroupRefs: [{
+        kind: 'battlefield-stack', stackId: 'stack-1', rootInstanceId: 'stack-root',
+        playerId: 'player-1', zone: 'battlefield', memberCount: 2,
+      }],
+      isSelected: (instanceId) => instanceId === 'stack-root',
+      battlefieldStacks: [{
+        id: 'stack-1', relationType: 'battlefield_stack', rootInstanceId: 'stack-root',
+        orderedMemberIds: ['stack-root', 'stack-member'], stackKind: 'land', effectVersion: 1, createdAtVersion: 1,
+      }],
+      cardPosition: () => ({ x: 100, y: 100 }),
+    });
+
+    const rootElement = cardElement(fixture, 'stack-root');
+    expect(rootElement.classList).toContain('group-selected');
+    expect(rootElement.querySelector('.stack-selection-badge')).not.toBeNull();
+    expect(rootElement.dataset['selectionGroupSize']).toBe('2');
   });
 
   it('cancels marquee on Escape/layout changes without committing or clearing the base selection', async () => {
@@ -461,13 +491,24 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cleared).not.toHaveBeenCalled();
   });
 
-  it('rejects touch marquee, accepts pen, and cancels a pending gesture on multitouch-compatible touch input', async () => {
+  it('requires explicit one-shot mode for touch, accepts pen, and cancels on a second pointer', async () => {
     const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true });
     const battlefield = battlefieldElement(fixture);
+    const touchModeChanged = vi.fn();
+    fixture.componentInstance.touchMarqueeModeChanged.subscribe(touchModeChanged);
 
     fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20, { pointerType: 'touch' }));
     expect(fixture.componentInstance.selectionInteraction().kind).toBe('idle');
 
+    fixture.componentRef.setInput('touchMarqueeMode', true);
+    fixture.detectChanges();
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20, { pointerType: 'touch' }));
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('pointerPending');
+    fixture.componentInstance.moveMarqueePointer(marqueePointer(battlefield, 120, 120, { pointerType: 'touch' }));
+    fixture.componentInstance.endMarqueePointer(marqueePointer(battlefield, 120, 120, { pointerType: 'touch' }));
+    expect(touchModeChanged).toHaveBeenCalledWith(false);
+
+    fixture.componentRef.setInput('touchMarqueeMode', false);
     fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20, { pointerType: 'pen' }));
     expect(fixture.componentInstance.selectionInteraction().kind).toBe('pointerPending');
     fixture.componentInstance.beginMarqueePointer(marqueePointer(cardElement(fixture, 'card-1'), 25, 25, { pointerId: 2, pointerType: 'touch' }));
@@ -601,6 +642,7 @@ interface RenderFocusedBattlefieldOptions {
   mechanicCards?: readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
   selectedInstanceIds?: readonly string[];
+  selectedGroupRefs?: readonly import('../../services/game-table-selection.service').GroupSelectionRef[];
   isSelected?: (instanceId: string) => boolean;
   marqueeEnabled?: boolean;
 }
@@ -622,6 +664,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('selectedInstanceIds', options.selectedInstanceIds ?? []);
+  fixture.componentRef.setInput('selectedGroupRefs', options.selectedGroupRefs ?? []);
   fixture.componentRef.setInput('isSelected', options.isSelected ?? ((_instanceId: string) => false));
   fixture.componentRef.setInput('marqueeEnabled', options.marqueeEnabled ?? false);
   fixture.componentRef.setInput('isDraggingCard', options.isDraggingCard ?? ((_card: GameCardInstance) => false));

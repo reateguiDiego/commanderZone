@@ -653,6 +653,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Seleccionar área",
+      "selectedStackCount": "{{count}} pilas seleccionadas",
+      "stackLabel": "Pila de {{count}} cartas",
+      "stackSelectedLabel": "Pila de {{count}} cartas seleccionada",
+      "stackBadge": "Pila x{{count}}",
+      "selectStackGroup": "Seleccionar pila",
+      "selectStackRootOnly": "Seleccionar solo la raíz",
       "selectedCount": "{{count}} cartas seleccionadas",
       "clear": "Limpiar selección",
       "handRegion": "Región de selección de tu mano"

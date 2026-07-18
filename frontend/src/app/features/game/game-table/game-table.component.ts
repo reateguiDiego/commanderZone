@@ -120,6 +120,11 @@ import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { VentureCardKind } from './utils/venture-card-kind';
 import {
+  captureSelectionVisualTargets,
+  resolveSpatialSelectionTarget,
+  type SpatialSelectionDirection,
+} from './utils/selection-visual-target';
+import {
   resolveGameTableResponsiveState,
   type GameTableResponsiveState,
 } from './utils/game-table-responsive-state';
@@ -770,6 +775,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.pendingArrowSource() !== null || this.store.pendingAttachmentSource() !== null,
   );
   readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive());
+  readonly touchAreaSelectionMode = signal(false);
+  readonly spatialNavigationSteps = signal(0);
+  readonly spatialNavigationLastDurationMs = signal(0);
   readonly selectedIdsForFocusedBattlefield = computed(() => {
     const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
     return focusedPlayerId
@@ -1469,12 +1477,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   setBattlefieldZoom(percent: number): void {
     this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
+    this.touchAreaSelectionMode.set(false);
     this.battlefieldZoom.setZoomPercent(percent);
     this.queueBattlefieldZoomReflow();
   }
 
   resetBattlefieldZoom(): void {
     this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
+    this.touchAreaSelectionMode.set(false);
     this.battlefieldZoom.resetZoom();
     this.queueBattlefieldZoomReflow();
   }
@@ -1487,6 +1497,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:resize')
   handleViewportResize(): void {
     this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
+    this.touchAreaSelectionMode.set(false);
     this.queueBattlefieldReflow();
   }
 
@@ -1500,6 +1511,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
     this.store.clearSelection();
+  }
+
+  toggleTouchAreaSelectionMode(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.marqueeEnabled() || !this.responsiveSupported()) {
+      this.touchAreaSelectionMode.set(false);
+      return;
+    }
+    this.focusedBattlefield?.cancelActiveSelectionInteraction();
+    this.touchAreaSelectionMode.update((enabled) => !enabled);
+  }
+
+  updateTouchAreaSelectionMode(enabled: boolean): void {
+    this.touchAreaSelectionMode.set(enabled && this.marqueeEnabled() && this.responsiveSupported());
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -1529,6 +1555,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         event.preventDefault();
         return;
       }
+      if (this.touchAreaSelectionMode()) {
+        event.preventDefault();
+        this.touchAreaSelectionMode.set(false);
+        return;
+      }
       if (this.store.selectedCards().length > 0) {
         event.preventDefault();
         this.store.clearSelection();
@@ -1537,6 +1568,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     if (this.isEditableShortcutTarget(target)) {
+      return;
+    }
+
+    if (this.handleSpatialSelectionNavigation(event, target)) {
       return;
     }
 
@@ -1562,7 +1597,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       if ((zone === 'hand' || zone === 'battlefield') && playerId && instanceId) {
         event.preventDefault();
         event.stopPropagation();
-        this.store.toggleKeyboardCardSelection(playerId, zone, instanceId);
+        const region = cardElement.closest<HTMLElement>(zone === 'hand' ? '[data-testid="hand-area"]' : '[data-testid="battlefield-zone"]');
+        const visualOrderIds = region
+          ? Array.from(region.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
+            .filter((element) => element.dataset['selectionHidden'] !== 'true')
+            .map((element) => element.dataset['cardInstanceId'] ?? '')
+            .filter(Boolean)
+          : [];
+        this.store.toggleKeyboardCardSelection(playerId, zone, instanceId, {
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          visualOrderIds,
+        });
       }
       return;
     }
@@ -1876,6 +1923,51 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private isEditableShortcutTarget(target: Element | null): boolean {
     return Boolean(target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+  }
+
+  private handleSpatialSelectionNavigation(event: KeyboardEvent, target: Element | null): boolean {
+    const direction = this.spatialDirection(event.key);
+    if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
+      return false;
+    }
+    const cardElement = target?.closest<HTMLElement>('[data-testid="game-card"][data-card-instance-id]') ?? null;
+    if (!cardElement || target !== cardElement && target?.closest('button, [tabindex]') !== cardElement) {
+      return false;
+    }
+    const zone = cardElement.dataset['zone'];
+    const region = cardElement.closest<HTMLElement>(zone === 'hand' ? '[data-testid="hand-area"]' : '[data-testid="battlefield-zone"]');
+    const instanceId = cardElement.dataset['cardInstanceId'];
+    if (!region || !instanceId || (zone !== 'hand' && zone !== 'battlefield')) {
+      return false;
+    }
+
+    const startedAt = performance.now();
+    const targets = captureSelectionVisualTargets(region);
+    const next = resolveSpatialSelectionTarget(targets, instanceId, direction);
+    if (!next) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    next.element.focus({ preventScroll: true });
+    next.element.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    this.store.focusSelectionCard(next.instanceId);
+    this.spatialNavigationSteps.update((steps) => steps + 1);
+    this.spatialNavigationLastDurationMs.set(Math.max(0, performance.now() - startedAt));
+    return true;
+  }
+
+  private spatialDirection(key: string): SpatialSelectionDirection | null {
+    switch (key) {
+      case 'ArrowLeft': return 'left';
+      case 'ArrowRight': return 'right';
+      case 'ArrowUp': return 'up';
+      case 'ArrowDown': return 'down';
+      case 'Home': return 'home';
+      case 'End': return 'end';
+      default: return null;
+    }
   }
 
   private consumeModalEscape(): boolean {
@@ -3016,6 +3108,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'removeStack':
         void this.store.removeLandStack(menu);
         return;
+      case 'selectStackGroup':
+        this.store.selectBattlefieldStack(menu, 'group');
+        return;
+      case 'selectStackRootOnly':
+        this.store.selectBattlefieldStack(menu, 'root');
+        return;
       case 'setPowerToughness':
         this.openPowerToughnessDialog(menu);
         return;
@@ -3995,6 +4093,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   focusPlayerBattlefield(playerId: string): void {
     const focused = this.store.focusPlayer(playerId);
     if (focused) {
+      if (playerId !== this.store.currentPlayer()?.id) {
+        this.touchAreaSelectionMode.set(false);
+      }
       this.refreshFocusedPlayerView(playerId);
       this.reapplyFollowActiveTurnPlayerIfNeeded(playerId);
     }

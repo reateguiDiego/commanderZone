@@ -653,6 +653,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Select area",
+      "selectedStackCount": "{{count}} stacks selected",
+      "stackLabel": "Stack of {{count}} cards",
+      "stackSelectedLabel": "Stack of {{count}} cards selected",
+      "stackBadge": "Stack x{{count}}",
+      "selectStackGroup": "Select stack",
+      "selectStackRootOnly": "Select root only",
       "selectedCount": "{{count}} cards selected",
       "clear": "Clear selection",
       "handRegion": "Your hand selection region"

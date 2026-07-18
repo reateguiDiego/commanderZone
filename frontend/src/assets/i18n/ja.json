@@ -735,6 +735,13 @@
       "x": "Ã—"
     },
     "selection": {
+      "selectArea": "範囲を選択",
+      "selectedStackCount": "{{count}} 個のスタックを選択中",
+      "stackLabel": "{{count}} 枚のカードのスタック",
+      "stackSelectedLabel": "{{count}} 枚のカードのスタックを選択中",
+      "stackBadge": "スタック x{{count}}",
+      "selectStackGroup": "スタックを選択",
+      "selectStackRootOnly": "ルートのみ選択",
       "selectedCount": "{{count}}枚のカードを選択中",
       "clear": "選択を解除",
       "handRegion": "手札の選択領域"

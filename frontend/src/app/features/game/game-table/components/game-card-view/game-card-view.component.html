@@ -62,16 +62,23 @@
     [attr.data-card-name]="currentCard.name"
     [attr.data-owner-player-id]="playerId()"
     [attr.data-zone]="zone()"
+    [attr.data-selection-target-kind]="selectionTargetKind()"
+    [attr.data-selection-group-id]="selectionGroupId()"
+    [attr.data-selection-hidden]="selectionHidden()"
     [attr.data-arrow-card-player-id]="currentMode === 'battlefield' ? playerId() : null"
     [attr.data-arrow-card-instance-id]="currentMode === 'battlefield' ? currentCard.instanceId : null"
     [attr.data-arrow-card-surface]="currentMode === 'battlefield' ? 'battlefield' : null"
     [attr.aria-selected]="currentMode === 'battlefield' || currentMode === 'hand' ? selected() : null"
     [attr.aria-pressed]="currentMode === 'battlefield' || currentMode === 'hand' ? selected() : null"
-    [attr.aria-label]="fallbackLabel()"
+    [attr.aria-label]="selectionGroupSize() !== null
+      ? ((groupSelected() ? 'game.selection.stackSelectedLabel' : 'game.selection.stackLabel') | runtimeTranslate: { count: selectionGroupSize() })
+      : fallbackLabel()"
+    [attr.data-selection-group-size]="selectionGroupSize()"
     [attr.draggable]="draggable() ? 'true' : null"
     [class.free-position]="freePosition()"
     [class.tapped]="currentCard.tapped || battleRotated()"
     [class.selected]="selected()"
+    [class.group-selected]="groupSelected()"
     [class.dragging]="dragging()"
     [class.hover-lifted]="hoverLifted()"
     [class.battlefield-preview-active]="previewActive() && hoverLifted()"
@@ -139,6 +146,11 @@
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
+    @if (groupSelected() && selectionGroupSize() !== null) {
+      <span class="land-stack-preview-badge stack-selection-badge" style="animation: none" aria-hidden="true">
+        <span>{{ 'game.selection.stackBadge' | runtimeTranslate: { count: selectionGroupSize() } }}</span>
+      </span>
+    }
     @if (landStackDropTarget()) {
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {

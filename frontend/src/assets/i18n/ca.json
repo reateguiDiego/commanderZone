@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Selecciona una àrea",
+      "selectedStackCount": "{{count}} piles seleccionades",
+      "stackLabel": "Pila de {{count}} cartes",
+      "stackSelectedLabel": "Pila de {{count}} cartes seleccionada",
+      "stackBadge": "Pila x{{count}}",
+      "selectStackGroup": "Selecciona la pila",
+      "selectStackRootOnly": "Selecciona només l'arrel",
       "selectedCount": "{{count}} cartes seleccionades",
       "clear": "Neteja la selecció",
       "handRegion": "Regió de selecció de la teva mà"

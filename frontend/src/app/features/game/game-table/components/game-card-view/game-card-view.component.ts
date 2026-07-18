@@ -148,6 +148,11 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
   readonly zone = input.required<GameZoneName>();
   readonly image = input<string | null>(null);
   readonly selected = input(false);
+  readonly groupSelected = input(false);
+  readonly selectionTargetKind = input<'card' | 'attachment' | 'stack-group' | 'stack-member'>('card');
+  readonly selectionGroupId = input<string | null>(null);
+  readonly selectionGroupSize = input<number | null>(null);
+  readonly selectionHidden = input(false);
   readonly dragging = input(false);
   readonly disabled = input(false);
   readonly draggable = input(false);

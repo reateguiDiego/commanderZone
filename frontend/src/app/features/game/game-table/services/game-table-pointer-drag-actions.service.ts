@@ -36,6 +36,7 @@ export interface GameTablePointerDragActionContext {
   snapshot(): GameSnapshot | null;
   handDropPreview(): HandDropPreview | null;
   selectedCards(): readonly BattlefieldSelection[];
+  resolvedBattlefieldSelection?(playerId: string, draggedInstanceId: string): readonly BattlefieldSelection[];
   battlefieldDragContext(): GameTableBattlefieldDragContext;
   alignmentGuideY(playerId: string): number | null;
   isManaLaneHighlighted(playerId: string): boolean;
@@ -97,7 +98,6 @@ export class GameTablePointerDragActionsService {
         : drag.position;
       await this.moveSelectedBattlefieldPositions(context, dragGroup, drag.instanceId, stackPosition, false);
       context.endCardDrag();
-      context.clearSelectedCards();
       context.applyDeferredRemoteSnapshot();
       context.suppressCardPreview();
       return;
@@ -204,7 +204,6 @@ export class GameTablePointerDragActionsService {
       );
       if (movedToStack) {
         context.endCardDrag();
-        context.clearSelectedCards();
         context.applyDeferredRemoteSnapshot();
         context.suppressCardPreview();
         return;
@@ -256,7 +255,6 @@ export class GameTablePointerDragActionsService {
       });
     }
     context.endCardDrag();
-    context.clearSelectedCards();
     context.applyDeferredRemoteSnapshot();
     context.suppressCardPreview();
   }
@@ -634,39 +632,22 @@ export class GameTablePointerDragActionsService {
     draggedPosition: { x: number; y: number },
     alignY = false,
   ): Promise<void> {
-    const attachmentGroup = buildAttachmentStackGroups(
-      selected.map((item) => item.card),
-      context.snapshot()?.attachments ?? [],
-      context.cardPosition,
-    ).find((group) => group.targetCard.instanceId === draggedInstanceId && group.members.length === selected.length);
-    if (attachmentGroup) {
-      const root = selected.find((item) => item.card.instanceId === draggedInstanceId);
-      if (root) {
-        context.updateLocalCardPosition(root.playerId, draggedInstanceId, draggedPosition);
-        await context.command('card.position.changed', {
-          playerId: root.playerId,
-          zone: 'battlefield',
-          instanceId: draggedInstanceId,
-          position: context.battlefieldPosition(root.playerId, draggedInstanceId, draggedPosition),
-        });
-      }
-      return;
-    }
-    const dragged = selected.find((item) => item.card.instanceId === draggedInstanceId);
+    const stackMoves = this.wholeLandStackMoves(context, selected, draggedInstanceId, draggedPosition);
+    const positionSelection = stackMoves ? selected : this.positionSelectionRoots(context, selected);
+    const dragged = positionSelection.find((item) => item.card.instanceId === draggedInstanceId);
     const origin = dragged ? context.cardPosition(dragged.card) ?? { x: 0, y: 0 } : { x: 0, y: 0 };
     const delta = {
       x: draggedPosition.x - origin.x,
       y: draggedPosition.y - origin.y,
     };
-    const shouldAlignY = alignY && !this.isMovingWholeLandStack(selected, draggedInstanceId);
+    const shouldAlignY = alignY && !stackMoves;
 
-    const stackMoves = this.wholeLandStackMoves(context, selected, draggedInstanceId, draggedPosition);
     const moves: readonly BattlefieldSelectionMove[] = stackMoves ?? (shouldAlignY
-      ? selected.map((item) => {
+      ? positionSelection.map((item) => {
         const current = context.cardPosition(item.card) ?? { x: 0, y: 0 };
         return { item, position: { x: Math.max(0, current.x + delta.x), y: draggedPosition.y } };
       })
-      : this.logicalGroupMoves(context, selected, draggedInstanceId, draggedPosition));
+      : this.logicalGroupMoves(context, positionSelection, draggedInstanceId, draggedPosition));
 
     const persistedMoves = stackMoves ? stackMoves.slice(0, 1) : moves;
     for (const move of persistedMoves) {
@@ -689,6 +670,17 @@ export class GameTablePointerDragActionsService {
       return;
     }
 
+    if (moves.length === 1 && positionSelection.length < selected.length) {
+      const root = moves[0]!;
+      await context.command('card.position.changed', {
+        playerId: firstPlayerId,
+        zone: 'battlefield',
+        instanceId: root.item.card.instanceId,
+        position: root.logicalPosition ?? context.battlefieldPosition(firstPlayerId, root.item.card.instanceId, root.position),
+      });
+      return;
+    }
+
     await context.command('cards.position.changed', this.battlefieldPositionsPayload(
       context,
       firstPlayerId,
@@ -698,6 +690,38 @@ export class GameTablePointerDragActionsService {
         logicalPosition: move.logicalPosition,
       })),
     ));
+  }
+
+  private positionSelectionRoots(
+    context: GameTablePointerDragActionContext,
+    selected: readonly BattlefieldSelection[],
+  ): BattlefieldSelection[] {
+    const snapshot = context.snapshot();
+    const selectedIds = new Set(selected.map((item) => item.card.instanceId));
+    const relationMembers = new Set<string>();
+
+    for (const stack of snapshot?.battlefieldStacks ?? []) {
+      if (selectedIds.has(stack.rootInstanceId) && stack.orderedMemberIds.every((instanceId) => selectedIds.has(instanceId))) {
+        for (const instanceId of stack.orderedMemberIds) {
+          if (instanceId !== stack.rootInstanceId) relationMembers.add(instanceId);
+        }
+      }
+    }
+
+    const attachmentsByTarget = new Map<string, string[]>();
+    for (const attachment of snapshot?.attachments ?? []) {
+      attachmentsByTarget.set(attachment.attachedToInstanceId, [
+        ...(attachmentsByTarget.get(attachment.attachedToInstanceId) ?? []),
+        attachment.equipmentInstanceId,
+      ]);
+    }
+    for (const [targetInstanceId, equipmentIds] of attachmentsByTarget) {
+      if (selectedIds.has(targetInstanceId) && equipmentIds.every((instanceId) => selectedIds.has(instanceId))) {
+        for (const instanceId of equipmentIds) relationMembers.add(instanceId);
+      }
+    }
+
+    return selected.filter((item) => !relationMembers.has(item.card.instanceId));
   }
 
   private logicalGroupMoves(
@@ -758,7 +782,7 @@ export class GameTablePointerDragActionsService {
     const groups = buildLandStackGroups(selected.map((item) => item.card), context.snapshot()?.battlefieldStacks ?? [], context.cardPosition);
     const group = landStackGroupContaining(groups, draggedInstanceId);
     const draggedMember = group?.members.find((member) => member.card.instanceId === draggedInstanceId);
-    if (!group || !draggedMember) {
+    if (!group || !draggedMember || group.members.length !== selected.length) {
       return null;
     }
 
@@ -823,7 +847,7 @@ export class GameTablePointerDragActionsService {
     draggedInstanceId: string,
   ): boolean {
     const first = selected[0];
-    if (!first || selected.length < 2 || selected.length > 3) {
+    if (!first || selected.length < 2) {
       return false;
     }
 
@@ -836,7 +860,7 @@ export class GameTablePointerDragActionsService {
     playerId: string,
     draggedInstanceId: string,
   ): readonly BattlefieldSelection[] {
-    const selected = context.selectedCards();
+    const selected = context.resolvedBattlefieldSelection?.(playerId, draggedInstanceId) ?? context.selectedCards();
     const canUseSelection = selected.length > 1
       && selected.some((item) => item.card.instanceId === draggedInstanceId)
       && selected.every((item) => item.playerId === playerId && item.zone === 'battlefield');

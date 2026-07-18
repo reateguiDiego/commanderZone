@@ -75,6 +75,7 @@ describe('GameTableStore snapshot UI consistency', () => {
       contextMenu: signal(null),
       clearCardPreview: vi.fn(),
       closeContextMenu: vi.fn(),
+      reconcileSelectedStackGroups: vi.fn(),
       pruneTransientCardUiState: GameTableStore.prototype['pruneTransientCardUiState'],
     };
 
@@ -86,6 +87,7 @@ describe('GameTableStore snapshot UI consistency', () => {
     expect(selectedCards()).toEqual([]);
     expect(storeLike.clearCardPreview).not.toHaveBeenCalled();
     expect(storeLike.closeContextMenu).not.toHaveBeenCalled();
+    expect(storeLike.reconcileSelectedStackGroups).toHaveBeenCalledOnce();
   });
 });
 

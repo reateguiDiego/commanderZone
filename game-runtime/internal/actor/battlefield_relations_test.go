@@ -50,6 +50,10 @@ func TestAuthoritativeAttachmentAndBattlefieldStackLifecycle(t *testing.T) {
 	if patchForVisibility(removedOne.Patches, "public", "attachment.remove") == nil || patchForVisibility(removedOne.Patches, "public", "card.position.set") == nil {
 		t.Fatalf("attachment detach is not atomic in patches: %#v", removedOne.Patches)
 	}
+	detachedPosition := patchForVisibility(removedOne.Patches, "public", "card.position.set")
+	if detachedPosition.Data["playerId"] != "p1" || detachedPosition.Data["zone"] != state.ZoneBattlefield {
+		t.Fatalf("attachment position routing is incomplete: %#v", detachedPosition)
+	}
 
 	created := apply("stack-create", "battlefield.stack.created", map[string]any{
 		"rootInstanceId": "i1", "orderedInstanceIds": []any{"i1", "i2", "i3"}, "stackKind": "land",
@@ -81,6 +85,10 @@ func TestAuthoritativeAttachmentAndBattlefieldStackLifecycle(t *testing.T) {
 	if patchForVisibility(dissolved.Patches, "public", "battlefield.stack.remove") == nil || patchForVisibility(dissolved.Patches, "public", "cards.position.set") == nil {
 		t.Fatalf("dissolve did not publish graph plus geometry: %#v", dissolved.Patches)
 	}
+	dissolvedPositions := patchForVisibility(dissolved.Patches, "public", "cards.position.set")
+	if dissolvedPositions.Data["playerId"] != "p1" || dissolvedPositions.Data["zone"] != state.ZoneBattlefield {
+		t.Fatalf("stack position routing is incomplete: %#v", dissolvedPositions)
+	}
 	final := gameActor.Snapshot()
 	if len(final.Relations.Attachments) != 0 || len(final.Relations.BattlefieldStacks) != 0 {
 		t.Fatalf("relations survived lifecycle: %#v", final.Relations)
@@ -99,6 +107,46 @@ func TestAuthoritativeAttachmentAndBattlefieldStackLifecycle(t *testing.T) {
 	for _, instanceID := range []string{"i1", "i2", "i3", "i4"} {
 		if !reflect.DeepEqual(replayed.Instances[instanceID].Position, final.Instances[instanceID].Position) {
 			t.Fatalf("replay position %s = %#v, want %#v", instanceID, replayed.Instances[instanceID].Position, final.Instances[instanceID].Position)
+		}
+	}
+}
+
+func TestRelationPositionPatchesUseViewerSpecificFaceDownReferences(t *testing.T) {
+	initial := relationActorState()
+	initial.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	initial.Zones["p3"] = state.PlayerZones{}
+	initial.EnsureVisibility()
+	gameActor := NewGameActor("game-1", initial, nil, 16, DefaultAppliers())
+
+	created := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "attach-facedown", "attachment.created", map[string]any{
+		"equipmentInstanceId": "i2", "attachedToInstanceId": "i1",
+	}), "p1")
+	if created.Err != nil {
+		t.Fatal(created.Err)
+	}
+	hidden := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "hide-attachment", "card.face_down.changed", map[string]any{
+		"instanceId": "i2", "faceDown": true,
+	}), "p1")
+	if hidden.Err != nil {
+		t.Fatal(hidden.Err)
+	}
+	detached := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "detach-facedown", "attachment.removed", map[string]any{
+		"id": created.Event.Payload["id"], "position": map[string]any{"x": 0.3, "y": 0.4, "unit": "ratio"},
+	}), "p1")
+	if detached.Err != nil {
+		t.Fatal(detached.Err)
+	}
+	if patchForVisibility(detached.Patches, protocol.VisibilityPublic, "card.position.set") != nil {
+		t.Fatalf("face-down position leaked through public patch: %#v", detached.Patches)
+	}
+	owner := patchForVisibility(detached.Patches, protocol.PlayerVisibility("p1"), "card.position.set")
+	if owner == nil || owner.Data["instanceId"] != "i2" || owner.Data["playerId"] != "p1" || owner.Data["zone"] != state.ZoneBattlefield {
+		t.Fatalf("owner position projection = %#v", owner)
+	}
+	for _, viewerID := range []string{"p2", "p3"} {
+		op := patchForVisibility(detached.Patches, protocol.PlayerVisibility(viewerID), "card.position.set")
+		if op == nil || op.Data["instanceId"] != "p1-hidden-battlefield-1" || op.Data["playerId"] != "p1" || op.Data["zone"] != state.ZoneBattlefield {
+			t.Fatalf("viewer %s position projection = %#v", viewerID, op)
 		}
 	}
 }

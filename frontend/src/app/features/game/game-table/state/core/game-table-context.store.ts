@@ -115,7 +115,7 @@ export class GameTableContextStore {
       canControlPlayer: (playerId) => this.playersStore.canControlPlayer(playerId, this.interaction()),
       activeKeyboardCard: () => this.interactionActions.activeKeyboardCard() as SelectedCard | null,
       selectedCards: () => this.selectedCards(),
-      clearSelectedCards: () => this.selection.selectedCards.set([]),
+      clearSelectedCards: () => this.selection.clearSelection(),
       zoneModal: () => this.zoneModalState.zoneModal(),
       replaceZoneModalCards: (cards) => this.zoneActions.replaceZoneModalCards(cards),
       loadZone: () => this.zoneActions.loadZone(this.zoneAction()),
@@ -267,7 +267,7 @@ export class GameTableContextStore {
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
       endCardDrag: () => this.dragDropStore.endCardDrag(this.dragDrop()),
       clearHandDropPreview: () => this.handState.clearHandDropPreview(),
-      clearSelectedCards: () => this.selection.selectedCards.set([]),
+      clearSelectedCards: () => this.selection.clearSelection(),
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
@@ -299,7 +299,14 @@ export class GameTableContextStore {
       snapshot: () => this.core.snapshot(),
       players: () => this.playersStore.players(),
       selectedCards: () => this.selectedCards(),
-      setSelectedCards: (cards) => this.selection.selectedCards.set(cards),
+      setSelectedCards: (cards) => this.selection.replaceSelectedCards(cards),
+      resolvedBattlefieldSelection: (playerId, draggedInstanceId) => this.resolvedBattlefieldSelection(playerId, draggedInstanceId),
+      ensureStackGroupSelected: (ref, rootCard) => this.selection.selectStackGroup(
+        { ctrlKey: false, metaKey: false, shiftKey: false },
+        ref,
+        rootCard,
+      ),
+      isStackGroupSelected: (stackId) => this.selection.selectedGroupRefs().some((ref) => ref.stackId === stackId),
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       battlefieldDragContext: () => this.battlefieldDrag(),
       pointerDragActionContext: () => this.pointerDragAction(),
@@ -358,7 +365,7 @@ export class GameTableContextStore {
       }),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
-      clearSelectedCards: () => this.selection.selectedCards.set([]),
+      clearSelectedCards: () => this.selection.clearSelection(),
       setError: (message) => this.core.error.set(message),
       command: (type, payload) => source.command(type, payload),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId, instanceIds) =>
@@ -374,6 +381,7 @@ export class GameTableContextStore {
       snapshot: () => this.core.snapshot(),
       handDropPreview: () => this.handState.handDropPreview(),
       selectedCards: () => this.selectedCards(),
+      resolvedBattlefieldSelection: (playerId, draggedInstanceId) => this.resolvedBattlefieldSelection(playerId, draggedInstanceId),
       battlefieldDragContext: () => this.battlefieldDrag(),
       alignmentGuideY: (playerId) => this.dragDropStore.alignmentGuideFor(playerId)?.y ?? null,
       isManaLaneHighlighted: (playerId) => this.dragDropStore.isManaLaneHighlighted(playerId),
@@ -392,7 +400,7 @@ export class GameTableContextStore {
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
       endCardDrag: () => this.dragDropStore.endCardDrag(this.dragDrop()),
-      clearSelectedCards: () => this.selection.selectedCards.set([]),
+      clearSelectedCards: () => this.selection.clearSelection(),
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       applyDeferredRemoteSnapshot: () => this.sessionService.applyDeferredRemoteSnapshot(this.session()),
@@ -544,6 +552,50 @@ export class GameTableContextStore {
         value: this.playersStore.commanderCastCount(player, commander) + 1,
       });
     }
+  }
+
+  private resolvedBattlefieldSelection(playerId: string, draggedInstanceId: string): SelectedCard[] {
+    const selected = this.selectedCards().filter((item) => item.playerId === playerId && item.zone === 'battlefield');
+    const selectedIds = new Set(selected.map((item) => item.card.instanceId));
+    const selectedGroups = this.selection.selectedGroupRefs().filter((ref) => ref.playerId === playerId);
+    if (!selectedIds.has(draggedInstanceId) && !selectedGroups.some((ref) => ref.rootInstanceId === draggedInstanceId)) {
+      return [];
+    }
+
+    const snapshot = this.core.snapshot();
+    const battlefield = snapshot?.players[playerId]?.zones.battlefield ?? [];
+    const byId = new Map(battlefield.map((card) => [card.instanceId, card]));
+    const groupByRoot = new Map(selectedGroups.map((ref) => [ref.rootInstanceId, ref]));
+    const resolved: SelectedCard[] = [];
+    const added = new Set<string>();
+    for (const item of selected) {
+      const groupRef = groupByRoot.get(item.card.instanceId);
+      if (!groupRef) {
+        if (!added.has(item.card.instanceId) && this.playersStore.canControlOwnedCard(playerId, item.card, this.interaction())) {
+          added.add(item.card.instanceId);
+          resolved.push(item);
+        }
+        continue;
+      }
+
+      const stack = snapshot?.battlefieldStacks?.find((candidate) => candidate.id === groupRef.stackId);
+      const members = stack?.orderedMemberIds.map((instanceId) => byId.get(instanceId) ?? null) ?? [];
+      if (
+        !stack
+        || members.length !== stack.orderedMemberIds.length
+        || members.some((card) => !card || !this.playersStore.canControlOwnedCard(playerId, card, this.interaction()))
+      ) {
+        continue;
+      }
+      for (const card of members) {
+        if (card && !added.has(card.instanceId)) {
+          added.add(card.instanceId);
+          resolved.push({ playerId, zone: 'battlefield', card });
+        }
+      }
+    }
+
+    return resolved;
   }
 
   private ownPlayerId(snapshot: GameSnapshot): string | null {

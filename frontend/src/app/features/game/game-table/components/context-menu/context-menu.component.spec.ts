@@ -1238,7 +1238,10 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(menuText(stacked)).toContain('Remove from stack');
+    expect(menuText(stacked)).toContain('Select stack');
+    expect(menuText(stacked)).toContain('Select root only');
     expect(menuText(loose)).not.toContain('Remove from stack');
+    expect(menuText(loose)).not.toContain('Select stack');
   });
 
   it('limits an emblem battlefield card menu to remove', () => {
@@ -1428,6 +1431,24 @@ describe('ContextMenuComponent', () => {
     removeStack?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'removeStack' });
+  });
+
+  it('emits explicit stack-group and root-only selection intents', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('stacked-land'),
+    }, { isLandStacked: () => true });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+
+    buttons.find((candidate) => candidate.textContent?.includes('Select stack'))?.click();
+    buttons.find((candidate) => candidate.textContent?.includes('Select root only'))?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'selectStackGroup' });
+    expect(selected).toHaveBeenCalledWith({ type: 'selectStackRootOnly' });
   });
 
   it('hides power toughness counters for cards without a power toughness box', () => {

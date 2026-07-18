@@ -303,6 +303,46 @@
   z-index: 260;
 }
 
+.touch-select-area-mode {
+  position: absolute;
+  top: 0.75rem;
+  right: 9.25rem;
+  z-index: 259;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(215 180 106 / 46%);
+  border-radius: 8px;
+  color: rgb(255 241 204);
+  background: rgb(8 10 8 / 88%);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.touch-select-area-mode[aria-pressed='true'] {
+  border-color: rgb(255 231 160 / 95%);
+  color: #17120a;
+  background: #f5d989;
+  box-shadow: 0 0 0 2px rgb(245 217 137 / 28%);
+}
+
+.touch-select-area-mode:focus-visible {
+  outline: 2px solid var(--game-accent, #d7b46a);
+  outline-offset: 2px;
+}
+
+.touch-select-area-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .selection-status {
   position: absolute;
   top: 3.65rem;

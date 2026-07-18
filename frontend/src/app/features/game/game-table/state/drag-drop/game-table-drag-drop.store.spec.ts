@@ -20,6 +20,7 @@ describe('GameTableDragDropStore', () => {
   let dragState: GameTableBattlefieldDragState;
   let pendingTransferState: GameTablePendingTransferState;
   let selectedCards: SelectedCard[];
+  let selectedStackId: string | null;
   let dropOnZone: ReturnType<typeof vi.fn>;
   let updateActiveDropTarget: ReturnType<typeof vi.fn>;
   let updateBattlefieldDragAid: ReturnType<typeof vi.fn>;
@@ -110,6 +111,7 @@ describe('GameTableDragDropStore', () => {
     dragState = TestBed.inject(GameTableBattlefieldDragState);
     pendingTransferState = TestBed.inject(GameTablePendingTransferState);
     selectedCards = [];
+    selectedStackId = null;
   });
 
   afterEach(() => {
@@ -276,7 +278,7 @@ describe('GameTableDragDropStore', () => {
     expect(selectedCards).toEqual([]);
   });
 
-  it('selects the whole land stack once the top card drag actually moves', () => {
+  it('keeps only the visible root selected and resolves current stack members once the drag actually moves', () => {
     const top = land('top', 100, 200);
     const under = land('under', 100, 180);
     const ctx = context([playerView([top, under])]);
@@ -289,7 +291,9 @@ describe('GameTableDragDropStore', () => {
     top.position = { x: 360, y: 200 };
     store.moveCardPointerDrag(ctx, {} as PointerEvent);
 
-    expect(selectedCards.map((item) => item.card.instanceId)).toEqual(['top', 'under']);
+    expect(selectedCards.map((item) => item.card.instanceId)).toEqual(['top']);
+    expect(selectedStackId).toBe('stack-1');
+    expect(store.selectedDragInstanceIds(ctx, 'player-1', 'battlefield', 'top')).toEqual(['top', 'under']);
     expect(dragState.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'graveyard' });
     expect(dragState.landStackDropPreview()).toBeNull();
   });
@@ -327,7 +331,8 @@ describe('GameTableDragDropStore', () => {
     top.position = { x: 360, y: 200 };
     store.moveCardPointerDrag(ctx, {} as PointerEvent);
 
-    expect(selectedCards.map((item) => item.card.instanceId)).toEqual(['top', 'under']);
+    expect(selectedCards.map((item) => item.card.instanceId)).toEqual(['top']);
+    expect(selectedStackId).toBe('stack-1');
     expect(updateBattlefieldDragAid).toHaveBeenCalled();
     expect(updatePointerDropTarget).toHaveBeenCalled();
     expect(dragState.manaLaneDropPlayerId()).toBe('player-1');
@@ -926,6 +931,24 @@ describe('GameTableDragDropStore', () => {
       setSelectedCards: (cards) => {
         selectedCards = cards;
       },
+      resolvedBattlefieldSelection: (playerId, draggedInstanceId) => {
+        if (selectedStackId) {
+          const stack = resolvedSnapshot?.battlefieldStacks?.find((candidate) => candidate.id === selectedStackId);
+          const battlefield = resolvedSnapshot?.players[playerId]?.zones.battlefield ?? [];
+          const cards = stack?.orderedMemberIds
+            .map((instanceId) => battlefield.find((card) => card.instanceId === instanceId) ?? null)
+            .filter((card): card is GameCardInstance => card !== null) ?? [];
+          return cards.map((card) => ({ playerId, zone: 'battlefield' as const, card }));
+        }
+        return selectedCards.some((item) => item.card.instanceId === draggedInstanceId)
+          ? selectedCards.filter((item) => item.playerId === playerId && item.zone === 'battlefield')
+          : [];
+      },
+      ensureStackGroupSelected: (ref, rootCard) => {
+        selectedStackId = ref.stackId;
+        selectedCards = [{ playerId: ref.playerId, zone: 'battlefield', card: rootCard }];
+      },
+      isStackGroupSelected: (stackId) => selectedStackId === stackId,
       canControlOwnedCard: () => true,
       battlefieldDragContext: () => ({
         zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],

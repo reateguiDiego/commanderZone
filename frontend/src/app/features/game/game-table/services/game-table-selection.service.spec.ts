@@ -93,6 +93,76 @@ describe('GameTableSelectionService', () => {
     expect(service.orderedSelectedIds()).toEqual([]);
   });
 
+  it('keeps a collapsed stack as one visible root plus a local group reference', () => {
+    const root = card('root');
+    const ref = {
+      kind: 'battlefield-stack' as const,
+      stackId: 'stack-1',
+      rootInstanceId: 'root',
+      playerId: 'player-1',
+      zone: 'battlefield' as const,
+      memberCount: 4,
+    };
+
+    service.selectStackGroup(mouseEvent(), ref, root);
+
+    expect(service.orderedSelectedIds()).toEqual(['root']);
+    expect([...service.state().selectedGroupRefs]).toEqual([ref]);
+
+    service.selectStackGroup(mouseEvent({ ctrlKey: true }), ref, root);
+    expect(service.orderedSelectedIds()).toEqual([]);
+    expect([...service.state().selectedGroupRefs]).toEqual([]);
+  });
+
+  it('updates a selected stack root on promotion and removes a dissolved group without exposing members', () => {
+    const oldRoot = card('old-root');
+    const ref = {
+      kind: 'battlefield-stack' as const,
+      stackId: 'stack-1',
+      rootInstanceId: 'old-root',
+      playerId: 'player-1',
+      zone: 'battlefield' as const,
+      memberCount: 4,
+    };
+    service.selectStackGroup(mouseEvent(), ref, oldRoot);
+
+    const promotedRef = { ...ref, rootInstanceId: 'new-root', memberCount: 3 };
+    service.reconcileGroupReferences([{ ref: promotedRef, rootCard: card('new-root') }]);
+
+    expect(service.orderedSelectedIds()).toEqual(['new-root']);
+    expect([...service.state().selectedGroupRefs]).toEqual([promotedRef]);
+
+    service.reconcileGroupReferences([]);
+    expect(service.orderedSelectedIds()).toEqual([]);
+    expect([...service.state().selectedGroupRefs]).toEqual([]);
+  });
+
+  it('selects an inclusive hand range in either direction and supports additive Ctrl/Meta+Shift', () => {
+    const cards = ['one', 'two', 'three', 'four'].map((id) => card(id));
+    service.selectSingle('player-1', 'hand', cards[1]!);
+
+    service.selectHandRange('player-1', cards, cards[3]!, false);
+    expect(service.orderedSelectedIds()).toEqual(['two', 'three', 'four']);
+
+    service.selectSingle('player-1', 'hand', cards[3]!);
+    service.selectHandRange('player-1', cards, cards[1]!, false);
+    expect(service.orderedSelectedIds()).toEqual(['two', 'three', 'four']);
+
+    service.selectSingle('player-1', 'hand', cards[0]!);
+    service.selectHandRange('player-1', cards, cards[2]!, true);
+    expect(service.orderedSelectedIds()).toEqual(['one', 'two', 'three']);
+  });
+
+  it('drops a stale hand range anchor during pruning', () => {
+    const cards = ['one', 'two', 'three'].map((id) => card(id));
+    service.selectSingle('player-1', 'hand', cards[1]!);
+    service.reconcileSelectedCards([]);
+
+    expect(service.state().anchorId).toBeNull();
+    service.selectHandRange('player-1', [cards[0]!, cards[2]!], cards[2]!, false);
+    expect(service.orderedSelectedIds()).toEqual(['three']);
+  });
+
   it.each([0, 1, 3])('selects all 0/1/N cards safely while preserving input order (%i)', (count) => {
     const cards = Array.from({ length: count }, (_, index) => card(`card-${index}`));
 

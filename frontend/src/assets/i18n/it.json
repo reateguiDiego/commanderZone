@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Seleziona area",
+      "selectedStackCount": "{{count}} pile selezionate",
+      "stackLabel": "Pila di {{count}} carte",
+      "stackSelectedLabel": "Pila di {{count}} carte selezionata",
+      "stackBadge": "Pila x{{count}}",
+      "selectStackGroup": "Seleziona la pila",
+      "selectStackRootOnly": "Seleziona solo la radice",
       "selectedCount": "{{count}} carte selezionate",
       "clear": "Cancella selezione",
       "handRegion": "Area di selezione della tua mano"

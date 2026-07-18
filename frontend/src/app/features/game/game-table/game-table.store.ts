@@ -6,7 +6,12 @@ import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-rea
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
-import { GameTableSelectionService, type SelectionModifierMode } from './services/game-table-selection.service';
+import {
+  GameTableSelectionService,
+  type BattlefieldStackSelectionRef,
+  type ResolvedGroupSelection,
+  type SelectionModifierMode,
+} from './services/game-table-selection.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { AlignmentGuide } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-feedback.state';
@@ -130,6 +135,8 @@ export class GameTableStore implements OnDestroy {
   private readonly shuffleLibraryOnModalCloseReason = signal<'owner-view' | 'revealed-library-closed' | null>(null);
   readonly focusedPlayerId = this.uiState.focusedPlayerId;
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
+  readonly selectedGroupRefs = this.selection.selectedGroupRefs;
+  readonly selectionState = this.selection.state;
   readonly hoveredCard = this.uiState.hoveredCard;
   readonly hoveredPreview = this.uiState.hoveredPreview;
   readonly dungeonMarkerPreviewOverride = this.uiState.dungeonMarkerPreviewOverride;
@@ -721,7 +728,12 @@ export class GameTableStore implements OnDestroy {
     const selectableCards = cards.filter((card) =>
       this.canControlOwnedCard(playerId, card) && !hiddenStackMemberIds.has(card.instanceId),
     );
-    this.selection.selectMany(playerId, zone, selectableCards);
+    const groupRefs = zone === 'battlefield'
+      ? selectableCards
+        .map((card) => this.stackSelectionRefForRoot(playerId, card))
+        .filter((ref): ref is BattlefieldStackSelectionRef => ref !== null)
+      : [];
+    this.selection.selectMany(playerId, zone, selectableCards, groupRefs);
     this.closeContextMenu();
   }
 
@@ -735,15 +747,24 @@ export class GameTableStore implements OnDestroy {
     }
 
     const hiddenStackMemberIds = this.hiddenBattlefieldStackMemberIds();
-    this.selection.applyMarqueeSelection(
-      playerId,
-      'battlefield',
-      cards.filter((card) => this.canControlOwnedCard(playerId, card) && !hiddenStackMemberIds.has(card.instanceId)),
-      mode,
-    );
+    const selectable = cards.filter((card) => this.canControlOwnedCard(playerId, card) && !hiddenStackMemberIds.has(card.instanceId));
+    const refs = selectable
+      .map((card) => this.stackSelectionRefForRoot(playerId, card))
+      .filter((ref): ref is BattlefieldStackSelectionRef => ref !== null);
+    if (mode === 'replace') {
+      this.selection.selectMany(playerId, 'battlefield', selectable, refs);
+      return;
+    }
+    this.selection.applyMarqueeSelection(playerId, 'battlefield', selectable, mode);
+    this.selection.reconcileGroupReferences(this.resolvedSelectedStackGroups(refs));
   }
 
-  toggleKeyboardCardSelection(playerId: string, zone: GameZoneName, instanceId: string): void {
+  toggleKeyboardCardSelection(
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+    options: { readonly shiftKey?: boolean; readonly ctrlKey?: boolean; readonly metaKey?: boolean; readonly visualOrderIds?: readonly string[] } = {},
+  ): void {
     if (
       (zone !== 'hand' && zone !== 'battlefield')
       || this.currentPlayer()?.id !== playerId
@@ -756,7 +777,54 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    if (zone === 'hand' && options.shiftKey) {
+      const visualOrder = options.visualOrderIds ?? this.snapshot()?.players[playerId]?.zones.hand.map((item) => item.instanceId) ?? [];
+      const byId = new Map((this.snapshot()?.players[playerId]?.zones.hand ?? []).map((item) => [item.instanceId, item]));
+      const visualCards = visualOrder.map((id) => byId.get(id)).filter((item): item is GameCardInstance => Boolean(item));
+      this.selection.selectHandRange(playerId, visualCards, card, Boolean(options.ctrlKey || options.metaKey));
+      return;
+    }
+    if (zone === 'battlefield') {
+      const ref = this.stackSelectionRefForRoot(playerId, card);
+      if (ref) {
+        this.selection.selectStackGroup({ ctrlKey: true, metaKey: false, shiftKey: false }, ref, card);
+        return;
+      }
+    }
     this.selection.toggleKeyboardSelection(playerId, zone, card);
+  }
+
+  focusSelectionCard(instanceId: string): void {
+    this.selection.setFocusedId(instanceId);
+  }
+
+  isStackGroupSelected(stackId: string): boolean {
+    return this.selectedGroupRefs().some((ref) => ref.stackId === stackId);
+  }
+
+  selectBattlefieldStack(menu: GameContextMenu, mode: 'group' | 'root'): void {
+    const snapshot = this.snapshot();
+    const selectedCard = menu.zone === 'battlefield' ? menu.card : null;
+    const stack = selectedCard
+      ? (snapshot?.battlefieldStacks ?? []).find((candidate) => candidate.orderedMemberIds.includes(selectedCard.instanceId))
+      : null;
+    const root = stack
+      ? snapshot?.players[menu.playerId]?.zones.battlefield.find((card) => card.instanceId === stack.rootInstanceId)
+      : null;
+    if (!stack || !root || !this.canControlOwnedCard(menu.playerId, root)) {
+      this.closeContextMenu();
+      return;
+    }
+
+    if (mode === 'root') {
+      this.selection.selectSingle(menu.playerId, 'battlefield', root);
+    } else {
+      const ref = this.stackSelectionRefForRoot(menu.playerId, root, snapshot);
+      if (ref) {
+        this.selection.selectStackGroup({ ctrlKey: false, metaKey: false, shiftKey: false }, ref, root);
+      }
+    }
+    this.closeContextMenu();
   }
 
   isDraggingCard(card: GameCardInstance): boolean {
@@ -1212,11 +1280,23 @@ export class GameTableStore implements OnDestroy {
     }
 
     this.showPinnedCardPreview(event, playerId, 'battlefield', card);
+    const groupRef = this.stackSelectionRefForRoot(playerId, card);
+    if (groupRef && this.canControlOwnedCard(playerId, card)) {
+      event.stopPropagation();
+      this.selection.selectStackGroup(event, groupRef, card);
+      return;
+    }
     this.interactionActions.handleBattlefieldCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
     this.showPinnedCardPreview(event, playerId, 'hand', card);
+    if (event.shiftKey && this.canControlOwnedCard(playerId, card)) {
+      event.stopPropagation();
+      const hand = this.snapshot()?.players[playerId]?.zones.hand.filter((candidate) => this.canControlOwnedCard(playerId, candidate)) ?? [];
+      this.selection.selectHandRange(playerId, hand, card, event.ctrlKey || event.metaKey);
+      return;
+    }
     this.interactionActions.handleHandCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
@@ -2003,6 +2083,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   private pruneTransientCardUiState(snapshot: GameSnapshot | null): void {
+    this.reconcileSelectedStackGroups(snapshot);
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: this.selectedCards(),
       currentPlayerId: this.currentPlayer()?.id ?? null,
@@ -2084,6 +2165,63 @@ export class GameTableStore implements OnDestroy {
 
   private battlefieldCards(playerId: string): readonly GameCardInstance[] {
     return this.snapshot()?.players[playerId]?.zones.battlefield ?? [];
+  }
+
+  private reconcileSelectedStackGroups(snapshot: GameSnapshot | null): void {
+    if (!snapshot || this.selectedGroupRefs().length === 0) {
+      this.selection.reconcileGroupReferences([]);
+      return;
+    }
+    const resolved: ResolvedGroupSelection[] = [];
+    for (const selectedRef of this.selectedGroupRefs()) {
+      const stack = (snapshot.battlefieldStacks ?? []).find((candidate) => candidate.id === selectedRef.stackId);
+      const root = stack
+        ? snapshot.players[selectedRef.playerId]?.zones.battlefield.find((card) => card.instanceId === stack.rootInstanceId)
+        : null;
+      if (!stack || !root) {
+        continue;
+      }
+      const ref = this.stackSelectionRefForRoot(selectedRef.playerId, root, snapshot);
+      if (ref) {
+        resolved.push({ ref, rootCard: root });
+      }
+    }
+    this.selection.reconcileGroupReferences(resolved);
+  }
+
+  private stackSelectionRefForRoot(
+    playerId: string,
+    card: GameCardInstance,
+    snapshot: GameSnapshot | null = this.snapshot(),
+  ): BattlefieldStackSelectionRef | null {
+    const stack = (snapshot?.battlefieldStacks ?? []).find((candidate) => candidate.rootInstanceId === card.instanceId);
+    const battlefield = snapshot?.players[playerId]?.zones.battlefield ?? [];
+    if (!stack || stack.orderedMemberIds.length < 2) {
+      return null;
+    }
+    const byId = new Map(battlefield.map((candidate) => [candidate.instanceId, candidate]));
+    const members = stack.orderedMemberIds.map((instanceId) => byId.get(instanceId) ?? null);
+    if (members.some((member) => !member || !this.canControlOwnedCard(playerId, member))) {
+      return null;
+    }
+    return {
+      kind: 'battlefield-stack',
+      stackId: stack.id,
+      rootInstanceId: stack.rootInstanceId,
+      playerId,
+      zone: 'battlefield',
+      memberCount: stack.orderedMemberIds.length,
+    };
+  }
+
+  private resolvedSelectedStackGroups(refs: readonly BattlefieldStackSelectionRef[]): ResolvedGroupSelection[] {
+    return refs
+      .map((ref) => {
+        const rootCard = this.snapshot()?.players[ref.playerId]?.zones.battlefield
+          .find((card) => card.instanceId === ref.rootInstanceId);
+        return rootCard ? { ref, rootCard } : null;
+      })
+      .filter((item): item is ResolvedGroupSelection => item !== null);
   }
 
   private hiddenBattlefieldStackMemberIds(): ReadonlySet<string> {

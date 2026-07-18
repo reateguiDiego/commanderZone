@@ -2,100 +2,83 @@
 
 ## Scope
 
-Sprint 5B establishes viewer-local selection and rectangular marquee for the current actor's own battlefield. Selection is transient UI state: it is never stored in bootstrap, snapshots, replay, Patch.v2, GameLog, or runtime state. Runtime authorization remains authoritative when a later action sends instance IDs.
+Sprint 5B establishes viewer-local selection and rectangular marquee for the current actor's own battlefield. Sprint 5C extends that local contract with relation-aware group references, explicit touch marquee, spatial keyboard navigation, and hand ranges. Selection remains transient UI state: it is never stored in bootstrap, snapshots, replay, Patch.v2, GameLog, or runtime state. Runtime authorization remains authoritative when an action sends instance IDs.
 
-View X keeps its independent modal selection model. Sprint 5B does not add touch marquee, spatial arrow-key navigation, relation selection, advanced stack group expansion, or new batch commands.
+View X keeps its independent modal selection model. Sprint 5C does not add new batch commands, a full batch toolbar, lasso, persistent selection, grouped tokens, automatic rules, or new responsive states.
 
-## Selection regions and identity
+## Selection identity and regions
 
-A mutative selection belongs to exactly one player, zone, and visual region. It cannot span hands, battlefields, players, or opponent surfaces. Membership is instance-ID based with O(1) lookup and a stable ordered list for UI and command payloads. Duplicate IDs are discarded while the first visual order is retained.
+A mutative selection belongs to exactly one player, zone, and visual region. It cannot span hands, battlefields, players, or opponent surfaces. Membership is instance-ID based with O(1) lookup and a stable ordered list. Duplicate IDs are discarded while first visual order is retained.
 
-The selected state tracks the focused and anchor instance, interaction revision, and last interaction type locally. No private identity is derived or materialized for selection. A face-down permanent is selectable only by its authorized controller using the reference already projected to that viewer.
+Collapsed battlefield stacks additionally use a viewer-local `battlefield-stack` group reference containing the relation ID, current visual root, player/zone, and member count. `selectedIds` contains at most the visible root; hidden members are never inserted for highlighting. Current members are resolved from the newest snapshot only when a drag requires authority validation. Group references are never persisted or projected.
 
-Focusing an opponent battlefield clears the actor's mutative selection. Opponent cards remain hoverable and previewable but never become selected, marquee candidates, or batch command IDs.
+Focusing an opponent battlefield clears instance and group selection and disables touch-select mode. Opponent cards remain hoverable, focusable for read-only preview, and non-actionable: Space, marquee, Ctrl/Cmd+A, and batch IDs are disabled.
 
-## Click and modifier semantics
+## Click, keyboard modifiers, and ranges
 
-- A normal click on an unselected actionable card replaces the compatible selection.
-- A normal click on an already-selected card preserves the complete compatible selection, so pointer drag can use that group.
+- Normal click on an unselected actionable card replaces the compatible selection.
+- Normal click on an already-selected card preserves the compatible group for drag.
 - Ctrl/Cmd-click toggles one card.
-- Shift-click toggles one card on battlefield and hand in Sprint 5B; it is not a DOM-order range.
-- Ctrl/Cmd+Shift is the same explicit toggle.
+- Shift-click toggles one battlefield card; battlefield never uses DOM range.
+- Shift-click and Shift+Space in hand select an inclusive range from the local anchor using current visual hand order.
+- Ctrl/Cmd+Shift adds the hand range. A missing or stale anchor falls back to the target.
 - Alt has no selection meaning.
-- A modifier click in a different player, zone, or region starts a new compatible selection.
-- An idle click on empty own battlefield clears selection.
-- Controls inside a card stop propagation and do not change selection.
-- Opening a context menu on an unselected actionable card selects it as the sole context. Opening it on a selected card preserves the compatible group.
+- A modifier in a different region starts a new compatible selection.
+- Idle empty-background click clears selection; embedded card controls do not alter it.
+- A context menu on an unselected card gives it explicit context; an existing compatible selection is preserved.
+
+Space toggles the focused actionable card and Enter retains the existing primary/preview behavior. Ctrl/Cmd+A remains scoped to the actor's focused hand or battlefield. Shortcuts are not intercepted in inputs, textareas, selects, contenteditable surfaces, dialogs, menus, or chat.
 
 ## Select All
 
-Select All is safe for zero, one, or many cards and is idempotent.
+Select All is safe for zero, one, or many cards and is idempotent. Hand uses actionable own cards in visual order. Battlefield uses visible instances currently controlled by the actor, including borrowed controlled cards, tokens, DFCs, face-down cards, and visible controlled attachments.
 
-Hand Select All selects the actionable cards in the actor's own hand in visual order. Battlefield Select All selects visible instances currently controlled by the actor in that battlefield, including controlled cards owned by another player, tokens, DFCs, face-down cards, and visible controlled attachments. It excludes cards controlled by another player, opponent permanents, virtual entities, stale references, and hidden members of a collapsed battlefield stack.
+It excludes opponent cards, cards whose controller is another player, virtual entities, stale references, and hidden collapsed-stack members. A collapsed stack contributes one visual root plus one local group reference. Selecting an attachment never implies its target and selecting a target never implies attached cards.
 
-A collapsed stack contributes only its visual root. Hidden member IDs are not silently placed in the selection set. Command-time expansion or explicit group references remain a Sprint 5C/5D concern. Attachments remain independent candidates; selecting a target does not imply selecting its attachments.
+## Marquee and touch mode
 
-Ctrl/Cmd+A is scoped by DOM focus to the actor's hand or battlefield region. It is not intercepted in inputs, textareas, selects, contenteditable surfaces, dialogs, menus, or chat.
+Marquee is rectangular, starts only from empty own-battlefield background with a primary pointer, and activates after a five CSS-pixel threshold. Mouse and pen work directly. A card pointerdown remains a click/card-drag candidate.
 
-## Marquee interaction
+Touch works only through the explicit **Select area** toggle. The control is available in the four responsive states when the actor/battlefield is actionable, is at least 44 CSS pixels, exposes `aria-pressed`, and is one-shot. Commit or cancellation turns it off. While enabled, one empty-background touch can marquee and temporarily uses `touch-action: none`; when disabled, scroll, long-press, context menu, and card drag keep their previous behavior. A second touch, pointer cancel, lost capture, modal/drawer activation, opponent focus, lifecycle block, or layout change cancels and disables the mode.
 
-Marquee is rectangular, starts only from empty own-battlefield background with a primary mouse or pen pointer, and activates after a five CSS-pixel movement threshold. A card pointerdown remains a click/card-drag candidate and cannot start marquee. Touch does not start marquee in Sprint 5B.
+Modifier modes remain: no modifier replaces, Shift adds, Ctrl/Cmd toggles, and Alt has no special mode. Preview is the exact ordered result committed on pointerup. Pointer movement and commit emit no gameplay command, mutate no normalized state, and create no log entry.
 
-The local interaction has one active state: idle, pointer-pending, or marquee for the battlefield surface, coordinated with the existing card drag, relation targeting, context menu, and modal state. It captures pointer ID, client-space start/current points, modifier mode, base selection, cached candidate bounds, candidate IDs, preview result, and an interaction revision. These values are destroyed on commit or cancellation.
+## Shared geometry, overlap, and spatial navigation
 
-Marquee modes are:
+Pointer and card geometry use viewport CSS coordinates from `clientX`/`clientY` and `getBoundingClientRect()`. The center of a visual target must fall inside the normalized rectangle. Any-intersection and full-containment are not used.
 
-- no modifier: replace;
-- Shift: add candidates to the base selection;
-- Ctrl/Cmd: toggle candidates against the base selection;
-- Alt: no special mode.
+Marquee and spatial keyboard navigation consume the same captured visual-target projection. A target exposes rendered bounds/center, instance ID, kind (`card`, `attachment`, `stack-group`, or visible `stack-member`), optional group ID, actionability, z-index, and accessible label. Hidden collapsed members, disabled elements, and zero-size elements are excluded.
 
-The preview renders the exact ordered selection that will be committed. Pointer up commits that local result and removes overlay, capture, listeners, and cached geometry. No command, normalized-store mutation, position update, relation update, or GameLog entry occurs during pointer movement or commit.
+Independent overlapping cards are evaluated individually; pointer click/context menu still uses the browser's topmost hit target. Visible controlled attachments are individual targets. A collapsed stack exposes one root/group target. Tapped/rotated cards use rendered bounds.
 
-## Geometry and hit testing
+Arrow keys choose a deterministic candidate in the requested visual half-plane by primary-axis distance, perpendicular deviation, z-index tie-break, then instance ID. Hand navigation uses rendered centers across wrapped rows. Home/End choose deterministic visual edges. Focus uses local `scrollIntoView({block:'nearest', inline:'nearest'})` and does not mutate selection by itself.
 
-Pointer and card geometry use the same viewport CSS coordinate space: `clientX`/`clientY` and `getBoundingClientRect()`. The normalized rectangle supports all four drag directions. A visible actionable card is a candidate when its rendered visual center is inside the normalized rectangle, including boundary points. Any-overlap and full-containment rules are intentionally not used.
+Geometry is captured once per marquee interaction and invalidated by relation, controller, collapse, size, scroll, responsive, or zoom changes. Preview is limited to one requestAnimationFrame update per frame.
 
-Each independent overlapping card is evaluated separately. Visible controlled attachments are independent. A collapsed stack exposes only its root candidate. Tapped/rotated cards use the browser's rendered bounds. Marquee never reads or changes canonical ratio positions and never persists pixels, viewport, browser zoom, battlefield zoom, or pointer coordinates.
+## Attachments, stacks, and drag
 
-Candidate bounds are read once when the pointer crosses the threshold and reused for that interaction. Preview updates are limited to one `requestAnimationFrame` callback. Layout-changing events cancel instead of using stale geometry.
+Visible controlled attachments are selected and focused individually. Target selection does not add equipment and equipment selection does not add its target. Detach keeps an explicitly selected attachment when it remains actionable; controller or zone loss prunes it.
 
-## Cancel and Escape priority
+A collapsed stack defaults to group selection and exposes a distinct outline, count badge, localized stack label, and group count. Its context menu provides explicit **Select stack** and **Select root only** actions. No expanded member UI exists in Sprint 5C, so hidden members remain unavailable for individual selection.
 
-Cancellation restores the base selection, emits no command, and removes all transient interaction state. It occurs on Escape, pointer cancel, lost pointer capture, window blur, structural scroll, resize, browser/battlefield zoom change, responsive-state change, focused-player change, relation/snapshot layout change, modal/context-menu activation, lifecycle closure, or component destruction.
+Dragging a selected stack resolves its current members immediately before the command to validate existence, controller, and zone, then persists the current root position under the Sprint 3 relation contract. Mixed selections resolve members for validation but emit positions only for independent cards and relation roots. A selected target plus all selected attachments likewise emits the target once. IDs are deduplicated. A rejected command preserves valid selection; success uses the existing action-consumption cleanup.
 
-Escape priority is:
+## Cancellation and deterministic cleanup
 
-1. close the active modal;
-2. close the context menu;
-3. cancel marquee, card drag, or relation targeting;
-4. clear selection only when interaction state is idle;
-5. otherwise no-op.
+Escape priority is modal, context menu, marquee/drag/relation interaction, touch-select mode, idle selection, then no-op. One keypress never both cancels an interaction and clears the base selection.
 
-One keypress never both cancels an interaction and clears its base selection.
+Every applied snapshot reconciles instance and group selection against current viewer actionability. It removes disappeared cards, zone/player/controller changes, hidden/non-actionable cards, collapsed members, and dissolved relations while retaining valid relative order. Root promotion rewrites the group root without exposing members. Detach, dissolve, reorder, conceal/materialize, lifecycle closure, defeat/concession, leave, refresh/rebootstrap, reconnect reconstruction, and actor restart use the same deterministic pruning/clear contract. Focus moves to a valid target or falls back to the region.
 
-## Deterministic reconciliation
+## Accessibility, responsive behavior, privacy, and performance
 
-Every applied snapshot reconciles selection against the viewer's current actionable state. It removes IDs that disappeared, moved zone/region, lost controller authority, became hidden/non-actionable, or became hidden members of a collapsed stack. Valid remaining entries keep relative order and are refreshed to the newest card object.
+Cards expose accessible names, `aria-selected`, and a visible focus ring. Group selection has a non-color-only outline/badge and safe localized labels such as “Stack of 4 cards selected”; face-down labels never expose concealed identity. Touch mode uses `aria-pressed`. Selection and group counts announce only committed results through the polite live region. The marquee overlay is `aria-hidden` and not focusable.
 
-Controller loss and zone movement prune only affected cards. Action rejection preserves the remaining valid selection. Full selection is cleared by load/rebootstrap, explicit refetch, interruption of a previously live runtime connection, opponent focus, game finish, defeat/concession, leave/logout, and absent hydration. Selection is never restored after refresh, reconnect, or actor reconstruction.
+Normal, compact, aggressive, and minimal remain the only responsive states. Browser zoom and battlefield zoom change rendered geometry only. A layout change during interaction cancels without stale commit, position command, or relation command; stable selection outside the interaction is preserved.
 
-## Accessibility and minimal UI
+Selection never materializes hidden identity or enters backend, patches, acknowledgements, logs, or shared debug state. Runtime continues to prevalidate every later ID.
 
-Selectable hand and battlefield cards expose an accessible name plus `aria-selected` and `aria-pressed`; selected styling is not the only signal. Keyboard focus has a visible ring. Space toggles a focused actionable card. Enter retains the existing primary/preview behavior. Spatial arrow navigation is deferred.
+The regression target is 100 rendered targets, one bounds capture, at most root-plus-N layout reads, one preview calculation per animation frame, and complete cleanup after repeated gestures. Spatial lookup is a bounded linear scan with deterministic scoring; tests cover 100 targets and 50 navigation steps. Relation tests cover overlaps, attachments, and stacks of four/eight without duplicate positions. No spatial index is introduced without measured evidence.
 
-When selection is non-empty, a four-state-responsive status shows the selected count and an accessible Clear Selection button. The polite live region announces the committed count, not every pointermove preview. The marquee overlay is `aria-hidden`, not focusable, and does not intercept pointer events.
+## Deferred to Sprint 5D
 
-## Responsive, zoom, touch, privacy, and performance
-
-The existing normal, compact, aggressive, and minimal responsive states are unchanged. Marquee is clipped to the playable battlefield content and disabled when that region is not actionable. Stable zoom/responsive changes preserve ordinary selection; a change during marquee cancels the interaction without commit.
-
-Mouse and pen support direct marquee. Touch retains the current scroll, drag, and long-press behavior; an explicit touch selection mode is reserved for Sprint 5C. A touch or multitouch pointer cancels a pending marquee gesture.
-
-Selection state is never projected to other viewers. Opponent DOM, patches, acknowledgements, logs, and debug surfaces receive no selected IDs. The existing face-down placeholder and privacy contracts remain unchanged.
-
-The component regression target is 100 rendered candidates with one bounds capture, 101 maximum layout reads (root plus candidates), at most one preview calculation per animation frame, no commands, and complete cleanup after repeated commit/cancel gestures. The stateful browser gate renders 100 battlefield cards and observes 98 actionable candidates, 99 layout reads, one bounds capture, and zero gameplay commands across 20 marquee gestures. No spatial index is introduced without measured evidence.
-
-## Deferred to Sprint 5C/5D
-
-Sprint 5C owns touch selection mode, spatial keyboard navigation, richer overlap/relation affordances, and explicit stack member/group selection. Sprint 5D owns the full batch toolbar, action availability, batch context actions, pending/error UX, and any command-time group expansion. New backend selection state or Patch.v2 selection operations are not planned.
+Sprint 5D owns the full batch toolbar, action availability, new batch actions, pending/error presentation, and relation-specific action menus. Expanded stack-member UI remains deferred until product evidence requires it. Backend selection state and Patch.v2 selection operations are not planned.

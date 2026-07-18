@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "框选区域",
+      "selectedStackCount": "已选择 {{count}} 个牌堆",
+      "stackLabel": "{{count}} 张牌的牌堆",
+      "stackSelectedLabel": "已选择 {{count}} 张牌的牌堆",
+      "stackBadge": "牌堆 x{{count}}",
+      "selectStackGroup": "选择牌堆",
+      "selectStackRootOnly": "仅选择根牌",
       "selectedCount": "已选择 {{count}} 张牌",
       "clear": "清除选择",
       "handRegion": "手牌选择区域"

@@ -309,6 +309,7 @@ async function assertUiSingleAndBatchDrag(
   await waitForSnapshotVersion(request, setup.gameId, setup.players[0]!.token, version);
   await assertPatchOnAllViewers(audits, String(single['clientActionId']), version);
 
+  await pages[0]!.keyboard.press('Escape');
   for (const instanceId of fixture.freeIds) {
     await battlefieldCard(pages[0]!, ownerId, instanceId).click({ modifiers: ['Shift'] });
     await expect(battlefieldCard(pages[0]!, ownerId, instanceId)).toHaveClass(/selected/);

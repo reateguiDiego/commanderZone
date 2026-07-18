@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Bereich auswählen",
+      "selectedStackCount": "{{count}} Stapel ausgewählt",
+      "stackLabel": "Stapel mit {{count}} Karten",
+      "stackSelectedLabel": "Stapel mit {{count}} Karten ausgewählt",
+      "stackBadge": "Stapel x{{count}}",
+      "selectStackGroup": "Stapel auswählen",
+      "selectStackRootOnly": "Nur Wurzel auswählen",
       "selectedCount": "{{count}} Karten ausgewählt",
       "clear": "Auswahl aufheben",
       "handRegion": "Auswahlbereich deiner Hand"

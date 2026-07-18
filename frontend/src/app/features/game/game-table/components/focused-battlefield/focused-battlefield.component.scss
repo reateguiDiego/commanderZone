@@ -28,6 +28,11 @@
   cursor: crosshair;
 }
 
+.battlefield[data-touch-select-mode='true'] {
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .battlefield:focus-visible {
   outline: 2px solid var(--game-accent, #d7b46a);
   outline-offset: -2px;

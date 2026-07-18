@@ -6510,6 +6510,120 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
   });
 
+  it('uses one-shot explicit touch area mode and gives its cancellation Escape priority over selection cleanup', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    const card = fixture.componentInstance.store.snapshot()!.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.selectedCards.set([{ playerId: 'user-1', zone: 'battlefield', card }]);
+
+    fixture.componentInstance.toggleTouchAreaSelectionMode(new MouseEvent('click'));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.touchAreaSelectionMode()).toBe(true);
+
+    fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.touchAreaSelectionMode()).toBe(false);
+    expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
+  });
+
+  it('moves keyboard focus spatially by rendered centers and records bounded navigation work', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const first = snapshot.players['user-1'].zones.battlefield[0]!;
+    snapshot.players['user-1'].zones.battlefield = [
+      first,
+      { ...first, instanceId: 'card-right', name: 'Right' },
+      { ...first, instanceId: 'card-down', name: 'Down' },
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    const region = document.createElement('div');
+    region.dataset['testid'] = 'battlefield-zone';
+    const elements = new Map<string, HTMLElement>();
+    for (const id of ['card-1', 'card-right', 'card-down']) {
+      const element = document.createElement('button');
+      element.dataset['testid'] = 'game-card';
+      element.dataset['cardInstanceId'] = id;
+      element.dataset['zone'] = 'battlefield';
+      element.dataset['selectionTargetKind'] = 'card';
+      element.tabIndex = 0;
+      region.appendChild(element);
+      elements.set(id, element);
+    }
+    (fixture.nativeElement as HTMLElement).appendChild(region);
+    elements.get('card-1')!.getBoundingClientRect = () => new DOMRect(50, 50, 80, 100);
+    elements.get('card-right')!.getBoundingClientRect = () => new DOMRect(250, 50, 80, 100);
+    elements.get('card-down')!.getBoundingClientRect = () => new DOMRect(50, 260, 80, 100);
+    elements.get('card-right')!.scrollIntoView = vi.fn();
+
+    const event = shortcutEvent('ArrowRight', elements.get('card-1')!);
+    fixture.componentInstance.handleShortcut(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(elements.get('card-right'));
+    expect(fixture.componentInstance.store.selectionState().focusedId).toBe('card-right');
+    expect(fixture.componentInstance.spatialNavigationSteps()).toBe(1);
+    expect(fixture.componentInstance.spatialNavigationLastDurationMs()).toBeGreaterThanOrEqual(0);
+  });
+
+  it('selects an inclusive visual Shift range in hand without crossing zones', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const source = snapshot.players['user-1'].zones.battlefield[0]!;
+    const hand = ['hand-1', 'hand-2', 'hand-3', 'hand-4'].map((instanceId) => ({ ...source, instanceId, zone: 'hand' as const }));
+    snapshot.players['user-1'].zones.hand = hand;
+    snapshot.players['user-1'].zoneCounts!.hand = hand.length;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const clickTarget = document.createElement('button');
+    const click = (shiftKey: boolean, ctrlKey = false) => ({
+      shiftKey, ctrlKey, metaKey: false, altKey: false, currentTarget: clickTarget,
+      stopPropagation: vi.fn(), preventDefault: vi.fn(), clientX: 0, clientY: 0,
+    } as unknown as MouseEvent);
+
+    fixture.componentInstance.store.handleHandCardClick(click(false), 'user-1', hand[1]!);
+    fixture.componentInstance.store.handleHandCardClick(click(true), 'user-1', hand[3]!);
+
+    expect(fixture.componentInstance.store.selectedCards().map((item) => item.card.instanceId)).toEqual([
+      'hand-2', 'hand-3', 'hand-4',
+    ]);
+  });
+
+  it('routes explicit stack-group and root-only menu selection without backend commands', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const selectStack = vi.spyOn(fixture.componentInstance.store, 'selectBattlefieldStack');
+    const menu = {
+      kind: 'card', playerId: 'user-1', zone: 'battlefield',
+      card: fixture.componentInstance.store.snapshot()!.players['user-1'].zones.battlefield[0], x: 0, y: 0,
+    } as const;
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'selectStackGroup' }, menu);
+    fixture.componentInstance.handleContextMenuAction({ type: 'selectStackRootOnly' }, menu);
+
+    expect(selectStack).toHaveBeenNthCalledWith(1, menu, 'group');
+    expect(selectStack).toHaveBeenNthCalledWith(2, menu, 'root');
+    expect(gamesApi.command).not.toHaveBeenCalled();
+  });
+
   it('applies Escape priority without clearing selection in the same keypress that closes a menu or modal', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

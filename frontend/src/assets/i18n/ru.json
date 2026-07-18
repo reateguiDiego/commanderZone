@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Выбрать область",
+      "selectedStackCount": "Выбрано стопок: {{count}}",
+      "stackLabel": "Стопка из {{count}} карт",
+      "stackSelectedLabel": "Выбрана стопка из {{count}} карт",
+      "stackBadge": "Стопка x{{count}}",
+      "selectStackGroup": "Выбрать стопку",
+      "selectStackRootOnly": "Выбрать только корневую карту",
       "selectedCount": "Выбрано карт: {{count}}",
       "clear": "Очистить выбор",
       "handRegion": "Область выбора вашей руки"

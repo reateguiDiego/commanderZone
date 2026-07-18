@@ -281,6 +281,14 @@ func (AttachmentRemovedApplier) Apply(_ context.Context, game *state.GameState, 
 	if id == "" {
 		return nil, state.ErrMissingRelation
 	}
+	relation, relationExists := game.Relations.Attachments[id]
+	if !relationExists {
+		return nil, state.ErrMissingRelation
+	}
+	_, sourceLocation, locationErr := instanceAt(game, relation.SourceID, state.ZoneBattlefield)
+	if locationErr != nil {
+		return nil, locationErr
+	}
 	removed, err := ops.RemoveAttachment(game, id)
 	if err != nil {
 		return nil, relationStateError(command.Type, optionalString(command.Payload, "equipmentInstanceId"), err)
@@ -298,8 +306,8 @@ func (AttachmentRemovedApplier) Apply(_ context.Context, game *state.GameState, 
 		instance := game.Instances[removed.SourceID]
 		instance.Position = cloneMap(position)
 		game.Instances[removed.SourceID] = instance
-		emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: map[string]any{
-			"instanceId": removed.SourceID, "position": cloneMap(position), "effectVersion": PositionContractEffectVersion,
+		emitPositionPatchByViewer(emitter, game, sourceLocation.PlayerID, "card.position.set", []map[string]any{{
+			"instanceId": removed.SourceID, "position": cloneMap(position),
 		}})
 		payload["instanceId"] = removed.SourceID
 		payload["position"] = cloneMap(position)
@@ -460,7 +468,10 @@ func (BattlefieldStackMemberRemovedApplier) Apply(_ context.Context, game *state
 	if !found {
 		return nil, &RelationValidationError{Code: RelationCodeMemberMissing, CommandType: command.Type, InstanceID: instanceID}
 	}
-	instance := game.Instances[instanceID]
+	instance, instanceLocation, locationErr := instanceAt(game, instanceID, state.ZoneBattlefield)
+	if locationErr != nil {
+		return nil, locationErr
+	}
 	instance.Position = cloneMap(position)
 	game.Instances[instanceID] = instance
 	ops := state.NewRelationsOps()
@@ -479,8 +490,8 @@ func (BattlefieldStackMemberRemovedApplier) Apply(_ context.Context, game *state
 		finalStack = battlefieldStackPatch(stack)
 		emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.set", Data: map[string]any{"stack": finalStack}})
 	}
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: map[string]any{
-		"instanceId": instanceID, "position": cloneMap(position), "effectVersion": PositionContractEffectVersion,
+	emitPositionPatchByViewer(emitter, game, instanceLocation.PlayerID, "card.position.set", []map[string]any{{
+		"instanceId": instanceID, "position": cloneMap(position),
 	}})
 	return compactMap(map[string]any{
 		"stackId": stackID, "instanceId": instanceID, "position": cloneMap(position),
@@ -550,6 +561,10 @@ func (BattlefieldStackDissolvedApplier) Apply(_ context.Context, game *state.Gam
 	if err != nil {
 		return nil, err
 	}
+	_, rootLocation, locationErr := instanceAt(game, stack.RootInstanceID, state.ZoneBattlefield)
+	if locationErr != nil {
+		return nil, locationErr
+	}
 	previous := battlefieldStackPatch(stack)
 	for instanceID, position := range positions {
 		instance := game.Instances[instanceID]
@@ -562,9 +577,7 @@ func (BattlefieldStackDissolvedApplier) Apply(_ context.Context, game *state.Gam
 	}
 	positionPatches := orderedPositionPatches(stack.OrderedMemberIDs, positions)
 	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
-	emitter.EmitPublic(protocol.PatchOp{Op: "cards.position.set", Data: map[string]any{
-		"positions": positionPatches, "effectVersion": PositionContractEffectVersion,
-	}})
+	emitPositionPatchByViewer(emitter, game, rootLocation.PlayerID, "cards.position.set", positionPatches)
 	return map[string]any{
 		"stackId": stackID, "previousStack": previous, "positions": positionPatches,
 		"effectVersion": 1, "actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),

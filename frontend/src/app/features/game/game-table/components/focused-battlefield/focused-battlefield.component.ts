@@ -33,7 +33,7 @@ import {
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../../utils/battlefield-position';
 import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
-import { type SelectionModifierMode } from '../../services/game-table-selection.service';
+import { type GroupSelectionRef, type SelectionModifierMode } from '../../services/game-table-selection.service';
 import {
   type MarqueeCandidateBounds,
   type MarqueePoint,
@@ -44,6 +44,7 @@ import {
   normalizeMarqueeRect,
   resolveMarqueeCandidates,
 } from '../../utils/marquee-selection';
+import { captureSelectionVisualTargets } from '../../utils/selection-visual-target';
 
 interface CardCounterView {
   key: string;
@@ -145,6 +146,7 @@ interface MarqueePerformanceMetrics {
 interface PointerPendingInteraction {
   readonly kind: 'pointerPending';
   readonly pointerId: number;
+  readonly pointerType: string;
   readonly startClientPoint: MarqueePoint;
   readonly currentClientPoint: MarqueePoint;
   readonly modifierMode: SelectionModifierMode;
@@ -200,7 +202,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly responsiveState = input<GameTableResponsiveState>('normal');
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly selectedInstanceIds = input<readonly string[]>([]);
+  readonly selectedGroupRefs = input<readonly GroupSelectionRef[]>([]);
   readonly marqueeEnabled = input(false);
+  readonly touchMarqueeMode = input(false);
   readonly marqueeBlocked = input(false);
   readonly marqueeLayoutKey = input<unknown>(null);
   readonly allowArrowTargetSelection = input(false);
@@ -286,6 +290,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly battlefieldEmptyClicked = output<void>();
   readonly marqueeSelectionCommitted = output<MarqueeSelectionCommitEvent>();
+  readonly touchMarqueeModeChanged = output<boolean>();
   readonly boardTransitioning = signal(false);
   readonly selectionInteraction = signal<BattlefieldSelectionInteraction>({ kind: 'idle' });
   readonly lastMarqueeMetrics = signal<MarqueePerformanceMetrics | null>(null);
@@ -485,6 +490,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     if (playerChanged || marqueeLayoutChanged || marqueeBecameBlocked) {
       this.cancelSelectionInteraction('layout');
+      if (marqueeBecameBlocked && this.touchMarqueeMode()) {
+        this.touchMarqueeModeChanged.emit(false);
+      }
     }
   }
 
@@ -517,13 +525,34 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       && this.landStackView(card)?.role !== 'under';
   }
 
+  isStackGroupSelected(card: GameCardInstance): boolean {
+    const view = this.landStackView(card);
+    return view?.role === 'top' && this.selectedGroupRefs().some((ref) => ref.stackId === view.stackId);
+  }
+
+  selectionTargetKind(card: GameCardInstance): 'card' | 'attachment' | 'stack-group' | 'stack-member' {
+    const stack = this.landStackView(card);
+    if (stack?.role === 'top') {
+      return 'stack-group';
+    }
+    if (stack?.role === 'under') {
+      return 'stack-member';
+    }
+    return this.attachmentStackView(card)?.role === 'equipment' ? 'attachment' : 'card';
+  }
+
   beginMarqueePointer(event: PointerEvent): void {
     const root = this.battlefieldRoot?.nativeElement;
     if (!root) {
       return;
     }
-    if (event.pointerType === 'touch') {
-      this.cancelSelectionInteraction('touch');
+    const activeInteraction = this.selectionInteraction();
+    if (event.pointerType === 'touch' && activeInteraction.kind !== 'idle' && activeInteraction.pointerId !== event.pointerId) {
+      event.preventDefault();
+      this.cancelSelectionInteraction('multitouch');
+      return;
+    }
+    if (event.pointerType === 'touch' && !this.touchMarqueeMode()) {
       return;
     }
     this.cancelledPointerId = null;
@@ -547,6 +576,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.selectionInteraction.set({
       kind: 'pointerPending',
       pointerId: event.pointerId,
+      pointerType: event.pointerType,
       startClientPoint,
       currentClientPoint: startClientPoint,
       modifierMode: marqueeModifierMode(event),
@@ -640,6 +670,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       mode: 'replace',
     });
     this.suppressNextBattlefieldBackgroundClick();
+    if (committed.pointerType === 'touch') {
+      this.touchMarqueeModeChanged.emit(false);
+    }
     this.finishSelectionInteraction('commit');
   }
 
@@ -694,33 +727,16 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       return null;
     }
     const rootRect = root.getBoundingClientRect();
-    const elements = new Map(
-      Array.from(root.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
-        .map((element) => [element.dataset['cardInstanceId'] ?? '', element] as const),
-    );
-    const bounds: MarqueeCandidateBounds[] = [];
-    let layoutReads = 1;
-    for (const card of this.battlefieldCards()) {
-      if (!this.isMarqueeCandidate(card)) {
-        continue;
-      }
-      const element = elements.get(card.instanceId);
-      if (!element) {
-        continue;
-      }
-      const rect = element.getBoundingClientRect();
-      layoutReads += 1;
-      if (rect.width <= 0 || rect.height <= 0) {
-        continue;
-      }
-      bounds.push({
-        instanceId: card.instanceId,
-        left: rect.left,
-        top: rect.top,
-        right: rect.right,
-        bottom: rect.bottom,
-      });
-    }
+    const actionableIds = new Set(this.battlefieldCards().filter((card) => this.isMarqueeCandidate(card)).map((card) => card.instanceId));
+    const targets = captureSelectionVisualTargets(root, actionableIds);
+    const bounds: MarqueeCandidateBounds[] = targets.map((target) => ({
+      instanceId: target.instanceId,
+      left: target.bounds.left,
+      top: target.bounds.top,
+      right: target.bounds.right,
+      bottom: target.bounds.bottom,
+    }));
+    const layoutReads = 1 + targets.length;
 
     return { rootRect, bounds, layoutReads };
   }
@@ -776,6 +792,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       return;
     }
     this.cancelledPointerId = interaction.pointerId;
+    if (interaction.pointerType === 'touch') {
+      this.touchMarqueeModeChanged.emit(false);
+    }
     this.finishSelectionInteraction('cancel');
   }
 

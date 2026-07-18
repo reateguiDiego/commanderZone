@@ -735,6 +735,13 @@
       "x": "X"
     },
     "selection": {
+      "selectArea": "Gebied selecteren",
+      "selectedStackCount": "{{count}} stapels geselecteerd",
+      "stackLabel": "Stapel van {{count}} kaarten",
+      "stackSelectedLabel": "Stapel van {{count}} kaarten geselecteerd",
+      "stackBadge": "Stapel x{{count}}",
+      "selectStackGroup": "Stapel selecteren",
+      "selectStackRootOnly": "Alleen root selecteren",
       "selectedCount": "{{count}} kaarten geselecteerd",
       "clear": "Selectie wissen",
       "handRegion": "Selectiegebied van je hand"

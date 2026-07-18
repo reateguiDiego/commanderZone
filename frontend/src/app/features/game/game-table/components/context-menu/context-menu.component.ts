@@ -72,6 +72,8 @@ export type ContextMenuAction =
   | { type: 'unequipAttachedCards' }
   | { type: 'addToStack' }
   | { type: 'removeStack' }
+  | { type: 'selectStackGroup' }
+  | { type: 'selectStackRootOnly' }
   | { type: 'setPowerToughness' }
   | { type: 'clearPowerToughness' }
   | { type: 'changeCounter'; counter: string }

@@ -650,6 +650,124 @@ describe('GameTablePointerDragActionsService', () => {
     }]);
   });
 
+  it('resolves and moves an eight-card stack as one current root without duplicating hidden members', async () => {
+    battlefieldDragService.positionWithManaLaneBottom.mockReturnValue({ x: 140, y: 260 });
+    dragService.endCardPointerDrag.mockReturnValue({
+      playerId: 'player-1',
+      instanceId: 'stack-root',
+      moved: true,
+      position: { x: 140, y: 320 },
+      dropZone: 'battlefield',
+      battlefield: document.createElement('div'),
+    });
+    const battlefield = Array.from({ length: 8 }, (_, index) =>
+      land(index === 0 ? 'stack-root' : `stack-member-${index + 1}`, 100, 200 - index * 18));
+    const baseSnapshot = snapshotWith({ battlefield });
+    const snapshot: GameSnapshot = {
+      ...baseSnapshot,
+      battlefieldStacks: [{
+        id: 'stack-8',
+        relationType: 'battlefield_stack',
+        rootInstanceId: 'stack-root',
+        orderedMemberIds: battlefield.map((member) => member.instanceId),
+        stackKind: 'land',
+        effectVersion: 1,
+      }],
+    };
+    const updateLocalCardPosition = vi.fn();
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+
+    const dragContext = context(
+      () => snapshot,
+      async (type, payload) => { commands.push({ type, payload }); },
+      battlefield.map((selectedCard) => ({ playerId: 'player-1', zone: 'battlefield' as const, card: selectedCard })),
+      () => true,
+      undefined,
+      updateLocalCardPosition,
+    );
+    await service.endCardPointerDrag(dragContext, { clientX: 140, clientY: 280 } as PointerEvent);
+
+    expect(updateLocalCardPosition).toHaveBeenCalledTimes(1);
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'stack-root', { x: 140, y: 260 });
+    expect(dragContext.clearSelectedCards).not.toHaveBeenCalled();
+    expect(commands).toEqual([{
+      type: 'card.position.changed',
+      payload: {
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'stack-root',
+        position: { x: 140, y: 260, unit: 'ratio' },
+      },
+    }]);
+  });
+
+  it('persists only stack roots and independent cards for a mixed relation selection', async () => {
+    dragService.endCardPointerDrag.mockReturnValue({
+      playerId: 'player-1', instanceId: 'top', moved: true, position: { x: 120, y: 220 },
+      dropZone: 'battlefield', battlefield: document.createElement('div'),
+    });
+    const snapshot = snapshotWith({ battlefield: [
+      land('top', 100, 200), land('under', 100, 182), land('independent', 300, 200),
+    ] });
+    const updateLocalCardPosition = vi.fn();
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+
+    const dragContext = context(
+      () => snapshot,
+      async (type, payload) => { commands.push({ type, payload }); },
+      snapshot.players['player-1']!.zones.battlefield.map((selectedCard) => ({
+        playerId: 'player-1', zone: 'battlefield' as const, card: selectedCard,
+      })),
+      () => false,
+      undefined,
+      updateLocalCardPosition,
+    );
+    await service.endCardPointerDrag(dragContext, { clientX: 120, clientY: 220 } as PointerEvent);
+
+    expect(updateLocalCardPosition.mock.calls.map((call) => call[1])).toEqual(['top', 'independent']);
+    expect(dragContext.clearSelectedCards).not.toHaveBeenCalled();
+    expect(commands).toHaveLength(1);
+    expect((commands[0]!.payload['positions'] as Array<{ instanceId: string }>).map((move) => move.instanceId)).toEqual([
+      'top', 'independent',
+    ]);
+  });
+
+  it('persists an attachment target once when target, equipment and an independent card are selected', async () => {
+    dragService.endCardPointerDrag.mockReturnValue({
+      playerId: 'player-1', instanceId: 'target', moved: true, position: { x: 130, y: 230 },
+      dropZone: 'battlefield', battlefield: document.createElement('div'),
+    });
+    const baseSnapshot = snapshotWith({ battlefield: [
+      land('target', 100, 200), land('equipment', 120, 180), land('independent', 300, 200),
+    ] });
+    const snapshot: GameSnapshot = {
+      ...baseSnapshot,
+      attachments: [{
+        id: 'attachment-1', equipmentInstanceId: 'equipment', attachedToInstanceId: 'target', order: 0,
+        effectVersion: 1, createdAt: '',
+      }],
+    };
+    const updateLocalCardPosition = vi.fn();
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+
+    await service.endCardPointerDrag(context(
+      () => snapshot,
+      async (type, payload) => { commands.push({ type, payload }); },
+      snapshot.players['player-1']!.zones.battlefield.map((selectedCard) => ({
+        playerId: 'player-1', zone: 'battlefield' as const, card: selectedCard,
+      })),
+      () => false,
+      undefined,
+      updateLocalCardPosition,
+    ), { clientX: 130, clientY: 230 } as PointerEvent);
+
+    expect(updateLocalCardPosition.mock.calls.map((call) => call[1])).toEqual(['target', 'independent']);
+    expect(commands).toHaveLength(1);
+    expect((commands[0]!.payload['positions'] as Array<{ instanceId: string }>).map((move) => move.instanceId)).toEqual([
+      'target', 'independent',
+    ]);
+  });
+
   it('does not send an empty stack recompact command after extracting from a two-card stack', async () => {
     dragService.pointerPosition.mockReturnValue({ x: 260, y: 200 });
     dragService.endCardPointerDrag.mockReturnValue({
