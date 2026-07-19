@@ -278,6 +278,11 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'cards.tapped.set':
+                $this->applyRuntimeCardsTappedSet($snapshot, $payload);
+
+                return true;
+
             case 'battlefield.untap_all':
                 $this->applyRuntimeBattlefieldUntapAll($snapshot, $payload);
 
@@ -295,6 +300,11 @@ final class GameEventReplayService
 
             case 'card.face_down.changed':
                 $this->applyRuntimeCardFaceDownChanged($snapshot, $payload);
+
+                return true;
+
+            case 'cards.face_down.set':
+                $this->applyRuntimeCardsFaceDownSet($snapshot, $payload);
 
                 return true;
 
@@ -690,6 +700,24 @@ final class GameEventReplayService
     /**
      * @param array<string,mixed> $payload
      */
+    private function applyRuntimeCardsTappedSet(array &$snapshot, array $payload): void
+    {
+        if (!array_key_exists('tapped', $payload)) {
+            return;
+        }
+        $tapped = ($payload['tapped'] ?? false) === true;
+        foreach ($this->stringList($payload['instanceIds'] ?? []) as $instanceId) {
+            $this->applyRuntimeCardTapped($snapshot, [
+                'instanceId' => $instanceId,
+                'tapped' => $tapped,
+                'rotation' => $tapped ? 90 : 0,
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
     private function applyRuntimeBattlefieldUntapAll(array &$snapshot, array $payload): void
     {
         $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
@@ -788,6 +816,23 @@ final class GameEventReplayService
         if ($faceDown) {
             $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
             $card['revealedTo'] = $playerId !== '' ? [$playerId] : [];
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardsFaceDownSet(array &$snapshot, array $payload): void
+    {
+        if (!array_key_exists('faceDown', $payload)) {
+            return;
+        }
+        foreach ($this->stringList($payload['instanceIds'] ?? []) as $instanceId) {
+            $this->applyRuntimeCardFaceDownChanged($snapshot, [
+                'instanceId' => $instanceId,
+                'playerId' => $payload['playerId'] ?? null,
+                'faceDown' => ($payload['faceDown'] ?? false) === true,
+            ]);
         }
     }
 

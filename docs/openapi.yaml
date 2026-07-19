@@ -8206,6 +8206,33 @@ components:
                 minLength: 1
               position:
                 $ref: '#/components/schemas/GameCardRatioPosition'
+    CardsTappedSetPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, instanceIds, tapped]
+      properties:
+        playerId: { type: string, minLength: 1 }
+        instanceIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        tapped:
+          type: boolean
+    CardsFaceDownSetPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, instanceIds, faceDown]
+      properties:
+        playerId: { type: string, minLength: 1 }
+        instanceIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        faceDown:
+          type: boolean
+          description: Runtime projects conceal/materialize operations per viewer; unauthorized viewers never receive canonical private IDs.
     LibrarySelectionMovePayload:
       type: object
       additionalProperties: false
@@ -8365,6 +8392,24 @@ components:
         - if:
             properties:
               type:
+                const: cards.tapped.set
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsTappedSetPayload'
+        - if:
+            properties:
+              type:
+                const: cards.face_down.set
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsFaceDownSetPayload'
+        - if:
+            properties:
+              type:
                 const: library.selection.move
             required: [type]
           then:
@@ -8408,10 +8453,12 @@ components:
             - card.moved
             - cards.moved
             - card.tapped
+            - cards.tapped.set
             - card.position.changed
             - card.dungeon_marker.changed
             - cards.position.changed
             - card.face_down.changed
+            - cards.face_down.set
             - card.face.changed
             - card.revealed
             - hand.cards.reveal
@@ -8627,6 +8674,24 @@ components:
         - if:
             properties:
               type:
+                const: cards.tapped.set
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsTappedSetPayload'
+        - if:
+            properties:
+              type:
+                const: cards.face_down.set
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsFaceDownSetPayload'
+        - if:
+            properties:
+              type:
                 const: library.selection.move
             required: [type]
           then:
@@ -8696,7 +8761,8 @@ components:
         Semantic runtime patch operation. `version.advance` is a public no-op carrier used to advance viewer versions when a command only has private or group-visible changes.
         `private.cards.materialize` atomically replaces opaque private-zone placeholders using `{ playerId, zone, entries: [{ placeholderId?, index, card }], staticCards? }`;
         only server-routed authorized viewers receive real card identity. `private.cards.conceal` reverses that projection using
-        `{ playerId, zone, entries: [{ instanceId, placeholderId, index }] }` without carrying card identity. Placeholder IDs never contain the real instance ID.
+        `{ playerId, zone, entries: [{ instanceId?, placeholderId, index }] }` without card/static identity. For a public battlefield card becoming
+        face-down, unauthorized viewers receive only `{ placeholderId, index }`; the canonical ID is deliberately absent. Placeholder IDs never contain the real instance ID.
         `card.counters.patch` carries final public counter values but is routed per viewer for a face-down instance: authorized viewers receive the canonical
         instanceId and unauthorized viewers receive the opaque placeholder ID already present in their projection. It never carries card/static identity.
         Lifecycle transitions use same-version `player.status.set`, `player.elimination.set`, `turn.set`, `turn.order.set`, helper designation ops,

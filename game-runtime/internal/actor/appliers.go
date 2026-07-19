@@ -26,7 +26,9 @@ func DefaultAppliers() []Applier {
 		TurnChangedApplier{},
 		DiceRolledApplier{},
 		CardTappedApplier{},
+		CardsTappedSetApplier{},
 		CardFaceDownChangedApplier{},
+		CardsFaceDownSetApplier{},
 		CardRevealedApplier{},
 		HandCardsRevealApplier{},
 		HandCardsRevokeApplier{},
@@ -236,7 +238,7 @@ func (CardTappedApplier) Apply(_ context.Context, game *state.GameState, command
 		"tapped":     instance.Tapped,
 		"rotation":   instance.Rotation,
 	}
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
+	emitInstancePatchByViewer(emitter, game, instanceID, "card.field.set", patch, true)
 	patch["metrics"] = battlefieldMetrics(start, emitter)
 	return patch, nil
 }

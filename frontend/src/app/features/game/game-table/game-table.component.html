@@ -314,31 +314,22 @@
           </button>
 
           @if (store.selectedCards().length > 0) {
-            <div
-              class="selection-status"
-              data-testid="selection-status"
-              role="status"
-              aria-live="polite"
+            <app-selection-action-toolbar
+              [count]="store.selectedCards().length"
+              [groupCount]="store.selectedGroupRefs().length"
+              [actions]="store.selectionActions()"
+              [pendingActionId]="store.selectionActionPending()"
+              [errorKey]="store.selectionActionError()"
+              [errorCode]="store.selectionActionErrorCode()"
+              [confirmation]="store.selectionActionConfirmation()"
+              (actionRequested)="store.requestSelectionAction($event)"
+              (clearRequested)="store.clearSelection()"
+              (confirmationAccepted)="store.confirmSelectionAction()"
+              (confirmationCancelled)="store.cancelSelectionActionConfirmation()"
+              (errorDismissed)="store.clearSelectionActionError()"
               (click)="$event.stopPropagation()"
               (contextmenu)="$event.stopPropagation()"
-            >
-              <span data-testid="selection-count">
-                {{ 'game.selection.selectedCount' | runtimeTranslate: { count: store.selectedCards().length } }}
-              </span>
-              @if (store.selectedGroupRefs().length > 0) {
-                <span data-testid="selection-group-count">
-                  {{ 'game.selection.selectedStackCount' | runtimeTranslate: { count: store.selectedGroupRefs().length } }}
-                </span>
-              }
-              <button
-                type="button"
-                data-testid="clear-selection"
-                [attr.aria-label]="'game.selection.clear' | runtimeTranslate"
-                (click)="store.clearSelection()"
-              >
-                {{ 'game.selection.clear' | runtimeTranslate }}
-              </button>
-            </div>
+            />
           }
 
           @if (focusedOpponentPlayer(); as battlefieldOwner) {

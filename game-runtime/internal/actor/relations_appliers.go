@@ -579,7 +579,7 @@ func (BattlefieldStackDissolvedApplier) Apply(_ context.Context, game *state.Gam
 	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
 	emitPositionPatchByViewer(emitter, game, rootLocation.PlayerID, "cards.position.set", positionPatches)
 	return map[string]any{
-		"stackId": stackID, "previousStack": previous, "positions": positionPatches,
+		"stackId": stackID, "previousStack": previous, "positions": positionPatches, "count": len(positionPatches),
 		"effectVersion": 1, "actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
 	}, nil
 }

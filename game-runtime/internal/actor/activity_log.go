@@ -348,6 +348,36 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			key = "gameLog.card.tapped"
 		}
 		return semantic(key, params, []string{actorPlayerID}, []string{instanceID})
+	case "cards.tapped.set":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", len(stringsFromAny(payload["instanceIds"])))
+		params["tapped"] = firstBool(payload["tapped"], command.Payload["tapped"])
+		key := "gameLog.cards.untapped"
+		if firstBool(payload["tapped"], command.Payload["tapped"]) {
+			key = "gameLog.cards.tapped"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "cards.face_down.set":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", len(stringsFromAny(payload["instanceIds"])))
+		params["faceDown"] = firstBool(payload["faceDown"], command.Payload["faceDown"])
+		key := "gameLog.cards.faceUp"
+		if firstBool(payload["faceDown"], command.Payload["faceDown"]) {
+			key = "gameLog.cards.faceDown"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "battlefield.stack.created":
+		params := baseParams()
+		params["count"] = len(stringsFromAny(payload["orderedInstanceIds"]))
+		return semantic("gameLog.stack.created", params, []string{actorPlayerID}, nil)
+	case "battlefield.stack.dissolved":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", 1)
+		return semantic("gameLog.stack.dissolved", params, []string{actorPlayerID}, nil)
+	case "attachment.removed":
+		params := baseParams()
+		params["count"] = 1
+		return semantic("gameLog.attachment.detached", params, []string{actorPlayerID}, nil)
 	case "card.counter.changed":
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
 		counter := firstString(payload["counter"], command.Payload["counter"], payload["key"], command.Payload["key"])
@@ -563,6 +593,24 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 			return fmt.Sprintf("%s tapped a permanent.", displayName)
 		}
 		return fmt.Sprintf("%s untapped a permanent.", displayName)
+	case "cards.tapped.set":
+		count := intFromPayload(payload, "count", len(stringsFromAny(payload["instanceIds"])))
+		if firstBool(payload["tapped"], command.Payload["tapped"]) {
+			return fmt.Sprintf("%s tapped %d permanents.", displayName, count)
+		}
+		return fmt.Sprintf("%s untapped %d permanents.", displayName, count)
+	case "cards.face_down.set":
+		count := intFromPayload(payload, "count", len(stringsFromAny(payload["instanceIds"])))
+		if firstBool(payload["faceDown"], command.Payload["faceDown"]) {
+			return fmt.Sprintf("%s turned %d permanents face down.", displayName, count)
+		}
+		return fmt.Sprintf("%s turned %d permanents face up.", displayName, count)
+	case "battlefield.stack.created":
+		return fmt.Sprintf("%s created a stack of %d permanents.", displayName, len(stringsFromAny(payload["orderedInstanceIds"])))
+	case "battlefield.stack.dissolved":
+		return fmt.Sprintf("%s dissolved a battlefield stack.", displayName)
+	case "attachment.removed":
+		return fmt.Sprintf("%s detached an attachment.", displayName)
 	case "battlefield.untap_all":
 		count := len(stringsFromAny(payload["instanceIds"]))
 		return fmt.Sprintf("%s untapped %d permanents.", displayName, count)

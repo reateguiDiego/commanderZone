@@ -260,7 +260,7 @@ export interface PrivateCardMaterializationEntryV2 {
 }
 
 export interface PrivateCardConcealmentEntryV2 {
-  instanceId: string;
+  instanceId?: string;
   placeholderId: string;
   index: number;
 }

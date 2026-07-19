@@ -2,9 +2,9 @@
 
 ## Scope
 
-Sprint 5B establishes viewer-local selection and rectangular marquee for the current actor's own battlefield. Sprint 5C extends that local contract with relation-aware group references, explicit touch marquee, spatial keyboard navigation, and hand ranges. Selection remains transient UI state: it is never stored in bootstrap, snapshots, replay, Patch.v2, GameLog, or runtime state. Runtime authorization remains authoritative when an action sends instance IDs.
+Sprint 5B establishes viewer-local selection and rectangular marquee for the current actor's own battlefield. Sprint 5C extends that local contract with relation-aware group references, explicit touch marquee, spatial keyboard navigation, and hand ranges. Sprint 5D adds contextual batch availability and execution without persisting selection. Selection remains transient UI state: it is never stored in bootstrap, snapshots, replay, Patch.v2, GameLog, or runtime state. Runtime authorization remains authoritative when an action sends instance IDs.
 
-View X keeps its independent modal selection model. Sprint 5C does not add new batch commands, a full batch toolbar, lasso, persistent selection, grouped tokens, automatic rules, or new responsive states.
+View X keeps its independent modal selection model. Sprint 5D does not add lasso, persistent selection, grouped tokens, automatic rules, new responsive states, batch counter/stat editing, batch controller transfer, or multi-attachment detach.
 
 ## Selection identity and regions
 
@@ -79,6 +79,37 @@ Selection never materializes hidden identity or enters backend, patches, acknowl
 
 The regression target is 100 rendered targets, one bounds capture, at most root-plus-N layout reads, one preview calculation per animation frame, and complete cleanup after repeated gestures. Spatial lookup is a bounded linear scan with deterministic scoring; tests cover 100 targets and 50 navigation steps. Relation tests cover overlaps, attachments, and stacks of four/eight without duplicate positions. No spatial index is introduced without measured evidence.
 
-## Deferred to Sprint 5D
+## Batch action availability and toolbar
 
-Sprint 5D owns the full batch toolbar, action availability, new batch actions, pending/error presentation, and relation-specific action menus. Expanded stack-member UI remains deferred until product evidence requires it. Backend selection state and Patch.v2 selection operations are not planned.
+One pure resolver derives every visible action from the newest authoritative snapshot, actor lifecycle, source region, zone, controller/owner authority, face state, relations, stack group references, and stale membership. Visibility never implies authority. Disabled actions expose a safe localized reason, and Runtime prevalidates every resolved ID again.
+
+The contextual toolbar is shown only for a non-empty mutative selection. It contains the selected instance/group count, supported actions, pending/error state, and Clear Selection. Normal and compact show the full action row; aggressive and minimal use the same four-state responsive contract with an accessible overflow menu. Opponent/read-only views never expose it. Confirmations name the action and affected count without private card identity.
+
+## Supported atomic actions
+
+- `cards.moved` moves a compatible selection in one command/event/version. Battlefield, hand, graveyard, and exile destinations are offered when different from the source. Library is deliberately omitted from this toolbar because its contract requires an explicit top/bottom choice owned by the existing library dialog.
+- `cards.tapped.set` sets the final tapped state for every selected battlefield instance atomically. Tap and Untap are explicit; Toggle is not exposed.
+- `cards.face_down.set` sets the final face state atomically. Conceal/materialize Patch.v2 projection remains viewer-specific and confirmations are mandatory.
+- `battlefield.stack.created` creates one deterministic generic stack from two or more independent controlled permanents. On success, the member selection becomes one visible root plus a local stack group reference.
+- `battlefield.stack.dissolved` dissolves exactly one selected stack group with deterministic ratio positions. On success, the group reference is removed and the root remains selected.
+- `attachment.removed` detaches exactly one explicitly selected attachment. Multi-detach is hidden because no canonical atomic batch command exists.
+
+Existing relation-aware batch drag remains the position interaction. It resolves current stack members at command time, deduplicates roots/attachments, emits ratio positions only, preserves selection on success/rejection while cards remain actionable, and never emits commands during marquee preview.
+
+Batch counters/stats, controller transfer, multi-detach, and ambiguous library placement remain hidden. The UI never loops single-card commands to simulate atomicity.
+
+## Confirmation, pending, error, and cleanup
+
+Move batches, face state changes, stack creation, and stack dissolution require confirmation. Tap, untap, detach-one, normal drag, and Clear do not. While pending, duplicate submission is disabled and the selected affected count remains visible. A structured rejection is rendered as a safe localized error, preserves the valid selection, prunes stale references, and never triggers bootstrap/refetch/resync.
+
+Tap/untap, face state, position, and detach preserve valid selection. Moving zones clears consumed cards. Stack creation replaces members with its group/root representation; dissolution keeps only the root. Controller loss removes only cards no longer actionable. Refresh, reconnect reconstruction, restart hydration, game close, defeat/concession, leave, and opponent focus retain the Sprint 5B/5C deterministic clear contract.
+
+## Event, replay, privacy, and GameLog
+
+New tapped/face-state batch commands persist final effects as one versioned event. Go replay and PHP compact-snapshot replay apply those final values, and Patch.v2 uses the established viewer-specific instance projection. Authorized viewers receive real IDs; unauthorized face-down viewers receive only their existing opaque placeholder and permitted public state. Selection/group references are absent from commands, events, patches, bootstrap, replay, logs, and shared state.
+
+GameLog uses aggregated semantic entries for moved/tapped/untapped/face-state/stack/detach actions. Public params contain actor, action, count, and safe destination/type only; they contain no selected IDs, hidden names, member order, or private relation data. Rejection and idempotent retry create no duplicate log.
+
+## Deferred to Sprint 5E
+
+Sprint 5E owns the integrated release gate across 2-6 players, dense boards, native browser zoom opt-in, reconnect/runtime restart, cross-viewer privacy, and long-session flake detection. Expanded stack-member UI remains deferred until product evidence requires it. Backend selection state and Patch.v2 selection operations are not planned.

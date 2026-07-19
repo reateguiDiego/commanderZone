@@ -55,7 +55,7 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 			}
 		}
 	} else if faceDown {
-		emitter.EmitPublic(privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{{
+		emitter.EmitPublic(privateCardsOpaqueConcealOp(location.PlayerID, location.Zone, []privateCardSlot{{
 			InstanceID: instanceID, PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index), Index: location.Index,
 		}}))
 	} else if previousFaceDown {
@@ -438,6 +438,24 @@ func privateCardsConcealOp(playerID string, zone state.Zone, slots []privateCard
 	for _, slot := range slots {
 		entries = append(entries, map[string]any{
 			"instanceId":    slot.InstanceID,
+			"placeholderId": slot.PlaceholderID,
+			"index":         slot.Index,
+		})
+	}
+	return protocol.PatchOp{Op: "private.cards.conceal", Data: map[string]any{
+		"playerId": playerID,
+		"zone":     zone,
+		"entries":  entries,
+	}}
+}
+
+// A public battlefield instance becoming face-down is removed by its viewer-local
+// rendered index. Sending the canonical ID beside its new placeholder would make
+// the opaque reference correlatable for every unauthorized viewer.
+func privateCardsOpaqueConcealOp(playerID string, zone state.Zone, slots []privateCardSlot) protocol.PatchOp {
+	entries := make([]map[string]any, 0, len(slots))
+	for _, slot := range slots {
+		entries = append(entries, map[string]any{
 			"placeholderId": slot.PlaceholderID,
 			"index":         slot.Index,
 		})

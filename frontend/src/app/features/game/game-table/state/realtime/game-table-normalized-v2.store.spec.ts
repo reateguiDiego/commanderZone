@@ -1785,6 +1785,80 @@ describe('game table normalized v2 store', () => {
     expect(ownerResult.state.zones['player-2'].hand).toEqual(['real-hand-0']);
   });
 
+  it('conceals a public battlefield card by local index without receiving its canonical instance id', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.zones['player-2:battlefield'].instanceIds = ['public-battlefield-1'];
+    bootstrap.instances['public-battlefield-1'] = {
+      instanceId: 'public-battlefield-1', cardRef: 'card:public-battlefield', cardKey: 'card:public-battlefield',
+      zoneId: 'player-2:battlefield', ownerId: 'player-2', controllerId: 'player-2', hidden: false,
+      position: { x: 0.3, y: 0.4, unit: 'ratio' }, counters: { shield: 2 },
+    };
+    bootstrap.staticCards['card:public-battlefield'] = { cardRef: 'card:public-battlefield', name: 'Known before conceal' };
+
+    const result = applyPatchEnvelopeV2(createGameTableNormalizedV2State(bootstrap), patch(6, [{
+      op: 'private.cards.conceal', playerId: 'player-2', zone: 'battlefield',
+      entries: [{ placeholderId: 'player-2-hidden-battlefield-0', index: 0 }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].battlefield).toEqual(['player-2-hidden-battlefield-0']);
+    expect(result.state.instances['public-battlefield-1']).toBeUndefined();
+    expect(result.state.staticCards['card:public-battlefield']).toBeUndefined();
+    expect(result.state.instances['player-2-hidden-battlefield-0']).toMatchObject({
+      hidden: true, faceDown: true, counters: { shield: 2 }, position: { x: 0.3, y: 0.4, unit: 'ratio' },
+    });
+  });
+
+  it('keeps owner identity renderable when private face state arrives before same-version public materialization', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const viewerCardKey = 'scryfall:s-ring:viewer-private-v2';
+
+    const concealed = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1', version: 6, visibility: 'player:player-1', ackClientActionId: 'face-down',
+      ops: [{
+        op: 'card.field.set', playerId: 'player-1', zone: 'battlefield', instanceId: 'battlefield-1',
+        cardKey: viewerCardKey, faceDown: true, hidden: false,
+      }],
+    });
+    expect(concealed.status).toBe('applied');
+    expect(concealed.state.staticCards[viewerCardKey]).toMatchObject({
+      cardRef: viewerCardKey,
+      cardKey: viewerCardKey,
+      name: 'Sol Ring',
+    });
+
+    const revealedPrivately = applyPatchEnvelopeV2(concealed.state, {
+      gameId: 'game-1', version: 7, visibility: 'player:player-1', ackClientActionId: 'face-up',
+      ops: [{
+        op: 'card.field.set', playerId: 'player-1', zone: 'battlefield', instanceId: 'battlefield-1',
+        cardKey: viewerCardKey, faceDown: false, hidden: false,
+      }],
+    });
+    expect(revealedPrivately.status).toBe('applied');
+    expect(() => hydrateGameSnapshotFromV2State(revealedPrivately.state)).not.toThrow();
+
+    const revealedPublicly = applyPatchEnvelopeV2(revealedPrivately.state, {
+      gameId: 'game-1', version: 7, visibility: 'public', ackClientActionId: 'face-up',
+      ops: [{
+        op: 'private.cards.materialize', playerId: 'player-1', zone: 'battlefield',
+        entries: [{
+          index: 0,
+          placeholderId: 'player-1-hidden-battlefield-0',
+          card: {
+            instanceId: 'battlefield-1', cardRef: viewerCardKey, cardKey: viewerCardKey,
+            printId: 's-ring', cardVersion: 'ring-v2', language: 'en', viewerVisibility: 'public',
+            zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1',
+            faceDown: false, hidden: false,
+          },
+        }],
+      }],
+    });
+    expect(revealedPublicly.status).toBe('applied');
+    expect(() => hydrateGameSnapshotFromV2State(revealedPublicly.state)).not.toThrow();
+  });
+
 	it('conceals a multi-card library reveal into one opaque top placeholder without resync', () => {
 		const bootstrap = bootstrapV2();
 		bootstrap.game.viewerId = 'player-1';

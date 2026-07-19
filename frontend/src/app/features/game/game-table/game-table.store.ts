@@ -28,6 +28,7 @@ import { GameTableInteractionActionsService } from './services/game-table-intera
 import { PointerDropTarget } from './services/game-table-pointer-drag.service';
 import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { GameTableSelectionBatchActionsService } from './services/game-table-selection-batch-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { BattlefieldSize } from './utils/battlefield-position';
 import { SelectedCard } from './models/game-table-card.model';
@@ -93,6 +94,7 @@ export class GameTableStore implements OnDestroy {
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
   private readonly selection = inject(GameTableSelectionService);
+  private readonly selectionBatchActions = inject(GameTableSelectionBatchActionsService);
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
   private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
   private readonly auth = inject(AuthStore);
@@ -137,6 +139,11 @@ export class GameTableStore implements OnDestroy {
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly selectedGroupRefs = this.selection.selectedGroupRefs;
   readonly selectionState = this.selection.state;
+  readonly selectionActions = this.selectionBatchActions.actions;
+  readonly selectionActionPending = this.selectionBatchActions.pendingActionId;
+  readonly selectionActionError = this.selectionBatchActions.actionError;
+  readonly selectionActionErrorCode = this.selectionBatchActions.actionErrorCode;
+  readonly selectionActionConfirmation = this.selectionBatchActions.confirmation;
   readonly hoveredCard = this.uiState.hoveredCard;
   readonly hoveredPreview = this.uiState.hoveredPreview;
   readonly dungeonMarkerPreviewOverride = this.uiState.dungeonMarkerPreviewOverride;
@@ -687,7 +694,24 @@ export class GameTableStore implements OnDestroy {
   }
 
   clearSelection(): void {
+    this.selectionBatchActions.clearError();
     this.interactionActions.clearSelection();
+  }
+
+  requestSelectionAction(actionId: import('./models/selection-action.model').SelectionActionId): void {
+    this.selectionBatchActions.request(actionId);
+  }
+
+  async confirmSelectionAction(): Promise<void> {
+    await this.selectionBatchActions.confirmAction();
+  }
+
+  cancelSelectionActionConfirmation(): void {
+    this.selectionBatchActions.cancelConfirmation();
+  }
+
+  clearSelectionActionError(): void {
+    this.selectionBatchActions.clearError();
   }
 
   cancelRelationInteraction(): boolean {

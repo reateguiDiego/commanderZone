@@ -115,8 +115,10 @@ var ownPlayerPayloadCommands = map[string]string{
 	"card.moved":                   "playerId",
 	"cards.moved":                  "playerId",
 	"card.tapped":                  "playerId",
+	"cards.tapped.set":             "playerId",
 	"card.dungeon_marker.changed":  "playerId",
 	"card.face_down.changed":       "playerId",
+	"cards.face_down.set":          "playerId",
 	"card.face.changed":            "playerId",
 	"card.revealed":                "playerId",
 	"hand.cards.reveal":            "playerId",
@@ -369,6 +371,12 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 		}
 		expectedZone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
 		return fromIDs(instanceIDs, expectedZone)
+	case "cards.tapped.set", "cards.face_down.set":
+		instanceIDs, err := stringSliceField(command.Payload, "instanceIds")
+		if err != nil {
+			return nil
+		}
+		return fromIDs(instanceIDs, state.ZoneBattlefield)
 	case "hand.cards.reveal", "hand.cards.revoke":
 		instanceIDs, err := stringSliceField(command.Payload, "orderedInstanceIds")
 		if err != nil {

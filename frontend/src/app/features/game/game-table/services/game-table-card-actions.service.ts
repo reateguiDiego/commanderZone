@@ -442,11 +442,19 @@ export class GameTableCardActionsService {
     }
 
     const tapped = !menu.card.tapped;
-    for (const item of this.actionTargets(context, menu)) {
+    const targets = this.actionTargets(context, menu);
+    if (targets.length > 1) {
+      await context.command('cards.tapped.set', {
+        playerId: menu.playerId,
+        instanceIds: targets.map((item) => item.card.instanceId),
+        tapped,
+      });
+    } else {
+      const target = targets[0] ?? { playerId: menu.playerId, zone: menu.zone, card: menu.card };
       await context.command('card.tapped', {
-        playerId: item.playerId,
-        zone: item.zone,
-        instanceId: item.card.instanceId,
+        playerId: target.playerId,
+        zone: target.zone,
+        instanceId: target.card.instanceId,
         tapped,
       });
     }
@@ -464,11 +472,19 @@ export class GameTableCardActionsService {
     }
 
     const faceDown = !menu.card.faceDown;
-    for (const item of this.actionTargets(context, menu)) {
+    const targets = this.actionTargets(context, menu);
+    if (targets.length > 1) {
+      await context.command('cards.face_down.set', {
+        playerId: menu.playerId,
+        instanceIds: targets.map((item) => item.card.instanceId),
+        faceDown,
+      });
+    } else {
+      const target = targets[0] ?? { playerId: menu.playerId, zone: menu.zone, card: menu.card };
       await context.command('card.face_down.changed', {
-        playerId: item.playerId,
-        zone: item.zone,
-        instanceId: item.card.instanceId,
+        playerId: target.playerId,
+        zone: target.zone,
+        instanceId: target.card.instanceId,
         faceDown,
       });
     }

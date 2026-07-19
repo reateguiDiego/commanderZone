@@ -1,7 +1,7 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableCommandService } from '../../services/game-table-command.service';
-import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
+import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService, isGameplayCommandRejectedError } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
 import { GameTablePendingTransferState } from './game-table-pending-transfer.state';
 import { GameTableCoreState } from './game-table-core.state';
@@ -26,24 +26,26 @@ export class GameTableCommandStore {
   private readonly pendingTransferRegistrar = inject(GameTablePendingTransferRegistrarState);
   private readonly pendingTransferState = inject(GameTablePendingTransferState);
   private readonly websocketCommands = inject(GameTableWebsocketGameplayService);
+  readonly lastErrorCode = signal<string | null>(null);
 
-  async command(context: GameTableCommandContext, type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<void> {
+  async command(context: GameTableCommandContext, type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<boolean> {
+    this.lastErrorCode.set(null);
     const gameId = this.core.gameId();
     if (!gameId) {
-      return;
+      return false;
     }
 
     if (this.isBattlefieldPositionCommand(type)) {
       if (context.queueBattlefieldPositionCommand(gameId, payload, () => this.sendAndApplyCommand(context, gameId, type, payload))) {
-        return;
+        return true;
       }
 
       this.core.error.set('Invalid battlefield position.');
-      return;
+      return false;
     }
 
     if (this.core.pending() && !force) {
-      return;
+      return false;
     }
 
     this.core.pending.set(true);
@@ -52,13 +54,16 @@ export class GameTableCommandStore {
 
     try {
       await this.sendAndApplyCommand(context, gameId, type, payload);
+      return true;
     } catch (error) {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
       const message = context.errorMessage(error);
+      this.lastErrorCode.set(isGameplayCommandRejectedError(error) ? error.details.code : 'COMMAND_FAILED');
       if (!this.shouldSuppressCommandErrorToast(type, message, error)) {
         this.core.error.set(message);
       }
+      return false;
     } finally {
       this.core.pending.set(false);
     }

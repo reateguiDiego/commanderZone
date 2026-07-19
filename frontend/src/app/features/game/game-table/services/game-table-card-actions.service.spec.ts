@@ -359,16 +359,26 @@ describe('GameTableCardActionsService', () => {
 
     await service.tapCard(ctx, menu(battlefield[0]!));
 
-    expect(commands).toEqual([
-      {
-        type: 'card.tapped',
-        payload: { playerId: 'player-1', zone: 'battlefield', instanceId: 'card-1', tapped: true },
-      },
-      {
-        type: 'card.tapped',
-        payload: { playerId: 'player-1', zone: 'battlefield', instanceId: 'card-2', tapped: true },
-      },
-    ]);
+    expect(commands).toEqual([{
+      type: 'cards.tapped.set',
+      payload: { playerId: 'player-1', instanceIds: ['card-1', 'card-2'], tapped: true },
+    }]);
+  });
+
+  it('uses one atomic command for selected face-down state', async () => {
+    const battlefield = [card('card-1', 'Creature', 100, 100), card('card-2', 'Creature', 200, 100)];
+    const command = vi.fn(async () => undefined);
+    const ctx = context(battlefield, {
+      selectedCards: () => battlefield.map((target) => ({ playerId: 'player-1', zone: 'battlefield', card: target })),
+      command,
+    });
+
+    await service.faceDown(ctx, menu(battlefield[0]!));
+
+    expect(command).toHaveBeenCalledOnce();
+    expect(command).toHaveBeenCalledWith('cards.face_down.set', {
+      playerId: 'player-1', instanceIds: ['card-1', 'card-2'], faceDown: true,
+    });
   });
 });
 

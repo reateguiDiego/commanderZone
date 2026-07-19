@@ -22,6 +22,9 @@
     }
   },
   "gameLog": {
+    "cards": { "tapped": "{{ actor }} tapped {{ count }} permanents.", "untapped": "{{ actor }} untapped {{ count }} permanents.", "faceDown": "{{ actor }} turned {{ count }} permanents face down.", "faceUp": "{{ actor }} turned {{ count }} permanents face up." },
+    "stack": { "created": "{{ actor }} created a stack of {{ count }} cards.", "dissolved": "{{ actor }} dissolved a battlefield stack." },
+    "attachment": { "detached": "{{ actor }} detached an attachment." },
     "hand": { "revealed": "{{ actor }} 展示了 {{ count }} 张手牌。", "revoked": "{{ actor }} 撤销了对 {{ count }} 张已展示手牌的访问。" },
     "commanderDamage": {
       "changed": "{{ source }} 对 {{ target }} 造成的指挥官伤害从 {{ previousDamage }} 变为 {{ damage }}。生命值从 {{ previousLife }} 变为 {{ life }}。"
@@ -745,6 +748,13 @@
       "selectedCount": "已选择 {{count}} 张牌",
       "clear": "清除选择",
       "handRegion": "手牌选择区域"
+    },
+    "selectionBatch": {
+      "toolbar": { "label": "Selected card actions", "moreActions": "More selection actions", "more": "More" },
+      "actions": { "move": { "battlefield": "Move to battlefield", "hand": "Move to hand", "graveyard": "Move to graveyard", "exile": "Move to exile", "library": "Move to library" }, "tap": "Tap", "untap": "Untap", "faceDown": "Turn face down", "faceUp": "Turn face up", "createStack": "Create stack", "dissolveStack": "Dissolve stack", "detach": "Detach" },
+      "disabled": { "empty": "The selection is empty.", "gameClosed": "The game is closed.", "playerInactive": "Only active players can mutate cards.", "incompatible": "The selection contains incompatible cards.", "stale": "The selection changed. Review it before retrying.", "notControlled": "You do not control every selected card.", "alreadyTapped": "Every selected card is already tapped.", "alreadyUntapped": "Every selected card is already untapped.", "alreadyFaceDown": "Every selected card is already face down.", "alreadyStacked": "Stacked cards cannot create another stack.", "needTwo": "Select at least two cards.", "oneStackOnly": "Select exactly one stack.", "singleAttachmentOnly": "Select exactly one attachment." },
+      "confirm": { "move": "Move {{count}} selected cards?", "createStack": "Create one stack from {{count}} selected cards?", "dissolveStack": "Dissolve this stack of {{count}} cards?", "faceDown": "Turn {{count}} selected cards face down?", "faceUp": "Turn {{count}} selected cards face up and reveal their identities?", "generic": "Apply this action to {{count}} selected cards?", "confirm": "Confirm", "cancel": "Cancel" },
+      "errors": { "rejected": "The action was rejected. The valid selection was preserved." }
     },
     "focusedBattlefield": {
       "selectionRegion": "战场选择区域",

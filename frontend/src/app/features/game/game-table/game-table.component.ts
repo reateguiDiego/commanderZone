@@ -25,6 +25,7 @@ import { GameTablePointerDragActionsService } from './services/game-table-pointe
 import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
 import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableSelectionBatchActionsService } from './services/game-table-selection-batch-actions.service';
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
@@ -80,6 +81,7 @@ import { PlayerSummaryPanelComponent } from './components/player-summary-panel/p
 import { TurnPhasePanelComponent } from './components/turn-phase-panel/turn-phase-panel.component';
 import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
 import { FocusedBattlefieldComponent } from './components/focused-battlefield/focused-battlefield.component';
+import { SelectionActionToolbarComponent } from './components/selection-action-toolbar/selection-action-toolbar.component';
 import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-controls/battlefield-zoom-controls.component';
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
@@ -483,6 +485,7 @@ interface MotionSourceRect {
     TurnPhasePanelComponent,
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
+    SelectionActionToolbarComponent,
     BattlefieldZoomControlsComponent,
     ContextMenuComponent,
     ZoneModalComponent,
@@ -544,6 +547,7 @@ interface MotionSourceRect {
     GameTableWebsocketTransportService,
     GameTableCommandService,
     GameTableSelectionService,
+    GameTableSelectionBatchActionsService,
     GameTableSessionService,
     GameTableDragService,
     GameTableDropActionsService,

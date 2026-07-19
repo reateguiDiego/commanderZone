@@ -225,16 +225,13 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 		instance.Rotation = 0
 		game.Instances[instanceID] = instance
 		untapped = append(untapped, instanceID)
-		emitter.EmitPublic(protocol.PatchOp{
-			Op: "card.field.set",
-			Data: map[string]any{
-				"instanceId": instanceID,
-				"playerId":   location.PlayerID,
-				"zone":       state.ZoneBattlefield,
-				"tapped":     false,
-				"rotation":   0,
-			},
-		})
+		emitInstancePatchByViewer(emitter, game, instanceID, "card.field.set", map[string]any{
+			"instanceId": instanceID,
+			"playerId":   location.PlayerID,
+			"zone":       state.ZoneBattlefield,
+			"tapped":     false,
+			"rotation":   0,
+		}, true)
 	}
 	return map[string]any{
 		"playerId":    playerID,

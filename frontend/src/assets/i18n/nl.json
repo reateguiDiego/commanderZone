@@ -22,6 +22,9 @@
     }
   },
   "gameLog": {
+    "cards": { "tapped": "{{ actor }} tapped {{ count }} permanents.", "untapped": "{{ actor }} untapped {{ count }} permanents.", "faceDown": "{{ actor }} turned {{ count }} permanents face down.", "faceUp": "{{ actor }} turned {{ count }} permanents face up." },
+    "stack": { "created": "{{ actor }} created a stack of {{ count }} cards.", "dissolved": "{{ actor }} dissolved a battlefield stack." },
+    "attachment": { "detached": "{{ actor }} detached an attachment." },
     "hand": { "revealed": "{{ actor }} onthulde {{ count }} handkaarten.", "revoked": "{{ actor }} trok de toegang tot {{ count }} onthulde handkaarten in." },
     "commanderDamage": {
       "changed": "Commanderschade van {{ source }} aan {{ target }} is gewijzigd van {{ previousDamage }} naar {{ damage }}. Leven is gewijzigd van {{ previousLife }} naar {{ life }}."
@@ -745,6 +748,13 @@
       "selectedCount": "{{count}} kaarten geselecteerd",
       "clear": "Selectie wissen",
       "handRegion": "Selectiegebied van je hand"
+    },
+    "selectionBatch": {
+      "toolbar": { "label": "Selected card actions", "moreActions": "More selection actions", "more": "More" },
+      "actions": { "move": { "battlefield": "Move to battlefield", "hand": "Move to hand", "graveyard": "Move to graveyard", "exile": "Move to exile", "library": "Move to library" }, "tap": "Tap", "untap": "Untap", "faceDown": "Turn face down", "faceUp": "Turn face up", "createStack": "Create stack", "dissolveStack": "Dissolve stack", "detach": "Detach" },
+      "disabled": { "empty": "The selection is empty.", "gameClosed": "The game is closed.", "playerInactive": "Only active players can mutate cards.", "incompatible": "The selection contains incompatible cards.", "stale": "The selection changed. Review it before retrying.", "notControlled": "You do not control every selected card.", "alreadyTapped": "Every selected card is already tapped.", "alreadyUntapped": "Every selected card is already untapped.", "alreadyFaceDown": "Every selected card is already face down.", "alreadyStacked": "Stacked cards cannot create another stack.", "needTwo": "Select at least two cards.", "oneStackOnly": "Select exactly one stack.", "singleAttachmentOnly": "Select exactly one attachment." },
+      "confirm": { "move": "Move {{count}} selected cards?", "createStack": "Create one stack from {{count}} selected cards?", "dissolveStack": "Dissolve this stack of {{count}} cards?", "faceDown": "Turn {{count}} selected cards face down?", "faceUp": "Turn {{count}} selected cards face up and reveal their identities?", "generic": "Apply this action to {{count}} selected cards?", "confirm": "Confirm", "cancel": "Cancel" },
+      "errors": { "rejected": "The action was rejected. The valid selection was preserved." }
     },
     "focusedBattlefield": {
       "manaRow": "Mana-rij",

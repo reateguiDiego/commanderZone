@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { GameTableCommandService } from '../../services/game-table-command.service';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
-import { GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
+import { GameplayCommandRejectedError, GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableCommandContext, GameTableCommandStore } from './game-table-command.store';
 import { GameTableCoreState } from './game-table-core.state';
 import { GameTablePendingTransferState } from './game-table-pending-transfer.state';
@@ -62,6 +62,25 @@ describe('GameTableCommandStore', () => {
     );
 
     expect(core.error()).toBe('Could not apply game action.');
+    expect(store.lastErrorCode()).toBe('COMMAND_FAILED');
+  });
+
+  it('preserves the structured runtime rejection code for contextual UX', async () => {
+    isMigratedCommand.mockReturnValue(true);
+    websocketSendCommand.mockRejectedValue(new GameplayCommandRejectedError({
+      code: 'MIXED_AUTHORITY_BATCH',
+      message: 'Selection contains mixed authority.',
+      retryable: false,
+    }));
+
+    const applied = await store.command(
+      commandContext('Action failed.'),
+      'cards.tapped.set',
+      { playerId: 'player-1', instanceIds: ['card-1', 'card-2'], tapped: true },
+    );
+
+    expect(applied).toBe(false);
+    expect(store.lastErrorCode()).toBe('MIXED_AUTHORITY_BATCH');
   });
 
   it('sends migrated commands over websocket without calling the HTTP command endpoint', async () => {

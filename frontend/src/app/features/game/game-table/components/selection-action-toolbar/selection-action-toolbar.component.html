@@ -1,0 +1,89 @@
+<section
+  #toolbar
+  class="selection-toolbar"
+  data-testid="selection-action-toolbar"
+  role="toolbar"
+  tabindex="-1"
+  [attr.aria-label]="'game.selectionBatch.toolbar.label' | runtimeTranslate"
+  [attr.aria-busy]="pendingActionId() !== null"
+>
+  <div class="selection-toolbar__summary" aria-live="polite">
+    <strong data-testid="selection-count">{{ 'game.selection.selectedCount' | runtimeTranslate: { count: count() } }}</strong>
+    @if (groupCount() > 0) {
+      <span data-testid="selection-group-count">{{ 'game.selection.selectedStackCount' | runtimeTranslate: { count: groupCount() } }}</span>
+    }
+  </div>
+
+  <div class="selection-toolbar__actions selection-toolbar__actions--full">
+    @for (action of actions(); track trackAction($index, action)) {
+      <button
+        type="button"
+        [attr.data-testid]="'selection-action-' + action.actionId"
+        [disabled]="!action.enabled || pendingActionId() !== null"
+        [attr.aria-disabled]="!action.enabled || pendingActionId() !== null"
+        [attr.title]="action.reasonDisabled ? (action.reasonDisabled | runtimeTranslate) : null"
+        (click)="request($event, action)"
+      >
+        {{ action.labelKey | runtimeTranslate }}
+        @if (pendingActionId() === action.actionId) { <span aria-hidden="true">…</span> }
+      </button>
+    }
+  </div>
+
+  <details class="selection-toolbar__overflow">
+    <summary [attr.aria-label]="'game.selectionBatch.toolbar.moreActions' | runtimeTranslate">
+      {{ 'game.selectionBatch.toolbar.more' | runtimeTranslate }}
+    </summary>
+    <div role="menu">
+      @for (action of actions(); track trackAction($index, action)) {
+        <button
+          type="button"
+          role="menuitem"
+          [disabled]="!action.enabled || pendingActionId() !== null"
+          [attr.aria-disabled]="!action.enabled || pendingActionId() !== null"
+          [attr.title]="action.reasonDisabled ? (action.reasonDisabled | runtimeTranslate) : null"
+          (click)="request($event, action)"
+        >{{ action.labelKey | runtimeTranslate }}</button>
+      }
+    </div>
+  </details>
+
+  <button
+    type="button"
+    class="selection-toolbar__clear"
+    data-testid="clear-selection"
+    [attr.aria-label]="'game.selection.clear' | runtimeTranslate"
+    (click)="clear()"
+  >
+    {{ 'game.selection.clear' | runtimeTranslate }}
+  </button>
+
+  @if (errorKey()) {
+    <button
+      type="button"
+      class="selection-toolbar__error"
+      data-testid="selection-action-error"
+      [attr.data-error-code]="errorCode()"
+      (click)="errorDismissed.emit()"
+    >
+      <span role="alert">{{ errorKey()! | runtimeTranslate }}</span>
+      <span aria-hidden="true">×</span>
+    </button>
+  }
+</section>
+
+@if (confirmation(); as pendingConfirmation) {
+  <app-modal
+    [open]="true"
+    [title]="pendingConfirmation.action.labelKey | runtimeTranslate"
+    [message]="pendingConfirmation.messageKey | runtimeTranslate: { count: pendingConfirmation.action.affectedCount }"
+    [primaryLabel]="'game.selectionBatch.confirm.confirm' | runtimeTranslate"
+    [secondaryLabel]="'game.selectionBatch.confirm.cancel' | runtimeTranslate"
+    [primaryDisabled]="pendingActionId() !== null"
+    [danger]="pendingConfirmation.action.actionId === 'faceUp' || pendingConfirmation.action.actionId === 'dissolveStack'"
+    [lockBodyScroll]="false"
+    size="compact"
+    (primary)="confirm()"
+    (secondary)="cancelConfirmation()"
+  />
+}

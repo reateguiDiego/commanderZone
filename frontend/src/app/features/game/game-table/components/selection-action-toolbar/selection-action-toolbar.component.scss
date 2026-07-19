@@ -1,0 +1,102 @@
+:host {
+  position: absolute;
+  inset-inline: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 720;
+  display: block;
+  pointer-events: none;
+}
+
+// The toolbar host intentionally lets battlefield clicks pass through. The modal
+// is an interactive exception and must not inherit that pointer behavior.
+app-modal { pointer-events: auto; }
+
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 3rem;
+  margin-inline: auto;
+  padding: 0.35rem;
+  overflow-x: auto;
+  border: 1px solid rgb(215 180 106 / 55%);
+  border-radius: 10px;
+  background: rgb(8 10 8 / 94%);
+  box-shadow: 0 0.8rem 1.8rem rgb(0 0 0 / 38%);
+  color: rgb(255 241 204);
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+.selection-toolbar__summary {
+  display: grid;
+  min-width: max-content;
+  padding-inline: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.selection-toolbar__summary span { color: rgb(221 207 170); }
+
+.selection-toolbar__actions { display: flex; gap: 0.3rem; }
+
+button,
+summary {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(215 180 106 / 42%);
+  border-radius: 7px;
+  background: rgb(42 48 36 / 96%);
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:focus-visible,
+summary:focus-visible { outline: 2px solid #f5d989; outline-offset: 2px; }
+button:disabled { cursor: not-allowed; opacity: 0.48; }
+.selection-toolbar__clear { background: rgb(84 46 40 / 95%); }
+.selection-toolbar__error { display: flex; gap: 0.4rem; border-color: #ef8d75; color: #ffe2da; }
+
+.selection-toolbar__overflow { position: relative; display: none; }
+.selection-toolbar__overflow summary { display: grid; place-items: center; list-style: none; }
+.selection-toolbar__overflow summary::-webkit-details-marker { display: none; }
+.selection-toolbar__overflow > div {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  display: grid;
+  min-width: 12rem;
+  max-height: min(55dvh, 24rem);
+  padding: 0.35rem;
+  overflow-y: auto;
+  border: 1px solid rgb(215 180 106 / 55%);
+  border-radius: 8px;
+  background: rgb(8 10 8 / 98%);
+  box-shadow: 0 0.8rem 1.8rem rgb(0 0 0 / 45%);
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']) .selection-toolbar__actions--full,
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar__actions--full { display: none; }
+:host-context(.game-screen[data-responsive-state='aggressive']) .selection-toolbar__overflow,
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar__overflow { display: block; }
+
+:host-context(.game-screen[data-responsive-state='compact']) {
+  inset-inline: 0.35rem;
+  bottom: 0.35rem;
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']),
+:host-context(.game-screen[data-responsive-state='minimal']) {
+  inset-inline: 0.25rem;
+  bottom: 0.25rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar {
+  width: 100%;
+  justify-content: space-between;
+}

@@ -75,6 +75,49 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(3, $rebuiltSnapshot['version']);
     }
 
+    public function testReplayRebuildsAtomicBatchTappedAndFaceDownStateFromCompactSnapshot(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('batch-state-1', 'First Permanent', 'battlefield'),
+                $this->card('batch-state-2', 'Second Permanent', 'battlefield'),
+            ],
+        ]));
+        $mapper = new CompactGameCardStateMapper();
+        $compactBase = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($baseSnapshot)));
+        $game = new Game(new Room($actor), $compactBase);
+        $events = [
+            new GameEvent($game, 'cards.tapped.set', [
+                'effectVersion' => 1,
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceIds' => ['batch-state-1', 'batch-state-2'],
+                'count' => 2,
+                'tapped' => true,
+            ], $actor, 'batch-tap-replay', 2),
+            new GameEvent($game, 'cards.face_down.set', [
+                'effectVersion' => 1,
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceIds' => ['batch-state-1', 'batch-state-2'],
+                'count' => 2,
+                'faceDown' => true,
+            ], $actor, 'batch-face-down-replay', 3),
+        ];
+
+        $rebuilt = (new GameEventReplayService())->replay($compactBase, $events);
+
+        foreach (['batch-state-1', 'batch-state-2'] as $instanceId) {
+            $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', $instanceId);
+            self::assertTrue($card['tapped'] ?? false);
+            self::assertSame(90, $card['rotation'] ?? null);
+            self::assertTrue($card['faceDown'] ?? false);
+            self::assertSame([$actor->id()], $card['revealedTo'] ?? null);
+        }
+    }
+
     public function testReplayAppliesTypedSingleAndBatchRatioPositionOperations(): void
     {
         $actor = new User('spatial-replay-owner@example.test', 'Spatial Replay Owner');

@@ -49,7 +49,7 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayCardStatsOverrideEvent(game, event)
 	case "card.position.changed", "cards.position.changed":
 		return replayPositionEvent(game, event)
-	case "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "counter.changed", "card.power_toughness.changed":
+	case "turn.changed", "dice.rolled", "card.tapped", "cards.tapped.set", "card.face_down.changed", "cards.face_down.set", "card.revealed", "card.controller.changed", "card.counter.changed", "counter.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
 	case "hand.cards.reveal", "hand.cards.revoke":
 		return replayHandRevealBatchEvent(game, event)

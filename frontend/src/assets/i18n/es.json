@@ -664,6 +664,13 @@
       "clear": "Limpiar selección",
       "handRegion": "Región de selección de tu mano"
     },
+    "selectionBatch": {
+      "toolbar": { "label": "Acciones de cartas seleccionadas", "moreActions": "Más acciones de selección", "more": "Más" },
+      "actions": { "move": { "battlefield": "Mover al campo de batalla", "hand": "Mover a la mano", "graveyard": "Mover al cementerio", "exile": "Mover al exilio", "library": "Mover a la biblioteca" }, "tap": "Girar", "untap": "Enderezar", "faceDown": "Poner boca abajo", "faceUp": "Poner boca arriba", "createStack": "Crear pila", "dissolveStack": "Disolver pila", "detach": "Desanexar" },
+      "disabled": { "empty": "La selección está vacía.", "gameClosed": "La partida está cerrada.", "playerInactive": "Solo los jugadores activos pueden modificar cartas.", "incompatible": "La selección contiene cartas incompatibles.", "stale": "La selección cambió. Revísala antes de reintentar.", "notControlled": "No controlas todas las cartas seleccionadas.", "alreadyTapped": "Todas las cartas seleccionadas ya están giradas.", "alreadyUntapped": "Todas las cartas seleccionadas ya están enderezadas.", "alreadyFaceDown": "Todas las cartas seleccionadas ya están boca abajo.", "alreadyStacked": "Las cartas apiladas no pueden crear otra pila.", "needTwo": "Selecciona al menos dos cartas.", "oneStackOnly": "Selecciona exactamente una pila.", "singleAttachmentOnly": "Selecciona exactamente un anexo." },
+      "confirm": { "move": "¿Mover {{count}} cartas seleccionadas?", "createStack": "¿Crear una pila con {{count}} cartas seleccionadas?", "dissolveStack": "¿Disolver esta pila de {{count}} cartas?", "faceDown": "¿Poner boca abajo {{count}} cartas seleccionadas?", "faceUp": "¿Poner boca arriba {{count}} cartas seleccionadas y revelar sus identidades?", "generic": "¿Aplicar esta acción a {{count}} cartas seleccionadas?", "confirm": "Confirmar", "cancel": "Cancelar" },
+      "errors": { "rejected": "La acción fue rechazada. Se conservó la selección válida." }
+    },
     "focusedBattlefield": {
       "manaRow": "Fila de maná",
       "selectionRegion": "Región de selección del campo de batalla"
@@ -1039,6 +1046,9 @@
     }
   },
   "gameLog": {
+    "cards": { "tapped": "{{ actor }} giró {{ count }} permanentes.", "untapped": "{{ actor }} enderezó {{ count }} permanentes.", "faceDown": "{{ actor }} puso boca abajo {{ count }} permanentes.", "faceUp": "{{ actor }} puso boca arriba {{ count }} permanentes." },
+    "stack": { "created": "{{ actor }} creó una pila de {{ count }} cartas.", "dissolved": "{{ actor }} disolvió una pila del campo de batalla." },
+    "attachment": { "detached": "{{ actor }} desanexó una carta." },
     "hand": { "revealed": "{{ actor }} reveló {{ count }} cartas de su mano.", "revoked": "{{ actor }} revocó el acceso a {{ count }} cartas reveladas de su mano." },
     "library": {
       "draw": "{{ actor }} robó una carta.",

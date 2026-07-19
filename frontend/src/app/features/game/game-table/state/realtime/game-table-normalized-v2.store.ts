@@ -604,25 +604,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     }
 
     case 'card.field.set':
-      return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
-        ...instance,
-        ...(operation.tapped !== undefined ? { tapped: operation.tapped } : {}),
-        ...(operation.rotation !== undefined ? { rotation: operation.rotation } : {}),
-        ...(operation.faceDown !== undefined ? { faceDown: operation.faceDown } : {}),
-        ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
-        ...(operation.cardKey !== undefined && operation.cardKey !== null ? { cardKey: operation.cardKey, cardRef: operation.cardKey } : {}),
-        ...(operation.controllerId !== undefined ? { controllerId: operation.controllerId } : {}),
-        ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
-        ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
-        ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker } : {}),
-        ...(operation.activeFaceIndex !== undefined ? { activeFaceIndex: operation.activeFaceIndex } : {}),
-        ...(operation.position !== undefined ? { position: operation.position } : {}),
-        ...(operation.power !== undefined ? { power: operation.power } : {}),
-        ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
-        ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
-        ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
-        ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
-      }));
+      return setCardFieldsAtZone(state, operation);
 
     case 'card.counters.patch':
       return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
@@ -1683,26 +1665,29 @@ function concealPrivateCards(
   const removedCardRefs = new Set<string>();
 
   for (const entry of entries) {
+    const instanceId = entry.instanceId?.trim() ?? '';
     const placeholderId = entry.placeholderId.trim();
     const removeWithoutPlaceholder = zone === 'library' && placeholderId.length === 0;
-    if (!entry.instanceId.trim() || (!placeholderId && !removeWithoutPlaceholder) || !Number.isInteger(entry.index) || entry.index < 0) {
+    if ((!instanceId && !placeholderId) || (!placeholderId && !removeWithoutPlaceholder) || !Number.isInteger(entry.index) || entry.index < 0) {
       return { status: 'failed', reason: 'invalid_operation' };
     }
 
-    const realIndex = nextZone.indexOf(entry.instanceId);
+    const indexedInstanceId = !instanceId && entry.index < nextZone.length ? nextZone[entry.index] ?? '' : '';
+    const targetInstanceId = instanceId || indexedInstanceId;
+    const realIndex = instanceId ? nextZone.indexOf(instanceId) : entry.index;
     const placeholderIndex = placeholderId ? nextZone.indexOf(placeholderId) : -1;
-    if (realIndex < 0) {
+    if (realIndex < 0 || realIndex >= nextZone.length || !targetInstanceId) {
       if (placeholderIndex >= 0) {
         continue;
       }
-      const removed = nextInstances[entry.instanceId];
+      const removed = targetInstanceId ? nextInstances[targetInstanceId] : undefined;
       if (!removed) {
         return { status: 'failed', reason: 'target_not_found' };
       }
       if (removed.cardRef) {
         removedCardRefs.add(removed.cardRef);
       }
-      delete nextInstances[entry.instanceId];
+      delete nextInstances[targetInstanceId];
       if (placeholderId) {
         const insertIndex = Math.min(entry.index, nextZone.length);
         nextZone.splice(insertIndex, 0, placeholderId);
@@ -1711,11 +1696,14 @@ function concealPrivateCards(
       continue;
     }
 
-    const removed = nextInstances[entry.instanceId];
+    if (nextZone[realIndex] === placeholderId) {
+      continue;
+    }
+    const removed = nextInstances[targetInstanceId];
     if (removed?.cardRef) {
       removedCardRefs.add(removed.cardRef);
     }
-    delete nextInstances[entry.instanceId];
+    delete nextInstances[targetInstanceId];
 
     if (placeholderIndex >= 0 || !placeholderId) {
       nextZone.splice(realIndex, 1);
@@ -2657,6 +2645,63 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
 		eliminatedAtVersion: player.eliminatedAtVersion ?? null,
 		sourcePlayerId: player.sourcePlayerId ?? null,
 		commanderInstanceId: player.commanderInstanceId ?? null,
+  };
+}
+
+function setCardFieldsAtZone(
+  state: GameTableNormalizedV2State,
+  operation: Extract<GameplayPatchV2Operation, { op: 'card.field.set' }>,
+): OperationApplyResult {
+  const playerZone = state.zones[operation.playerId]?.[operation.zone] ?? [];
+  const instance = state.instances[operation.instanceId];
+  if (!playerZone.includes(operation.instanceId) || !instance) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextCardRef = operation.cardKey?.trim() ?? '';
+  let nextStaticCards = state.staticCards;
+  if (nextCardRef && nextCardRef !== instance.cardRef && !state.staticCards[nextCardRef]) {
+    const currentStaticCard = state.staticCards[instance.cardRef];
+    if (currentStaticCard && hasRenderableStaticContent(currentStaticCard)) {
+      nextStaticCards = {
+        ...state.staticCards,
+        [nextCardRef]: normalizeStaticCard({
+          ...currentStaticCard,
+          cardRef: nextCardRef,
+          cardKey: nextCardRef,
+        }),
+      };
+    }
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      staticCards: nextStaticCards,
+      instances: {
+        ...state.instances,
+        [operation.instanceId]: {
+          ...instance,
+          ...(operation.tapped !== undefined ? { tapped: operation.tapped } : {}),
+          ...(operation.rotation !== undefined ? { rotation: operation.rotation } : {}),
+          ...(operation.faceDown !== undefined ? { faceDown: operation.faceDown } : {}),
+          ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
+          ...(nextCardRef ? { cardKey: nextCardRef, cardRef: nextCardRef } : {}),
+          ...(operation.controllerId !== undefined ? { controllerId: operation.controllerId } : {}),
+          ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
+          ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
+          ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker } : {}),
+          ...(operation.activeFaceIndex !== undefined ? { activeFaceIndex: operation.activeFaceIndex } : {}),
+          ...(operation.position !== undefined ? { position: operation.position } : {}),
+          ...(operation.power !== undefined ? { power: operation.power } : {}),
+          ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
+          ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
+          ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
+          ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        },
+      },
+    },
   };
 }
 
