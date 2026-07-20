@@ -6,6 +6,7 @@ use App\Application\Auth\ImpersonationContext;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\InvalidTokenQuantityException;
 use App\Application\Game\GameActivityStreamService;
 use App\Application\Game\GameLogPrivacySanitizer;
 use App\Application\Game\GameDisconnectVoteService;
@@ -661,7 +662,9 @@ class GamesController extends ApiController
                 $usageStartedAt,
             );
 
-            return $this->fail($exception->getMessage());
+            return $exception instanceof InvalidTokenQuantityException
+                ? $this->fail($exception->getMessage(), 400, $exception->errorPayload())
+                : $this->fail($exception->getMessage());
         } catch (UniqueConstraintViolationException) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();

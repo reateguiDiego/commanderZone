@@ -5,6 +5,7 @@
     [attr.min]="min()"
     [attr.max]="max()"
     [disabled]="disabled()"
+    [attr.aria-invalid]="strict() && !valueValid()"
     [attr.aria-label]="ariaLabel()"
     [value]="value()"
     (input)="updateFromInput($event)"

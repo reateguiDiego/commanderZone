@@ -1106,6 +1106,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         $token = $this->applyAndBuildProjected($game, $actor, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => ['name' => 'Beast Token', 'power' => 3, 'toughness' => 3],
         ], 'action-token', $actor);
         $encodedToken = json_encode($token, JSON_THROW_ON_ERROR);
@@ -1158,6 +1159,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         $message = $this->applyAndBuildProjected($game, $actor, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => [
                 'scryfallId' => 'undercity-scryfall-id',
                 'name' => 'Undercity',

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Application;
 
+use App\Application\Game\InvalidTokenQuantityException;
 use App\Application\Game\Runtime\GameRuntimeCommandClient;
 use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
 use PHPUnit\Framework\TestCase;
@@ -124,5 +125,24 @@ final class GameRuntimeCommandClientTest extends TestCase
         $this->expectExceptionMessage('player already conceded');
 
         $client->dispatch('game.concede', 'game-1', 'player-1', 2, 'action-2', ['playerId' => 'player-1']);
+    }
+
+    public function testInvalidTokenQuantityKeepsStableRuntimeErrorContract(): void
+    {
+        $httpClient = new MockHttpClient(new MockResponse(json_encode([
+            'code' => InvalidTokenQuantityException::CODE,
+            'error' => 'INVALID_TOKEN_QUANTITY: quantity must be an integer between 1 and 20.',
+            'min' => 1,
+            'max' => 20,
+        ], JSON_THROW_ON_ERROR), ['http_code' => 400]));
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
+
+        $this->expectException(InvalidTokenQuantityException::class);
+        $this->expectExceptionMessage(InvalidTokenQuantityException::CODE);
+
+        $client->dispatch('card.token.created', 'game-1', 'player-1', 1, 'token-invalid', [
+            'playerId' => 'player-1',
+            'quantity' => 21,
+        ]);
     }
 }

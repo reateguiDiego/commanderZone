@@ -3238,6 +3238,12 @@ components:
           type: integer
           minimum: 0
           description: Invalid submitted selection index when applicable; no card identity is returned.
+        min:
+          type: integer
+          description: Minimum accepted value for a bounded command field. INVALID_TOKEN_QUANTITY returns 1.
+        max:
+          type: integer
+          description: Maximum accepted value for a bounded command field. INVALID_TOKEN_QUANTITY returns 20.
     GameWebsocketTicketResponse:
       type: object
       required: [ticket, expiresAt, websocketUrl, route, claims]
@@ -8008,6 +8014,7 @@ components:
           format: date-time
     GameArrow:
       type: object
+      description: Viewer-specific relation. Endpoint references use the same canonical or opaque instance IDs as the viewer's projected battlefield; the relation is omitted when both endpoints cannot be projected safely or would mix canonical and opaque references.
       required: [id, fromInstanceId, toInstanceId, color, createdAt]
       properties:
         id:
@@ -8016,8 +8023,10 @@ components:
           type: string
         fromInstanceId:
           type: string
+          description: Canonical for an authorized viewer, otherwise the matching opaque battlefield placeholder ID.
         toInstanceId:
           type: string
+          description: Canonical for an authorized viewer, otherwise the matching opaque battlefield placeholder ID.
         color:
           type: string
         createdAt:
@@ -8026,6 +8035,7 @@ components:
     GameAttachment:
       type: object
       additionalProperties: false
+      description: Viewer-specific relation. Source and target use projected battlefield instance IDs; an unsafe or mixed canonical/opaque relation is omitted.
       required: [id, relationType, equipmentInstanceId, attachedToInstanceId, order, effectVersion]
       properties:
         id:
@@ -8039,8 +8049,10 @@ components:
           type: string
         equipmentInstanceId:
           type: string
+          description: Canonical or opaque instance reference from the same viewer projection as the battlefield card.
         attachedToInstanceId:
           type: string
+          description: Canonical or opaque instance reference from the same viewer projection as the battlefield card.
         order:
           type: integer
           minimum: 1
@@ -8056,6 +8068,7 @@ components:
     GameBattlefieldStack:
       type: object
       additionalProperties: false
+      description: Viewer-specific relation. Root and members are all projected consistently as canonical or opaque references; mixed or unresolved stacks are omitted.
       required: [id, relationType, rootInstanceId, orderedMemberIds, stackKind, effectVersion]
       properties:
         id:
@@ -8233,6 +8246,68 @@ components:
         faceDown:
           type: boolean
           description: Runtime projects conceal/materialize operations per viewer; unauthorized viewers never receive canonical private IDs.
+    TokenCreatedPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, quantity]
+      properties:
+        playerId: { type: string, minLength: 1 }
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Required strict integer. Missing, null, string, decimal, zero, negative, or values above 20 are rejected with INVALID_TOKEN_QUANTITY; the server never clamps.
+        name: { type: string }
+        card:
+          type: object
+          additionalProperties: true
+        position:
+          $ref: '#/components/schemas/GameCardRatioPosition'
+    TokenCreatedEventToken:
+      type: object
+      additionalProperties: true
+      required: [instanceId, cardKey, printId, cardVersion, language, ownerPlayerId, controllerPlayerId, zone, tokenMeta, position, counters, tapped, rotation, faceDown, activeFace, mutableStats, printedStats, manualOverrides]
+      properties:
+        instanceId: { type: string, minLength: 1 }
+        cardKey: { type: string, minLength: 1 }
+        printId: { type: string, minLength: 1 }
+        cardVersion: { type: string, minLength: 1 }
+        language: { type: string, minLength: 1 }
+        ownerPlayerId: { type: string, minLength: 1 }
+        controllerPlayerId: { type: string, minLength: 1 }
+        zone: { type: string, const: battlefield }
+        tokenMeta: { type: object, additionalProperties: true }
+        position: { $ref: '#/components/schemas/GameCardRatioPosition' }
+        counters: { type: object, additionalProperties: { type: integer } }
+        tapped: { type: boolean }
+        rotation: { type: integer }
+        faceDown: { type: boolean }
+        activeFace: { type: integer, minimum: 0 }
+        mutableStats: { type: object, additionalProperties: true }
+        printedStats: { type: object, additionalProperties: true }
+        manualOverrides:
+          type: [object, 'null']
+          additionalProperties: true
+    TokenCreatedEventPayload:
+      type: object
+      additionalProperties: true
+      required: [effectVersion, actorPlayerId, playerId, count, instanceIds, tokens]
+      properties:
+        effectVersion: { type: integer, const: 1 }
+        actorPlayerId: { type: string, minLength: 1 }
+        playerId: { type: string, minLength: 1 }
+        count: { type: integer, minimum: 1, maximum: 20 }
+        instanceIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        tokens:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/TokenCreatedEventToken' }
     LibrarySelectionMovePayload:
       type: object
       additionalProperties: false
@@ -8407,6 +8482,15 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/CardsFaceDownSetPayload'
+        - if:
+            properties:
+              type:
+                const: card.token.created
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/TokenCreatedPayload'
         - if:
             properties:
               type:
@@ -8588,8 +8672,13 @@ components:
             reveal flag and does not move cards.
             card.token.created creates the selected token payload on the actor
             player's battlefield, or a generic 1/1 token when no card payload is
-            provided. It may include quantity from 1 to 20 to create multiple
-            token instances atomically in one command. cards.position.changed
+            provided. It requires a strict integer quantity from 1 to 20 to
+            create multiple token instances atomically in one command. Missing,
+            non-integer, or out-of-range quantity is rejected with
+            INVALID_TOKEN_QUANTITY and is never defaulted or clamped. New runtime
+            events persist effectVersion=1 and the ordered final token effects;
+            replay applies those effects without consulting a mutable catalog.
+            cards.position.changed
             persists multiple battlefield card positions atomically with payload shape { playerId, zone:
             battlefield, positions: [{ instanceId, position }] }. helper.created
             accepts { template, ownerPlayerId?, card?, state? }; helper.updated
@@ -8619,6 +8708,15 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/CardsPositionChangedEventPayload'
+        - if:
+            properties:
+              type:
+                const: card.token.created
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/TokenCreatedEventPayload'
       properties:
         id:
           type: string

@@ -3,6 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Card\CardLocalizationService;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameCardRulingsLookup;
@@ -965,8 +966,8 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame($snapshot['turn'], $projected['turn']);
         self::assertSame($snapshot['timer'] ?? null, $projected['timer'] ?? null);
         self::assertSame($snapshot['stack'], $projected['stack']);
-        self::assertSame($snapshot['arrows'], $projected['arrows']);
-        self::assertSame($snapshot['attachments'], $projected['attachments']);
+        self::assertSame([], $projected['arrows']);
+        self::assertSame([], $projected['attachments']);
         self::assertSame($snapshot['chat'], $projected['chat']);
         self::assertSame($snapshot['eventLog'], $projected['eventLog']);
         self::assertSame($snapshot['counters'], $projected['counters']);
@@ -1073,6 +1074,125 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('Controller Secret', $projected['name']);
         self::assertSame($controller->id(), $projected['controllerId']);
         self::assertTrue($projected['faceDown']);
+    }
+
+    public function testFaceDownRelationsUseViewerSpecificOpaqueReferencesWithoutCanonicalLeaks(): void
+    {
+        $owner = new User('relation-owner@example.test', 'Relation Owner');
+        $controller = new User('relation-controller@example.test', 'Relation Controller');
+        $third = new User('relation-third@example.test', 'Relation Third');
+        $snapshot = $this->snapshot($owner->id(), $controller->id());
+        $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [
+            [
+                ...$this->card('hidden-source', 'Hidden Source'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $controller->id(),
+                'zone' => 'battlefield',
+                'faceDown' => true,
+                'position' => ['x' => 0.2, 'y' => 0.4, 'unit' => 'ratio'],
+            ],
+            [
+                ...$this->card('hidden-target', 'Hidden Target'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $controller->id(),
+                'zone' => 'battlefield',
+                'faceDown' => true,
+                'position' => ['x' => 0.4, 'y' => 0.4, 'unit' => 'ratio'],
+            ],
+            [
+                ...$this->card('public-target', 'Public Target'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'battlefield',
+                'faceDown' => false,
+                'position' => ['x' => 0.6, 'y' => 0.4, 'unit' => 'ratio'],
+            ],
+        ];
+        $snapshot['arrows'] = [
+            ['id' => 'arrow-hidden', 'fromInstanceId' => 'hidden-source', 'toInstanceId' => 'hidden-target'],
+            ['id' => 'arrow-mixed', 'fromInstanceId' => 'hidden-target', 'toInstanceId' => 'public-target'],
+        ];
+        $snapshot['attachments'] = [
+            ['id' => 'attachment-hidden', 'equipmentInstanceId' => 'hidden-source', 'attachedToInstanceId' => 'hidden-target'],
+            ['id' => 'attachment-mixed', 'equipmentInstanceId' => 'hidden-target', 'attachedToInstanceId' => 'public-target'],
+        ];
+        $snapshot['battlefieldStacks'] = [
+            ['id' => 'stack-hidden', 'rootInstanceId' => 'hidden-source', 'orderedMemberIds' => ['hidden-source', 'hidden-target']],
+            ['id' => 'stack-mixed', 'rootInstanceId' => 'hidden-target', 'orderedMemberIds' => ['hidden-target', 'public-target']],
+        ];
+        $projection = new GameProjectionService(new GameCommandHandler());
+
+        foreach ([$owner, $controller] as $authorized) {
+            $visible = $projection->projectSnapshot($snapshot, $authorized);
+            self::assertSame('hidden-source', $visible['arrows'][0]['fromInstanceId']);
+            self::assertSame('hidden-target', $visible['arrows'][0]['toInstanceId']);
+            self::assertSame('hidden-source', $visible['attachments'][0]['equipmentInstanceId']);
+            self::assertSame('hidden-target', $visible['attachments'][0]['attachedToInstanceId']);
+            self::assertCount(2, $visible['arrows']);
+            self::assertCount(2, $visible['attachments']);
+        }
+
+        $hidden = $projection->projectSnapshot($snapshot, $third);
+        $opaqueSource = $owner->id().'-hidden-battlefield-0';
+        $opaqueTarget = $owner->id().'-hidden-battlefield-1';
+        self::assertSame([[
+            'id' => 'arrow-hidden',
+            'fromInstanceId' => $opaqueSource,
+            'toInstanceId' => $opaqueTarget,
+        ]], $hidden['arrows']);
+        self::assertSame([[
+            'id' => 'attachment-hidden',
+            'equipmentInstanceId' => $opaqueSource,
+            'attachedToInstanceId' => $opaqueTarget,
+        ]], $hidden['attachments']);
+        self::assertSame([[
+            'id' => 'stack-hidden',
+            'rootInstanceId' => $opaqueSource,
+            'orderedMemberIds' => [$opaqueSource, $opaqueTarget],
+        ]], $hidden['battlefieldStacks']);
+        $encodedHidden = json_encode([
+            $hidden['arrows'],
+            $hidden['attachments'],
+            $hidden['battlefieldStacks'],
+        ], JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('hidden-source', $encodedHidden);
+        self::assertStringNotContainsString('hidden-target', $encodedHidden);
+
+        $snapshot['players'][$owner->id()]['zones']['battlefield'][0]['revealedTo'] = [$third->id()];
+        $partiallyRevealed = $projection->projectSnapshot($snapshot, $third);
+        self::assertSame([], $partiallyRevealed['arrows']);
+        self::assertSame([], $partiallyRevealed['attachments']);
+        self::assertSame([], $partiallyRevealed['battlefieldStacks']);
+
+        $snapshot['players'][$owner->id()]['zones']['battlefield'][1]['revealedTo'] = [$third->id()];
+        $revealed = $projection->projectSnapshot($snapshot, $third);
+        self::assertSame('hidden-source', $revealed['arrows'][0]['fromInstanceId']);
+        self::assertSame('hidden-target', $revealed['arrows'][0]['toInstanceId']);
+
+        $snapshot['players'][$owner->id()]['zones']['battlefield'][0]['revealedTo'] = [];
+        $snapshot['players'][$owner->id()]['zones']['battlefield'][1]['revealedTo'] = [];
+        $concealed = $projection->projectSnapshot($snapshot, $third);
+        self::assertSame($opaqueSource, $concealed['arrows'][0]['fromInstanceId']);
+        self::assertSame($opaqueTarget, $concealed['attachments'][0]['attachedToInstanceId']);
+
+        $mapper = new CompactGameCardStateMapper();
+        $afterCompactRestart = $projection->projectSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($snapshot)), $third);
+        $encodedAfterCompactRestart = json_encode([
+            $afterCompactRestart['arrows'],
+            $afterCompactRestart['attachments'],
+            $afterCompactRestart['battlefieldStacks'],
+        ], JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('hidden-source', $encodedAfterCompactRestart);
+        self::assertStringNotContainsString('hidden-target', $encodedAfterCompactRestart);
+        self::assertSame($opaqueSource, $afterCompactRestart['arrows'][0]['fromInstanceId']);
+        self::assertSame($opaqueTarget, $afterCompactRestart['attachments'][0]['attachedToInstanceId']);
+
+        $snapshot['arrows'] = [];
+        $snapshot['attachments'] = [];
+        $removed = $projection->projectSnapshot($snapshot, $third);
+        self::assertSame([], $removed['arrows']);
+        self::assertSame([], $removed['attachments']);
     }
 
     private function snapshot(string $ownerId, string $viewerId): array

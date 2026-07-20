@@ -52,6 +52,32 @@ func TestWebSocketAcceptsValidTicketAndEmitsPatch(t *testing.T) {
 	}
 }
 
+func TestWebSocketReturnsStableTokenQuantityContractWithoutPatch(t *testing.T) {
+	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "invalid-token-quantity-ws", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"quantity": 0,
+		"card":     map[string]any{"name": "Treasure"},
+	}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" {
+		t.Fatalf("quantity command status = %q, want rejected", message.Status)
+	}
+	if message.Error == nil || message.Error.Code != actor.TokenQuantityErrorCode || message.Error.Min != 1 || message.Error.Max != 20 {
+		t.Fatalf("quantity error contract = %#v", message.Error)
+	}
+	if message.Error.Retryable || message.Error.CommandType != "card.token.created" {
+		t.Fatalf("quantity rejection metadata = %#v", message.Error)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatal("invalid quantity changed actor version")
+	}
+}
+
 func hasPatchOp(ops []map[string]any, op string) bool {
 	for _, candidate := range ops {
 		if candidate["op"] == op {

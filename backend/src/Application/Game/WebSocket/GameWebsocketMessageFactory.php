@@ -74,12 +74,13 @@ final readonly class GameWebsocketMessageFactory
     /**
      * @return array<string,mixed>
      */
-    public function rejectedCommand(string $gameId, ?string $messageId, string $clientActionId, int $version, string $code, string $message): array
+    public function rejectedCommand(string $gameId, ?string $messageId, string $clientActionId, int $version, string $code, string $message, array $extra = []): array
     {
         return $this->commandAck($gameId, $messageId, $clientActionId, 'rejected', $version, [
             'code' => $code,
             'message' => $message,
             'retryable' => false,
+            ...$extra,
         ]);
     }
 

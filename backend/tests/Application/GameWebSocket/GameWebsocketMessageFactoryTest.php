@@ -37,6 +37,25 @@ class GameWebsocketMessageFactoryTest extends TestCase
         self::assertNotSame('accepted', $message['status']);
     }
 
+    public function testRejectedTokenQuantityIncludesOnlyStableBounds(): void
+    {
+        $message = (new GameWebsocketMessageFactory())->rejectedCommand(
+            'game-1',
+            'message-1',
+            'action-1',
+            3,
+            'INVALID_TOKEN_QUANTITY',
+            'Quantity must be between 1 and 20.',
+            ['min' => 1, 'max' => 20],
+        );
+
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_TOKEN_QUANTITY', $message['error']['code']);
+        self::assertSame(1, $message['error']['min']);
+        self::assertSame(20, $message['error']['max']);
+        self::assertArrayNotHasKey('receivedValue', $message['error']);
+    }
+
     public function testResyncRequiredCommandCanIncludeOptionalConflictMetadata(): void
     {
         $message = (new GameWebsocketMessageFactory())->resyncRequiredCommand(

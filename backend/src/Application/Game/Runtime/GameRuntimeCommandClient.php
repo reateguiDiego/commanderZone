@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\Runtime;
 
+use App\Application\Game\InvalidTokenQuantityException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -50,6 +51,9 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
         if ($statusCode < 200 || $statusCode >= 300) {
             $message = is_string($data['error'] ?? null) ? $data['error'] : 'Runtime command failed.';
             $code = is_string($data['code'] ?? null) ? $data['code'] : null;
+            if ($statusCode === 400 && $code === InvalidTokenQuantityException::CODE) {
+                throw new InvalidTokenQuantityException($message);
+            }
             if (in_array($statusCode, [400, 409], true) && $code === 'command_failed') {
                 throw new \InvalidArgumentException($message);
             }

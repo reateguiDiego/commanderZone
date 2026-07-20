@@ -1588,6 +1588,7 @@ function materializePrivateCards(
   const nextInstances = { ...state.instances };
   const nextStaticCards = { ...state.staticCards };
   const materializedIds = new Set<string>();
+  const relationRefReplacements: Record<string, string | null> = {};
 
   for (const entry of entries) {
     const instanceId = entry.card.instanceId?.trim();
@@ -1624,6 +1625,7 @@ function materializePrivateCards(
     if (placeholderIndex >= 0) {
       nextZone.splice(placeholderIndex, 1, instanceId);
       delete nextInstances[placeholderId];
+      relationRefReplacements[placeholderId] = instanceId;
     } else {
       nextZone.splice(Math.min(entry.index, nextZone.length), 0, instanceId);
     }
@@ -1635,6 +1637,11 @@ function materializePrivateCards(
       ...state,
       instances: nextInstances,
       staticCards: nextStaticCards,
+      relations: remapProjectedRelationsForInstanceChanges(
+        state.relations,
+        relationRefReplacements,
+        nextInstances,
+      ),
       zones: {
         ...state.zones,
         [playerId]: {
@@ -1663,6 +1670,7 @@ function concealPrivateCards(
   const nextZone = [...(playerZones[zone] ?? [])];
   const nextInstances = { ...state.instances };
   const removedCardRefs = new Set<string>();
+  const relationRefReplacements: Record<string, string | null> = {};
 
   for (const entry of entries) {
     const instanceId = entry.instanceId?.trim() ?? '';
@@ -1693,6 +1701,7 @@ function concealPrivateCards(
         nextZone.splice(insertIndex, 0, placeholderId);
         nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId, removed);
       }
+      relationRefReplacements[targetInstanceId] = placeholderId || null;
       continue;
     }
 
@@ -1711,6 +1720,7 @@ function concealPrivateCards(
       nextZone.splice(realIndex, 1, placeholderId);
       nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId, removed);
     }
+    relationRefReplacements[targetInstanceId] = placeholderId || null;
   }
 
   const nextStaticCards = { ...state.staticCards };
@@ -1727,6 +1737,11 @@ function concealPrivateCards(
       ...state,
       instances: nextInstances,
       staticCards: nextStaticCards,
+      relations: remapProjectedRelationsForInstanceChanges(
+        state.relations,
+        relationRefReplacements,
+        nextInstances,
+      ),
       zones: {
         ...state.zones,
         [playerId]: {
@@ -1736,6 +1751,77 @@ function concealPrivateCards(
       },
     },
   };
+}
+
+function remapProjectedRelationsForInstanceChanges(
+  relations: GameTableNormalizedV2RelationsState,
+  replacements: Record<string, string | null>,
+  instances: Record<string, BootstrapInstanceV2>,
+): GameTableNormalizedV2RelationsState {
+  if (Object.keys(replacements).length === 0) {
+    return relations;
+  }
+
+  const remap = (instanceId: string): string | null => (
+    Object.prototype.hasOwnProperty.call(replacements, instanceId)
+      ? replacements[instanceId]
+      : instanceId
+  );
+  const sameVisibility = (instanceIds: string[]): boolean => {
+    const resolved = instanceIds.map((instanceId) => instances[instanceId]);
+    return resolved.every(Boolean)
+      && resolved.every((instance) => Boolean(instance?.hidden) === Boolean(resolved[0]?.hidden));
+  };
+
+  const arrows = Object.values(relations.arrows).flatMap((arrow) => {
+    const fromInstanceId = remap(arrow.fromInstanceId);
+    const toInstanceId = remap(arrow.toInstanceId);
+    const touched = fromInstanceId !== arrow.fromInstanceId || toInstanceId !== arrow.toInstanceId;
+    if (!touched) {
+      return [arrow];
+    }
+    if (!fromInstanceId || !toInstanceId || !sameVisibility([fromInstanceId, toInstanceId])) {
+      return [];
+    }
+    return [{ ...arrow, fromInstanceId, toInstanceId }];
+  });
+  const attachments = Object.values(relations.attachments).flatMap((attachment) => {
+    const equipmentInstanceId = remap(attachment.equipmentInstanceId);
+    const attachedToInstanceId = remap(attachment.attachedToInstanceId);
+    const touched = equipmentInstanceId !== attachment.equipmentInstanceId
+      || attachedToInstanceId !== attachment.attachedToInstanceId;
+    if (!touched) {
+      return [attachment];
+    }
+    if (!equipmentInstanceId || !attachedToInstanceId || !sameVisibility([equipmentInstanceId, attachedToInstanceId])) {
+      return [];
+    }
+    return [{ ...attachment, equipmentInstanceId, attachedToInstanceId }];
+  });
+  const battlefieldStacks = Object.values(relations.battlefieldStacks).flatMap((stack) => {
+    const rootInstanceId = remap(stack.rootInstanceId);
+    const orderedMemberIds = stack.orderedMemberIds.map(remap);
+    const touched = rootInstanceId !== stack.rootInstanceId
+      || orderedMemberIds.some((instanceId, index) => instanceId !== stack.orderedMemberIds[index]);
+    if (!touched) {
+      return [stack];
+    }
+    if (!rootInstanceId || orderedMemberIds.some((instanceId) => !instanceId)) {
+      return [];
+    }
+    const safeMemberIds = orderedMemberIds as string[];
+    if (!sameVisibility([rootInstanceId, ...safeMemberIds])) {
+      return [];
+    }
+    return [{ ...stack, rootInstanceId, orderedMemberIds: safeMemberIds }];
+  });
+
+  return createRelationsState(
+    arrows,
+    attachments,
+    Object.values(relations.specialEntities),
+    battlefieldStacks,
+  );
 }
 
 function hiddenPlaceholderInstance(

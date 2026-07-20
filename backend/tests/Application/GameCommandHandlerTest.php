@@ -7,6 +7,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
+use App\Application\Game\InvalidTokenQuantityException;
 use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
@@ -726,6 +727,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
         ], $actor);
 
         $battlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
@@ -742,6 +744,62 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('Created Token.', $game->snapshot()['eventLog'][0]['message']);
     }
 
+    public function testCreateTokenCommandRejectsInvalidQuantityWithoutMutation(): void
+    {
+        $invalidCases = [
+            'missing' => null,
+            'null' => null,
+            'string' => '2',
+            'decimal' => 1.5,
+            'zero' => 0,
+            'negative' => -1,
+            'twenty-one' => 21,
+            'one-hundred' => 100,
+            'one-thousand' => 1000,
+        ];
+
+        foreach ($invalidCases as $name => $quantity) {
+            $actor = new User($name.'@example.test', 'Owner');
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+            $handler = new GameCommandHandler();
+            $before = $game->snapshot();
+            $payload = ['playerId' => $actor->id(), 'card' => ['name' => 'Treasure']];
+            if ($name !== 'missing') {
+                $payload['quantity'] = $quantity;
+            }
+
+            try {
+                $handler->apply($game, 'card.token.created', $payload, $actor);
+                self::fail(sprintf('%s quantity was accepted.', $name));
+            } catch (InvalidTokenQuantityException $exception) {
+                self::assertSame(InvalidTokenQuantityException::CODE, $exception->errorPayload()['code']);
+                self::assertSame(1, $exception->errorPayload()['min']);
+                self::assertSame(20, $exception->errorPayload()['max']);
+            }
+
+            self::assertSame($before, $game->snapshot(), $name);
+            self::assertCount(0, $game->events(), $name);
+            self::assertSame([], $handler->consumePendingStreamLogEntries(), $name);
+        }
+    }
+
+    public function testCreateTokenCommandAcceptsStrictQuantityBoundaries(): void
+    {
+        foreach ([1, 2, 10, 20] as $quantity) {
+            $actor = new User(sprintf('quantity-%d@example.test', $quantity), 'Owner');
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+            (new GameCommandHandler())->apply($game, 'card.token.created', [
+                'playerId' => $actor->id(),
+                'quantity' => $quantity,
+                'card' => ['name' => 'Treasure'],
+            ], $actor);
+
+            self::assertCount($quantity, $game->snapshot()['players'][$actor->id()]['zones']['battlefield']);
+            self::assertCount(1, $game->events());
+        }
+    }
+
     public function testCreateTokenCommandUsesSelectedTokenPayload(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -749,6 +807,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => [
                 'scryfallId' => 'token-scryfall-id',
                 'name' => 'Goblin Token',
@@ -807,6 +866,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'position' => ['x' => 0, 'y' => 0, 'unit' => 'ratio'],
             'card' => [
                 'scryfallId' => 'emblem-scryfall-id',
@@ -831,6 +891,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => [
                 'scryfallId' => 'emblem-scryfall-id',
                 'name' => 'Chandra Emblem',
@@ -866,6 +927,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => [
                 'scryfallId' => 'undercity-scryfall-id',
                 'name' => 'Undercity',
@@ -907,6 +969,7 @@ class GameCommandHandlerTest extends TestCase
 
         (new GameCommandHandler())->apply($game, 'card.token.created', [
             'playerId' => $actor->id(),
+            'quantity' => 1,
             'card' => [
                 'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
                 'name' => 'The Ring // The Ring Tempts You',

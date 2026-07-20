@@ -40,6 +40,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   readonly searching = signal(false);
   readonly error = signal<string | null>(null);
   readonly quantity = signal(MIN_TOKEN_QUANTITY);
+  readonly quantityValid = computed(() => Number.isInteger(this.quantity())
+    && this.quantity() >= MIN_TOKEN_QUANTITY
+    && this.quantity() <= MAX_TOKEN_QUANTITY);
   readonly showingSearchResults = computed(() => this.query().trim().length >= 2);
   readonly showingDeckTokens = computed(() => this.kind === 'token' && !this.showingSearchResults());
   readonly deckTokenCards = computed(() => {
@@ -140,6 +143,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     }
 
     if (this.kind === 'token') {
+      if (!this.quantityValid()) {
+        return;
+      }
       this.cardSelected.emit({ kind: 'token', card, quantity: this.quantity() });
       return;
     }
@@ -148,7 +154,8 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   }
 
   onQuantityInput(value: string | number): void {
-    this.quantity.set(this.normalizedQuantity(value));
+    const parsed = typeof value === 'number' ? value : Number(value);
+    this.quantity.set(parsed);
   }
 
   close(): void {
@@ -327,12 +334,4 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     this.searchTimeout = null;
   }
 
-  private normalizedQuantity(value: string | number): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
-    if (!Number.isFinite(parsed)) {
-      return MIN_TOKEN_QUANTITY;
-    }
-
-    return Math.max(MIN_TOKEN_QUANTITY, Math.min(MAX_TOKEN_QUANTITY, parsed));
-  }
 }

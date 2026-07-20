@@ -2022,13 +2022,16 @@ final class GameEventReplayService
 
             $card = [
                 'instanceId' => $instanceId,
-                'ownerId' => is_string($token['ownerId'] ?? null) && trim($token['ownerId']) !== '' ? trim($token['ownerId']) : $playerId,
-                'controllerId' => is_string($token['controllerId'] ?? null) && trim($token['controllerId']) !== '' ? trim($token['controllerId']) : $playerId,
+                'ownerId' => $this->nonEmptyString($token['ownerPlayerId'] ?? null)
+                    ?: ($this->nonEmptyString($token['ownerId'] ?? null) ?: $playerId),
+                'controllerId' => $this->nonEmptyString($token['controllerPlayerId'] ?? null)
+                    ?: ($this->nonEmptyString($token['controllerId'] ?? null) ?: $playerId),
                 'name' => is_string($token['name'] ?? null) && trim($token['name']) !== '' ? trim($token['name']) : ($copy ? 'Token Copy' : 'Token'),
                 'cardKey' => $cardKey,
                 'cardRef' => $cardKey,
                 'printId' => is_string($token['printId'] ?? null) && trim($token['printId']) !== '' ? trim($token['printId']) : $cardKey,
                 'cardVersion' => is_string($token['cardVersion'] ?? null) && trim($token['cardVersion']) !== '' ? trim($token['cardVersion']) : 'runtime-identity-v1',
+                'language' => is_string($token['language'] ?? null) && trim($token['language']) !== '' ? trim($token['language']) : 'en',
                 'scryfallId' => $this->scryfallIdFromRuntimeCardKey($cardKey),
                 'zone' => 'battlefield',
                 'isToken' => true,
@@ -2040,6 +2043,7 @@ final class GameEventReplayService
 				'manualOverrides' => is_array($token['manualOverrides'] ?? null) ? $token['manualOverrides'] : [],
 				'activeFaceIndex' => max(0, (int) ($token['activeFaceIndex'] ?? $token['activeFace'] ?? 0)),
                 'tapped' => ($token['tapped'] ?? false) === true,
+                'rotation' => is_int($token['rotation'] ?? null) ? $token['rotation'] : 0,
                 'faceDown' => ($token['faceDown'] ?? false) === true,
                 'revealedTo' => ['all'],
                 'createdAt' => $event->createdAt()->format(DATE_ATOM),
@@ -2047,6 +2051,8 @@ final class GameEventReplayService
             foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $field) {
                 if (array_key_exists($field, $token)) {
                     $card[$field] = $token[$field];
+                } elseif (is_array($token['mutableStats'] ?? null) && array_key_exists($field, $token['mutableStats'])) {
+                    $card[$field] = $token['mutableStats'][$field];
                 }
             }
             $cards[] = $card;

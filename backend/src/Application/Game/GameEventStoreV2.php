@@ -478,6 +478,11 @@ final class GameEventStoreV2
         ]);
         $staticCard = $bundle->toArray();
         $staticCard['cardKey'] = $cardKey;
+        foreach (['printId', 'cardVersion', 'language', 'viewerVisibility'] as $identityField) {
+            if (is_string($card[$identityField] ?? null) && trim($card[$identityField]) !== '') {
+                $staticCard[$identityField] = trim($card[$identityField]);
+            }
+        }
 
         return $staticCard;
     }

@@ -13,7 +13,7 @@ import (
 	"commanderzone/game-runtime/internal/state"
 )
 
-const maxRuntimeTokenCreateQuantity = 20
+const tokenCreatedEffectVersion = 1
 
 type CardTokenCreatedApplier struct{}
 
@@ -28,9 +28,9 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	if _, ok := game.Players[playerID]; !ok {
 		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
 	}
-	quantity := 1
-	if value, ok := intField(command.Payload, "quantity"); ok {
-		quantity = max(1, min(value, maxRuntimeTokenCreateQuantity))
+	quantity, err := strictTokenQuantity(command.Payload, command.Type)
+	if err != nil {
+		return nil, err
 	}
 	if rawPosition, exists := command.Payload["position"]; exists && quantity == 1 {
 		position, positionErr := canonicalRatioPosition(rawPosition, command.Type, "", 0)
@@ -49,6 +49,15 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		name = "Token"
 	}
 	cardKey := runtimeTokenCardKey(card, name)
+	printID := tokenPrintID(cardKey, card)
+	cardVersion := compactOptionalString(card["cardVersion"])
+	if cardVersion == "" {
+		cardVersion = "runtime-identity-v1"
+	}
+	language := compactOptionalString(card["language"])
+	if language == "" {
+		language = "en"
+	}
 	staticCards := tokenStaticCards(cardKey, name, card)
 	tokenMeta := map[string]any{
 		"isCopy":              false,
@@ -72,6 +81,9 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		game.Instances[instanceID] = state.CardInstanceRuntime{
 			InstanceID:    instanceID,
 			CardKey:       cardKey,
+			PrintID:       printID,
+			CardVersion:   cardVersion,
+			Language:      language,
 			OwnerID:       playerID,
 			ControllerID:  playerID,
 			Zone:          state.ZoneBattlefield,
@@ -108,15 +120,17 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	})
 	emitZoneCount(emitter, game, playerID, state.ZoneBattlefield)
 	return map[string]any{
-		"playerId":    playerID,
-		"instanceIds": ids,
-		"count":       quantity,
-		"cardKey":     cardKey,
-		"name":        name,
-		"tokens":      cards,
-		"tokenMeta":   tokenMeta,
-		"staticCards": staticCards,
-		"metrics":     edgeMetrics("edge.token_create_ms", start, emitter),
+		"effectVersion": tokenCreatedEffectVersion,
+		"actorPlayerId": playerID,
+		"playerId":      playerID,
+		"instanceIds":   ids,
+		"count":         quantity,
+		"cardKey":       cardKey,
+		"name":          name,
+		"tokens":        cards,
+		"tokenMeta":     tokenMeta,
+		"staticCards":   staticCards,
+		"metrics":       edgeMetrics("edge.token_create_ms", start, emitter),
 	}, nil
 }
 
@@ -377,30 +391,44 @@ func mapField(payload map[string]any, key string) map[string]any {
 }
 
 func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool) map[string]any {
-	printID := instance.CardKey
-	if !isCopy {
-		if templateScryfallID := compactOptionalString(instance.TokenMeta["templateScryfallId"]); templateScryfallID != "" {
-			printID = templateScryfallID
-		}
+	printID := instance.PrintID
+	if printID == "" {
+		printID = instance.CardKey
+	}
+	cardVersion := instance.CardVersion
+	if cardVersion == "" {
+		cardVersion = "runtime-identity-v1"
+	}
+	language := instance.Language
+	if language == "" {
+		language = "en"
 	}
 	data := map[string]any{
-		"instanceId":       instance.InstanceID,
-		"ownerId":          instance.OwnerID,
-		"controllerId":     instance.ControllerID,
-		"name":             name,
-		"cardKey":          instance.CardKey,
-		"printId":          printID,
-		"cardVersion":      "runtime-identity-v1",
-		"language":         "en",
-		"viewerVisibility": "public",
-		"zone":             state.ZoneBattlefield,
-		"isToken":          true,
-		"isTokenCopy":      isCopy,
-		"tokenMeta":        cloneMap(instance.TokenMeta),
-		"position":         cloneMap(instance.Position),
-		"counters":         cloneIntMap(instance.Counters),
-		"printedStats":     copyNestedStatsMap(instance.PrintedStats),
-		"manualOverrides":  copyNestedStatsMap(instance.ManualOverrides),
+		"instanceId":         instance.InstanceID,
+		"ownerId":            instance.OwnerID,
+		"ownerPlayerId":      instance.OwnerID,
+		"controllerId":       instance.ControllerID,
+		"controllerPlayerId": instance.ControllerID,
+		"name":               name,
+		"cardKey":            instance.CardKey,
+		"printId":            printID,
+		"cardVersion":        cardVersion,
+		"language":           language,
+		"viewerVisibility":   "public",
+		"zone":               string(instance.Zone),
+		"isToken":            true,
+		"isTokenCopy":        isCopy,
+		"tokenMeta":          cloneMap(instance.TokenMeta),
+		"position":           cloneMap(instance.Position),
+		"counters":           cloneIntMap(instance.Counters),
+		"tapped":             instance.Tapped,
+		"rotation":           instance.Rotation,
+		"faceDown":           instance.FaceDown,
+		"activeFace":         instance.ActiveFace,
+		"activeFaceIndex":    instance.ActiveFace,
+		"mutableStats":       cloneMap(instance.MutableStats),
+		"printedStats":       copyNestedStatsMap(instance.PrintedStats),
+		"manualOverrides":    copyNestedStatsMap(instance.ManualOverrides),
 	}
 	for key, value := range instance.MutableStats {
 		data[key] = value

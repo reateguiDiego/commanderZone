@@ -43,6 +43,8 @@ type CommandHTTPResponse struct {
 	CurrentEpoch     *int64                     `json:"currentEpoch,omitempty"`
 	Count            *int                       `json:"count,omitempty"`
 	Index            *int                       `json:"index,omitempty"`
+	Min              int                        `json:"min,omitempty"`
+	Max              int                        `json:"max,omitempty"`
 }
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
@@ -155,6 +157,13 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if relationError, ok := actor.AsRelationValidationError(result.Err); ok {
 			writeCommandHTTPError(w, http.StatusBadRequest, strings.ToLower(relationError.Code), relationError.Error())
+			return
+		}
+		if quantityError, ok := actor.AsTokenQuantityValidationError(result.Err); ok {
+			writeCommandHTTPJSON(w, http.StatusBadRequest, CommandHTTPResponse{
+				Error: quantityError.Error(), Code: actor.TokenQuantityErrorCode, CommandType: request.Command.Type,
+				Min: actor.MinTokenCreateQuantity, Max: actor.MaxTokenCreateQuantity,
+			})
 			return
 		}
 		if errors.Is(result.Err, actor.ErrActorPermission) {

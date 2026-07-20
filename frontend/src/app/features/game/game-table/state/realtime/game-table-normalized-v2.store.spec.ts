@@ -1577,6 +1577,159 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
 
+  it('accepts opaque viewer relation references without target recovery', () => {
+    const bootstrap = bootstrapV2();
+    const opaqueSource = 'player-2-hidden-battlefield-0';
+    const opaqueTarget = 'player-2-hidden-battlefield-1';
+    const source = bootstrap.instances['battlefield-1'];
+    bootstrap.instances[opaqueSource] = {
+      ...source,
+      instanceId: opaqueSource,
+      cardRef: `placeholder:${opaqueSource}`,
+      printId: null,
+      hidden: true,
+      faceDown: true,
+    };
+    bootstrap.instances[opaqueTarget] = {
+      ...source,
+      instanceId: opaqueTarget,
+      cardRef: `placeholder:${opaqueTarget}`,
+      printId: null,
+      hidden: true,
+      faceDown: true,
+    };
+    bootstrap.zones['player-2:battlefield'].instanceIds = [opaqueSource, opaqueTarget];
+
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const added = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'arrow.add',
+        arrow: { id: 'opaque-arrow', fromInstanceId: opaqueSource, toInstanceId: opaqueTarget, color: 'yellow', createdAt: '' },
+      },
+      {
+        op: 'attachment.set',
+        attachment: { id: 'opaque-attachment', equipmentInstanceId: opaqueSource, attachedToInstanceId: opaqueTarget, createdAt: '' },
+      },
+    ]));
+
+    expect(added.status).toBe('applied');
+    expect(added.state.relations.arrows['opaque-arrow']).toMatchObject({ fromInstanceId: opaqueSource, toInstanceId: opaqueTarget });
+    expect(added.state.relations.attachments['opaque-attachment']).toMatchObject({ equipmentInstanceId: opaqueSource, attachedToInstanceId: opaqueTarget });
+
+    const removed = applyPatchEnvelopeV2(added.state, patch(7, [
+      { op: 'arrow.remove', id: 'opaque-arrow' },
+      { op: 'attachment.remove', id: 'opaque-attachment' },
+    ]));
+    expect(removed.status).toBe('applied');
+    expect(removed.state.relations.arrows['opaque-arrow']).toBeUndefined();
+    expect(removed.state.relations.attachments['opaque-attachment']).toBeUndefined();
+  });
+
+  it('remaps fully concealed relation refs and materializes them back without canonical leakage', () => {
+    const bootstrap = bootstrapV2();
+    const instanceIds = ['private-source', 'private-target'];
+    bootstrap.zones['player-2:battlefield'].instanceIds = [...instanceIds];
+    bootstrap.players['player-2'].zoneCounts.battlefield = 2;
+    bootstrap.zoneCounts['player-2:battlefield'] = 2;
+    for (const [index, instanceId] of instanceIds.entries()) {
+      bootstrap.instances[instanceId] = {
+        ...bootstrap.instances['battlefield-1'],
+        instanceId,
+        zoneId: 'player-2:battlefield',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        position: { x: 0.2 + index * 0.1, y: 0.3, unit: 'ratio' },
+      };
+    }
+    bootstrap.relations.arrows = [{
+      id: 'private-arrow', fromInstanceId: instanceIds[0], toInstanceId: instanceIds[1], color: 'yellow', createdAt: '',
+    }];
+    bootstrap.relations.attachments = [{
+      id: 'private-attachment', equipmentInstanceId: instanceIds[0], attachedToInstanceId: instanceIds[1], createdAt: '',
+    }];
+    bootstrap.relations.battlefieldStacks = [{
+      id: 'private-stack', relationType: 'battlefield_stack', rootInstanceId: instanceIds[0],
+      orderedMemberIds: [...instanceIds], stackKind: 'generic', effectVersion: 1,
+    }];
+
+    const concealed = applyPatchEnvelopeV2(createGameTableNormalizedV2State(bootstrap), patch(6, [{
+      op: 'private.cards.conceal', playerId: 'player-2', zone: 'battlefield',
+      entries: [
+        { placeholderId: 'player-2-hidden-battlefield-0', index: 0 },
+        { placeholderId: 'player-2-hidden-battlefield-1', index: 1 },
+      ],
+    }]));
+
+    expect(concealed.status).toBe('applied');
+    expect(concealed.state.relations.arrows['private-arrow']).toMatchObject({
+      fromInstanceId: 'player-2-hidden-battlefield-0',
+      toInstanceId: 'player-2-hidden-battlefield-1',
+    });
+    expect(concealed.state.relations.attachments['private-attachment']).toMatchObject({
+      equipmentInstanceId: 'player-2-hidden-battlefield-0',
+      attachedToInstanceId: 'player-2-hidden-battlefield-1',
+    });
+    expect(concealed.state.relations.battlefieldStacks['private-stack']).toMatchObject({
+      rootInstanceId: 'player-2-hidden-battlefield-0',
+      orderedMemberIds: ['player-2-hidden-battlefield-0', 'player-2-hidden-battlefield-1'],
+    });
+    expect(JSON.stringify(concealed.state.relations)).not.toContain('private-source');
+    expect(JSON.stringify(concealed.state.relations)).not.toContain('private-target');
+
+    const materialized = applyPatchEnvelopeV2(concealed.state, patch(7, [{
+      op: 'private.cards.materialize', playerId: 'player-2', zone: 'battlefield',
+      entries: instanceIds.map((instanceId, index) => ({
+        index,
+        placeholderId: `player-2-hidden-battlefield-${index}`,
+        card: bootstrap.instances[instanceId],
+      })),
+      staticCards: { 'card:sol-ring': bootstrap.staticCards['card:sol-ring'] },
+    }]));
+
+    expect(materialized.status).toBe('applied');
+    expect(materialized.state.relations.arrows['private-arrow']).toMatchObject({
+      fromInstanceId: 'private-source', toInstanceId: 'private-target',
+    });
+    expect(materialized.state.relations.attachments['private-attachment']).toMatchObject({
+      equipmentInstanceId: 'private-source', attachedToInstanceId: 'private-target',
+    });
+    expect(materialized.state.relations.battlefieldStacks['private-stack']).toMatchObject({
+      rootInstanceId: 'private-source', orderedMemberIds: instanceIds,
+    });
+  });
+
+  it('omits mixed canonical and opaque relations when only one endpoint is concealed', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.zones['player-2:battlefield'].instanceIds = ['mixed-source', 'mixed-target'];
+    for (const instanceId of ['mixed-source', 'mixed-target']) {
+      bootstrap.instances[instanceId] = {
+        ...bootstrap.instances['battlefield-1'], instanceId, zoneId: 'player-2:battlefield',
+        ownerId: 'player-2', controllerId: 'player-2',
+      };
+    }
+    bootstrap.relations.arrows = [{
+      id: 'mixed-arrow', fromInstanceId: 'mixed-source', toInstanceId: 'mixed-target', color: 'red', createdAt: '',
+    }];
+    bootstrap.relations.attachments = [{
+      id: 'mixed-attachment', equipmentInstanceId: 'mixed-source', attachedToInstanceId: 'mixed-target', createdAt: '',
+    }];
+    bootstrap.relations.battlefieldStacks = [{
+      id: 'mixed-stack', relationType: 'battlefield_stack', rootInstanceId: 'mixed-source',
+      orderedMemberIds: ['mixed-source', 'mixed-target'], stackKind: 'generic', effectVersion: 1,
+    }];
+
+    const concealed = applyPatchEnvelopeV2(createGameTableNormalizedV2State(bootstrap), patch(6, [{
+      op: 'private.cards.conceal', playerId: 'player-2', zone: 'battlefield',
+      entries: [{ placeholderId: 'player-2-hidden-battlefield-0', index: 0 }],
+    }]));
+
+    expect(concealed.status).toBe('applied');
+    expect(concealed.state.relations.arrows['mixed-arrow']).toBeUndefined();
+    expect(concealed.state.relations.attachments['mixed-attachment']).toBeUndefined();
+    expect(concealed.state.relations.battlefieldStacks['mixed-stack']).toBeUndefined();
+    expect(JSON.stringify(concealed.state.relations)).not.toContain('mixed-source');
+  });
+
 	it('hydrates and applies durable disconnect control-plane projection', () => {
 		const bootstrap = bootstrapV2();
 		bootstrap.game.disconnectVote = { voteId: 'vote-1', targetPlayerId: 'player-2', status: 'open', eligibleVoterIds: ['player-1'], requiredVotes: 1, openedAt: '2026-07-13T12:00:00Z', expiresAt: '2026-07-13T12:01:00Z', deadlineAt: '2026-07-13T12:01:00Z', cooldownUntil: null, votes: {}, votesByPlayerId: {} };

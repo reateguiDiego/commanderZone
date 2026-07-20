@@ -14,6 +14,7 @@ export class GameXQuantityStepperComponent {
   readonly min = input(1);
   readonly max = input(99);
   readonly disabled = input(false);
+  readonly strict = input(false);
   readonly ariaLabel = input('Quantity');
   readonly testIdPrefix = input<string | null>(null);
 
@@ -21,6 +22,7 @@ export class GameXQuantityStepperComponent {
 
   readonly canStepDown = computed(() => !this.disabled() && this.value() > this.min());
   readonly canStepUp = computed(() => !this.disabled() && this.value() < this.max());
+  readonly valueValid = computed(() => Number.isInteger(this.value()) && this.value() >= this.min() && this.value() <= this.max());
 
   updateFromInput(event: Event): void {
     if (!(event.target instanceof HTMLInputElement)) {
@@ -35,7 +37,7 @@ export class GameXQuantityStepperComponent {
       return;
     }
 
-    this.valueChanged.emit(this.normalizedValue(value));
+    this.valueChanged.emit(this.strict() ? this.strictValue(value) : this.normalizedValue(value));
   }
 
   adjust(delta: number): void {
@@ -43,7 +45,8 @@ export class GameXQuantityStepperComponent {
       return;
     }
 
-    this.valueChanged.emit(this.normalizedValue(this.value() + delta));
+    const next = this.value() + delta;
+    this.valueChanged.emit(this.strict() ? this.strictValue(next) : this.normalizedValue(next));
   }
 
   private normalizedValue(value: string | number): number {
@@ -54,5 +57,9 @@ export class GameXQuantityStepperComponent {
     }
 
     return Math.max(this.min(), Math.min(this.max(), parsed));
+  }
+
+  private strictValue(value: string | number): number {
+    return typeof value === 'number' ? value : Number(value);
   }
 }

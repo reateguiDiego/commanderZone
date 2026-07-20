@@ -96,6 +96,13 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
         equipmentInstanceId: attachmentTwoId,
         attachedToInstanceId: targetId,
       });
+      await accepted(0, 'arrow.created', {
+        fromInstanceId: attachmentTwoId,
+        toInstanceId: targetId,
+        color: 'blue',
+      });
+      const arrowId = String(snapshotArrows(await gameSnapshot(request, setup.gameId, playerA.token))[0]?.['id'] ?? '');
+      expect(arrowId).toBeTruthy();
       let graph = await assertIdenticalGraph(request, setup);
       expect(graph.attachments.map((attachment) => attachment['equipmentInstanceId'])).toEqual([attachmentOneId, attachmentTwoId]);
       expectForbiddenRelationFields(graph);
@@ -142,7 +149,12 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
         instanceId: attachmentTwoId,
         faceDown: true,
       });
-      const attachmentGraphBeforeCounter = await assertIdenticalGraph(request, setup);
+      const ownerSnapshotBeforeCounter = await gameSnapshot(request, setup.gameId, playerA.token);
+      const attachmentGraphBeforeCounter = relationGraph(ownerSnapshotBeforeCounter);
+      expect(attachmentGraphBeforeCounter.attachments).toHaveLength(1);
+      expect(snapshotArrows(ownerSnapshotBeforeCounter)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: arrowId, fromInstanceId: attachmentTwoId, toInstanceId: targetId }),
+      ]));
       for (const viewer of [playerB, playerC]) {
         const projected = await gameSnapshot(request, setup.gameId, viewer.token);
         expect(findCard(projected, attachmentTwoId)).toBeUndefined();
@@ -152,6 +164,9 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
         expect(String(shell?.['instanceId'] ?? '')).toMatch(new RegExp(`^${escapeRegExp(playerA.user.id)}-hidden-battlefield-\\d+$`));
         expect(String(shell?.['instanceId'] ?? '')).not.toContain(attachmentTwoId);
         expect(JSON.stringify(shell)).not.toMatch(/cardKey|cardRef|printId|imageUris|cardFaces|oracleText/);
+        expect(relationGraph(projected).attachments).toEqual([]);
+        expect(snapshotArrows(projected)).toEqual([]);
+        assertNoCanonicalRelationReference(projected, attachmentTwoId);
       }
       await accepted(0, 'card.counter.changed', {
         playerId: playerA.user.id,
@@ -169,13 +184,28 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
         await expect(battlefieldCard(page!, playerA.user.id, opaqueId)).toBeVisible({ timeout: 10_000 });
         await expect(battlefieldCard(page!, playerA.user.id, attachmentTwoId)).toHaveCount(0);
       }
-      expect(await assertIdenticalGraph(request, setup)).toEqual(attachmentGraphBeforeCounter);
+      expect(relationGraph(await gameSnapshot(request, setup.gameId, playerA.token))).toEqual(attachmentGraphBeforeCounter);
+      for (const viewer of [playerB, playerC]) {
+        const projected = await gameSnapshot(request, setup.gameId, viewer.token);
+        expect(relationGraph(projected).attachments).toEqual([]);
+        expect(snapshotArrows(projected)).toEqual([]);
+        assertNoCanonicalRelationReference(projected, attachmentTwoId);
+      }
       assertNoRecoveryFailures(audits);
       await accepted(0, 'card.controller.changed', {
         playerId: playerA.user.id,
         instanceId: attachmentTwoId,
         targetPlayerId: playerB.user.id,
       });
+      const controllerSnapshot = await gameSnapshot(request, setup.gameId, playerB.token);
+      expect(relationGraph(controllerSnapshot).attachments).toHaveLength(1);
+      expect(snapshotArrows(controllerSnapshot)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: arrowId, fromInstanceId: attachmentTwoId, toInstanceId: targetId }),
+      ]));
+      const thirdSnapshotAfterControl = await gameSnapshot(request, setup.gameId, playerC.token);
+      expect(relationGraph(thirdSnapshotAfterControl).attachments).toEqual([]);
+      expect(snapshotArrows(thirdSnapshotAfterControl)).toEqual([]);
+      assertNoCanonicalRelationReference(thirdSnapshotAfterControl, attachmentTwoId);
       await accepted(1, 'attachment.removed', { equipmentInstanceId: attachmentTwoId, position: ratio(0.68, 0.36) });
       expect((await assertIdenticalGraph(request, setup)).attachments).toEqual([]);
 
@@ -253,6 +283,21 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
       const restartedThirdSnapshot = await gameSnapshot(request, setup.gameId, playerC.token);
       expect(findCard(restartedThirdSnapshot, attachmentTwoId)).toBeUndefined();
       expect(findOpaqueBattlefieldCard(restartedThirdSnapshot, playerA.user.id, ratio(0.68, 0.36))?.['counters']).toMatchObject({ shield: 2 });
+      expect(snapshotArrows(restartedThirdSnapshot)).toEqual([]);
+      assertNoCanonicalRelationReference(restartedThirdSnapshot, attachmentTwoId);
+      const restartedControllerSnapshot = await gameSnapshot(request, setup.gameId, playerB.token);
+      expect(snapshotArrows(restartedControllerSnapshot)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: arrowId, fromInstanceId: attachmentTwoId, toInstanceId: targetId }),
+      ]));
+      await accepted(1, 'card.controller.changed', {
+        playerId: playerB.user.id,
+        instanceId: attachmentTwoId,
+        targetPlayerId: playerA.user.id,
+      });
+      await accepted(0, 'arrow.removed', { id: arrowId });
+      expect(snapshotArrows(await gameSnapshot(request, setup.gameId, playerA.token))).toEqual([]);
+      expect(snapshotArrows(await gameSnapshot(request, setup.gameId, playerB.token))).toEqual([]);
+      expect(snapshotArrows(await gameSnapshot(request, setup.gameId, playerC.token))).toEqual([]);
 
       graph = await assertIdenticalGraph(request, setup);
       const restartedStackId = String(graph.stacks[0]?.['id']);
@@ -631,6 +676,19 @@ function relationGraph(snapshot: JsonObject): { attachments: JsonObject[]; stack
     attachments: attachments.sort((left, right) => Number(left['order'] ?? 0) - Number(right['order'] ?? 0) || String(left['id']).localeCompare(String(right['id']))),
     stacks: stacks.sort((left, right) => String(left['id']).localeCompare(String(right['id']))),
   };
+}
+
+function snapshotArrows(snapshot: JsonObject): JsonObject[] {
+  return objectList(snapshot['arrows']).sort((left, right) => String(left['id']).localeCompare(String(right['id'])));
+}
+
+function assertNoCanonicalRelationReference(snapshot: JsonObject, canonicalInstanceId: string): void {
+  const relations = {
+    arrows: snapshotArrows(snapshot),
+    attachments: relationGraph(snapshot).attachments,
+    battlefieldStacks: relationGraph(snapshot).stacks,
+  };
+  expect(JSON.stringify(relations)).not.toContain(canonicalInstanceId);
 }
 
 function objectList(value: unknown): JsonObject[] {

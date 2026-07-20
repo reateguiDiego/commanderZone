@@ -2029,9 +2029,10 @@ class GameCommandHandler
         $isTheRing = $this->isTheRingCard($card);
         $isDungeon = $this->isDungeonCard($card);
         $isEmblem = $this->isEmblemCard($card);
-        $quantity = $isDungeon
-            ? 1
-            : $this->positiveInt($payload['quantity'] ?? 1, 1, $this->runtimeLimits->maxTokenCreateQuantity());
+        $quantity = $this->requiredTokenQuantity($payload);
+        if ($isDungeon && $quantity !== 1) {
+            throw new InvalidTokenQuantityException();
+        }
         $tokens = [];
         $position = $quantity === 1 && array_key_exists('position', $payload)
             ? $this->spatialPositionContract->canonicalRatioPosition($payload['position'])
@@ -4580,6 +4581,23 @@ class GameCommandHandler
     private function powerToughnessStat(mixed $value): int|float|string|null
     {
 		return PowerToughnessModel::overrideValue($value);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function requiredTokenQuantity(array $payload): int
+    {
+        if (!array_key_exists('quantity', $payload) || !is_int($payload['quantity'])) {
+            throw new InvalidTokenQuantityException();
+        }
+
+        $quantity = $payload['quantity'];
+        if ($quantity < InvalidTokenQuantityException::MIN || $quantity > InvalidTokenQuantityException::MAX) {
+            throw new InvalidTokenQuantityException();
+        }
+
+        return $quantity;
     }
 
     private function isVariablePrintedStat(string $value): bool

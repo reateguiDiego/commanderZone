@@ -87,6 +87,8 @@ type ServerErrorPayload struct {
 	ExpectedEpoch    *int64 `json:"expectedEpoch,omitempty"`
 	CurrentEpoch     *int64 `json:"currentEpoch,omitempty"`
 	Count            *int   `json:"count,omitempty"`
+	Min              int    `json:"min,omitempty"`
+	Max              int    `json:"max,omitempty"`
 }
 
 type WebSocketServer struct {
@@ -718,6 +720,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandRejectedMessage(command, relationError.Code, relationError.Error(), false))
 			return
 		}
+		if quantityError, ok := actor.AsTokenQuantityValidationError(result.Err); ok {
+			s.sendJSON(client, commandTokenQuantityRejectedMessage(command, quantityError))
+			return
+		}
 		if errors.Is(result.Err, actor.ErrActorPermission) {
 			s.sendJSON(client, commandAuthorizationRejectedMessage(command, &actor.AuthorizationError{
 				Code:        actor.AuthorizationCodePermissionDenied,
@@ -1104,6 +1110,17 @@ func commandRejectedMessage(command protocol.CommandEnvelopeV2, code string, mes
 			Code:      code,
 			Message:   message,
 			Retryable: retryable,
+		},
+	}
+}
+
+func commandTokenQuantityRejectedMessage(command protocol.CommandEnvelopeV2, quantityError *actor.TokenQuantityValidationError) ServerMessage {
+	return ServerMessage{
+		Kind: "command_ack", GameID: command.GameID, ClientActionID: command.ClientActionID,
+		Status: "rejected", Version: command.BaseVersion,
+		Error: &ServerErrorPayload{
+			Code: actor.TokenQuantityErrorCode, Message: quantityError.Error(), Retryable: false,
+			CommandType: command.Type, Min: actor.MinTokenCreateQuantity, Max: actor.MaxTokenCreateQuantity,
 		},
 	}
 }

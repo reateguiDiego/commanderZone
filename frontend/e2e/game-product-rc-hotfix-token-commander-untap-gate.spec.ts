@@ -98,9 +98,25 @@ test.describe('rc hotfix token commander untap gate', () => {
         focusPlayerById(pageC, playerA.user.id),
       ]);
 
+      await test.step('responsive player focus crosses compact, aggressive, minimal and normal states', async () => {
+        for (const transition of [
+          { viewport: { width: 1280, height: 800 }, state: 'compact' },
+          { viewport: { width: 900, height: 600 }, state: 'aggressive' },
+          { viewport: { width: 700, height: 500 }, state: 'minimal' },
+          { viewport: { width: 1600, height: 1000 }, state: 'normal' },
+        ] as const) {
+          await pageA.setViewportSize(transition.viewport);
+          await expect(pageA.getByTestId('game-screen')).toHaveAttribute('data-responsive-state', transition.state);
+          await focusPlayerById(pageA, playerB.user.id);
+          await focusPlayerById(pageA, playerA.user.id);
+        }
+      });
+
       await test.step('UI move commander from command zone increments cast count once', async () => {
-        const source = pageA.locator(`[data-testid="command-zone-card"][data-player-id="${playerA.user.id}"][data-card-id="${commanderId}"]`).first();
-        const target = pageA.locator(`[data-testid="battlefield-zone"][data-player-id="${playerA.user.id}"]`).first();
+        const source = pageA.locator(`[data-testid="command-zone-card"][data-player-id="${playerA.user.id}"][data-card-id="${commanderId}"]`);
+        const target = pageA.locator(`[data-testid="battlefield-zone"][data-player-id="${playerA.user.id}"]`);
+        await expect(source).toHaveCount(1);
+        await expect(target).toHaveCount(1);
         await expect(source).toBeVisible({ timeout: 15_000 });
         await expect(target).toBeVisible({ timeout: 15_000 });
         const beforeFrames = framesA.length;
@@ -450,10 +466,29 @@ async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   if (await panel.getAttribute('data-player-id') === playerId) {
     return;
   }
-  const thumb = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`).first();
+
+  const drawer = page.getByTestId('opponents-drawer-toggle');
+  const drawerVisible = await drawer.isVisible();
+  if (drawerVisible && await drawer.getAttribute('aria-expanded') !== 'true') {
+    await drawer.focus();
+    await expect(drawer).toBeFocused();
+    await drawer.press('Enter');
+    await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+  }
+
+  const thumb = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
+  const targetCount = await thumb.count();
+  if (targetCount !== 1) {
+    throw new Error(`Expected exactly one opponent mini-board for ${playerId}, found ${targetCount}.`);
+  }
   await expect(thumb).toBeVisible({ timeout: 10_000 });
-  await thumb.click();
+  await thumb.focus();
+  await expect(thumb).toBeFocused();
+  await thumb.press('Enter');
   await expect.poll(async () => panel.getAttribute('data-player-id'), { timeout: 5_000 }).toBe(playerId);
+  if (drawerVisible) {
+    await expect(drawer).toHaveAttribute('aria-expanded', 'false');
+  }
 }
 
 function collectWebSocketFrames(page: Page): JsonObject[] {

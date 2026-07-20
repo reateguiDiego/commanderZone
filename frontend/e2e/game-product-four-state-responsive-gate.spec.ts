@@ -98,6 +98,7 @@ test.describe('Gameplay 1.0 Sprint 3C four-state responsive gate', () => {
         await assertResponsiveSurface(viewer, expectedState(await viewer.evaluate(() => innerWidth), await viewer.evaluate(() => innerHeight), scenario.players), scenario.players);
         await assertOpponentProjection(owner, scenario.players);
         await assertOpponentProjection(viewer, scenario.players);
+        await assertResponsivePlayerFocus(owner, setup.players[0]!.user.id, setup.players[1]!.user.id);
         await setBattlefieldZoom(owner, scenario.battlefieldZoom);
         await assertResponsiveSurface(owner, scenario.state, scenario.players);
         await assertZoneModalFits(owner);
@@ -270,6 +271,19 @@ async function assertOpponentProjection(page: Page, playerCount: number): Promis
   }
 }
 
+async function assertResponsivePlayerFocus(page: Page, ownerPlayerId: string, opponentPlayerId: string): Promise<void> {
+  const drawer = page.getByTestId('opponents-drawer-toggle');
+  if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+    await drawer.click();
+    await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+  }
+
+  await focusPlayerById(page, opponentPlayerId);
+  await focusPlayerById(page, opponentPlayerId);
+  await focusPlayerById(page, ownerPlayerId);
+  await expect(focusPlayerById(page, 'missing-responsive-player')).rejects.toThrow('found 0');
+}
+
 async function assertZoneModalFits(page: Page): Promise<void> {
   const graveyard = page.locator('[data-testid="drop-zone"][data-zone="graveyard"]');
   await graveyard.click();
@@ -357,18 +371,35 @@ async function setBattlefieldZoom(page: Page, zoom: 70 | 100 | 140): Promise<voi
 
 async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   const panel = page.getByTestId('player-panel');
-  if (await panel.getAttribute('data-player-id') === playerId) return;
-  const drawer = page.locator('.opponents-drawer-handle');
+  const drawer = page.getByTestId('opponents-drawer-toggle');
   const drawerVisible = await drawer.isVisible();
+  if (await panel.getAttribute('data-player-id') === playerId) {
+    if (drawerVisible && await drawer.getAttribute('aria-expanded') === 'true') {
+      await drawer.click();
+      await expect(drawer).toHaveAttribute('aria-expanded', 'false');
+    }
+    return;
+  }
   if (drawerVisible && await drawer.getAttribute('aria-expanded') !== 'true') {
     await drawer.click();
     await expect(drawer).toHaveAttribute('aria-expanded', 'true');
   }
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
+  const targetCount = await board.count();
+  if (targetCount !== 1) {
+    if (drawerVisible && await drawer.getAttribute('aria-expanded') === 'true') {
+      await drawer.click();
+      await expect(drawer).toHaveAttribute('aria-expanded', 'false');
+    }
+    throw new Error(`Expected exactly one opponent mini-board for ${playerId}, found ${targetCount}.`);
+  }
   await expect(board).toBeVisible();
 	if (drawerVisible) await expectWithinViewport(page, board);
-  await board.click();
+  await board.focus();
+  await expect(board).toBeFocused();
+  await board.press('Enter');
   await expect(panel).toHaveAttribute('data-player-id', playerId);
+  if (drawerVisible) await expect(drawer).toHaveAttribute('aria-expanded', 'false');
 }
 
 async function expectWithinViewport(page: Page, locator: Locator): Promise<void> {

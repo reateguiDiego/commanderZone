@@ -84,15 +84,34 @@ describe('TokenSearchModalComponent', () => {
     }
   });
 
-  it('clamps token quantity to the supported range', () => {
+  it('blocks invalid token quantities without silently clamping', async () => {
+    const selected = vi.fn();
+    fixture.componentInstance.cardSelected.subscribe(selected);
     fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('deckId', 'deck-1');
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     fixture.componentInstance.onQuantityInput('99');
-    expect(fixture.componentInstance.quantity()).toBe(20);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.quantity()).toBe(99);
+    expect(fixture.componentInstance.quantityValid()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.token-add-button')?.disabled).toBe(true);
 
     fixture.componentInstance.onQuantityInput('0');
-    expect(fixture.componentInstance.quantity()).toBe(1);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.quantity()).toBe(0);
+    expect(fixture.componentInstance.quantityValid()).toBe(false);
+
+    fixture.componentInstance.onQuantityInput('1.5');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.quantityValid()).toBe(false);
+    fixture.componentInstance.selectCard(cardFixture('token-3', 'Treasure'));
+    expect(selected).not.toHaveBeenCalled();
+
+    fixture.componentInstance.onQuantityInput('20');
+    expect(fixture.componentInstance.quantityValid()).toBe(true);
   });
 
   it('searches emblems by gameplayKind and emits selected emblem without quantity controls', async () => {

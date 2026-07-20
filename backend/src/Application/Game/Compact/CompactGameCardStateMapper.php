@@ -349,6 +349,14 @@ final class CompactGameCardStateMapper
         $cardKey = $providedCardKey ?? $bundle->cardKey;
         $catalog[$cardKey] = $this->catalogCard($bundle, $card, $cardKey);
         $runtime = CardInstanceRuntime::fromLegacyCard($card, $cardKey, $ownerId, $zone)->toArray();
+        if ($providedCardKey !== null) {
+            $runtime['authoritativeIdentity'] = true;
+            foreach (['printId', 'cardVersion', 'language', 'viewerVisibility'] as $identityField) {
+                if (is_string($card[$identityField] ?? null) && trim($card[$identityField]) !== '') {
+                    $runtime[$identityField] = trim($card[$identityField]);
+                }
+            }
+        }
         if (($runtime['isToken'] ?? false) === true && is_array($runtime['tokenMeta'] ?? null)) {
             $runtime['tokenMeta']['templateCardKey'] ??= $cardKey;
             $runtime['tokenMeta']['templateCardVersion'] ??= $catalog[$cardKey]['cardVersion'] ?? $bundle->cardVersion;
@@ -411,6 +419,11 @@ final class CompactGameCardStateMapper
         $catalogCard['cardKey'] = $cardKey;
         if (is_string($card['cardVersion'] ?? null) && trim((string) $card['cardVersion']) !== '') {
             $catalogCard['cardVersion'] = trim((string) $card['cardVersion']);
+        }
+        foreach (['printId', 'language', 'viewerVisibility'] as $identityField) {
+            if (is_string($card[$identityField] ?? null) && trim($card[$identityField]) !== '') {
+                $catalogCard[$identityField] = trim($card[$identityField]);
+            }
         }
 
         return $catalogCard;
@@ -492,6 +505,32 @@ final class CompactGameCardStateMapper
         }
         if ($preserveIdentity) {
             $hydrated['cardVersion'] = $bundle->cardVersion;
+            if (($card['authoritativeIdentity'] ?? false) === true) {
+                $catalogCard = is_array($catalog[$cardKey] ?? null) ? $catalog[$cardKey] : [];
+                $hydrated['cardKey'] = $cardKey;
+                $hydrated['cardRef'] = $cardKey;
+                $hydrated['printId'] = $this->firstIdentityString(
+                    $card['printId'] ?? null,
+                    $catalogCard['printId'] ?? null,
+                    $bundle->scryfallId,
+                    $cardKey,
+                );
+                $hydrated['cardVersion'] = $this->firstIdentityString(
+                    $card['cardVersion'] ?? null,
+                    $catalogCard['cardVersion'] ?? null,
+                    $bundle->cardVersion,
+                );
+                $hydrated['language'] = $this->firstIdentityString(
+                    $card['language'] ?? null,
+                    $catalogCard['language'] ?? null,
+                    'en',
+                );
+                $hydrated['viewerVisibility'] = $this->firstIdentityString(
+                    $card['viewerVisibility'] ?? null,
+                    $catalogCard['viewerVisibility'] ?? null,
+                    'public',
+                );
+            }
         }
 
         if (is_string($layout) && trim($layout) !== '') {
@@ -505,6 +544,17 @@ final class CompactGameCardStateMapper
         }
 
         return $hydrated;
+    }
+
+    private function firstIdentityString(mixed ...$values): string
+    {
+        foreach ($values as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return '';
     }
 
     private function zoneCarriesPublicIdentity(string $zone): bool

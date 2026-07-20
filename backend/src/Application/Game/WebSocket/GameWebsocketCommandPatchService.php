@@ -13,6 +13,7 @@ use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\InvalidTokenQuantityException;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
 use App\Application\Game\Performance\GameplayNullMetricsRecorder;
@@ -723,8 +724,9 @@ final readonly class GameWebsocketCommandPatchService
                         $messageId,
                         $clientActionId,
                         $currentVersion,
-                        'INVALID_COMMAND_MESSAGE',
+                        $this->invalidCommandCode($exception, 'INVALID_COMMAND_MESSAGE'),
                         $exception->getMessage(),
+                        $this->invalidCommandExtra($exception),
                     );
                     $this->recordMetric(
                         $metricsRecorder,
@@ -905,8 +907,9 @@ final readonly class GameWebsocketCommandPatchService
                     $messageId,
                     $clientActionId,
                     $currentVersion,
-                    'COMMAND_REJECTED',
+                    $this->invalidCommandCode($exception, 'COMMAND_REJECTED'),
                     $exception->getMessage(),
+                    $this->invalidCommandExtra($exception),
                 );
                 $this->recordMetric(
                     $metricsRecorder,
@@ -1271,8 +1274,9 @@ final readonly class GameWebsocketCommandPatchService
                 $messageId,
                 $clientActionId,
                 $baseVersion,
-                'INVALID_COMMAND_MESSAGE',
+                $this->invalidCommandCode($exception, 'INVALID_COMMAND_MESSAGE'),
                 $exception->getMessage(),
+                $this->invalidCommandExtra($exception),
             );
         } catch (GameplayRuntimePatchContractException $exception) {
             return $this->runtimeFinalFailureResult(
@@ -3632,6 +3636,23 @@ final readonly class GameWebsocketCommandPatchService
     private function metricsInspector(): GameplayMetricsInspector
     {
         return $this->metricsInspector ?? new GameplayMetricsInspector();
+    }
+
+    private function invalidCommandCode(\InvalidArgumentException $exception, string $fallback): string
+    {
+        return $exception instanceof InvalidTokenQuantityException
+            ? InvalidTokenQuantityException::CODE
+            : $fallback;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function invalidCommandExtra(\InvalidArgumentException $exception): array
+    {
+        return $exception instanceof InvalidTokenQuantityException
+            ? ['min' => InvalidTokenQuantityException::MIN, 'max' => InvalidTokenQuantityException::MAX]
+            : [];
     }
 
     /**

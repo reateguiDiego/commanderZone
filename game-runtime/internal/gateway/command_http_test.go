@@ -70,6 +70,50 @@ func TestCommandHTTPServerProcessesRuntimeMulligan(t *testing.T) {
 	}
 }
 
+func TestCommandHTTPServerReturnsStableTokenQuantityContractWithoutMutation(t *testing.T) {
+	initial := testInitialState("game-token-quantity-http")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
+	body, err := json.Marshal(CommandHTTPRequest{
+		ActorID: "p1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         initial.GameID,
+			BaseVersion:    initial.Version,
+			ClientActionID: "invalid-token-quantity-http",
+			Type:           "card.token.created",
+			Payload:        map[string]any{"playerId": "p1", "quantity": 21, "card": map[string]any{"name": "Treasure"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body)))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != actor.TokenQuantityErrorCode || response.Min != 1 || response.Max != 20 || response.CommandType != "card.token.created" {
+		t.Fatalf("quantity error contract = %#v", response)
+	}
+	events, err := store.EventsAfter(context.Background(), initial.GameID, initial.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("invalid quantity persisted %d events", len(events))
+	}
+	gameActor, ok := server.runtime.Actor(initial.GameID)
+	if !ok || gameActor.Version() != initial.Version {
+		t.Fatalf("invalid quantity changed actor version")
+	}
+}
+
 func TestCommandHTTPServerTimeoutCanBeConfigured(t *testing.T) {
 	server := NewCommandHTTPServer(runtimesvc.NewService())
 

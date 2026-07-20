@@ -72,6 +72,7 @@ class GameProjectionService
             is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [],
             fn (mixed $message): bool => is_array($message) && $this->canViewChatMessage($message, $viewerId),
         ));
+        $projectedRelationRefs = [];
 
         foreach ($snapshot['players'] as $playerId => &$player) {
             $rawPlayer = $player;
@@ -83,6 +84,7 @@ class GameProjectionService
             $tailTopLibrary = $this->libraryOps()->usesTailTop(is_array($rawPlayer) ? $rawPlayer : []);
 
             foreach ($player['zones'] as $zone => &$cards) {
+                $rawZoneCards = array_values(is_array($cards) ? $cards : []);
                 $zoneCounts[$zone] = count($cards);
                 $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
                 if ((string) $zone === 'library' && $isOwnHiddenZone && !$isMulliganPhase) {
@@ -125,6 +127,16 @@ class GameProjectionService
 						array_keys($cards),
 					));
                 }
+                if ((string) $zone === 'battlefield') {
+                    foreach ($rawZoneCards as $index => $rawCard) {
+                        $canonicalId = is_array($rawCard) ? trim((string) ($rawCard['instanceId'] ?? '')) : '';
+                        $projectedCard = $cards[$index] ?? null;
+                        $projectedId = is_array($projectedCard) ? trim((string) ($projectedCard['instanceId'] ?? '')) : '';
+                        if ($canonicalId !== '' && $projectedId !== '') {
+                            $projectedRelationRefs[$canonicalId] = $projectedId;
+                        }
+                    }
+                }
             }
             unset($cards);
             $player['zoneCounts'] = $zoneCounts;
@@ -143,6 +155,23 @@ class GameProjectionService
             }
         }
         unset($player);
+
+        $snapshot['arrows'] = $this->projectBinaryRelationsForViewer(
+            is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : [],
+            'fromInstanceId',
+            'toInstanceId',
+            $projectedRelationRefs,
+        );
+        $snapshot['attachments'] = $this->projectBinaryRelationsForViewer(
+            is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
+            'equipmentInstanceId',
+            'attachedToInstanceId',
+            $projectedRelationRefs,
+        );
+        $snapshot['battlefieldStacks'] = $this->projectBattlefieldStacksForViewer(
+            is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
+            $projectedRelationRefs,
+        );
 
         $snapshot['stack'] = $this->projectStackForViewer(
             is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
@@ -169,6 +198,99 @@ class GameProjectionService
         unset($snapshot['loc'], $snapshot['visibility']);
 
         return $snapshot;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $relations
+     * @param array<string,string>       $projectedRelationRefs
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectBinaryRelationsForViewer(
+        array $relations,
+        string $sourceField,
+        string $targetField,
+        array $projectedRelationRefs,
+    ): array {
+        $projected = [];
+        foreach ($relations as $relation) {
+            if (!is_array($relation)) {
+                continue;
+            }
+            $sourceCanonical = trim((string) ($relation[$sourceField] ?? ''));
+            $targetCanonical = trim((string) ($relation[$targetField] ?? ''));
+            $sourceProjected = $this->projectRelationInstanceReferenceForViewer($sourceCanonical, $projectedRelationRefs);
+            $targetProjected = $this->projectRelationInstanceReferenceForViewer($targetCanonical, $projectedRelationRefs);
+            if ($sourceProjected === null || $targetProjected === null) {
+                continue;
+            }
+            $sourceOpaque = $sourceProjected !== $sourceCanonical;
+            $targetOpaque = $targetProjected !== $targetCanonical;
+            if ($sourceOpaque !== $targetOpaque) {
+                // A mixed canonical/opaque edge reveals hidden battlefield structure.
+                continue;
+            }
+            $relation[$sourceField] = $sourceProjected;
+            $relation[$targetField] = $targetProjected;
+            $projected[] = $relation;
+        }
+
+        return $projected;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $stacks
+     * @param array<string,string>       $projectedRelationRefs
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectBattlefieldStacksForViewer(array $stacks, array $projectedRelationRefs): array
+    {
+        $projected = [];
+        foreach ($stacks as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            $rootCanonical = trim((string) ($stack['rootInstanceId'] ?? ''));
+            $members = array_values(array_filter($stack['orderedMemberIds'] ?? [], static fn (mixed $id): bool => is_string($id) && trim($id) !== ''));
+            $canonicalRefs = array_values(array_unique([$rootCanonical, ...$members]));
+            $projectedRefs = [];
+            $opacity = null;
+            foreach ($canonicalRefs as $canonicalRef) {
+                $resolved = $this->projectRelationInstanceReferenceForViewer($canonicalRef, $projectedRelationRefs);
+                if ($resolved === null) {
+                    continue 2;
+                }
+                $currentOpacity = $resolved !== $canonicalRef;
+                if ($opacity !== null && $opacity !== $currentOpacity) {
+                    continue 2;
+                }
+                $opacity = $currentOpacity;
+                $projectedRefs[$canonicalRef] = $resolved;
+            }
+            $stack['rootInstanceId'] = $projectedRefs[$rootCanonical];
+            $stack['orderedMemberIds'] = array_values(array_map(
+                static fn (string $memberId): string => $projectedRefs[$memberId],
+                $members,
+            ));
+            $projected[] = $stack;
+        }
+
+        return $projected;
+    }
+
+    /**
+     * @param array<string,string> $projectedRelationRefs
+     */
+    private function projectRelationInstanceReferenceForViewer(string $instanceId, array $projectedRelationRefs): ?string
+    {
+        if ($instanceId === '' || !array_key_exists($instanceId, $projectedRelationRefs)) {
+            return null;
+        }
+
+        $projected = trim($projectedRelationRefs[$instanceId]);
+
+        return $projected !== '' ? $projected : null;
     }
 
     /**

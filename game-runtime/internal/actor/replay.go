@@ -61,7 +61,9 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "library.reveal", "library.play_top_revealed":
 		return replayViaApplier(game, event, appliers)
-	case "card.token.created", "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
+	case "card.token.created":
+		return replayTokenCreatedEvent(game, event, appliers)
+	case "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
 		return replayViaApplier(game, event, appliers)
 	case "stack.card_added", "stack.item_removed":
 		return replayStackEvent(game, event)
@@ -1068,6 +1070,261 @@ func replayMulliganBottomed(game *state.GameState, playerID string, bottomedIDs 
 		}
 	}
 	return state.NewLibraryOps().PutManyOnBottom(game, playerID, bottomedIDs)
+}
+
+func replayTokenCreatedEvent(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	rawTokens, hasTokens := event.Payload["tokens"]
+	if !hasTokens {
+		return replayLegacyTokenCreatedEvent(game, event, appliers)
+	}
+	tokens, validTokens := tokenEventMaps(rawTokens)
+	if !validTokens {
+		return fmt.Errorf("%w: card.token.created tokens", ErrInvalidPayloadField)
+	}
+	if rawEffectVersion, hasEffectVersion := event.Payload["effectVersion"]; hasEffectVersion {
+		effectVersion, validEffectVersion := strictInteger(rawEffectVersion)
+		if !validEffectVersion || effectVersion != tokenCreatedEffectVersion {
+			return fmt.Errorf("%w: card.token.created effectVersion", ErrInvalidPayloadField)
+		}
+	}
+	quantity, ok := strictInteger(event.Payload["count"])
+	if !ok || quantity < MinTokenCreateQuantity || quantity > MaxTokenCreateQuantity || quantity != len(tokens) {
+		return fmt.Errorf("%w: card.token.created count/tokens", ErrInvalidPayloadField)
+	}
+	playerID := optionalString(event.Payload, "playerId")
+	if playerID == "" {
+		playerID = optionalString(event.Payload, "actorPlayerId")
+	}
+	if _, ok := game.Players[playerID]; !ok {
+		return fmt.Errorf("%w: card.token.created playerId", ErrInvalidPayloadField)
+	}
+	expectedIDs, err := stringSliceField(event.Payload, "instanceIds")
+	if err != nil || len(expectedIDs) != quantity {
+		return fmt.Errorf("%w: card.token.created instanceIds", ErrInvalidPayloadField)
+	}
+	ids := make([]string, 0, quantity)
+	seen := make(map[string]struct{}, quantity)
+	for index, token := range tokens {
+		instance, instanceErr := tokenInstanceFromEvent(token, playerID, event.Type)
+		if instanceErr != nil {
+			return instanceErr
+		}
+		if expectedIDs[index] != instance.InstanceID {
+			return fmt.Errorf("%w: card.token.created token order", ErrInvalidPayloadField)
+		}
+		if _, duplicate := seen[instance.InstanceID]; duplicate {
+			return fmt.Errorf("%w: card.token.created duplicate instanceId", ErrInvalidPayloadField)
+		}
+		if _, exists := game.Instances[instance.InstanceID]; exists {
+			return fmt.Errorf("%w: card.token.created existing instanceId", ErrInvalidPayloadField)
+		}
+		seen[instance.InstanceID] = struct{}{}
+		ids = append(ids, instance.InstanceID)
+		game.Instances[instance.InstanceID] = instance
+	}
+	if _, err := state.NewZoneOps().AddMany(game, playerID, state.ZoneBattlefield, ids, state.ZoneInsertAppend); err != nil {
+		return err
+	}
+	return nil
+}
+
+func replayLegacyTokenCreatedEvent(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	count, ok := strictInteger(event.Payload["count"])
+	if !ok || count < MinTokenCreateQuantity || count > MaxTokenCreateQuantity {
+		return fmt.Errorf("%w: legacy card.token.created count", ErrInvalidPayloadField)
+	}
+	payload := cloneMap(event.Payload)
+	payload["quantity"] = count
+	if _, hasCard := payload["card"].(map[string]any); !hasCard {
+		card := map[string]any{}
+		cardKey := optionalString(payload, "cardKey")
+		if staticCards, ok := payload["staticCards"].(map[string]map[string]any); ok {
+			card = cloneMap(staticCards[cardKey])
+		} else if staticCards, ok := payload["staticCards"].(map[string]any); ok {
+			card = cloneMap(mapField(staticCards, cardKey))
+		}
+		if len(card) == 0 {
+			card["cardKey"] = cardKey
+			card["name"] = optionalString(payload, "name")
+			if tokenMeta := mapField(payload, "tokenMeta"); len(tokenMeta) > 0 {
+				card["cardVersion"] = compactOptionalString(tokenMeta["templateCardVersion"])
+				card["scryfallId"] = compactOptionalString(tokenMeta["templateScryfallId"])
+			}
+		}
+		payload["card"] = card
+	}
+	legacy := event
+	legacy.Payload = payload
+	return replayViaApplier(game, legacy, appliers)
+}
+
+func tokenEventMaps(value any) ([]map[string]any, bool) {
+	switch typed := value.(type) {
+	case []map[string]any:
+		if len(typed) == 0 {
+			return nil, false
+		}
+		return typed, true
+	case []any:
+		if len(typed) == 0 {
+			return nil, false
+		}
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			token, ok := item.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, token)
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func tokenInstanceFromEvent(token map[string]any, fallbackPlayerID string, commandType string) (state.CardInstanceRuntime, error) {
+	instanceID := optionalString(token, "instanceId")
+	cardKey := optionalString(token, "cardKey")
+	if instanceID == "" || cardKey == "" {
+		return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created identity", ErrInvalidPayloadField)
+	}
+	ownerID := optionalString(token, "ownerPlayerId")
+	if ownerID == "" {
+		ownerID = optionalString(token, "ownerId")
+	}
+	controllerID := optionalString(token, "controllerPlayerId")
+	if controllerID == "" {
+		controllerID = optionalString(token, "controllerId")
+	}
+	if ownerID == "" {
+		ownerID = fallbackPlayerID
+	}
+	if controllerID == "" {
+		controllerID = fallbackPlayerID
+	}
+	if ownerID != fallbackPlayerID || controllerID != fallbackPlayerID {
+		return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created owner/controller", ErrInvalidPayloadField)
+	}
+	zone := state.Zone(optionalString(token, "zone"))
+	if zone != state.ZoneBattlefield {
+		return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created zone", ErrInvalidPayloadField)
+	}
+	position, err := canonicalRatioPosition(token["position"], commandType, instanceID, 0)
+	if err != nil {
+		return state.CardInstanceRuntime{}, err
+	}
+	rotation, ok := optionalStrictInteger(token, "rotation", 0)
+	if !ok {
+		return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created rotation", ErrInvalidPayloadField)
+	}
+	activeFace, ok := optionalStrictInteger(token, "activeFace", 0)
+	if !ok {
+		return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created activeFace", ErrInvalidPayloadField)
+	}
+	if _, exists := token["activeFace"]; !exists {
+		activeFace, ok = optionalStrictInteger(token, "activeFaceIndex", 0)
+		if !ok {
+			return state.CardInstanceRuntime{}, fmt.Errorf("%w: card.token.created activeFaceIndex", ErrInvalidPayloadField)
+		}
+	}
+	counters, err := tokenCountersFromEvent(token["counters"])
+	if err != nil {
+		return state.CardInstanceRuntime{}, err
+	}
+	mutableStats := cloneMap(mapField(token, "mutableStats"))
+	if len(mutableStats) == 0 {
+		mutableStats = map[string]any{}
+		for _, key := range []string{"power", "toughness", "loyalty", "defense", "saga"} {
+			if value, exists := token[key]; exists && value != nil {
+				mutableStats[key] = compactStat(value, nil)
+			}
+		}
+	}
+	return state.CardInstanceRuntime{
+		InstanceID:      instanceID,
+		CardKey:         cardKey,
+		PrintID:         optionalString(token, "printId"),
+		CardVersion:     optionalString(token, "cardVersion"),
+		Language:        optionalString(token, "language"),
+		OwnerID:         ownerID,
+		ControllerID:    controllerID,
+		Zone:            zone,
+		IsToken:         true,
+		TokenMeta:       cloneMap(mapField(token, "tokenMeta")),
+		Tapped:          optionalBool(token, "tapped"),
+		Rotation:        rotation,
+		Counters:        counters,
+		MutableStats:    mutableStats,
+		PrintedStats:    tokenNestedStatsFromEvent(token["printedStats"]),
+		ManualOverrides: tokenNestedStatsFromEvent(token["manualOverrides"]),
+		Position:        position,
+		FaceDown:        optionalBool(token, "faceDown"),
+		ActiveFace:      activeFace,
+		VisibleToMask:   1,
+	}, nil
+}
+
+func optionalStrictInteger(values map[string]any, key string, fallback int) (int, bool) {
+	value, exists := values[key]
+	if !exists || value == nil {
+		return fallback, true
+	}
+	return strictInteger(value)
+}
+
+func optionalBool(values map[string]any, key string) bool {
+	value, _ := values[key].(bool)
+	return value
+}
+
+func tokenCountersFromEvent(value any) (map[string]int, error) {
+	if value == nil {
+		return map[string]int{}, nil
+	}
+	if counters, ok := value.(map[string]int); ok {
+		return cloneIntMap(counters), nil
+	}
+	raw, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: card.token.created counters", ErrInvalidPayloadField)
+	}
+	counters := make(map[string]int, len(raw))
+	for key, value := range raw {
+		count, valid := strictInteger(value)
+		if !valid {
+			return nil, fmt.Errorf("%w: card.token.created counters", ErrInvalidPayloadField)
+		}
+		counters[key] = count
+	}
+	return counters, nil
+}
+
+func tokenNestedStatsFromEvent(value any) map[string]map[string]any {
+	if value == nil {
+		return nil
+	}
+	if stats, ok := value.(map[string]map[string]any); ok {
+		return copyNestedStatsMap(stats)
+	}
+	raw, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	stats := make(map[string]map[string]any, len(raw))
+	for faceKey, value := range raw {
+		face, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		stats[faceKey] = cloneMap(face)
+		if faceIndex, exists := stats[faceKey]["faceIndex"]; exists {
+			if normalized, valid := strictInteger(faceIndex); valid {
+				stats[faceKey]["faceIndex"] = normalized
+			}
+		}
+	}
+	return stats
 }
 
 func mulliganStateFromAny(value any) (state.MulliganState, bool) {

@@ -2012,6 +2012,121 @@ class GameEventStoreV2Test extends TestCase
         self::assertArrayNotHasKey('runtime-token-1', $bootstrap['instances']);
     }
 
+    public function testReplayAppliesVersionedRuntimeTokenFinalEffectsExactlyThroughCompactBootstrap(): void
+    {
+        $actor = new User('runtime-token-effects@example.test', 'Runtime Token Effects');
+        $actor->updateCardLanguage('es');
+        $handler = new GameCommandHandler();
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), ['battlefield' => []]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $tokens = [];
+        foreach ([
+            ['id' => 'runtime-treasure-0', 'x' => 0.31, 'tapped' => false, 'rotation' => 0, 'counters' => []],
+            ['id' => 'runtime-treasure-1', 'x' => 0.37, 'tapped' => true, 'rotation' => 90, 'counters' => ['charge' => 2]],
+        ] as $fixture) {
+            $tokens[] = [
+                'instanceId' => $fixture['id'],
+                'ownerPlayerId' => $actor->id(),
+                'controllerPlayerId' => $actor->id(),
+                'name' => 'Tesoro',
+                'cardKey' => 'treasure-print:token',
+                'printId' => 'treasure-print-es',
+                'cardVersion' => 'token-catalog-v3',
+                'language' => 'es',
+                'zone' => 'battlefield',
+                'isToken' => true,
+                'tokenMeta' => [
+                    'isCopy' => false,
+                    'templateCardKey' => 'treasure-print:token',
+                    'templateCardVersion' => 'token-catalog-v3',
+                    'templateScryfallId' => 'treasure-print',
+                ],
+                'position' => ['x' => $fixture['x'], 'y' => 0.48, 'unit' => 'ratio'],
+                'counters' => $fixture['counters'],
+                'tapped' => $fixture['tapped'],
+                'rotation' => $fixture['rotation'],
+                'faceDown' => false,
+                'activeFace' => 0,
+                'mutableStats' => ['power' => 0, 'toughness' => 0],
+                'printedStats' => ['0' => ['power' => 0, 'toughness' => 0, 'provenance' => 'token_creation']],
+                'manualOverrides' => [],
+            ];
+        }
+        $event = new GameEvent($game, 'card.token.created', [
+            'effectVersion' => 1,
+            'actorPlayerId' => $actor->id(),
+            'playerId' => $actor->id(),
+            'count' => 2,
+            'instanceIds' => ['runtime-treasure-0', 'runtime-treasure-1'],
+            'tokens' => $tokens,
+            'staticCards' => [
+                'treasure-print:token' => [
+                    'cardRef' => 'treasure-print:token',
+                    'cardKey' => 'treasure-print:token',
+                    'printId' => 'treasure-print-es',
+                    'cardVersion' => 'token-catalog-v3',
+                    'language' => 'es',
+                    'name' => 'Tesoro',
+                    'defaultPower' => 0,
+                    'defaultToughness' => 0,
+                ],
+            ],
+            'eventLogEntries' => [[
+                'id' => 'runtime-token-effects-log',
+                'type' => 'card.token.created',
+                'i18nKey' => 'gameLog.token.createdMany',
+                'params' => ['actorPlayerId' => $actor->id(), 'playerId' => $actor->id(), 'count' => 2, 'tokenName' => 'Tesoro'],
+            ]],
+        ], $actor, 'runtime-token-effects', 2);
+
+        $directReplay = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+        self::assertSame('treasure-print:token', $this->cardById($directReplay, $actor->id(), 'battlefield', 'runtime-treasure-0')['cardKey'] ?? null);
+        self::assertSame('treasure-print-es', $this->cardById($directReplay, $actor->id(), 'battlefield', 'runtime-treasure-0')['printId'] ?? null);
+
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.token.created');
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$event]);
+        $mapper = new CompactGameCardStateMapper();
+        $rebuilt = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($rebuilt)));
+
+        self::assertSame(2, $rebuilt['version']);
+        self::assertSame(['runtime-treasure-0', 'runtime-treasure-1'], $this->zoneIds($rebuilt, $actor->id(), 'battlefield'));
+        foreach ($tokens as $expected) {
+            $actual = $this->cardById($rebuilt, $actor->id(), 'battlefield', $expected['instanceId']);
+            foreach (['instanceId', 'cardKey', 'printId', 'cardVersion', 'language', 'ownerPlayerId', 'controllerPlayerId'] as $field) {
+                $snapshotField = match ($field) {
+                    'ownerPlayerId' => 'ownerId',
+                    'controllerPlayerId' => 'controllerId',
+                    default => $field,
+                };
+                self::assertSame($expected[$field], $actual[$snapshotField] ?? null, $field.' differs after replay.');
+            }
+            $expectedTokenMeta = $expected['tokenMeta'];
+            $actualTokenMeta = is_array($actual['tokenMeta'] ?? null) ? $actual['tokenMeta'] : [];
+            ksort($expectedTokenMeta);
+            ksort($actualTokenMeta);
+            self::assertSame($expectedTokenMeta, $actualTokenMeta);
+            self::assertSame($expected['position'], $actual['position'] ?? null);
+            self::assertSame($expected['counters'], $actual['counters'] ?? null);
+            self::assertSame($expected['tapped'], $actual['tapped'] ?? null);
+            self::assertSame($expected['rotation'], $actual['rotation'] ?? null);
+            self::assertSame($expected['faceDown'], $actual['faceDown'] ?? null);
+            self::assertSame($expected['manualOverrides'], $actual['manualOverrides'] ?? null);
+        }
+        self::assertCount(1, $rebuilt['eventLog']);
+        self::assertSame('gameLog.token.createdMany', $rebuilt['eventLog'][0]['i18nKey'] ?? null);
+        self::assertSame(2, $rebuilt['eventLog'][0]['params']['count'] ?? null);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt)->toArray();
+        self::assertSame(['runtime-treasure-0', 'runtime-treasure-1'], $bootstrap['zones'][$actor->id().':battlefield']['instanceIds'] ?? null);
+        foreach ($tokens as $expected) {
+            $instance = $bootstrap['instances'][$expected['instanceId']] ?? [];
+            self::assertSame($expected['cardKey'], $instance['cardKey'] ?? null);
+            self::assertSame($expected['printId'], $instance['printId'] ?? null);
+            self::assertSame($expected['cardVersion'], $instance['cardVersion'] ?? null);
+            self::assertSame($expected['language'], $instance['language'] ?? null);
+        }
+    }
+
     public function testReplayPreservesRuntimeGoUntapAllForControlledPermanentsAcrossBattlefields(): void
     {
         $actor = new User('runtime-go-untap-owner@example.test', 'Runtime Go Untap Owner');
@@ -2331,7 +2446,7 @@ class GameEventStoreV2Test extends TestCase
         int $snapshotEveryEvents = 25,
         int $snapshotEverySeconds = 30,
     ): GameEventStoreV2 {
-        $registry = $this->createMock(ManagerRegistry::class);
+        $registry = $this->createStub(ManagerRegistry::class);
 
         return new GameEventStoreV2(
             $registry,

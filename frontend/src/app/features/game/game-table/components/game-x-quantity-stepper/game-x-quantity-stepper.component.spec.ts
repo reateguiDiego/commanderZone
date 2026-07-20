@@ -29,6 +29,21 @@ describe('GameXQuantityStepperComponent', () => {
     expect(button(fixture, 'Decrease value').disabled).toBe(true);
     expect(button(fixture, 'Increase value').disabled).toBe(false);
   });
+
+  it('preserves invalid manual input in strict mode for caller validation', () => {
+    const fixture = createFixture(2, 1, 20);
+    fixture.componentRef.setInput('strict', true);
+    fixture.detectChanges();
+    const changes: number[] = [];
+    fixture.componentInstance.valueChanged.subscribe((value) => changes.push(value));
+
+    input(fixture).value = '21';
+    input(fixture).dispatchEvent(new Event('input'));
+    input(fixture).value = '1.5';
+    input(fixture).dispatchEvent(new Event('input'));
+
+    expect(changes).toEqual([21, 1.5]);
+  });
 });
 
 function createFixture(value: number, min: number, max: number): ComponentFixture<GameXQuantityStepperComponent> {
