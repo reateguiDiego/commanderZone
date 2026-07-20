@@ -82,6 +82,7 @@
     [primaryDisabled]="pendingActionId() !== null"
     [danger]="pendingConfirmation.action.actionId === 'faceUp' || pendingConfirmation.action.actionId === 'dissolveStack'"
     [lockBodyScroll]="false"
+    [trapFocus]="true"
     size="compact"
     (primary)="confirm()"
     (secondary)="cancelConfirmation()"

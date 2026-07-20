@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
@@ -15,8 +16,11 @@ import { TextFitDirective } from '../text-fit/text-fit.directive';
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppModalComponent implements OnChanges, OnDestroy {
+export class AppModalComponent implements OnChanges, AfterViewInit, OnDestroy {
   private readonly bodyScrollLock = inject(BodyScrollLockService);
+  private readonly document = inject(DOCUMENT);
+
+  @ViewChild('dialogPanel') private dialogPanel?: ElementRef<HTMLElement>;
 
   @Input() open = false;
   @Input() title = '';
@@ -47,6 +51,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() closeOnBackdrop = false;
   @Input() size: 'default' | 'compact' | 'narrow' | 'wide' = 'default';
   @Input() panelOverflow: 'auto' | 'visible' = 'auto';
+  @Input() trapFocus = false;
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();
@@ -56,6 +61,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Output() secondary = new EventEmitter<void>();
 
   private scrollLocked = false;
+  private focusBeforeOpen: HTMLElement | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['open']) {
@@ -67,10 +73,42 @@ export class AppModalComponent implements OnChanges, OnDestroy {
     } else {
       this.unlockBodyPageScroll();
     }
+
+    if (this.open && this.trapFocus) {
+      this.focusBeforeOpen = this.document.activeElement instanceof HTMLElement ? this.document.activeElement : null;
+      this.scheduleInitialFocus();
+    } else if (!this.open) {
+      this.restoreFocus();
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (this.open && this.trapFocus) this.scheduleInitialFocus();
   }
 
   ngOnDestroy(): void {
     this.unlockBodyPageScroll();
+    this.restoreFocus();
+  }
+
+  handleDialogKeydown(event: KeyboardEvent): void {
+    if (!this.trapFocus || event.key !== 'Tab') return;
+    const focusable = this.focusableElements();
+    if (focusable.length === 0) {
+      event.preventDefault();
+      this.dialogPanel?.nativeElement.focus();
+      return;
+    }
+    const first = focusable[0]!;
+    const last = focusable.at(-1)!;
+    const active = this.document.activeElement;
+    if (event.shiftKey && (active === first || !this.dialogPanel?.nativeElement.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   private lockBodyPageScroll(): void {
@@ -89,5 +127,28 @@ export class AppModalComponent implements OnChanges, OnDestroy {
 
     this.bodyScrollLock.unlock();
     this.scrollLocked = false;
+  }
+
+  private scheduleInitialFocus(): void {
+    queueMicrotask(() => {
+      if (!this.open || !this.trapFocus) return;
+      (this.focusableElements()[0] ?? this.dialogPanel?.nativeElement)?.focus();
+    });
+  }
+
+  private focusableElements(): HTMLElement[] {
+    const panel = this.dialogPanel?.nativeElement;
+    if (!panel) return [];
+    return Array.from(panel.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true');
+  }
+
+  private restoreFocus(): void {
+    const target = this.focusBeforeOpen;
+    this.focusBeforeOpen = null;
+    queueMicrotask(() => {
+      if (target?.isConnected) target.focus();
+    });
   }
 }

@@ -6639,6 +6639,12 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
     expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
 
+    fixture.componentInstance.store.requestSelectionAction('faceDown');
+    expect(fixture.componentInstance.store.selectionActionConfirmation()).not.toBeNull();
+    fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
+    expect(fixture.componentInstance.store.selectionActionConfirmation()).toBeNull();
+    expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
+
     fixture.componentInstance.closeGameDialogOpen.set(true);
     fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
     expect(fixture.componentInstance.closeGameDialogOpen()).toBe(false);

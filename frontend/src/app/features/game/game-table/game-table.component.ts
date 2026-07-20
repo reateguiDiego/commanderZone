@@ -1975,6 +1975,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private consumeModalEscape(): boolean {
+    if (this.store.selectionActionConfirmation()) {
+      this.store.cancelSelectionActionConfirmation();
+      return true;
+    }
     if (this.store.zoneModal()) {
       void this.store.closeZoneModal();
       return true;

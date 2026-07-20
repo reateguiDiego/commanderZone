@@ -62,6 +62,29 @@ describe('AppModalComponent', () => {
     expect(document.body.style.position).toBe('');
   });
 
+  it('moves focus inside and traps Tab when explicitly requested', async () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    outside.focus();
+    fixture.componentRef.setInput('trapFocus', true);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]') as HTMLElement;
+    const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button'));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    buttons.at(-1)!.focus();
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(buttons[0]);
+
+    fixture.destroy();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
   it('emits back when the optional header back button is clicked', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const emitted = vi.fn();

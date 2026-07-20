@@ -1,16 +1,19 @@
 @if (open) {
   <div class="modal-backdrop" role="presentation" (click)="closeOnBackdrop ? close.emit() : null">
     <section
+      #dialogPanel
       class="modal-panel"
       appPrettyScroll
       role="dialog"
       aria-modal="true"
+      tabindex="-1"
       [attr.aria-label]="(ariaLabel || title) ? ((ariaLabel || title) | runtimeTranslate) : null"
       [class.modal-panel-compact]="size === 'compact'"
       [class.modal-panel-narrow]="size === 'narrow'"
       [class.modal-panel-wide]="size === 'wide'"
       [class.modal-panel-overflow-visible]="panelOverflow === 'visible'"
       (click)="$event.stopPropagation()"
+      (keydown)="handleDialogKeydown($event)"
     >
       @if (showCloseButton) {
         <button

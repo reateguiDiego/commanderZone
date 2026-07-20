@@ -69,6 +69,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   position: absolute;
   right: 0;
   bottom: calc(100% + 0.4rem);
+  z-index: 1;
   display: grid;
   min-width: 12rem;
   max-height: min(55dvh, 24rem);
@@ -84,6 +85,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 :host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar__actions--full { display: none; }
 :host-context(.game-screen[data-responsive-state='aggressive']) .selection-toolbar__overflow,
 :host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar__overflow { display: block; }
+
+// The compact action list is rendered above the toolbar. Keeping the desktop
+// horizontal scroller here clips that list and lets the battlefield receive
+// pointer events through the visually open menu.
+:host-context(.game-screen[data-responsive-state='aggressive']) .selection-toolbar,
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-toolbar { overflow: visible; }
 
 :host-context(.game-screen[data-responsive-state='compact']) {
   inset-inline: 0.35rem;
