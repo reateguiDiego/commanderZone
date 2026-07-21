@@ -22,6 +22,7 @@ use App\Application\Game\Runtime\GameplayCommandCatalog;
 use App\Application\Game\Runtime\GameplayRuntimeGateway;
 use App\Application\Game\Runtime\GameplayRuntimePatchContractException;
 use App\Application\Game\Runtime\GameplayRuntimeRoute;
+use App\Application\Game\TokenGroup\TokenGroupContractException;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -3668,9 +3669,11 @@ final readonly class GameWebsocketCommandPatchService
 
     private function invalidCommandCode(\InvalidArgumentException $exception, string $fallback): string
     {
-        return $exception instanceof InvalidTokenQuantityException
-            ? InvalidTokenQuantityException::CODE
-            : $fallback;
+		return match (true) {
+			$exception instanceof InvalidTokenQuantityException => InvalidTokenQuantityException::CODE,
+			$exception instanceof TokenGroupContractException => $exception->errorCode(),
+			default => $fallback,
+		};
     }
 
     /**
@@ -3678,9 +3681,11 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function invalidCommandExtra(\InvalidArgumentException $exception): array
     {
-        return $exception instanceof InvalidTokenQuantityException
-            ? ['min' => InvalidTokenQuantityException::MIN, 'max' => InvalidTokenQuantityException::MAX]
-            : [];
+		return match (true) {
+			$exception instanceof InvalidTokenQuantityException => ['min' => InvalidTokenQuantityException::MIN, 'max' => InvalidTokenQuantityException::MAX],
+			$exception instanceof TokenGroupContractException => $exception->safeContext(),
+			default => [],
+		};
     }
 
     /**

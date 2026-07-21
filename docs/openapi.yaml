@@ -8190,6 +8190,137 @@ components:
         reason: { type: string, minLength: 1 }
     TokenGroupBootstrapRelation:
       $ref: '#/components/schemas/ProjectedTokenGroup'
+    TokenGroupCommandRef:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+    TokenGroupSplitCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision, extractQuantity, destinationPosition]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        extractQuantity: { type: integer, minimum: 1, maximum: 19 }
+        destinationPosition: { $ref: '#/components/schemas/GameCardRatioPosition' }
+    TokenGroupMergeCommand:
+      type: object
+      additionalProperties: false
+      required: [sourceGroupIds, sourceInstanceIds, expectedRevisions, destinationPosition]
+      properties:
+        sourceGroupIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        sourceInstanceIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        targetGroupId: { type: string, minLength: 1 }
+        expectedRevisions:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+        destinationPosition: { $ref: '#/components/schemas/GameCardRatioPosition' }
+    TokenGroupRemoveMembersCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision, quantity]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        quantity: { type: integer, minimum: 1, maximum: 20 }
+        removalReason: { type: string, minLength: 1 }
+    TokenGroupDissolvePosition:
+      type: object
+      additionalProperties: false
+      required: [instanceId, position]
+      properties:
+        instanceId: { type: string, minLength: 1 }
+        position: { $ref: '#/components/schemas/GameCardRatioPosition' }
+    TokenGroupDissolveCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        positions:
+          type: array
+          minItems: 2
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/TokenGroupDissolvePosition' }
+    TokenGroupStateSetCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        tapped: { type: boolean }
+        faceDown: { type: boolean }
+      oneOf:
+        - required: [tapped]
+        - required: [faceDown]
+    TokenGroupPositionSetCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision, position]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        position: { $ref: '#/components/schemas/GameCardRatioPosition' }
+    TokenGroupMoveCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision, toZone]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        toZone: { type: string, enum: [hand, library, graveyard, exile, command] }
+        targetPlayerId: { type: string, minLength: 1 }
+        position: { type: string, enum: [top, bottom] }
+    TokenGroupMutationEventPayload:
+      type: object
+      additionalProperties: true
+      description: Versioned final effects. Replay applies removedGroupIds, resultingGroups, positions and instance effects without recalculating membership or roots.
+      required: [effectVersion, actorPlayerId, removedGroupIds, resultingGroups]
+      properties:
+        effectVersion: { type: integer, const: 1 }
+        actorPlayerId: { type: string, minLength: 1 }
+        removedGroupIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        resultingGroups:
+          type: array
+          items: { $ref: '#/components/schemas/CanonicalTokenGroupEffect' }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/TokenGroupDissolvePosition' }
+        removedInstanceIds:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        instanceStates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required: [instanceId, tapped, rotation, faceDown, visibleToMask, revealedTo]
+            properties:
+              instanceId: { type: string, minLength: 1 }
+              tapped: { type: boolean }
+              rotation: { type: integer }
+              faceDown: { type: boolean }
+              visibleToMask: { type: integer, minimum: 0 }
+              revealedTo:
+                type: array
+                uniqueItems: true
+                items: { type: string, minLength: 1 }
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8594,6 +8725,41 @@ components:
               payload:
                 $ref: '#/components/schemas/TokenCreatedPayload'
         - if:
+            properties: { type: { const: token.group.split } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupSplitCommand' } }
+        - if:
+            properties: { type: { const: token.group.merge } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupMergeCommand' } }
+        - if:
+            properties: { type: { const: token.group.remove_members } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupRemoveMembersCommand' } }
+        - if:
+            properties: { type: { const: token.group.dissolve } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupDissolveCommand' } }
+        - if:
+            properties: { type: { const: token.group.state.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupStateSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.position.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupPositionSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.move } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupMoveCommand' } }
+        - if:
             properties:
               type:
                 const: library.selection.move
@@ -8650,6 +8816,13 @@ components:
             - hand.cards.reveal
             - hand.cards.revoke
             - card.token.created
+            - token.group.split
+            - token.group.merge
+            - token.group.remove_members
+            - token.group.dissolve
+            - token.group.state.set
+            - token.group.position.set
+            - token.group.move
             - card.token_copy.created
             - card.controller.changed
             - turn.changed
@@ -8819,6 +8992,15 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/TokenCreatedEventPayload'
+        - if:
+            properties:
+              type:
+                enum: [token.group.split, token.group.merged, token.group.members.removed, token.group.dissolved, token.group.state.changed, token.group.position.changed, token.group.moved]
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/TokenGroupMutationEventPayload'
       properties:
         id:
           type: string
@@ -8916,6 +9098,41 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/HandCardsVisibilityPayload'
+        - if:
+            properties: { type: { const: token.group.split } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupSplitCommand' } }
+        - if:
+            properties: { type: { const: token.group.merge } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupMergeCommand' } }
+        - if:
+            properties: { type: { const: token.group.remove_members } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupRemoveMembersCommand' } }
+        - if:
+            properties: { type: { const: token.group.dissolve } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupDissolveCommand' } }
+        - if:
+            properties: { type: { const: token.group.state.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupStateSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.position.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupPositionSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.move } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupMoveCommand' } }
       properties:
         gameId:
           type: string

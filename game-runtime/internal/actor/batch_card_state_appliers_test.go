@@ -160,6 +160,10 @@ func TestCardsFaceDownSetRefreshesTokenGroupProjectionWithoutCanonicalLeak(t *te
 	if thirdGroup["groupId"] == canonicalGroupID || thirdGroup["rootRef"] != "p1-hidden-battlefield-1" || thirdGroup["quantity"] != 2 {
 		t.Fatalf("unsafe unauthorized projection: %#v", thirdGroup)
 	}
+	resultingGroups, err := tokenGroupPositionList(hidden.Event.Payload["resultingGroups"])
+	if err != nil || len(resultingGroups) != 1 || resultingGroups[0]["revision"] != 2 {
+		t.Fatalf("batch final group effect mismatch: %#v err=%v", resultingGroups, err)
+	}
 	if _, exposed := thirdGroup["memberRefs"]; exposed {
 		t.Fatalf("unauthorized projection exposed membership: %#v", thirdGroup)
 	}

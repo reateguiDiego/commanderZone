@@ -2,7 +2,7 @@
 
 namespace App\Application\Game\TokenGroup;
 
-final class TokenGroupContractException extends \RuntimeException
+final class TokenGroupContractException extends \InvalidArgumentException
 {
     /**
      * @param array<string,int|string> $safeContext

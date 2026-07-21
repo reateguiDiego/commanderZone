@@ -17,6 +17,12 @@ final class TokenGroupCanonicalizer
     public const EFFECT_VERSION_UNSUPPORTED = 'TOKEN_GROUP_EFFECT_VERSION_UNSUPPORTED';
     public const PROJECTION_INCOMPLETE = 'TOKEN_GROUP_PROJECTION_INCOMPLETE';
     public const PATCH_CONFLICT = 'TOKEN_GROUP_PATCH_CONFLICT';
+    public const NOT_FOUND = 'TOKEN_GROUP_NOT_FOUND';
+    public const STALE = 'TOKEN_GROUP_STALE';
+    public const SPLIT_INVALID = 'TOKEN_GROUP_SPLIT_INVALID';
+    public const MERGE_INVALID = 'TOKEN_GROUP_MERGE_INVALID';
+    public const QUANTITY_INVALID = 'TOKEN_GROUP_QUANTITY_INVALID';
+    public const MEMBER_REQUIRES_SPLIT = 'TOKEN_GROUP_MEMBER_REQUIRES_SPLIT';
 
     private const CANONICAL_FIELDS = [
         'groupId',
@@ -216,6 +222,15 @@ final class TokenGroupCanonicalizer
     public function deterministicGroupId(string $gameId, string $clientActionId): string
     {
         return 'token-group-'.substr(hash('sha256', trim($gameId)."\0".trim($clientActionId)."\0".self::GROUP_ID_DISCRIMINATOR), 0, 24);
+    }
+
+    public function deterministicMutationGroupId(string $gameId, string $clientActionId, string $operation): string
+    {
+        if (!in_array($operation, ['split', 'merge'], true)) {
+            throw $this->error(self::INVARIANT_FAILED, ['invalidIndex' => -1]);
+        }
+
+        return 'token-group-'.substr(hash('sha256', trim($gameId)."\0".trim($clientActionId)."\0token-group-{$operation}-v1"), 0, 24);
     }
 
     public function deterministicInstanceId(string $clientActionId, int $index): string

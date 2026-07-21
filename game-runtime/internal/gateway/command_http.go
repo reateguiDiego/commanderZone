@@ -29,22 +29,26 @@ type CommandHTTPRequest struct {
 }
 
 type CommandHTTPResponse struct {
-	Event            protocol.EventPayloadV2    `json:"event"`
-	Patches          []protocol.PatchEnvelopeV2 `json:"patches"`
-	Metrics          map[string]any             `json:"metrics,omitempty"`
-	Error            string                     `json:"error,omitempty"`
-	Code             string                     `json:"code,omitempty"`
-	CommandType      string                     `json:"commandType,omitempty"`
-	VoteID           string                     `json:"voteId,omitempty"`
-	TargetPlayerID   string                     `json:"targetPlayerId,omitempty"`
-	RemainingSeconds int                        `json:"remainingSeconds,omitempty"`
-	WindowID         string                     `json:"windowId,omitempty"`
-	ExpectedEpoch    *int64                     `json:"expectedEpoch,omitempty"`
-	CurrentEpoch     *int64                     `json:"currentEpoch,omitempty"`
-	Count            *int                       `json:"count,omitempty"`
-	Index            *int                       `json:"index,omitempty"`
-	Min              int                        `json:"min,omitempty"`
-	Max              int                        `json:"max,omitempty"`
+	Event             protocol.EventPayloadV2    `json:"event"`
+	Patches           []protocol.PatchEnvelopeV2 `json:"patches"`
+	Metrics           map[string]any             `json:"metrics,omitempty"`
+	Error             string                     `json:"error,omitempty"`
+	Code              string                     `json:"code,omitempty"`
+	CommandType       string                     `json:"commandType,omitempty"`
+	VoteID            string                     `json:"voteId,omitempty"`
+	TargetPlayerID    string                     `json:"targetPlayerId,omitempty"`
+	RemainingSeconds  int                        `json:"remainingSeconds,omitempty"`
+	WindowID          string                     `json:"windowId,omitempty"`
+	ExpectedEpoch     *int64                     `json:"expectedEpoch,omitempty"`
+	CurrentEpoch      *int64                     `json:"currentEpoch,omitempty"`
+	Count             *int                       `json:"count,omitempty"`
+	Index             *int                       `json:"index,omitempty"`
+	Min               int                        `json:"min,omitempty"`
+	Max               int                        `json:"max,omitempty"`
+	Operation         string                     `json:"operation,omitempty"`
+	RequestedQuantity int                        `json:"requestedQuantity,omitempty"`
+	ExpectedRevision  int                        `json:"expectedRevision,omitempty"`
+	ActualRevision    int                        `json:"actualRevision,omitempty"`
 }
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
@@ -163,6 +167,20 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeCommandHTTPJSON(w, http.StatusBadRequest, CommandHTTPResponse{
 				Error: quantityError.Error(), Code: actor.TokenQuantityErrorCode, CommandType: request.Command.Type,
 				Min: actor.MinTokenCreateQuantity, Max: actor.MaxTokenCreateQuantity,
+			})
+			return
+		}
+		if groupError, ok := state.AsTokenGroupStateError(result.Err); ok {
+			count := groupError.Count
+			var index *int
+			if groupError.InvalidIndex >= 0 {
+				value := groupError.InvalidIndex
+				index = &value
+			}
+			writeCommandHTTPJSON(w, http.StatusConflict, CommandHTTPResponse{
+				Error: groupError.Error(), Code: groupError.Code, CommandType: request.Command.Type,
+				Operation: groupError.Operation, Count: &count, Index: index, RequestedQuantity: groupError.Requested,
+				Min: groupError.Min, Max: groupError.Max, ExpectedRevision: groupError.ExpectedRevision, ActualRevision: groupError.ActualRevision,
 			})
 			return
 		}

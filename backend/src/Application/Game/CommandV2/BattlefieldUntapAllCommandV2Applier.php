@@ -25,10 +25,11 @@ final class BattlefieldUntapAllCommandV2Applier implements GameCommandV2ApplierI
             }
 
             $card['tapped'] = false;
+            $card['rotation'] = 0;
             $states[] = [
                 'instanceId' => (string) ($card['instanceId'] ?? ''),
                 'tapped' => false,
-                'rotation' => (int) ($card['rotation'] ?? 0),
+                'rotation' => 0,
             ];
             ++$untapped;
         }

@@ -421,6 +421,17 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'token.group.split':
+            case 'token.group.merged':
+            case 'token.group.members.removed':
+            case 'token.group.dissolved':
+            case 'token.group.state.changed':
+            case 'token.group.position.changed':
+            case 'token.group.moved':
+                $this->applyRuntimeTokenGroupMutation($snapshot, $event, $payload);
+
+                return true;
+
             case 'card.token_copy.created':
                 $this->applyRuntimeTokenCopyCreated($snapshot, $event, $payload);
 
@@ -715,6 +726,7 @@ final class GameEventReplayService
                 'rotation' => $tapped ? 90 : 0,
             ]);
         }
+        $this->applyUntapAllResultingGroups($snapshot, $payload);
     }
 
     /**
@@ -732,6 +744,7 @@ final class GameEventReplayService
                 }
                 unset($card);
             }
+			$this->applyUntapAllResultingGroups($snapshot, $payload);
 
             return;
         }
@@ -765,7 +778,22 @@ final class GameEventReplayService
             unset($card, $battlefield);
         }
         unset($player);
+        $this->applyUntapAllResultingGroups($snapshot, $payload);
     }
+
+	/** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+	private function applyUntapAllResultingGroups(array &$snapshot, array $payload): void
+	{
+		$raw = $payload['resultingGroups'] ?? [];
+		if (!is_array($raw) || $raw === []) { return; }
+		$resulting = $this->tokenGroups->normalizeCollection($raw);
+		$byId = [];
+		foreach ($this->tokenGroups->normalizeCollection(is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : []) as $group) {
+			$byId[$group['groupId']] = $group;
+		}
+		foreach ($resulting as $group) { $byId[$group['groupId']] = $group; }
+		$snapshot['tokenGroups'] = array_values($byId);
+	}
 
     /**
      * @param array<string,mixed> $payload
@@ -836,6 +864,7 @@ final class GameEventReplayService
                 'faceDown' => ($payload['faceDown'] ?? false) === true,
             ]);
         }
+		$this->applyUntapAllResultingGroups($snapshot, $payload);
     }
 
     /**
@@ -1823,6 +1852,100 @@ final class GameEventReplayService
         if ($contract['tokenGroup'] !== null) {
             $this->applyRuntimeTokenGroup($snapshot, $contract['tokenGroup'], $contract['instanceIds']);
         }
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyRuntimeTokenGroupMutation(array &$snapshot, GameEvent $event, array $payload): void
+    {
+        if (($payload['effectVersion'] ?? null) !== 1) {
+            throw new \RuntimeException(TokenGroupCanonicalizer::EFFECT_VERSION_UNSUPPORTED);
+        }
+        $groups = $this->tokenGroups->normalizeCollection(is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : []);
+        $removed = $this->stringList($payload['removedGroupIds'] ?? []);
+        $removedMembers = [];
+        foreach ($removed as $groupId) {
+            $found = false;
+            foreach ($groups as $group) {
+                if ($group['groupId'] === $groupId) {
+                    $removedMembers = [...$removedMembers, ...$group['orderedMemberIds']];
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                throw new \RuntimeException(TokenGroupCanonicalizer::NOT_FOUND);
+            }
+        }
+        $snapshot['tokenGroups'] = array_values(array_filter($groups, static fn (array $group): bool => !in_array($group['groupId'], $removed, true)));
+
+        foreach (array_values(array_filter($payload['positions'] ?? [], static fn (mixed $entry): bool => is_array($entry))) as $entry) {
+            $this->mutateRuntimeTokenGroupCard($snapshot, (string) ($entry['instanceId'] ?? ''), static function (array $card) use ($entry): array {
+                if (!is_array($entry['position'] ?? null)) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                $card['position'] = $entry['position'];
+                $card['x'] = $entry['position']['x'] ?? null;
+                $card['y'] = $entry['position']['y'] ?? null;
+                return $card;
+            });
+        }
+        foreach (array_values(array_filter($payload['instanceStates'] ?? [], static fn (mixed $entry): bool => is_array($entry))) as $entry) {
+            $this->mutateRuntimeTokenGroupCard($snapshot, (string) ($entry['instanceId'] ?? ''), static function (array $card) use ($entry): array {
+                foreach (['tapped', 'faceDown'] as $field) { if (!is_bool($entry[$field] ?? null)) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); } $card[$field] = $entry[$field]; }
+                if (!is_int($entry['rotation'] ?? null)) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                $card['rotation'] = $entry['rotation'];
+                if (array_key_exists('revealedTo', $entry)) {
+                    if (!is_array($entry['revealedTo']) || !array_is_list($entry['revealedTo'])) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                    $card['revealedTo'] = array_values($entry['revealedTo']);
+                } elseif (($entry['visibleToMask'] ?? null) === 0) {
+                    // Go final effects persist the authoritative visibility mask. A
+                    // zero mask is the fail-closed audience used by concealment.
+                    $card['revealedTo'] = [];
+                } elseif (($entry['faceDown'] ?? false) === true) {
+                    throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH);
+                }
+                return $card;
+            });
+        }
+        $removedInstances = $this->stringList($payload['removedInstanceIds'] ?? []);
+        if ($event->type() === 'token.group.moved') {
+            $removedInstances = $removedMembers;
+        }
+        if ($removedInstances !== []) {
+            $remove = array_fill_keys($removedInstances, true);
+            foreach ($snapshot['players'] as &$player) {
+                $player['zones']['battlefield'] = array_values(array_filter(
+                    is_array($player['zones']['battlefield'] ?? null) ? $player['zones']['battlefield'] : [],
+                    static fn (mixed $card): bool => !is_array($card) || !isset($remove[(string) ($card['instanceId'] ?? '')]),
+                ));
+            }
+            unset($player);
+        }
+        $resultingRaw = $payload['resultingGroups'] ?? null;
+        if (!is_array($resultingRaw) || !array_is_list($resultingRaw)) {
+            throw new \RuntimeException(TokenGroupCanonicalizer::INVARIANT_FAILED);
+        }
+        foreach ($this->tokenGroups->normalizeCollection($resultingRaw) as $group) {
+            if ($group['createdAtVersion'] > $event->version()) {
+                throw new \RuntimeException(TokenGroupCanonicalizer::INVARIANT_FAILED);
+            }
+            $snapshot['tokenGroups'][] = $group;
+        }
+        $snapshot['tokenGroups'] = $this->tokenGroups->normalizeCollection($snapshot['tokenGroups']);
+        $this->rebuildLoc($snapshot);
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function mutateRuntimeTokenGroupCard(array &$snapshot, string $instanceId, callable $mutator): void
+    {
+        if ($instanceId === '') { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            foreach (($player['zones']['battlefield'] ?? []) as $index => $card) {
+                if (is_array($card) && ($card['instanceId'] ?? null) === $instanceId) {
+                    $snapshot['players'][$playerId]['zones']['battlefield'][$index] = $mutator($card);
+                    return;
+                }
+            }
+        }
+        throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH);
     }
 
     /** @param array<string,mixed> $group @param list<string> $expected */

@@ -17,6 +17,7 @@ import (
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
+	"commanderzone/game-runtime/internal/state"
 
 	"github.com/gorilla/websocket"
 )
@@ -74,21 +75,25 @@ type ServerMessage struct {
 }
 
 type ServerErrorPayload struct {
-	Code             string `json:"code"`
-	Message          string `json:"message"`
-	Retryable        bool   `json:"retryable"`
-	CommandType      string `json:"commandType,omitempty"`
-	InstanceID       string `json:"instanceId,omitempty"`
-	Index            *int   `json:"index,omitempty"`
-	VoteID           string `json:"voteId,omitempty"`
-	TargetPlayerID   string `json:"targetPlayerId,omitempty"`
-	RemainingSeconds int    `json:"remainingSeconds,omitempty"`
-	WindowID         string `json:"windowId,omitempty"`
-	ExpectedEpoch    *int64 `json:"expectedEpoch,omitempty"`
-	CurrentEpoch     *int64 `json:"currentEpoch,omitempty"`
-	Count            *int   `json:"count,omitempty"`
-	Min              int    `json:"min,omitempty"`
-	Max              int    `json:"max,omitempty"`
+	Code              string `json:"code"`
+	Message           string `json:"message"`
+	Retryable         bool   `json:"retryable"`
+	CommandType       string `json:"commandType,omitempty"`
+	InstanceID        string `json:"instanceId,omitempty"`
+	Index             *int   `json:"index,omitempty"`
+	VoteID            string `json:"voteId,omitempty"`
+	TargetPlayerID    string `json:"targetPlayerId,omitempty"`
+	RemainingSeconds  int    `json:"remainingSeconds,omitempty"`
+	WindowID          string `json:"windowId,omitempty"`
+	ExpectedEpoch     *int64 `json:"expectedEpoch,omitempty"`
+	CurrentEpoch      *int64 `json:"currentEpoch,omitempty"`
+	Count             *int   `json:"count,omitempty"`
+	Min               int    `json:"min,omitempty"`
+	Max               int    `json:"max,omitempty"`
+	Operation         string `json:"operation,omitempty"`
+	RequestedQuantity int    `json:"requestedQuantity,omitempty"`
+	ExpectedRevision  int    `json:"expectedRevision,omitempty"`
+	ActualRevision    int    `json:"actualRevision,omitempty"`
 }
 
 type WebSocketServer struct {
@@ -726,6 +731,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandTokenQuantityRejectedMessage(command, quantityError))
 			return
 		}
+		if groupError, ok := state.AsTokenGroupStateError(result.Err); ok {
+			s.sendJSON(client, commandTokenGroupRejectedMessage(command, groupError))
+			return
+		}
 		if errors.Is(result.Err, actor.ErrActorPermission) {
 			s.sendJSON(client, commandAuthorizationRejectedMessage(command, &actor.AuthorizationError{
 				Code:        actor.AuthorizationCodePermissionDenied,
@@ -1201,6 +1210,22 @@ func commandTokenQuantityRejectedMessage(command protocol.CommandEnvelopeV2, qua
 			CommandType: command.Type, Min: actor.MinTokenCreateQuantity, Max: actor.MaxTokenCreateQuantity,
 		},
 	}
+}
+
+func commandTokenGroupRejectedMessage(command protocol.CommandEnvelopeV2, groupError *state.TokenGroupStateError) ServerMessage {
+	count := groupError.Count
+	index := groupError.InvalidIndex
+	errorPayload := &ServerErrorPayload{
+		Code: groupError.Code, Message: groupError.Error(), Retryable: false, CommandType: command.Type,
+		Count: &count, Operation: groupError.Operation, RequestedQuantity: groupError.Requested,
+		Min: groupError.Min, Max: groupError.Max, ExpectedRevision: groupError.ExpectedRevision,
+		ActualRevision: groupError.ActualRevision,
+	}
+	if index >= 0 {
+		errorPayload.Index = &index
+	}
+	return ServerMessage{Kind: "command_ack", GameID: command.GameID, ClientActionID: command.ClientActionID,
+		Status: "rejected", Version: command.BaseVersion, Error: errorPayload}
 }
 
 func commandAuthorizationRejectedMessage(command protocol.CommandEnvelopeV2, authorizationError *actor.AuthorizationError) ServerMessage {

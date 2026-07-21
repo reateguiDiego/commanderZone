@@ -3,6 +3,7 @@ package actor
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -205,6 +206,19 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 	if err != nil {
 		return nil, err
 	}
+	affectedGroups := []state.TokenGroupRuntime{}
+	for _, group := range game.Relations.TokenGroups {
+		root := game.Instances[group.RootInstanceID]
+		controllerID := root.ControllerID
+		if controllerID == "" {
+			controllerID = game.Loc[group.RootInstanceID].ControllerID
+		}
+		if controllerID == playerID && (root.Tapped || root.Rotation != 0) {
+			affectedGroups = append(affectedGroups, group.Clone())
+		}
+	}
+	sort.Slice(affectedGroups, func(i, j int) bool { return affectedGroups[i].GroupID < affectedGroups[j].GroupID })
+	previousProjections := captureTokenGroupProjections(game, affectedGroups)
 	untapped := []string{}
 	for instanceID, location := range game.Loc {
 		if location.Zone != state.ZoneBattlefield {
@@ -233,10 +247,17 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 			"rotation":   0,
 		}, true)
 	}
+	incrementTokenGroupRevisions(game, affectedGroups)
+	emitTokenGroupProjectionRefresh(emitter, game, affectedGroups, previousProjections)
+	resultingGroups := make([]map[string]any, 0, len(affectedGroups))
+	for _, before := range affectedGroups {
+		resultingGroups = append(resultingGroups, tokenGroupEvent(game.Relations.TokenGroups[before.GroupID]))
+	}
 	return map[string]any{
-		"playerId":    playerID,
-		"instanceIds": untapped,
-		"metrics":     battlefieldMetrics(start, emitter),
+		"playerId":        playerID,
+		"instanceIds":     untapped,
+		"resultingGroups": resultingGroups,
+		"metrics":         battlefieldMetrics(start, emitter),
 	}, nil
 }
 

@@ -220,6 +220,9 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 	if err := a.requireAuthorizedCommandInstances(command, actorID); err != nil {
 		return err
 	}
+	if err := a.requireExplicitTokenGroupIntent(command); err != nil {
+		return err
+	}
 	if err := a.requireOwnRelation(command, actorID); err != nil {
 		return err
 	}
@@ -357,6 +360,22 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 	}
 
 	switch command.Type {
+	case "token.group.split", "token.group.remove_members", "token.group.dissolve", "token.group.state.set", "token.group.position.set", "token.group.move":
+		groupID := optionalPayloadString(command.Payload, "groupId")
+		group, ok := a.state.Relations.TokenGroups[groupID]
+		if !ok {
+			return nil
+		}
+		return fromIDs(group.OrderedMemberIDs, state.ZoneBattlefield)
+	case "token.group.merge":
+		groupIDs, _ := optionalStrictStringSlice(command.Payload, "sourceGroupIds")
+		instanceIDs, _ := optionalStrictStringSlice(command.Payload, "sourceInstanceIds")
+		for _, groupID := range groupIDs {
+			if group, ok := a.state.Relations.TokenGroups[groupID]; ok {
+				instanceIDs = append(instanceIDs, group.OrderedMemberIDs...)
+			}
+		}
+		return fromIDs(instanceIDs, state.ZoneBattlefield)
 	case "card.position.changed":
 		instanceID, _ := command.Payload["instanceId"].(string)
 		return fromIDs([]string{instanceID}, state.ZoneBattlefield)
@@ -444,6 +463,80 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 		}
 	}
 	return subjects
+}
+
+func (a *GameActor) requireExplicitTokenGroupIntent(command protocol.CommandEnvelopeV2) error {
+	groupCommands := map[string]bool{
+		"token.group.split": true, "token.group.merge": true, "token.group.remove_members": true,
+		"token.group.dissolve": true, "token.group.state.set": true,
+		"token.group.position.set": true, "token.group.move": true,
+	}
+	if groupCommands[command.Type] {
+		return nil
+	}
+	relationCommand := map[string]bool{
+		"arrow.created": true, "attachment.created": true,
+		"battlefield.stack.created": true, "battlefield.stack.member_added": true,
+	}
+	individualCommand := map[string]bool{
+		"card.tapped": true, "card.face_down.changed": true, "card.position.changed": true,
+		"card.moved": true, "card.counter.changed": true, "card.power_toughness.changed": true,
+		"card.stats.override.set": true, "card.stats.override.clear": true,
+		"card.controller.changed": true,
+	}
+	ids := []string{}
+	if individualCommand[command.Type] {
+		if id := optionalPayloadString(command.Payload, "instanceId"); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	if relationCommand[command.Type] {
+		for _, key := range []string{"instanceId", "fromInstanceId", "toInstanceId", "equipmentInstanceId", "targetInstanceId"} {
+			if id := optionalPayloadString(command.Payload, key); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		if command.Type == "battlefield.stack.created" {
+			ids, _ = stringSliceField(command.Payload, "orderedInstanceIds")
+		}
+	}
+	if command.Type == "cards.tapped.set" || command.Type == "cards.face_down.set" || command.Type == "cards.moved" {
+		ids, _ = stringSliceField(command.Payload, "instanceIds")
+	}
+	if command.Type == "cards.position.changed" {
+		for _, subject := range positionAuthorizationSubjects(command.Payload["positions"]) {
+			ids = append(ids, subject.instanceID)
+		}
+	}
+	requested := map[string]struct{}{}
+	for _, id := range ids {
+		requested[id] = struct{}{}
+	}
+	checked := map[string]struct{}{}
+	for _, id := range ids {
+		group, grouped := a.state.Relations.TokenGroupForMember(id)
+		if !grouped {
+			continue
+		}
+		if relationCommand[command.Type] {
+			return &state.TokenGroupStateError{Code: state.TokenGroupRelationConflict, Operation: command.Type, Count: group.Quantity(), InvalidIndex: -1}
+		}
+		if _, done := checked[group.GroupID]; done {
+			continue
+		}
+		checked[group.GroupID] = struct{}{}
+		complete := true
+		for _, memberID := range group.OrderedMemberIDs {
+			if _, ok := requested[memberID]; !ok {
+				complete = false
+				break
+			}
+		}
+		if individualCommand[command.Type] || !complete {
+			return &state.TokenGroupStateError{Code: state.TokenGroupMemberRequiresSplit, Operation: command.Type, Count: group.Quantity(), InvalidIndex: -1}
+		}
+	}
+	return nil
 }
 
 func battlefieldStackMemberIDs(game *state.GameState, stackID string) []string {

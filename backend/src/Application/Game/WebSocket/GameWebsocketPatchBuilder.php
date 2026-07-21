@@ -106,6 +106,13 @@ final readonly class GameWebsocketPatchBuilder
             'card.controller.changed' => $this->cardControllerChanged($previousSnapshot, $nextSnapshot, $payload),
             'battlefield.untap_all' => $this->battlefieldUntapAll($previousSnapshot, $nextSnapshot, $payload),
             'card.token.created' => $this->tokenCreated($previousSnapshot, $nextSnapshot),
+            'token.group.split',
+            'token.group.merged',
+            'token.group.members.removed',
+            'token.group.dissolved',
+            'token.group.state.changed',
+            'token.group.position.changed',
+            'token.group.moved' => $this->tokenGroupMutation($previousSnapshot, $nextSnapshot),
             'card.token_copy.created' => $this->tokenCreated($previousSnapshot, $nextSnapshot),
             'stack.card_added' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'stack', 'stack.item.add', 'stack.item.remove', 'stack.set', 'item', 'stack'),
             'stack.item_removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'stack', 'stack.item.add', 'stack.item.remove', 'stack.set', 'item', 'stack'),
@@ -1234,9 +1241,14 @@ final readonly class GameWebsocketPatchBuilder
                 'zone' => 'battlefield',
                 'cards' => $states,
             ]];
+		$groupOps = $this->tokenGroupDiffOperations($previousSnapshot, $nextSnapshot);
+		$groupRemoves = array_values(array_filter($groupOps, static fn (array $op): bool => ($op['op'] ?? null) === 'token.group.remove'));
+		$groupSets = array_values(array_filter($groupOps, static fn (array $op): bool => ($op['op'] ?? null) === 'token.group.set'));
 
         return [
+			...$groupRemoves,
             ...$operations,
+			...$groupSets,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
@@ -1288,11 +1300,13 @@ final readonly class GameWebsocketPatchBuilder
         $next = $this->tokenGroupsById($nextSnapshot);
         $operations = [];
         foreach ($previous as $groupId => $group) {
-            if (!isset($next[$groupId])) {
+			if (!isset($next[$groupId]) || $next[$groupId] !== $group) {
                 $operations[] = [
                     'op' => 'token.group.remove',
                     'groupId' => $groupId,
-                    'revision' => is_int($group['revision'] ?? null) ? $group['revision'] : 1,
+					'revision' => is_int($next[$groupId]['revision'] ?? null)
+						? $next[$groupId]['revision']
+						: (is_int($group['revision'] ?? null) ? $group['revision'] : 1),
                     'reason' => 'projection_changed',
                 ];
             }
@@ -1304,6 +1318,41 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return $operations;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function tokenGroupMutation(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $groupOps = $this->tokenGroupDiffOperations($previousSnapshot, $nextSnapshot);
+        $groupRemoves = array_values(array_filter($groupOps, static fn (array $op): bool => ($op['op'] ?? null) === 'token.group.remove'));
+        $groupSets = array_values(array_filter($groupOps, static fn (array $op): bool => ($op['op'] ?? null) === 'token.group.set'));
+        $operations = [...$groupRemoves];
+        foreach ($this->removedBattlefieldCards($previousSnapshot, $nextSnapshot) as $entry) {
+            $operations[] = ['op' => 'card.remove', 'playerId' => $entry['playerId'], 'zone' => 'battlefield', 'instanceId' => $entry['instanceId']];
+        }
+        foreach ($this->createdBattlefieldCards($previousSnapshot, $nextSnapshot) as $entry) {
+            $operations[] = ['op' => 'card.create', 'playerId' => $entry['playerId'], 'zone' => 'battlefield', 'index' => $entry['index'], 'card' => $entry['card']];
+        }
+        foreach ($nextSnapshot['players'] ?? [] as $playerId => $player) {
+            foreach (($player['zones']['battlefield'] ?? []) as $card) {
+                if (!is_array($card) || !is_string($card['instanceId'] ?? null)) { continue; }
+                $previous = $this->card($previousSnapshot, (string) $playerId, 'battlefield', $card['instanceId']);
+                if ($previous === null) { continue; }
+                if (($previous['position'] ?? null) !== ($card['position'] ?? null)) {
+                    $operations[] = ['op' => 'card.position.set', 'playerId' => (string) $playerId, 'zone' => 'battlefield', 'instanceId' => $card['instanceId'], 'position' => $card['position'] ?? null];
+                }
+                $state = [];
+                foreach (['tapped', 'rotation', 'faceDown'] as $field) { if (($previous[$field] ?? null) !== ($card[$field] ?? null)) { $state[$field] = $card[$field] ?? null; } }
+                if ($state !== []) { $operations[] = ['op' => 'card.state.set', 'playerId' => (string) $playerId, 'zone' => 'battlefield', 'instanceId' => $card['instanceId'], ...$state]; }
+            }
+        }
+
+        return [
+            ...$operations,
+            ...$groupSets,
+            ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /** @return array<string,array<string,mixed>> */
@@ -2447,6 +2496,30 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         $type = (string) ($eventData['type'] ?? '');
+        if (in_array($type, [
+            'token.group.split', 'token.group.merged', 'token.group.members.removed',
+            'token.group.dissolved', 'token.group.state.changed',
+            'token.group.position.changed', 'token.group.moved',
+        ], true)) {
+            return array_filter([
+                'effectVersion' => $payload['effectVersion'] ?? null,
+                'actorPlayerId' => $payload['actorPlayerId'] ?? null,
+                'quantity' => $payload['quantity'] ?? null,
+                'beforeQuantity' => $payload['beforeQuantity'] ?? null,
+                'remainingQuantity' => $payload['remainingQuantity'] ?? null,
+                'extractedQuantity' => $payload['extractedQuantity'] ?? null,
+                'removedQuantity' => $payload['removedQuantity'] ?? null,
+                'tapped' => $payload['tapped'] ?? null,
+                'faceDown' => $payload['faceDown'] ?? null,
+            ], static fn (mixed $value): bool => $value !== null);
+        }
+		if ($type === 'battlefield.untap_all' && array_key_exists('resultingGroups', $payload)) {
+			return [
+				'effectVersion' => $payload['effectVersion'] ?? 1,
+				'playerId' => $payload['playerId'] ?? null,
+				'count' => is_array($payload['instanceIds'] ?? null) ? count($payload['instanceIds']) : 0,
+			];
+		}
         if (
             $type === 'zone.random_card.selected'
             || $type === 'library.reorder_top'

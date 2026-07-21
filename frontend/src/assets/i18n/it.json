@@ -93,6 +93,18 @@
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
     },
+    "tokenGroup": {
+      "split": "{{ actor }} split {{ count }} tokens into {{ remainingQuantity }} and {{ extractedQuantity }}.",
+      "merged": "{{ actor }} merged token groups into {{ count }} tokens.",
+      "removed": "{{ actor }} removed {{ count }} tokens.",
+      "dissolved": "{{ actor }} dissolved a group of {{ count }} tokens.",
+      "tapped": "{{ actor }} tapped {{ count }} tokens.",
+      "untapped": "{{ actor }} untapped {{ count }} tokens.",
+      "faceDown": "{{ actor }} turned {{ count }} tokens face down.",
+      "faceUp": "{{ actor }} turned {{ count }} tokens face up.",
+      "moved": "{{ actor }} moved {{ count }} tokens.",
+      "zoneMoved": "{{ actor }} moved {{ count }} tokens to {{ toZone }}."
+    },
     "game": {
       "concede": "{{ player }} conceded."
     },

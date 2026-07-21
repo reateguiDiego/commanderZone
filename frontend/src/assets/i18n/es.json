@@ -1103,6 +1103,18 @@
     "tokenCopy": {
       "created": "{{ actor }} creó una copia de ficha."
     },
+    "tokenGroup": {
+      "split": "{{ actor }} dividió {{ count }} fichas en {{ remainingQuantity }} y {{ extractedQuantity }}.",
+      "merged": "{{ actor }} fusionó grupos en {{ count }} fichas.",
+      "removed": "{{ actor }} eliminó {{ count }} fichas.",
+      "dissolved": "{{ actor }} disolvió un grupo de {{ count }} fichas.",
+      "tapped": "{{ actor }} giró {{ count }} fichas.",
+      "untapped": "{{ actor }} enderezó {{ count }} fichas.",
+      "faceDown": "{{ actor }} puso {{ count }} fichas boca abajo.",
+      "faceUp": "{{ actor }} puso {{ count }} fichas boca arriba.",
+      "moved": "{{ actor }} movió {{ count }} fichas.",
+      "zoneMoved": "{{ actor }} movió {{ count }} fichas a {{ toZone }}."
+    },
     "game": {
       "concede": "{{ player }} concedió."
     },

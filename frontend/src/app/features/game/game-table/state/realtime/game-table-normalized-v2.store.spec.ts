@@ -78,6 +78,67 @@ describe('game table normalized v2 store', () => {
 		expect(removed.state.relations.indexes.tokenGroupIdByMemberRef).toEqual({});
 	});
 
+	it('applies split merge remove dissolve and root promotion patches without orphan indexes', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const cards = Array.from({ length: 10 }, (_, index) => ({
+			instanceId: `group-token-${index + 1}`, cardRef: 'token:beast', cardKey: 'token:beast', printId: 's-beast',
+			cardVersion: 'beast-v1', language: 'en', viewerVisibility: 'public' as const,
+			zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', isToken: true,
+			tapped: false, position: { x: .4, y: .5, unit: 'ratio' as const },
+		}));
+		const original = {
+			groupId: 'group-original', rootRef: cards[0]!.instanceId, memberRefs: cards.map((card) => card.instanceId),
+			quantity: 10, revision: 1, position: { x: .4, y: .5, unit: 'ratio' as const }, effectVersion: 1 as const,
+		};
+		const created = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'zone.cards.add', playerId: 'player-1', zone: 'battlefield', cards },
+			{ op: 'token.group.set', group: original },
+		]));
+		const left = { ...original, memberRefs: original.memberRefs.slice(0, 7), quantity: 7, revision: 2 };
+		const right = {
+			...original, groupId: 'group-split', rootRef: original.memberRefs[7]!, memberRefs: original.memberRefs.slice(7),
+			quantity: 3, revision: 1, position: { x: .65, y: .55, unit: 'ratio' as const },
+		};
+		const split = applyPatchEnvelopeV2(created.state, patch(7, [
+			{ op: 'token.group.remove', groupId: original.groupId, revision: 2 },
+			{ op: 'cards.position.set', playerId: 'player-1', zone: 'battlefield', positions: right.memberRefs.map((instanceId) => ({ instanceId, position: right.position })) },
+			{ op: 'token.group.set', group: left },
+			{ op: 'token.group.set', group: right },
+		]));
+		expect(split.status).toBe('applied');
+		expect(Object.keys(split.state.relations.tokenGroupsById)).toEqual(['group-original', 'group-split']);
+		expect(split.state.relations.indexes.tokenGroupIdByMemberRef[right.rootRef]).toBe('group-split');
+
+		const merged = { ...left, memberRefs: original.memberRefs, quantity: 10, revision: 3, position: { x: .5, y: .6, unit: 'ratio' as const } };
+		const merge = applyPatchEnvelopeV2(split.state, patch(8, [
+			{ op: 'token.group.remove', groupId: left.groupId, revision: 3 },
+			{ op: 'token.group.remove', groupId: right.groupId, revision: 2 },
+			{ op: 'cards.position.set', playerId: 'player-1', zone: 'battlefield', positions: merged.memberRefs.map((instanceId) => ({ instanceId, position: merged.position })) },
+			{ op: 'token.group.set', group: merged },
+		]));
+		expect(merge.status).toBe('applied');
+		expect(merge.state.relations.tokenGroupsById[merged.groupId]).toEqual(merged);
+		expect(Object.keys(merge.state.relations.indexes.tokenGroupIdByMemberRef)).toHaveLength(10);
+
+		const promoted = { ...merged, rootRef: merged.memberRefs[1]!, memberRefs: merged.memberRefs.slice(1), quantity: 9, revision: 4 };
+		const removed = applyPatchEnvelopeV2(merge.state, patch(9, [
+			{ op: 'token.group.remove', groupId: merged.groupId, revision: 4 },
+			{ op: 'zone.cards.remove', playerId: 'player-1', zone: 'battlefield', instanceIds: [merged.rootRef] },
+			{ op: 'token.group.set', group: promoted },
+		]));
+		expect(removed.status).toBe('applied');
+		expect(removed.state.relations.tokenGroupsById[promoted.groupId]?.rootRef).toBe(promoted.rootRef);
+		expect(removed.state.relations.indexes.tokenGroupIdByMemberRef[merged.rootRef]).toBeUndefined();
+
+		const dissolved = applyPatchEnvelopeV2(removed.state, patch(10, [
+			{ op: 'token.group.remove', groupId: promoted.groupId, revision: 5 },
+			{ op: 'cards.position.set', playerId: 'player-1', zone: 'battlefield', positions: promoted.memberRefs.map((instanceId, index) => ({ instanceId, position: { x: .25 + index * .02, y: .4, unit: 'ratio' as const } })) },
+		]));
+		expect(dissolved.status).toBe('applied');
+		expect(dissolved.state.relations.tokenGroupsById).toEqual({});
+		expect(dissolved.state.relations.indexes.tokenGroupIdByMemberRef).toEqual({});
+	});
+
 	it('hydrates opaque TokenGroups without memberRefs and keeps quantity independent from visible membership', () => {
 		const bootstrap = bootstrapV2();
 		bootstrap.relations.tokenGroups = [{

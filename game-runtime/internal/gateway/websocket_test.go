@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -20,6 +21,27 @@ import (
 )
 
 const testTicketSecret = "test-runtime-ticket-secret"
+
+func TestTokenGroupRejectedMessageContainsOnlySafeStructuredContext(t *testing.T) {
+	command := protocol.CommandEnvelopeV2{GameID: "game-1", BaseVersion: 8, ClientActionID: "split-stale", Type: "token.group.split"}
+	message := commandTokenGroupRejectedMessage(command, &state.TokenGroupStateError{
+		Code: state.TokenGroupStale, Operation: command.Type, Count: 10,
+		ExpectedRevision: 2, ActualRevision: 3, InvalidIndex: -1,
+	})
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != state.TokenGroupStale {
+		t.Fatalf("message=%#v", message)
+	}
+	if message.Error.Count == nil || *message.Error.Count != 10 || message.Error.ExpectedRevision != 2 || message.Error.ActualRevision != 3 {
+		t.Fatalf("safe error context=%#v", message.Error)
+	}
+	encoded, err := json.Marshal(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "orderedMemberIds") || strings.Contains(string(encoded), "rootInstanceId") || strings.Contains(string(encoded), "groupId") {
+		t.Fatalf("private group identity leaked: %s", encoded)
+	}
+}
 
 func TestWebSocketConnectionStateDoesNotExposeInternalConnectionID(t *testing.T) {
 	server, _ := testWebSocketServer(t, "game-1", 128, 256)

@@ -1044,8 +1044,8 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('cards.state.set', $message['operations'][0]['op']);
         self::assertSame('battlefield', $message['operations'][0]['zone']);
         self::assertSame([
-            ['instanceId' => 'advanced-1', 'tapped' => false, 'rotation' => 90],
-            ['instanceId' => 'advanced-2', 'tapped' => false, 'rotation' => 90],
+            ['instanceId' => 'advanced-1', 'tapped' => false, 'rotation' => 0],
+            ['instanceId' => 'advanced-2', 'tapped' => false, 'rotation' => 0],
         ], $message['operations'][0]['cards']);
     }
 
@@ -1091,7 +1091,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
             self::assertCount($tappedCount, $message['operations'][0]['cards']);
             self::assertSame(
                 array_map(
-                    static fn (int $index): array => ['instanceId' => 'tapped-'.$index, 'tapped' => false, 'rotation' => 90],
+                    static fn (int $index): array => ['instanceId' => 'tapped-'.$index, 'tapped' => false, 'rotation' => 0],
                     range(1, $tappedCount),
                 ),
                 $message['operations'][0]['cards'],
@@ -1156,6 +1156,50 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('eventLog.append', $message['operations'][count($message['operations']) - 1]['op']);
 
     }
+
+	public function testTokenGroupMutationPatchesOrderRemoveInstancesSetAndLog(): void
+	{
+		[$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
+		$handler = new GameCommandHandler();
+		$this->applyAndBuildProjected($game, $actor, 'card.token.created', [
+			'playerId' => $actor->id(), 'quantity' => 3,
+			'card' => ['cardKey' => 'token:beast', 'name' => 'Beast Token', 'power' => 3, 'toughness' => 3],
+		], 'group-order-create', $actor, $handler);
+		$createdGroup = $game->snapshot()['tokenGroups'][0];
+		$singleId = $createdGroup['orderedMemberIds'][2];
+
+		$split = $this->applyAndBuildProjected($game, $actor, 'token.group.split', [
+			'groupId' => $createdGroup['groupId'], 'expectedRevision' => 1, 'extractQuantity' => 1,
+			'destinationPosition' => ['x' => .7, 'y' => .3, 'unit' => 'ratio'],
+		], 'group-order-split', $actor, $handler);
+		$splitOps = array_column($split['operations'], 'op');
+		self::assertLessThan(array_search('card.position.set', $splitOps, true), array_search('token.group.remove', $splitOps, true));
+		self::assertLessThan(array_search('token.group.set', $splitOps, true), array_search('card.position.set', $splitOps, true));
+		self::assertSame('eventLog.append', $splitOps[array_key_last($splitOps)]);
+		$publicEvent = json_encode($split['event']['payload'], JSON_THROW_ON_ERROR);
+		self::assertStringNotContainsString($createdGroup['groupId'], $publicEvent);
+		foreach ($createdGroup['orderedMemberIds'] as $memberId) { self::assertStringNotContainsString($memberId, $publicEvent); }
+
+		$remaining = $game->snapshot()['tokenGroups'][0];
+		$merged = $this->applyAndBuildProjected($game, $actor, 'token.group.merge', [
+			'sourceGroupIds' => [$remaining['groupId']], 'sourceInstanceIds' => [$singleId],
+			'targetGroupId' => $remaining['groupId'], 'expectedRevisions' => [$remaining['groupId'] => 2],
+			'destinationPosition' => ['x' => .5, 'y' => .5, 'unit' => 'ratio'],
+		], 'group-order-merge', $actor, $handler);
+		$mergeOps = array_column($merged['operations'], 'op');
+		self::assertLessThan(array_search('card.position.set', $mergeOps, true), array_search('token.group.remove', $mergeOps, true));
+		self::assertLessThan(array_search('token.group.set', $mergeOps, true), array_search('card.position.set', $mergeOps, true));
+
+		$group = $game->snapshot()['tokenGroups'][0];
+		$removed = $this->applyAndBuildProjected($game, $actor, 'token.group.remove_members', [
+			'groupId' => $group['groupId'], 'expectedRevision' => 3, 'quantity' => 2,
+		], 'group-order-remove', $actor, $handler);
+		$removeOps = array_column($removed['operations'], 'op');
+		self::assertSame('token.group.remove', $removeOps[0]);
+		self::assertSame(2, count(array_filter($removeOps, static fn (string $op): bool => $op === 'card.remove')));
+		self::assertNotContains('token.group.set', $removeOps);
+		self::assertSame('eventLog.append', $removeOps[array_key_last($removeOps)]);
+	}
 
     public function testDungeonTokenReplacementRemovesPreviousDungeonAndCreatesNewOneInPatch(): void
     {

@@ -136,6 +136,34 @@ func (ops *ZoneOps) MoveAll(game *GameState, playerID string, fromZone Zone, toP
 	return ops.MoveMany(game, ids, toPlayerID, toZone, position)
 }
 
+// RemoveMany detaches existing instances from their canonical zone locations.
+// Callers remain responsible for deleting the corresponding instance records.
+// Validation is completed for the whole set before any zone is mutated.
+func (ops *ZoneOps) RemoveMany(game *GameState, instanceIDs []string) error {
+	locations := make(map[string]Location, len(instanceIDs))
+	seen := make(map[string]struct{}, len(instanceIDs))
+	for _, instanceID := range instanceIDs {
+		if _, duplicate := seen[instanceID]; duplicate {
+			return ErrInvalidReorderSet
+		}
+		seen[instanceID] = struct{}{}
+		location, ok := game.GetLocation(instanceID)
+		if !ok {
+			return ErrMissingInstance
+		}
+		if _, ok := game.Instances[instanceID]; !ok {
+			return ErrMissingInstance
+		}
+		locations[instanceID] = location
+	}
+	for _, group := range removalGroups(instanceIDs, locations) {
+		if err := ops.removeGroup(game, group.playerID, group.zone, group.ids); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ops *ZoneOps) ReorderByIDs(game *GameState, playerID string, zone Zone, orderedIDs []string) error {
 	zones, ok := game.Zones[playerID]
 	if !ok {

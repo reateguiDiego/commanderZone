@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -64,6 +65,13 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	case "card.token.created":
 		before := game.Clone()
 		if err := replayTokenCreatedEvent(game, event, appliers); err != nil {
+			*game = before
+			return err
+		}
+		return state.ValidateTokenGroupState(*game)
+	case "token.group.split", "token.group.merged", "token.group.members.removed", "token.group.dissolved", "token.group.state.changed", "token.group.position.changed", "token.group.moved":
+		before := game.Clone()
+		if err := replayTokenGroupMutationEvent(game, event, appliers); err != nil {
 			*game = before
 			return err
 		}
@@ -158,6 +166,141 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	default:
 		return ReplayEvent(game, event)
 	}
+}
+
+func replayTokenGroupMutationEvent(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	effectVersion, ok := strictInteger(event.Payload["effectVersion"])
+	if !ok || effectVersion != tokenGroupMutationEffectVersion {
+		return &state.TokenGroupStateError{Code: state.TokenGroupEffectVersionUnsupported, Operation: event.Type, InvalidIndex: -1}
+	}
+	removedGroupIDs, err := stringSliceField(event.Payload, "removedGroupIds")
+	if err != nil {
+		return fmt.Errorf("%w: removedGroupIds", ErrInvalidPayloadField)
+	}
+	for _, groupID := range removedGroupIDs {
+		if _, removed := state.RemoveTokenGroup(game, groupID); !removed {
+			return &state.TokenGroupStateError{Code: state.TokenGroupNotFound, Operation: event.Type, InvalidIndex: -1}
+		}
+	}
+	if event.Type == "token.group.moved" {
+		movement, ok := event.Payload["movement"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("%w: movement", ErrInvalidPayloadField)
+		}
+		movementEvent := event
+		movementEvent.Type = "cards.moved"
+		movementEvent.Payload = cloneMap(movement)
+		if err := replayMovementEvent(game, movementEvent, appliers); err != nil {
+			return err
+		}
+	}
+	if rawRemoved, exists := event.Payload["removedInstanceIds"]; exists {
+		removed, err := stringsFromStrictAny(rawRemoved)
+		if err != nil {
+			return err
+		}
+		if err := state.NewZoneOps().RemoveMany(game, removed); err != nil {
+			return err
+		}
+		for _, instanceID := range removed {
+			delete(game.Instances, instanceID)
+			delete(game.Visibility.InstanceMasks, instanceID)
+		}
+	}
+	if rawPositions, exists := event.Payload["positions"]; exists {
+		positions, err := tokenGroupPositionList(rawPositions)
+		if err != nil {
+			return err
+		}
+		for _, entry := range positions {
+			instanceID := optionalString(entry, "instanceId")
+			instance, exists := game.Instances[instanceID]
+			position, valid := entry["position"].(map[string]any)
+			if !exists || !valid {
+				return fmt.Errorf("%w: positions", ErrInvalidPayloadField)
+			}
+			instance.Position = cloneMap(position)
+			game.Instances[instanceID] = instance
+		}
+	}
+	if rawStates, exists := event.Payload["instanceStates"]; exists {
+		entries, err := tokenGroupPositionList(rawStates)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			instanceID := optionalString(entry, "instanceId")
+			instance, exists := game.Instances[instanceID]
+			if !exists {
+				return fmt.Errorf("%w: instanceStates", ErrInvalidPayloadField)
+			}
+			tapped, tappedOK := boolField(entry, "tapped")
+			faceDown, faceDownOK := boolField(entry, "faceDown")
+			rotation, rotationOK := intField(entry, "rotation")
+			mask, maskOK := strictInteger(entry["visibleToMask"])
+			if !tappedOK || !faceDownOK || !rotationOK || !maskOK {
+				return fmt.Errorf("%w: instanceStates", ErrInvalidPayloadField)
+			}
+			instance.Tapped, instance.FaceDown, instance.Rotation, instance.VisibleToMask = tapped, faceDown, rotation, uint64(mask)
+			game.Instances[instanceID] = instance
+		}
+	}
+	groups, err := tokenGroupsFromMutationEvent(event)
+	if err != nil {
+		return err
+	}
+	for _, group := range groups {
+		if err := state.AddTokenGroup(game, group); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func tokenGroupsFromMutationEvent(event protocol.EventPayloadV2) ([]state.TokenGroupRuntime, error) {
+	raw, exists := event.Payload["resultingGroups"]
+	if !exists {
+		return nil, fmt.Errorf("%w: resultingGroups", ErrInvalidPayloadField)
+	}
+	entries, err := tokenGroupPositionList(raw)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]state.TokenGroupRuntime, 0, len(entries))
+	for _, entry := range entries {
+		encoded, err := json.Marshal(entry)
+		if err != nil {
+			return nil, err
+		}
+		var group state.TokenGroupRuntime
+		if err := json.Unmarshal(encoded, &group); err != nil {
+			return nil, err
+		}
+		if group.CreatedAtVersion < 1 || group.CreatedAtVersion > event.Version || group.Revision < 1 || group.EffectVersion != state.TokenGroupEffectVersion {
+			return nil, &state.TokenGroupStateError{Code: state.TokenGroupInvariantFailed, Operation: event.Type, Count: group.Quantity(), InvalidIndex: -1}
+		}
+		groups = append(groups, group)
+	}
+	return groups, nil
+}
+
+func stringsFromStrictAny(raw any) ([]string, error) {
+	values, ok := raw.([]any)
+	if typed, typedOK := raw.([]string); typedOK {
+		return append([]string(nil), typed...), nil
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: string list", ErrInvalidPayloadField)
+	}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			return nil, fmt.Errorf("%w: string list", ErrInvalidPayloadField)
+		}
+		result = append(result, text)
+	}
+	return result, nil
 }
 
 func replayPositionEvent(game *state.GameState, event protocol.EventPayloadV2) error {

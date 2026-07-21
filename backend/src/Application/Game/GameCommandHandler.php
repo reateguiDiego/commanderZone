@@ -10,6 +10,7 @@ use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\Compact\CompactGameStateInvariantChecker;
 use App\Application\Game\TokenGroup\RuntimeOffTokenCreationEffectFactory;
+use App\Application\Game\TokenGroup\RuntimeOffTokenGroupMutationService;
 use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
 use App\Application\Game\TokenGroup\TokenGroupContractException;
 use App\Application\Game\Performance\GameplayMetricsInspector;
@@ -70,6 +71,13 @@ class GameCommandHandler
         'card.face.changed',
         'card.revealed',
         'card.token.created',
+        'token.group.split',
+        'token.group.merge',
+        'token.group.remove_members',
+        'token.group.dissolve',
+        'token.group.state.set',
+        'token.group.position.set',
+        'token.group.move',
         'card.token_copy.created',
         'card.controller.changed',
         'turn.changed',
@@ -182,6 +190,7 @@ class GameCommandHandler
         ?GameSpatialPositionContract $spatialPositionContract = null,
         ?TokenGroupCanonicalizer $tokenGroupCanonicalizer = null,
         ?RuntimeOffTokenCreationEffectFactory $runtimeOffTokenCreationEffectFactory = null,
+        ?RuntimeOffTokenGroupMutationService $runtimeOffTokenGroupMutationService = null,
         ?CompactGameStateInvariantChecker $compactStateInvariantChecker = null,
     )
     {
@@ -199,6 +208,7 @@ class GameCommandHandler
         $this->spatialPositionContract = $spatialPositionContract ?? new GameSpatialPositionContract();
         $this->tokenGroupCanonicalizer = $tokenGroupCanonicalizer ?? new TokenGroupCanonicalizer();
         $this->runtimeOffTokenCreationEffectFactory = $runtimeOffTokenCreationEffectFactory ?? new RuntimeOffTokenCreationEffectFactory($this->tokenGroupCanonicalizer);
+        $this->runtimeOffTokenGroupMutationService = $runtimeOffTokenGroupMutationService ?? new RuntimeOffTokenGroupMutationService($this->tokenGroupCanonicalizer);
         $this->compactStateInvariantChecker = $compactStateInvariantChecker ?? new CompactGameStateInvariantChecker($this->tokenGroupCanonicalizer);
     }
 
@@ -216,6 +226,7 @@ class GameCommandHandler
     private readonly GameSpatialPositionContract $spatialPositionContract;
     private readonly TokenGroupCanonicalizer $tokenGroupCanonicalizer;
     private readonly RuntimeOffTokenCreationEffectFactory $runtimeOffTokenCreationEffectFactory;
+    private readonly RuntimeOffTokenGroupMutationService $runtimeOffTokenGroupMutationService;
     private readonly CompactGameStateInvariantChecker $compactStateInvariantChecker;
 
     /**
@@ -277,6 +288,7 @@ class GameCommandHandler
             $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
+			$this->assertExplicitTokenGroupIntent($snapshot, $type, $payload);
 
             if ($this->specialEntityCommandHandler->supports($type)) {
                 $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
@@ -315,6 +327,13 @@ class GameCommandHandler
                     'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
                     'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
                     'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload, $game->id(), $clientActionId),
+                    'token.group.split',
+                    'token.group.merge',
+                    'token.group.remove_members',
+                    'token.group.dissolve',
+                    'token.group.state.set',
+                    'token.group.position.set',
+                    'token.group.move' => $log = $this->applyTokenGroupMutation($snapshot, $type, $payload, $actor, $game->id(), $clientActionId),
                     'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
                     'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
                     'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
@@ -349,8 +368,12 @@ class GameCommandHandler
             $eventPayload = $type === 'chat.message'
                 ? $this->chatEventPayload($payload)
                 : ($this->pendingEventPayload ?? $payload);
+			$eventType = is_string($eventPayload['_eventType'] ?? null) && trim($eventPayload['_eventType']) !== ''
+				? trim($eventPayload['_eventType'])
+				: $type;
+			unset($eventPayload['_eventType']);
             $this->commit($snapshot, $type, $log, $actor);
-            if ($type === 'card.token.created' && ($eventPayload['effectVersion'] ?? null) === TokenGroupCanonicalizer::CREATE_EFFECT_VERSION) {
+            if (($type === 'card.token.created' || str_starts_with($type, 'token.group.')) && is_int($eventPayload['effectVersion'] ?? null)) {
                 $eventLogEntries = $this->streamsEnabled()
                     ? $this->pendingStreamLogEntries
                     : array_slice(
@@ -366,7 +389,7 @@ class GameCommandHandler
             if (in_array($type, self::MULLIGAN_COMMANDS, true)) {
                 $this->mulliganMetrics['mulligan.snapshot_write_count'] = 1;
             }
-            $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
+            $event = new GameEvent($game, $eventType, $eventPayload, $actor, $clientActionId);
             $game->addEvent($event);
             $this->lastShadowMetrics = $this->shadowCompareLegacyCommand($snapshotBefore, $snapshot, $type, $payload, $actor);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
@@ -2343,15 +2366,38 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $battlefield =& $snapshot['players'][$playerId]['zones']['battlefield'];
         $untapped = 0;
+		$untappedIds = [];
         foreach ($battlefield as &$card) {
-            if (($card['tapped'] ?? false) !== true) {
+			if (($card['tapped'] ?? false) !== true && (int) ($card['rotation'] ?? 0) === 0) {
                 continue;
             }
 
             $card['tapped'] = false;
+			$card['rotation'] = 0;
+			if (is_string($card['instanceId'] ?? null)) { $untappedIds[$card['instanceId']] = true; }
             ++$untapped;
         }
         unset($card);
+		if ($untappedIds !== []) {
+			$groups = $this->tokenGroupCanonicalizer->normalizeCollection(is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : []);
+			$changedGroups = [];
+			foreach ($groups as $index => $group) {
+				$changed = count(array_filter($group['orderedMemberIds'], static fn (string $memberId): bool => isset($untappedIds[$memberId])));
+				if ($changed === 0) { continue; }
+				if ($changed !== count($group['orderedMemberIds'])) {
+					throw new TokenGroupContractException(TokenGroupCanonicalizer::INVARIANT_FAILED, ['operation' => 'battlefield.untap_all', 'count' => count($group['orderedMemberIds'])]);
+				}
+				++$groups[$index]['revision'];
+				$changedGroups[] = $groups[$index];
+			}
+			$snapshot['tokenGroups'] = $groups;
+			$this->pendingEventPayload = [
+				'effectVersion' => 1,
+				'playerId' => $playerId,
+				'instanceIds' => array_keys($untappedIds),
+				'resultingGroups' => $changedGroups,
+			];
+		}
 
         if ($untapped === 0) {
             return '';
@@ -4244,6 +4290,63 @@ class GameCommandHandler
             'x' => max(0, min(3000, (int) ($position['x'] ?? 0))),
             'y' => max(0, min(2000, (int) ($position['y'] ?? 0))),
         ];
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyTokenGroupMutation(
+        array &$snapshot,
+        string $type,
+        array $payload,
+        User $actor,
+        string $gameId,
+        ?string $clientActionId,
+    ): string {
+        $result = $this->runtimeOffTokenGroupMutationService->apply(
+            $snapshot,
+            $type,
+            $payload,
+            $actor->id(),
+            $gameId,
+            is_string($clientActionId) ? $clientActionId : '',
+        );
+        $this->pendingEventPayload = ['_eventType' => $result['eventType'], ...$result['eventPayload']];
+        $this->pendingLogContext = $result['log'];
+
+        return $result['message'];
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function assertExplicitTokenGroupIntent(array $snapshot, string $type, array $payload): void
+    {
+        if (str_starts_with($type, 'token.group.')) {
+            return;
+        }
+        $relationCommands = ['arrow.created', 'attachment.created'];
+        $individualCommands = [
+            'card.tapped', 'card.face_down.changed', 'card.position.changed', 'card.moved',
+            'card.counter.changed', 'card.power_toughness.changed', 'card.stats.override.set',
+            'card.stats.override.clear', 'card.controller.changed',
+        ];
+        if (!in_array($type, [...$relationCommands, ...$individualCommands], true)) {
+            return;
+        }
+        $instanceIds = [];
+        foreach (['instanceId', 'fromInstanceId', 'toInstanceId', 'equipmentInstanceId', 'targetInstanceId'] as $field) {
+            if (is_string($payload[$field] ?? null) && trim($payload[$field]) !== '') {
+                $instanceIds[] = trim($payload[$field]);
+            }
+        }
+        foreach ($this->tokenGroupCanonicalizer->normalizeCollection(is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : []) as $group) {
+            foreach ($instanceIds as $instanceId) {
+                if (!in_array($instanceId, $group['orderedMemberIds'], true)) {
+                    continue;
+                }
+                throw new TokenGroupContractException(
+                    in_array($type, $relationCommands, true) ? TokenGroupCanonicalizer::RELATION_CONFLICT : TokenGroupCanonicalizer::MEMBER_REQUIRES_SPLIT,
+                    ['operation' => $type, 'count' => count($group['orderedMemberIds'])],
+                );
+            }
+        }
     }
 
     /**

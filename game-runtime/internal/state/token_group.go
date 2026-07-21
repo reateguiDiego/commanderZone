@@ -22,21 +22,41 @@ const (
 	TokenGroupEffectVersionUnsupported = "TOKEN_GROUP_EFFECT_VERSION_UNSUPPORTED"
 	TokenGroupProjectionIncomplete     = "TOKEN_GROUP_PROJECTION_INCOMPLETE"
 	TokenGroupPatchConflict            = "TOKEN_GROUP_PATCH_CONFLICT"
+	TokenGroupNotFound                 = "TOKEN_GROUP_NOT_FOUND"
+	TokenGroupStale                    = "TOKEN_GROUP_STALE"
+	TokenGroupSplitInvalid             = "TOKEN_GROUP_SPLIT_INVALID"
+	TokenGroupMergeInvalid             = "TOKEN_GROUP_MERGE_INVALID"
+	TokenGroupQuantityInvalid          = "TOKEN_GROUP_QUANTITY_INVALID"
+	TokenGroupMemberRequiresSplit      = "TOKEN_GROUP_MEMBER_REQUIRES_SPLIT"
 )
 
 var ErrTokenGroupInvariant = errors.New("token group invariant violation")
 
 type TokenGroupStateError struct {
-	Code         string
-	Count        int
-	InvalidIndex int
+	Code             string
+	Count            int
+	InvalidIndex     int
+	Operation        string
+	Requested        int
+	Min              int
+	Max              int
+	ExpectedRevision int
+	ActualRevision   int
 }
 
 func (e *TokenGroupStateError) Error() string {
-	return fmt.Sprintf("%s: count=%d invalidIndex=%d", e.Code, e.Count, e.InvalidIndex)
+	return fmt.Sprintf("%s: operation=%s count=%d requested=%d revision=%d/%d invalidIndex=%d", e.Code, e.Operation, e.Count, e.Requested, e.ExpectedRevision, e.ActualRevision, e.InvalidIndex)
 }
 
 func (e *TokenGroupStateError) Unwrap() error { return ErrTokenGroupInvariant }
+
+func AsTokenGroupStateError(err error) (*TokenGroupStateError, bool) {
+	var groupError *TokenGroupStateError
+	if !errors.As(err, &groupError) {
+		return nil, false
+	}
+	return groupError, true
+}
 
 type TokenGroupRuntime struct {
 	GroupID           string   `json:"groupId"`

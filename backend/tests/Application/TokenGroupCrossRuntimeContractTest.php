@@ -184,10 +184,168 @@ final class TokenGroupCrossRuntimeContractTest extends TestCase
             ], $actor, 'group-conflict-face-down');
             self::fail('Individual group mutation was accepted.');
         } catch (TokenGroupContractException $exception) {
-            self::assertSame(TokenGroupCanonicalizer::INVARIANT_FAILED, $exception->errorCode());
+            self::assertSame(TokenGroupCanonicalizer::MEMBER_REQUIRES_SPLIT, $exception->errorCode());
         }
         self::assertSame($before, $game->snapshot());
         self::assertCount(1, $game->events());
+
+		$handler->apply($game, 'token.group.dissolve', [
+			'groupId' => $before['tokenGroups'][0]['groupId'], 'expectedRevision' => 1,
+		], $actor, 'group-conflict-dissolve');
+		$members = array_column($game->snapshot()['players'][$actor->id()]['zones']['battlefield'], 'instanceId');
+		$handler->apply($game, 'arrow.created', [
+			'fromInstanceId' => $members[0], 'toInstanceId' => $members[1],
+		], $actor, 'group-conflict-arrow');
+		$beforeMerge = $game->snapshot();
+		try {
+			$handler->apply($game, 'token.group.merge', [
+				'sourceGroupIds' => [], 'sourceInstanceIds' => $members, 'expectedRevisions' => [],
+				'destinationPosition' => ['x' => .5, 'y' => .5, 'unit' => 'ratio'],
+			], $actor, 'group-conflict-merge');
+			self::fail('Merge with an arrow relation was accepted.');
+		} catch (TokenGroupContractException $exception) {
+			self::assertSame(TokenGroupCanonicalizer::RELATION_CONFLICT, $exception->errorCode());
+		}
+		self::assertSame($beforeMerge, $game->snapshot());
+    }
+
+    public function testRuntimeOffSplitMergeRemoveDissolveAndReplayUseExactFinalEffects(): void
+    {
+        $actor = new User('group-operations@example.test', 'Owner');
+        $before = $this->snapshot($actor->id());
+        $game = new Game(new Room($actor), $before);
+        $handler = new GameCommandHandler();
+        $events = [];
+        $events[] = $handler->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(), 'quantity' => 20,
+            'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+        ], $actor, 'php-group-create');
+        $group = $game->snapshot()['tokenGroups'][0];
+
+        $events[] = $handler->apply($game, 'token.group.split', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 1, 'extractQuantity' => 10,
+            'destinationPosition' => ['x' => .7, 'y' => .4, 'unit' => 'ratio'],
+        ], $actor, 'php-group-split');
+        $split = $game->snapshot();
+        self::assertCount(2, $split['tokenGroups']);
+        self::assertSame([10, 10], array_map(static fn (array $entry): int => count($entry['orderedMemberIds']), $split['tokenGroups']));
+        self::assertSame([2, 1], array_column($split['tokenGroups'], 'revision'));
+        self::assertSame('token.group.split', $events[1]->type());
+
+        $groupsById = array_column($split['tokenGroups'], null, 'groupId');
+        $newGroup = array_values(array_filter($split['tokenGroups'], static fn (array $entry): bool => $entry['groupId'] !== $group['groupId']))[0];
+        $events[] = $handler->apply($game, 'token.group.merge', [
+            'sourceGroupIds' => [$group['groupId'], $newGroup['groupId']], 'sourceInstanceIds' => [],
+            'targetGroupId' => $group['groupId'],
+            'expectedRevisions' => [$group['groupId'] => 2, $newGroup['groupId'] => 1],
+            'destinationPosition' => ['x' => .5, 'y' => .5, 'unit' => 'ratio'],
+        ], $actor, 'php-group-merge');
+        $merged = $game->snapshot()['tokenGroups'][0];
+        self::assertSame($group['groupId'], $merged['groupId']);
+        self::assertSame(20, count($merged['orderedMemberIds']));
+        self::assertSame(3, $merged['revision']);
+        self::assertSame('token.group.merged', $events[2]->type());
+
+        $events[] = $handler->apply($game, 'token.group.remove_members', [
+            'groupId' => $merged['groupId'], 'expectedRevision' => 3, 'quantity' => 19,
+            'removalReason' => 'manual',
+        ], $actor, 'php-group-remove');
+        self::assertSame([], $game->snapshot()['tokenGroups']);
+        self::assertCount(1, $game->snapshot()['players'][$actor->id()]['zones']['battlefield']);
+        self::assertSame('token.group.members.removed', $events[3]->type());
+        self::assertCount(19, $events[3]->payload()['removedInstanceIds'] ?? []);
+
+        $live = $game->snapshot();
+        $replayed = (new GameEventReplayService())->replay($before, $events);
+        self::assertSame($live['tokenGroups'], $replayed['tokenGroups']);
+        self::assertSame(
+            array_column($live['players'][$actor->id()]['zones']['battlefield'], 'instanceId'),
+            array_column($replayed['players'][$actor->id()]['zones']['battlefield'], 'instanceId'),
+        );
+        self::assertSame($live['version'], $replayed['version']);
+        self::assertCount(4, $live['eventLog']);
+        self::assertCount(4, $replayed['eventLog']);
+
+        $secondGame = new Game(new Room($actor), $this->snapshot($actor->id()));
+        $handler->apply($secondGame, 'card.token.created', [
+            'playerId' => $actor->id(), 'quantity' => 2,
+            'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+        ], $actor, 'php-group-dissolve-create');
+        $pair = $secondGame->snapshot()['tokenGroups'][0];
+        $dissolved = $handler->apply($secondGame, 'token.group.dissolve', [
+            'groupId' => $pair['groupId'], 'expectedRevision' => 1,
+        ], $actor, 'php-group-dissolve');
+        self::assertSame('token.group.dissolved', $dissolved->type());
+        self::assertSame([], $secondGame->snapshot()['tokenGroups']);
+        $cards = $secondGame->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        self::assertNotSame($cards[0]['position'], $cards[1]['position']);
+    }
+
+    public function testRuntimeOffUniformStatePositionStaleAndLimitsAreAtomic(): void
+    {
+        $actor = new User('group-state@example.test', 'Owner');
+        $before = $this->snapshot($actor->id());
+        $game = new Game(new Room($actor), $before);
+        $handler = new GameCommandHandler();
+        $events = [];
+        $events[] = $handler->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(), 'quantity' => 3,
+            'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+        ], $actor, 'php-state-create');
+        $group = $game->snapshot()['tokenGroups'][0];
+        $events[] = $handler->apply($game, 'token.group.state.set', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 1, 'tapped' => true,
+        ], $actor, 'php-state-tap');
+        $events[] = $handler->apply($game, 'token.group.state.set', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 2, 'faceDown' => true,
+        ], $actor, 'php-state-hide');
+        foreach ($events[2]->payload()['instanceStates'] ?? [] as $stateEffect) {
+            self::assertSame([$actor->id()], $stateEffect['revealedTo'] ?? null);
+        }
+        $events[] = $handler->apply($game, 'token.group.position.set', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 3,
+            'position' => ['x' => .9, 'y' => .1, 'unit' => 'ratio'],
+        ], $actor, 'php-state-position');
+        $live = $game->snapshot();
+        self::assertSame(4, $live['tokenGroups'][0]['revision']);
+        foreach ($live['players'][$actor->id()]['zones']['battlefield'] as $card) {
+            self::assertTrue($card['tapped']);
+            self::assertTrue($card['faceDown']);
+            self::assertSame(90, $card['rotation']);
+            self::assertSame(['x' => .9, 'y' => .1, 'unit' => 'ratio'], $card['position']);
+        }
+		$beforeNoOp = $game->snapshot();
+		try {
+			$handler->apply($game, 'token.group.state.set', [
+				'groupId' => $group['groupId'], 'expectedRevision' => 4, 'tapped' => true,
+			], $actor, 'php-state-noop');
+			self::fail('Uniform state no-op was persisted.');
+		} catch (TokenGroupContractException $exception) {
+			self::assertSame(TokenGroupCanonicalizer::PATCH_CONFLICT, $exception->errorCode());
+		}
+		self::assertSame($beforeNoOp, $game->snapshot());
+        $replayed = (new GameEventReplayService())->replay($before, $events);
+        self::assertSame($live['tokenGroups'], $replayed['tokenGroups']);
+        $liveCards = $live['players'][$actor->id()]['zones']['battlefield'];
+        $replayedCards = $replayed['players'][$actor->id()]['zones']['battlefield'];
+        self::assertSame(array_column($liveCards, 'instanceId'), array_column($replayedCards, 'instanceId'));
+        foreach (array_keys($liveCards) as $index) {
+            foreach (['cardKey', 'printId', 'cardVersion', 'language', 'position', 'tapped', 'rotation', 'faceDown', 'revealedTo'] as $field) {
+                self::assertSame($liveCards[$index][$field] ?? null, $replayedCards[$index][$field] ?? null, $field);
+            }
+        }
+
+        $beforeStale = $game->snapshot();
+        try {
+            $handler->apply($game, 'token.group.dissolve', [
+                'groupId' => $group['groupId'], 'expectedRevision' => 3,
+            ], $actor, 'php-state-stale');
+            self::fail('Stale group revision was accepted.');
+        } catch (TokenGroupContractException $exception) {
+            self::assertSame(TokenGroupCanonicalizer::STALE, $exception->errorCode());
+            self::assertArrayNotHasKey('groupId', $exception->errorPayload());
+        }
+        self::assertSame($beforeStale, $game->snapshot());
     }
 
     public function testRuntimeOffFinalEffectPayloadStaysBoundedThroughQuantityTwenty(): void
@@ -212,6 +370,42 @@ final class TokenGroupCrossRuntimeContractTest extends TestCase
         self::assertLessThan($sizes[10] * 2.5, $sizes[20]);
         self::assertGreaterThan($sizes[2], $sizes[10]);
     }
+
+	public function testRuntimeOffUntapAllUpdatesUniformTokenGroupRevisionOnce(): void
+	{
+		$actor = new User('group-untap@example.test', 'Owner');
+		$before = $this->snapshot($actor->id());
+		$game = new Game(new Room($actor), $before);
+		$handler = new GameCommandHandler();
+		$events = [];
+		$events[] = $handler->apply($game, 'card.token.created', [
+			'playerId' => $actor->id(), 'quantity' => 3,
+			'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+		], $actor, 'php-untap-create');
+		$group = $game->snapshot()['tokenGroups'][0];
+		$events[] = $handler->apply($game, 'token.group.state.set', [
+			'groupId' => $group['groupId'], 'expectedRevision' => 1, 'tapped' => true,
+		], $actor, 'php-untap-tap');
+		$events[] = $handler->apply($game, 'battlefield.untap_all', [
+			'playerId' => $actor->id(),
+		], $actor, 'php-untap-all');
+		$live = $game->snapshot();
+		self::assertSame(3, $live['tokenGroups'][0]['revision']);
+		foreach ($live['players'][$actor->id()]['zones']['battlefield'] as $card) {
+			self::assertFalse($card['tapped']);
+			self::assertSame(0, $card['rotation']);
+		}
+		$replayed = (new GameEventReplayService())->replay($before, $events);
+		self::assertSame($live['tokenGroups'], $replayed['tokenGroups']);
+		$liveCards = $live['players'][$actor->id()]['zones']['battlefield'];
+		$replayedCards = $replayed['players'][$actor->id()]['zones']['battlefield'];
+		self::assertSame(array_column($liveCards, 'instanceId'), array_column($replayedCards, 'instanceId'));
+		foreach (array_keys($liveCards) as $index) {
+			foreach (['cardKey', 'printId', 'cardVersion', 'language', 'position', 'tapped', 'rotation', 'faceDown'] as $field) {
+				self::assertSame($liveCards[$index][$field] ?? null, $replayedCards[$index][$field] ?? null, $field);
+			}
+		}
+	}
 
     public function testRuntimeOffPreservesMultiFacePrintedStatsLikeRuntimeGo(): void
     {

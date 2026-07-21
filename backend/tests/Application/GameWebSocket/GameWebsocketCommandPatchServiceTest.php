@@ -192,6 +192,32 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(40, $game->snapshot()['players'][$actor->id()]['life']);
     }
 
+	public function testTokenGroupRejectionReturnsSafeStructuredAckWithoutMutation(): void
+	{
+		[$game, $actor] = $this->game();
+		(new GameCommandHandler())->apply($game, 'card.token.created', [
+			'playerId' => $actor->id(), 'quantity' => 2,
+			'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+		], $actor, 'token-group-rejection-seed');
+		$before = $game->snapshot();
+		$memberId = $before['tokenGroups'][0]['orderedMemberIds'][0];
+		$service = $this->service($game, existingEvent: null, expectPersist: false, expectFlush: false, expectClear: true);
+		$message = $service->apply(
+			$game->id(), $actor->id(), 'card.tapped', [
+				'playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => $memberId, 'tapped' => true,
+			],
+			'token-group-rejection', 2, 'message-token-group-rejection',
+		);
+
+		self::assertSame('command_ack', $message['kind']);
+		self::assertSame('rejected', $message['status']);
+		self::assertSame('TOKEN_GROUP_MEMBER_REQUIRES_SPLIT', $message['error']['code']);
+		self::assertSame(2, $message['error']['count']);
+		self::assertArrayNotHasKey('groupId', $message['error']);
+		self::assertArrayNotHasKey('memberId', $message['error']);
+		self::assertSame($before, $game->snapshot());
+	}
+
     public function testInvalidClientActionIdReturnsRejectedAckWithoutOpeningManager(): void
     {
         [$game, $actor] = $this->game();

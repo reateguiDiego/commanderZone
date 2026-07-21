@@ -81,10 +81,19 @@ class GameEventStoreV2Test extends TestCase
         $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
         $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
             'battlefield' => [
-                $this->card('batch-state-1', 'First Permanent', 'battlefield'),
-                $this->card('batch-state-2', 'Second Permanent', 'battlefield'),
+                [...$this->card('batch-state-1', 'Treasure', 'battlefield'), 'isToken' => true],
+                [...$this->card('batch-state-2', 'Treasure', 'battlefield'), 'isToken' => true],
             ],
         ]));
+        $baseSnapshot['tokenGroups'] = [[
+            'groupId' => 'batch-state-group',
+            'rootInstanceId' => 'batch-state-1',
+            'orderedMemberIds' => ['batch-state-1', 'batch-state-2'],
+            'revision' => 1,
+            'createdByPlayerId' => $actor->id(),
+            'createdAtVersion' => 1,
+            'effectVersion' => 1,
+        ]];
         $mapper = new CompactGameCardStateMapper();
         $compactBase = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($baseSnapshot)));
         $game = new Game(new Room($actor), $compactBase);
@@ -96,6 +105,7 @@ class GameEventStoreV2Test extends TestCase
                 'instanceIds' => ['batch-state-1', 'batch-state-2'],
                 'count' => 2,
                 'tapped' => true,
+                'resultingGroups' => [[...$baseSnapshot['tokenGroups'][0], 'revision' => 2]],
             ], $actor, 'batch-tap-replay', 2),
             new GameEvent($game, 'cards.face_down.set', [
                 'effectVersion' => 1,
@@ -104,6 +114,7 @@ class GameEventStoreV2Test extends TestCase
                 'instanceIds' => ['batch-state-1', 'batch-state-2'],
                 'count' => 2,
                 'faceDown' => true,
+                'resultingGroups' => [[...$baseSnapshot['tokenGroups'][0], 'revision' => 3]],
             ], $actor, 'batch-face-down-replay', 3),
         ];
 
@@ -116,6 +127,7 @@ class GameEventStoreV2Test extends TestCase
             self::assertTrue($card['faceDown'] ?? false);
             self::assertSame([$actor->id()], $card['revealedTo'] ?? null);
         }
+        self::assertSame(3, $rebuilt['tokenGroups'][0]['revision'] ?? null);
     }
 
     public function testReplayAppliesTypedSingleAndBatchRatioPositionOperations(): void
@@ -2205,7 +2217,7 @@ class GameEventStoreV2Test extends TestCase
             ...$event->payload(),
             'tokenGroup' => $incompleteGroup,
         ], $actor, 'runtime-token-group-incomplete', 2);
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\App\Application\Game\TokenGroup\TokenGroupContractException::class);
         $this->expectExceptionMessage('TOKEN_GROUP_INVARIANT_FAILED');
         (new GameEventReplayService())->replay($base, [$incompleteEvent]);
     }

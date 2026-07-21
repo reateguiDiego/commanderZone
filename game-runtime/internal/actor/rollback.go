@@ -99,6 +99,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		}
 	case "battlefield.untap_all":
 		rollback.capturePlayerZoneInstances(game, stringPayload(command.Payload, "playerId"), state.ZoneBattlefield)
+		rollback.captureRelations(game)
 	case "counter.changed":
 		scope := stringPayload(command.Payload, "scope")
 		if strings.HasPrefix(scope, "player:") {

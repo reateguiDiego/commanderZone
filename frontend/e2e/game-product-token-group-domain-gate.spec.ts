@@ -207,6 +207,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
       expect(ownerConcealed?.['groupId']).toBe(twoGroup?.['groupId']);
       expect(ownerConcealed?.['memberRefs']).toEqual(twoMemberIds);
       expect(ownerConcealed?.['faceDown']).toBe(true);
+      expect(ownerConcealed?.['revision']).toBe(2);
 
       const [concealedBFrame, concealedCFrame] = await Promise.all([
         waitForPatchAfter(audits[1]!, concealStarts[0]!, (frame) => tokenGroupFromPatch(frame)?.['quantity'] === 2),
@@ -214,8 +215,8 @@ test.describe('authoritative TokenGroup domain gate', () => {
       ]);
       const concealedB = tokenGroupFromPatch(concealedBFrame);
       const concealedC = tokenGroupFromPatch(concealedCFrame);
-      assertOpaqueTokenGroup(concealedB, twoGroup!, twoMemberIds);
-      assertOpaqueTokenGroup(concealedC, twoGroup!, twoMemberIds);
+      assertOpaqueTokenGroup(concealedB, ownerConcealed!, twoMemberIds);
+      assertOpaqueTokenGroup(concealedC, ownerConcealed!, twoMemberIds);
       expect(concealedB?.['groupId']).not.toBe(concealedC?.['groupId']);
 
       const secondBReloadStart = audits[1]!.frames.length;
@@ -246,7 +247,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
         payload: { playerId: playerA.user.id, instanceIds: twoMemberIds, faceDown: false },
       });
       baseVersion = materialized.version;
-      expect(tokenGroupFromPatch(materialized.patch)?.['groupId']).toBe(twoGroup?.['groupId']);
+      expect(tokenGroupFromPatch(materialized.patch)).toMatchObject({ groupId: twoGroup?.['groupId'], revision: 3, faceDown: false });
       const [materializedB, materializedC] = await Promise.all([
         waitForPatchAfter(audits[1]!, materializeStarts[0]!, (frame) => tokenGroupFromPatch(frame)?.['groupId'] === twoGroup?.['groupId']),
         waitForPatchAfter(reconnectAudit, materializeStarts[1]!, (frame) => tokenGroupFromPatch(frame)?.['groupId'] === twoGroup?.['groupId']),

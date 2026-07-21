@@ -438,6 +438,53 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			key = "gameLog.token.createdMany"
 		}
 		return semantic(key, params, []string{actorPlayerID, playerID}, nil)
+	case "token.group.split":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "beforeQuantity", 0)
+		params["remainingQuantity"] = intFromPayload(payload, "remainingQuantity", 0)
+		params["extractedQuantity"] = intFromPayload(payload, "extractedQuantity", 0)
+		return semantic("gameLog.tokenGroup.split", params, []string{actorPlayerID}, nil)
+	case "token.group.merge":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		return semantic("gameLog.tokenGroup.merged", params, []string{actorPlayerID}, nil)
+	case "token.group.remove_members":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "removedQuantity", 0)
+		params["remainingQuantity"] = intFromPayload(payload, "remainingQuantity", 0)
+		return semantic("gameLog.tokenGroup.removed", params, []string{actorPlayerID}, nil)
+	case "token.group.dissolve":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		return semantic("gameLog.tokenGroup.dissolved", params, []string{actorPlayerID}, nil)
+	case "token.group.state.set":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		if _, ok := payload["tapped"]; ok {
+			params["tapped"] = firstBool(payload["tapped"])
+			key := "gameLog.tokenGroup.untapped"
+			if firstBool(payload["tapped"]) {
+				key = "gameLog.tokenGroup.tapped"
+			}
+			return semantic(key, params, []string{actorPlayerID}, nil)
+		}
+		params["faceDown"] = firstBool(payload["faceDown"])
+		key := "gameLog.tokenGroup.faceUp"
+		if firstBool(payload["faceDown"]) {
+			key = "gameLog.tokenGroup.faceDown"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "token.group.position.set":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		return semantic("gameLog.tokenGroup.moved", params, []string{actorPlayerID}, nil)
+	case "token.group.move":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		if movement, ok := payload["movement"].(map[string]any); ok {
+			params["toZone"] = movement["toZone"]
+		}
+		return semantic("gameLog.tokenGroup.zoneMoved", params, []string{actorPlayerID}, nil)
 	case "card.token_copy.created":
 		playerID := firstString(payload["targetPlayerId"], command.Payload["targetPlayerId"], payload["playerId"], command.Payload["playerId"], actorPlayerID)
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
@@ -640,6 +687,28 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 			return fmt.Sprintf("%s created a %s token.", displayName, name)
 		}
 		return fmt.Sprintf("%s created %d %s tokens.", displayName, count, name)
+	case "token.group.split":
+		return fmt.Sprintf("%s split %d tokens into groups of %d and %d.", displayName, intFromPayload(payload, "beforeQuantity", 0), intFromPayload(payload, "remainingQuantity", 0), intFromPayload(payload, "extractedQuantity", 0))
+	case "token.group.merge":
+		return fmt.Sprintf("%s merged token groups into %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
+	case "token.group.remove_members":
+		return fmt.Sprintf("%s removed %d tokens.", displayName, intFromPayload(payload, "removedQuantity", 0))
+	case "token.group.dissolve":
+		return fmt.Sprintf("%s dissolved a group of %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
+	case "token.group.state.set":
+		count := intFromPayload(payload, "quantity", 0)
+		if _, ok := payload["tapped"]; ok {
+			if firstBool(payload["tapped"]) {
+				return fmt.Sprintf("%s tapped %d tokens.", displayName, count)
+			}
+			return fmt.Sprintf("%s untapped %d tokens.", displayName, count)
+		}
+		if firstBool(payload["faceDown"]) {
+			return fmt.Sprintf("%s turned %d tokens face down.", displayName, count)
+		}
+		return fmt.Sprintf("%s turned %d tokens face up.", displayName, count)
+	case "token.group.position.set", "token.group.move":
+		return fmt.Sprintf("%s moved %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
 	case "card.token_copy.created":
 		return fmt.Sprintf("%s created a token copy.", displayName)
 	case "library.view":
