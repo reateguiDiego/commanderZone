@@ -13,6 +13,15 @@ const RUNTIME_HEALTH_URL = process.env['E2E_GAME_RUNTIME_HEALTH_URL'] ?? 'http:/
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 
 type JsonObject = Record<string, unknown>;
+type TokenCatalogCard = {
+  scryfallId: string;
+  name: string;
+  typeLine?: string | null;
+  power?: string | null;
+  toughness?: string | null;
+  imageUris?: Record<string, string> | null;
+  cardFaces?: JsonObject[];
+};
 type TokenGroupPlayer = {
   token: string;
   refreshToken: string;
@@ -33,6 +42,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
   test.describe.configure({ mode: 'serial' });
 
   let setup: TokenGroupSetup;
+  let treasureToken: TokenCatalogCard;
 
   test.beforeAll(async ({ request }) => {
     test.setTimeout(300_000);
@@ -40,6 +50,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
     await assertServiceReady(request, RUNTIME_READY_URL, 'game-runtime readyz');
     setup = await createThreePlayerGame(request, `tg${Date.now().toString(36)}`);
     await resolveGameToPlaying(request, setup.gameId, setup.players);
+    treasureToken = await catalogToken(request, 'Treasure');
   });
 
   test('create 1/2/10/20 is continuous across live, retry, refresh, reconnect and restart', async ({ browser, request, baseURL }) => {
@@ -90,13 +101,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
           payload: {
             playerId: playerA.user.id,
             quantity,
-            card: {
-              name: `Domain Treasure ${quantity}`,
-              typeLine: 'Token Artifact - Treasure',
-              scryfallId: `token-group-domain-treasure-${quantity}`,
-              cardVersion: 'runtime-v1',
-              language: 'en',
-            },
+            card: runtimeTokenRef(treasureToken),
             position: { x: 0.38, y: 0.46, unit: 'ratio' },
           },
         });
@@ -139,13 +144,7 @@ test.describe('authoritative TokenGroup domain gate', () => {
             payload: {
               playerId: playerA.user.id,
               quantity,
-              card: {
-                name: `Domain Treasure ${quantity}`,
-                typeLine: 'Token Artifact - Treasure',
-                scryfallId: `token-group-domain-treasure-${quantity}`,
-                cardVersion: 'runtime-v1',
-                language: 'en',
-              },
+              card: runtimeTokenRef(treasureToken),
               position: { x: 0.38, y: 0.46, unit: 'ratio' },
             },
           });
@@ -163,9 +162,10 @@ test.describe('authoritative TokenGroup domain gate', () => {
         expect(countTokenMemberRefs(bootstrap)).toBe(32);
       }
 
+      const firstBReloadStart = audits[1]!.frames.length;
       await pageB.reload();
       await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
-      await waitForGameplayConnection(audits[1]!);
+      await waitForGameplayConnection(audits[1]!, firstBReloadStart);
       assertBootstrapGroups(await gameBootstrap(request, setup.gameId, playerB.token), expectedGroups);
 
       await pageC.close();
@@ -185,6 +185,74 @@ test.describe('authoritative TokenGroup domain gate', () => {
         assertBootstrapGroups(bootstrap, expectedGroups);
       }
       expect(gameLog(await gameSnapshot(request, setup.gameId, playerA.token))).toEqual(beforeRestartLog);
+
+      const twoGroup = expectedGroups.get(2);
+      const rawTwoMemberIds = twoGroup?.['memberRefs'];
+      const twoMemberIds = Array.isArray(rawTwoMemberIds)
+        ? rawTwoMemberIds.map(String)
+        : [];
+      expect(twoMemberIds).toHaveLength(2);
+      const concealStarts = [audits[1]!.frames.length, reconnectAudit.frames.length];
+      baseVersion = await gameVersion(request, setup.gameId, playerA.token);
+      const concealed = await sendRuntimeCommand(request, {
+        gameId: setup.gameId,
+        token: playerA.token,
+        baseVersion,
+        clientActionId: `token-group-conceal-${Date.now().toString(36)}`,
+        type: 'cards.face_down.set',
+        payload: { playerId: playerA.user.id, instanceIds: twoMemberIds, faceDown: true },
+      });
+      baseVersion = concealed.version;
+      const ownerConcealed = tokenGroupFromPatch(concealed.patch);
+      expect(ownerConcealed?.['groupId']).toBe(twoGroup?.['groupId']);
+      expect(ownerConcealed?.['memberRefs']).toEqual(twoMemberIds);
+      expect(ownerConcealed?.['faceDown']).toBe(true);
+
+      const [concealedBFrame, concealedCFrame] = await Promise.all([
+        waitForPatchAfter(audits[1]!, concealStarts[0]!, (frame) => tokenGroupFromPatch(frame)?.['quantity'] === 2),
+        waitForPatchAfter(reconnectAudit, concealStarts[1]!, (frame) => tokenGroupFromPatch(frame)?.['quantity'] === 2),
+      ]);
+      const concealedB = tokenGroupFromPatch(concealedBFrame);
+      const concealedC = tokenGroupFromPatch(concealedCFrame);
+      assertOpaqueTokenGroup(concealedB, twoGroup!, twoMemberIds);
+      assertOpaqueTokenGroup(concealedC, twoGroup!, twoMemberIds);
+      expect(concealedB?.['groupId']).not.toBe(concealedC?.['groupId']);
+
+      const secondBReloadStart = audits[1]!.frames.length;
+      await pageB.reload();
+      await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
+      await waitForGameplayConnection(audits[1]!, secondBReloadStart);
+      const reconnectReloadStart = reconnectAudit.frames.length;
+      await reconnectPage.reload();
+      await expect(reconnectPage.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
+      await waitForGameplayConnection(reconnectAudit, reconnectReloadStart);
+      const concealedBootstrapB = groupByQuantity(await gameBootstrap(request, setup.gameId, playerB.token), 2);
+      const concealedBootstrapC = groupByQuantity(await gameBootstrap(request, setup.gameId, playerC.token), 2);
+      expect(concealedBootstrapB).toEqual(concealedB);
+      expect(concealedBootstrapC).toEqual(concealedC);
+
+      await restartRuntime(request);
+      expect(groupByQuantity(await gameBootstrap(request, setup.gameId, playerB.token), 2)).toEqual(concealedB);
+      expect(groupByQuantity(await gameBootstrap(request, setup.gameId, playerC.token), 2)).toEqual(concealedC);
+
+      const materializeStarts = [audits[1]!.frames.length, reconnectAudit.frames.length];
+      baseVersion = await gameVersion(request, setup.gameId, playerA.token);
+      const materialized = await sendRuntimeCommand(request, {
+        gameId: setup.gameId,
+        token: playerA.token,
+        baseVersion,
+        clientActionId: `token-group-materialize-${Date.now().toString(36)}`,
+        type: 'cards.face_down.set',
+        payload: { playerId: playerA.user.id, instanceIds: twoMemberIds, faceDown: false },
+      });
+      baseVersion = materialized.version;
+      expect(tokenGroupFromPatch(materialized.patch)?.['groupId']).toBe(twoGroup?.['groupId']);
+      const [materializedB, materializedC] = await Promise.all([
+        waitForPatchAfter(audits[1]!, materializeStarts[0]!, (frame) => tokenGroupFromPatch(frame)?.['groupId'] === twoGroup?.['groupId']),
+        waitForPatchAfter(reconnectAudit, materializeStarts[1]!, (frame) => tokenGroupFromPatch(frame)?.['groupId'] === twoGroup?.['groupId']),
+      ]);
+      expect(tokenGroupFromPatch(materializedB)?.['memberRefs']).toEqual(twoMemberIds);
+      expect(tokenGroupFromPatch(materializedC)?.['memberRefs']).toEqual(twoMemberIds);
 
       baseVersion = await gameVersion(request, setup.gameId, playerA.token);
       const validAfterRestart = await sendRuntimeCommand(request, {
@@ -215,8 +283,11 @@ test.describe('authoritative TokenGroup domain gate', () => {
         expect(audit.commandFallbackRequests, `viewer ${index + 1} HTTP command fallback`).toEqual([]);
       }
       for (const [index, baseline] of recoveryBaselines.entries()) {
-        const expectedRefresh = index === 1 ? 1 : 0;
-        expect(audits[index]!.recoveryRequests.length).toBeLessThanOrEqual(baseline + expectedRefresh);
+        const expectedRefresh = index === 1 ? 2 : 0;
+        expect(
+          audits[index]!.recoveryRequests.length,
+          `viewer ${index + 1} unexpected recovery requests: ${audits[index]!.recoveryRequests.join(', ')}`,
+        ).toBeLessThanOrEqual(baseline + expectedRefresh);
       }
       expect(expectedMemberIds.size).toBe(33);
     } finally {
@@ -328,9 +399,11 @@ function collectPageAudit(page: Page, gameId: string): PageAudit {
   return audit;
 }
 
-async function waitForGameplayConnection(audit: PageAudit): Promise<void> {
-  await expect.poll(() => audit.frames.some((frame) =>
-    frame['kind'] === 'connection_open' || frame['kind'] === 'connection_ready' || frame['kind'] === 'patch.v2'),
+async function waitForGameplayConnection(audit: PageAudit, start = 0): Promise<void> {
+  await expect.poll(() => audit.frames.slice(start).some((frame) =>
+    (frame['kind'] === 'connection_state' && frame['status'] === 'connected')
+      || frame['kind'] === 'connection_ready'
+      || frame['kind'] === 'patch.v2'),
   { timeout: 30_000 }).toBe(true);
 }
 
@@ -345,6 +418,35 @@ async function waitForPatchAfter(
     return found !== undefined;
   }, { timeout: 20_000 }).toBe(true);
   return found!;
+}
+
+async function catalogToken(request: APIRequestContext, query: string): Promise<TokenCatalogCard> {
+  const params = new URLSearchParams({ q: query, limit: '20', tokenOnly: 'true', lang: 'en' });
+  const response = await request.get(`${API_BASE_URL}/cards/search?${params.toString()}`);
+  await expectApiOk(response, `load ${query} token fixture`);
+  const payload = await response.json() as { data?: unknown[] };
+  const card = payload.data?.find((candidate): candidate is JsonObject =>
+    isRecord(candidate)
+      && candidate['name'] === query
+      && typeof candidate['scryfallId'] === 'string'
+      && String(candidate['scryfallId']).trim() !== '',
+  );
+  if (!card) throw new Error(`Token catalog did not return an exact ${query} print.`);
+  return card as TokenCatalogCard;
+}
+
+function runtimeTokenRef(card: TokenCatalogCard): JsonObject {
+  return {
+    name: card.name,
+    typeLine: card.typeLine ?? 'Token Artifact — Treasure',
+    scryfallId: card.scryfallId,
+    cardVersion: 'runtime-v1',
+    language: 'en',
+    power: card.power ?? null,
+    toughness: card.toughness ?? null,
+    imageUris: card.imageUris ?? null,
+    cardFaces: card.cardFaces ?? [],
+  };
 }
 
 async function gameSnapshot(request: APIRequestContext, gameId: string, token: string): Promise<JsonObject> {
@@ -410,6 +512,20 @@ function assertTokenGroup(group: JsonObject | null, quantity: number, memberIds:
   expect(group).not.toHaveProperty('createdByPlayerId');
 }
 
+function assertOpaqueTokenGroup(group: JsonObject | null, canonical: JsonObject, canonicalMemberIds: readonly string[]): void {
+  expect(group).not.toBeNull();
+  expect(group?.['quantity']).toBe(canonical['quantity']);
+  expect(group?.['revision']).toBe(canonical['revision']);
+  expect(group?.['effectVersion']).toBe(1);
+  expect(group?.['faceDown']).toBe(true);
+  expect(group).not.toHaveProperty('memberRefs');
+  expect(group?.['groupId']).not.toBe(canonical['groupId']);
+  expect(group?.['rootRef']).not.toBe(canonical['rootRef']);
+  const encoded = JSON.stringify(group);
+  expect(encoded).not.toContain(String(canonical['groupId']));
+  for (const memberId of canonicalMemberIds) expect(encoded).not.toContain(memberId);
+}
+
 function assertBootstrapGroups(bootstrap: JsonObject, expected: ReadonlyMap<number, JsonObject>): void {
   const groups = normalizedTokenGroups(bootstrap);
   expect(groups).toHaveLength(expected.size);
@@ -430,6 +546,10 @@ function normalizedTokenGroups(bootstrap: JsonObject): JsonObject[] {
   const relations = isRecord(bootstrap['relations']) ? bootstrap['relations'] as JsonObject : {};
   const groups = Array.isArray(relations['tokenGroups']) ? relations['tokenGroups'].filter(isRecord) : [];
   return [...groups].sort((left, right) => Number(left['quantity']) - Number(right['quantity']));
+}
+
+function groupByQuantity(bootstrap: JsonObject, quantity: number): JsonObject | null {
+  return normalizedTokenGroups(bootstrap).find((group) => group['quantity'] === quantity) ?? null;
 }
 
 function countTokenMemberRefs(bootstrap: JsonObject): number {

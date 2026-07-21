@@ -68,6 +68,42 @@ final class GameplayRuntimePatchAdapterTest extends TestCase
         self::assertArrayNotHasKey('data', $operation);
     }
 
+    public function testNormalizesTokenGroupSetWithOptionalMemberRefsAndRejectsNullOrPersistedQuantity(): void
+    {
+        $group = [
+            'groupId' => 'token-group-view-opaque',
+            'rootRef' => 'opaque-root',
+            'quantity' => 20,
+            'revision' => 1,
+            'position' => ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+            'faceDown' => true,
+            'tapped' => false,
+            'rotation' => 0,
+            'effectVersion' => 1,
+        ];
+        $patches = (new GameplayRuntimePatchAdapter())->normalize([[
+            'gameId' => 'game-1',
+            'version' => 2,
+            'visibility' => 'player:viewer-1',
+            'ops' => [['op' => 'token.group.set', 'data' => ['group' => $group]]],
+        ]]);
+
+        self::assertSame($group, $patches[0]['ops'][0]['group']);
+        self::assertArrayNotHasKey('memberRefs', $patches[0]['ops'][0]['group']);
+
+        foreach ([null, []] as $invalidRefs) {
+            $this->assertInvalidPatch([[
+                'gameId' => 'game-1',
+                'version' => 2,
+                'visibility' => 'player:viewer-1',
+                'ops' => [[
+                    'op' => 'token.group.set',
+                    'data' => ['group' => [...$group, 'memberRefs' => $invalidRefs]],
+                ]],
+            ]]);
+        }
+    }
+
     /**
      * @param list<array<string, mixed>> $patches
      */

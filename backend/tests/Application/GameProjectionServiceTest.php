@@ -1167,7 +1167,7 @@ class GameProjectionServiceTest extends TestCase
         ]], $hidden['battlefieldStacks']);
         self::assertSame('token-group-view-'.substr(hash('sha256', $third->id().'|'.$opaqueSource), 0, 24), $hidden['tokenGroups'][0]['groupId']);
         self::assertSame($opaqueSource, $hidden['tokenGroups'][0]['rootRef']);
-        self::assertSame([$opaqueSource, $opaqueTarget], $hidden['tokenGroups'][0]['memberRefs']);
+        self::assertArrayNotHasKey('memberRefs', $hidden['tokenGroups'][0]);
         self::assertSame(2, $hidden['tokenGroups'][0]['quantity']);
         $encodedHidden = json_encode([
             $hidden['arrows'],
@@ -1187,7 +1187,11 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame([], $partiallyRevealed['arrows']);
         self::assertSame([], $partiallyRevealed['attachments']);
         self::assertSame([], $partiallyRevealed['battlefieldStacks']);
-        self::assertSame([], $partiallyRevealed['tokenGroups']);
+        self::assertCount(1, $partiallyRevealed['tokenGroups']);
+        self::assertSame('hidden-source', $partiallyRevealed['tokenGroups'][0]['rootRef']);
+        self::assertSame(2, $partiallyRevealed['tokenGroups'][0]['quantity']);
+        self::assertArrayNotHasKey('memberRefs', $partiallyRevealed['tokenGroups'][0]);
+        self::assertNotSame('canonical-private-token-group', $partiallyRevealed['tokenGroups'][0]['groupId']);
 
         $snapshot['players'][$owner->id()]['zones']['battlefield'][1]['revealedTo'] = [$third->id()];
         $revealed = $projection->projectSnapshot($snapshot, $third);
@@ -1213,7 +1217,7 @@ class GameProjectionServiceTest extends TestCase
         self::assertStringNotContainsString('canonical-private-token-group', $encodedAfterCompactRestart);
         self::assertSame($opaqueSource, $afterCompactRestart['arrows'][0]['fromInstanceId']);
         self::assertSame($opaqueTarget, $afterCompactRestart['attachments'][0]['attachedToInstanceId']);
-        self::assertSame([$opaqueSource, $opaqueTarget], $afterCompactRestart['tokenGroups'][0]['memberRefs']);
+        self::assertArrayNotHasKey('memberRefs', $afterCompactRestart['tokenGroups'][0]);
 
         $snapshot['arrows'] = [];
         $snapshot['attachments'] = [];

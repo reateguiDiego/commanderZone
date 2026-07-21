@@ -288,14 +288,8 @@ class CompactGameplayRuntimeTest extends TestCase
             $snapshot['instances'][$tokens[1]]['cardKey'],
         );
         self::assertCount(1, $snapshot['cardCatalog']);
-        self::assertSame(
-            $snapshot['instances'][$tokens[0]]['cardKey'],
-            $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardKey'] ?? null,
-        );
-        self::assertSame(
-            $snapshot['cardCatalog'][$snapshot['instances'][$tokens[0]]['cardKey']]['cardVersion'] ?? null,
-            $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardVersion'] ?? null,
-        );
+        self::assertSame('', $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardKey'] ?? null);
+        self::assertSame('', $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardVersion'] ?? null);
         self::assertArrayNotHasKey('name', $snapshot['instances'][$tokens[0]]);
         self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$tokens[0]]);
         self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$tokens[1]]);

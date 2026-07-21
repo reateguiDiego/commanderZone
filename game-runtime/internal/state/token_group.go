@@ -1,11 +1,13 @@
 package state
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 )
 
@@ -18,6 +20,8 @@ const (
 	TokenGroupRootInvalid              = "TOKEN_GROUP_ROOT_INVALID"
 	TokenGroupRelationConflict         = "TOKEN_GROUP_RELATION_CONFLICT"
 	TokenGroupEffectVersionUnsupported = "TOKEN_GROUP_EFFECT_VERSION_UNSUPPORTED"
+	TokenGroupProjectionIncomplete     = "TOKEN_GROUP_PROJECTION_INCOMPLETE"
+	TokenGroupPatchConflict            = "TOKEN_GROUP_PATCH_CONFLICT"
 )
 
 var ErrTokenGroupInvariant = errors.New("token group invariant violation")
@@ -42,6 +46,21 @@ type TokenGroupRuntime struct {
 	CreatedByPlayerID string   `json:"createdByPlayerId"`
 	CreatedAtVersion  int64    `json:"createdAtVersion"`
 	EffectVersion     int      `json:"effectVersion"`
+}
+
+func (g *TokenGroupRuntime) UnmarshalJSON(data []byte) error {
+	type canonicalTokenGroup TokenGroupRuntime
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var decoded canonicalTokenGroup
+	if err := decoder.Decode(&decoded); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("token group payload has trailing data")
+	}
+	*g = TokenGroupRuntime(decoded)
+	return nil
 }
 
 func (g TokenGroupRuntime) Clone() TokenGroupRuntime {

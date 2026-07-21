@@ -1145,7 +1145,16 @@ class GameWebsocketPatchBuilderTest extends TestCase
             static fn (array $operation): string => (string) $operation['card']['instanceId'],
             array_slice($message['operations'], 0, 3),
         )));
+        self::assertSame('token.group.set', $message['operations'][3]['op']);
+        self::assertSame('token-action-token-quantity-0', $message['operations'][3]['group']['rootRef']);
+        self::assertSame([
+            'token-action-token-quantity-0',
+            'token-action-token-quantity-1',
+            'token-action-token-quantity-2',
+        ], $message['operations'][3]['group']['memberRefs']);
+        self::assertSame(3, $message['operations'][3]['group']['quantity']);
         self::assertSame('eventLog.append', $message['operations'][count($message['operations']) - 1]['op']);
+
     }
 
     public function testDungeonTokenReplacementRemovesPreviousDungeonAndCreatesNewOneInPatch(): void

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"commanderzone/game-runtime/internal/protocol"
+	"commanderzone/game-runtime/internal/state"
 )
 
 func TestCardsTappedSetIsAtomicReplayableAndViewerSpecific(t *testing.T) {
@@ -119,6 +120,68 @@ func TestCardsFaceDownSetIsAtomicPrivateAndReplayable(t *testing.T) {
 		if contains(string(encoded), privateID) {
 			t.Fatalf("unauthorized tap patch leaked %q: %s", privateID, encoded)
 		}
+	}
+}
+
+func TestCardsFaceDownSetRefreshesTokenGroupProjectionWithoutCanonicalLeak(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+	created := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(2), "p1")
+	if created.Err != nil {
+		t.Fatal(created.Err)
+	}
+	instanceIDs, err := stringSliceField(created.Event.Payload, "instanceIds")
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalGroupID := created.Event.Payload["tokenGroup"].(map[string]any)["groupId"].(string)
+
+	hidden := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "hide-token-group", "cards.face_down.set", map[string]any{
+		"playerId": "p1", "instanceIds": instanceIDs, "faceDown": true,
+	}), "p1")
+	if hidden.Err != nil {
+		t.Fatal(hidden.Err)
+	}
+	ownerRemove := patchForVisibility(hidden.Patches, protocol.PlayerVisibility("p1"), "token.group.remove")
+	ownerSet := patchForVisibility(hidden.Patches, protocol.PlayerVisibility("p1"), "token.group.set")
+	if ownerRemove == nil || ownerSet == nil {
+		t.Fatalf("owner projection refresh incomplete: %#v", hidden.Patches)
+	}
+	ownerGroup := ownerSet.Data["group"].(map[string]any)
+	if ownerRemove.Data["groupId"] != canonicalGroupID || ownerGroup["groupId"] != canonicalGroupID || ownerGroup["faceDown"] != true {
+		t.Fatalf("owner projection mismatch: remove=%#v set=%#v", ownerRemove.Data, ownerGroup)
+	}
+	thirdSet := patchForVisibility(hidden.Patches, protocol.PlayerVisibility("p2"), "token.group.set")
+	if thirdSet == nil {
+		t.Fatalf("unauthorized projection missing: %#v", hidden.Patches)
+	}
+	thirdGroup := thirdSet.Data["group"].(map[string]any)
+	if thirdGroup["groupId"] == canonicalGroupID || thirdGroup["rootRef"] != "p1-hidden-battlefield-1" || thirdGroup["quantity"] != 2 {
+		t.Fatalf("unsafe unauthorized projection: %#v", thirdGroup)
+	}
+	if _, exposed := thirdGroup["memberRefs"]; exposed {
+		t.Fatalf("unauthorized projection exposed membership: %#v", thirdGroup)
+	}
+	if patchForVisibility(hidden.Patches, protocol.PlayerVisibility("p2"), "token.group.remove") != nil {
+		t.Fatalf("identity-changing concealment correlated the canonical group: %#v", hidden.Patches)
+	}
+	encoded, _ := json.Marshal(patchesForVisibility(hidden.Patches, protocol.PlayerVisibility("p2")))
+	for _, canonical := range append([]string{canonicalGroupID}, instanceIDs...) {
+		if contains(string(encoded), canonical) {
+			t.Fatalf("unauthorized token group patch leaked %q: %s", canonical, encoded)
+		}
+	}
+
+	materialized := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "show-token-group", "cards.face_down.set", map[string]any{
+		"playerId": "p1", "instanceIds": instanceIDs, "faceDown": false,
+	}), "p1")
+	if materialized.Err != nil {
+		t.Fatal(materialized.Err)
+	}
+	thirdMaterialized := patchForVisibility(materialized.Patches, protocol.PlayerVisibility("p2"), "token.group.set")
+	if thirdMaterialized == nil || thirdMaterialized.Data["group"].(map[string]any)["groupId"] != canonicalGroupID {
+		t.Fatalf("materialized projection did not restore canonical group: %#v", materialized.Patches)
 	}
 }
 

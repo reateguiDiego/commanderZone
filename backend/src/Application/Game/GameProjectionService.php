@@ -4,6 +4,8 @@ namespace App\Application\Game;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
+use App\Application\Game\TokenGroup\TokenGroupContractException;
 use App\Domain\Game\Game;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\Room\RoomPlayer;
@@ -22,6 +24,7 @@ class GameProjectionService
         private readonly ?GameplayV2Flags $flagsV2 = null,
         private readonly ?GameActivityStreamService $activityStreams = null,
         private readonly ?GameplayStreamsFlags $streamFlags = null,
+        private readonly ?TokenGroupCanonicalizer $tokenGroupCanonicalizer = null,
     )
     {
     }
@@ -295,54 +298,56 @@ class GameProjectionService
      */
     private function projectTokenGroupsForViewer(array $groups, array $projectedRelationRefs, array $projectedCards, string $viewerId): array
     {
+        $canonicalizer = $this->tokenGroupCanonicalizer ?? new TokenGroupCanonicalizer();
         $projected = [];
         foreach ($groups as $group) {
             if (!is_array($group)) {
-                continue;
+                throw new TokenGroupContractException(TokenGroupCanonicalizer::INVARIANT_FAILED, ['invalidIndex' => count($projected)]);
             }
-            $canonicalGroupId = trim((string) ($group['groupId'] ?? ''));
-            $rootCanonical = trim((string) ($group['rootInstanceId'] ?? ''));
-            $members = array_values(array_filter(
-                $group['orderedMemberIds'] ?? [],
-                static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
-            ));
-            if ($canonicalGroupId === '' || $rootCanonical === '' || count($members) < 2 || !in_array($rootCanonical, $members, true)) {
-                continue;
+            $canonical = $canonicalizer->normalizeCanonical($group);
+            $canonicalGroupId = $canonical['groupId'];
+            $rootCanonical = $canonical['rootInstanceId'];
+            $members = $canonical['orderedMemberIds'];
+            $rootRef = $this->projectRelationInstanceReferenceForViewer($rootCanonical, $projectedRelationRefs);
+            if ($rootRef === null) {
+                throw new TokenGroupContractException(TokenGroupCanonicalizer::PROJECTION_INCOMPLETE, [
+                    'count' => count($members),
+                    'revision' => $canonical['revision'],
+                    'invalidIndex' => array_search($rootCanonical, $members, true),
+                ]);
             }
             $resolvedByCanonical = [];
-            $opacity = null;
+            $fullyAuthorized = true;
             foreach ($members as $memberId) {
                 $resolved = $this->projectRelationInstanceReferenceForViewer($memberId, $projectedRelationRefs);
                 if ($resolved === null) {
-                    continue 2;
+                    $fullyAuthorized = false;
+                    continue;
                 }
-                $currentOpacity = $resolved !== $memberId;
-                if ($opacity !== null && $opacity !== $currentOpacity) {
-                    continue 2;
+                if ($resolved !== $memberId) {
+                    $fullyAuthorized = false;
                 }
-                $opacity = $currentOpacity;
                 $resolvedByCanonical[$memberId] = $resolved;
             }
-            $rootRef = $resolvedByCanonical[$rootCanonical] ?? null;
-            if (!is_string($rootRef) || $rootRef === '') {
-                continue;
-            }
             $rootCard = $projectedCards[$rootRef] ?? [];
-            $safeGroupId = $opacity === true
-                ? 'token-group-view-'.substr(hash('sha256', $viewerId.'|'.$rootRef), 0, 24)
+            $safeGroupId = !$fullyAuthorized
+                ? $canonicalizer->opaqueGroupId($viewerId, $rootRef)
                 : $canonicalGroupId;
-            $projected[] = [
+            $view = [
                 'groupId' => $safeGroupId,
                 'rootRef' => $rootRef,
-                'memberRefs' => array_map(static fn (string $memberId): string => $resolvedByCanonical[$memberId], $members),
                 'quantity' => count($members),
-                'revision' => max(1, (int) ($group['revision'] ?? 1)),
+                'revision' => $canonical['revision'],
                 'position' => is_array($rootCard['position'] ?? null) ? $rootCard['position'] : ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
                 'faceDown' => ($rootCard['faceDown'] ?? false) === true,
                 'tapped' => ($rootCard['tapped'] ?? false) === true,
                 'rotation' => (int) ($rootCard['rotation'] ?? 0),
-                'effectVersion' => 1,
+                'effectVersion' => TokenGroupCanonicalizer::EFFECT_VERSION,
             ];
+            if ($fullyAuthorized) {
+                $view['memberRefs'] = array_map(static fn (string $memberId): string => $resolvedByCanonical[$memberId], $members);
+            }
+            $projected[] = $canonicalizer->normalizeProjected($view);
         }
 
         return $projected;

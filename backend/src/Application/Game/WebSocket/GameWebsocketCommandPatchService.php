@@ -1375,6 +1375,7 @@ final readonly class GameWebsocketCommandPatchService
                     $viewerOps[] = $op;
                 }
             }
+            $viewerOps = $this->orderRuntimeTokenGroupProjectionOps($viewerOps);
             $messagesByUserId[$peer->userId] = [[
                 'kind' => 'patch.v2',
                 'gameId' => $gameId,
@@ -2448,6 +2449,7 @@ final readonly class GameWebsocketCommandPatchService
                     $viewerOps[] = $this->hydrateRuntimeStaticCards($op, $staticCardsByCardKey, $viewerLanguage);
                 }
             }
+            $viewerOps = $this->orderRuntimeTokenGroupProjectionOps($viewerOps);
             $messagesByUserId[$viewer->id()] = [[
                 'kind' => 'patch.v2',
                 'gameId' => $game->id(),
@@ -3525,6 +3527,32 @@ final readonly class GameWebsocketCommandPatchService
     private function sanitizePrivateCardLogEntry(array $entry): array
     {
         return (new GameLogPrivacySanitizer())->sanitizePublicEntry($entry, true);
+    }
+
+    /**
+     * Runtime emits private envelopes before the public carrier. TokenGroup
+     * projection changes must still be applied around card identity changes:
+     * remove old stable views, conceal/materialize instances, set the new view,
+     * then publish derived counts/logs. The partition is stable inside a phase.
+     *
+     * @param list<array<string,mixed>> $operations
+     * @return list<array<string,mixed>>
+     */
+    private function orderRuntimeTokenGroupProjectionOps(array $operations): array
+    {
+        $phases = [[], [], [], []];
+        foreach ($operations as $operation) {
+            $op = is_string($operation['op'] ?? null) ? $operation['op'] : '';
+            $phase = match ($op) {
+                'token.group.remove' => 0,
+                'token.group.set' => 2,
+                'zone.count.set', 'zone.counts.set', 'eventLog.append', 'version.advance' => 3,
+                default => 1,
+            };
+            $phases[$phase][] = $operation;
+        }
+
+        return [...$phases[0], ...$phases[1], ...$phases[2], ...$phases[3]];
     }
 
     /**

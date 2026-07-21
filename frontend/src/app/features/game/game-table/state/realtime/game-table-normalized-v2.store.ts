@@ -134,7 +134,13 @@ export interface GameTableNormalizedV2State {
   pendingOptimisticActions: Record<string, { createdAt: string }>;
 }
 
-export type GameTableNormalizedV2ApplyFailureReason = 'version_gap' | 'target_not_found' | 'invalid_operation' | 'missing_state';
+export type GameTableNormalizedV2ApplyFailureReason =
+  | 'version_gap'
+  | 'target_not_found'
+  | 'invalid_operation'
+  | 'missing_state'
+  | 'token_group_projection_incomplete'
+  | 'token_group_patch_conflict';
 
 export type GameTableNormalizedV2ApplyResult =
   | { status: 'applied'; state: GameTableNormalizedV2State; snapshot: GameSnapshot }
@@ -220,6 +226,12 @@ export function createGameTableNormalizedV2State(
     bootstrap.relations.battlefieldStacks ?? [],
     bootstrap.relations.tokenGroups ?? [],
   );
+  for (const group of Object.values(relations.tokenGroupsById)) {
+    const visibleRefs = group.memberRefs ?? [group.rootRef];
+    if (!bootstrap.instances[group.rootRef] || visibleRefs.some((ref) => !bootstrap.instances[ref])) {
+      throw new Error('TOKEN_GROUP_PROJECTION_INCOMPLETE');
+    }
+  }
   const stack = createStackState(bootstrap.relations.stack);
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
   const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
@@ -1027,7 +1039,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return setTokenGroup(state, operation.group);
 
     case 'token.group.remove':
-      return removeTokenGroup(state, operation.groupId);
+      return removeTokenGroup(state, operation.groupId, operation.revision);
 
     case 'battlefield.stack.order.set':
       return setBattlefieldStackOrder(state, operation.stackId, operation.rootInstanceId, operation.orderedInstanceIds);
@@ -1841,14 +1853,10 @@ function remapProjectedRelationsForInstanceChanges(
     if (!touched) {
       return [group];
     }
-    if (!rootRef || !memberRefs || memberRefs.some((memberRef) => !memberRef)) {
-      return [];
-    }
-    const safeMemberRefs = memberRefs as string[];
-    if (!safeMemberRefs.includes(rootRef) || !sameVisibility(safeMemberRefs)) {
-      return [];
-    }
-    return [{ ...group, rootRef, memberRefs: safeMemberRefs }];
+    // A canonical/opaque identity transition also changes the viewer-specific
+    // groupId. The server must provide the matching token.group.set in the
+    // same version; retaining the old id here would leak or correlate it.
+    return [];
   });
 
   return createRelationsState(
@@ -2205,7 +2213,7 @@ function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGro
     position: { ...incoming.position },
   };
   if (!validTokenGroupView(group)) {
-    return { status: 'failed', reason: 'invalid_operation' };
+    return { status: 'failed', reason: 'token_group_projection_incomplete' };
   }
   const existing = state.relations.tokenGroupsById[group.groupId];
   if (existing && group.revision < existing.revision) {
@@ -2214,12 +2222,12 @@ function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGro
   if (existing && group.revision === existing.revision) {
     return tokenGroupViewEqual(existing, group)
       ? { status: 'applied', state }
-      : { status: 'failed', reason: 'invalid_operation' };
+      : { status: 'failed', reason: 'token_group_patch_conflict' };
   }
 
   const refs = memberRefs ?? [group.rootRef];
   if (refs.some((ref) => !state.instances[ref])) {
-    return { status: 'failed', reason: 'target_not_found' };
+    return { status: 'failed', reason: 'token_group_projection_incomplete' };
   }
   const memberSet = new Set(refs);
   const membershipConflict = Object.values(state.relations.tokenGroupsById).some((candidate) =>
@@ -2235,7 +2243,7 @@ function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGro
     memberSet.has(attachment.equipmentInstanceId) || memberSet.has(attachment.attachedToInstanceId),
   );
   if (membershipConflict || stackConflict || binaryRelationConflict) {
-    return { status: 'failed', reason: 'invalid_operation' };
+    return { status: 'failed', reason: 'token_group_patch_conflict' };
   }
 
   return {
@@ -2253,8 +2261,9 @@ function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGro
   };
 }
 
-function removeTokenGroup(state: GameTableNormalizedV2State, groupId: string): OperationApplyResult {
-  if (!state.relations.tokenGroupsById[groupId]) {
+function removeTokenGroup(state: GameTableNormalizedV2State, groupId: string, revision?: number): OperationApplyResult {
+  const existing = state.relations.tokenGroupsById[groupId];
+  if (!existing || (revision !== undefined && revision < existing.revision)) {
     return { status: 'applied', state };
   }
   return {
@@ -2280,8 +2289,13 @@ function validTokenGroupView(group: GameTokenGroupView): boolean {
     || group.revision < 1
     || !Number.isInteger(group.revision)
     || group.effectVersion !== 1
+    || group.position.unit !== 'ratio'
     || !Number.isFinite(group.position.x)
-    || !Number.isFinite(group.position.y)) {
+    || !Number.isFinite(group.position.y)
+    || group.position.x < 0
+    || group.position.x > 1
+    || group.position.y < 0
+    || group.position.y > 1) {
     return false;
   }
   if (!group.memberRefs) {
@@ -3483,7 +3497,12 @@ function createRelationsState(
     }
     tokenGroupIds.add(group.groupId);
     for (const memberRef of group.memberRefs ?? [group.rootRef]) {
-      if (tokenGroupIdByMemberRef[memberRef] || battlefieldStacksByMember[memberRef]?.length) {
+      if (tokenGroupIdByMemberRef[memberRef]
+        || battlefieldStacksByMember[memberRef]?.length
+        || arrowsBySource[memberRef]?.length
+        || arrowsByTarget[memberRef]?.length
+        || attachmentsByEquipment[memberRef]?.length
+        || attachmentsByTarget[memberRef]?.length) {
         throw new Error('TokenGroup membership is not exclusive.');
       }
       tokenGroupIdByMemberRef[memberRef] = group.groupId;

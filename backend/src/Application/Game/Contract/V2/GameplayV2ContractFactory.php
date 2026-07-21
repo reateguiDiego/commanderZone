@@ -3,6 +3,7 @@
 namespace App\Application\Game\Contract\V2;
 
 use App\Application\Game\GameLogPrivacySanitizer;
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -12,6 +13,10 @@ final class GameplayV2ContractFactory
 {
     private const RULES_VERSION = 'commanderzone-manual-v1';
     private const CARD_CATALOG_VERSION = 'legacy-snapshot-v1';
+
+    public function __construct(private readonly TokenGroupCanonicalizer $tokenGroups = new TokenGroupCanonicalizer())
+    {
+    }
 
     /**
      * @param array<string,mixed> $command
@@ -196,7 +201,10 @@ final class GameplayV2ContractFactory
             'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'battlefieldStacks' => array_values(array_filter($projectedSnapshot['battlefieldStacks'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
-            'tokenGroups' => array_values(array_filter($projectedSnapshot['tokenGroups'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'tokenGroups' => array_values(array_map(
+                fn (array $entry): array => $this->tokenGroups->normalizeProjected($entry),
+                array_filter($projectedSnapshot['tokenGroups'] ?? [], static fn (mixed $entry): bool => is_array($entry)),
+            )),
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 

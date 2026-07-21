@@ -55,10 +55,10 @@ describe('game table normalized v2 store', () => {
 
 		const conflicting = applyPatchEnvelopeV2(created.state, {
 			gameId: 'game-1', version: 6, visibility: 'public', ackClientActionId: 'token-create-conflict',
-			ops: [{ op: 'token.group.set', group: { ...group, quantity: 3 } }],
+			ops: [{ op: 'token.group.set', group: { ...group, position: { ...group.position, x: 0.6 } } }],
 		});
 		expect(conflicting.status).toBe('resync_required');
-		expect(conflicting).toMatchObject({ reason: 'invalid_operation' });
+		expect(conflicting).toMatchObject({ reason: 'token_group_patch_conflict' });
 
 		const updated = applyPatchEnvelopeV2(created.state, patch(7, [{
 			op: 'token.group.set', group: { ...group, revision: 2 },
@@ -68,10 +68,72 @@ describe('game table normalized v2 store', () => {
 		expect(stale.status).toBe('applied');
 		expect(stale.state.relations.tokenGroupsById[group.groupId]?.revision).toBe(2);
 
-		const removed = applyPatchEnvelopeV2(stale.state, patch(9, [{ op: 'token.group.remove', groupId: group.groupId }]));
+		const staleRemove = applyPatchEnvelopeV2(stale.state, patch(9, [{ op: 'token.group.remove', groupId: group.groupId, revision: 1 }]));
+		expect(staleRemove.status).toBe('applied');
+		expect(staleRemove.state.relations.tokenGroupsById[group.groupId]?.revision).toBe(2);
+
+		const removed = applyPatchEnvelopeV2(staleRemove.state, patch(10, [{ op: 'token.group.remove', groupId: group.groupId, revision: 2 }]));
 		expect(removed.status).toBe('applied');
 		expect(removed.state.relations.tokenGroupsById).toEqual({});
 		expect(removed.state.relations.indexes.tokenGroupIdByMemberRef).toEqual({});
+	});
+
+	it('hydrates opaque TokenGroups without memberRefs and keeps quantity independent from visible membership', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.relations.tokenGroups = [{
+			groupId: 'token-group-view-b', rootRef: 'battlefield-1', quantity: 20, revision: 1,
+			position: { x: 0.5, y: 0.5, unit: 'ratio' }, faceDown: true, effectVersion: 1,
+		}];
+		const state = createGameTableNormalizedV2State(bootstrap);
+
+		expect(state.relations.tokenGroupsById['token-group-view-b']?.memberRefs).toBeUndefined();
+		expect(state.relations.tokenGroupsById['token-group-view-b']?.quantity).toBe(20);
+		expect(state.relations.indexes.tokenGroupIdByMemberRef).toEqual({ 'battlefield-1': 'token-group-view-b' });
+		expect(hydrateGameSnapshotFromV2State(state).tokenGroups?.[0].quantity).toBe(20);
+	});
+
+	it('fails closed for missing projected roots or incomplete authorized membership', () => {
+		const missingRoot = bootstrapV2();
+		missingRoot.relations.tokenGroups = [{
+			groupId: 'group-missing-root', rootRef: 'does-not-exist', quantity: 2, revision: 1,
+			position: { x: 0.5, y: 0.5, unit: 'ratio' }, effectVersion: 1,
+		}];
+		expect(() => createGameTableNormalizedV2State(missingRoot)).toThrow('TOKEN_GROUP_PROJECTION_INCOMPLETE');
+
+		const missingMember = bootstrapV2();
+		missingMember.relations.tokenGroups = [{
+			groupId: 'group-missing-member', rootRef: 'battlefield-1', memberRefs: ['battlefield-1', 'missing'],
+			quantity: 2, revision: 1, position: { x: 0.5, y: 0.5, unit: 'ratio' }, effectVersion: 1,
+		}];
+		expect(() => createGameTableNormalizedV2State(missingMember)).toThrow('TOKEN_GROUP_PROJECTION_INCOMPLETE');
+	});
+
+	it('preserves a projected group without memberRefs through conceal and accepts same-version remove/set remap', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.viewerId = 'player-2';
+		bootstrap.relations.tokenGroups = [{
+			groupId: 'group-canonical', rootRef: 'battlefield-1', quantity: 2, revision: 1,
+			position: { x: 0.5, y: 0.5, unit: 'ratio' }, effectVersion: 1,
+		}];
+		const initial = createGameTableNormalizedV2State(bootstrap);
+		const concealed = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'private.cards.conceal', playerId: 'player-1', zone: 'battlefield', entries: [
+				{ instanceId: 'battlefield-1', placeholderId: 'opaque-root', index: 0 },
+			] },
+			{ op: 'token.group.remove', groupId: 'group-canonical', revision: 1, reason: 'projection_changed' },
+			{ op: 'token.group.set', group: {
+				groupId: 'group-opaque', rootRef: 'opaque-root', quantity: 2, revision: 1,
+				position: { x: 0.5, y: 0.5, unit: 'ratio' }, faceDown: true, effectVersion: 1,
+			} },
+		]));
+
+		expect(concealed.status).toBe('applied');
+		expect(concealed.state.relations.tokenGroupsById['group-canonical']).toBeUndefined();
+		expect(concealed.state.relations.tokenGroupsById['group-opaque']).toMatchObject({
+			rootRef: 'opaque-root', quantity: 2,
+		});
+		expect(concealed.state.relations.tokenGroupsById['group-opaque']?.memberRefs).toBeUndefined();
+		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['battlefield-1']).toBeUndefined();
 	});
 
 	it('remaps all TokenGroup refs atomically across conceal and materialize', () => {
@@ -95,18 +157,26 @@ describe('game table normalized v2 store', () => {
 				{ instanceId: 'token-a', placeholderId: 'opaque-a', index: 1 },
 				{ instanceId: 'token-b', placeholderId: 'opaque-b', index: 2 },
 			],
+		}, { op: 'token.group.remove', groupId: 'group-visible', revision: 1 }, {
+			op: 'token.group.set', group: {
+				...bootstrap.relations.tokenGroups![0], groupId: 'group-opaque', rootRef: 'opaque-a',
+				memberRefs: ['opaque-a', 'opaque-b'], faceDown: true,
+			},
 		}]));
 		expect(concealed.status).toBe('applied');
-		expect(concealed.state.relations.tokenGroupsById['group-visible']?.rootRef).toBe('opaque-a');
-		expect(concealed.state.relations.tokenGroupsById['group-visible']?.memberRefs).toEqual(['opaque-a', 'opaque-b']);
+		expect(concealed.state.relations.tokenGroupsById['group-visible']).toBeUndefined();
+		expect(concealed.state.relations.tokenGroupsById['group-opaque']?.rootRef).toBe('opaque-a');
+		expect(concealed.state.relations.tokenGroupsById['group-opaque']?.memberRefs).toEqual(['opaque-a', 'opaque-b']);
 		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['token-a']).toBeUndefined();
-		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['opaque-b']).toBe('group-visible');
+		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['opaque-b']).toBe('group-opaque');
 
 		const materialized = applyPatchEnvelopeV2(concealed.state, patch(7, [{
 			op: 'private.cards.materialize', playerId: 'player-1', zone: 'battlefield', entries: [
 				{ placeholderId: 'opaque-a', index: 1, card: token('token-a') },
 				{ placeholderId: 'opaque-b', index: 2, card: token('token-b') },
 			],
+		}, { op: 'token.group.remove', groupId: 'group-opaque', revision: 1 }, {
+			op: 'token.group.set', group: bootstrap.relations.tokenGroups![0],
 		}]));
 		expect(materialized.status).toBe('applied');
 		expect(materialized.state.relations.tokenGroupsById['group-visible']?.rootRef).toBe('token-a');

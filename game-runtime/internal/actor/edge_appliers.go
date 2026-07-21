@@ -15,7 +15,10 @@ import (
 	"commanderzone/game-runtime/internal/state"
 )
 
-const tokenCreatedEffectVersion = 1
+const (
+	legacyTokenCreatedEffectVersion = 1
+	tokenCreatedEffectVersion       = 2
+)
 
 type CardTokenCreatedApplier struct{}
 

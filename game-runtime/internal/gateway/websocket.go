@@ -558,8 +558,10 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 }
 
 func (s *WebSocketServer) sendReplayPatches(client *wsClient, patches []protocol.PatchEnvelopeV2) {
-	for _, patch := range patches {
-		s.sendPatchIfVisible(client, patch)
+	for _, patch := range mergeVisiblePatchEnvelopes(patches, func(visibility protocol.Visibility) bool {
+		return canReceive(client.claims, visibility)
+	}, clientPatchVisibility(client)) {
+		s.sendJSON(client, patchMessage(patch))
 	}
 }
 
@@ -808,11 +810,87 @@ func (s *WebSocketServer) broadcast(gameID string, patches []protocol.PatchEnvel
 		clients = append(clients, client)
 	}
 	s.mu.RUnlock()
-	for _, patch := range patches {
-		for _, client := range clients {
-			s.sendPatchIfVisible(client, patch)
+	for _, client := range clients {
+		for _, patch := range mergeVisiblePatchEnvelopes(patches, func(visibility protocol.Visibility) bool {
+			return canReceive(client.claims, visibility)
+		}, clientPatchVisibility(client)) {
+			s.sendJSON(client, patchMessage(patch))
 		}
 	}
+}
+
+func clientPatchVisibility(client *wsClient) protocol.Visibility {
+	playerID := client.playerID()
+	if playerID == "" {
+		playerID = client.claims.UserID
+	}
+	return protocol.PlayerVisibility(playerID)
+}
+
+// mergeVisiblePatchEnvelopes turns the public/private carriers of one durable
+// version into the single viewer-specific Patch.v2 transaction consumed by
+// the browser. Receipts and history retain their canonical audience envelopes;
+// only transport projection is merged. This prevents a private relation op
+// from observing an identity change before the matching public conceal or
+// materialize op of the same version.
+func mergeVisiblePatchEnvelopes(
+	patches []protocol.PatchEnvelopeV2,
+	visible func(protocol.Visibility) bool,
+	viewerVisibility protocol.Visibility,
+) []protocol.PatchEnvelopeV2 {
+	merged := make([]protocol.PatchEnvelopeV2, 0, len(patches))
+	for _, patch := range patches {
+		if !visible(patch.Visibility) {
+			continue
+		}
+		last := len(merged) - 1
+		if last >= 0 && merged[last].GameID == patch.GameID && merged[last].Version == patch.Version {
+			merged[last].Ops = append(merged[last].Ops, patch.Ops...)
+			if merged[last].AckClientActionID == "" {
+				merged[last].AckClientActionID = patch.AckClientActionID
+			}
+			continue
+		}
+		projected := patch
+		projected.Visibility = viewerVisibility
+		projected.Ops = append([]protocol.PatchOp(nil), patch.Ops...)
+		merged = append(merged, projected)
+	}
+	for index := range merged {
+		merged[index].Ops = orderTokenGroupProjectionOps(merged[index].Ops)
+	}
+	return merged
+}
+
+func orderTokenGroupProjectionOps(operations []protocol.PatchOp) []protocol.PatchOp {
+	hasTokenGroupOp := false
+	for _, operation := range operations {
+		if operation.Op == "token.group.set" || operation.Op == "token.group.remove" {
+			hasTokenGroupOp = true
+			break
+		}
+	}
+	if !hasTokenGroupOp {
+		return operations
+	}
+	phases := [4][]protocol.PatchOp{}
+	for _, operation := range operations {
+		phase := 1
+		switch operation.Op {
+		case "token.group.remove":
+			phase = 0
+		case "token.group.set":
+			phase = 2
+		case "zone.count.set", "zone.counts.set", "eventLog.append", "version.advance":
+			phase = 3
+		}
+		phases[phase] = append(phases[phase], operation)
+	}
+	ordered := make([]protocol.PatchOp, 0, len(operations))
+	for _, phase := range phases {
+		ordered = append(ordered, phase...)
+	}
+	return ordered
 }
 
 func eventLogEntriesFromPayload(payload map[string]any) []map[string]any {

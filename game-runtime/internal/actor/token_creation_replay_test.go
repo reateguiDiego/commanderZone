@@ -1,6 +1,7 @@
 package actor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -209,7 +210,7 @@ func TestLegacyTokenCreationEventWithoutFinalTokensRemainsReplayable(t *testing.
 	}
 }
 
-func TestLegacyFinalEffectTokenCreationWithoutTokenGroupDoesNotInferOne(t *testing.T) {
+func TestLegacyTokenCreationQuantityTenWithoutTokenGroupDoesNotInferOne(t *testing.T) {
 	initial := testState()
 	state.NormalizeForRecovery("game-1", &initial)
 	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
@@ -218,6 +219,8 @@ func TestLegacyFinalEffectTokenCreationWithoutTokenGroupDoesNotInferOne(t *testi
 		t.Fatal(result.Err)
 	}
 	legacy := roundTripTokenEvent(t, result.Event)
+	delete(legacy.Payload, "effectVersion")
+	delete(legacy.Payload, "tokens")
 	delete(legacy.Payload, "tokenGroup")
 	replayed, err := ReplayEvents(initial.Clone(), []protocol.EventPayloadV2{legacy}, DefaultAppliers())
 	if err != nil {
@@ -225,6 +228,45 @@ func TestLegacyFinalEffectTokenCreationWithoutTokenGroupDoesNotInferOne(t *testi
 	}
 	if len(replayed.Relations.TokenGroups) != 0 {
 		t.Fatalf("legacy replay inferred token group: %#v", replayed.Relations.TokenGroups)
+	}
+}
+
+func TestNewTokenCreationQuantityTenWithoutTokenGroupFailsClosed(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(10), "p1")
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	event := roundTripTokenEvent(t, result.Event)
+	delete(event.Payload, "tokenGroup")
+	replayed := initial.Clone()
+	before := replayed.Clone()
+	if err := ReplayEventWithAppliers(&replayed, event, DefaultAppliers()); err == nil {
+		t.Fatal("new token effect without TokenGroup unexpectedly replayed")
+	}
+	if !reflect.DeepEqual(replayed, before) {
+		t.Fatalf("invalid new token effect mutated state: %#v", replayed)
+	}
+}
+
+func TestLegacyFinalEffectsQuantityTenWithoutTokenGroupStayIndependent(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	result := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers()).ApplyDirect(context.Background(), tokenCreationCommand(10), "p1")
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	event := roundTripTokenEvent(t, result.Event)
+	event.Payload["effectVersion"] = legacyTokenCreatedEffectVersion
+	delete(event.Payload, "tokenGroup")
+	replayed, err := ReplayEvents(initial.Clone(), []protocol.EventPayloadV2{event}, DefaultAppliers())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replayed.Relations.TokenGroups) != 0 || len(replayed.Instances) != len(initial.Instances)+10 {
+		t.Fatalf("legacy final effects changed grouping semantics: %#v", replayed.Relations.TokenGroups)
 	}
 }
 
@@ -328,6 +370,20 @@ func assertTokenEventFinalEffects(t *testing.T, event protocol.EventPayloadV2, q
 	logs, ok := event.Payload["eventLogEntries"].([]any)
 	if !ok || len(logs) != 1 {
 		t.Fatalf("eventLogEntries = %#v, want one aggregated entry", event.Payload["eventLogEntries"])
+	}
+	encodedLog, err := json.Marshal(logs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, instanceID := range ids {
+		if bytes.Contains(encodedLog, []byte(instanceID)) {
+			t.Fatalf("aggregated token log leaked member id %q: %s", instanceID, encodedLog)
+		}
+	}
+	if group, ok := event.Payload["tokenGroup"].(map[string]any); ok {
+		if groupID := optionalString(group, "groupId"); groupID != "" && bytes.Contains(encodedLog, []byte(groupID)) {
+			t.Fatalf("aggregated token log leaked group id %q: %s", groupID, encodedLog)
+		}
 	}
 }
 

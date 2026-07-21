@@ -721,6 +721,8 @@ export type GameplayPatchV2Operation =
   | {
       op: 'token.group.remove';
       groupId: string;
+      revision?: number;
+      reason?: string;
     }
   | {
       op: 'battlefield.stack.order.set';

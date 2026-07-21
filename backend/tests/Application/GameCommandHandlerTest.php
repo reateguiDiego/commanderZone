@@ -800,6 +800,52 @@ class GameCommandHandlerTest extends TestCase
         }
     }
 
+    public function testRuntimeOffTokenCreationPersistsCanonicalGroupFinalEffects(): void
+    {
+        $actor = new User('runtime-off-token-group@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $actionId = 'Runtime-Off-Create';
+
+        $event = (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'quantity' => 3,
+            'card' => [
+                'cardKey' => 'token:treasure',
+                'printId' => 'treasure-print',
+                'cardVersion' => 'oracle-v7',
+                'language' => 'es',
+                'name' => 'Treasure',
+                'typeLine' => 'Token Artifact - Treasure',
+            ],
+        ], $actor, $actionId);
+
+        $expectedIds = [
+            'token-runtime-off-create-0',
+            'token-runtime-off-create-1',
+            'token-runtime-off-create-2',
+        ];
+        $expectedGroupId = 'token-group-'.substr(hash('sha256', $game->id()."\0".$actionId."\0token-group-v1"), 0, 24);
+        $snapshot = $game->snapshot();
+        $battlefield = $snapshot['players'][$actor->id()]['zones']['battlefield'];
+        $payload = $event->payload();
+
+        self::assertSame($expectedIds, array_column($battlefield, 'instanceId'));
+        self::assertSame([$battlefield[0]['position'], $battlefield[0]['position'], $battlefield[0]['position']], array_column($battlefield, 'position'));
+        self::assertSame(2, $payload['effectVersion'] ?? null);
+        self::assertSame($expectedIds, $payload['instanceIds'] ?? null);
+        self::assertCount(3, $payload['tokens'] ?? []);
+        self::assertSame([
+            'groupId' => $expectedGroupId,
+            'rootInstanceId' => $expectedIds[0],
+            'orderedMemberIds' => $expectedIds,
+            'revision' => 1,
+            'createdByPlayerId' => $actor->id(),
+            'createdAtVersion' => 2,
+            'effectVersion' => 1,
+        ], $payload['tokenGroup'] ?? null);
+        self::assertSame([$payload['tokenGroup']], $snapshot['tokenGroups'] ?? null);
+    }
+
     public function testCreateTokenCommandUsesSelectedTokenPayload(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -1057,7 +1103,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('Goblin Token', $battlefield[0]['name']);
         self::assertSame('Goblin Token', $battlefield[1]['name']);
         self::assertSame('Goblin Token', $battlefield[2]['name']);
-        self::assertNotSame($battlefield[0]['position'], $battlefield[1]['position']);
+        self::assertSame($battlefield[0]['position'], $battlefield[1]['position']);
         self::assertSame('Created 3 Goblin Tokens.', $game->snapshot()['eventLog'][0]['message']);
     }
 

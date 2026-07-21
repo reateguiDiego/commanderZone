@@ -1,6 +1,10 @@
 package actor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
@@ -45,4 +49,56 @@ func emitInstancePatchByViewer(emitter *PatchEmitter, game *state.GameState, ins
 		projectedData["instanceId"] = projectedID
 		emitter.EmitPrivate(viewerID, protocol.PatchOp{Op: opName, Data: projectedData})
 	}
+}
+
+// projectTokenGroupForViewer uses the same canonical-to-viewer reference map as
+// cards and binary relations. Complete membership is exposed only when every
+// member remains canonical for that viewer; otherwise quantity and the opaque
+// root are sufficient and memberRefs is deliberately absent.
+func projectTokenGroupForViewer(game *state.GameState, group state.TokenGroupRuntime, viewerID string) (map[string]any, bool) {
+	rootRef, visible := projectInstanceReferenceForViewer(game, group.RootInstanceID, viewerID)
+	if !visible {
+		return nil, false
+	}
+	fullyAuthorized := rootRef == group.RootInstanceID
+	memberRefs := make([]string, 0, len(group.OrderedMemberIDs))
+	for _, memberID := range group.OrderedMemberIDs {
+		projectedRef, memberVisible := projectInstanceReferenceForViewer(game, memberID, viewerID)
+		if !memberVisible {
+			fullyAuthorized = false
+			continue
+		}
+		if projectedRef != memberID {
+			fullyAuthorized = false
+		}
+		memberRefs = append(memberRefs, projectedRef)
+	}
+	root, rootExists := game.Instances[group.RootInstanceID]
+	if !rootExists {
+		return nil, false
+	}
+	groupID := group.GroupID
+	if !fullyAuthorized {
+		groupID = viewerOpaqueTokenGroupID(viewerID, rootRef)
+	}
+	projected := map[string]any{
+		"groupId":       groupID,
+		"rootRef":       rootRef,
+		"quantity":      group.Quantity(),
+		"revision":      group.Revision,
+		"position":      cloneMap(root.Position),
+		"faceDown":      root.FaceDown,
+		"tapped":        root.Tapped,
+		"rotation":      root.Rotation,
+		"effectVersion": group.EffectVersion,
+	}
+	if fullyAuthorized && len(memberRefs) == group.Quantity() {
+		projected["memberRefs"] = memberRefs
+	}
+	return projected, true
+}
+
+func viewerOpaqueTokenGroupID(viewerID string, opaqueRootRef string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(viewerID) + "|" + strings.TrimSpace(opaqueRootRef)))
+	return "token-group-view-" + hex.EncodeToString(digest[:12])
 }

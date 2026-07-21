@@ -730,8 +730,8 @@ func TestWebSocketPrivateOnlyPatchSendsPublicVersionCarrier(t *testing.T) {
 		t.Fatalf("owner patch = %#v, want private card.field.set", ownerPatch)
 	}
 	carrier := readUntil(t, nonOwner, "patch.v2")
-	if carrier.Version != 2 || carrier.Visibility != protocol.VisibilityPublic {
-		t.Fatalf("carrier = %#v, want public version 2", carrier)
+	if carrier.Version != 2 || carrier.Visibility != protocol.PlayerVisibility("p2") {
+		t.Fatalf("carrier = %#v, want viewer-projected version 2", carrier)
 	}
 	if len(carrier.Ops) != 1 || carrier.Ops[0]["op"] != "version.advance" {
 		t.Fatalf("carrier ops = %#v, want version.advance only", carrier.Ops)
@@ -791,8 +791,8 @@ func TestWebSocketGroupPatchRoutesBySignedViewerMask(t *testing.T) {
 	for viewer, conn := range map[string]*websocket.Conn{"p1": p1, "p2": p2} {
 		patch := readPatchWithoutResync(t, conn)
 		entries, ok := patch.Ops[0]["entries"].([]any)
-		if patch.Visibility != protocol.GroupVisibility("3") || !ok || len(entries) != 1 {
-			t.Fatalf("%s patch = %#v, want authorized group identity", viewer, patch)
+		if patch.Visibility != protocol.PlayerVisibility(viewer) || !ok || len(entries) != 1 {
+			t.Fatalf("%s patch = %#v, want viewer-projected authorized identity", viewer, patch)
 		}
 		entry, _ := entries[0].(map[string]any)
 		card, _ := entry["card"].(map[string]any)
@@ -801,8 +801,8 @@ func TestWebSocketGroupPatchRoutesBySignedViewerMask(t *testing.T) {
 		}
 	}
 	carrier := readPatchWithoutResync(t, p3)
-	if carrier.Visibility != protocol.VisibilityPublic {
-		t.Fatalf("unauthorized viewer patch = %#v, want public envelope", carrier)
+	if carrier.Visibility != protocol.PlayerVisibility("p3") {
+		t.Fatalf("unauthorized viewer patch = %#v, want viewer-projected envelope", carrier)
 	}
 	for _, op := range carrier.Ops {
 		if _, leaked := op["cardKey"]; leaked || op["op"] == "card.field.set" {
@@ -1117,10 +1117,12 @@ func TestWebSocketDurableReconnectFiltersPrivatePatchForNonOwner(t *testing.T) {
 		"instanceId": "h1",
 		"faceIndex":  1,
 	}, nil))
-	privatePatch := readPatchWithoutResync(t, owner)
-	publicCarrier := readPatchWithoutResync(t, owner)
-	if privatePatch.Visibility != protocol.PlayerVisibility("p1") || publicCarrier.Visibility != protocol.VisibilityPublic {
-		t.Fatalf("initial patches = %#v / %#v, want private patch plus public carrier", privatePatch, publicCarrier)
+	projectedPatch := readPatchWithoutResync(t, owner)
+	if projectedPatch.Visibility != protocol.PlayerVisibility("p1") || len(projectedPatch.Ops) != 2 {
+		t.Fatalf("initial projected patch = %#v, want merged private op plus public carrier", projectedPatch)
+	}
+	if projectedPatch.Ops[0]["op"] != "card.field.set" || projectedPatch.Ops[1]["op"] != "version.advance" {
+		t.Fatalf("initial projected ops = %#v, want stable merged order", projectedPatch.Ops)
 	}
 	_ = owner.Close()
 	shutdownRuntimeService(t, runtimeService)
@@ -1140,8 +1142,8 @@ func TestWebSocketDurableReconnectFiltersPrivatePatchForNonOwner(t *testing.T) {
 	defer nonOwner.Close()
 
 	replayed := readUntil(t, nonOwner, "patch.v2")
-	if replayed.Version != 2 || replayed.Visibility != protocol.VisibilityPublic {
-		t.Fatalf("durable replayed patch = %#v, want public carrier only", replayed)
+	if replayed.Version != 2 || replayed.Visibility != protocol.PlayerVisibility("p2") {
+		t.Fatalf("durable replayed patch = %#v, want viewer-projected public carrier", replayed)
 	}
 	if len(replayed.Ops) != 1 || replayed.Ops[0]["op"] != "version.advance" {
 		t.Fatalf("durable replay carrier ops = %#v, want version.advance only", replayed.Ops)
@@ -1154,6 +1156,35 @@ func TestWebSocketDurableReconnectFiltersPrivatePatchForNonOwner(t *testing.T) {
 	metrics := handler.Metrics()
 	if metrics.PatchReplayDurableCount != 1 || metrics.PatchReplayResyncCount != 0 {
 		t.Fatalf("gateway replay metrics = %#v, want durable replay without resync", metrics)
+	}
+}
+
+func TestMergeVisiblePatchEnvelopesOrdersIdentityBeforeTokenGroupSet(t *testing.T) {
+	patches := []protocol.PatchEnvelopeV2{
+		{
+			GameID: "game-1", Version: 2, Visibility: protocol.PlayerVisibility("p2"), AckClientActionID: "conceal",
+			Ops: []protocol.PatchOp{{Op: "token.group.set", Data: map[string]any{"group": map[string]any{"groupId": "opaque"}}}},
+		},
+		{
+			GameID: "game-1", Version: 2, Visibility: protocol.VisibilityPublic, AckClientActionID: "conceal",
+			Ops: []protocol.PatchOp{
+				{Op: "private.cards.conceal", Data: map[string]any{"playerId": "p1"}},
+				{Op: "eventLog.append", Data: map[string]any{}},
+			},
+		},
+	}
+
+	merged := mergeVisiblePatchEnvelopes(patches, func(visibility protocol.Visibility) bool {
+		return visibility == protocol.VisibilityPublic || visibility == protocol.PlayerVisibility("p2")
+	}, protocol.PlayerVisibility("p2"))
+	if len(merged) != 1 || merged[0].Visibility != protocol.PlayerVisibility("p2") || merged[0].AckClientActionID != "conceal" {
+		t.Fatalf("merged patch = %#v", merged)
+	}
+	want := []string{"private.cards.conceal", "token.group.set", "eventLog.append"}
+	for index, op := range merged[0].Ops {
+		if op.Op != want[index] {
+			t.Fatalf("merged ops = %#v, want %v", merged[0].Ops, want)
+		}
 	}
 }
 
@@ -1180,13 +1211,9 @@ func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEve
 		"faceIndex":  1,
 	}, nil)
 	writeCommand(t, conn, command)
-	firstPrivate := readPatchWithoutResync(t, conn)
-	firstCarrier := readPatchWithoutResync(t, conn)
-	if firstPrivate.Version != 2 || firstPrivate.AckClientActionID != command.ClientActionID || firstPrivate.Visibility != protocol.PlayerVisibility("p1") {
-		t.Fatalf("first private patch = %#v, want private version 2 ack", firstPrivate)
-	}
-	if firstCarrier.Version != 2 || firstCarrier.Visibility != protocol.VisibilityPublic || len(firstCarrier.Ops) != 1 || firstCarrier.Ops[0]["op"] != "version.advance" {
-		t.Fatalf("first carrier = %#v, want public version.advance carrier", firstCarrier)
+	firstProjected := readPatchWithoutResync(t, conn)
+	if firstProjected.Version != 2 || firstProjected.AckClientActionID != command.ClientActionID || firstProjected.Visibility != protocol.PlayerVisibility("p1") || len(firstProjected.Ops) != 2 {
+		t.Fatalf("first projected patch = %#v, want merged version 2 ack", firstProjected)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -1196,19 +1223,12 @@ func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEve
 	}
 
 	writeCommand(t, conn, command)
-	retryPrivate := readPatchWithoutResync(t, conn)
-	retryCarrier := readPatchWithoutResync(t, conn)
-	if retryPrivate.Version != firstPrivate.Version ||
-		retryPrivate.AckClientActionID != command.ClientActionID ||
-		retryPrivate.Visibility != firstPrivate.Visibility ||
-		fmt.Sprint(retryPrivate.Ops) != fmt.Sprint(firstPrivate.Ops) {
-		t.Fatalf("retry private patch mismatch:\nretry=%#v\nfirst=%#v", retryPrivate, firstPrivate)
-	}
-	if retryCarrier.Version != firstCarrier.Version ||
-		retryCarrier.AckClientActionID != command.ClientActionID ||
-		retryCarrier.Visibility != firstCarrier.Visibility ||
-		fmt.Sprint(retryCarrier.Ops) != fmt.Sprint(firstCarrier.Ops) {
-		t.Fatalf("retry carrier patch mismatch:\nretry=%#v\nfirst=%#v", retryCarrier, firstCarrier)
+	retryProjected := readPatchWithoutResync(t, conn)
+	if retryProjected.Version != firstProjected.Version ||
+		retryProjected.AckClientActionID != command.ClientActionID ||
+		retryProjected.Visibility != firstProjected.Visibility ||
+		fmt.Sprint(retryProjected.Ops) != fmt.Sprint(firstProjected.Ops) {
+		t.Fatalf("retry projected patch mismatch:\nretry=%#v\nfirst=%#v", retryProjected, firstProjected)
 	}
 	events, err := store.EventsAfter(context.Background(), gameID, 0)
 	if err != nil {

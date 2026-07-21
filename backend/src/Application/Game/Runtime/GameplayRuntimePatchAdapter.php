@@ -2,8 +2,14 @@
 
 namespace App\Application\Game\Runtime;
 
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
+use App\Application\Game\TokenGroup\TokenGroupContractException;
+
 final readonly class GameplayRuntimePatchAdapter
 {
+    public function __construct(private TokenGroupCanonicalizer $tokenGroups = new TokenGroupCanonicalizer())
+    {
+    }
     /**
      * @param list<array<string,mixed>> $patches
      *
@@ -76,6 +82,23 @@ final readonly class GameplayRuntimePatchAdapter
             $flattenedOp = [...$op, ...(is_array($data) ? $data : [])];
             if (array_key_exists('data', $flattenedOp)) {
                 throw new GameplayRuntimePatchContractException('Runtime patch operation must be flat.');
+            }
+            try {
+                if ($flattenedOp['op'] === 'token.group.set') {
+                    if (!is_array($flattenedOp['group'] ?? null)) {
+                        throw new TokenGroupContractException(TokenGroupCanonicalizer::PROJECTION_INCOMPLETE);
+                    }
+                    $flattenedOp['group'] = $this->tokenGroups->normalizeProjected($flattenedOp['group']);
+                } elseif ($flattenedOp['op'] === 'token.group.remove') {
+                    if (!is_string($flattenedOp['groupId'] ?? null) || trim($flattenedOp['groupId']) !== $flattenedOp['groupId'] || $flattenedOp['groupId'] === '') {
+                        throw new TokenGroupContractException(TokenGroupCanonicalizer::PROJECTION_INCOMPLETE);
+                    }
+                    if (array_key_exists('revision', $flattenedOp) && (!is_int($flattenedOp['revision']) || $flattenedOp['revision'] < 1)) {
+                        throw new TokenGroupContractException(TokenGroupCanonicalizer::PROJECTION_INCOMPLETE);
+                    }
+                }
+            } catch (TokenGroupContractException $exception) {
+                throw new GameplayRuntimePatchContractException($exception->errorCode(), previous: $exception);
             }
             $flattened[] = $flattenedOp;
         }

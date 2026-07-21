@@ -44,6 +44,29 @@ use PHPUnit\Framework\TestCase;
 
 class GameWebsocketCommandPatchServiceTest extends TestCase
 {
+    public function testRuntimeTokenGroupProjectionOpsBracketIdentityChanges(): void
+    {
+        $service = (new \ReflectionClass(GameWebsocketCommandPatchService::class))->newInstanceWithoutConstructor();
+        $method = new \ReflectionMethod(GameWebsocketCommandPatchService::class, 'orderRuntimeTokenGroupProjectionOps');
+        $ordered = $method->invoke($service, [
+            ['op' => 'token.group.set'],
+            ['op' => 'eventLog.append'],
+            ['op' => 'private.cards.conceal'],
+            ['op' => 'zone.count.set'],
+            ['op' => 'token.group.remove'],
+            ['op' => 'card.field.set'],
+        ]);
+
+        self::assertSame([
+            'token.group.remove',
+            'private.cards.conceal',
+            'card.field.set',
+            'token.group.set',
+            'eventLog.append',
+            'zone.count.set',
+        ], array_column($ordered, 'op'));
+    }
+
     public function testAppliesCommandAndReturnsGamePatchWithoutAcceptedAck(): void
     {
         [$game, $actor] = $this->game();

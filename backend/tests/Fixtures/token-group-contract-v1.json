@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "tokenGroupEffectVersion": 1,
+  "tokenCreatedFinalEffectVersion": 2,
+  "legacyTokenCreatedFinalEffectVersion": 1,
+  "groupIdAlgorithm": {
+    "version": 1,
+    "discriminator": "token-group-v1",
+    "encoding": "sha256-first-12-bytes-lower-hex",
+    "prefix": "token-group-"
+  },
+  "createScenarios": [
+    {
+      "name": "create-1",
+      "gameId": "game-1",
+      "clientActionId": "action-1",
+      "quantity": 1,
+      "expectedGroupId": null,
+      "expectedMemberIds": ["token-action-1-0"]
+    },
+    {
+      "name": "create-2",
+      "gameId": "game-1",
+      "clientActionId": "action-2",
+      "quantity": 2,
+      "expectedGroupId": "token-group-336f356eb01ec0b4246b0528",
+      "expectedMemberIds": ["token-action-2-0", "token-action-2-1"]
+    },
+    {
+      "name": "create-10",
+      "gameId": "550e8400-e29b-41d4-a716-446655440000",
+      "clientActionId": "Batch-Create_10",
+      "quantity": 10,
+      "expectedGroupId": "token-group-10913cbfa4d8dd46b1b8c615",
+      "expectedMemberIds": [
+        "token-batch-create_10-0", "token-batch-create_10-1", "token-batch-create_10-2", "token-batch-create_10-3", "token-batch-create_10-4",
+        "token-batch-create_10-5", "token-batch-create_10-6", "token-batch-create_10-7", "token-batch-create_10-8", "token-batch-create_10-9"
+      ]
+    },
+    {
+      "name": "create-20",
+      "gameId": "game-long",
+      "clientActionId": "action_abcdefghijklmnopqrstuvwxyz0123456789",
+      "quantity": 20,
+      "expectedGroupId": "token-group-3310b07c13f3a3a2929d6187",
+      "expectedMemberIds": [
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-0", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-1",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-2", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-3",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-4", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-5",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-6", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-7",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-8", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-9",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-10", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-11",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-12", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-13",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-14", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-15",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-16", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-17",
+        "token-action_abcdefghijklmnopqrstuvwxyz0123456789-18", "token-action_abcdefghijklmnopqrstuvwxyz0123456789-19"
+      ]
+    }
+  ],
+  "projectionPolicy": {
+    "authorizedMemberRefs": "complete-ordered-list",
+    "unauthorizedMemberRefs": "absent",
+    "partialMemberRefs": "absent",
+    "quantity": "public-derived-member-count",
+    "opaqueGroupId": "viewer-specific-from-safe-root-ref"
+  },
+  "invalidCanonicalGroups": [
+    {
+      "name": "malformed-root",
+      "expectedError": "TOKEN_GROUP_ROOT_INVALID",
+      "group": {
+        "groupId": "group-invalid-root",
+        "rootInstanceId": "missing",
+        "orderedMemberIds": ["token-a", "token-b"],
+        "revision": 1,
+        "createdByPlayerId": "p1",
+        "createdAtVersion": 2,
+        "effectVersion": 1
+      }
+    },
+    {
+      "name": "duplicate-member",
+      "expectedError": "TOKEN_GROUP_DUPLICATE_MEMBER",
+      "group": {
+        "groupId": "group-duplicate",
+        "rootInstanceId": "token-a",
+        "orderedMemberIds": ["token-a", "token-a"],
+        "revision": 1,
+        "createdByPlayerId": "p1",
+        "createdAtVersion": 2,
+        "effectVersion": 1
+      }
+    },
+    {
+      "name": "unsupported-effect-version",
+      "expectedError": "TOKEN_GROUP_EFFECT_VERSION_UNSUPPORTED",
+      "group": {
+        "groupId": "group-future",
+        "rootInstanceId": "token-a",
+        "orderedMemberIds": ["token-a", "token-b"],
+        "revision": 1,
+        "createdByPlayerId": "p1",
+        "createdAtVersion": 2,
+        "effectVersion": 999
+      }
+    },
+    {
+      "name": "authoritative-quantity-forbidden",
+      "expectedError": "TOKEN_GROUP_INVARIANT_FAILED",
+      "group": {
+        "groupId": "group-quantity",
+        "rootInstanceId": "token-a",
+        "orderedMemberIds": ["token-a", "token-b"],
+        "quantity": 2,
+        "revision": 1,
+        "createdByPlayerId": "p1",
+        "createdAtVersion": 2,
+        "effectVersion": 1
+      }
+    }
+  ],
+  "legacy": {
+    "missingTokenGroupsMeans": "empty-without-inference",
+    "legacyCreateWithoutTokenGroupMeans": "independent-token-instances"
+  }
+}

@@ -2,6 +2,8 @@
 
 namespace App\Application\Game\Compact;
 
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
+
 final class CompactGameCardStateMapper
 {
     public const SNAPSHOT_FORMAT = 'compact-v2';
@@ -9,6 +11,10 @@ final class CompactGameCardStateMapper
     private const FORMAT_KEY = 'runtimeFormat';
     private const CATALOG_KEY = 'cardCatalog';
     private const STRUCTURED_KEYS = ['instances', 'zones', 'loc', 'relations', 'stack'];
+
+    public function __construct(private readonly TokenGroupCanonicalizer $tokenGroups = new TokenGroupCanonicalizer())
+    {
+    }
 
     public function isCompactSnapshot(array $snapshot): bool
     {
@@ -912,39 +918,7 @@ final class CompactGameCardStateMapper
      */
     private function normalizeTokenGroups(array $groups): array
     {
-        $normalized = [];
-        $allMembers = [];
-        foreach ($groups as $key => $group) {
-            if (!is_array($group)) {
-                throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
-            }
-            $groupId = trim((string) ($group['groupId'] ?? $group['id'] ?? (is_string($key) ? $key : '')));
-            $root = trim((string) ($group['rootInstanceId'] ?? ''));
-            $members = array_values(array_filter($group['orderedMemberIds'] ?? [], static fn (mixed $id): bool => is_string($id) && trim($id) !== ''));
-            if ($groupId === '' || $root === '' || count($members) < 2 || !in_array($root, $members, true)
-                || count($members) !== count(array_unique($members)) || (int) ($group['revision'] ?? 0) < 1
-                || trim((string) ($group['createdByPlayerId'] ?? '')) === ''
-                || (int) ($group['createdAtVersion'] ?? 0) < 1
-                || (int) ($group['effectVersion'] ?? 0) !== 1) {
-                throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
-            }
-            foreach ($members as $member) {
-                if (isset($allMembers[$member])) {
-                    throw new \RuntimeException('TOKEN_GROUP_DUPLICATE_MEMBER');
-                }
-                $allMembers[$member] = true;
-            }
-            unset($group['quantity']);
-            $group['groupId'] = $groupId;
-            $group['rootInstanceId'] = $root;
-            $group['orderedMemberIds'] = $members;
-            $group['revision'] = (int) $group['revision'];
-            $group['createdAtVersion'] = (int) ($group['createdAtVersion'] ?? 0);
-            $group['effectVersion'] = 1;
-            $normalized[] = $group;
-        }
-
-        return $normalized;
+        return $this->tokenGroups->normalizeCollection($groups);
     }
 
     /**

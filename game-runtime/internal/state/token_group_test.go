@@ -75,6 +75,36 @@ func TestLegacySnapshotWithoutTokenGroupsHydratesAsEmptyWithoutInference(t *test
 	}
 }
 
+func TestTokenGroupSnapshotRejectsUnknownOrAuthoritativeQuantityFields(t *testing.T) {
+	game := tokenGroupState()
+	group := TokenGroupRuntime{
+		GroupID: "g1", RootInstanceID: "t1", OrderedMemberIDs: []string{"t1", "t2"},
+		Revision: 1, CreatedByPlayerID: "p1", CreatedAtVersion: 2, EffectVersion: 1,
+	}
+	if err := AddTokenGroup(&game, group); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(game)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatal(err)
+	}
+	relations := raw["relations"].(map[string]any)
+	groups := relations["tokenGroups"].(map[string]any)
+	groups["g1"].(map[string]any)["quantity"] = float64(2)
+	corrupt, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hydrated GameState
+	if err := json.Unmarshal(corrupt, &hydrated); err == nil {
+		t.Fatal("authoritative quantity was silently accepted")
+	}
+}
+
 func TestTokenGroupStateRejectsDuplicateRootFingerprintAndRelationConflicts(t *testing.T) {
 	tests := []struct {
 		name   string

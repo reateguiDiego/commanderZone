@@ -8,6 +8,10 @@ use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\PowerToughnessModel;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
+use App\Application\Game\Compact\CompactGameStateInvariantChecker;
+use App\Application\Game\TokenGroup\RuntimeOffTokenCreationEffectFactory;
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
+use App\Application\Game\TokenGroup\TokenGroupContractException;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
@@ -176,6 +180,9 @@ class GameCommandHandler
         ?GameplayStreamsFlags $streamFlags = null,
         ?GameplayRuntimeLimits $runtimeLimits = null,
         ?GameSpatialPositionContract $spatialPositionContract = null,
+        ?TokenGroupCanonicalizer $tokenGroupCanonicalizer = null,
+        ?RuntimeOffTokenCreationEffectFactory $runtimeOffTokenCreationEffectFactory = null,
+        ?CompactGameStateInvariantChecker $compactStateInvariantChecker = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -190,6 +197,9 @@ class GameCommandHandler
         $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
         $this->runtimeLimits = $runtimeLimits ?? new GameplayRuntimeLimits();
         $this->spatialPositionContract = $spatialPositionContract ?? new GameSpatialPositionContract();
+        $this->tokenGroupCanonicalizer = $tokenGroupCanonicalizer ?? new TokenGroupCanonicalizer();
+        $this->runtimeOffTokenCreationEffectFactory = $runtimeOffTokenCreationEffectFactory ?? new RuntimeOffTokenCreationEffectFactory($this->tokenGroupCanonicalizer);
+        $this->compactStateInvariantChecker = $compactStateInvariantChecker ?? new CompactGameStateInvariantChecker($this->tokenGroupCanonicalizer);
     }
 
     private readonly GameRandomizer $randomizer;
@@ -204,6 +214,9 @@ class GameCommandHandler
     private readonly GameplayStreamsFlags $streamFlags;
     private readonly GameplayRuntimeLimits $runtimeLimits;
     private readonly GameSpatialPositionContract $spatialPositionContract;
+    private readonly TokenGroupCanonicalizer $tokenGroupCanonicalizer;
+    private readonly RuntimeOffTokenCreationEffectFactory $runtimeOffTokenCreationEffectFactory;
+    private readonly CompactGameStateInvariantChecker $compactStateInvariantChecker;
 
     /**
      * @return list<string>
@@ -301,7 +314,7 @@ class GameCommandHandler
                     'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
                     'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
                     'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
-                    'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
+                    'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload, $game->id(), $clientActionId),
                     'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
                     'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
                     'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
@@ -332,10 +345,22 @@ class GameCommandHandler
             $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
             $this->ensureLocationIndex($snapshot);
             $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
+            $this->assertTokenGroupState($snapshot, $game);
             $eventPayload = $type === 'chat.message'
                 ? $this->chatEventPayload($payload)
                 : ($this->pendingEventPayload ?? $payload);
             $this->commit($snapshot, $type, $log, $actor);
+            if ($type === 'card.token.created' && ($eventPayload['effectVersion'] ?? null) === TokenGroupCanonicalizer::CREATE_EFFECT_VERSION) {
+                $eventLogEntries = $this->streamsEnabled()
+                    ? $this->pendingStreamLogEntries
+                    : array_slice(
+                        is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : [],
+                        count(is_array($snapshotBefore['eventLog'] ?? null) ? $snapshotBefore['eventLog'] : []),
+                    );
+                if ($eventLogEntries !== []) {
+                    $eventPayload['eventLogEntries'] = array_values($eventLogEntries);
+                }
+            }
             $persistedSnapshot = $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
             $game->replaceSnapshot($persistedSnapshot);
             if (in_array($type, self::MULLIGAN_COMMANDS, true)) {
@@ -2021,7 +2046,7 @@ class GameCommandHandler
         return sprintf('Created Token Copy Of %s.', $this->cardBaseName($source));
     }
 
-    private function applyTokenCreated(array &$snapshot, array $payload): string
+    private function applyTokenCreated(array &$snapshot, array $payload, string $gameId, ?string $clientActionId): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
@@ -2034,46 +2059,40 @@ class GameCommandHandler
         if ($isDungeon && $quantity !== 1) {
             throw new InvalidTokenQuantityException();
         }
-        $tokens = [];
-        $position = $quantity === 1 && array_key_exists('position', $payload)
+        $position = array_key_exists('position', $payload)
             ? $this->spatialPositionContract->canonicalRatioPosition($payload['position'])
-            : null;
-        $tokenMeta = [
-            'isCopy' => false,
-            'templateCardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : null,
-            'templateCardVersion' => is_string($card['cardVersion'] ?? null) ? $card['cardVersion'] : null,
-            'templateScryfallId' => is_string($card['scryfallId'] ?? null) ? $card['scryfallId'] : null,
-            'mutableOverrides' => $this->tokenMutableOverrides($card),
-            'flags' => [
-                'isDungeon' => $isDungeon,
-                'isTheRing' => $isTheRing,
-                'isEmblem' => $isEmblem,
-            ],
-        ];
-
-        for ($index = 0; $index < $quantity; $index++) {
-            $tokens[] = $this->normalizeCard([
+            : $this->battlefieldCenterPosition();
+        $actionSeed = is_string($clientActionId) && trim($clientActionId) !== ''
+            ? trim($clientActionId)
+            : Uuid::v7()->toRfc4122();
+        $effect = $this->runtimeOffTokenCreationEffectFactory->create(
+            $gameId,
+            $actionSeed,
+            $playerId,
+            max(1, (int) ($snapshot['version'] ?? 1)) + 1,
+            $quantity,
+            $name,
+            $card,
+            $position,
+        );
+        $tokens = [];
+        foreach ($effect['tokens'] as $token) {
+            $normalized = $this->normalizeCard([
                 ...$card,
-                'instanceId' => Uuid::v7()->toRfc4122(),
-                'ownerId' => $playerId,
-                'controllerId' => $playerId,
-                'name' => $name,
+                ...$token,
                 'typeLine' => $card['typeLine'] ?? 'Token Creature',
-                'power' => $card['power'] ?? ($hasCardPayload ? null : 1),
-                'toughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
-                'defaultPower' => $card['power'] ?? ($hasCardPayload ? null : 1),
-                'defaultToughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
-                'tapped' => false,
-                'position' => $position ?? $this->tokenPosition($index, $quantity),
-                'zone' => 'battlefield',
-                'isToken' => true,
-                'isTokenCopy' => false,
+                'defaultPower' => $token['mutableStats']['power'] ?? ($hasCardPayload ? null : 1),
+                'defaultToughness' => $token['mutableStats']['toughness'] ?? ($hasCardPayload ? null : 1),
                 'isCommander' => false,
-                'tokenMeta' => $tokenMeta,
             ], $playerId, 'battlefield');
+            $normalized['tokenMeta'] = $token['tokenMeta'];
+            $normalized['mutableStats'] = $token['mutableStats'];
+            $normalized['printedStats'] = $token['printedStats'];
+            $normalized['manualOverrides'] = $token['manualOverrides'];
             if ($isTheRing) {
-                $tokens[$index]['counters'] = ['Level' => 1];
+                $normalized['counters'] = ['Level' => 1];
             }
+            $tokens[] = $normalized;
         }
 
         if ($isDungeon) {
@@ -2083,6 +2102,22 @@ class GameCommandHandler
             $this->removePlayerBattlefieldTheRingCards($snapshot, $playerId);
         }
         array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
+        if ($effect['tokenGroup'] !== null) {
+            $snapshot['tokenGroups'][] = $effect['tokenGroup'];
+        }
+        $this->pendingEventPayload = $effect['eventPayload'];
+        $this->pendingLogContext = [
+            'i18nKey' => $quantity === 1 ? 'gameLog.token.created' : 'gameLog.token.createdMany',
+            'i18nParams' => [
+                'actorPlayerId' => $playerId,
+                'playerId' => $playerId,
+                'count' => $quantity,
+                'tokenName' => $name,
+            ],
+        ];
+        if ($isTheRing && isset($this->pendingEventPayload['tokens'][0])) {
+            $this->pendingEventPayload['tokens'][0]['counters'] = ['Level' => 1];
+        }
         $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
         if ($isDungeon || $isTheRing) {
             $this->pruneBattlefieldRelations($snapshot);
@@ -7069,6 +7104,23 @@ class GameCommandHandler
         }
 
         return $this->compactStateMapper->compactSnapshot($snapshot, $game->id(), $game->status());
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function assertTokenGroupState(array $snapshot, Game $game): void
+    {
+        $groups = is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : [];
+        if ($groups === []) {
+            return;
+        }
+        $compact = $this->compactStateMapper->compactSnapshot($snapshot, $game->id(), $game->status());
+        $issues = $this->compactStateInvariantChecker->check($compact);
+        if ($issues !== []) {
+            throw new TokenGroupContractException(TokenGroupCanonicalizer::INVARIANT_FAILED, [
+                'count' => count($groups),
+                'invalidIndex' => 0,
+            ]);
+        }
     }
 
     private function streamsEnabled(): bool

@@ -8099,9 +8099,10 @@ components:
         createdAtVersion:
           type: integer
           minimum: 1
-    TokenGroupEffect:
+    CanonicalTokenGroupEffect:
       type: object
       additionalProperties: false
+      description: Canonical persisted TokenGroup effect. Quantity is derived from orderedMemberIds and is forbidden as authoritative state.
       required: [groupId, rootInstanceId, orderedMemberIds, revision, createdByPlayerId, createdAtVersion, effectVersion]
       properties:
         groupId: { type: string, minLength: 1 }
@@ -8115,16 +8116,30 @@ components:
         createdByPlayerId: { type: string, minLength: 1 }
         createdAtVersion: { type: integer, minimum: 1 }
         effectVersion: { type: integer, const: 1 }
-    TokenGroupView:
+      examples:
+        - groupId: token-group-336f356eb01ec0b4246b0528
+          rootInstanceId: token-action-2-0
+          orderedMemberIds: [token-action-2-0, token-action-2-1]
+          revision: 1
+          createdByPlayerId: player-1
+          createdAtVersion: 42
+          effectVersion: 1
+    TokenGroupEffect:
+      $ref: '#/components/schemas/CanonicalTokenGroupEffect'
+    ProjectedTokenGroup:
       type: object
       additionalProperties: false
-      description: Viewer-specific TokenGroup projection. Quantity is derived from authoritative membership and never persisted as domain state.
+      description: >-
+        Viewer-specific TokenGroup projection. Quantity is derived from authoritative membership and never persisted as domain state.
+        Authorized viewers receive the complete ordered memberRefs. Unauthorized or partially-authorized viewers receive a viewer-specific
+        opaque groupId and safe rootRef with memberRefs omitted; absence is distinct from an empty list.
       required: [groupId, rootRef, quantity, revision, position, effectVersion]
       properties:
         groupId: { type: string, minLength: 1 }
         rootRef: { type: string, minLength: 1 }
         memberRefs:
           type: array
+          description: Complete ordered membership when authorized; omitted, never null or partial, otherwise.
           minItems: 2
           uniqueItems: true
           items: { type: string, minLength: 1 }
@@ -8135,6 +8150,46 @@ components:
         tapped: { type: boolean }
         rotation: { type: integer }
         effectVersion: { type: integer, const: 1 }
+      examples:
+        - groupId: token-group-336f356eb01ec0b4246b0528
+          rootRef: token-action-2-0
+          memberRefs: [token-action-2-0, token-action-2-1]
+          quantity: 2
+          revision: 1
+          position: { x: 0.5, y: 0.5, unit: ratio }
+          faceDown: false
+          tapped: false
+          rotation: 0
+          effectVersion: 1
+        - groupId: token-group-view-26441e69667a91975a0eed21
+          rootRef: player-1-hidden-battlefield-0
+          quantity: 2
+          revision: 1
+          position: { x: 0.5, y: 0.5, unit: ratio }
+          faceDown: true
+          tapped: false
+          rotation: 0
+          effectVersion: 1
+    TokenGroupView:
+      $ref: '#/components/schemas/ProjectedTokenGroup'
+    TokenGroupSetPatch:
+      type: object
+      additionalProperties: false
+      required: [op, group]
+      properties:
+        op: { type: string, const: token.group.set }
+        group: { $ref: '#/components/schemas/ProjectedTokenGroup' }
+    TokenGroupRemovePatch:
+      type: object
+      additionalProperties: false
+      required: [op, groupId]
+      properties:
+        op: { type: string, const: token.group.remove }
+        groupId: { type: string, minLength: 1 }
+        revision: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1 }
+    TokenGroupBootstrapRelation:
+      $ref: '#/components/schemas/ProjectedTokenGroup'
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8333,7 +8388,10 @@ components:
       additionalProperties: true
       required: [effectVersion, actorPlayerId, playerId, count, instanceIds, tokens]
       properties:
-        effectVersion: { type: integer, const: 1 }
+        effectVersion:
+          type: integer
+          const: 2
+          description: Version 2 requires tokenGroup when count is greater than one. Historical final-effects version 1 remains readable without inferring a group.
         actorPlayerId: { type: string, minLength: 1 }
         playerId: { type: string, minLength: 1 }
         count: { type: integer, minimum: 1, maximum: 20 }
@@ -8350,7 +8408,7 @@ components:
           items: { $ref: '#/components/schemas/TokenCreatedEventToken' }
         tokenGroup:
           oneOf:
-            - $ref: '#/components/schemas/TokenGroupEffect'
+            - $ref: '#/components/schemas/CanonicalTokenGroupEffect'
             - type: 'null'
     LibrarySelectionMovePayload:
       type: object
@@ -8720,7 +8778,7 @@ components:
             create multiple token instances atomically in one command. Missing,
             non-integer, or out-of-range quantity is rejected with
             INVALID_TOKEN_QUANTITY and is never defaulted or clamped. New runtime
-            events persist effectVersion=1 and the ordered final token effects;
+            events persist effectVersion=2 and the ordered final token effects;
             replay applies those effects without consulting a mutable catalog.
             cards.position.changed
             persists multiple battlefield card positions atomically with payload shape { playerId, zone:
@@ -8923,7 +8981,7 @@ components:
             required: [group]
             properties:
               group:
-                $ref: '#/components/schemas/TokenGroupView'
+                $ref: '#/components/schemas/ProjectedTokenGroup'
         - if:
             properties:
               op:
@@ -8933,6 +8991,8 @@ components:
             required: [groupId]
             properties:
               groupId: { type: string, minLength: 1 }
+              revision: { type: integer, minimum: 1 }
+              reason: { type: string, minLength: 1 }
         - if:
             properties:
               op:
@@ -9077,7 +9137,7 @@ components:
             tokenGroups:
               type: array
               items:
-                $ref: '#/components/schemas/TokenGroupView'
+                $ref: '#/components/schemas/TokenGroupBootstrapRelation'
         turn:
           type: object
           additionalProperties: true

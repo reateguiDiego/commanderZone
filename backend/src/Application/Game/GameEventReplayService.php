@@ -3,6 +3,7 @@
 namespace App\Application\Game;
 
 use App\Application\Game\Compact\PowerToughnessModel;
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
 use App\Domain\Game\GameEvent;
 
 final class GameEventReplayService
@@ -14,6 +15,7 @@ final class GameEventReplayService
     public function __construct(
         private readonly ?GameLibraryOps $libraryOps = null,
         private readonly ?GameLogPrivacySanitizer $gameLogPrivacySanitizer = null,
+        private readonly TokenGroupCanonicalizer $tokenGroups = new TokenGroupCanonicalizer(),
     ) {
     }
 
@@ -1813,31 +1815,23 @@ final class GameEventReplayService
             return;
         }
 
+        $contract = $this->tokenGroups->validateTokenCreatedEffect($payload, $event->version(), $playerId);
+
         foreach ($this->runtimeTokenCards($payload, $event, $playerId) as $token) {
             $this->insertCard($snapshot, $playerId, 'battlefield', $token, null);
         }
-        if (array_key_exists('tokenGroup', $payload) && $payload['tokenGroup'] !== null) {
-            $this->applyRuntimeTokenGroup($snapshot, $event, $payload, $playerId);
+        if ($contract['tokenGroup'] !== null) {
+            $this->applyRuntimeTokenGroup($snapshot, $contract['tokenGroup'], $contract['instanceIds']);
         }
     }
 
-    /** @param array<string,mixed> $payload */
-    private function applyRuntimeTokenGroup(array &$snapshot, GameEvent $event, array $payload, string $playerId): void
+    /** @param array<string,mixed> $group @param list<string> $expected */
+    private function applyRuntimeTokenGroup(array &$snapshot, array $group, array $expected): void
     {
-        $group = is_array($payload['tokenGroup'] ?? null) ? $payload['tokenGroup'] : null;
-        if ($group === null || (int) ($group['effectVersion'] ?? 0) !== 1) {
-            throw new \RuntimeException('TOKEN_GROUP_EFFECT_VERSION_UNSUPPORTED');
-        }
-        $groupId = trim((string) ($group['groupId'] ?? ''));
-        $root = trim((string) ($group['rootInstanceId'] ?? ''));
-        $members = $this->stringList($group['orderedMemberIds'] ?? []);
-        $expected = $this->stringList($payload['instanceIds'] ?? []);
-        if ($groupId === '' || $root === '' || count($members) < 2 || $members !== $expected || $root !== $members[0]
-            || count($members) !== count(array_unique($members)) || (int) ($group['revision'] ?? 0) < 1
-            || (int) ($group['createdAtVersion'] ?? 0) !== $event->version()
-            || trim((string) ($group['createdByPlayerId'] ?? '')) !== $playerId) {
-            throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
-        }
+        $groupId = $group['groupId'];
+        $root = $group['rootInstanceId'];
+        $members = $group['orderedMemberIds'];
+        $playerId = $group['createdByPlayerId'];
         $battlefieldCards = is_array($snapshot['players'][$playerId]['zones']['battlefield'] ?? null)
             ? $snapshot['players'][$playerId]['zones']['battlefield']
             : [];
@@ -1884,49 +1878,13 @@ final class GameEventReplayService
                 throw new \RuntimeException('TOKEN_GROUP_DUPLICATE_MEMBER');
             }
         }
-        unset($group['quantity']);
         $snapshot['tokenGroups'][] = $group;
     }
 
     /** @param array<string,mixed> $card */
     private function runtimeTokenGroupFingerprint(array $card): string
     {
-        $value = [
-            'cardKey' => $card['cardKey'] ?? null,
-            'printId' => $card['printId'] ?? null,
-            'cardVersion' => $card['cardVersion'] ?? null,
-            'language' => $card['language'] ?? null,
-            'ownerId' => $card['ownerId'] ?? null,
-            'controllerId' => $card['controllerId'] ?? null,
-            'zone' => $card['zone'] ?? null,
-            'isToken' => $card['isToken'] ?? false,
-            'tokenMeta' => $card['tokenMeta'] ?? [],
-            'faceDown' => $card['faceDown'] ?? false,
-            'activeFace' => $card['activeFace'] ?? $card['activeFaceIndex'] ?? null,
-            'tapped' => $card['tapped'] ?? false,
-            'rotation' => $card['rotation'] ?? 0,
-            'counters' => $card['counters'] ?? [],
-            'mutableStats' => $card['mutableStats'] ?? [],
-            'printedStats' => $card['printedStats'] ?? [],
-            'manualOverrides' => $card['manualOverrides'] ?? [],
-        ];
-        $this->sortRuntimeTokenGroupValue($value);
-
-        return hash('sha256', json_encode($value, JSON_THROW_ON_ERROR));
-    }
-
-    /** @param array<array-key,mixed> $value */
-    private function sortRuntimeTokenGroupValue(array &$value): void
-    {
-        foreach ($value as &$item) {
-            if (is_array($item)) {
-                $this->sortRuntimeTokenGroupValue($item);
-            }
-        }
-        unset($item);
-        if (!array_is_list($value)) {
-            ksort($value);
-        }
+        return $this->tokenGroups->fingerprintCard($card);
     }
 
     /**

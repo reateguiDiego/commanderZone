@@ -2,8 +2,14 @@
 
 namespace App\Application\Game\Compact;
 
+use App\Application\Game\TokenGroup\TokenGroupCanonicalizer;
+use App\Application\Game\TokenGroup\TokenGroupContractException;
+
 final class CompactGameStateInvariantChecker
 {
+    public function __construct(private readonly TokenGroupCanonicalizer $tokenGroups = new TokenGroupCanonicalizer())
+    {
+    }
     /**
      * @param array<string,mixed> $compactState
      *
@@ -158,21 +164,23 @@ final class CompactGameStateInvariantChecker
                 $issues[] = sprintf('token group %s must be an array.', (string) $groupId);
                 continue;
             }
-            $members = is_array($group['orderedMemberIds'] ?? null) ? array_values($group['orderedMemberIds']) : [];
-            $root = is_string($group['rootInstanceId'] ?? null) ? trim($group['rootInstanceId']) : '';
-            if ((string) ($group['groupId'] ?? '') !== (string) $groupId
-                || count($members) < 2
-                || $root === ''
-                || !in_array($root, $members, true)
-                || (int) ($group['revision'] ?? 0) < 1
-                || (int) ($group['effectVersion'] ?? 0) !== 1) {
-                $issues[] = sprintf('token group %s has invalid identity, root, revision, effect version, or member count.', (string) $groupId);
+            try {
+                $canonical = $this->tokenGroups->normalizeCanonical($group);
+            } catch (TokenGroupContractException $exception) {
+                $issues[] = sprintf('token group %s failed canonical contract: %s.', (string) $groupId, $exception->errorCode());
+                continue;
             }
-            if (count($members) !== count(array_unique(array_filter($members, 'is_string')))) {
-                $issues[] = sprintf('token group %s contains duplicate members.', (string) $groupId);
+            $members = $canonical['orderedMemberIds'];
+            $root = $canonical['rootInstanceId'];
+            if ($canonical['groupId'] !== (string) $groupId) {
+                $issues[] = sprintf('token group %s map key does not match canonical groupId.', (string) $groupId);
             }
             $rootPosition = is_array($instances[$root]['position'] ?? null) ? $instances[$root]['position'] : null;
-            $rootFingerprint = is_array($instances[$root] ?? null) ? $this->tokenGroupFingerprint($instances[$root], $loc[$root] ?? []) : null;
+            $rootFingerprint = is_array($instances[$root] ?? null) ? $this->tokenGroups->fingerprintCard(
+                $instances[$root],
+                is_array($loc[$root] ?? null) ? ($loc[$root]['zone'] ?? null) : null,
+                $instances[$root]['visibleToMask'] ?? null,
+            ) : null;
             if ($rootPosition === null
                 || ($rootPosition['unit'] ?? null) !== 'ratio'
                 || !is_numeric($rootPosition['x'] ?? null)
@@ -189,7 +197,11 @@ final class CompactGameStateInvariantChecker
                     $issues[] = sprintf('token group %s references invalid token member %s.', (string) $groupId, $memberId);
                 }
                 if (is_array($instances[$memberId] ?? null)) {
-                    if ($rootFingerprint !== $this->tokenGroupFingerprint($instances[$memberId], $loc[$memberId] ?? [])) {
+                    if ($rootFingerprint !== $this->tokenGroups->fingerprintCard(
+                        $instances[$memberId],
+                        is_array($loc[$memberId] ?? null) ? ($loc[$memberId]['zone'] ?? null) : null,
+                        $instances[$memberId]['visibleToMask'] ?? null,
+                    )) {
                         $issues[] = sprintf('token group %s contains incompatible member %s.', (string) $groupId, $memberId);
                     }
                     if (($instances[$memberId]['position'] ?? null) !== $rootPosition) {
@@ -347,46 +359,4 @@ final class CompactGameStateInvariantChecker
         return $issues;
     }
 
-    /** @param array<string,mixed> $instance @param mixed $location */
-    private function tokenGroupFingerprint(array $instance, mixed $location): string
-    {
-        $location = is_array($location) ? $location : [];
-        $value = [
-            'cardKey' => $instance['cardKey'] ?? null,
-            'printId' => $instance['printId'] ?? null,
-            'cardVersion' => $instance['cardVersion'] ?? null,
-            'language' => $instance['language'] ?? null,
-            'ownerId' => $instance['ownerId'] ?? null,
-            'controllerId' => $instance['controllerId'] ?? null,
-            'zone' => $location['zone'] ?? $instance['zone'] ?? null,
-            'isToken' => $instance['isToken'] ?? false,
-            'tokenMeta' => $instance['tokenMeta'] ?? [],
-            'faceDown' => $instance['faceDown'] ?? false,
-            'activeFace' => $instance['activeFace'] ?? $instance['activeFaceIndex'] ?? null,
-            'visibleToMask' => $instance['visibleToMask'] ?? null,
-            'tapped' => $instance['tapped'] ?? false,
-            'rotation' => $instance['rotation'] ?? 0,
-            'counters' => $instance['counters'] ?? [],
-            'mutableStats' => $instance['mutableStats'] ?? [],
-            'printedStats' => $instance['printedStats'] ?? [],
-            'manualOverrides' => $instance['manualOverrides'] ?? [],
-        ];
-        $this->sortRecursive($value);
-
-        return hash('sha256', json_encode($value, JSON_THROW_ON_ERROR));
-    }
-
-    /** @param array<array-key,mixed> $value */
-    private function sortRecursive(array &$value): void
-    {
-        foreach ($value as &$item) {
-            if (is_array($item)) {
-                $this->sortRecursive($item);
-            }
-        }
-        unset($item);
-        if (!array_is_list($value)) {
-            ksort($value);
-        }
-    }
 }

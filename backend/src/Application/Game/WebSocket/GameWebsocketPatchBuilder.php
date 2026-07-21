@@ -1059,14 +1059,18 @@ final readonly class GameWebsocketPatchBuilder
         $operations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
         if ($operations === null) {
             if ($location['zone'] === 'battlefield') {
-                return $this->projectedBattlefieldCardReplacementOperations($previousSnapshot, $nextSnapshot, $location);
+                $operations = $this->projectedBattlefieldCardReplacementOperations($previousSnapshot, $nextSnapshot, $location);
+                if ($operations === null) {
+                    return null;
+                }
+            } else {
+                return null;
             }
-
-            return null;
         }
 
         return [
             ...$operations,
+            ...$this->tokenGroupDiffOperations($previousSnapshot, $nextSnapshot),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $this->operationTouchesSensitiveProjection($nextSnapshot, $location)),
         ];
     }
@@ -1271,9 +1275,49 @@ final readonly class GameWebsocketPatchBuilder
 
         return [
             ...$operations,
+            ...$this->tokenGroupDiffOperations($previousSnapshot, $nextSnapshot),
             ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $hasSensitiveProjection),
         ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function tokenGroupDiffOperations(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $previous = $this->tokenGroupsById($previousSnapshot);
+        $next = $this->tokenGroupsById($nextSnapshot);
+        $operations = [];
+        foreach ($previous as $groupId => $group) {
+            if (!isset($next[$groupId])) {
+                $operations[] = [
+                    'op' => 'token.group.remove',
+                    'groupId' => $groupId,
+                    'revision' => is_int($group['revision'] ?? null) ? $group['revision'] : 1,
+                    'reason' => 'projection_changed',
+                ];
+            }
+        }
+        foreach ($next as $groupId => $group) {
+            if (!isset($previous[$groupId]) || $previous[$groupId] !== $group) {
+                $operations[] = ['op' => 'token.group.set', 'group' => $group];
+            }
+        }
+
+        return $operations;
+    }
+
+    /** @return array<string,array<string,mixed>> */
+    private function tokenGroupsById(array $snapshot): array
+    {
+        $indexed = [];
+        foreach (is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : [] as $group) {
+            if (!is_array($group) || !is_string($group['groupId'] ?? null) || trim($group['groupId']) === '') {
+                continue;
+            }
+            $indexed[$group['groupId']] = $group;
+        }
+
+        return $indexed;
     }
 
     /**
@@ -2035,7 +2079,6 @@ final readonly class GameWebsocketPatchBuilder
                 'index' => $created[0]['index'],
                 'card' => $created[0]['card'],
             ],
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, true),
         ];
     }
 

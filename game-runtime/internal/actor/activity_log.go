@@ -437,7 +437,7 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		if count != 1 {
 			key = "gameLog.token.createdMany"
 		}
-		return semantic(key, params, []string{actorPlayerID, playerID}, stringsFromAny(payload["instanceIds"]))
+		return semantic(key, params, []string{actorPlayerID, playerID}, nil)
 	case "card.token_copy.created":
 		playerID := firstString(payload["targetPlayerId"], command.Payload["targetPlayerId"], payload["playerId"], command.Payload["playerId"], actorPlayerID)
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
