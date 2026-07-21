@@ -188,17 +188,20 @@ type LibraryWindow struct {
 }
 
 type Relations struct {
-	Attachments       map[string]Relation         `json:"attachments"`
-	BattlefieldStacks map[string]BattlefieldStack `json:"battlefieldStacks"`
-	Arrows            map[string]Relation         `json:"arrows"`
-	Helpers           map[string]Relation         `json:"helpers"`
-	Indexes           RelationIndexes             `json:"indexes"`
+	Attachments        map[string]Relation          `json:"attachments"`
+	BattlefieldStacks  map[string]BattlefieldStack  `json:"battlefieldStacks"`
+	TokenGroups        map[string]TokenGroupRuntime `json:"tokenGroups"`
+	Arrows             map[string]Relation          `json:"arrows"`
+	Helpers            map[string]Relation          `json:"helpers"`
+	Indexes            RelationIndexes              `json:"indexes"`
+	TokenGroupByMember map[string]string            `json:"-"`
 }
 
 func (r *Relations) UnmarshalJSON(data []byte) error {
 	aux := struct {
 		Attachments       json.RawMessage `json:"attachments"`
 		BattlefieldStacks json.RawMessage `json:"battlefieldStacks"`
+		TokenGroups       json.RawMessage `json:"tokenGroups"`
 		Arrows            json.RawMessage `json:"arrows"`
 		Helpers           json.RawMessage `json:"helpers"`
 		Indexes           RelationIndexes `json:"indexes"`
@@ -210,6 +213,9 @@ func (r *Relations) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.BattlefieldStacks, &r.BattlefieldStacks); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.TokenGroups, &r.TokenGroups); err != nil {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.Arrows, &r.Arrows); err != nil {
@@ -543,6 +549,10 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Relations.BattlefieldStacks == nil {
 		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
 	}
+	if game.Relations.TokenGroups == nil {
+		game.Relations.TokenGroups = map[string]TokenGroupRuntime{}
+	}
+	game.Relations.RebuildTokenGroupIndex()
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}
 	}
@@ -760,13 +770,26 @@ func (r Relations) Clone() Relations {
 	return Relations{
 		Attachments:       cloneRelationMap(r.Attachments),
 		BattlefieldStacks: cloneBattlefieldStackMap(r.BattlefieldStacks),
+		TokenGroups:       cloneTokenGroupMap(r.TokenGroups),
 		Arrows:            cloneRelationMap(r.Arrows),
 		Helpers:           cloneRelationMap(r.Helpers),
 		Indexes: RelationIndexes{
 			BySource: cloneStringSliceMap(r.Indexes.BySource),
 			ByTarget: cloneStringSliceMap(r.Indexes.ByTarget),
 		},
+		TokenGroupByMember: cloneStringMap(r.TokenGroupByMember),
 	}
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]string, len(values))
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
 }
 
 func cloneBattlefieldStackMap(values map[string]BattlefieldStack) map[string]BattlefieldStack {

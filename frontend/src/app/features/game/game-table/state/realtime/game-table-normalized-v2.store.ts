@@ -6,6 +6,7 @@ import type {
   GameArrow,
   GameAttachment,
   GameBattlefieldStack,
+  GameTokenGroupView,
   GameCompactCardRef,
   GameCardDungeonMarker,
   GameCardInstance,
@@ -86,6 +87,7 @@ export interface GameTableNormalizedV2RelationsState {
   arrows: Record<string, GameArrow>;
   attachments: Record<string, GameAttachment>;
   battlefieldStacks: Record<string, GameBattlefieldStack>;
+  tokenGroupsById: Record<string, GameTokenGroupView>;
   specialEntities: Record<string, GameSpecialEntity>;
   indexes: {
     arrowsBySource: Record<string, string[]>;
@@ -93,6 +95,7 @@ export interface GameTableNormalizedV2RelationsState {
     attachmentsByEquipment: Record<string, string[]>;
     attachmentsByTarget: Record<string, string[]>;
     battlefieldStacksByMember: Record<string, string[]>;
+    tokenGroupIdByMemberRef: Record<string, string>;
   };
 }
 
@@ -215,6 +218,7 @@ export function createGameTableNormalizedV2State(
     bootstrap.relations.attachments,
     bootstrap.relations.specialEntities,
     bootstrap.relations.battlefieldStacks ?? [],
+    bootstrap.relations.tokenGroups ?? [],
   );
   const stack = createStackState(bootstrap.relations.stack);
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
@@ -288,6 +292,7 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     arrows: Object.values(state.relations.arrows),
     attachments: Object.values(state.relations.attachments),
     battlefieldStacks: Object.values(state.relations.battlefieldStacks),
+    tokenGroups: Object.values(state.relations.tokenGroupsById),
     specialEntities: Object.values(state.relations.specialEntities),
     chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
     eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
@@ -509,6 +514,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'card.stats.override.set':
     case 'card.stats.override.clear':
     case 'eventLog.append':
+    case 'token.group.set':
+    case 'token.group.remove':
       return true;
     default:
       return false;
@@ -1016,6 +1023,12 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     case 'battlefield.stack.remove':
       return removeBattlefieldStack(state, operation.id);
 
+    case 'token.group.set':
+      return setTokenGroup(state, operation.group);
+
+    case 'token.group.remove':
+      return removeTokenGroup(state, operation.groupId);
+
     case 'battlefield.stack.order.set':
       return setBattlefieldStackOrder(state, operation.stackId, operation.rootInstanceId, operation.orderedInstanceIds);
 
@@ -1216,6 +1229,11 @@ function removeCardsFromZone(
     state: {
       ...state,
       instances: normalizedPrivateZone.instances,
+      relations: remapProjectedRelationsForInstanceChanges(
+        state.relations,
+        Object.fromEntries(instanceIds.map((instanceId) => [instanceId, null])),
+        normalizedPrivateZone.instances,
+      ),
       zones: {
         ...state.zones,
         [playerId]: {
@@ -1815,12 +1833,30 @@ function remapProjectedRelationsForInstanceChanges(
     }
     return [{ ...stack, rootInstanceId, orderedMemberIds: safeMemberIds }];
   });
+  const tokenGroups = Object.values(relations.tokenGroupsById).flatMap((group) => {
+    const rootRef = remap(group.rootRef);
+    const memberRefs = group.memberRefs?.map(remap);
+    const touched = rootRef !== group.rootRef
+      || memberRefs?.some((memberRef, index) => memberRef !== group.memberRefs?.[index]);
+    if (!touched) {
+      return [group];
+    }
+    if (!rootRef || !memberRefs || memberRefs.some((memberRef) => !memberRef)) {
+      return [];
+    }
+    const safeMemberRefs = memberRefs as string[];
+    if (!safeMemberRefs.includes(rootRef) || !sameVisibility(safeMemberRefs)) {
+      return [];
+    }
+    return [{ ...group, rootRef, memberRefs: safeMemberRefs }];
+  });
 
   return createRelationsState(
     arrows,
     attachments,
     Object.values(relations.specialEntities),
     battlefieldStacks,
+    tokenGroups,
   );
 }
 
@@ -2003,6 +2039,12 @@ function addRelation(
   kind: 'arrow' | 'attachment',
   relation: GameArrow | GameAttachment,
 ): OperationApplyResult {
+  const referencedIds = kind === 'arrow'
+    ? [(relation as GameArrow).fromInstanceId, (relation as GameArrow).toInstanceId]
+    : [(relation as GameAttachment).equipmentInstanceId, (relation as GameAttachment).attachedToInstanceId];
+  if (referencedIds.some((instanceId) => state.relations.indexes.tokenGroupIdByMemberRef[instanceId])) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
   if (kind === 'arrow') {
     const arrow = relation as GameArrow;
     return {
@@ -2014,6 +2056,7 @@ function addRelation(
           Object.values(state.relations.attachments),
           Object.values(state.relations.specialEntities),
           Object.values(state.relations.battlefieldStacks),
+          Object.values(state.relations.tokenGroupsById),
         ),
       },
     };
@@ -2029,6 +2072,7 @@ function addRelation(
         [...Object.values(state.relations.attachments).filter((entry) => entry.id !== attachment.id), attachment],
         Object.values(state.relations.specialEntities),
         Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -2049,6 +2093,7 @@ function removeRelation(
           Object.values(state.relations.attachments),
           Object.values(state.relations.specialEntities),
           Object.values(state.relations.battlefieldStacks),
+          Object.values(state.relations.tokenGroupsById),
         ),
       },
     };
@@ -2063,6 +2108,7 @@ function removeRelation(
         Object.values(state.relations.attachments).filter((entry) => entry.id !== id),
         Object.values(state.relations.specialEntities),
         Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -2093,6 +2139,7 @@ function setAttachmentOrder(
         attachments,
         Object.values(state.relations.specialEntities),
         Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -2104,6 +2151,9 @@ function setBattlefieldStack(state: GameTableNormalizedV2State, stack: GameBattl
     return { status: 'failed', reason: 'invalid_operation' };
   }
   const memberSet = new Set(members);
+  if (members.some((memberId) => state.relations.indexes.tokenGroupIdByMemberRef[memberId])) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
   const conflicts = Object.values(state.relations.battlefieldStacks)
     .some((candidate) => candidate.id !== stack.id && candidate.orderedMemberIds.some((id) => memberSet.has(id)));
   if (conflicts) {
@@ -2122,6 +2172,7 @@ function setBattlefieldStack(state: GameTableNormalizedV2State, stack: GameBattl
         Object.values(state.relations.attachments),
         Object.values(state.relations.specialEntities),
         stacks,
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -2140,9 +2191,123 @@ function removeBattlefieldStack(state: GameTableNormalizedV2State, stackId: stri
         Object.values(state.relations.attachments),
         Object.values(state.relations.specialEntities),
         Object.values(state.relations.battlefieldStacks).filter((stack) => stack.id !== stackId),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
+}
+
+function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGroupView): OperationApplyResult {
+  const memberRefs = incoming.memberRefs ? [...incoming.memberRefs] : undefined;
+  const group: GameTokenGroupView = {
+    ...incoming,
+    ...(memberRefs ? { memberRefs } : {}),
+    position: { ...incoming.position },
+  };
+  if (!validTokenGroupView(group)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const existing = state.relations.tokenGroupsById[group.groupId];
+  if (existing && group.revision < existing.revision) {
+    return { status: 'applied', state };
+  }
+  if (existing && group.revision === existing.revision) {
+    return tokenGroupViewEqual(existing, group)
+      ? { status: 'applied', state }
+      : { status: 'failed', reason: 'invalid_operation' };
+  }
+
+  const refs = memberRefs ?? [group.rootRef];
+  if (refs.some((ref) => !state.instances[ref])) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+  const memberSet = new Set(refs);
+  const membershipConflict = Object.values(state.relations.tokenGroupsById).some((candidate) =>
+    candidate.groupId !== group.groupId
+      && (candidate.memberRefs ?? [candidate.rootRef]).some((ref) => memberSet.has(ref)),
+  );
+  const stackConflict = Object.values(state.relations.battlefieldStacks).some((stack) =>
+    stack.orderedMemberIds.some((ref) => memberSet.has(ref)),
+  );
+  const binaryRelationConflict = Object.values(state.relations.arrows).some((arrow) =>
+    memberSet.has(arrow.fromInstanceId) || memberSet.has(arrow.toInstanceId),
+  ) || Object.values(state.relations.attachments).some((attachment) =>
+    memberSet.has(attachment.equipmentInstanceId) || memberSet.has(attachment.attachedToInstanceId),
+  );
+  if (membershipConflict || stackConflict || binaryRelationConflict) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks),
+        [...Object.values(state.relations.tokenGroupsById).filter((candidate) => candidate.groupId !== group.groupId), group],
+      ),
+    },
+  };
+}
+
+function removeTokenGroup(state: GameTableNormalizedV2State, groupId: string): OperationApplyResult {
+  if (!state.relations.tokenGroupsById[groupId]) {
+    return { status: 'applied', state };
+  }
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById).filter((candidate) => candidate.groupId !== groupId),
+      ),
+    },
+  };
+}
+
+function validTokenGroupView(group: GameTokenGroupView): boolean {
+  if (group.groupId.trim() === ''
+    || group.rootRef.trim() === ''
+    || group.quantity < 2
+    || !Number.isInteger(group.quantity)
+    || group.revision < 1
+    || !Number.isInteger(group.revision)
+    || group.effectVersion !== 1
+    || !Number.isFinite(group.position.x)
+    || !Number.isFinite(group.position.y)) {
+    return false;
+  }
+  if (!group.memberRefs) {
+    return true;
+  }
+  return group.memberRefs.length === group.quantity
+    && new Set(group.memberRefs).size === group.memberRefs.length
+    && group.memberRefs.includes(group.rootRef);
+}
+
+function tokenGroupViewEqual(left: GameTokenGroupView, right: GameTokenGroupView): boolean {
+  return left.groupId === right.groupId
+    && left.rootRef === right.rootRef
+    && left.quantity === right.quantity
+    && left.revision === right.revision
+    && left.effectVersion === right.effectVersion
+    && left.faceDown === right.faceDown
+    && left.tapped === right.tapped
+    && left.rotation === right.rotation
+    && left.position.x === right.position.x
+    && left.position.y === right.position.y
+    && left.position.unit === right.position.unit
+    && ((!left.memberRefs && !right.memberRefs)
+      || Boolean(left.memberRefs && right.memberRefs
+        && left.memberRefs.length === right.memberRefs.length
+        && left.memberRefs.every((ref, index) => ref === right.memberRefs?.[index])));
 }
 
 function setBattlefieldStackOrder(
@@ -2178,6 +2343,7 @@ function upsertHelper(state: GameTableNormalizedV2State, entity: GameSpecialEnti
         Object.values(state.relations.attachments),
         [...Object.values(state.relations.specialEntities).filter((entry) => entry.id !== entity.id), entity],
         Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -2193,6 +2359,7 @@ function removeHelper(state: GameTableNormalizedV2State, id: string): OperationA
         Object.values(state.relations.attachments),
         Object.values(state.relations.specialEntities).filter((entry) => entry.id !== id),
         Object.values(state.relations.battlefieldStacks),
+        Object.values(state.relations.tokenGroupsById),
       ),
     },
   };
@@ -3287,12 +3454,15 @@ function createRelationsState(
   attachments: GameAttachment[],
   specialEntities: GameSpecialEntity[],
   battlefieldStacks: GameBattlefieldStack[] = [],
+  tokenGroups: GameTokenGroupView[] = [],
 ): GameTableNormalizedV2RelationsState {
   const arrowsBySource: Record<string, string[]> = {};
   const arrowsByTarget: Record<string, string[]> = {};
   const attachmentsByEquipment: Record<string, string[]> = {};
   const attachmentsByTarget: Record<string, string[]> = {};
   const battlefieldStacksByMember: Record<string, string[]> = {};
+  const tokenGroupIdByMemberRef: Record<string, string> = {};
+  const tokenGroupIds = new Set<string>();
 
   for (const arrow of arrows) {
     appendIndex(arrowsBySource, arrow.fromInstanceId, arrow.id);
@@ -3307,6 +3477,18 @@ function createRelationsState(
       appendIndex(battlefieldStacksByMember, instanceId, stack.id);
     }
   }
+  for (const group of tokenGroups) {
+    if (!validTokenGroupView(group) || tokenGroupIds.has(group.groupId)) {
+      throw new Error('TokenGroup normalized state invariant failed.');
+    }
+    tokenGroupIds.add(group.groupId);
+    for (const memberRef of group.memberRefs ?? [group.rootRef]) {
+      if (tokenGroupIdByMemberRef[memberRef] || battlefieldStacksByMember[memberRef]?.length) {
+        throw new Error('TokenGroup membership is not exclusive.');
+      }
+      tokenGroupIdByMemberRef[memberRef] = group.groupId;
+    }
+  }
 
   return {
     arrows: Object.fromEntries(arrows.map((arrow) => [arrow.id, { ...arrow }])),
@@ -3315,6 +3497,11 @@ function createRelationsState(
       ...stack,
       orderedMemberIds: [...stack.orderedMemberIds],
     }])),
+    tokenGroupsById: Object.fromEntries(tokenGroups.map((group) => [group.groupId, {
+      ...group,
+      ...(group.memberRefs ? { memberRefs: [...group.memberRefs] } : {}),
+      position: { ...group.position },
+    }])),
     specialEntities: Object.fromEntries(specialEntities.map((entity) => [entity.id, { ...entity }])),
     indexes: {
       arrowsBySource,
@@ -3322,6 +3509,7 @@ function createRelationsState(
       attachmentsByEquipment,
       attachmentsByTarget,
       battlefieldStacksByMember,
+      tokenGroupIdByMemberRef,
     },
   };
 }

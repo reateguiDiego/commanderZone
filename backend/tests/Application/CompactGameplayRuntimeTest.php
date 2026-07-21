@@ -326,6 +326,22 @@ class CompactGameplayRuntimeTest extends TestCase
             'state' => [],
             'createdAt' => '2026-01-01T00:12:00+00:00',
         ]];
+        $snapshot['players']['p1']['zones']['battlefield'][2]['isToken'] = true;
+        $memberInstanceId = $snapshot['players']['p1']['zones']['battlefield'][3]['instanceId'];
+        $snapshot['players']['p1']['zones']['battlefield'][3] = [
+            ...$snapshot['players']['p1']['zones']['battlefield'][2],
+            'instanceId' => $memberInstanceId,
+            'isToken' => true,
+        ];
+        $snapshot['tokenGroups'] = [[
+            'groupId' => 'token-group-compact-roundtrip',
+            'rootInstanceId' => 'p1-battlefield-003',
+            'orderedMemberIds' => ['p1-battlefield-003', 'p1-battlefield-004'],
+            'revision' => 1,
+            'createdByPlayerId' => 'p1',
+            'createdAtVersion' => 1,
+            'effectVersion' => 1,
+        ]];
 
         $mapper = new CompactGameCardStateMapper();
         $checker = new CompactGameStateInvariantChecker();
@@ -345,6 +361,8 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertArrayHasKey('attachment-1', $compact['relations']['attachments']);
         self::assertArrayHasKey('arrow-1', $compact['relations']['arrows']);
         self::assertArrayHasKey('helper-1', $compact['relations']['helpers']);
+        self::assertArrayHasKey('token-group-compact-roundtrip', $compact['relations']['tokenGroups']);
+        self::assertSame('token-group-compact-roundtrip', $compact['relations']['indexes']['tokenGroupByMember']['p1-battlefield-003'] ?? null);
         self::assertSame(['attachment-1'], $compact['relations']['indexes']['attachmentsByEquipment']['p1-battlefield-001'] ?? null);
         self::assertSame(['attachment-1'], $compact['relations']['indexes']['attachmentsByTarget']['p1-battlefield-002'] ?? null);
         self::assertSame(['arrow-1'], $compact['relations']['indexes']['arrowsBySource']['p1-battlefield-001'] ?? null);
@@ -355,6 +373,7 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertCount(58, $roundTrip['players']['p1']['zones']['library']);
         self::assertCount(7, $roundTrip['players']['p1']['zones']['hand']);
         self::assertCount(20, $roundTrip['players']['p1']['zones']['battlefield']);
+        self::assertSame(['p1-battlefield-003', 'p1-battlefield-004'], $roundTrip['tokenGroups'][0]['orderedMemberIds'] ?? null);
         self::assertTrue($roundTrip['players']['p1']['zones']['battlefield'][5]['faceDown']);
         self::assertTrue($roundTrip['players']['p1']['zones']['command'][0]['isCommander']);
         self::assertSame('Hidden card', $projected['players']['p1']['zones']['hand'][1]['name']);

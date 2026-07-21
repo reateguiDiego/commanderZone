@@ -2,18 +2,30 @@
 
 ## Modelo cerrado en Sprint 6A
 
-Grouped Tokens se implementará como N instancias de carta autoritativas y una relación `TokenGroup` persistida. La cantidad será derivada del membership; no será un counter ni una segunda fuente de verdad. Battlefield stacks y selection group refs conservan semánticas distintas. Crear N fichas podrá crear la relación en Sprint 6B; split y merge serán explícitos.
+Grouped Tokens usa N instancias de carta autoritativas y una relación `TokenGroup` persistida. La cantidad se deriva siempre de la lista ordenada de miembros; no es un counter ni una segunda fuente de verdad. Battlefield stacks y selection group refs mantienen semánticas distintas. Split y merge serán acciones explícitas en bloques posteriores.
 
-Nada de ese dominio se implementa en 6A.1: no existen todavía `groupId`, membership, split, merge, renderer de cantidad ni operaciones Patch.v2 de grupos.
+## Blockers cerrados en Sprint 6A.1
 
-## Blockers encontrados y cierre 6A.1
+- `card.token.created` persiste efectos finales versionados y replay aplica esos resultados, sin reinterpretar el evento como un comando ni consultar un catálogo mutable.
+- Quantity acepta únicamente enteros de 1 a 20 y rechaza el resto con `INVALID_TOKEN_QUANTITY`, sin clamp ni mutación parcial.
+- Arrows, attachments y battlefield stacks faceDown usan referencias viewer-specific coherentes con la proyección de cartas; las relaciones mixtas o no resolubles se omiten fail-closed.
+- El reducer remapea conceal/materialize sin refetch, recovery ni `resync_required` normal.
 
-- Replay Go: live escribía `count/tokens`, pero replay reinyectaba el evento como un comando que esperaba `quantity/card`; el fallback producía una sola ficha genérica y podía cambiar identidad/print. Los eventos nuevos guardan `effectVersion` y efectos finales por token, y replay los aplica directamente. Un adaptador explícito conserva eventos legacy sin reescribir el event store.
-- Quantity: el clamp silencioso a `1..20` se sustituyó por validación estricta en frontend, PHP/API, WebSocket y Runtime Go. El contrato acepta únicamente enteros de 1 a 20 y rechaza el resto con `INVALID_TOKEN_QUANTITY`, sin mutación.
-- Relaciones faceDown: la proyección de la carta sustituía su `instanceId`, pero arrows, attachments y battlefield stacks mantenían referencias canónicas. La proyección final usa el mismo mapa viewer-specific; proyecta referencias compatibles y omite relaciones que mezclarían endpoints canónicos y opacos.
-- Paridad live: el reducer normalizado remapea atómicamente las referencias al aplicar conceal/materialize; conserva relaciones totalmente canónicas u opacas y elimina de forma fail-closed cualquier relación mixta, sin recovery ni refetch.
-- Gate responsive: el helper apuntaba a una mini-board oculta. Ahora abre el drawer vigente mediante su control accesible, exige un target visible y único, enfoca al jugador y restaura el drawer, incluso ante target ausente.
+## Implementado en Sprint 6B.1
 
-## Readiness para Sprint 6B
+- Entidad autoritativa `TokenGroupRuntime` con `groupId`, `rootInstanceId`, `orderedMemberIds`, `revision`, `createdByPlayerId`, `createdAtVersion` y `effectVersion`.
+- `quantity` derivada de membership. No se serializa en el snapshot autoritativo ni en el efecto del evento.
+- `card.token.created` con quantity 1 conserva una instancia independiente; quantity 2–20 crea N instancias y exactamente un TokenGroup. El root es el primer miembro y todos comparten la posición ratio del root.
+- El actor valida identidad, membership única, token/battlefield, owner/controller y fingerprint mutable uniforme, posición, ausencia de stacks, arrows y attachments, revision y effect version antes de persistir.
+- El evento guarda `tokenGroup` como efecto final opcional. Replay nuevo lo aplica exactamente; eventos legacy sin ese efecto conservan fichas independientes y nunca infieren grupos.
+- Snapshot Go, compact snapshot PHP y bootstrap V2 conservan orden, root y revision. Snapshots legacy hidratan con colección vacía.
+- La proyección faceDown usa refs opacas y un `groupId` estable por viewer que no se deriva del ID canónico. Quantity sigue siendo pública; una proyección parcial se omite.
+- Patch.v2 incorpora `token.group.set` y `token.group.remove`. El frontend mantiene `tokenGroupsById` y `tokenGroupIdByMemberRef`, protege revisiones y remapea conceal/materialize.
+- El renderer existente continúa mostrando las N cartas. No se ha añadido UX agrupada.
 
-Sprint 6B puede comenzar únicamente con los gates de replay/identity, quantity, privacidad de relaciones, bootstrap/restart, frontend, PHP, Go y Playwright verdes. El próximo bloque podrá añadir el modelo autoritativo de grupo definido por 6A, sin reutilizar battlefield stacks y sin alterar la autoridad individual de las N instancias.
+## Pendiente para 6B.2 / 6C / 6D
+
+- Split, merge, remove K, disolución manual y extracción individual.
+- Acciones de tap, counters, P/T, controller o movimiento sobre todo el grupo.
+- Integración UX con attachments y battlefield stacks.
+- Renderer con badge de cantidad, selection group refs, marquee, drag y toolbar agrupados.

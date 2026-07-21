@@ -2,6 +2,8 @@ package actor
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -32,7 +34,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	if err != nil {
 		return nil, err
 	}
-	if rawPosition, exists := command.Payload["position"]; exists && quantity == 1 {
+	if rawPosition, exists := command.Payload["position"]; exists {
 		position, positionErr := canonicalRatioPosition(rawPosition, command.Type, "", 0)
 		if positionErr != nil {
 			return nil, positionErr
@@ -75,6 +77,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		},
 	}
 	ids := make([]string, 0, quantity)
+	groupPosition := tokenPosition(0, 1, command.Payload)
 	for index := 0; index < quantity; index++ {
 		instanceID := deterministicRuntimeID("token", command.ClientActionID, index)
 		ids = append(ids, instanceID)
@@ -89,7 +92,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 			Zone:          state.ZoneBattlefield,
 			IsToken:       true,
 			TokenMeta:     cloneMap(tokenMeta),
-			Position:      tokenPosition(index, quantity, command.Payload),
+			Position:      cloneMap(groupPosition),
 			Counters:      map[string]int{},
 			MutableStats:  tokenMutableStats(card),
 			PrintedStats:  tokenPrintedStats(card, "token_creation"),
@@ -100,6 +103,22 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	insertIndex, err := ops.AddMany(game, playerID, state.ZoneBattlefield, ids, state.ZoneInsertAppend)
 	if err != nil {
 		return nil, err
+	}
+	var tokenGroup *state.TokenGroupRuntime
+	if quantity > 1 {
+		group := state.TokenGroupRuntime{
+			GroupID:           deterministicOpaqueTokenGroupID(game.GameID, command.ClientActionID),
+			RootInstanceID:    ids[0],
+			OrderedMemberIDs:  append([]string(nil), ids...),
+			Revision:          1,
+			CreatedByPlayerID: playerID,
+			CreatedAtVersion:  game.Version + 1,
+			EffectVersion:     state.TokenGroupEffectVersion,
+		}
+		if err := state.AddTokenGroup(game, group); err != nil {
+			return nil, err
+		}
+		tokenGroup = &group
 	}
 	cards := make([]map[string]any, 0, len(ids))
 	for _, instanceID := range ids {
@@ -118,8 +137,13 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		Op:   "zone.cards.add",
 		Data: data,
 	})
+	if tokenGroup != nil {
+		emitter.EmitPublic(protocol.PatchOp{Op: "token.group.set", Data: map[string]any{
+			"group": tokenGroupPatch(*tokenGroup, game),
+		}})
+	}
 	emitZoneCount(emitter, game, playerID, state.ZoneBattlefield)
-	return map[string]any{
+	result := map[string]any{
 		"effectVersion": tokenCreatedEffectVersion,
 		"actorPlayerId": playerID,
 		"playerId":      playerID,
@@ -131,7 +155,11 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		"tokenMeta":     tokenMeta,
 		"staticCards":   staticCards,
 		"metrics":       edgeMetrics("edge.token_create_ms", start, emitter),
-	}, nil
+	}
+	if tokenGroup != nil {
+		result["tokenGroup"] = tokenGroupEvent(*tokenGroup)
+	}
+	return result, nil
 }
 
 type CardTokenCopyCreatedApplier struct{}
@@ -575,6 +603,39 @@ func deterministicRuntimeID(prefix string, actionID string, index int) string {
 		actionID = strconv.FormatInt(time.Now().UnixNano(), 36)
 	}
 	return fmt.Sprintf("%s-%s-%d", prefix, sanitizeID(actionID), index)
+}
+
+func deterministicOpaqueTokenGroupID(gameID string, actionID string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(gameID) + "\x00" + strings.TrimSpace(actionID) + "\x00token-group-v1"))
+	return "token-group-" + hex.EncodeToString(digest[:12])
+}
+
+func tokenGroupEvent(group state.TokenGroupRuntime) map[string]any {
+	return map[string]any{
+		"groupId":           group.GroupID,
+		"rootInstanceId":    group.RootInstanceID,
+		"orderedMemberIds":  append([]string(nil), group.OrderedMemberIDs...),
+		"revision":          group.Revision,
+		"createdByPlayerId": group.CreatedByPlayerID,
+		"createdAtVersion":  group.CreatedAtVersion,
+		"effectVersion":     group.EffectVersion,
+	}
+}
+
+func tokenGroupPatch(group state.TokenGroupRuntime, game *state.GameState) map[string]any {
+	root := game.Instances[group.RootInstanceID]
+	return map[string]any{
+		"groupId":       group.GroupID,
+		"rootRef":       group.RootInstanceID,
+		"memberRefs":    append([]string(nil), group.OrderedMemberIDs...),
+		"quantity":      group.Quantity(),
+		"revision":      group.Revision,
+		"position":      cloneMap(root.Position),
+		"faceDown":      root.FaceDown,
+		"tapped":        root.Tapped,
+		"rotation":      root.Rotation,
+		"effectVersion": group.EffectVersion,
+	}
 }
 
 func sanitizeID(value string) string {

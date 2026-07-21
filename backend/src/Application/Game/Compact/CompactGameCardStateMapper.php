@@ -117,6 +117,7 @@ final class CompactGameCardStateMapper
         );
         $legacy['attachments'] = $this->normalizeAttachments(array_values(is_array($relations['attachments'] ?? null) ? $relations['attachments'] : []));
         $legacy['battlefieldStacks'] = array_values(is_array($relations['battlefieldStacks'] ?? null) ? $relations['battlefieldStacks'] : []);
+        $legacy['tokenGroups'] = array_values($this->normalizeTokenGroups(is_array($relations['tokenGroups'] ?? null) ? $relations['tokenGroups'] : []));
         $legacy['arrows'] = array_values(is_array($relations['arrows'] ?? null) ? $relations['arrows'] : []);
         $legacy['specialEntities'] = array_values(is_array($relations['helpers'] ?? null) ? $relations['helpers'] : []);
 
@@ -265,16 +266,19 @@ final class CompactGameCardStateMapper
 
         $attachments = $this->indexById($this->normalizeAttachments(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []));
         $battlefieldStacks = $this->indexById(is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : []);
+        $tokenGroups = $this->indexTokenGroups($this->normalizeTokenGroups(is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : []));
         $arrows = $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []);
         $relations = [
             'attachments' => $attachments,
             'battlefieldStacks' => $battlefieldStacks,
+            'tokenGroups' => $tokenGroups,
             'arrows' => $arrows,
             'helpers' => $this->indexById(is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : []),
             'indexes' => [
                 'attachmentsByEquipment' => $this->relationIdsByField($attachments, 'equipmentInstanceId'),
                 'attachmentsByTarget' => $this->relationIdsByField($attachments, 'attachedToInstanceId'),
                 'battlefieldStacksByMember' => $this->relationIdsByMember($battlefieldStacks),
+                'tokenGroupByMember' => $this->relationIdByMember($tokenGroups),
                 'arrowsBySource' => $this->relationIdsByField($arrows, 'fromInstanceId'),
                 'arrowsByTarget' => $this->relationIdsByField($arrows, 'toInstanceId'),
             ],
@@ -790,6 +794,21 @@ final class CompactGameCardStateMapper
         return $indexed;
     }
 
+    /** @param list<array<string,mixed>> $groups @return array<string,array<string,mixed>> */
+    private function indexTokenGroups(array $groups): array
+    {
+        $indexed = [];
+        foreach ($groups as $group) {
+            $groupId = trim((string) ($group['groupId'] ?? ''));
+            if ($groupId === '' || isset($indexed[$groupId])) {
+                throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
+            }
+            $indexed[$groupId] = $group;
+        }
+
+        return $indexed;
+    }
+
     /**
      * @param array<string,array<string,mixed>> $relations
      *
@@ -866,6 +885,66 @@ final class CompactGameCardStateMapper
         }
 
         return $index;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $relations
+     * @return array<string,string>
+     */
+    private function relationIdByMember(array $relations): array
+    {
+        $index = [];
+        foreach ($relations as $relationId => $relation) {
+            foreach (is_array($relation['orderedMemberIds'] ?? null) ? $relation['orderedMemberIds'] : [] as $instanceId) {
+                if (!is_string($instanceId) || trim($instanceId) === '' || isset($index[$instanceId])) {
+                    throw new \RuntimeException('TOKEN_GROUP_DUPLICATE_MEMBER');
+                }
+                $index[$instanceId] = (string) $relationId;
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param array<array-key,mixed> $groups
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeTokenGroups(array $groups): array
+    {
+        $normalized = [];
+        $allMembers = [];
+        foreach ($groups as $key => $group) {
+            if (!is_array($group)) {
+                throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
+            }
+            $groupId = trim((string) ($group['groupId'] ?? $group['id'] ?? (is_string($key) ? $key : '')));
+            $root = trim((string) ($group['rootInstanceId'] ?? ''));
+            $members = array_values(array_filter($group['orderedMemberIds'] ?? [], static fn (mixed $id): bool => is_string($id) && trim($id) !== ''));
+            if ($groupId === '' || $root === '' || count($members) < 2 || !in_array($root, $members, true)
+                || count($members) !== count(array_unique($members)) || (int) ($group['revision'] ?? 0) < 1
+                || trim((string) ($group['createdByPlayerId'] ?? '')) === ''
+                || (int) ($group['createdAtVersion'] ?? 0) < 1
+                || (int) ($group['effectVersion'] ?? 0) !== 1) {
+                throw new \RuntimeException('TOKEN_GROUP_INVARIANT_FAILED');
+            }
+            foreach ($members as $member) {
+                if (isset($allMembers[$member])) {
+                    throw new \RuntimeException('TOKEN_GROUP_DUPLICATE_MEMBER');
+                }
+                $allMembers[$member] = true;
+            }
+            unset($group['quantity']);
+            $group['groupId'] = $groupId;
+            $group['rootInstanceId'] = $root;
+            $group['orderedMemberIds'] = $members;
+            $group['revision'] = (int) $group['revision'];
+            $group['createdAtVersion'] = (int) ($group['createdAtVersion'] ?? 0);
+            $group['effectVersion'] = 1;
+            $normalized[] = $group;
+        }
+
+        return $normalized;
     }
 
     /**

@@ -35,6 +35,12 @@ func (ops *RelationsOps) AddArrow(game *GameState, relation Relation) error {
 	if _, ok := game.AssertLocation(relation.TargetID, zonePtr(ZoneBattlefield)); !ok {
 		return ErrMissingInstance
 	}
+	if _, grouped := game.Relations.TokenGroupForMember(relation.SourceID); grouped {
+		return ErrInvalidRelation
+	}
+	if _, grouped := game.Relations.TokenGroupForMember(relation.TargetID); grouped {
+		return ErrInvalidRelation
+	}
 	ensureRelations(game)
 	game.Relations.Arrows[relation.ID] = relation.Clone()
 	addRelationIndex(game, relation.SourceID, relation.ID, true)
@@ -69,6 +75,12 @@ func (ops *RelationsOps) AddAttachment(game *GameState, relation Relation) error
 		return ErrInvalidRelation
 	}
 	if _, _, ok := ops.BattlefieldStackForInstance(game, relation.TargetID); ok {
+		return ErrInvalidRelation
+	}
+	if _, grouped := game.Relations.TokenGroupForMember(relation.SourceID); grouped {
+		return ErrInvalidRelation
+	}
+	if _, grouped := game.Relations.TokenGroupForMember(relation.TargetID); grouped {
 		return ErrInvalidRelation
 	}
 	for _, existing := range game.Relations.Attachments {
@@ -144,6 +156,9 @@ func (ops *RelationsOps) AddBattlefieldStack(game *GameState, stack BattlefieldS
 		}
 		if _, _, ok := ops.BattlefieldStackForInstance(game, instanceID); ok {
 			return ErrInstanceAlreadyStacked
+		}
+		if _, grouped := game.Relations.TokenGroupForMember(instanceID); grouped {
+			return ErrInvalidRelation
 		}
 	}
 	if !rootFound {
@@ -317,6 +332,12 @@ func ensureRelations(game *GameState) {
 	}
 	if game.Relations.BattlefieldStacks == nil {
 		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
+	}
+	if game.Relations.TokenGroups == nil {
+		game.Relations.TokenGroups = map[string]TokenGroupRuntime{}
+	}
+	if game.Relations.TokenGroupByMember == nil {
+		game.Relations.RebuildTokenGroupIndex()
 	}
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}

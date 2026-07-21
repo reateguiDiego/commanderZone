@@ -2125,6 +2125,89 @@ class GameEventStoreV2Test extends TestCase
             self::assertSame($expected['cardVersion'], $instance['cardVersion'] ?? null);
             self::assertSame($expected['language'], $instance['language'] ?? null);
         }
+        self::assertSame([], $rebuilt['tokenGroups'] ?? []);
+        self::assertSame([], $bootstrap['relations']['tokenGroups'] ?? []);
+    }
+
+    public function testReplayPersistsExplicitRuntimeTokenGroupThroughCompactSnapshotAndBootstrap(): void
+    {
+        $actor = new User('runtime-token-group@example.test', 'Runtime Token Group');
+        $handler = new GameCommandHandler();
+        $base = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), ['battlefield' => []]));
+        $game = new Game(new Room($actor), $base);
+        $position = ['x' => 0.42, 'y' => 0.58, 'unit' => 'ratio'];
+        $tokens = array_map(static fn (string $instanceId): array => [
+            'instanceId' => $instanceId,
+            'ownerPlayerId' => $actor->id(),
+            'controllerPlayerId' => $actor->id(),
+            'name' => 'Treasure',
+            'cardKey' => 'treasure:token',
+            'printId' => 'treasure-print',
+            'cardVersion' => 'token-v1',
+            'language' => 'en',
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'tokenMeta' => ['isCopy' => false, 'templateCardKey' => 'treasure:token'],
+            'position' => $position,
+            'counters' => [],
+            'tapped' => false,
+            'rotation' => 0,
+            'faceDown' => false,
+            'activeFace' => 0,
+            'mutableStats' => [],
+            'printedStats' => [],
+            'manualOverrides' => [],
+        ], ['group-token-1', 'group-token-2']);
+        $tokenGroup = [
+            'groupId' => 'opaque-group-from-runtime',
+            'rootInstanceId' => 'group-token-1',
+            'orderedMemberIds' => ['group-token-1', 'group-token-2'],
+            'revision' => 1,
+            'createdByPlayerId' => $actor->id(),
+            'createdAtVersion' => 2,
+            'effectVersion' => 1,
+        ];
+        $event = new GameEvent($game, 'card.token.created', [
+            'effectVersion' => 1,
+            'actorPlayerId' => $actor->id(),
+            'playerId' => $actor->id(),
+            'count' => 2,
+            'instanceIds' => ['group-token-1', 'group-token-2'],
+            'tokens' => $tokens,
+            'tokenGroup' => $tokenGroup,
+            'eventLogEntries' => [[
+                'id' => 'token-group-log', 'type' => 'card.token.created',
+                'i18nKey' => 'gameLog.token.createdMany', 'params' => ['count' => 2, 'tokenName' => 'Treasure'],
+            ]],
+        ], $actor, 'runtime-token-group-create', 2);
+
+        $replayed = (new GameEventReplayService())->replay($base, [$event]);
+        self::assertSame([$tokenGroup], $replayed['tokenGroups']);
+        self::assertCount(1, $replayed['eventLog']);
+
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($replayed, $game->id(), $game->status());
+        self::assertArrayNotHasKey('quantity', $compact['relations']['tokenGroups']['opaque-group-from-runtime']);
+        self::assertSame('opaque-group-from-runtime', $compact['relations']['indexes']['tokenGroupByMember']['group-token-2']);
+        $hydrated = $handler->normalizeSnapshot($mapper->hydrateSnapshot($compact));
+        self::assertSame([$tokenGroup], $hydrated['tokenGroups']);
+
+        $hydratedGame = new Game(new Room($actor), $hydrated);
+        $projected = (new GameProjectionService($handler))->projectSnapshot($hydrated, $actor);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($hydratedGame, $actor, $projected)->toArray();
+        self::assertSame('opaque-group-from-runtime', $bootstrap['relations']['tokenGroups'][0]['groupId'] ?? null);
+        self::assertSame(['group-token-1', 'group-token-2'], $bootstrap['relations']['tokenGroups'][0]['memberRefs'] ?? null);
+        self::assertSame(2, $bootstrap['relations']['tokenGroups'][0]['quantity'] ?? null);
+
+        $incompleteGroup = $tokenGroup;
+        unset($incompleteGroup['createdByPlayerId']);
+        $incompleteEvent = new GameEvent($game, 'card.token.created', [
+            ...$event->payload(),
+            'tokenGroup' => $incompleteGroup,
+        ], $actor, 'runtime-token-group-incomplete', 2);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('TOKEN_GROUP_INVARIANT_FAILED');
+        (new GameEventReplayService())->replay($base, [$incompleteEvent]);
     }
 
     public function testReplayPreservesRuntimeGoUntapAllForControlledPermanentsAcrossBattlefields(): void

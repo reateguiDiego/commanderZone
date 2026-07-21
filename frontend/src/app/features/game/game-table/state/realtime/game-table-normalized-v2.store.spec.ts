@@ -8,6 +8,110 @@ import {
 } from './game-table-normalized-v2.store';
 
 describe('game table normalized v2 store', () => {
+	it('normalizes TokenGroups and enforces revision, membership, remove, and same-version contracts', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const cards = ['token-1', 'token-2'].map((instanceId) => ({
+			instanceId,
+			cardRef: 'token:beast',
+			cardKey: 'token:beast',
+			printId: 's-beast',
+			cardVersion: 'beast-v1',
+			language: 'en',
+			viewerVisibility: 'public' as const,
+			zoneId: 'player-1:battlefield',
+			ownerId: 'player-1',
+			controllerId: 'player-1',
+			isToken: true,
+			tapped: false,
+			position: { x: 0.45, y: 0.55, unit: 'ratio' as const },
+		}));
+		const group = {
+			groupId: 'token-group-opaque', rootRef: 'token-1', memberRefs: ['token-1', 'token-2'], quantity: 2,
+			revision: 1, position: { x: 0.45, y: 0.55, unit: 'ratio' as const }, effectVersion: 1 as const,
+		};
+		const created = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'zone.cards.add', playerId: 'player-1', zone: 'battlefield', cards },
+			{ op: 'token.group.set', group },
+		]));
+
+		expect(created.status).toBe('applied');
+		expect(created.state.relations.tokenGroupsById[group.groupId]).toEqual(group);
+		expect(created.state.relations.indexes.tokenGroupIdByMemberRef).toEqual({
+			'token-1': group.groupId, 'token-2': group.groupId,
+		});
+		expect(hydrateGameSnapshotFromV2State(created.state).tokenGroups).toEqual([group]);
+		const memberRemoved = applyPatchEnvelopeV2(created.state, patch(7, [{
+			op: 'zone.cards.remove', playerId: 'player-1', zone: 'battlefield', instanceIds: ['token-1'],
+		}]));
+		expect(memberRemoved.status).toBe('applied');
+		expect(memberRemoved.state.relations.tokenGroupsById).toEqual({});
+
+		const idempotent = applyPatchEnvelopeV2(created.state, {
+			gameId: 'game-1', version: 6, visibility: 'public', ackClientActionId: 'token-create-retry',
+			ops: [{ op: 'token.group.set', group }],
+		});
+		expect(idempotent.status).toBe('applied');
+		expect(idempotent.state.relations.tokenGroupsById[group.groupId]).toEqual(group);
+
+		const conflicting = applyPatchEnvelopeV2(created.state, {
+			gameId: 'game-1', version: 6, visibility: 'public', ackClientActionId: 'token-create-conflict',
+			ops: [{ op: 'token.group.set', group: { ...group, quantity: 3 } }],
+		});
+		expect(conflicting.status).toBe('resync_required');
+		expect(conflicting).toMatchObject({ reason: 'invalid_operation' });
+
+		const updated = applyPatchEnvelopeV2(created.state, patch(7, [{
+			op: 'token.group.set', group: { ...group, revision: 2 },
+		}]));
+		expect(updated.status).toBe('applied');
+		const stale = applyPatchEnvelopeV2(updated.state, patch(8, [{ op: 'token.group.set', group }]));
+		expect(stale.status).toBe('applied');
+		expect(stale.state.relations.tokenGroupsById[group.groupId]?.revision).toBe(2);
+
+		const removed = applyPatchEnvelopeV2(stale.state, patch(9, [{ op: 'token.group.remove', groupId: group.groupId }]));
+		expect(removed.status).toBe('applied');
+		expect(removed.state.relations.tokenGroupsById).toEqual({});
+		expect(removed.state.relations.indexes.tokenGroupIdByMemberRef).toEqual({});
+	});
+
+	it('remaps all TokenGroup refs atomically across conceal and materialize', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.viewerId = 'player-2';
+		const token = (instanceId: string) => ({
+			instanceId, cardRef: 'token:beast', cardKey: 'token:beast', printId: 's-beast', cardVersion: 'beast-v1',
+			language: 'en', viewerVisibility: 'public' as const, zoneId: 'player-1:battlefield', ownerId: 'player-1',
+			controllerId: 'player-1', isToken: true, tapped: false, position: { x: 0.4, y: 0.5, unit: 'ratio' as const },
+		});
+		bootstrap.instances['token-a'] = token('token-a');
+		bootstrap.instances['token-b'] = token('token-b');
+		bootstrap.zones['player-1:battlefield'].instanceIds.push('token-a', 'token-b');
+		bootstrap.relations.tokenGroups = [{
+			groupId: 'group-visible', rootRef: 'token-a', memberRefs: ['token-a', 'token-b'], quantity: 2, revision: 1,
+			position: { x: 0.4, y: 0.5, unit: 'ratio' }, effectVersion: 1,
+		}];
+		const initial = createGameTableNormalizedV2State(bootstrap);
+		const concealed = applyPatchEnvelopeV2(initial, patch(6, [{
+			op: 'private.cards.conceal', playerId: 'player-1', zone: 'battlefield', entries: [
+				{ instanceId: 'token-a', placeholderId: 'opaque-a', index: 1 },
+				{ instanceId: 'token-b', placeholderId: 'opaque-b', index: 2 },
+			],
+		}]));
+		expect(concealed.status).toBe('applied');
+		expect(concealed.state.relations.tokenGroupsById['group-visible']?.rootRef).toBe('opaque-a');
+		expect(concealed.state.relations.tokenGroupsById['group-visible']?.memberRefs).toEqual(['opaque-a', 'opaque-b']);
+		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['token-a']).toBeUndefined();
+		expect(concealed.state.relations.indexes.tokenGroupIdByMemberRef['opaque-b']).toBe('group-visible');
+
+		const materialized = applyPatchEnvelopeV2(concealed.state, patch(7, [{
+			op: 'private.cards.materialize', playerId: 'player-1', zone: 'battlefield', entries: [
+				{ placeholderId: 'opaque-a', index: 1, card: token('token-a') },
+				{ placeholderId: 'opaque-b', index: 2, card: token('token-b') },
+			],
+		}]));
+		expect(materialized.status).toBe('applied');
+		expect(materialized.state.relations.tokenGroupsById['group-visible']?.rootRef).toBe('token-a');
+		expect(materialized.state.relations.tokenGroupsById['group-visible']?.memberRefs).toEqual(['token-a', 'token-b']);
+	});
 	it('roundtrips per-face overrides and accepts their same-version visibility merge', () => {
 		const initial = createGameTableNormalizedV2State(bootstrapV2());
 		const result = applyPatchEnvelopeV2(initial, patch(6, [{

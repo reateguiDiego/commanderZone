@@ -146,6 +146,9 @@ func ValidateInvariants(game GameState) error {
 			return fmt.Errorf("%w: root missing from battlefield stack %s", ErrInvariantViolation, stackID)
 		}
 	}
+	if err := ValidateTokenGroupState(game); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvariantViolation, err)
+	}
 	return nil
 }
 

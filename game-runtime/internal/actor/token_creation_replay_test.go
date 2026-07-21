@@ -42,6 +42,41 @@ func TestTokenCreationReplayMatchesLiveFinalEffects(t *testing.T) {
 				t.Fatalf("replayed bootstrap differs from live bootstrap\nlive: %#v\nreplayed: %#v", liveBootstrap, replayedBootstrap)
 			}
 			assertTokenEventFinalEffects(t, persisted, quantity)
+			assertAuthoritativeTokenGroup(t, live, persisted, quantity)
+		})
+	}
+}
+
+func TestTokenCreationPatchOrdersInstancesBeforeAuthoritativeGroup(t *testing.T) {
+	for _, quantity := range []int{1, 2, 10, 20} {
+		t.Run(testQuantityName(quantity), func(t *testing.T) {
+			game := testState()
+			state.NormalizeForRecovery("game-1", &game)
+			result := NewGameActor("game-1", game, nil, 8, DefaultAppliers()).ApplyDirect(context.Background(), tokenCreationCommand(quantity), "p1")
+			if result.Err != nil {
+				t.Fatal(result.Err)
+			}
+			public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+			if public == nil {
+				t.Fatalf("missing zone.cards.add: %#v", result.Patches)
+			}
+			groupPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "token.group.set")
+			if quantity == 1 {
+				if groupPatch != nil {
+					t.Fatalf("quantity one emitted TokenGroup patch: %#v", groupPatch)
+				}
+				return
+			}
+			if groupPatch == nil {
+				t.Fatalf("quantity %d missing TokenGroup patch: %#v", quantity, result.Patches)
+			}
+			for _, envelope := range result.Patches {
+				for index, op := range envelope.Ops {
+					if op.Op == "token.group.set" && (index == 0 || envelope.Ops[index-1].Op != "zone.cards.add") {
+						t.Fatalf("TokenGroup set was not ordered after materialization: %#v", envelope.Ops)
+					}
+				}
+			}
 		})
 	}
 }
@@ -174,6 +209,25 @@ func TestLegacyTokenCreationEventWithoutFinalTokensRemainsReplayable(t *testing.
 	}
 }
 
+func TestLegacyFinalEffectTokenCreationWithoutTokenGroupDoesNotInferOne(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(10), "p1")
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	legacy := roundTripTokenEvent(t, result.Event)
+	delete(legacy.Payload, "tokenGroup")
+	replayed, err := ReplayEvents(initial.Clone(), []protocol.EventPayloadV2{legacy}, DefaultAppliers())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replayed.Relations.TokenGroups) != 0 {
+		t.Fatalf("legacy replay inferred token group: %#v", replayed.Relations.TokenGroups)
+	}
+}
+
 func TestTokenCreationReplayFailsClosedForUnknownEffectVersion(t *testing.T) {
 	initial := testState()
 	state.NormalizeForRecovery("game-1", &initial)
@@ -191,6 +245,47 @@ func TestTokenCreationReplayFailsClosedForUnknownEffectVersion(t *testing.T) {
 	}
 	if !reflect.DeepEqual(replayed, before) {
 		t.Fatalf("unknown token effectVersion mutated state: %#v", replayed)
+	}
+}
+
+func TestTokenCreationReplayFailsClosedForUnknownTokenGroupEffectVersion(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(2), "p1")
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	event := roundTripTokenEvent(t, result.Event)
+	group := event.Payload["tokenGroup"].(map[string]any)
+	group["effectVersion"] = 99
+	before := initial.Clone()
+	if err := ReplayEventWithAppliers(&before, event, DefaultAppliers()); err == nil {
+		t.Fatal("unknown token group effect version succeeded")
+	}
+	if len(before.Relations.TokenGroups) != 0 || len(before.Instances) != len(initial.Instances) {
+		t.Fatalf("failed replay left token group effects: %#v", before.Relations.TokenGroups)
+	}
+}
+
+func TestTokenCreationReplayRejectsIncompleteTokenGroupFinalEffects(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(2), "p1")
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	event := roundTripTokenEvent(t, result.Event)
+	group := event.Payload["tokenGroup"].(map[string]any)
+	delete(group, "createdByPlayerId")
+	replayed := initial.Clone()
+	before := replayed.Clone()
+	if err := ReplayEventWithAppliers(&replayed, event, DefaultAppliers()); err == nil {
+		t.Fatal("incomplete token group final effects succeeded")
+	}
+	if !reflect.DeepEqual(replayed, before) {
+		t.Fatalf("incomplete token group replay mutated state: %#v", replayed)
 	}
 }
 
@@ -233,6 +328,117 @@ func assertTokenEventFinalEffects(t *testing.T, event protocol.EventPayloadV2, q
 	logs, ok := event.Payload["eventLogEntries"].([]any)
 	if !ok || len(logs) != 1 {
 		t.Fatalf("eventLogEntries = %#v, want one aggregated entry", event.Payload["eventLogEntries"])
+	}
+}
+
+func assertAuthoritativeTokenGroup(t *testing.T, game state.GameState, event protocol.EventPayloadV2, quantity int) {
+	t.Helper()
+	if quantity == 1 {
+		if len(game.Relations.TokenGroups) != 0 || event.Payload["tokenGroup"] != nil {
+			t.Fatalf("quantity one created group: state=%#v event=%#v", game.Relations.TokenGroups, event.Payload["tokenGroup"])
+		}
+		return
+	}
+	if len(game.Relations.TokenGroups) != 1 {
+		t.Fatalf("token groups = %#v", game.Relations.TokenGroups)
+	}
+	groupPayload, ok := event.Payload["tokenGroup"].(map[string]any)
+	if !ok {
+		t.Fatalf("tokenGroup payload = %#v", event.Payload["tokenGroup"])
+	}
+	groupID := optionalString(groupPayload, "groupId")
+	group, ok := game.Relations.TokenGroups[groupID]
+	if !ok || group.GroupID == "" || group.RootInstanceID != group.OrderedMemberIDs[0] || group.Revision != 1 || group.Quantity() != quantity || group.EffectVersion != state.TokenGroupEffectVersion {
+		t.Fatalf("group = %#v", group)
+	}
+	ids, err := stringSliceField(event.Payload, "instanceIds")
+	if err != nil || !reflect.DeepEqual(group.OrderedMemberIDs, ids) {
+		t.Fatalf("membership = %#v ids=%#v err=%v", group.OrderedMemberIDs, ids, err)
+	}
+	rootPosition := game.Instances[group.RootInstanceID].Position
+	for _, memberID := range group.OrderedMemberIDs {
+		if !reflect.DeepEqual(game.Instances[memberID].Position, rootPosition) {
+			t.Fatalf("member %s position differs", memberID)
+		}
+		indexed, ok := game.Relations.TokenGroupForMember(memberID)
+		if !ok || indexed.GroupID != groupID {
+			t.Fatalf("member index %s = %#v %t", memberID, indexed, ok)
+		}
+	}
+}
+
+func BenchmarkTokenCreationWithAuthoritativeGroup(b *testing.B) {
+	for _, quantity := range []int{1, 2, 10, 20} {
+		b.Run(testQuantityName(quantity), func(b *testing.B) {
+			for index := 0; index < b.N; index++ {
+				game := testState()
+				state.NormalizeForRecovery("game-1", &game)
+				gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+				cmd := tokenCreationCommand(quantity)
+				cmd.ClientActionID += "-" + strconv.Itoa(index)
+				if result := gameActor.ApplyDirect(context.Background(), cmd, "p1"); result.Err != nil {
+					b.Fatal(result.Err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkTokenCreationReplayWithAuthoritativeGroup(b *testing.B) {
+	for _, quantity := range []int{1, 2, 10, 20} {
+		initial := testState()
+		state.NormalizeForRecovery("game-1", &initial)
+		result := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers()).ApplyDirect(context.Background(), tokenCreationCommand(quantity), "p1")
+		if result.Err != nil {
+			b.Fatal(result.Err)
+		}
+		encoded, err := json.Marshal(result.Event)
+		if err != nil {
+			b.Fatal(err)
+		}
+		var event protocol.EventPayloadV2
+		if err := json.Unmarshal(encoded, &event); err != nil {
+			b.Fatal(err)
+		}
+		b.Run(testQuantityName(quantity), func(b *testing.B) {
+			for index := 0; index < b.N; index++ {
+				if _, err := ReplayEvents(initial.Clone(), []protocol.EventPayloadV2{event}, DefaultAppliers()); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkTokenGroupSerializedPayloadSizes(b *testing.B) {
+	for _, quantity := range []int{1, 2, 10, 20} {
+		game := testState()
+		state.NormalizeForRecovery("game-1", &game)
+		gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+		result := gameActor.ApplyDirect(context.Background(), tokenCreationCommand(quantity), "p1")
+		if result.Err != nil {
+			b.Fatal(result.Err)
+		}
+		eventBytes, err := json.Marshal(result.Event)
+		if err != nil {
+			b.Fatal(err)
+		}
+		patchBytes, err := json.Marshal(result.Patches)
+		if err != nil {
+			b.Fatal(err)
+		}
+		snapshotBytes, err := json.Marshal(gameActor.Snapshot())
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Run(testQuantityName(quantity), func(b *testing.B) {
+			b.ReportMetric(float64(len(eventBytes)), "event_B")
+			b.ReportMetric(float64(len(patchBytes)), "patch_B")
+			b.ReportMetric(float64(len(snapshotBytes)), "snapshot_B")
+			for index := 0; index < b.N; index++ {
+				_, _ = json.Marshal(gameActor.Snapshot())
+			}
+		})
 	}
 }
 

@@ -73,6 +73,7 @@ class GameProjectionService
             fn (mixed $message): bool => is_array($message) && $this->canViewChatMessage($message, $viewerId),
         ));
         $projectedRelationRefs = [];
+        $projectedBattlefieldCards = [];
 
         foreach ($snapshot['players'] as $playerId => &$player) {
             $rawPlayer = $player;
@@ -134,6 +135,7 @@ class GameProjectionService
                         $projectedId = is_array($projectedCard) ? trim((string) ($projectedCard['instanceId'] ?? '')) : '';
                         if ($canonicalId !== '' && $projectedId !== '') {
                             $projectedRelationRefs[$canonicalId] = $projectedId;
+                            $projectedBattlefieldCards[$projectedId] = $projectedCard;
                         }
                     }
                 }
@@ -171,6 +173,12 @@ class GameProjectionService
         $snapshot['battlefieldStacks'] = $this->projectBattlefieldStacksForViewer(
             is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
             $projectedRelationRefs,
+        );
+        $snapshot['tokenGroups'] = $this->projectTokenGroupsForViewer(
+            is_array($snapshot['tokenGroups'] ?? null) ? $snapshot['tokenGroups'] : [],
+            $projectedRelationRefs,
+            $projectedBattlefieldCards,
+            $viewerId,
         );
 
         $snapshot['stack'] = $this->projectStackForViewer(
@@ -274,6 +282,67 @@ class GameProjectionService
                 $members,
             ));
             $projected[] = $stack;
+        }
+
+        return $projected;
+    }
+
+    /**
+     * @param list<array<string,mixed>>  $groups
+     * @param array<string,string>       $projectedRelationRefs
+     * @param array<string,array<string,mixed>> $projectedCards
+     * @return list<array<string,mixed>>
+     */
+    private function projectTokenGroupsForViewer(array $groups, array $projectedRelationRefs, array $projectedCards, string $viewerId): array
+    {
+        $projected = [];
+        foreach ($groups as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            $canonicalGroupId = trim((string) ($group['groupId'] ?? ''));
+            $rootCanonical = trim((string) ($group['rootInstanceId'] ?? ''));
+            $members = array_values(array_filter(
+                $group['orderedMemberIds'] ?? [],
+                static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+            ));
+            if ($canonicalGroupId === '' || $rootCanonical === '' || count($members) < 2 || !in_array($rootCanonical, $members, true)) {
+                continue;
+            }
+            $resolvedByCanonical = [];
+            $opacity = null;
+            foreach ($members as $memberId) {
+                $resolved = $this->projectRelationInstanceReferenceForViewer($memberId, $projectedRelationRefs);
+                if ($resolved === null) {
+                    continue 2;
+                }
+                $currentOpacity = $resolved !== $memberId;
+                if ($opacity !== null && $opacity !== $currentOpacity) {
+                    continue 2;
+                }
+                $opacity = $currentOpacity;
+                $resolvedByCanonical[$memberId] = $resolved;
+            }
+            $rootRef = $resolvedByCanonical[$rootCanonical] ?? null;
+            if (!is_string($rootRef) || $rootRef === '') {
+                continue;
+            }
+            $rootCard = $projectedCards[$rootRef] ?? [];
+            $safeGroupId = $opacity === true
+                ? 'token-group-view-'.substr(hash('sha256', $viewerId.'|'.$rootRef), 0, 24)
+                : $canonicalGroupId;
+            $projected[] = [
+                'groupId' => $safeGroupId,
+                'rootRef' => $rootRef,
+                'memberRefs' => array_map(static fn (string $memberId): string => $resolvedByCanonical[$memberId], $members),
+                'quantity' => count($members),
+                'revision' => max(1, (int) ($group['revision'] ?? 1)),
+                'position' => is_array($rootCard['position'] ?? null) ? $rootCard['position'] : ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+                'faceDown' => ($rootCard['faceDown'] ?? false) === true,
+                'tapped' => ($rootCard['tapped'] ?? false) === true,
+                'rotation' => (int) ($rootCard['rotation'] ?? 0),
+                'effectVersion' => 1,
+            ];
         }
 
         return $projected;

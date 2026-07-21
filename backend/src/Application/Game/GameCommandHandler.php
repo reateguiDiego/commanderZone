@@ -421,6 +421,7 @@ class GameCommandHandler
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
         $snapshot['battlefieldStacks'] ??= [];
+        $snapshot['tokenGroups'] ??= [];
         if ($this->streamsEnabled()) {
             unset($snapshot['chat'], $snapshot['eventLog']);
         } else {

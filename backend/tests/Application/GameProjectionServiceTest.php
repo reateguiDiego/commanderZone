@@ -1081,8 +1081,10 @@ class GameProjectionServiceTest extends TestCase
         $owner = new User('relation-owner@example.test', 'Relation Owner');
         $controller = new User('relation-controller@example.test', 'Relation Controller');
         $third = new User('relation-third@example.test', 'Relation Third');
+        $fourth = new User('relation-fourth@example.test', 'Relation Fourth');
         $snapshot = $this->snapshot($owner->id(), $controller->id());
         $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $snapshot['players'][$fourth->id()] = $this->player($fourth->id(), []);
         $snapshot['players'][$owner->id()]['zones']['battlefield'] = [
             [
                 ...$this->card('hidden-source', 'Hidden Source'),
@@ -1121,6 +1123,15 @@ class GameProjectionServiceTest extends TestCase
             ['id' => 'stack-hidden', 'rootInstanceId' => 'hidden-source', 'orderedMemberIds' => ['hidden-source', 'hidden-target']],
             ['id' => 'stack-mixed', 'rootInstanceId' => 'hidden-target', 'orderedMemberIds' => ['hidden-target', 'public-target']],
         ];
+        $snapshot['tokenGroups'] = [[
+            'groupId' => 'canonical-private-token-group',
+            'rootInstanceId' => 'hidden-source',
+            'orderedMemberIds' => ['hidden-source', 'hidden-target'],
+            'revision' => 1,
+            'createdByPlayerId' => $owner->id(),
+            'createdAtVersion' => 1,
+            'effectVersion' => 1,
+        ]];
         $projection = new GameProjectionService(new GameCommandHandler());
 
         foreach ([$owner, $controller] as $authorized) {
@@ -1131,6 +1142,9 @@ class GameProjectionServiceTest extends TestCase
             self::assertSame('hidden-target', $visible['attachments'][0]['attachedToInstanceId']);
             self::assertCount(2, $visible['arrows']);
             self::assertCount(2, $visible['attachments']);
+            self::assertSame('canonical-private-token-group', $visible['tokenGroups'][0]['groupId']);
+            self::assertSame(['hidden-source', 'hidden-target'], $visible['tokenGroups'][0]['memberRefs']);
+            self::assertSame(2, $visible['tokenGroups'][0]['quantity']);
         }
 
         $hidden = $projection->projectSnapshot($snapshot, $third);
@@ -1151,19 +1165,29 @@ class GameProjectionServiceTest extends TestCase
             'rootInstanceId' => $opaqueSource,
             'orderedMemberIds' => [$opaqueSource, $opaqueTarget],
         ]], $hidden['battlefieldStacks']);
+        self::assertSame('token-group-view-'.substr(hash('sha256', $third->id().'|'.$opaqueSource), 0, 24), $hidden['tokenGroups'][0]['groupId']);
+        self::assertSame($opaqueSource, $hidden['tokenGroups'][0]['rootRef']);
+        self::assertSame([$opaqueSource, $opaqueTarget], $hidden['tokenGroups'][0]['memberRefs']);
+        self::assertSame(2, $hidden['tokenGroups'][0]['quantity']);
         $encodedHidden = json_encode([
             $hidden['arrows'],
             $hidden['attachments'],
             $hidden['battlefieldStacks'],
+            $hidden['tokenGroups'],
         ], JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('hidden-source', $encodedHidden);
         self::assertStringNotContainsString('hidden-target', $encodedHidden);
+        self::assertStringNotContainsString('canonical-private-token-group', $encodedHidden);
+        $fourthProjection = $projection->projectSnapshot($snapshot, $fourth);
+        self::assertNotSame($hidden['tokenGroups'][0]['groupId'], $fourthProjection['tokenGroups'][0]['groupId']);
+        self::assertStringNotContainsString('canonical-private-token-group', json_encode($fourthProjection['tokenGroups'], JSON_THROW_ON_ERROR));
 
         $snapshot['players'][$owner->id()]['zones']['battlefield'][0]['revealedTo'] = [$third->id()];
         $partiallyRevealed = $projection->projectSnapshot($snapshot, $third);
         self::assertSame([], $partiallyRevealed['arrows']);
         self::assertSame([], $partiallyRevealed['attachments']);
         self::assertSame([], $partiallyRevealed['battlefieldStacks']);
+        self::assertSame([], $partiallyRevealed['tokenGroups']);
 
         $snapshot['players'][$owner->id()]['zones']['battlefield'][1]['revealedTo'] = [$third->id()];
         $revealed = $projection->projectSnapshot($snapshot, $third);
@@ -1182,11 +1206,14 @@ class GameProjectionServiceTest extends TestCase
             $afterCompactRestart['arrows'],
             $afterCompactRestart['attachments'],
             $afterCompactRestart['battlefieldStacks'],
+            $afterCompactRestart['tokenGroups'],
         ], JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('hidden-source', $encodedAfterCompactRestart);
         self::assertStringNotContainsString('hidden-target', $encodedAfterCompactRestart);
+        self::assertStringNotContainsString('canonical-private-token-group', $encodedAfterCompactRestart);
         self::assertSame($opaqueSource, $afterCompactRestart['arrows'][0]['fromInstanceId']);
         self::assertSame($opaqueTarget, $afterCompactRestart['attachments'][0]['attachedToInstanceId']);
+        self::assertSame([$opaqueSource, $opaqueTarget], $afterCompactRestart['tokenGroups'][0]['memberRefs']);
 
         $snapshot['arrows'] = [];
         $snapshot['attachments'] = [];

@@ -62,7 +62,12 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	case "library.reveal", "library.play_top_revealed":
 		return replayViaApplier(game, event, appliers)
 	case "card.token.created":
-		return replayTokenCreatedEvent(game, event, appliers)
+		before := game.Clone()
+		if err := replayTokenCreatedEvent(game, event, appliers); err != nil {
+			*game = before
+			return err
+		}
+		return state.ValidateTokenGroupState(*game)
 	case "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
 		return replayViaApplier(game, event, appliers)
 	case "stack.card_added", "stack.item_removed":
@@ -1125,7 +1130,52 @@ func replayTokenCreatedEvent(game *state.GameState, event protocol.EventPayloadV
 	if _, err := state.NewZoneOps().AddMany(game, playerID, state.ZoneBattlefield, ids, state.ZoneInsertAppend); err != nil {
 		return err
 	}
+	if rawGroup, hasGroup := event.Payload["tokenGroup"]; hasGroup && rawGroup != nil {
+		groupPayload, ok := rawGroup.(map[string]any)
+		if !ok {
+			return &state.TokenGroupStateError{Code: state.TokenGroupInvariantFailed, Count: quantity, InvalidIndex: -1}
+		}
+		group, err := tokenGroupFromEvent(groupPayload, event, ids, playerID)
+		if err != nil {
+			return err
+		}
+		if err := state.AddTokenGroup(game, group); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func tokenGroupFromEvent(payload map[string]any, event protocol.EventPayloadV2, expectedIDs []string, playerID string) (state.TokenGroupRuntime, error) {
+	effectVersion, ok := strictInteger(payload["effectVersion"])
+	if !ok || effectVersion != state.TokenGroupEffectVersion {
+		return state.TokenGroupRuntime{}, &state.TokenGroupStateError{Code: state.TokenGroupEffectVersionUnsupported, Count: len(expectedIDs), InvalidIndex: -1}
+	}
+	revision, ok := strictInteger(payload["revision"])
+	if !ok || revision < 1 {
+		return state.TokenGroupRuntime{}, &state.TokenGroupStateError{Code: state.TokenGroupInvariantFailed, Count: len(expectedIDs), InvalidIndex: -1}
+	}
+	createdAtVersion, ok := strictInteger(payload["createdAtVersion"])
+	if !ok || int64(createdAtVersion) != event.Version {
+		return state.TokenGroupRuntime{}, &state.TokenGroupStateError{Code: state.TokenGroupInvariantFailed, Count: len(expectedIDs), InvalidIndex: -1}
+	}
+	members, err := stringSliceField(payload, "orderedMemberIds")
+	if err != nil || !equalStringOrder(members, expectedIDs) {
+		return state.TokenGroupRuntime{}, &state.TokenGroupStateError{Code: state.TokenGroupMemberMismatch, Count: len(members), InvalidIndex: -1}
+	}
+	group := state.TokenGroupRuntime{
+		GroupID:           optionalString(payload, "groupId"),
+		RootInstanceID:    optionalString(payload, "rootInstanceId"),
+		OrderedMemberIDs:  members,
+		Revision:          revision,
+		CreatedByPlayerID: optionalString(payload, "createdByPlayerId"),
+		CreatedAtVersion:  int64(createdAtVersion),
+		EffectVersion:     effectVersion,
+	}
+	if group.GroupID == "" || group.RootInstanceID != expectedIDs[0] || group.CreatedByPlayerID != playerID {
+		return state.TokenGroupRuntime{}, &state.TokenGroupStateError{Code: state.TokenGroupRootInvalid, Count: len(members), InvalidIndex: -1}
+	}
+	return group, nil
 }
 
 func replayLegacyTokenCreatedEvent(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {

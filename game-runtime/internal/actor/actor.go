@@ -385,6 +385,10 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if eventPayload == nil {
 		eventPayload = map[string]any{}
 	}
+	if err := state.ValidateTokenGroupState(*a.state); err != nil {
+		rollback.Restore(a.state)
+		return a.rejectedResult(err, queueWait, startedAt)
+	}
 	if command.Type == "card.position.changed" || command.Type == "cards.position.changed" {
 		eventPayload["actorPlayerId"] = request.ActorID
 	}

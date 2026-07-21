@@ -196,6 +196,7 @@ final class GameplayV2ContractFactory
             'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'battlefieldStacks' => array_values(array_filter($projectedSnapshot['battlefieldStacks'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'tokenGroups' => array_values(array_filter($projectedSnapshot['tokenGroups'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 

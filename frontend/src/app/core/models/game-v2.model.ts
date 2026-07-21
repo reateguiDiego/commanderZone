@@ -5,6 +5,7 @@ import type {
   GameArrow,
   GameAttachment,
   GameBattlefieldStack,
+  GameTokenGroupView,
   GameCompactCardRef,
   GameCardPosition,
   GameCardRatioPosition,
@@ -185,6 +186,7 @@ export interface BootstrapRelationsV2 {
   arrows: GameArrow[];
   attachments: GameAttachment[];
   battlefieldStacks?: GameBattlefieldStack[];
+  tokenGroups?: GameTokenGroupView[];
   specialEntities: GameSpecialEntity[];
 }
 
@@ -711,6 +713,14 @@ export type GameplayPatchV2Operation =
   | {
       op: 'battlefield.stack.remove';
       id: string;
+    }
+  | {
+      op: 'token.group.set';
+      group: GameTokenGroupView;
+    }
+  | {
+      op: 'token.group.remove';
+      groupId: string;
     }
   | {
       op: 'battlefield.stack.order.set';

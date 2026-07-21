@@ -155,6 +155,7 @@ class GameSnapshotFactory
             'arrows' => [],
             'attachments' => [],
             'battlefieldStacks' => [],
+            'tokenGroups' => [],
             'specialEntities' => [],
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,

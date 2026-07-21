@@ -152,12 +152,77 @@ final class CompactGameStateInvariantChecker
             }
         }
 
+        $tokenGroupMemberships = [];
+        foreach (is_array($relations['tokenGroups'] ?? null) ? $relations['tokenGroups'] : [] as $groupId => $group) {
+            if (!is_array($group)) {
+                $issues[] = sprintf('token group %s must be an array.', (string) $groupId);
+                continue;
+            }
+            $members = is_array($group['orderedMemberIds'] ?? null) ? array_values($group['orderedMemberIds']) : [];
+            $root = is_string($group['rootInstanceId'] ?? null) ? trim($group['rootInstanceId']) : '';
+            if ((string) ($group['groupId'] ?? '') !== (string) $groupId
+                || count($members) < 2
+                || $root === ''
+                || !in_array($root, $members, true)
+                || (int) ($group['revision'] ?? 0) < 1
+                || (int) ($group['effectVersion'] ?? 0) !== 1) {
+                $issues[] = sprintf('token group %s has invalid identity, root, revision, effect version, or member count.', (string) $groupId);
+            }
+            if (count($members) !== count(array_unique(array_filter($members, 'is_string')))) {
+                $issues[] = sprintf('token group %s contains duplicate members.', (string) $groupId);
+            }
+            $rootPosition = is_array($instances[$root]['position'] ?? null) ? $instances[$root]['position'] : null;
+            $rootFingerprint = is_array($instances[$root] ?? null) ? $this->tokenGroupFingerprint($instances[$root], $loc[$root] ?? []) : null;
+            if ($rootPosition === null
+                || ($rootPosition['unit'] ?? null) !== 'ratio'
+                || !is_numeric($rootPosition['x'] ?? null)
+                || !is_numeric($rootPosition['y'] ?? null)) {
+                $issues[] = sprintf('token group %s root has no canonical ratio position.', (string) $groupId);
+            }
+            foreach ($members as $memberId) {
+                if (!is_string($memberId) || trim($memberId) === '') {
+                    $issues[] = sprintf('token group %s contains invalid member.', (string) $groupId);
+                    continue;
+                }
+                if (($loc[$memberId]['zone'] ?? null) !== 'battlefield'
+                    || ($instances[$memberId]['isToken'] ?? false) !== true) {
+                    $issues[] = sprintf('token group %s references invalid token member %s.', (string) $groupId, $memberId);
+                }
+                if (is_array($instances[$memberId] ?? null)) {
+                    if ($rootFingerprint !== $this->tokenGroupFingerprint($instances[$memberId], $loc[$memberId] ?? [])) {
+                        $issues[] = sprintf('token group %s contains incompatible member %s.', (string) $groupId, $memberId);
+                    }
+                    if (($instances[$memberId]['position'] ?? null) !== $rootPosition) {
+                        $issues[] = sprintf('token group %s member %s position differs from root.', (string) $groupId, $memberId);
+                    }
+                }
+                if (isset($tokenGroupMemberships[$memberId]) && $tokenGroupMemberships[$memberId] !== (string) $groupId) {
+                    $issues[] = sprintf('instance %s belongs to multiple token groups.', $memberId);
+                }
+                if (isset($stackMemberships[$memberId])) {
+                    $issues[] = sprintf('instance %s belongs to both a token group and a battlefield stack.', $memberId);
+                }
+                foreach (is_array($relations['attachments'] ?? null) ? $relations['attachments'] : [] as $attachment) {
+                    if (is_array($attachment) && in_array($memberId, [$attachment['equipmentInstanceId'] ?? null, $attachment['attachedToInstanceId'] ?? null], true)) {
+                        $issues[] = sprintf('token group member %s participates in an attachment.', $memberId);
+                    }
+                }
+                foreach (is_array($relations['arrows'] ?? null) ? $relations['arrows'] : [] as $arrow) {
+                    if (is_array($arrow) && in_array($memberId, [$arrow['fromInstanceId'] ?? null, $arrow['toInstanceId'] ?? null], true)) {
+                        $issues[] = sprintf('token group member %s participates in an arrow.', $memberId);
+                    }
+                }
+                $tokenGroupMemberships[$memberId] = (string) $groupId;
+            }
+        }
+
         $relationIndexes = is_array($relations['indexes'] ?? null) ? $relations['indexes'] : [];
         $issues = [
             ...$issues,
             ...$this->checkRelationIndex($relationIndexes['attachmentsByEquipment'] ?? null, $relations['attachments'] ?? null, 'equipmentInstanceId', 'attachmentsByEquipment'),
             ...$this->checkRelationIndex($relationIndexes['attachmentsByTarget'] ?? null, $relations['attachments'] ?? null, 'attachedToInstanceId', 'attachmentsByTarget'),
             ...$this->checkStackMemberIndex($relationIndexes['battlefieldStacksByMember'] ?? null, $relations['battlefieldStacks'] ?? null),
+            ...$this->checkTokenGroupMemberIndex($relationIndexes['tokenGroupByMember'] ?? null, $relations['tokenGroups'] ?? null),
             ...$this->checkRelationIndex($relationIndexes['arrowsBySource'] ?? null, $relations['arrows'] ?? null, 'fromInstanceId', 'arrowsBySource'),
             ...$this->checkRelationIndex($relationIndexes['arrowsByTarget'] ?? null, $relations['arrows'] ?? null, 'toInstanceId', 'arrowsByTarget'),
         ];
@@ -261,5 +326,67 @@ final class CompactGameStateInvariantChecker
         }
 
         return $issues;
+    }
+
+    /** @return list<string> */
+    private function checkTokenGroupMemberIndex(mixed $index, mixed $relations): array
+    {
+        if (!is_array($index) || !is_array($relations)) {
+            return [];
+        }
+        $issues = [];
+        foreach ($index as $instanceId => $groupId) {
+            $members = is_string($groupId) && is_array($relations[$groupId]['orderedMemberIds'] ?? null)
+                ? $relations[$groupId]['orderedMemberIds']
+                : [];
+            if (!is_string($instanceId) || !in_array($instanceId, $members, true)) {
+                $issues[] = sprintf('relations.indexes.tokenGroupByMember.%s references inconsistent group %s.', (string) $instanceId, (string) $groupId);
+            }
+        }
+
+        return $issues;
+    }
+
+    /** @param array<string,mixed> $instance @param mixed $location */
+    private function tokenGroupFingerprint(array $instance, mixed $location): string
+    {
+        $location = is_array($location) ? $location : [];
+        $value = [
+            'cardKey' => $instance['cardKey'] ?? null,
+            'printId' => $instance['printId'] ?? null,
+            'cardVersion' => $instance['cardVersion'] ?? null,
+            'language' => $instance['language'] ?? null,
+            'ownerId' => $instance['ownerId'] ?? null,
+            'controllerId' => $instance['controllerId'] ?? null,
+            'zone' => $location['zone'] ?? $instance['zone'] ?? null,
+            'isToken' => $instance['isToken'] ?? false,
+            'tokenMeta' => $instance['tokenMeta'] ?? [],
+            'faceDown' => $instance['faceDown'] ?? false,
+            'activeFace' => $instance['activeFace'] ?? $instance['activeFaceIndex'] ?? null,
+            'visibleToMask' => $instance['visibleToMask'] ?? null,
+            'tapped' => $instance['tapped'] ?? false,
+            'rotation' => $instance['rotation'] ?? 0,
+            'counters' => $instance['counters'] ?? [],
+            'mutableStats' => $instance['mutableStats'] ?? [],
+            'printedStats' => $instance['printedStats'] ?? [],
+            'manualOverrides' => $instance['manualOverrides'] ?? [],
+        ];
+        $this->sortRecursive($value);
+
+        return hash('sha256', json_encode($value, JSON_THROW_ON_ERROR));
+    }
+
+    /** @param array<array-key,mixed> $value */
+    private function sortRecursive(array &$value): void
+    {
+        foreach ($value as &$item) {
+            if (is_array($item)) {
+                $this->sortRecursive($item);
+            }
+        }
+        unset($item);
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
     }
 }

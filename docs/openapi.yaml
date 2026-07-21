@@ -7411,6 +7411,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameBattlefieldStack'
+        tokenGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/TokenGroupView'
         specialEntities:
           type: array
           items:
@@ -8095,6 +8099,42 @@ components:
         createdAtVersion:
           type: integer
           minimum: 1
+    TokenGroupEffect:
+      type: object
+      additionalProperties: false
+      required: [groupId, rootInstanceId, orderedMemberIds, revision, createdByPlayerId, createdAtVersion, effectVersion]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        rootInstanceId: { type: string, minLength: 1 }
+        orderedMemberIds:
+          type: array
+          minItems: 2
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        revision: { type: integer, minimum: 1 }
+        createdByPlayerId: { type: string, minLength: 1 }
+        createdAtVersion: { type: integer, minimum: 1 }
+        effectVersion: { type: integer, const: 1 }
+    TokenGroupView:
+      type: object
+      additionalProperties: false
+      description: Viewer-specific TokenGroup projection. Quantity is derived from authoritative membership and never persisted as domain state.
+      required: [groupId, rootRef, quantity, revision, position, effectVersion]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        rootRef: { type: string, minLength: 1 }
+        memberRefs:
+          type: array
+          minItems: 2
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        quantity: { type: integer, minimum: 2, maximum: 20, readOnly: true }
+        revision: { type: integer, minimum: 1 }
+        position: { $ref: '#/components/schemas/GameCardRatioPosition' }
+        faceDown: { type: boolean }
+        tapped: { type: boolean }
+        rotation: { type: integer }
+        effectVersion: { type: integer, const: 1 }
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8308,6 +8348,10 @@ components:
           minItems: 1
           maxItems: 20
           items: { $ref: '#/components/schemas/TokenCreatedEventToken' }
+        tokenGroup:
+          oneOf:
+            - $ref: '#/components/schemas/TokenGroupEffect'
+            - type: 'null'
     LibrarySelectionMovePayload:
       type: object
       additionalProperties: false
@@ -8873,6 +8917,25 @@ components:
         - if:
             properties:
               op:
+                const: token.group.set
+            required: [op]
+          then:
+            required: [group]
+            properties:
+              group:
+                $ref: '#/components/schemas/TokenGroupView'
+        - if:
+            properties:
+              op:
+                const: token.group.remove
+            required: [op]
+          then:
+            required: [groupId]
+            properties:
+              groupId: { type: string, minLength: 1 }
+        - if:
+            properties:
+              op:
                 const: card.position.set
             required: [op]
           then:
@@ -9010,6 +9073,11 @@ components:
         relations:
           type: object
           additionalProperties: true
+          properties:
+            tokenGroups:
+              type: array
+              items:
+                $ref: '#/components/schemas/TokenGroupView'
         turn:
           type: object
           additionalProperties: true

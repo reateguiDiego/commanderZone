@@ -133,6 +133,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		rollback.captureVisibility(game)
 	case "card.token.created":
 		rollback.capturePlayerZonesAndCards(game, stringPayload(command.Payload, "playerId"))
+		rollback.captureRelations(game)
 		if quantity, ok := strictInteger(command.Payload["quantity"]); ok && quantity >= MinTokenCreateQuantity && quantity <= MaxTokenCreateQuantity {
 			for index := 0; index < quantity; index++ {
 				rollback.captureInstanceWithLocation(game, deterministicRuntimeID("token", command.ClientActionID, index))

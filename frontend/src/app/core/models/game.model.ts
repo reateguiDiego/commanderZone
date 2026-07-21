@@ -318,6 +318,20 @@ export interface GameBattlefieldStack {
   createdAtVersion?: number;
 }
 
+/** Viewer-safe authoritative token grouping; quantity is derived from canonical membership server-side. */
+export interface GameTokenGroupView {
+  groupId: string;
+  rootRef: string;
+  memberRefs?: string[];
+  quantity: number;
+  revision: number;
+  position: GameCardRatioPosition;
+  faceDown?: boolean;
+  tapped?: boolean;
+  rotation?: number;
+  effectVersion: 1;
+}
+
 export interface GameSpecialEntityCardRef {
   scryfallId: string;
   name: string;
@@ -416,6 +430,7 @@ export interface GameSnapshot {
   arrows: GameArrow[];
   attachments?: GameAttachment[];
   battlefieldStacks?: GameBattlefieldStack[];
+  tokenGroups?: GameTokenGroupView[];
   specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
