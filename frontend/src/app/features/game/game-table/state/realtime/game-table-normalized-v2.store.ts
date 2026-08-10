@@ -8,7 +8,8 @@ import type {
   GameCompactCardRef,
   GameCardDungeonMarker,
   GameCardInstance,
-  GameDisconnectVoteState,
+  GameControlPlaneState,
+  GameDisconnectVotes,
   GameLogEntry,
   GamePlayerMulliganState,
   GamePlayerState,
@@ -35,6 +36,11 @@ type ZoneCountMap = Record<GameZoneName, number>;
 export interface GameTableNormalizedV2GameState {
   id: string;
   status: string;
+  winnerPlayerId: string | null;
+  finishedAt: string | null;
+  finishReason: string | null;
+  allDisconnectedSince: string | null;
+  nextLifecycleAt: string | null;
   viewerId: string;
   ownerId: string | null;
   version: number;
@@ -47,7 +53,7 @@ export interface GameTableNormalizedV2GameState {
     result: number | string;
     createdAt?: string;
   } | null;
-  disconnectVote?: GameDisconnectVoteState | null;
+  disconnectVotes: GameDisconnectVotes;
   rematch?: GameRematchState | null;
 }
 
@@ -175,6 +181,32 @@ export class GameTableNormalizedV2Store {
       snapshot,
     };
   }
+
+  /** Applies Symfony control-plane state without advancing a Go gameplay version. */
+  applyControlPlane(controlPlane: GameControlPlaneState): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState: GameTableNormalizedV2State = {
+      ...currentState,
+      game: {
+        ...currentState.game,
+        status: controlPlane.status,
+        winnerPlayerId: controlPlane.winnerPlayerId,
+        finishedAt: controlPlane.finishedAt,
+        finishReason: controlPlane.finishReason,
+        allDisconnectedSince: controlPlane.allDisconnectedSince,
+        nextLifecycleAt: controlPlane.nextLifecycleAt,
+        ownerId: controlPlane.ownerId,
+        rematch: cloneRematchState(controlPlane.rematch),
+      },
+    };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
 }
 
 export function createGameTableNormalizedV2State(
@@ -204,14 +236,19 @@ export function createGameTableNormalizedV2State(
     game: {
       id: bootstrap.game.id,
       status: bootstrap.game.status,
+      winnerPlayerId: bootstrap.game.winnerPlayerId ?? null,
+      finishedAt: bootstrap.game.finishedAt ?? null,
+      finishReason: bootstrap.game.finishReason ?? null,
+      allDisconnectedSince: bootstrap.game.allDisconnectedSince ?? null,
+      nextLifecycleAt: bootstrap.game.nextLifecycleAt ?? null,
       viewerId: bootstrap.game.viewerId,
       ownerId: bootstrap.game.ownerId ?? null,
       version: bootstrap.game.version,
       gamePhase: bootstrap.game.gamePhase ?? null,
       createdAt: bootstrap.game.createdAt ?? null,
       updatedAt: bootstrap.game.updatedAt ?? null,
-      disconnectVote: null,
-      rematch: null,
+      disconnectVotes: cloneDisconnectVotes(bootstrap.game.disconnectVotes ?? {}),
+      rematch: bootstrap.game.rematch ?? null,
       lastDiceResult: null,
     },
     players: Object.fromEntries(
@@ -246,6 +283,12 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
   return {
     version: state.lastAppliedVersion,
     ownerId: state.game.ownerId ?? undefined,
+    status: state.game.status,
+    winnerPlayerId: state.game.winnerPlayerId,
+    finishedAt: state.game.finishedAt,
+    finishReason: state.game.finishReason,
+    allDisconnectedSince: state.game.allDisconnectedSince,
+    nextLifecycleAt: state.game.nextLifecycleAt,
     gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
     players,
     counters: Object.fromEntries(
@@ -261,7 +304,7 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
     eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
     rematch: state.game.rematch ?? undefined,
-    disconnectVote: state.game.disconnectVote ?? null,
+    disconnectVotes: cloneDisconnectVotes(state.game.disconnectVotes),
     createdAt: state.game.createdAt ?? new Date(0).toISOString(),
     updatedAt: state.game.updatedAt ?? undefined,
   };
@@ -783,6 +826,9 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           game: {
             ...state.game,
             status: operation.status,
+            ...(operation.winnerPlayerId !== undefined ? { winnerPlayerId: operation.winnerPlayerId } : {}),
+            ...(operation.finishedAt !== undefined ? { finishedAt: operation.finishedAt } : {}),
+            ...(operation.finishReason !== undefined ? { finishReason: operation.finishReason } : {}),
             ...(operation.phase !== undefined && operation.phase !== null ? { gamePhase: operation.phase } : {}),
           },
         },
@@ -905,7 +951,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           ...state,
           game: {
             ...state.game,
-            disconnectVote: disconnectVotePayload(operation),
+            disconnectVotes: cloneDisconnectVotes(disconnectVotesPayload(operation)),
           },
         },
       };
@@ -927,13 +973,27 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
   }
 }
 
-function disconnectVotePayload(operation: GameplayPatchV2Operation): GameDisconnectVoteState | null {
+function disconnectVotesPayload(operation: GameplayPatchV2Operation): GameDisconnectVotes {
   const payload = operation as {
-    disconnectVote?: GameDisconnectVoteState | null;
-    data?: { disconnectVote?: GameDisconnectVoteState | null };
+    disconnectVotes?: GameDisconnectVotes;
+    data?: { disconnectVotes?: GameDisconnectVotes };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  return payload.disconnectVotes ?? payload.data?.disconnectVotes ?? {};
+}
+
+function cloneRematchState(rematch: GameRematchState): GameRematchState {
+  return {
+    votes: Object.fromEntries(Object.entries(rematch.votes).map(([playerId, vote]) => [playerId, { ...vote }])),
+    deadlineAt: rematch.deadlineAt ?? null,
+  };
+}
+
+function cloneDisconnectVotes(votes: GameDisconnectVotes): GameDisconnectVotes {
+  return Object.fromEntries(Object.entries(votes).map(([targetPlayerId, vote]) => [
+    targetPlayerId,
+    { ...vote, eligible: vote.eligible ? [...vote.eligible] : undefined, votes: { ...vote.votes } },
+  ]));
 }
 
 function addCardsToZone(

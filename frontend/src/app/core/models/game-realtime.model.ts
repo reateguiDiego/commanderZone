@@ -507,7 +507,7 @@ export type GameSnapshotPatchOperation =
     }
   | {
       op: 'disconnect.vote.set';
-      disconnectVote: GameSnapshot['disconnectVote'];
+      disconnectVotes: NonNullable<GameSnapshot['disconnectVotes']>;
     };
 
 export type GamePatchDecision = 'apply' | 'ignore' | 'resync';

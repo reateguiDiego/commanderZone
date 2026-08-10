@@ -69,17 +69,17 @@ var ownInstanceSubjectCommands = map[string][]string{
 
 func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, actorID string) error {
 	actorID = strings.TrimSpace(actorID)
-	if command.Type == "disconnect.vote" && command.Client["source"] == "runtime_ws_presence" {
+	if command.Type == "disconnect.vote" && (command.Client["source"] == "runtime_ws_presence" || command.Client["source"] == "runtime_actor_tick") {
 		return nil
 	}
 	if actorID == "" {
 		return ErrActorPermission
 	}
-	if command.Type == "game.close" {
-		return nil
-	}
 	if command.Type == "game.concede" {
 		return a.requirePayloadPlayer(command.Payload, "playerId", actorID)
+	}
+	if _, ok := a.state.Players[actorID]; !ok || playerStatus(a.state, actorID) != "active" {
+		return ErrActorPermission
 	}
 	if command.Type == "turn.changed" {
 		activePlayerID, _ := a.state.Turn["activePlayerId"].(string)

@@ -1387,7 +1387,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
-  it('sends relation and game close commands over websocket and applies small patches without snapshot refetch', async () => {
+  it('sends relation commands over websocket and applies small patches without snapshot refetch', async () => {
     const sent = service.sendCommand(context(), 'arrow.created', {
       fromInstanceId: 'battlefield-1',
       toInstanceId: 'battlefield-2',
@@ -1414,26 +1414,6 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.arrows).toEqual([expect.objectContaining({ id: 'arrow-1', ownerId: 'player-1' })]);
     expect(refetchSpy).not.toHaveBeenCalled();
 
-    const closeSent = service.sendCommand(context(), 'game.close', {});
-    const closeMessage = sentMessage();
-
-    expect(closeMessage.command.type).toBe('game.close');
-    expect(closeMessage.command.baseVersion).toBe(2);
-
-    messages.next({
-      kind: 'game_patch',
-      gameId: 'game-1',
-      baseVersion: 2,
-      version: 3,
-      clientActionId: closeMessage.command.clientActionId,
-      operations: [{
-        op: 'eventLog.append',
-        entries: [{ id: 'log-close', type: 'game.close', message: 'Closed the game.', actorId: 'player-1', displayName: 'Player 1', createdAt: '2026-01-01T00:00:01.000Z' }],
-      }],
-    });
-    await closeSent;
-
-    expect(snapshotState.eventLog.map((entry) => entry.id)).toContain('log-close');
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 

@@ -50,8 +50,10 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
-	case "game.concede", "game.close":
+	case "game.concede":
 		return replayViaApplier(game, event, appliers)
+	case "game.close":
+		return replayHistoricGameClose(game, event)
 	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
 		return replayMulliganEvent(game, event)
 	case "disconnect.vote.updated":
@@ -59,6 +61,20 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	default:
 		return ReplayEvent(game, event)
 	}
+}
+
+// replayHistoricGameClose preserves existing streams written before the public
+// owner-close command was removed. New runtime command catalogs never emit it.
+func replayHistoricGameClose(game *state.GameState, event protocol.EventPayloadV2) error {
+	game.Status = "finished"
+	game.Phase = state.PhaseFinished
+	if finishedAt, ok := event.Payload["finishedAt"].(string); ok {
+		game.FinishedAt = finishedAt
+	}
+	if finishReason, ok := event.Payload["finishReason"].(string); ok {
+		game.FinishReason = finishReason
+	}
+	return nil
 }
 
 func replayLegacyOpsEvent(game *state.GameState, event protocol.EventPayloadV2) (bool, error) {

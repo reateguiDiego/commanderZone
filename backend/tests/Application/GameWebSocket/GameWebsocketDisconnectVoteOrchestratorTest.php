@@ -5,6 +5,9 @@ namespace App\Tests\Application\GameWebSocket;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
+use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
 use App\Application\Game\WebSocket\GameWebsocketDisconnectVoteOrchestrator;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
@@ -24,6 +27,25 @@ use PHPUnit\Framework\TestCase;
 
 class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
 {
+    public function testRuntimePrimaryDisconnectNeverTouchesLegacySymfonyWriter(): void
+    {
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $router = new GameplayRuntimeRouter(
+            new GameplayV2Flags(
+                enabled: true,
+                commandsAllowlist: 'disconnect.vote',
+                runtimeServiceEnabled: true,
+            ),
+            $this->createMock(GameRuntimeCommandClientInterface::class),
+        );
+        $orchestrator = $this->orchestrator($registry, runtimeRouter: $router);
+
+        self::assertNull($orchestrator->handlePresenceTransition('game-1', 'player-2', 'offline'));
+        self::assertNull($orchestrator->resolveTimeout('game-1'));
+    }
+
     public function testMutateGameRollsBackAndRethrowsWhenFlushFails(): void
     {
         [$game, $owner] = $this->game();
@@ -162,6 +184,7 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
         ManagerRegistry $registry,
         ?GameProjectionService $projection = null,
         ?GameWebsocketCardLocalizationResolver $resolver = null,
+        ?GameplayRuntimeRouter $runtimeRouter = null,
     ): GameWebsocketDisconnectVoteOrchestrator
     {
         $messages = new GameWebsocketMessageFactory();
@@ -175,6 +198,7 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
             $registry,
             $projection ?? new GameProjectionService($handler),
             $resolver,
+            $runtimeRouter,
         );
     }
 

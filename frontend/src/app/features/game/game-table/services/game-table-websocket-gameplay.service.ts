@@ -154,7 +154,6 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'helper.updated',
   'helper.removed',
   'game.concede',
-  'game.close',
   'disconnect.vote',
 ]);
 

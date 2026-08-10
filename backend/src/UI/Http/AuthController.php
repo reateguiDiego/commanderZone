@@ -724,6 +724,9 @@ class AuthController extends ApiController
         foreach ($result->gameEvents as $entry) {
             $gameEventPublisher->publish($entry['game'], $entry['event']);
         }
+        foreach ($result->controlPlaneEvents as $entry) {
+            $gameEventPublisher->publishControlPlane($entry['game'], $entry['event']);
+        }
 
         foreach ($result->changedRooms as $room) {
             $roomEventPublisher->publish($room, 'room.player.left');

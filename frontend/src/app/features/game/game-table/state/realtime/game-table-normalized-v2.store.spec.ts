@@ -663,18 +663,20 @@ describe('game table normalized v2 store', () => {
       {
         op: 'disconnect.vote.set',
         data: {
-          disconnectVote: {
-            targetPlayerId: 'player-2',
-            status: 'open',
-            openedAt: '2026-01-01T00:00:13.000Z',
-            deadlineAt: '2026-01-01T00:01:13.000Z',
-            cooldownUntil: null,
-            votes: {
-              'player-1': {
-                playerId: 'player-1',
-                displayName: 'Player One',
-                vote: 'expel',
-                votedAt: '2026-01-01T00:00:14.000Z',
+          disconnectVotes: {
+            'player-2': {
+              targetPlayerId: 'player-2',
+              status: 'open',
+              openedAt: '2026-01-01T00:00:13.000Z',
+              deadlineAt: '2026-01-01T00:01:13.000Z',
+              cooldownUntil: null,
+              votes: {
+                'player-1': {
+                  playerId: 'player-1',
+                  displayName: 'Player One',
+                  vote: 'expel',
+                  votedAt: '2026-01-01T00:00:14.000Z',
+                },
               },
             },
           },
@@ -690,7 +692,7 @@ describe('game table normalized v2 store', () => {
     expect(result.status).toBe('applied');
     expect(result.state.players['player-2'].status).toBe('conceded');
     expect(result.state.players['player-2'].concededAt).toBe('2026-01-01T00:00:12.000Z');
-    expect(result.state.game.disconnectVote?.targetPlayerId).toBe('player-2');
+    expect(result.state.game.disconnectVotes['player-2']?.targetPlayerId).toBe('player-2');
     expect(result.state.game.status).toBe('finished');
     expect(result.state.game.gamePhase).toBe('FINISHED');
   });
@@ -1078,6 +1080,33 @@ describe('game table normalized v2 store', () => {
       printId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
       cardVersion: 'legacy-snapshot-v1',
     });
+  });
+
+  it('applies control-plane lifecycle state without changing the Go gameplay version', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap(bootstrapV2());
+
+    const snapshot = store.applyControlPlane({
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+      finishedAt: '2026-01-01T00:00:20.000Z',
+      finishReason: 'last_player_standing',
+      allDisconnectedSince: null,
+      nextLifecycleAt: '2026-01-01T00:01:20.000Z',
+      ownerId: 'player-2',
+      rematch: {
+        votes: {},
+        deadlineAt: '2026-01-01T00:01:20.000Z',
+      },
+    });
+
+    expect(snapshot).toEqual(expect.objectContaining({
+      version: 5,
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+      ownerId: 'player-2',
+    }));
+    expect(store.state()?.lastAppliedVersion).toBe(5);
   });
 
   it('hydrates a public visible card from the same identity contract used by runtime static hints', () => {

@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, GameRematchState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import { BootstrapV2 } from '../../../../core/models/game-v2.model';
 import { GameTableGameRealtimeService, GameTableRealtimeHandlers } from './game-table-game-realtime.service';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
@@ -17,6 +17,7 @@ const gameRealtime = {
 
 describe('GameTableSessionService', () => {
   let service: GameTableSessionService;
+  let normalizedV2Store: GameTableNormalizedV2Store;
   const gamesApi = {
     snapshot: vi.fn(),
     bootstrapV2: vi.fn(),
@@ -55,6 +56,7 @@ describe('GameTableSessionService', () => {
       ],
     });
     service = TestBed.inject(GameTableSessionService);
+    normalizedV2Store = TestBed.inject(GameTableNormalizedV2Store);
   });
 
   afterEach(() => {
@@ -224,6 +226,49 @@ describe('GameTableSessionService', () => {
     expect(setSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('applies rematch control-plane state without refetching the gameplay stream', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    websocketStatus.set('connected');
+    const initial = bootstrapV2();
+    const rematch: GameRematchState = {
+      votes: {
+        'player-1': {
+          playerId: 'player-1',
+          displayName: 'Player 1',
+          vote: 'play_again',
+          votedAt: '2026-01-01T00:00:10.000Z',
+        },
+      },
+    };
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValueOnce(of(initial));
+
+    await service.load(context(snapshot(), setSnapshot));
+    gameRealtimeHandlers().onRematchState(rematch);
+    await Promise.resolve();
+
+    expect(gamesApi.bootstrapV2).toHaveBeenCalledTimes(1);
+    expect(setSnapshot).toHaveBeenCalledTimes(2);
+    expect(setSnapshot.mock.calls[1]?.[0].rematch?.votes['player-1']?.vote).toBe('play_again');
+  });
+
+  it('applies a Mercure lifecycle projection to the normalized V2 source without refetching', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValueOnce(of(bootstrapV2()));
+
+    await service.load(context(snapshot(), setSnapshot));
+    gameRealtimeHandlers().onControlPlaneState?.(controlPlane(), gameEvent('game.finished', bootstrapV2().game.version));
+
+    expect(gamesApi.bootstrapV2).toHaveBeenCalledTimes(1);
+    expect(setSnapshot.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+      ownerId: 'player-2',
+    }));
+    expect(normalizedV2Store.state()?.lastAppliedVersion).toBe(bootstrapV2().game.version);
+  });
+
   it('does not refetch when the current snapshot is already at the realtime event version', async () => {
     const current = snapshot();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
@@ -274,6 +319,19 @@ function gameEvent(type: string, version: number): MercureGameEvent {
       createdBy: 'player-1',
       createdAt: '2026-01-01T00:00:10.000Z',
     },
+  };
+}
+
+function controlPlane(): GameControlPlaneState {
+  return {
+    status: 'finished',
+    winnerPlayerId: 'player-1',
+    finishedAt: '2026-01-01T00:00:10.000Z',
+    finishReason: 'last_player_standing',
+    allDisconnectedSince: null,
+    nextLifecycleAt: '2026-01-01T00:01:10.000Z',
+    ownerId: 'player-2',
+    rematch: { votes: {}, deadlineAt: '2026-01-01T00:01:10.000Z' },
   };
 }
 

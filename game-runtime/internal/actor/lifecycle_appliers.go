@@ -67,35 +67,9 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 	if nextTurn != nil {
 		payload["turn"] = nextTurn
 	}
+	finishWhenOneActivePlayerRemains(game, command.Payload, payload, emitter)
 
 	return payload, nil
-}
-
-type GameCloseApplier struct{}
-
-func (GameCloseApplier) Type() string { return "game.close" }
-
-func (GameCloseApplier) Apply(_ context.Context, game *state.GameState, _ protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
-	start := nowUTC()
-	game.Status = "finished"
-	game.Phase = state.PhaseFinished
-	emitter.EmitPublic(protocol.PatchOp{
-		Op: "game.status.set",
-		Data: map[string]any{
-			"status": "finished",
-			"phase":  state.PhaseFinished,
-		},
-	})
-	emitter.EmitPublic(protocol.PatchOp{
-		Op:   "game.phase.set",
-		Data: map[string]any{"phase": state.PhaseFinished},
-	})
-
-	return map[string]any{
-		"status":  "finished",
-		"phase":   state.PhaseFinished,
-		"metrics": lifecycleMetrics(start, emitter),
-	}, nil
 }
 
 type DisconnectVoteApplier struct{}
@@ -112,8 +86,8 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 	if _, ok := game.Players[targetPlayerID]; !ok {
 		return nil, fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
 	}
-	if rawVote, ok := command.Payload["disconnectVote"].(map[string]any); ok {
-		game.DisconnectVote = cloneMap(rawVote)
+	if rawVotes, ok := command.Payload["disconnectVotes"].(map[string]any); ok {
+		game.DisconnectVotes = disconnectVotesByTarget(rawVotes)
 		emitDisconnectVotePatch(game, emitter)
 		if command.Payload["status"] == "resolved_expel" {
 			if player, ok := game.Players[targetPlayerID]; ok {
@@ -136,7 +110,12 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 			game.Turn = cloneMap(turn)
 			emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": cloneMap(turn)}})
 		}
-		return disconnectVotePayload("replayed", game, targetPlayerID, start, emitter), nil
+		payload := disconnectVotePayload("replayed", game, targetPlayerID, start, emitter)
+		if playerStatus(game, targetPlayerID) == "conceded" {
+			payload["concededAt"] = game.Players[targetPlayerID]["concededAt"]
+			finishWhenOneActivePlayerRemains(game, command.Payload, payload, emitter)
+		}
+		return payload, nil
 	}
 
 	status, _ := command.Payload["status"].(string)
@@ -145,6 +124,8 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 		return openDisconnectVote(game, targetPlayerID, connectedUserIDs(command.Payload), start, emitter), nil
 	case "online":
 		return cancelDisconnectVoteOnReconnect(game, targetPlayerID, start, emitter), nil
+	case "timeout":
+		return resolveDisconnectVoteTimeout(game, targetPlayerID, start, emitter), nil
 	}
 
 	vote, _ := command.Payload["vote"].(string)
@@ -156,7 +137,10 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 
 func openDisconnectVote(game *state.GameState, targetPlayerID string, connectedUserIDs []string, start time.Time, emitter *PatchEmitter) map[string]any {
 	now := start
-	current := cloneMap(game.DisconnectVote)
+	if game.DisconnectVotes == nil {
+		game.DisconnectVotes = map[string]map[string]any{}
+	}
+	current := cloneMap(game.DisconnectVotes[targetPlayerID])
 	if current["status"] == "open" {
 		payload := disconnectVotePayload("open.ignored", game, targetPlayerID, start, emitter)
 		payload["idempotent"] = true
@@ -167,40 +151,51 @@ func openDisconnectVote(game *state.GameState, targetPlayerID string, connectedU
 		payload["idempotent"] = true
 		return payload
 	}
+	// When nobody is connected there is nobody who can actually vote. The
+	// gateway starts the persisted all-disconnected lifecycle instead.
+	if len(connectedUserIDs) == 0 {
+		payload := disconnectVotePayload("open.skipped_all_disconnected", game, targetPlayerID, start, emitter)
+		payload["idempotent"] = true
+		return payload
+	}
 	eligible := eligibleDisconnectVoters(game, targetPlayerID, connectedUserIDs)
 	if len(eligible) == 0 {
-		game.DisconnectVote = map[string]any{
+		game.DisconnectVotes[targetPlayerID] = map[string]any{
 			"targetPlayerId": targetPlayerID,
 			"status":         "resolved_wait",
 			"openedAt":       nil,
 			"deadlineAt":     nil,
 			"cooldownUntil":  now.Add(5 * time.Minute).Format(time.RFC3339),
 			"votes":          map[string]any{},
+			"eligible":       eligible,
+			"version":        game.Version + 1,
 		}
 		emitDisconnectVotePatch(game, emitter)
 		return disconnectVotePayload("open.skipped_wait", game, targetPlayerID, start, emitter)
 	}
 
-	game.DisconnectVote = map[string]any{
+	game.DisconnectVotes[targetPlayerID] = map[string]any{
 		"targetPlayerId": targetPlayerID,
 		"status":         "open",
 		"openedAt":       now.Format(time.RFC3339),
 		"deadlineAt":     now.Add(time.Minute).Format(time.RFC3339),
 		"cooldownUntil":  nil,
 		"votes":          map[string]any{},
+		"eligible":       eligible,
+		"version":        game.Version + 1,
 	}
 	emitDisconnectVotePatch(game, emitter)
 	return disconnectVotePayload("opened", game, targetPlayerID, start, emitter)
 }
 
 func cancelDisconnectVoteOnReconnect(game *state.GameState, targetPlayerID string, start time.Time, emitter *PatchEmitter) map[string]any {
-	current := cloneMap(game.DisconnectVote)
+	current := cloneMap(game.DisconnectVotes[targetPlayerID])
 	if current["status"] != "open" || current["targetPlayerId"] != targetPlayerID {
 		payload := disconnectVotePayload("cancel.ignored", game, targetPlayerID, start, emitter)
 		payload["idempotent"] = true
 		return payload
 	}
-	game.DisconnectVote = map[string]any{
+	game.DisconnectVotes[targetPlayerID] = map[string]any{
 		"targetPlayerId": targetPlayerID,
 		"status":         "cancelled",
 		"openedAt":       nil,
@@ -213,7 +208,7 @@ func cancelDisconnectVoteOnReconnect(game *state.GameState, targetPlayerID strin
 }
 
 func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelopeV2, targetPlayerID string, vote string, connectedUserIDs []string, start time.Time, emitter *PatchEmitter) (map[string]any, error) {
-	current := cloneMap(game.DisconnectVote)
+	current := cloneMap(game.DisconnectVotes[targetPlayerID])
 	if current["status"] != "open" || current["targetPlayerId"] != targetPlayerID {
 		return nil, fmt.Errorf("%w: disconnectVote", ErrInvalidPayloadField)
 	}
@@ -236,7 +231,7 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 	if _, ok := game.Players[voterID]; !ok {
 		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
 	}
-	eligible := eligibleDisconnectVoters(game, targetPlayerID, connectedUserIDs)
+	eligible := disconnectVoteEligible(current, game, targetPlayerID, connectedUserIDs)
 	if !stringSliceContains(eligible, voterID) {
 		return nil, fmt.Errorf("%w: playerId", ErrActorPermission)
 	}
@@ -296,7 +291,7 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 		current["deadlineAt"] = nil
 		current["cooldownUntil"] = start.Add(5 * time.Minute).Format(time.RFC3339)
 	}
-	game.DisconnectVote = current
+	game.DisconnectVotes[targetPlayerID] = current
 	emitDisconnectVotePatch(game, emitter)
 	payload := disconnectVotePayload(reason, game, targetPlayerID, start, emitter)
 	payload["vote"] = vote
@@ -306,14 +301,44 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 	}
 	if playerStatus(game, targetPlayerID) == "conceded" {
 		payload["concededAt"] = game.Players[targetPlayerID]["concededAt"]
+		finishWhenOneActivePlayerRemains(game, command.Payload, payload, emitter)
 	}
 	return payload, nil
+}
+
+// Deadline resolution deliberately materializes every missing decision as wait
+// in the same vote shape used by manual commands, then commits one compact
+// actor event/patch. No per-vote goroutine or external roundtrip is involved.
+func resolveDisconnectVoteTimeout(game *state.GameState, targetPlayerID string, start time.Time, emitter *PatchEmitter) map[string]any {
+	current := cloneMap(game.DisconnectVotes[targetPlayerID])
+	if current["status"] != "open" {
+		payload := disconnectVotePayload("timeout.ignored", game, targetPlayerID, start, emitter)
+		payload["idempotent"] = true
+		return payload
+	}
+	votes := disconnectVoteVotes(current["votes"])
+	for _, playerID := range disconnectVoteEligible(current, game, targetPlayerID, nil) {
+		if _, exists := votes[playerID]; exists {
+			continue
+		}
+		votes[playerID] = map[string]any{
+			"playerId": playerID, "displayName": playerDisplayName(game, playerID), "vote": "wait", "votedAt": start.Format(time.RFC3339),
+		}
+	}
+	current["votes"] = votes
+	current["status"] = "resolved_wait"
+	current["openedAt"] = nil
+	current["deadlineAt"] = nil
+	current["cooldownUntil"] = start.Add(5 * time.Minute).Format(time.RFC3339)
+	game.DisconnectVotes[targetPlayerID] = current
+	emitDisconnectVotePatch(game, emitter)
+	return disconnectVotePayload("timeout.resolved_wait", game, targetPlayerID, start, emitter)
 }
 
 func emitDisconnectVotePatch(game *state.GameState, emitter *PatchEmitter) {
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "disconnect.vote.set",
-		Data: map[string]any{"disconnectVote": cloneMap(game.DisconnectVote)},
+		Data: map[string]any{"disconnectVotes": cloneDisconnectVotes(game.DisconnectVotes)},
 	})
 }
 
@@ -322,8 +347,8 @@ func disconnectVotePayload(reason string, game *state.GameState, targetPlayerID 
 		"_eventType":           "disconnect.vote.updated",
 		"reason":               reason,
 		"targetPlayerId":       targetPlayerID,
-		"status":               game.DisconnectVote["status"],
-		"disconnectVote":       cloneMap(game.DisconnectVote),
+		"status":               disconnectVoteStatus(game.DisconnectVotes[targetPlayerID]),
+		"disconnectVotes":      cloneDisconnectVotes(game.DisconnectVotes),
 		"snapshot_write_count": 0,
 		"metrics": map[string]any{
 			"disconnect.vote_route":           1,
@@ -332,6 +357,31 @@ func disconnectVotePayload(reason string, game *state.GameState, targetPlayerID 
 			"disconnect.patch_bytes":          patchBytes(emitter),
 		},
 	}
+}
+
+func disconnectVoteStatus(vote map[string]any) any {
+	if vote == nil {
+		return nil
+	}
+	return vote["status"]
+}
+
+func cloneDisconnectVotes(votes map[string]map[string]any) map[string]any {
+	cloned := make(map[string]any, len(votes))
+	for targetPlayerID, vote := range votes {
+		cloned[targetPlayerID] = cloneMap(vote)
+	}
+	return cloned
+}
+
+func disconnectVotesByTarget(raw map[string]any) map[string]map[string]any {
+	result := map[string]map[string]any{}
+	for targetPlayerID, value := range raw {
+		if vote, ok := value.(map[string]any); ok {
+			result[targetPlayerID] = cloneMap(vote)
+		}
+	}
+	return result
 }
 
 func connectedUserIDs(payload map[string]any) []string {
@@ -358,7 +408,7 @@ func eligibleDisconnectVoters(game *state.GameState, targetPlayerID string, conn
 	}
 	eligible := make([]string, 0, len(game.Players))
 	for playerID := range game.Players {
-		if playerID == targetPlayerID || playerStatus(game, playerID) == "conceded" {
+		if playerID == targetPlayerID || playerStatus(game, playerID) != "active" {
 			continue
 		}
 		if len(connected) > 0 {
@@ -370,6 +420,22 @@ func eligibleDisconnectVoters(game *state.GameState, targetPlayerID string, conn
 	}
 	sort.Strings(eligible)
 	return eligible
+}
+
+func disconnectVoteEligible(current map[string]any, game *state.GameState, targetPlayerID string, connectedUserIDs []string) []string {
+	if raw, ok := current["eligible"].([]string); ok && len(raw) > 0 {
+		return append([]string(nil), raw...)
+	}
+	if raw, ok := current["eligible"].([]any); ok && len(raw) > 0 {
+		result := make([]string, 0, len(raw))
+		for _, value := range raw {
+			if playerID, ok := value.(string); ok {
+				result = append(result, playerID)
+			}
+		}
+		return result
+	}
+	return eligibleDisconnectVoters(game, targetPlayerID, connectedUserIDs)
 }
 
 func disconnectVoteVotes(value any) map[string]any {
@@ -393,6 +459,9 @@ func playerStatus(game *state.GameState, playerID string) string {
 		return ""
 	}
 	status, _ := player["status"].(string)
+	// Old compact snapshots omitted status. Normalize that legacy shape at the
+	// boundary as active; all current state is written explicitly as active or
+	// conceded and no life/commander threshold participates in this decision.
 	if status == "" {
 		return "active"
 	}
@@ -432,8 +501,7 @@ func nextActivePlayerID(game *state.GameState, currentPlayerID string) string {
 	afterCurrent := false
 	firstActive := ""
 	for _, playerID := range playerIDs {
-		player := game.Players[playerID]
-		if player["status"] == "conceded" {
+		if playerStatus(game, playerID) != "active" {
 			continue
 		}
 		if firstActive == "" {
@@ -447,6 +515,52 @@ func nextActivePlayerID(game *state.GameState, currentPlayerID string) string {
 		}
 	}
 	return firstActive
+}
+
+func finishWhenOneActivePlayerRemains(game *state.GameState, commandPayload map[string]any, eventPayload map[string]any, emitter *PatchEmitter) {
+	if game.Status == "finished" {
+		return
+	}
+	activePlayerIDs := make([]string, 0, len(game.Players))
+	for playerID := range game.Players {
+		if playerStatus(game, playerID) == "active" {
+			activePlayerIDs = append(activePlayerIDs, playerID)
+		}
+	}
+	if len(activePlayerIDs) != 1 {
+		return
+	}
+	sort.Strings(activePlayerIDs)
+	finishedAt := nowUTC().Format(time.RFC3339)
+	if value, ok := commandPayload["finishedAt"].(string); ok && strings.TrimSpace(value) != "" {
+		finishedAt = strings.TrimSpace(value)
+	}
+
+	game.Status = "finished"
+	game.Phase = state.PhaseFinished
+	game.WinnerPlayerID = activePlayerIDs[0]
+	game.FinishedAt = finishedAt
+	game.FinishReason = "last_player_standing"
+	if len(game.DisconnectVotes) > 0 {
+		game.DisconnectVotes = map[string]map[string]any{}
+		emitDisconnectVotePatch(game, emitter)
+	}
+	emitter.EmitPublic(protocol.PatchOp{
+		Op: "game.status.set",
+		Data: map[string]any{
+			"status":         "finished",
+			"phase":          state.PhaseFinished,
+			"winnerPlayerId": game.WinnerPlayerID,
+			"finishedAt":     game.FinishedAt,
+			"finishReason":   game.FinishReason,
+		},
+	})
+	emitter.EmitPublic(protocol.PatchOp{Op: "game.phase.set", Data: map[string]any{"phase": state.PhaseFinished}})
+	eventPayload["gameStatus"] = game.Status
+	eventPayload["phase"] = game.Phase
+	eventPayload["winnerPlayerId"] = game.WinnerPlayerID
+	eventPayload["finishedAt"] = game.FinishedAt
+	eventPayload["finishReason"] = game.FinishReason
 }
 
 func lifecycleMetrics(start time.Time, emitter *PatchEmitter) map[string]any {

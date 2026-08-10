@@ -25,7 +25,7 @@ class GameWebsocketAccessServiceTest extends TestCase
         self::assertTrue($access->canConnect($game, $player));
     }
 
-    public function testAllowsSnapshotViewerAndRejectsOutsider(): void
+    public function testRejectsFormerSnapshotViewerAndOutsider(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $viewer = new User('viewer@example.test', 'Viewer');
@@ -35,7 +35,7 @@ class GameWebsocketAccessServiceTest extends TestCase
         $game = new Game($room, ['players' => [$viewer->id() => ['zones' => []]]]);
         $access = new GameWebsocketAccessService();
 
-        self::assertTrue($access->canConnect($game, $viewer));
+        self::assertFalse($access->canConnect($game, $viewer));
         self::assertFalse($access->canConnect($game, $outsider));
     }
 }

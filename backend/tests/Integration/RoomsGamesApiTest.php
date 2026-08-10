@@ -2,6 +2,8 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Game\Lifecycle\GameLifecycleHandoff;
+use App\Application\Game\Lifecycle\GameLifecycleProjector;
 use App\Domain\Card\Card;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -619,6 +621,7 @@ class RoomsGamesApiTest extends ApiTestCase
             [$roomId, 'last-started-owner@example.test'],
         );
         $this->entityManager->clear();
+        $this->projectConcededLifecycle($gameId, $this->currentUserId($playerToken), 2);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
         self::assertResponseIsSuccessful();
@@ -668,6 +671,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
         $leavingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Started Leave Player');
+        $this->projectConcededLifecycle($gameId, $leavingPlayerId, 2);
 
         RecordingMercureHub::reset();
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
@@ -679,7 +683,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $snapshot = $this->jsonResponse()['game']['snapshot'];
         self::assertSame('conceded', $snapshot['players'][$leavingPlayerId]['status']);
         self::assertNotNull($snapshot['players'][$leavingPlayerId]['concededAt']);
-        self::assertSame('leave', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
+        self::assertSame('leave_room', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
 
         $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -691,9 +695,9 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
         self::assertNotEmpty($gameUpdates);
         $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame('room.rematch.vote', $gamePayload['event']['type'] ?? null);
         self::assertSame($leavingPlayerId, $gamePayload['event']['createdBy'] ?? null);
-        self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+        self::assertSame('leave_room', $gamePayload['event']['payload']['vote'] ?? null);
 
         $roomUpdates = array_values(array_filter(
             RecordingMercureHub::updates(),
@@ -704,7 +708,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
     }
 
-    public function testLeavingStartedRoomAfterRuntimeConcedeRecordsLeaveVoteWithoutDuplicatingConcede(): void
+    public function testLeavingStartedRoomAfterRuntimeConcedeKeepsRematchVoteOutsideGameplayStream(): void
     {
         $this->seedCard('eeeeeeee-4444-7444-8444-444444444444', 'Commander Runtime Leave', [
             'type_line' => 'Legendary Creature - Human Soldier',
@@ -756,6 +760,7 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
         $this->entityManager->flush();
         $this->entityManager->clear();
+        $this->projectConcededLifecycle($gameId, $leavingPlayerId, 2);
 
         RecordingMercureHub::reset();
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
@@ -767,13 +772,18 @@ class RoomsGamesApiTest extends ApiTestCase
             array_map(static fn (GameEvent $event): string => $event->type(), $events),
             static fn (string $type): bool => $type !== 'game.started',
         ));
-        self::assertSame(['game.concede', 'rematch.vote'], $eventTypes);
+        // OLD: Symfony appended rematch.vote at the next gameplay version and
+        // could collide with the live Go actor. NEW: only the Go-owned concede
+        // remains in game_event; the leave vote is persisted as control-plane state.
+        self::assertSame(['game.concede'], $eventTypes);
+        $versions = array_map(static fn (GameEvent $event): int => $event->version(), $events);
+        self::assertSame($versions, array_values(array_unique($versions)));
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();
         $snapshot = $this->jsonResponse()['game']['snapshot'];
         self::assertSame('conceded', $snapshot['players'][$leavingPlayerId]['status']);
-        self::assertSame('leave', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
+        self::assertSame('leave_room', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
 
         $gameUpdates = array_values(array_filter(
             RecordingMercureHub::updates(),
@@ -781,7 +791,7 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
         self::assertNotEmpty($gameUpdates);
         $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame('room.rematch.vote', $gamePayload['event']['type'] ?? null);
 
         $roomUpdates = array_values(array_filter(
             RecordingMercureHub::updates(),
@@ -790,6 +800,73 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNotEmpty($roomUpdates);
         $roomPayload = json_decode($roomUpdates[array_key_last($roomUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
+    }
+
+    public function testThreePlayerLeaveDoesNotPoisonGameplayStreamForRemainingPlayers(): void
+    {
+        $fixture = $this->startedRematchGameFixture('sw3', [
+            ['stream-a@example.test', 'Stream Player A'],
+            ['stream-b@example.test', 'Stream Player B'],
+            ['stream-c@example.test', 'Stream Player C'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $playerAId = $this->playerIdByName($fixture['snapshot'], 'Stream Player A');
+        $playerBId = $this->playerIdByName($fixture['snapshot'], 'Stream Player B');
+        $playerCId = $this->playerIdByName($fixture['snapshot'], 'Stream Player C');
+        $this->projectConcededLifecycle($gameId, $playerBId, 2);
+
+        $this->jsonRequest('POST', '/rooms/'.$fixture['roomId'].'/leave', token: $fixture['tokens']['Stream Player B']);
+        self::assertResponseIsSuccessful();
+
+        foreach ([
+            [$playerAId, $fixture['tokens']['Stream Player A']],
+            [$playerCId, $fixture['tokens']['Stream Player C']],
+            [$playerAId, $fixture['tokens']['Stream Player A']],
+        ] as [$playerId, $token]) {
+            $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+                'type' => 'life.changed',
+                'payload' => ['playerId' => $playerId, 'delta' => -1],
+            ], $token);
+            self::assertResponseStatusCodeSame(201);
+        }
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $fixture['tokens']['Stream Player A']);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$playerBId]['status']);
+        self::assertSame('leave_room', $snapshot['rematch']['votes'][$playerBId]['vote'] ?? null);
+        self::assertSame(38, $snapshot['players'][$playerAId]['life']);
+        self::assertSame(39, $snapshot['players'][$playerCId]['life']);
+
+        $events = $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $gameId], ['version' => 'ASC']);
+        $versions = array_map(static fn (GameEvent $event): int => $event->version(), $events);
+        self::assertSame($versions, array_values(array_unique($versions)));
+        self::assertNotContains('rematch.vote', array_map(static fn (GameEvent $event): string => $event->type(), $events));
+        for ($index = 1, $count = count($versions); $index < $count; ++$index) {
+            self::assertSame($versions[$index - 1] + 1, $versions[$index]);
+        }
+    }
+
+    public function testStartedRoomOwnerLeaveTransfersOwnershipToOldestRemainingPlayer(): void
+    {
+        $fixture = $this->startedRematchGameFixture('oleave', [
+            ['owner-leave-a@example.test', 'Owner Leave A'],
+            ['owner-leave-b@example.test', 'Owner Leave B'],
+            ['owner-leave-c@example.test', 'Owner Leave C'],
+        ]);
+        $ownerId = $this->playerIdByName($fixture['snapshot'], 'Owner Leave A');
+        $remainingOwnerId = $this->playerIdByName($fixture['snapshot'], 'Owner Leave B');
+        $this->projectConcededLifecycle($fixture['gameId'], $ownerId, 2);
+
+        $this->jsonRequest('POST', '/rooms/'.$fixture['roomId'].'/leave', token: $fixture['tokens']['Owner Leave A']);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/rooms/'.$fixture['roomId'], token: $fixture['tokens']['Owner Leave B']);
+        self::assertResponseIsSuccessful();
+        self::assertSame($remainingOwnerId, $this->jsonResponse()['room']['owner']['id'] ?? null);
+
+        $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/snapshot', token: $fixture['tokens']['Owner Leave A']);
+        self::assertResponseStatusCodeSame(403);
     }
 
     public function testStartedRoomCanBeLeftSequentiallyByBothPlayersFromRooms(): void
@@ -801,6 +878,8 @@ class RoomsGamesApiTest extends ApiTestCase
         $roomId = $fixture['roomId'];
         $ownerToken = $fixture['tokens']['Seq Leave Owner'];
         $playerToken = $fixture['tokens']['Seq Leave Player'];
+        $this->projectConcededLifecycle($fixture['gameId'], $this->playerIdByName($fixture['snapshot'], 'Seq Leave Player'), 2);
+        $this->projectConcededLifecycle($fixture['gameId'], $this->playerIdByName($fixture['snapshot'], 'Seq Leave Owner'), 3);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
         self::assertResponseIsSuccessful();
@@ -859,6 +938,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
         $deletingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Delete Player');
+        $this->projectConcededLifecycle($gameId, $deletingPlayerId, 2);
 
         RecordingMercureHub::reset();
         $this->jsonRequest('DELETE', '/me', token: $playerToken);
@@ -869,7 +949,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $snapshot = $this->jsonResponse()['game']['snapshot'];
         self::assertSame('conceded', $snapshot['players'][$deletingPlayerId]['status']);
         self::assertNotNull($snapshot['players'][$deletingPlayerId]['concededAt']);
-        self::assertSame('leave', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
+        self::assertSame('leave_room', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
 
         $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -886,8 +966,8 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
         self::assertNotEmpty($gameUpdates);
         $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
-        self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+        self::assertSame('room.rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame('leave_room', $gamePayload['event']['payload']['vote'] ?? null);
     }
 
     public function testDeletingStartedRoomOwnerTransfersOwnershipToRemainingPlayer(): void
@@ -929,6 +1009,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
         $deletingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Delete Owner');
+        $this->projectConcededLifecycle($gameId, $deletingPlayerId, 2);
 
         $this->jsonRequest('DELETE', '/me', token: $ownerToken);
         self::assertResponseStatusCodeSame(204);
@@ -943,7 +1024,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $snapshot = $this->jsonResponse()['game']['snapshot'];
         self::assertSame('conceded', $snapshot['players'][$deletingPlayerId]['status']);
-        self::assertSame('leave', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
+        self::assertSame('leave_room', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
         self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM room WHERE owner_id = ?',
             [$deletingOwnerId],
@@ -963,8 +1044,8 @@ class RoomsGamesApiTest extends ApiTestCase
         $defeatedPlayerId = $this->playerIdByName($fixture['snapshot'], 'Rematch Wait Lost');
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
-            'type' => 'life.changed',
-            'payload' => ['playerId' => $defeatedPlayerId, 'delta' => -40],
+            'type' => 'game.concede',
+            'payload' => ['playerId' => $defeatedPlayerId],
         ], $fixture['tokens']['Rematch Wait Lost']);
         self::assertResponseStatusCodeSame(201);
 
@@ -1001,11 +1082,12 @@ class RoomsGamesApiTest extends ApiTestCase
             [$secondDefeatedPlayerId, $fixture['tokens']['Rematch Ready Two']],
         ] as [$playerId, $token]) {
             $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
-                'type' => 'life.changed',
-                'payload' => ['playerId' => $playerId, 'delta' => -40],
+                'type' => 'game.concede',
+                'payload' => ['playerId' => $playerId],
             ], $token);
             self::assertResponseStatusCodeSame(201);
         }
+        $this->projectFinishedLifecycle($gameId, $winnerPlayerId, 4);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'play_again',
@@ -1020,7 +1102,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('waiting_for_votes', $this->jsonResponse()['status']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
-            'vote' => 'leave',
+            'vote' => 'leave_room',
         ], $fixture['tokens']['Rematch Ready Two']);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
@@ -1078,11 +1160,12 @@ class RoomsGamesApiTest extends ApiTestCase
             foreach (array_slice($players, 1) as [, $displayName]) {
                 $defeatedPlayerId = $this->playerIdByName($fixture['snapshot'], $displayName);
                 $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
-                    'type' => 'life.changed',
-                    'payload' => ['playerId' => $defeatedPlayerId, 'delta' => -40],
+                    'type' => 'game.concede',
+                    'payload' => ['playerId' => $defeatedPlayerId],
                 ], $fixture['tokens'][$displayName]);
                 self::assertResponseStatusCodeSame(201);
             }
+            $this->projectFinishedLifecycle($gameId, $this->playerIdByName($fixture['snapshot'], $winnerName), $playerCount + 1);
 
             $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
                 'vote' => 'play_again',
@@ -1100,7 +1183,7 @@ class RoomsGamesApiTest extends ApiTestCase
                 self::assertSame('waiting_for_votes', $response['status']);
                 foreach (array_slice($players, 2) as $index => [, $displayName]) {
                     $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
-                        'vote' => 'leave',
+                        'vote' => 'leave_room',
                     ], $fixture['tokens'][$displayName]);
                     self::assertResponseIsSuccessful();
                     $response = $this->jsonResponse();
@@ -1147,7 +1230,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $roomId = $fixture['roomId'];
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
-            'vote' => 'leave',
+            'vote' => 'leave_room',
         ], $fixture['tokens']['Rematch Leave Guest']);
         self::assertResponseIsSuccessful();
         self::assertSame('left', $this->jsonResponse()['status']);
@@ -1156,20 +1239,11 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertNull($this->jsonResponse()['room']);
 
-        $guestPlayerId = $this->playerIdByName($fixture['snapshot'], 'Rematch Leave Guest');
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $fixture['tokens']['Rematch Leave Guest']);
-        self::assertResponseIsSuccessful();
-        $guestProjection = $this->jsonResponse()['game']['snapshot']['players'][$guestPlayerId];
-        $this->assertHiddenHandProjection($guestProjection);
-
-        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
-            'type' => 'life.changed',
-            'payload' => ['playerId' => $guestPlayerId, 'delta' => -1],
-        ], $fixture['tokens']['Rematch Leave Guest']);
         self::assertResponseStatusCodeSame(403);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
-            'vote' => 'leave',
+            'vote' => 'leave_room',
         ], $fixture['tokens']['Rematch Leave Owner']);
         self::assertResponseIsSuccessful();
         self::assertSame('room_deleted', $this->jsonResponse()['status']);
@@ -2318,8 +2392,8 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $lethalSnapshot = $this->jsonResponse()['snapshot'];
         self::assertSame(21, $lethalSnapshot['players'][$ownerPlayerId]['commanderDamage'][$sourceCommanderInstanceId]);
-        self::assertSame('player.defeated', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['type']);
-        self::assertSame('ha muerto.', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['message']);
+        self::assertSame('active', $lethalSnapshot['players'][$ownerPlayerId]['status']);
+        self::assertSame('commander.damage.changed', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['type']);
     }
 
     public function testInitialSnapshotUsesCommanderZoneOpeningHandAndUniqueInstanceIds(): void
@@ -2797,7 +2871,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
-            'type' => 'game.close',
+            'type' => 'game.concede',
             'payload' => [],
         ], $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -2806,7 +2880,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'type' => 'library.draw',
             'payload' => ['playerId' => $ownerPlayerId],
         ], $ownerToken);
-        self::assertResponseStatusCodeSame(409);
+        self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'chat.message',
@@ -3035,6 +3109,50 @@ SQL,
         }
 
         self::fail('Turn roll was not returned for the room player.');
+    }
+
+    private function projectConcededLifecycle(string $gameId, string $playerId, int $version): void
+    {
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $projector->apply($game, new GameLifecycleHandoff(
+            sprintf('%s:lifecycle:%d:%s', $gameId, $version, $playerId),
+            $gameId,
+            GameLifecycleHandoff::PLAYER_CONCEDED,
+            $version,
+            1,
+            1,
+            new \DateTimeImmutable(),
+            'test-concede-'.$playerId,
+            $playerId,
+            'conceded',
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+    }
+
+    private function projectFinishedLifecycle(string $gameId, string $winnerPlayerId, int $version): void
+    {
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $projector->apply($game, new GameLifecycleHandoff(
+            sprintf('%s:lifecycle:finished:%d', $gameId, $version),
+            $gameId,
+            GameLifecycleHandoff::GAME_FINISHED,
+            $version,
+            1,
+            1,
+            new \DateTimeImmutable(),
+            'test-finished-'.$gameId,
+            null,
+            null,
+            $winnerPlayerId,
+            'last_player_standing',
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
     }
 
     /**

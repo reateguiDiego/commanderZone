@@ -1,5 +1,4 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Card } from '../../../core/models/card.model';
 import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
@@ -201,7 +200,6 @@ export class GameTableStore implements OnDestroy {
   readonly opponentCardsTargetCards = this.opponentTargetsState.opponentCardsTargetCards;
   readonly chatRecipients = this.chatStore.chatRecipients;
   readonly shouldShowChatRecipientSelect = this.chatStore.shouldShowChatRecipientSelect;
-  readonly isGameOwner = this.playersStore.isGameOwner;
   readonly syncStatus = computed<GameTableSyncStatus>(() => {
     if (this.pending()) {
       return 'pending';
@@ -1724,7 +1722,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    if (current?.state.status === 'conceded') {
+    if (current.state.status !== 'active') {
       this.closeContextMenu();
       return;
     }
@@ -1744,27 +1742,9 @@ export class GameTableStore implements OnDestroy {
     await this.concedeGame();
   }
 
-  async closeGame(): Promise<void> {
-    if (!this.isGameOwner()) {
-      return;
-    }
-
-    await this.command('game.close', {});
-    await this.gameActionsStore.navigateToRooms();
-  }
-
   async leaveTable(): Promise<void> {
     const current = this.currentPlayer() ?? this.localPlayerFromSnapshot();
     this.closeContextMenu();
-    if (current && current.state.status !== 'conceded') {
-      try {
-        await this.command('game.concede', { playerId: current.id }, true);
-      } catch (error) {
-        if (!this.isAlreadyConcededError(error)) {
-          throw error;
-        }
-      }
-    }
 
     if (current || this.viewerCanControlTable()) {
       await this.gameActionsStore.leaveCurrentRoom();
@@ -1774,33 +1754,6 @@ export class GameTableStore implements OnDestroy {
 
   private localPlayerFromSnapshot(): PlayerView | null {
     return this.selectors.currentPlayer(this.playersStore.players(), this.auth.user()?.id);
-  }
-
-  private isAlreadyConcededError(error: unknown): boolean {
-    const message = this.commandErrorMessage(error).toLowerCase();
-
-    return message.includes('already conceded') || message.includes('player already conceded');
-  }
-
-  private commandErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      const response = error.error as { error?: unknown; detail?: unknown; message?: unknown } | null;
-      if (response && typeof response === 'object') {
-        for (const key of ['error', 'detail', 'message'] as const) {
-          if (typeof response[key] === 'string' && response[key].trim() !== '') {
-            return response[key];
-          }
-        }
-      }
-
-      return error.message ?? '';
-    }
-
-    if (error instanceof Error) {
-      return error.message;
-    }
-
-    return typeof error === 'string' ? error : '';
   }
 
   async copyGameId(): Promise<void> {

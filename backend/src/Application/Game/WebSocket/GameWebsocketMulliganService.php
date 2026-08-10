@@ -27,7 +27,6 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class GameWebsocketMulliganService
 {
@@ -48,8 +47,6 @@ final readonly class GameWebsocketMulliganService
         private ?GameplayRuntimeRouter $runtimeRouter = null,
         private ?GameplayRuntimePatchAdapter $runtimePatchAdapter = null,
         private ?GameEventStoreV2 $eventStoreV2 = null,
-        #[Autowire('%gameplay_emergency_legacy_fallback_enabled%')]
-        private bool $emergencyLegacyFallbackEnabled = false,
         private ?LoggerInterface $logger = null,
     ) {
     }
@@ -149,28 +146,16 @@ final readonly class GameWebsocketMulliganService
                     return $this->runtimeRejectedResult($game, $actor, $kind, $messageId, $previousVersion, $exception->getMessage());
                 } catch (GameRuntimeGatewayException $exception) {
                     $patchContractError = $this->isRuntimePatchContractError($exception);
-                    if (!$this->emergencyLegacyFallbackEnabled) {
-                        $this->logger?->error('Runtime mulligan command failed without emergency fallback.', [
-                            'gameId' => $game->id(),
-                            'command.type' => $kind,
-                            'messageId' => $messageId,
-                            'exception' => $exception,
-                            'reason' => 'runtime_mulligan_disallows_legacy_fallback',
-                            'alert' => 'runtime_command_failed_no_legacy_fallback',
-                        ]);
-
-                        return $this->runtimeFailureResult($game, $actor, $kind, $messageId, $previousVersion, $patchContractError);
-                    }
-
-                    $runtimeFallbackDebug = $this->runtimeFailureDebugProfile($patchContractError, true);
-                    $this->logger?->error('Emergency legacy mulligan fallback metric recorded.', [
+                    $this->logger?->error('Runtime mulligan command failed without legacy fallback.', [
                         'gameId' => $game->id(),
                         'command.type' => $kind,
                         'messageId' => $messageId,
-                        'alert' => 'runtime_emergency_legacy_fallback',
-                        'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
-                        'patchContractError' => $patchContractError,
+                        'exception' => $exception,
+                        'reason' => 'runtime_mulligan_disallows_legacy_fallback',
+                        'alert' => 'runtime_command_failed_no_legacy_fallback',
                     ]);
+
+                    return $this->runtimeFailureResult($game, $actor, $kind, $messageId, $previousVersion, $patchContractError);
                 }
             }
 
@@ -350,29 +335,27 @@ final readonly class GameWebsocketMulliganService
         return GameWebsocketCommandResult::forViewerMessageLists(
             [$actor->id() => [$error]],
             [],
-            $this->runtimeFailureDebugProfile($patchContractError, false),
+            $this->runtimeFailureDebugProfile($patchContractError),
         );
     }
 
     /**
      * @return array<string,float|string>
      */
-    private function runtimeFailureDebugProfile(bool $patchContractError, bool $fallback): array
+    private function runtimeFailureDebugProfile(bool $patchContractError): array
     {
-        $reason = $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error';
-
         return [
             'gameplay.runtime_route' => 1.0,
-            'gameplay.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'gameplay.runtime_fallback_count' => 0.0,
             'gameplay.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
             'gameplay.runtime_patch_contract_error' => $patchContractError ? 1.0 : 0.0,
-            'gameplay.runtime_fallback_reason' => $fallback ? $reason : '',
-            'command.legacy_fallback_count' => $fallback ? 1.0 : 0.0,
+            'gameplay.runtime_fallback_reason' => '',
+            'command.legacy_fallback_count' => 0.0,
             'mulligan.runtime_route' => 1.0,
-            'mulligan.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'mulligan.runtime_fallback_count' => 0.0,
             'mulligan.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
-            'runtime.legacy_handler_count' => $fallback ? 1.0 : 0.0,
-            'runtime.emergency_fallback_count' => $fallback ? 1.0 : 0.0,
+            'runtime.legacy_handler_count' => 0.0,
+            'runtime.emergency_fallback_count' => 0.0,
         ];
     }
 

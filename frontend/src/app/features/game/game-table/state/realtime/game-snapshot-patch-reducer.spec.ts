@@ -332,18 +332,20 @@ describe('game snapshot patch reducer', () => {
       {
         op: 'disconnect.vote.set',
         data: {
-          disconnectVote: {
-            targetPlayerId: 'player-2',
-            status: 'open',
-            openedAt: '2026-01-01T00:00:10.000Z',
-            deadlineAt: '2026-01-01T00:01:10.000Z',
-            cooldownUntil: null,
-            votes: {
-              'player-1': {
-                playerId: 'player-1',
-                displayName: 'Player 1',
-                vote: 'expel',
-                votedAt: '2026-01-01T00:00:15.000Z',
+          disconnectVotes: {
+            'player-2': {
+              targetPlayerId: 'player-2',
+              status: 'open',
+              openedAt: '2026-01-01T00:00:10.000Z',
+              deadlineAt: '2026-01-01T00:01:10.000Z',
+              cooldownUntil: null,
+              votes: {
+                'player-1': {
+                  playerId: 'player-1',
+                  displayName: 'Player 1',
+                  vote: 'expel',
+                  votedAt: '2026-01-01T00:00:15.000Z',
+                },
               },
             },
           },
@@ -352,11 +354,11 @@ describe('game snapshot patch reducer', () => {
     ]));
 
     expect(result.status).toBe('applied');
-    expect(result.snapshot.disconnectVote).toEqual(expect.objectContaining({
+    expect(result.snapshot.disconnectVotes?.['player-2']).toEqual(expect.objectContaining({
       targetPlayerId: 'player-2',
       status: 'open',
     }));
-    expect(result.snapshot.disconnectVote?.votes['player-1']?.vote).toBe('expel');
+    expect(result.snapshot.disconnectVotes?.['player-2']?.votes['player-1']?.vote).toBe('expel');
   });
 
   it('applies rematch snapshot updates', () => {
@@ -370,7 +372,7 @@ describe('game snapshot patch reducer', () => {
             'player-2': {
               playerId: 'player-2',
               displayName: 'Player 2',
-              vote: 'leave',
+              vote: 'leave_room',
               votedAt: '2026-01-01T00:00:15.000Z',
             },
           },
@@ -379,7 +381,7 @@ describe('game snapshot patch reducer', () => {
     ]));
 
     expect(result.status).toBe('applied');
-    expect(result.snapshot.rematch?.votes['player-2']?.vote).toBe('leave');
+    expect(result.snapshot.rematch?.votes['player-2']?.vote).toBe('leave_room');
   });
 
   it('applies append and set operations for shared gameplay collections', () => {

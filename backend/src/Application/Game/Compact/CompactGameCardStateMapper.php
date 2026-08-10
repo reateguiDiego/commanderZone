@@ -665,7 +665,7 @@ final class CompactGameCardStateMapper
             'ownerId' => $snapshot['ownerId'] ?? '',
             'gamePhase' => $snapshot['gamePhase'] ?? 'PLAYING',
             'mulligan' => is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [],
-            'disconnectVote' => is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null,
+            'disconnectVotes' => is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [],
             'timer' => is_array($snapshot['timer'] ?? null) ? $snapshot['timer'] : [],
             'createdAt' => $snapshot['createdAt'] ?? null,
             'updatedAt' => $snapshot['updatedAt'] ?? null,

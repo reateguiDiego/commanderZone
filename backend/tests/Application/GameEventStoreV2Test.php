@@ -210,13 +210,13 @@ class GameEventStoreV2Test extends TestCase
         $event = new GameEvent($game, 'disconnect.vote.updated', [
             'targetPlayerId' => $target->id(),
             'status' => 'resolved_expel',
-            'disconnectVote' => $disconnectVote,
+            'disconnectVotes' => [$target->id() => $disconnectVote],
             'concededAt' => '2026-01-01T00:00:11+00:00',
         ], $actor, 'runtime-disconnect-vote', 2);
 
         $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
 
-        self::assertSame($disconnectVote, $rebuilt['disconnectVote']);
+        self::assertSame([$target->id() => $disconnectVote], $rebuilt['disconnectVotes']);
         self::assertSame('conceded', $rebuilt['players'][$target->id()]['status']);
         self::assertSame('2026-01-01T00:00:11+00:00', $rebuilt['players'][$target->id()]['concededAt']);
         self::assertSame(2, $rebuilt['version']);
@@ -227,19 +227,19 @@ class GameEventStoreV2Test extends TestCase
         $actor = new User('compact-disconnect@example.test', 'Compact Disconnect');
         $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
         $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
-        $snapshot['disconnectVote'] = [
+        $snapshot['disconnectVotes'] = [$actor->id() => [
             'targetPlayerId' => $actor->id(),
             'status' => 'open',
             'openedAt' => '2026-01-01T00:00:00+00:00',
             'deadlineAt' => '2026-01-01T00:01:00+00:00',
             'cooldownUntil' => null,
             'votes' => [],
-        ];
+        ]];
 
         $mapper = new CompactGameCardStateMapper();
         $hydrated = $mapper->hydrateSnapshot($mapper->compactSnapshot($snapshot, 'game-compact-disconnect', 'active'));
 
-        self::assertSame($snapshot['disconnectVote'], $hydrated['disconnectVote']);
+        self::assertSame($snapshot['disconnectVotes'], $hydrated['disconnectVotes']);
     }
 
     public function testReplayAndBootstrapPreserveLongRunningTurnStateAfterConcede(): void

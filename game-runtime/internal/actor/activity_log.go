@@ -330,8 +330,6 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorIDFromPayload(command.Payload))
 		name := playerDisplayName(game, playerID)
 		return fmt.Sprintf("%s conceded.", name)
-	case "game.close":
-		return fmt.Sprintf("%s closed the game.", displayName)
 	}
 	return ""
 }

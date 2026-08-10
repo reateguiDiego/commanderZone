@@ -682,8 +682,8 @@ func testState() state.GameState {
 		Version: 1,
 		Status:  "playing",
 		Players: map[string]map[string]any{
-			"p1": map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}},
-			"p2": map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}},
+			"p1": map[string]any{"life": 40, "status": "active", "counters": map[string]any{}, "commanderDamage": map[string]any{}},
+			"p2": map[string]any{"life": 40, "status": "active", "counters": map[string]any{}, "commanderDamage": map[string]any{}},
 		},
 		SharedCounters: map[string]map[string]int{},
 		Turn:           map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 1},

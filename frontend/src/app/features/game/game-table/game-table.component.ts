@@ -159,7 +159,6 @@ interface ViewTopNumberActionRequest {
 }
 
 type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
-type RematchCountdownMode = 'initial' | 'courtesy';
 type TableExitAction = 'concede' | 'leave';
 type FloatingPanelTab = 'chat' | 'log';
 const CHAT_REACTION_WINDOW_MS = 30 * 60 * 1000;
@@ -670,7 +669,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly rematchPending = signal(false);
   readonly rematchToast = signal<string | null>(null);
   readonly rematchCountdownSeconds = signal<number | null>(null);
-  readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
   readonly tableExitAction = signal<TableExitAction | null>(null);
   readonly gameplayCardSearchRequest = signal<GameplayCardSearchRequest | null>(null);
   readonly gameplayCardSearchPending = signal(false);
@@ -716,7 +714,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       bottom: top + CONTEXT_MENU_AVOID_HEIGHT,
     };
   });
-  readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
     const request = this.powerToughnessDialog();
 
@@ -773,7 +770,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return currentPlayer && focusedPlayer && currentPlayer.id !== focusedPlayer.id ? focusedPlayer : null;
   });
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
-  readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
 
@@ -800,11 +796,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
   readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending());
   readonly rematchVotePlayers = computed<readonly RematchPlayerVoteView[]>(() => {
-    const votes = this.store.snapshot()?.rematch?.votes ?? {};
+    const snapshot = this.store.snapshot();
+    const votes = snapshot?.rematch?.votes ?? {};
+    const winnerPlayerId = snapshot?.winnerPlayerId ?? null;
 
     return this.store.players().map((player) => ({
       playerId: player.id,
       displayName: player.state.user.displayName || player.state.user.email || player.id,
+      winner: player.id === winnerPlayerId,
       life: player.state.life,
       defeated: playerIsDefeated(player),
       vote: votes[player.id]?.vote ?? null,
@@ -826,7 +825,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return false;
     }
 
-    return otherPlayers.every((player) => player.vote === 'leave');
+    return otherPlayers.every((player) => player.vote === 'leave_room');
   });
   readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
@@ -870,7 +869,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private rematchCountdownDeadlineMs: number | null = null;
   private chatReactionClockTimer: number | null = null;
   private rematchCountdownKey = '';
-  private rematchAutoLeaveKey = '';
   private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
   private lastObservedChatKey: string | null = null;
@@ -926,12 +924,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       }
 
-      const promptKey = this.rematchPromptKey();
-      const missingPlayers = this.rematchMissingVotePlayers();
-      const hasMissingVotes = missingPlayers.length > 0;
-      const countdownEnabled = this.rematchVoteCountdownEnabled();
-
-      queueMicrotask(() => this.syncRematchCountdown(promptKey, hasMissingVotes, countdownEnabled));
+      const snapshot = this.store.snapshot();
+      // The server owns the deadline, but it only becomes actionable after
+      // the authoritative finish handoff. A conceded spectator may vote
+      // early while gameplay continues; that must never start an endgame UI
+      // countdown.
+      const gameFinished = snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
+      const deadlineAt = gameFinished ? snapshot?.rematch?.deadlineAt ?? null : null;
+      queueMicrotask(() => this.syncRematchCountdown(deadlineAt));
     });
 
     effect(() => {
@@ -1282,7 +1282,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.cancelNumberAction();
         this.cancelPowerToughnessDialog();
         this.cancelArrowTargetDialog();
-        this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
       case 'd':
@@ -2303,10 +2302,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'concedeGame':
         this.requestTableExit('concede');
         return;
-      case 'closeGame':
-        this.openCloseGameDialog();
-        this.store.closeContextMenu();
-        return;
       case 'focusPlayer':
         this.focusPlayerBattlefield(menu.playerId);
         return;
@@ -3100,15 +3095,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.arrowTargetDialog.set(null);
   }
 
-  confirmCloseGame(): void {
-    this.closeGameDialogOpen.set(false);
-    void this.store.closeGame();
-  }
-
-  cancelCloseGame(): void {
-    this.closeGameDialogOpen.set(false);
-  }
-
   async confirmTableExitAction(): Promise<void> {
     const action = this.tableExitAction();
     this.tableExitAction.set(null);
@@ -3303,7 +3289,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async abandonRematchRoom(): Promise<void> {
-    await this.submitRematchVote('leave');
+    await this.submitRematchVote('leave_room');
   }
 
   closeDisconnectVoteModal(): void {
@@ -4126,10 +4112,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     window.requestAnimationFrame(() => this.focusPlayerBattlefield(selectedPlayerId));
   }
 
-  private openCloseGameDialog(): void {
-    this.closeGameDialogOpen.set(true);
-  }
-
   private clearQueuedFloatingContentScroll(): void {
     if (this.floatingScrollFrame !== null) {
       window.cancelAnimationFrame(this.floatingScrollFrame);
@@ -4142,22 +4124,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
   }
 
-  private syncRematchCountdown(promptKey: string, hasMissingVotes: boolean, countdownEnabled: boolean): void {
-    if (!promptKey || !hasMissingVotes || !countdownEnabled) {
+  private syncRematchCountdown(deadlineAt: string | null): void {
+    const deadlineMs = deadlineAt ? Date.parse(deadlineAt) : Number.NaN;
+    if (!Number.isFinite(deadlineMs)) {
       this.clearRematchCountdown();
       return;
     }
 
-    const mode: RematchCountdownMode = this.rematchMissingVotePlayers().length === 1 ? 'courtesy' : 'initial';
-    const countdownKey = `${promptKey}:${mode}`;
+    const countdownKey = deadlineAt ?? '';
     if (this.rematchCountdownKey === countdownKey && this.rematchCountdownDeadlineMs !== null) {
       this.updateRematchCountdown();
       return;
     }
 
     this.rematchCountdownKey = countdownKey;
-    this.rematchCountdownDeadlineMs = Date.now() + (mode === 'courtesy' ? 30_000 : 60_000);
-    this.rematchCountdownMode.set(mode);
+    this.rematchCountdownDeadlineMs = deadlineMs;
     this.startRematchCountdownTimer();
     this.updateRematchCountdown();
   }
@@ -4174,24 +4155,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (this.rematchCountdownDeadlineMs === null) {
       return;
     }
-    if (!this.rematchVoteCountdownEnabled()) {
-      this.clearRematchCountdown();
-      return;
-    }
-
     const seconds = Math.max(0, Math.ceil((this.rematchCountdownDeadlineMs - Date.now()) / 1000));
     this.rematchCountdownSeconds.set(seconds);
-    if (seconds > 0 || !this.currentPlayerNeedsRematchVote() || this.rematchPending()) {
-      return;
-    }
-
-    const countdownKey = this.rematchCountdownKey;
-    if (!countdownKey || countdownKey === this.rematchAutoLeaveKey) {
-      return;
-    }
-
-    this.rematchAutoLeaveKey = countdownKey;
-    void this.submitRematchVote('leave');
   }
 
   private async submitRematchVote(vote: GameRematchVote): Promise<void> {
@@ -4208,7 +4173,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.rematchToast.set(null);
     try {
       const response = await firstValueFrom(this.gamesApi.rematchVote(gameId, vote));
-      if (vote === 'leave') {
+      if (vote === 'leave_room') {
         this.rematchModalOpen.set(false);
         await this.router.navigate(['/rooms']);
         return;
@@ -4228,7 +4193,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
       }
 
-      await this.store.refetch(true, 'rematch.vote_waiting_for_game_end');
     } catch (error) {
       this.showRematchToast(this.rematchErrorMessage(error));
     } finally {
@@ -4274,7 +4238,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.rematchCountdownDeadlineMs = null;
     this.rematchCountdownKey = '';
     this.rematchCountdownSeconds.set(null);
-    this.rematchCountdownMode.set(null);
   }
 
 }

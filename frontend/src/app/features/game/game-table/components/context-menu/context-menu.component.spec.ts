@@ -1707,7 +1707,6 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
     ...menu,
   } satisfies GameContextMenu);
   fixture.componentRef.setInput('currentPlayer', options.currentPlayer ?? null);
-  fixture.componentRef.setInput('isGameOwner', false);
   fixture.componentRef.setInput('players', options.players ?? [
     player('user-1', 'User'),
     player('user-2', 'Opponent'),

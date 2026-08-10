@@ -82,36 +82,10 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
     expect(JSON.stringify(concedePatch)).toContain(playerB.user.id);
     expect(snapshotRefetches).toBe(refetchBaseline);
 
-    const secondConcede = await sendRuntimeCommandAndWait(commandPage, ticketB.websocketUrl, framesA, {
-      gameId,
-      baseVersion: concedeOutcome.version,
-      type: 'game.concede',
-      payload: { playerId: playerB.user.id },
-      ownerPatch: (patch) => hasOp(patch, 'player.status.set'),
-    });
-    expect(secondConcede.patch['kind']).toBe('patch.v2');
-    expect(secondConcede.version).toBe(concedeOutcome.version);
-    expect(JSON.stringify(secondConcede.patch)).toContain(playerB.user.id);
+    const snapshotAfterConcede = await gameSnapshot(request, gameId, playerA.token);
+    expect(snapshotAfterConcede.players[playerB.user.id]?.status).toBe('conceded');
+    expect(snapshotAfterConcede.gamePhase).toBe('FINISHED');
     expect(snapshotRefetches).toBe(refetchBaseline);
-
-    const ticketA = await websocketTicket(request, gameId, playerA.token);
-    const closeOutcome = await sendRuntimeCommandAndWait(commandPage, ticketA.websocketUrl, framesB, {
-      gameId,
-      baseVersion: concedeOutcome.version,
-      type: 'game.close',
-      payload: { requestedBy: playerA.user.id },
-      ownerPatch: (patch) => hasOp(patch, 'game.status.set'),
-    });
-    const closePatch = closeOutcome.patch;
-    const rawCloseFrames = closeOutcome.rawFrames;
-    expect(closePatch['kind']).toBe('patch.v2');
-    expect(JSON.stringify(closePatch)).toContain('finished');
-    expect(rawCloseFrames.some((frame) => typeof frame === 'object' && frame !== null && (frame as JsonObject)['kind'] === 'game_patch')).toBe(false);
-    expect(snapshotRefetches).toBe(refetchBaseline);
-
-    const snapshotAfterClose = await gameSnapshot(request, gameId, playerA.token);
-    expect(snapshotAfterClose.players[playerB.user.id]?.status).toBe('conceded');
-    expect(snapshotAfterClose.gamePhase).toBe('FINISHED');
 
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
@@ -212,7 +186,6 @@ test('leave table concedes through runtime and navigates back to rooms', async (
   await enableFrontendGameplayV2(contextA);
 
   try {
-    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
     const pageA = await contextA.newPage();
     const framesA = collectWebSocketFrames(pageA);
     let snapshotRefetches = 0;
@@ -258,7 +231,7 @@ test('leave table concedes through runtime and navigates back to rooms', async (
     const snapshotAfterLeave = await gameSnapshot(request, gameId, playerB.token);
     const leavingPlayer = snapshotAfterLeave.players[playerA.user.id];
     expect(leavingPlayer?.status).toBe('conceded');
-    expect(snapshotAfterLeave.rematch?.votes?.[playerA.user.id]?.vote).toBe('leave');
+    expect(snapshotAfterLeave.rematch?.votes?.[playerA.user.id]?.vote).toBe('leave_room');
 
     expect(snapshotRefetches).toBe(refetchBaseline);
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
@@ -280,15 +253,6 @@ async function assertGameRuntimeReady(request: APIRequestContext): Promise<void>
   if (!response.ok()) {
     throw new Error(`game-runtime is not ready at ${RUNTIME_READY_URL}: ${response.status()} ${await response.text()}`);
   }
-}
-
-async function openDebugObserver(context: BrowserContext, request: APIRequestContext, gameId: string, token: string): Promise<{ page: Page; frames: JsonObject[] }> {
-  const ticket = await websocketTicket(request, gameId, token);
-  const page = await context.newPage();
-  const frames = collectWebSocketFrames(page);
-  await page.goto(`/games/${gameId}/debug?token=${encodeURIComponent(ticket.token)}`);
-  await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
-  return { page, frames };
 }
 
 function collectWebSocketFrames(page: Page): JsonObject[] {

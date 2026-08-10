@@ -562,11 +562,12 @@ func TestGameConcedeWithNewActionIDDoesNotAppendDuplicateEvent(t *testing.T) {
 	}
 }
 
-func TestConcedeOnePlayerKeepsActorAliveForOtherPlayers(t *testing.T) {
+func TestThreePlayerConcedeKeepsActorAndVersionStreamHealthyForRemainingPlayers(t *testing.T) {
 	game := testState()
-	game.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	game.Players["p3"] = map[string]any{"life": 40, "status": "active", "counters": map[string]any{}, "commanderDamage": map[string]any{}}
 	game.Turn = map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 1}
-	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", game, store, 8, DefaultAppliers())
 
 	concede := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "concede-p2", "game.concede", map[string]any{"playerId": "p2"}), "p2")
 	if concede.Err != nil {
@@ -575,18 +576,40 @@ func TestConcedeOnePlayerKeepsActorAliveForOtherPlayers(t *testing.T) {
 	if snapshot := gameActor.Snapshot(); snapshot.Status == "finished" || snapshot.Phase == state.PhaseFinished {
 		t.Fatalf("concede finished active game: status=%s phase=%s", snapshot.Status, snapshot.Phase)
 	}
+	bAfterLeave := gameActor.ApplyDirect(context.Background(), command("game-1", concede.Event.Version, "b-after-leave", "life.changed", map[string]any{"playerId": "p2", "life": 39}), "p2")
+	if !errors.Is(bAfterLeave.Err, ErrActorPermission) || gameActor.Snapshot().Version != concede.Event.Version {
+		t.Fatalf("conceded player retained gameplay access: result=%#v snapshot=%#v", bAfterLeave, gameActor.Snapshot())
+	}
 
-	draw := gameActor.ApplyDirect(context.Background(), command("game-1", concede.Event.Version, "draw-after-concede", "library.draw", map[string]any{"playerId": "p1"}), "p1")
-	if draw.Err != nil {
-		t.Fatalf("other player draw after concede failed: %v", draw.Err)
+	aFirst := gameActor.ApplyDirect(context.Background(), command("game-1", concede.Event.Version, "a-after-b-left", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
+	if aFirst.Err != nil {
+		t.Fatalf("player A action after concede failed: %v", aFirst.Err)
 	}
-	tap := gameActor.ApplyDirect(context.Background(), command("game-1", draw.Event.Version, "tap-after-concede", "card.tapped", map[string]any{"instanceId": "i1", "tapped": true}), "p1")
-	if tap.Err != nil {
-		t.Fatalf("other player tap after concede failed: %v", tap.Err)
+	cAction := gameActor.ApplyDirect(context.Background(), command("game-1", aFirst.Event.Version, "c-after-b-left", "life.changed", map[string]any{"playerId": "p3", "life": 39}), "p3")
+	if cAction.Err != nil {
+		t.Fatalf("player C action after concede failed: %v", cAction.Err)
 	}
-	turn := gameActor.ApplyDirect(context.Background(), command("game-1", tap.Event.Version, "turn-after-concede", "turn.changed", map[string]any{"phase": "combat"}), "p1")
-	if turn.Err != nil {
-		t.Fatalf("active player turn after concede failed: %v", turn.Err)
+	aSecond := gameActor.ApplyDirect(context.Background(), command("game-1", cAction.Event.Version, "a-again-after-b-left", "life.changed", map[string]any{"playerId": "p1", "life": 38}), "p1")
+	if aSecond.Err != nil {
+		t.Fatalf("player A second action after concede failed: %v", aSecond.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 5 || snapshot.Players["p2"]["status"] != "conceded" || snapshot.Players["p1"]["life"] != 38 || snapshot.Players["p3"]["life"] != 39 {
+		t.Fatalf("three-player state mismatch: version=%d players=%#v", snapshot.Version, snapshot.Players)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatalf("load events: %v", err)
+	}
+	if len(events) != 4 {
+		t.Fatalf("event count got %d want 4: %#v", len(events), events)
+	}
+	for index, event := range events {
+		want := int64(index + 2)
+		if event.Version != want {
+			t.Fatalf("event %d version got %d want %d", index, event.Version, want)
+		}
 	}
 	if gameActor.QueueDepth() != 0 {
 		t.Fatalf("mailbox did not drain after concede continuity commands: %d", gameActor.QueueDepth())
@@ -607,7 +630,7 @@ func TestReplayRebuildsConcedeAndCloseLifecycleEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("concede replay failed: %v", err)
 	}
-	if replayed.Players["p2"]["status"] != "conceded" || replayed.Status == "finished" {
+	if replayed.Players["p2"]["status"] != "conceded" || replayed.Status != "finished" || replayed.WinnerPlayerID != "p1" {
 		t.Fatalf("concede replay lost lifecycle state: status=%s player=%#v", replayed.Status, replayed.Players["p2"])
 	}
 
@@ -761,29 +784,6 @@ func TestGameConcedePayloadIncludesTurnWhenActivePlayerLeaves(t *testing.T) {
 	}
 	if patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "turn.set"); patch == nil {
 		t.Fatalf("missing turn.set patch: %#v", result.Patches)
-	}
-}
-
-func TestGameCloseEmitsGameStatusPatchWithoutSnapshotWrite(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "close-1", "game.close", map[string]any{}), "p1")
-	if result.Err != nil {
-		t.Fatalf("close failed: %v", result.Err)
-	}
-	metrics := result.Event.Payload["metrics"].(map[string]any)
-	if metrics["lifecycle.snapshot_write_count"] != 0 {
-		t.Fatalf("unexpected snapshot write metrics: %#v", metrics)
-	}
-	snapshot := gameActor.Snapshot()
-	if snapshot.Status != "finished" || snapshot.Phase != state.PhaseFinished {
-		t.Fatalf("game status not closed: status=%s phase=%s", snapshot.Status, snapshot.Phase)
-	}
-	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "game.status.set")
-	if patch == nil {
-		t.Fatalf("missing game.status.set patch: %#v", result.Patches)
-	}
-	if patch.Data["status"] != "finished" || patch.Data["phase"] != state.PhaseFinished {
-		t.Fatalf("bad close patch: %#v", patch)
 	}
 }
 
@@ -1541,7 +1541,9 @@ func TestReplayLegacyMulliganKeepOps(t *testing.T) {
 }
 
 func TestDisconnectVoteOpenAndExpelEmitsSemanticPatches(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
 	openCommand := command("game-1", 1, "disconnect-open", "disconnect.vote", map[string]any{
 		"targetPlayerId":   "p2",
 		"status":           "offline",
@@ -1556,7 +1558,8 @@ func TestDisconnectVoteOpenAndExpelEmitsSemanticPatches(t *testing.T) {
 	if openPatch == nil {
 		t.Fatalf("missing disconnect.vote.set patch: %#v", open.Patches)
 	}
-	vote := openPatch.Data["disconnectVote"].(map[string]any)
+	votes := openPatch.Data["disconnectVotes"].(map[string]any)
+	vote := votes["p2"].(map[string]any)
 	if vote["status"] != "open" || vote["targetPlayerId"] != "p2" {
 		t.Fatalf("disconnect vote = %#v, want open for p2", vote)
 	}
@@ -1577,8 +1580,8 @@ func TestDisconnectVoteOpenAndExpelEmitsSemanticPatches(t *testing.T) {
 	if snapshot.Players["p2"]["status"] != "conceded" {
 		t.Fatalf("p2 status = %#v, want conceded", snapshot.Players["p2"])
 	}
-	if snapshot.DisconnectVote["status"] != "resolved_expel" {
-		t.Fatalf("disconnect vote status = %#v, want resolved_expel", snapshot.DisconnectVote)
+	if snapshot.DisconnectVotes["p2"]["status"] != "resolved_expel" {
+		t.Fatalf("disconnect vote status = %#v, want resolved_expel", snapshot.DisconnectVotes)
 	}
 }
 
@@ -1592,13 +1595,15 @@ func TestReplayAppliesDisconnectVoteLifecycleEvents(t *testing.T) {
 			"targetPlayerId":   "p2",
 			"status":           "offline",
 			"connectedUserIds": []string{"p1"},
-			"disconnectVote": map[string]any{
-				"targetPlayerId": "p2",
-				"status":         "open",
-				"openedAt":       "2026-01-01T00:00:00Z",
-				"deadlineAt":     "2026-01-01T00:01:00Z",
-				"cooldownUntil":  nil,
-				"votes":          map[string]any{},
+			"disconnectVotes": map[string]any{
+				"p2": map[string]any{
+					"targetPlayerId": "p2",
+					"status":         "open",
+					"openedAt":       "2026-01-01T00:00:00Z",
+					"deadlineAt":     "2026-01-01T00:01:00Z",
+					"cooldownUntil":  nil,
+					"votes":          map[string]any{},
+				},
 			},
 		},
 	}
@@ -1607,8 +1612,123 @@ func TestReplayAppliesDisconnectVoteLifecycleEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("disconnect vote replay failed: %v", err)
 	}
-	if replayed.Version != 2 || replayed.DisconnectVote["status"] != "open" || replayed.DisconnectVote["targetPlayerId"] != "p2" {
-		t.Fatalf("replayed disconnect vote mismatch: version=%d vote=%#v", replayed.Version, replayed.DisconnectVote)
+	if replayed.Version != 2 || replayed.DisconnectVotes["p2"]["status"] != "open" || replayed.DisconnectVotes["p2"]["targetPlayerId"] != "p2" {
+		t.Fatalf("replayed disconnect vote mismatch: version=%d vote=%#v", replayed.Version, replayed.DisconnectVotes)
+	}
+}
+
+func TestDisconnectVotesRemainIndependentAndTimeoutUsesWaitReducer(t *testing.T) {
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+	open := func(actionID, targetPlayerID string, connected []string) CommandResult {
+		command := command("game-1", gameActor.Version(), actionID, "disconnect.vote", map[string]any{
+			"targetPlayerId":   targetPlayerID,
+			"status":           "offline",
+			"connectedUserIds": connected,
+		})
+		command.Client = map[string]any{"source": "runtime_ws_presence"}
+		return gameActor.ApplyDirect(context.Background(), command, "")
+	}
+
+	if result := open("open-p2", "p2", []string{"p1", "p3"}); result.Err != nil {
+		t.Fatalf("open p2 vote: %v", result.Err)
+	}
+	if result := open("open-p3", "p3", []string{"p1"}); result.Err != nil {
+		t.Fatalf("open p3 vote: %v", result.Err)
+	}
+	if votes := gameActor.Snapshot().DisconnectVotes; len(votes) != 2 || votes["p2"]["status"] != "open" || votes["p3"]["status"] != "open" {
+		t.Fatalf("independent votes = %#v", votes)
+	}
+
+	reconnect := command("game-1", gameActor.Version(), "reconnect-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "status": "online", "connectedUserIds": []string{"p1", "p2"},
+	})
+	reconnect.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), reconnect, ""); result.Err != nil {
+		t.Fatalf("reconnect p2: %v", result.Err)
+	}
+	votes := gameActor.Snapshot().DisconnectVotes
+	if votes["p2"]["status"] != "cancelled" || votes["p3"]["status"] != "open" {
+		t.Fatalf("reconnect must only cancel p2 vote: %#v", votes)
+	}
+
+	timeout := command("game-1", gameActor.Version(), "timeout-p3", "disconnect.vote", map[string]any{"targetPlayerId": "p3", "status": "timeout"})
+	timeout.Client = map[string]any{"source": "runtime_actor_tick"}
+	if result := gameActor.ApplyDirect(context.Background(), timeout, ""); result.Err != nil {
+		t.Fatalf("timeout p3: %v", result.Err)
+	}
+	votes = gameActor.Snapshot().DisconnectVotes
+	if votes["p3"]["status"] != "resolved_wait" || votes["p3"]["votes"].(map[string]any)["p1"].(map[string]any)["vote"] != "wait" {
+		t.Fatalf("timeout must materialize wait through vote state: %#v", votes["p3"])
+	}
+}
+
+func TestDisconnectVoteDeadlineTickPublishesResolvedWaitPatch(t *testing.T) {
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+	open := command("game-1", 1, "open-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "status": "offline", "connectedUserIds": []string{"p1"},
+	})
+	open.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), open, ""); result.Err != nil {
+		t.Fatalf("open vote: %v", result.Err)
+	}
+	gameActor.stateMu.Lock()
+	gameActor.state.DisconnectVotes["p2"]["deadlineAt"] = "2000-01-01T00:00:00Z"
+	gameActor.stateMu.Unlock()
+	published := make(chan CommandResult, 1)
+	gameActor.SetInternalResultPublisher(func(_ context.Context, result CommandResult) { published <- result })
+
+	gameActor.resolveDueDisconnectVotes(context.Background())
+	select {
+	case result := <-published:
+		if result.Err != nil || patchForVisibility(result.Patches, protocol.VisibilityPublic, "disconnect.vote.set") == nil {
+			t.Fatalf("deadline patch result = %#v", result)
+		}
+	default:
+		t.Fatal("deadline tick did not publish its compact patch")
+	}
+	if vote := gameActor.Snapshot().DisconnectVotes["p2"]; vote["status"] != "resolved_wait" {
+		t.Fatalf("deadline vote status = %#v", vote)
+	}
+}
+
+func TestDisconnectExpelKeepsActorUsableForRemainingPlayers(t *testing.T) {
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+	open := command("game-1", 1, "open-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "status": "offline", "connectedUserIds": []string{"p1"},
+	})
+	open.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), open, ""); result.Err != nil {
+		t.Fatalf("open vote: %v", result.Err)
+	}
+	expel := command("game-1", gameActor.Version(), "expel-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "playerId": "p1", "vote": "expel", "connectedUserIds": []string{"p1"},
+	})
+	if result := gameActor.ApplyDirect(context.Background(), expel, "p1"); result.Err != nil {
+		t.Fatalf("expel p2: %v", result.Err)
+	}
+	versionAfterExpel := gameActor.Version()
+	for _, entry := range []struct {
+		playerID, actionID string
+		life               int
+	}{
+		{"p1", "p1-after-expel", 39},
+		{"p3", "p3-after-expel", 38},
+	} {
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Version(), entry.actionID, "life.changed", map[string]any{"playerId": entry.playerID, "life": entry.life}), entry.playerID)
+		if result.Err != nil {
+			t.Fatalf("remaining player %s action: %v", entry.playerID, result.Err)
+		}
+	}
+	if gameActor.Version() != versionAfterExpel+2 || gameActor.Snapshot().Players["p2"]["status"] != "conceded" {
+		t.Fatalf("expel must not stall stream: version=%d snapshot=%#v", gameActor.Version(), gameActor.Snapshot())
 	}
 }
 
@@ -1916,8 +2036,8 @@ func TestActorAcceptsBaseVersionAdvancedByExternalNoopEvent(t *testing.T) {
 	external := protocol.EventPayloadV2{
 		GameID:    "game-1",
 		Version:   2,
-		Type:      "rematch.vote",
-		Payload:   map[string]any{"playerId": "p2", "vote": "leave"},
+		Type:      "chat.message",
+		Payload:   map[string]any{"message": "control-plane isolation"},
 		CreatedBy: "p2",
 		CreatedAt: time.Now().UTC(),
 	}
@@ -1925,7 +2045,7 @@ func TestActorAcceptsBaseVersionAdvancedByExternalNoopEvent(t *testing.T) {
 		t.Fatalf("append external event: %v", err)
 	}
 
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "draw-after-rematch-vote", "library.draw", map[string]any{
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "draw-after-external-chat", "library.draw", map[string]any{
 		"playerId": "p1",
 	}), "p1")
 	if result.Err != nil {
@@ -1933,6 +2053,56 @@ func TestActorAcceptsBaseVersionAdvancedByExternalNoopEvent(t *testing.T) {
 	}
 	if result.Event.Version != 3 || gameActor.Snapshot().Version != 3 {
 		t.Fatalf("version after catch-up got event=%d snapshot=%d want 3", result.Event.Version, gameActor.Snapshot().Version)
+	}
+}
+
+func TestActorRecoversAuthoritativeVersionAfterInjectedAppendCollisionAndAcceptsNextCommand(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:    "game-1",
+		Version:   2,
+		Type:      "chat.message",
+		Payload:   map[string]any{"message": "control-plane isolation"},
+		CreatedBy: "p2",
+		CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("inject conflicting event: %v", err)
+	}
+
+	// OLD: the duplicate-version error escaped as COMMAND_FAILED and left the
+	// actor on v1 forever. NEW: the failed mutation is rolled back, authoritative
+	// v2 is recovered once, and the caller receives a semantic resync conflict.
+	conflict := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "life-collides-v2", "life.changed", map[string]any{
+		"playerId": "p1",
+		"life":     37,
+	}), "p1")
+	if !errors.Is(conflict.Err, ErrVersionConflict) {
+		t.Fatalf("collision error got %v want %v", conflict.Err, ErrVersionConflict)
+	}
+	if snapshot := gameActor.Snapshot(); snapshot.Version != 2 || snapshot.Players["p1"]["life"] != 40 {
+		t.Fatalf("failed command leaked state or actor did not recover: version=%d player=%#v", snapshot.Version, snapshot.Players["p1"])
+	}
+	if _, ok, err := store.EventByClientActionID(context.Background(), "game-1", "life-collides-v2"); err != nil || ok {
+		t.Fatalf("failed action was persisted: ok=%v err=%v", ok, err)
+	}
+
+	next := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "life-after-recovery", "life.changed", map[string]any{
+		"playerId": "p1",
+		"life":     36,
+	}), "p1")
+	if next.Err != nil {
+		t.Fatalf("next command failed after recovery: %v", next.Err)
+	}
+	if snapshot := gameActor.Snapshot(); next.Event.Version != 3 || snapshot.Version != 3 || snapshot.Players["p1"]["life"] != 36 {
+		t.Fatalf("next command mismatch: event=%d stateVersion=%d player=%#v", next.Event.Version, snapshot.Version, snapshot.Players["p1"])
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 || events[0].Version != 2 || events[1].Version != 3 {
+		t.Fatalf("stream versions got %#v want [2, 3]", events)
 	}
 }
 

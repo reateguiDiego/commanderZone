@@ -1,21 +1,21 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { GameRematchVote } from '../../../../../core/models/game.model';
 
 export interface RematchPlayerVoteView {
   readonly playerId: string;
   readonly displayName: string;
+  readonly winner: boolean;
   readonly life: number;
   readonly defeated: boolean;
   readonly vote: GameRematchVote | null;
 }
 
-export type RematchCountdownMode = 'initial' | 'courtesy';
-
 @Component({
   selector: 'app-game-rematch-modal',
-  imports: [RuntimeTranslatePipe, AppModalComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, AppModalComponent],
   templateUrl: './game-rematch-modal.component.html',
   styleUrl: './game-rematch-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,7 +28,6 @@ export class GameRematchModalComponent {
   readonly pending = input(false);
   readonly playAgainDisabled = input(false);
   readonly countdownSeconds = input<number | null>(null);
-  readonly countdownMode = input<RematchCountdownMode | null>(null);
   readonly missingPlayerNames = input<readonly string[]>([]);
 
   readonly playAgain = output<void>();
@@ -51,28 +50,16 @@ export class GameRematchModalComponent {
     switch (vote) {
       case 'play_again':
         return 'game.gameRematchModal.playAgain';
-      case 'leave':
+      case 'leave_room':
         return 'game.gameRematchModal.leaveRoom';
       default:
         return 'game.gameRematchModal.noVote';
     }
   }
 
-  countdownTitle(): string {
-    return this.countdownMode() === 'courtesy'
-      ? 'game.gameRematchModal.extraTime'
-      : 'game.gameRematchModal.timeLimit';
-  }
+  countdownTitle(): string { return 'game.gameRematchModal.timeLimit'; }
 
   countdownMessageKey(): string {
-    if (this.countdownMode() === 'courtesy') {
-      if (this.currentVote() === null) {
-        return 'game.gameRematchModal.yourVoteMissingExtra';
-      }
-
-      return 'game.gameRematchModal.playersMissingExtra';
-    }
-
     if (this.currentVote() === null) {
       return 'game.gameRematchModal.youHaveSecondsToVote';
     }

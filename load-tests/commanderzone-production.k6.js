@@ -235,7 +235,7 @@ export function teardown(data) {
       continue;
     }
     try {
-      closeGameBestEffort(owner);
+      concedeGameBestEffort(owner);
       cleanupFailureRate.add(false);
     } catch (error) {
       cleanupFailureRate.add(true);
@@ -537,7 +537,7 @@ function sendRuntimeCommand(socket, user, baseVersion, command) {
   };
 }
 
-function closeGameBestEffort(owner) {
+function concedeGameBestEffort(owner) {
   const token = cleanupToken(owner);
   const snapshotResponse = getJson(`/games/${owner.gameId}/snapshot`, token, 'cleanup.snapshot', expectedSuccessOrForbiddenOrMissing);
   if (snapshotResponse.status === 404 || snapshotResponse.status === 403) {
@@ -550,8 +550,8 @@ function closeGameBestEffort(owner) {
     let settled = false;
     socket.on('open', () => {
       sendRuntimeCommand(socket, owner, version, {
-        type: 'game.close',
-        payload: {},
+        type: 'game.concede',
+        payload: { playerId: owner.id },
       });
     });
     socket.on('message', (raw) => {

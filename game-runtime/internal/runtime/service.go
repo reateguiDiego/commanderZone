@@ -3,27 +3,34 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync"
 	"time"
 
 	"commanderzone/game-runtime/internal/actor"
+	"commanderzone/game-runtime/internal/lifecycle"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
 
 var ErrActorStateNotFound = errors.New("runtime actor state not found")
+var ErrActorClosing = errors.New("runtime actor is closing")
 
 type Service struct {
-	mu        sync.RWMutex
-	actors    map[string]*actor.GameActor
-	cancels   map[string]context.CancelFunc
-	leases    map[string]OwnershipLease
-	store     persistence.EventStore
-	queueSize int
-	appliers  []actor.Applier
+	mu                  sync.RWMutex
+	actors              map[string]*actor.GameActor
+	cancels             map[string]context.CancelFunc
+	leases              map[string]OwnershipLease
+	closing             map[string]struct{}
+	actorStoppedHook    func(string)
+	store               persistence.EventStore
+	queueSize           int
+	appliers            []actor.Applier
+	lifecycleSink       lifecycle.Sink
+	lifecycleGeneration int64
 
 	instanceID  string
 	ownership   OwnershipManager
@@ -94,6 +101,15 @@ func WithOwnershipRenewBefore(duration time.Duration) ServiceOption {
 	}
 }
 
+func WithLifecycleSink(sink lifecycle.Sink, generation int64) ServiceOption {
+	return func(s *Service) {
+		s.lifecycleSink = sink
+		if generation > 0 {
+			s.lifecycleGeneration = generation
+		}
+	}
+}
+
 func NewService() *Service {
 	return NewServiceWithStore(persistence.NewInMemoryEventStore(), 128, actor.DefaultAppliers())
 }
@@ -110,16 +126,18 @@ func NewServiceWithStoreAndOptions(store persistence.EventStore, queueSize int, 
 		appliers = actor.DefaultAppliers()
 	}
 	service := &Service{
-		actors:      map[string]*actor.GameActor{},
-		cancels:     map[string]context.CancelFunc{},
-		leases:      map[string]OwnershipLease{},
-		store:       store,
-		queueSize:   queueSize,
-		appliers:    appliers,
-		instanceID:  DefaultRuntimeInstanceID(),
-		ownership:   NewSingleNodeOwnershipManager(),
-		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
-		renewBefore: 5 * time.Second,
+		actors:              map[string]*actor.GameActor{},
+		cancels:             map[string]context.CancelFunc{},
+		leases:              map[string]OwnershipLease{},
+		closing:             map[string]struct{}{},
+		store:               store,
+		queueSize:           queueSize,
+		appliers:            appliers,
+		instanceID:          DefaultRuntimeInstanceID(),
+		ownership:           NewSingleNodeOwnershipManager(),
+		logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		renewBefore:         5 * time.Second,
+		lifecycleGeneration: 1,
 	}
 	for _, opt := range opts {
 		opt(service)
@@ -139,12 +157,21 @@ func NewServiceWithStoreAndOptions(store persistence.EventStore, queueSize int, 
 	return service
 }
 
+// SetActorStoppedHook lets the WS gateway release game-scoped peers and
+// histories only after the actor has stopped and the lease was released.
+func (s *Service) SetActorStoppedHook(hook func(string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.actorStoppedHook = hook
+}
+
 func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.acquireOwnershipLocked(context.Background(), gameID); err != nil {
 		return
 	}
+	actor.SetLifecycleSink(s.lifecycleSink, s.lifecycleGeneration)
 	s.actors[gameID] = actor
 }
 
@@ -160,6 +187,9 @@ func (s *Service) LoadActorFromInitialState(ctx context.Context, gameID string, 
 func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial *state.GameState) (*actor.GameActor, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, closing := s.closing[gameID]; closing {
+		return nil, false, ErrActorClosing
+	}
 
 	if gameActor, ok := s.actors[gameID]; ok {
 		if err := s.ensureOwnershipLocked(ctx, gameID); err != nil {
@@ -182,10 +212,73 @@ func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial
 	// response is written.
 	actorCtx, cancel := context.WithCancel(context.Background())
 	gameActor := actor.NewGameActorWithCommandGuard(gameID, recovered, s.store, s.queueSize, s.appliers, s.commandOwnershipGuard(gameID))
+	gameActor.SetLifecycleSink(s.lifecycleSink, s.lifecycleGeneration)
+	gameActor.SetLifecycleConfirmedHook(func(handoff lifecycle.Handoff) {
+		if handoff.Type != lifecycle.GameFinished {
+			return
+		}
+		go s.stopFinishedActor(gameID, gameActor)
+	})
 	s.actors[gameID] = gameActor
 	s.cancels[gameID] = cancel
 	gameActor.Start(actorCtx)
 	return gameActor, true, nil
+}
+
+// ReleaseClosingTombstone is called only after Symfony has committed deletion
+// of the game. Until then the tombstone prevents a valid but stale ticket from
+// recreating an actor between stop and delete.
+func (s *Service) ReleaseClosingTombstone(gameID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.closing, gameID)
+}
+
+func (s *Service) DeliverPresenceLifecycle(ctx context.Context, gameID string, handoffType string, occurredAt time.Time) error {
+	if s.lifecycleSink == nil {
+		return nil
+	}
+	s.mu.RLock()
+	gameActor, actorExists := s.actors[gameID]
+	lease, leaseExists := s.leases[gameID]
+	generation := s.lifecycleGeneration
+	s.mu.RUnlock()
+	if !actorExists || !leaseExists {
+		return ErrActorStateNotFound
+	}
+	version := gameActor.Version()
+	if version < 1 {
+		version = 1
+	}
+	if occurredAt.IsZero() {
+		occurredAt = time.Now().UTC()
+	}
+	handoff := lifecycle.Handoff{
+		EventID:    fmt.Sprintf("%s:presence:%d", gameID, occurredAt.UnixNano()),
+		GameID:     gameID,
+		Type:       handoffType,
+		Version:    version,
+		Generation: generation,
+		Fencing:    lease.Token,
+		OccurredAt: occurredAt,
+	}
+	return s.lifecycleSink.Deliver(ctx, handoff)
+}
+
+// ClearDisconnectVotesForAllOffline persists only the compact actor snapshot;
+// it deliberately cannot append game_event because zero connected players
+// cannot open or resolve a disconnect vote.
+func (s *Service) ClearDisconnectVotesForAllOffline(ctx context.Context, gameID string) error {
+	s.mu.RLock()
+	gameActor := s.actors[gameID]
+	s.mu.RUnlock()
+	if gameActor == nil {
+		return ErrActorStateNotFound
+	}
+	if !gameActor.ClearDisconnectVotesForAllOffline() {
+		return nil
+	}
+	return gameActor.SaveCompactSnapshot(ctx)
 }
 
 func (s *Service) InstanceID() string {
@@ -357,9 +450,47 @@ func (s *Service) recordActorCacheMiss() {
 	s.metrics.ActorCacheMissCount++
 }
 
+// StopActor is an internal/system lifecycle operation. It is deliberately not
+// exposed as a gameplay command and never appends a game event.
 func (s *Service) StopActor(ctx context.Context, gameID string) error {
 	s.mu.Lock()
+	s.closing[gameID] = struct{}{}
+	gameActor := s.actors[gameID]
+	s.mu.Unlock()
+	if gameActor != nil {
+		gameActor.BeginClosing()
+	}
+	return s.stopActorIfCurrent(ctx, gameID, nil)
+}
+
+// HibernateActor releases an idle runtime after all players disconnect. It is
+// intentionally not closing: a reconnect may recover the actor from its
+// compact snapshot and cancel the persisted control-plane deadline.
+func (s *Service) HibernateActor(ctx context.Context, gameID string) error {
+	return s.stopActorIfCurrent(ctx, gameID, nil)
+}
+
+func (s *Service) stopFinishedActor(gameID string, expected *actor.GameActor) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	s.mu.Lock()
+	if current := s.actors[gameID]; current == expected {
+		s.closing[gameID] = struct{}{}
+		expected.BeginClosing()
+	}
+	s.mu.Unlock()
+	if err := s.stopActorIfCurrent(ctx, gameID, expected); err != nil {
+		s.logger.Warn("runtime actor stop failed after lifecycle finish confirmation", "gameId", gameID, "error", err)
+	}
+}
+
+func (s *Service) stopActorIfCurrent(ctx context.Context, gameID string, expected *actor.GameActor) error {
+	s.mu.Lock()
 	gameActor, ok := s.actors[gameID]
+	if expected != nil && (!ok || gameActor != expected) {
+		s.mu.Unlock()
+		return nil
+	}
 	cancel := s.cancels[gameID]
 	lease := s.leases[gameID]
 	delete(s.actors, gameID)
@@ -376,6 +507,12 @@ func (s *Service) StopActor(ctx context.Context, gameID string) error {
 		return err
 	}
 	s.releaseOwnership(ctx, gameID, lease)
+	s.mu.RLock()
+	hook := s.actorStoppedHook
+	s.mu.RUnlock()
+	if hook != nil {
+		hook(gameID)
+	}
 	return nil
 }
 

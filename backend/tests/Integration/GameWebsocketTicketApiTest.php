@@ -34,7 +34,7 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertStringNotContainsString(':8081', (string) $ownerResponse['websocketUrl']);
         self::assertSame($fixture['gameId'], $ownerResponse['claims']['gameId']);
         self::assertSame('player', $ownerResponse['claims']['role']);
-        self::assertSame(['view', 'command', 'game.close'], $ownerResponse['claims']['permissions']);
+        self::assertSame(['view', 'command'], $ownerResponse['claims']['permissions']);
         $runtimeSecret = static::getContainer()->getParameter('game_runtime_ticket_secret');
         self::assertIsString($runtimeSecret);
         self::assertTrue($this->ticketSignatureMatches($ownerResponse['ticket'], $runtimeSecret));

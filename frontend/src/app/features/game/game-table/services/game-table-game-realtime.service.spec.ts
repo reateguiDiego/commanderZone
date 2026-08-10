@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
-import { MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, MercureGameEvent } from '../../../../core/models/game.model';
 import { MercureService } from '../../../../core/realtime/mercure.service';
 import { GameTableGameRealtimeService } from './game-table-game-realtime.service';
 
@@ -33,6 +33,7 @@ describe('GameTableGameRealtimeService', () => {
   it('invalidates the snapshot for normal game events from the game Mercure stream', () => {
     const handlers = {
       onSnapshotInvalidated: vi.fn(),
+      onRematchState: vi.fn(),
       onRematchCreated: vi.fn(),
     };
 
@@ -49,6 +50,7 @@ describe('GameTableGameRealtimeService', () => {
   it('routes valid rematch events without invalidating the snapshot', () => {
     const handlers = {
       onSnapshotInvalidated: vi.fn(),
+      onRematchState: vi.fn(),
       onRematchCreated: vi.fn(),
     };
 
@@ -63,6 +65,7 @@ describe('GameTableGameRealtimeService', () => {
   it('ignores invalid rematch payloads', () => {
     const handlers = {
       onSnapshotInvalidated: vi.fn(),
+      onRematchState: vi.fn(),
       onRematchCreated: vi.fn(),
     };
 
@@ -72,6 +75,46 @@ describe('GameTableGameRealtimeService', () => {
 
     expect(handlers.onRematchCreated).not.toHaveBeenCalled();
     expect(handlers.onSnapshotInvalidated).not.toHaveBeenCalled();
+  });
+
+  it('applies compact rematch control-plane state without invalidating gameplay', () => {
+    const handlers = { onSnapshotInvalidated: vi.fn(), onRematchState: vi.fn(), onRematchCreated: vi.fn() };
+    service.subscribe('game-1', handlers);
+    events.next(event('room.rematch.vote', { rematch: { votes: {}, deadlineAt: '2026-01-01T00:01:00+00:00' } }, 4));
+
+    expect(handlers.onRematchState).toHaveBeenCalledOnce();
+    expect(handlers.onSnapshotInvalidated).not.toHaveBeenCalled();
+  });
+
+  it('applies the newest Symfony control-plane projection without invalidating gameplay', () => {
+    const handlers = {
+      onSnapshotInvalidated: vi.fn(),
+      onControlPlaneState: vi.fn(),
+      onRematchState: vi.fn(),
+      onRematchCreated: vi.fn(),
+    };
+    service.subscribe('game-1', handlers);
+    events.next(controlPlaneEvent('game.finished', 8, '2026-01-01T00:00:10.000Z'));
+
+    expect(handlers.onControlPlaneState).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+    }), expect.any(Object));
+    expect(handlers.onSnapshotInvalidated).not.toHaveBeenCalled();
+  });
+
+  it('drops a stale out-of-order control-plane event', () => {
+    const handlers = {
+      onSnapshotInvalidated: vi.fn(),
+      onControlPlaneState: vi.fn(),
+      onRematchState: vi.fn(),
+      onRematchCreated: vi.fn(),
+    };
+    service.subscribe('game-1', handlers);
+    events.next(controlPlaneEvent('room.rematch.vote', 8, '2026-01-01T00:00:20.000Z'));
+    events.next(controlPlaneEvent('room.rematch.vote', 8, '2026-01-01T00:00:10.000Z'));
+
+    expect(handlers.onControlPlaneState).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -86,5 +129,30 @@ function event(type: string, payload: Record<string, unknown>, version: number):
       createdBy: 'player-1',
       createdAt: '2026-01-01T00:00:00.000Z',
     },
+  };
+}
+
+function controlPlaneEvent(type: string, version: number, createdAt: string): MercureGameEvent {
+  return {
+    ...event(type, {}, version),
+    event: {
+      ...event(type, {}, version).event,
+      id: `${type}-${createdAt}`,
+      createdAt,
+    },
+    controlPlane: controlPlane(),
+  };
+}
+
+function controlPlane(): GameControlPlaneState {
+  return {
+    status: 'finished',
+    winnerPlayerId: 'player-1',
+    finishedAt: '2026-01-01T00:00:05.000Z',
+    finishReason: 'last_player_standing',
+    allDisconnectedSince: null,
+    nextLifecycleAt: '2026-01-01T00:01:05.000Z',
+    ownerId: 'player-1',
+    rematch: { votes: {}, deadlineAt: '2026-01-01T00:01:05.000Z' },
   };
 }

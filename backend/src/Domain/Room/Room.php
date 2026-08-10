@@ -385,6 +385,17 @@ class Room
         $this->touch();
     }
 
+    public function transferOwnershipToOldestRemainingPlayer(): void
+    {
+        $players = array_values($this->players->toArray());
+        if ($players === []) {
+            return;
+        }
+
+        usort($players, static fn (RoomPlayer $left, RoomPlayer $right): int => $left->joinedAt() <=> $right->joinedAt());
+        $this->transferOwnership($players[0]->user());
+    }
+
     /**
      * @param list<string> $playerUserIds
      */

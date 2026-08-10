@@ -63,6 +63,7 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              [allowQuickConcede]="true"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
@@ -70,6 +71,7 @@
               (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
+              (quickConcedeRequested)="store.concedeGame()"
             />
           }
 
@@ -301,15 +303,15 @@
                 [player]="battlefieldOwner"
                 [players]="store.players()"
                 [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              [playerCounterValue]="playerCounterValue"
-              [canEditCounters]="false"
-              [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
-              (helperPreviewRequested)="showHelperPreview($event)"
-              (helperPreviewHidden)="store.hideCardPreview()"
-              (helperContextRequested)="handleHelperContextRequest($event)"
-              (returnRequested)="returnToCurrentPlayerBattlefield()"
+                [deckLabel]="deckLabel"
+                [manaSymbols]="manaSymbols"
+                [playerCounterValue]="playerCounterValue"
+                [canEditCounters]="false"
+                [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+                (helperPreviewRequested)="showHelperPreview($event)"
+                (helperPreviewHidden)="store.hideCardPreview()"
+                (helperContextRequested)="handleHelperContextRequest($event)"
+                (returnRequested)="returnToCurrentPlayerBattlefield()"
               />
             </div>
           }
@@ -541,18 +543,6 @@
       }
 
       <app-modal
-        [open]="closeGameDialogOpen()"
-        [title]="'game.gameTable.closeGame' | runtimeTranslate"
-        message="This finishes the current game and sends the table back to the rooms list."
-        primaryLabel="Close game"
-        secondaryLabel="Cancel"
-        [danger]="true"
-        [lockBodyScroll]="false"
-        (primary)="confirmCloseGame()"
-        (secondary)="cancelCloseGame()"
-      />
-
-      <app-modal
         [open]="tableExitAction() !== null"
         [title]="tableExitTitle()"
         [message]="tableExitMessage()"
@@ -572,7 +562,6 @@
         [pending]="rematchPending()"
         [playAgainDisabled]="playAgainDisabledByOtherVotes()"
         [countdownSeconds]="rematchCountdownSeconds()"
-        [countdownMode]="rematchCountdownMode()"
         [missingPlayerNames]="rematchMissingVotePlayerNames()"
         (playAgain)="votePlayAgain()"
         (leaveRoom)="abandonRematchRoom()"
@@ -853,7 +842,6 @@
         [menu]="menu"
         [currentPlayer]="store.currentPlayer()"
         [players]="store.players()"
-        [isGameOwner]="store.isGameOwner()"
         [counterPresets]="counterPresets"
         [moveZones]="moveZones"
         [isCurrentPlayer]="isCurrentPlayer"

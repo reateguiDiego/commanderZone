@@ -31,6 +31,7 @@ class GameProjectionService
         $rawSnapshot = $game->snapshot();
         $positionlessBattlefieldInstanceIds = $this->positionlessBattlefieldInstanceIds($rawSnapshot);
         $snapshot = $this->normalizer->normalizeSnapshot($rawSnapshot);
+        $snapshot['rematch'] = $game->rematchState();
         $this->restorePositionlessBattlefieldInstances($snapshot, $positionlessBattlefieldInstanceIds);
         if (($this->streamFlags?->enabled() ?? false) && $this->activityStreams instanceof GameActivityStreamService) {
             $snapshot = $this->activityStreams->decorateSnapshotForViewer($game, $snapshot, $viewer);

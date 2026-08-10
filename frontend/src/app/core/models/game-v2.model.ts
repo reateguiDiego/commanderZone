@@ -6,7 +6,7 @@ import type {
   GameAttachment,
   GameCompactCardRef,
   GameCardPosition,
-  GameDisconnectVoteState,
+  GameDisconnectVotes,
   GameLogEntry,
   GamePowerToughnessValue,
   GamePlayerMulliganState,
@@ -51,10 +51,17 @@ export interface EventPayloadV2 {
 export interface BootstrapGameV2 {
   id: string;
   status: string;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   version: number;
   viewerId: string;
   ownerId?: string | null;
   gamePhase?: string | null;
+  disconnectVotes?: GameDisconnectVotes;
+  rematch?: GameRematchState | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -521,6 +528,9 @@ export type GameplayPatchV2Operation =
       op: 'game.status.set';
       status: string;
       phase?: string | null;
+      winnerPlayerId?: string | null;
+      finishedAt?: string | null;
+      finishReason?: string | null;
     }
   | {
       op: 'zone.counts.set';
@@ -635,7 +645,7 @@ export type GameplayPatchV2Operation =
     }
   | {
       op: 'disconnect.vote.set';
-      disconnectVote: GameDisconnectVoteState | null;
+      disconnectVotes: GameDisconnectVotes;
     }
   | {
       op: 'rematch.set';

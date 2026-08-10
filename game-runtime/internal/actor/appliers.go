@@ -66,7 +66,6 @@ func DefaultAppliers() []Applier {
 		HelperUpdatedApplier{},
 		HelperRemovedApplier{},
 		GameConcedeApplier{},
-		GameCloseApplier{},
 		DisconnectVoteApplier{},
 		MulliganTakeApplier{},
 		MulliganKeepApplier{},

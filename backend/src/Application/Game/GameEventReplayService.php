@@ -432,10 +432,24 @@ final class GameEventReplayService
      */
     private function applyRuntimeDisconnectVoteUpdated(array &$snapshot, array $payload): void
     {
-        if (is_array($payload['disconnectVote'] ?? null)) {
+        if (is_array($payload['disconnectVotes'] ?? null)) {
+            $votesByTarget = [];
+            foreach ($payload['disconnectVotes'] as $targetPlayerId => $disconnectVote) {
+                if (!is_string($targetPlayerId) || !is_array($disconnectVote)) {
+                    continue;
+                }
+                $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
+                $votesByTarget[$targetPlayerId] = $disconnectVote;
+            }
+            $snapshot['disconnectVotes'] = $votesByTarget;
+        } elseif (is_array($payload['disconnectVote'] ?? null)) {
+            // Read-only compatibility for historical single-target events.
             $disconnectVote = $payload['disconnectVote'];
             $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
-            $snapshot['disconnectVote'] = $disconnectVote;
+            $targetPlayerId = is_string($disconnectVote['targetPlayerId'] ?? null) ? trim($disconnectVote['targetPlayerId']) : '';
+            if ($targetPlayerId !== '') {
+                $snapshot['disconnectVotes'][$targetPlayerId] = $disconnectVote;
+            }
         }
 
         $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '';

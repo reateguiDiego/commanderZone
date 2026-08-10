@@ -1,7 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, GameRematchState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import {
   GameplayMulliganCompletedMessage,
   GameplayMulliganErrorMessage,
@@ -150,6 +150,8 @@ export class GameTableSessionService {
   private subscribeToGameRealtime(context: GameTableSessionContext, gameId: string): void {
     this.gameRealtime.subscribe(gameId, {
       onSnapshotInvalidated: (event) => this.refetchIfSnapshotIsBehind(context, event),
+      onControlPlaneState: (controlPlane) => this.applyControlPlaneState(context, controlPlane),
+      onRematchState: (rematch) => this.applyRematchState(context, rematch),
       onRematchCreated: (roomId) => {
         context.navigateToWaitingRoom(roomId);
       },
@@ -174,6 +176,51 @@ export class GameTableSessionService {
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
+  }
+
+  private applyRematchState(context: GameTableSessionContext, rematch: GameRematchState): void {
+    const snapshot = context.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    context.setSnapshot({
+      ...snapshot,
+      rematch: {
+        votes: { ...rematch.votes },
+        deadlineAt: rematch.deadlineAt ?? null,
+      },
+    });
+  }
+
+  private applyControlPlaneState(context: GameTableSessionContext, controlPlane: GameControlPlaneState): void {
+    if (this.gameplayV2Flags.enabled()) {
+      const snapshot = this.normalizedV2Store.applyControlPlane(controlPlane);
+      if (snapshot) {
+        context.setSnapshot(snapshot);
+      }
+      return;
+    }
+
+    const snapshot = context.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    context.setSnapshot({
+      ...snapshot,
+      status: controlPlane.status,
+      winnerPlayerId: controlPlane.winnerPlayerId,
+      finishedAt: controlPlane.finishedAt,
+      finishReason: controlPlane.finishReason,
+      allDisconnectedSince: controlPlane.allDisconnectedSince,
+      nextLifecycleAt: controlPlane.nextLifecycleAt,
+      ownerId: controlPlane.ownerId ?? undefined,
+      rematch: {
+        votes: { ...controlPlane.rematch.votes },
+        deadlineAt: controlPlane.rematch.deadlineAt ?? null,
+      },
+    });
   }
 
   private async refetchV2(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {

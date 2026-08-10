@@ -27,7 +27,7 @@ Claims firmados del ticket runtime:
 - `userId`
 - `playerId`
 - `role`
-- `permissions` (`view`, `command`; `game.close` solo para el owner autorizado)
+- `permissions` (`view`, `command`)
 - `exp`
 - `protocol: "v2"`
 
@@ -176,7 +176,7 @@ Operaciones actuales:
 
 `player.status.set` cubre cambios de estado del jugador, como `game.concede`, sin alterar `backgroundName` ni `sleevesName`.
 
-`game.close` no introduce `GameSnapshot.status`: el estado top-level de cierre pertenece al modelo `Game`, no al snapshot de gameplay. El patch de cierre transporta el cambio minimo aplicable al snapshot, normalmente `eventLog.append`; cualquier sincronizacion de estado top-level fuera del snapshot debe resolverse fuera de este contrato.
+El cierre de gameplay no es un comando público: Go concluye la partida mediante `game.concede` cuando queda un único jugador `active`, y Symfony proyecta el control plane mediante el handoff idempotente `game.finished`.
 
 `turn.set` y `timer.set` evitan pedir snapshot completo para cambios de turno o temporizador. `timer.set` existe porque `timer` forma parte del `GameSnapshot` actual.
 

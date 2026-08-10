@@ -1875,7 +1875,7 @@ describe('GameTableComponent', () => {
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('concedes before leaving the table from an active game', async () => {
+  it('sends only leave room from an active game', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const activeSnapshot = snapshotWithStatus('active');
@@ -1894,7 +1894,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.leaveTable();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: { playerId: 'user-1' } }), 'game-1');
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
     expect(roomsApi.leave).toHaveBeenCalledWith('room-1', true);
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
@@ -4241,7 +4241,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-2']);
   });
 
-  it('keeps defeated opponents at the bottom of the opponent sidebar', async () => {
+  it('keeps only conceded opponents at the bottom of the opponent sidebar', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -4269,12 +4269,12 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual([
-      'user-3',
       'user-2',
+      'user-3',
       'user-4',
     ]);
     expect(Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="opponent-mini-board"]'))
-      .map((board) => board.dataset['playerId'])).toEqual(['user-3', 'user-2', 'user-4']);
+      .map((board) => board.dataset['playerId'])).toEqual(['user-2', 'user-3', 'user-4']);
   });
 
   it('refreshes the focused battlefield, background, and hand when focus turn follows a passed turn', async () => {
@@ -4309,27 +4309,6 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
     expect(fixture.componentInstance.store.manaPool('user-2').U).toBe(0);
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
-  });
-
-  it('opens a close confirmation before sending the close game command', async () => {
-    routeParams['id'] = 'game-1';
-    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
-    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
-
-    const fixture = TestBed.createComponent(GameTableComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    fixture.componentInstance.handleContextMenuAction({ type: 'closeGame' }, {
-      x: 0,
-      y: 0,
-      playerId: 'user-1',
-      zone: 'battlefield',
-      kind: 'game',
-    });
-
-    expect(fixture.componentInstance.closeGameDialogOpen()).toBe(true);
-    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('shows the table sync status and prioritizes pending actions', async () => {
@@ -5685,7 +5664,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.abandonRematchRoom();
 
-    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave');
+    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave_room');
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
     expect(navigate).not.toHaveBeenCalledWith(['/rooms', 'room-1', 'waiting']);
   });
@@ -5700,8 +5679,10 @@ describe('GameTableComponent', () => {
       user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
       life: 38,
     };
+    snapshot.players['user-1'].status = 'conceded';
     snapshot.players['user-1'].life = 0;
     snapshot.rematch = {
+      deadlineAt: '2026-04-30T20:02:00+00:00',
       votes: {
         'user-1': {
           playerId: 'user-1',
@@ -5733,10 +5714,13 @@ describe('GameTableComponent', () => {
     snapshot.players['user-3'] = {
       ...snapshot.players['user-2'],
       user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+      status: 'conceded',
       life: 0,
     };
+    snapshot.players['user-1'].status = 'conceded';
     snapshot.players['user-1'].life = 0;
     snapshot.rematch = {
+      deadlineAt: '2026-04-30T20:02:00+00:00',
       votes: {
         'user-1': {
           playerId: 'user-1',
@@ -5746,7 +5730,7 @@ describe('GameTableComponent', () => {
         },
       },
     };
-    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'finished', snapshot: { ...snapshot, status: 'finished' } } }));
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -5757,7 +5741,7 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.alivePlayers().map((player) => player.id)).toEqual(['user-2']);
     expect(fixture.componentInstance.rematchMissingVotePlayerNames()).toEqual(['Opponent', 'Third']);
-    expect(fixture.componentInstance.rematchCountdownSeconds()).toBe(60);
+    expect(fixture.componentInstance.rematchCountdownSeconds()).not.toBeNull();
   });
 
   it('queues card counter clicks behind a pending action without showing the wait toast', async () => {

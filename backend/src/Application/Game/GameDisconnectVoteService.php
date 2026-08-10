@@ -47,7 +47,7 @@ class GameDisconnectVoteService
         if (!isset($snapshot['players'][$targetPlayerId])) {
             return null;
         }
-        if (($snapshot['players'][$targetPlayerId]['status'] ?? 'active') === 'conceded') {
+        if (($snapshot['players'][$targetPlayerId]['status'] ?? null) !== 'active') {
             return null;
         }
         if ($this->isOpenVote($state)) {
@@ -310,7 +310,7 @@ class GameDisconnectVoteService
     private function playerIsActive(array $snapshot, string $playerId): bool
     {
         return isset($snapshot['players'][$playerId])
-            && (($snapshot['players'][$playerId]['status'] ?? 'active') !== 'conceded');
+            && (($snapshot['players'][$playerId]['status'] ?? null) === 'active');
     }
 
     /**
@@ -327,7 +327,7 @@ class GameDisconnectVoteService
                 !is_string($playerId)
                 || !is_array($player)
                 || $playerId === $targetPlayerId
-                || ($player['status'] ?? 'active') === 'conceded'
+                || ($player['status'] ?? null) !== 'active'
                 || !isset($connected[$playerId])
             ) {
                 continue;

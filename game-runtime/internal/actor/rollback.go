@@ -155,7 +155,6 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		playerID := stringPayload(command.Payload, "playerId")
 		rollback.capturePlayer(game, playerID)
 		rollback.captureTurn(game)
-	case "game.close":
 	case "mulligan.take", "mulligan.keep", "mulligan.cards_bottomed", "mulligan.scry.confirm", "mulligan.ready", "mulligan.completed", "game.phase.set":
 		rollback.captureMulligan(game)
 		rollback.captureVisibility(game)

@@ -1060,7 +1060,6 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "game.gameRematchModal.yourVoteMissingExtra": "Your vote is missing. You have {{ seconds }}s extra to vote.",
   "game.gameTable.chat": "Chat",
   "game.gameTable.chatUnreadMessages": "Chat, unread messages",
-  "game.gameTable.closeGame": "Close game?",
   "game.gameTable.gameLog": "Game Log",
   "game.gameTable.gameLogUnreadActions": "Game Log, unread actions",
   "game.gameTable.gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",

@@ -1,7 +1,6 @@
 import { Injectable, OnDestroy, computed, effect, inject, signal } from '@angular/core';
-import { firstValueFrom, Subscription } from 'rxjs';
-import { GamesApi } from '../../../../core/api/games.api';
-import { GameDisconnectVoteChoice } from '../../../../core/models/game.model';
+import { Subscription } from 'rxjs';
+import { GameDisconnectVoteChoice, GameDisconnectVoteState } from '../../../../core/models/game.model';
 import { GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameTableStore } from '../game-table.store';
 import { GameTableContextStore } from '../state/core/game-table-context.store';
@@ -19,12 +18,11 @@ export interface DisconnectVotePlayerView {
 export class GameTableDisconnectVoteService implements OnDestroy {
   private readonly store = inject(GameTableStore);
   private readonly contexts = inject(GameTableContextStore);
-  private readonly gamesApi = inject(GamesApi);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly transport = inject(GameTableWebsocketTransportService);
 
   private readonly onlineByPlayerId = signal<Record<string, boolean>>({});
-  private readonly dismissedVoteKey = signal<string | null>(null);
+  private readonly dismissedVoteKeys = signal<ReadonlySet<string>>(new Set());
   private readonly countdownTick = signal(0);
   private countdownTimer: number | null = null;
   private readonly subscriptions = new Subscription();
@@ -33,7 +31,21 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   readonly pending = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly voteState = computed(() => this.store.snapshot()?.disconnectVote ?? null);
+  readonly voteState = computed(() => {
+    const currentPlayerId = this.currentPlayerId();
+    if (!currentPlayerId) {
+      return null;
+    }
+
+    const dismissedVoteKeys = this.dismissedVoteKeys();
+    return Object.values(this.store.snapshot()?.disconnectVotes ?? {})
+      .filter((vote) => vote.status === 'open' && vote.eligible?.includes(currentPlayerId))
+      .sort((left, right) => (left.openedAt ?? '').localeCompare(right.openedAt ?? ''))
+      .find((vote) => {
+        const voteKey = this.voteKeyFor(vote);
+        return voteKey !== null && !dismissedVoteKeys.has(voteKey);
+      }) ?? null;
+  });
   readonly targetPlayerId = computed(() => this.voteState()?.targetPlayerId ?? null);
   readonly targetPlayerName = computed(() => {
     const targetPlayerId = this.targetPlayerId();
@@ -73,7 +85,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     if (currentPlayerId === state.targetPlayerId) {
       return false;
     }
-    if (snapshot.players[currentPlayerId]?.status === 'conceded') {
+    if (snapshot.players[currentPlayerId]?.status === 'conceded' || !state.eligible?.includes(currentPlayerId)) {
       return false;
     }
 
@@ -90,7 +102,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     const onlineByPlayerId = this.onlineByPlayerId();
 
     return Object.entries(snapshot.players)
-      .filter(([playerId]) => playerId !== state.targetPlayerId)
+      .filter(([playerId]) => playerId !== state.targetPlayerId && state.eligible?.includes(playerId))
       .map(([playerId, player]) => {
         const vote = votes[playerId]?.vote;
 
@@ -125,13 +137,9 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       const voteKey = this.voteKey();
       if (!canVote || !voteKey) {
         this.modalOpen.set(false);
-        this.dismissedVoteKey.set(null);
+        this.dismissedVoteKeys.set(new Set());
         return;
       }
-      if (this.dismissedVoteKey() === voteKey) {
-        return;
-      }
-
       this.modalOpen.set(true);
     });
 
@@ -163,7 +171,10 @@ export class GameTableDisconnectVoteService implements OnDestroy {
 
   closeModal(): void {
     this.modalOpen.set(false);
-    this.dismissedVoteKey.set(this.voteKey());
+    const voteKey = this.voteKey();
+    if (voteKey) {
+      this.dismissedVoteKeys.update((current) => new Set([...current, voteKey]));
+    }
   }
 
   async vote(choice: GameDisconnectVoteChoice): Promise<void> {
@@ -186,8 +197,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
         { targetPlayerId, vote: choice },
       );
       if (!sent) {
-        await firstValueFrom(this.gamesApi.disconnectVote(gameId, targetPlayerId, choice));
-        await this.store.refetch(true, 'disconnect_vote.http_fallback');
+        this.error.set('La conexión de juego no está disponible.');
       }
     } catch (error) {
       this.error.set(this.errorMessage(error));
@@ -219,7 +229,10 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   }
 
   private voteKey(): string | null {
-    const state = this.voteState();
+    return this.voteKeyFor(this.voteState());
+  }
+
+  private voteKeyFor(state: GameDisconnectVoteState | null): string | null {
     if (!state || state.status !== 'open' || !state.targetPlayerId) {
       return null;
     }

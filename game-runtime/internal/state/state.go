@@ -242,36 +242,62 @@ func firstRaw(values ...json.RawMessage) json.RawMessage {
 }
 
 type GameState struct {
-	GameID         string                         `json:"gameId"`
-	Version        int64                          `json:"version"`
-	Status         string                         `json:"status"`
-	Phase          GamePhase                      `json:"phase,omitempty"`
-	Players        map[string]map[string]any      `json:"players"`
-	SharedCounters map[string]map[string]int      `json:"sharedCounters,omitempty"`
-	Turn           map[string]any                 `json:"turn"`
-	DisconnectVote map[string]any                 `json:"disconnectVote,omitempty"`
-	Instances      map[string]CardInstanceRuntime `json:"instances"`
-	Zones          map[string]PlayerZones         `json:"zones"`
-	Loc            map[string]Location            `json:"loc"`
-	Visibility     VisibilityIndex                `json:"visibility"`
-	Relations      Relations                      `json:"relations"`
-	Stack          []StackItem                    `json:"stack"`
-	Mulligan       MulliganState                  `json:"mulligan,omitempty"`
+	GameID         string                    `json:"gameId"`
+	Version        int64                     `json:"version"`
+	Status         string                    `json:"status"`
+	Phase          GamePhase                 `json:"phase,omitempty"`
+	WinnerPlayerID string                    `json:"winnerPlayerId,omitempty"`
+	FinishedAt     string                    `json:"finishedAt,omitempty"`
+	FinishReason   string                    `json:"finishReason,omitempty"`
+	Players        map[string]map[string]any `json:"players"`
+	SharedCounters map[string]map[string]int `json:"sharedCounters,omitempty"`
+	Turn           map[string]any            `json:"turn"`
+	// DisconnectVotes is actor-owned hot state keyed by disconnected target.
+	// Keeping targets independent avoids a global modal/vote bottleneck.
+	DisconnectVotes map[string]map[string]any      `json:"disconnectVotes,omitempty"`
+	Instances       map[string]CardInstanceRuntime `json:"instances"`
+	Zones           map[string]PlayerZones         `json:"zones"`
+	Loc             map[string]Location            `json:"loc"`
+	Visibility      VisibilityIndex                `json:"visibility"`
+	Relations       Relations                      `json:"relations"`
+	Stack           []StackItem                    `json:"stack"`
+	Mulligan        MulliganState                  `json:"mulligan,omitempty"`
 }
 
 func (s *GameState) UnmarshalJSON(data []byte) error {
 	type alias GameState
-	aux := struct {
-		GamePhase GamePhase `json:"gamePhase"`
-		*alias
-	}{
-		alias: (*alias)(s),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	// Symfony's historical JSON encoder represents an empty map as []. Decode
+	// this one actor-owned map separately so an old compact snapshot cannot
+	// prevent actor recovery after the plural disconnect-vote migration.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if s.Phase == "" && aux.GamePhase != "" {
-		s.Phase = aux.GamePhase
+	disconnectVotes := raw["disconnectVotes"]
+	legacyDisconnectVoteRaw := raw["disconnectVote"]
+	delete(raw, "disconnectVotes")
+	normalized, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(normalized, (*alias)(s)); err != nil {
+		return err
+	}
+	var gamePhase GamePhase
+	if err := json.Unmarshal(raw["gamePhase"], &gamePhase); err == nil && s.Phase == "" && gamePhase != "" {
+		s.Phase = gamePhase
+	}
+	if err := decodeMapOrEmpty(disconnectVotes, &s.DisconnectVotes); err != nil {
+		return err
+	}
+	// Snapshots written before multiple simultaneous targets used one vote.
+	// Recover it once into the plural actor-owned representation rather than
+	// retaining two live sources of truth.
+	var legacyDisconnectVote map[string]any
+	if err := json.Unmarshal(legacyDisconnectVoteRaw, &legacyDisconnectVote); err == nil && len(s.DisconnectVotes) == 0 && len(legacyDisconnectVote) > 0 {
+		if targetPlayerID, ok := legacyDisconnectVote["targetPlayerId"].(string); ok && targetPlayerID != "" {
+			s.DisconnectVotes = map[string]map[string]any{targetPlayerID: cloneAnyMap(legacyDisconnectVote)}
+		}
 	}
 	return nil
 }
@@ -286,11 +312,21 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Players == nil {
 		game.Players = map[string]map[string]any{}
 	}
+	for playerID, player := range game.Players {
+		status, _ := player["status"].(string)
+		if status != "active" && status != "conceded" {
+			player["status"] = "active"
+			game.Players[playerID] = player
+		}
+	}
 	if game.SharedCounters == nil {
 		game.SharedCounters = map[string]map[string]int{}
 	}
 	if game.Turn == nil {
 		game.Turn = map[string]any{}
+	}
+	if game.DisconnectVotes == nil {
+		game.DisconnectVotes = map[string]map[string]any{}
 	}
 	if game.Instances == nil {
 		game.Instances = map[string]CardInstanceRuntime{}
@@ -347,7 +383,10 @@ func (s GameState) Clone() GameState {
 		clone.SharedCounters[scope] = cloneIntMap(counters)
 	}
 	clone.Turn = cloneAnyMap(s.Turn)
-	clone.DisconnectVote = cloneAnyMap(s.DisconnectVote)
+	clone.DisconnectVotes = map[string]map[string]any{}
+	for targetPlayerID, vote := range s.DisconnectVotes {
+		clone.DisconnectVotes[targetPlayerID] = cloneAnyMap(vote)
+	}
 	clone.Instances = map[string]CardInstanceRuntime{}
 	for instanceID, instance := range s.Instances {
 		clone.Instances[instanceID] = instance.Clone()

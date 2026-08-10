@@ -4,6 +4,8 @@ namespace App\Application\Game\WebSocket;
 
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\Runtime\GameplayRuntimeRoute;
+use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Domain\Game\Game;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\Room\RoomPlayer;
@@ -22,11 +24,15 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
         private ManagerRegistry $managerRegistry,
         private GameProjectionService $projection,
         private ?GameWebsocketCardLocalizationResolver $cardLocalizationResolver = null,
+        private ?GameplayRuntimeRouter $runtimeRouter = null,
     ) {
     }
 
     public function handlePresenceTransition(string $gameId, string $targetUserId, string $status): ?GameWebsocketCommandResult
     {
+        if ($this->runtimeOwnsDisconnectVote()) {
+            return null;
+        }
         if (
             $status === 'offline'
             && !$this->rooms->isUserOfflineBeyondGrace($gameId, $targetUserId, GameDisconnectVoteService::OFFLINE_GRACE_SECONDS)
@@ -43,6 +49,10 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
 
     public function resolveTimeout(string $gameId): ?GameWebsocketCommandResult
     {
+        if ($this->runtimeOwnsDisconnectVote()) {
+            return null;
+        }
+
         return $this->mutateGame($gameId, function (Game $game): ?array {
             $connectedUserIds = $this->rooms->connectedUserIdsForGame($game->id());
             $resolved = $this->disconnectVotes->resolveOnTimeout($game, $connectedUserIds);
@@ -59,7 +69,7 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
                 if (
                     !is_string($playerId)
                     || !is_array($player)
-                    || ($player['status'] ?? 'active') === 'conceded'
+                    || ($player['status'] ?? null) !== 'active'
                     || in_array($playerId, $connectedUserIds, true)
                     || !$this->rooms->isUserOfflineBeyondGrace($game->id(), $playerId, GameDisconnectVoteService::OFFLINE_GRACE_SECONDS)
                 ) {
@@ -74,6 +84,11 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
 
             return null;
         });
+    }
+
+    private function runtimeOwnsDisconnectVote(): bool
+    {
+        return $this->runtimeRouter?->routeFor('disconnect.vote') === GameplayRuntimeRoute::RuntimePrimary;
     }
 
     /**

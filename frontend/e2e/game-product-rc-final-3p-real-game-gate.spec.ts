@@ -660,16 +660,16 @@ test.describe('rc final 3-player real game regression gate', () => {
       expect(afterLeave['gamePhase']).not.toBe('FINISHED');
       baseVersion = Math.max(baseVersion, Number(afterLeave['version'] ?? baseVersion));
 
-      const close = await runRuntime(request, commandFrames, {
+      const finalConcede = await runRuntime(request, commandFrames, {
         gameId,
-        token: playerA.token,
+        token: playerC.token,
         baseVersion,
-        type: 'game.close',
-        payload: { requestedBy: playerA.user.id },
+        type: 'game.concede',
+        payload: { playerId: playerC.user.id },
       });
-      baseVersion = close.version;
-      const afterClose = await gameSnapshot(request, gameId, playerA.token);
-      expect(afterClose['gamePhase']).toBe('FINISHED');
+      baseVersion = finalConcede.version;
+      const afterFinalConcede = await gameSnapshot(request, gameId, playerA.token);
+      expect(afterFinalConcede['gamePhase']).toBe('FINISHED');
       void baseVersion;
 
       const metricsAfter = await runtimeGatewayMetrics(request);

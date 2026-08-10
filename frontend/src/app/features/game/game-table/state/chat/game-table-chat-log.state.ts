@@ -79,7 +79,7 @@ export class GameTableChatLogState {
         && entry.type !== 'cards.position.changed'
         && entry.message !== 'Reordered hand.');
 
-    return this.compactLog(this.suppressDefeatedPlayerLogs(
+    return this.compactLog(this.suppressConcededPlayerLogs(
       entries,
     ));
   }
@@ -269,35 +269,30 @@ export class GameTableChatLogState {
   }
 
   private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
-    if (this.isDefeatLog(entry)) {
+    if (this.isConcedeLog(entry)) {
       return 'death';
     }
 
     return entry.type === 'turn.changed' ? 'phase' : 'default';
   }
 
-  private isDefeatLog(entry: GameLogEntry): boolean {
-    const message = entry.message.trim();
-
-    return entry.type === 'player.defeated'
-      || entry.type === 'game.concede'
-      || /\bha muerto\.?$/i.test(message)
-      || /\bconceded\.?$/i.test(message);
+  private isConcedeLog(entry: GameLogEntry): boolean {
+    return entry.type === 'game.concede';
   }
 
-  private suppressDefeatedPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
-    const defeatedPlayerIds = new Set<string>();
+  private suppressConcededPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
+    const concededPlayerIds = new Set<string>();
     const visibleEntries: GameLogEntry[] = [];
 
     for (const entry of entries) {
       const actorId = entry.actorId ?? null;
-      if (actorId && defeatedPlayerIds.has(actorId)) {
+      if (actorId && concededPlayerIds.has(actorId)) {
         continue;
       }
 
       visibleEntries.push(entry);
-      if (this.isDefeatLog(entry) && actorId) {
-        defeatedPlayerIds.add(actorId);
+      if (this.isConcedeLog(entry) && actorId) {
+        concededPlayerIds.add(actorId);
       }
     }
 

@@ -20,7 +20,7 @@ describe('PlayersOrderComponent', () => {
     expect(cards[2]?.classList).toContain('current-player');
   });
 
-  it('keeps six players in turn order and hides defeated players', async () => {
+  it('keeps six players in turn order and hides only conceded players', async () => {
     const fixture = await renderPlayersOrder({
       activePlayerId: 'player-4',
       currentPlayerId: 'player-2',
@@ -49,14 +49,13 @@ describe('PlayersOrderComponent', () => {
     fixture.componentRef.setInput('currentPlayerId', 'player-1');
     fixture.componentRef.setInput('players', [
       player('player-1', 'Alive'),
-      player('player-2', 'Dead', { life: 0 }),
+      player('player-2', 'Zero life but active', { life: 0 }),
       player('player-3', 'Conceded', { status: 'conceded' }),
     ]);
     fixture.detectChanges();
 
     const visibleCards = orderCards(fixture);
-    expect(visibleCards).toHaveLength(1);
-    expect(visibleCards[0]?.dataset['playerId']).toBe('player-1');
+    expect(visibleCards.map((card) => card.dataset['playerId'])).toEqual(['player-1', 'player-2']);
   });
 });
 

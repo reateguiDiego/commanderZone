@@ -71,12 +71,20 @@
 }
 
 .player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.winner-crown {
+  flex: 0 0 auto;
+  color: var(--cz-primary);
 }
 
 .player-life {
@@ -100,9 +108,9 @@
   color: #86efac;
 }
 
-.vote-pill[data-vote="leave"] {
-  background: rgb(239 68 68 / 15%);
-  color: #fca5a5;
+.vote-pill[data-vote="leave_room"] {
+  background: rgb(var(--cz-danger-rgb) / 16%);
+  color: var(--cz-danger);
 }
 
 @media (max-width: 560px) {

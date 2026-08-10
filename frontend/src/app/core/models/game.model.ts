@@ -31,7 +31,6 @@ export interface GameCardDungeonMarker {
 
 export type GameCommandType =
   | 'game.concede'
-  | 'game.close'
   | 'chat.message'
   | 'chat.reaction.toggled'
   | 'dice.rolled'
@@ -273,7 +272,7 @@ export interface GameSpecialEntity {
   createdAt: string;
 }
 
-export type GameRematchVote = 'play_again' | 'leave';
+export type GameRematchVote = 'play_again' | 'leave_room';
 
 export interface GameRematchVoteState {
   playerId: string;
@@ -284,6 +283,24 @@ export interface GameRematchVoteState {
 
 export interface GameRematchState {
   votes: Record<string, GameRematchVoteState>;
+  /** Server-authoritative lifecycle deadline. The browser only renders it. */
+  deadlineAt?: string | null;
+}
+
+/**
+ * Low-frequency room and lifecycle state published by Symfony/Mercure.
+ * It intentionally has no gameplay stream version: the Go actor remains the
+ * only writer of the versioned gameplay stream.
+ */
+export interface GameControlPlaneState {
+  status: string;
+  winnerPlayerId: string | null;
+  finishedAt: string | null;
+  finishReason: string | null;
+  allDisconnectedSince: string | null;
+  nextLifecycleAt: string | null;
+  ownerId: string | null;
+  rematch: GameRematchState;
 }
 
 export type GameDisconnectVoteChoice = 'wait' | 'expel';
@@ -302,12 +319,22 @@ export interface GameDisconnectVoteState {
   openedAt: string | null;
   deadlineAt: string | null;
   cooldownUntil: string | null;
+  eligible?: string[];
+  version?: number;
   votes: Record<string, GameDisconnectVoteEntry>;
 }
+
+export type GameDisconnectVotes = Record<string, GameDisconnectVoteState>;
 
 export interface GameSnapshot {
   version: number;
   ownerId?: string;
+  status?: string;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   gamePhase?: GamePhase;
   mulligan?: GameMulliganConfig;
   players: Record<string, GamePlayerState>;
@@ -325,7 +352,7 @@ export interface GameSnapshot {
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;
-  disconnectVote?: GameDisconnectVoteState | null;
+  disconnectVotes?: GameDisconnectVotes;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;
@@ -334,6 +361,11 @@ export interface GameSnapshot {
 export interface Game {
   id: string;
   status: 'active' | string;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   snapshot: GameSnapshot;
 }
 
@@ -355,6 +387,7 @@ export interface MercureGameEvent {
   gameId: string;
   event: GameEvent;
   version: number | null;
+  controlPlane?: GameControlPlaneState;
 }
 
 export interface GameZoneResponse {

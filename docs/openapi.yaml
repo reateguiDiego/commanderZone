@@ -2983,10 +2983,42 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /internal/runtime/lifecycle:
+    post:
+      tags: [Games]
+      summary: Project an authoritative runtime lifecycle fact into the control plane.
+      description: Internal HMAC-signed Go-to-Symfony handoff. It never appends to the versioned game_event stream.
+      security: []
+      parameters:
+        - name: X-CommanderZone-Signature
+          in: header
+          required: true
+          description: Lowercase hexadecimal HMAC-SHA256 of the exact request body.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameLifecycleHandoff'
+      responses:
+        '200':
+          description: Lifecycle projection result. Duplicate and stale handoffs are successful no-ops.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameLifecycleHandoffResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
   /games/{id}/rematch-vote:
     post:
       tags: [Games]
-      summary: Vote to leave or replay after defeat/game end.
+      summary: Vote to leave the room or replay through the rematch control plane.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -3262,7 +3294,7 @@ components:
               type: array
               items:
                 type: string
-                enum: [view, command, game.close]
+                enum: [view, command]
             expiry:
               type: integer
               description: Unix timestamp matching the signed ticket `exp` claim.
@@ -7322,6 +7354,73 @@ components:
         updatedAt:
           type: string
           format: date-time
+    GameLifecycleHandoff:
+      type: object
+      required: [eventId, gameId, type, version, generation, fencing, occurredAt]
+      properties:
+        eventId:
+          type: string
+        gameId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [player.conceded, player.expelled, game.finished, game.all_players_disconnected, game.all_disconnected_cancelled]
+        playerId:
+          type: string
+          format: uuid
+        playerReason:
+          type: string
+          enum: [conceded, expelled]
+        winnerPlayerId:
+          type: string
+          format: uuid
+        finishReason:
+          type: string
+        clientActionId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        generation:
+          type: integer
+          minimum: 1
+        fencing:
+          type: integer
+          minimum: 0
+        occurredAt:
+          type: string
+          format: date-time
+    GameLifecycleHandoffResponse:
+      type: object
+      required: [result, game]
+      properties:
+        result:
+          type: string
+          enum: [applied, duplicate, stale]
+        game:
+          $ref: '#/components/schemas/GameLifecycleProjection'
+    GameLifecycleProjection:
+      type: object
+      required: [id, status, winnerPlayerId, finishedAt, finishReason, nextLifecycleAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, finished]
+        winnerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+        finishReason:
+          type: [string, 'null']
+        nextLifecycleAt:
+          type: [string, 'null']
+          format: date-time
     Game:
       type: object
       required: [id, status, snapshot, createdAt, updatedAt]
@@ -7332,6 +7431,20 @@ components:
         status:
           type: string
           enum: [active, finished]
+        winnerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+        finishReason:
+          type: [string, 'null']
+        allDisconnectedSince:
+          type: [string, 'null']
+          format: date-time
+        nextLifecycleAt:
+          type: [string, 'null']
+          format: date-time
         snapshot:
           $ref: '#/components/schemas/GameSnapshot'
         createdAt:
@@ -7383,10 +7496,10 @@ components:
             $ref: '#/components/schemas/GameLogEntry'
         rematch:
           $ref: '#/components/schemas/GameRematch'
-        disconnectVote:
-          oneOf:
-            - $ref: '#/components/schemas/GameDisconnectVote'
-            - type: 'null'
+        disconnectVotes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameDisconnectVote'
         createdAt:
           type: string
           format: date-time
@@ -7770,6 +7883,9 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/GameRematchVote'
+        deadlineAt:
+          type: [string, 'null']
+          format: date-time
     GameRematchVote:
       type: object
       required: [playerId, displayName, vote, votedAt]
@@ -7781,7 +7897,7 @@ components:
           type: string
         vote:
           type: string
-          enum: [play_again, leave]
+          enum: [play_again, leave_room]
         votedAt:
           type: string
           format: date-time
@@ -7829,7 +7945,7 @@ components:
       properties:
         vote:
           type: string
-          enum: [play_again, leave]
+          enum: [play_again, leave_room]
     RematchVoteResponse:
       type: object
       required: [status]
@@ -7976,7 +8092,6 @@ components:
           type: string
           enum:
             - game.concede
-            - game.close
             - chat.message
             - chat.reaction.toggled
             - dice.rolled

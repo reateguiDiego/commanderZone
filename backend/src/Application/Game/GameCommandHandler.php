@@ -27,7 +27,6 @@ class GameCommandHandler
     private const MULLIGAN_STATUS_READY = 'READY';
     private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
     private const MAX_CARD_COUNTER_TYPES = 5;
-    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
     private const THE_RING_SCRYFALL_ID = '7215460e-8c06-47d0-94e5-d1832d0218af';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
@@ -41,7 +40,6 @@ class GameCommandHandler
     ];
     private const SUPPORTED_COMMANDS = [
         'game.concede',
-        'game.close',
         'mulligan.take',
         'mulligan.keep',
         'mulligan.scry_confirm',
@@ -131,8 +129,6 @@ class GameCommandHandler
      * @var array<string,mixed>|null
      */
     private ?array $pendingEventPayload = null;
-    private ?string $pendingDefeatedPlayerId = null;
-    private bool $pendingDefeatPreexisted = false;
     private int $fullScanCount = 0;
     /**
      * @var array<string,mixed>|null
@@ -254,8 +250,6 @@ class GameCommandHandler
             $log = null;
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
 
@@ -272,7 +266,6 @@ class GameCommandHandler
             } else {
                 match ($type) {
                     'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
-                    'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
                     'mulligan.take' => $log = $this->applyMulliganTake($snapshot, $actor),
                     'mulligan.keep' => $log = $this->applyMulliganKeep($snapshot, $payload, $actor),
                     'mulligan.scry_confirm' => $log = $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
@@ -409,6 +402,9 @@ class GameCommandHandler
             ? $mulliganRule
             : Room::DEFAULT_MULLIGAN_RULE;
         $snapshot['mulligan']['firstMulliganFree'] = (bool) ($snapshot['mulligan']['firstMulliganFree'] ?? false);
+        // Go owns these independently by target player. Keep the compact
+        // runtime shape intact when Symfony projects/bootstrap snapshots.
+        $snapshot['disconnectVotes'] = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
@@ -934,17 +930,6 @@ class GameCommandHandler
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
     }
 
-    private function applyGameClose(array &$snapshot, Game $game, User $actor): string
-    {
-        if ($game->room()->owner()->id() !== $actor->id()) {
-            throw new \InvalidArgumentException('Only the room owner can close the game.');
-        }
-
-        $game->finish();
-
-        return 'Closed the game.';
-    }
-
     private function applyChatMessage(array &$snapshot, array $payload, User $actor): ?string
     {
         $message = trim((string) ($payload['message'] ?? ''));
@@ -1120,13 +1105,6 @@ class GameCommandHandler
             ? (int) $payload['life']
             : $oldLife + (int) ($payload['delta'] ?? 0);
         $snapshot['players'][$playerId]['life'] = $newLife;
-        if ($oldLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
-            $this->pendingDefeatedPlayerId = $playerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($oldLife > 0 && $newLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
-            $this->pendingDefeatedPlayerId = $playerId;
-        }
-
         return $this->lifeChangeLog($oldLife, $newLife);
     }
 
@@ -1156,16 +1134,6 @@ class GameCommandHandler
             'commanderInstanceId' => $commanderInstanceId,
             'damage' => $nextDamage,
         ];
-        if ($current >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)) {
-            $this->pendingDefeatedPlayerId = $targetPlayerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($current < self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
-            && $nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
-            && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)
-        ) {
-            $this->pendingDefeatedPlayerId = $targetPlayerId;
-        }
-
         return $this->commanderDamageLog(
             sprintf('%s (%s)', $this->cardLogName($commander), $this->playerName($snapshot, $sourcePlayerId)),
             $this->playerName($snapshot, $targetPlayerId),
@@ -2876,46 +2844,11 @@ class GameCommandHandler
         $snapshot['version'] = ((int) ($snapshot['version'] ?? 1)) + 1;
         $snapshot['updatedAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
 
-        $actorId = $actor->id();
-        $actorIsDefeated = $this->playerIsDefeated($snapshot, $actorId);
-        $deathAlreadyLogged = $this->hasPlayerDefeatedLog($snapshot, $actorId);
-        $deathPending = $this->pendingDefeatedPlayerId === $actorId && !$deathAlreadyLogged;
-        if ($deathAlreadyLogged) {
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
-        if ($this->pendingDefeatPreexisted && $deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
-        if ($actorIsDefeated && !$deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
         if ($message !== null && $message !== '') {
             $this->appendLogEntry($snapshot, $type, $message, $actor, $this->pendingLogContext);
         }
-        if ($deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-        }
         $this->pendingLogContext = [];
         $this->pendingEventPayload = null;
-        $this->pendingDefeatedPlayerId = null;
-        $this->pendingDefeatPreexisted = false;
     }
 
     /**
@@ -2969,27 +2902,6 @@ class GameCommandHandler
         }
 
         return trim($message);
-    }
-
-    private function hasPlayerDefeatedLog(array $snapshot, string $playerId): bool
-    {
-        foreach ($snapshot['eventLog'] ?? [] as $entry) {
-            if (($entry['type'] ?? null) === 'player.defeated' && ($entry['actorId'] ?? null) === $playerId) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function playerIsDefeated(array $snapshot, string $playerId): bool
-    {
-        return GameTurnSuccession::playerIsDefeated($snapshot, $playerId);
-    }
-
-    private function playerDefeatedMessage(array $snapshot, string $playerId): string
-    {
-        return sprintf('%s ha muerto.', $this->playerName($snapshot, $playerId));
     }
 
     private function playerIsAliveForTurn(array $snapshot, string $playerId): bool
@@ -4064,10 +3976,10 @@ class GameCommandHandler
         if ($actorPlayerId === null) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
-        if ($type === 'game.concede' || $type === 'game.close') {
+        if ($type === 'game.concede') {
             return;
         }
-        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled'], true)) {
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
         }
 
@@ -4129,7 +4041,7 @@ class GameCommandHandler
         $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
         $isMulliganCommand = in_array($type, self::MULLIGAN_COMMANDS, true);
         if ($gamePhase === self::GAME_PHASE_MULLIGAN) {
-            if ($isMulliganCommand || in_array($type, ['game.concede', 'game.close', 'chat.message', 'chat.reaction.toggled'], true)) {
+            if ($isMulliganCommand || in_array($type, ['game.concede', 'chat.message', 'chat.reaction.toggled'], true)) {
                 return;
             }
 
@@ -4909,17 +4821,6 @@ class GameCommandHandler
     public function v2RequiredCardLocation(array &$snapshot, array $payload): array
     {
         return $this->requiredCardLocation($snapshot, $payload);
-    }
-
-    public function v2HasPlayerDefeatedLog(array $snapshot, string $playerId): bool
-    {
-        return $this->hasPlayerDefeatedLog($snapshot, $playerId);
-    }
-
-    public function v2MarkPendingDefeatedPlayer(string $playerId, bool $preexisted = false): void
-    {
-        $this->pendingDefeatedPlayerId = $playerId;
-        $this->pendingDefeatPreexisted = $preexisted;
     }
 
     public function v2LifeChangeLog(int $from, int $to): string
@@ -6262,8 +6163,6 @@ class GameCommandHandler
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
             $this->pendingMulliganEventData = [];
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
             $this->ensureLocationIndex($snapshot);
@@ -6363,8 +6262,6 @@ class GameCommandHandler
         $startedAt = microtime(true);
         $pendingLogContext = $this->pendingLogContext;
         $pendingEventPayload = $this->pendingEventPayload;
-        $pendingDefeatedPlayerId = $this->pendingDefeatedPlayerId;
-        $pendingDefeatPreexisted = $this->pendingDefeatPreexisted;
         $pendingStreamLogEntries = $this->pendingStreamLogEntries;
         try {
             $shadowSnapshot = $this->prepareSnapshotForV2($snapshotBefore);
@@ -6406,8 +6303,6 @@ class GameCommandHandler
         } finally {
             $this->pendingLogContext = $pendingLogContext;
             $this->pendingEventPayload = $pendingEventPayload;
-            $this->pendingDefeatedPlayerId = $pendingDefeatedPlayerId;
-            $this->pendingDefeatPreexisted = $pendingDefeatPreexisted;
             $this->pendingStreamLogEntries = $pendingStreamLogEntries;
         }
     }
@@ -6475,8 +6370,6 @@ class GameCommandHandler
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
             $this->pendingMulliganEventData = [];
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->pendingStreamLogEntries = [];
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
@@ -6653,7 +6546,6 @@ class GameCommandHandler
             case 'helper.updated':
             case 'helper.removed':
             case 'zone.random_card.selected':
-            case 'game.close':
             case 'game.concede':
                 return;
 

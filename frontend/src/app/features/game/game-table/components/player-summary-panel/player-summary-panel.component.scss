@@ -214,7 +214,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 2.18rem 0.62rem;
+  grid-template-rows: 2.18rem auto 0.62rem;
   grid-column: 3;
   grid-row: 1;
   align-self: center;
@@ -482,6 +482,32 @@
 .life-controls .player-extra-actions {
   padding-inline: var(--life-stepper-side-width);
   border-top: 1px solid rgb(255 238 183 / 10%);
+}
+
+.quick-concede-button {
+  width: 100%;
+  min-height: 1.28rem;
+  border: 0;
+  border-top: 1px solid rgb(255 238 183 / 10%);
+  background: rgb(131 28 28 / 34%);
+  color: rgb(255 211 201);
+  cursor: pointer;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.quick-concede-button:hover,
+.quick-concede-button:focus-visible {
+  background: rgb(164 41 41 / 48%);
+  color: #fff4ef;
+}
+
+.quick-concede-button:focus-visible {
+  outline: 1px solid rgb(255 207 189 / 86%);
+  outline-offset: -2px;
 }
 
 .life-controls .player-extra-actions ::ng-deep .extra-actions {

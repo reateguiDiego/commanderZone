@@ -1,6 +1,6 @@
 import {
   GameCardInstance,
-  GameDisconnectVoteState,
+  GameDisconnectVotes,
   GamePlayerState,
   GameSpecialEntity,
   GameSnapshot,
@@ -196,17 +196,12 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       return { status: 'applied', snapshot: { ...snapshot, timer: operation.timer ? { ...operation.timer } : undefined } };
 
     case 'disconnect.vote.set':
-      const disconnectVote = disconnectVotePayload(operation);
+      const disconnectVotes = disconnectVotesPayload(operation);
       return {
         status: 'applied',
         snapshot: {
           ...snapshot,
-          disconnectVote: disconnectVote
-            ? {
-                ...disconnectVote,
-                votes: { ...disconnectVote.votes },
-              }
-            : null,
+          disconnectVotes: cloneDisconnectVotes(disconnectVotes),
         },
       };
 
@@ -394,13 +389,20 @@ function removeSpecialEntity(snapshot: GameSnapshot, entityId: string): Operatio
   };
 }
 
-function disconnectVotePayload(operation: GameSnapshotPatchOperation): GameDisconnectVoteState | null {
+function disconnectVotesPayload(operation: GameSnapshotPatchOperation): GameDisconnectVotes {
   const payload = operation as {
-    disconnectVote?: GameDisconnectVoteState | null;
-    data?: { disconnectVote?: GameDisconnectVoteState | null };
+    disconnectVotes?: GameDisconnectVotes;
+    data?: { disconnectVotes?: GameDisconnectVotes };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  return payload.disconnectVotes ?? payload.data?.disconnectVotes ?? {};
+}
+
+function cloneDisconnectVotes(votes: GameDisconnectVotes): GameDisconnectVotes {
+  return Object.fromEntries(Object.entries(votes).map(([targetPlayerId, vote]) => [
+    targetPlayerId,
+    { ...vote, eligible: vote.eligible ? [...vote.eligible] : undefined, votes: { ...vote.votes } },
+  ]));
 }
 
 function applyCardPositions(

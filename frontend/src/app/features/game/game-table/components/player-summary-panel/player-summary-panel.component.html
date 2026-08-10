@@ -92,6 +92,16 @@
         </span>
       }
     </div>
+    @if (canQuickConcede()) {
+      <button
+        type="button"
+        class="quick-concede-button"
+        data-testid="player-summary-quick-concede"
+        (click)="requestQuickConcede($event)"
+      >
+        {{ 'game.contextMenu.labels.concede' | runtimeTranslate }}
+      </button>
+    }
     <app-extra-actions-menu
       class="player-extra-actions"
       data-testid="player-extra-menu-host"

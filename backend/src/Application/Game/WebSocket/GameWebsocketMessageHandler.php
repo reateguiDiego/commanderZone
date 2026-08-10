@@ -54,8 +54,6 @@ final readonly class GameWebsocketMessageHandler
         'helper.updated',
         'helper.removed',
         'game.concede',
-        'game.close',
-        'disconnect.vote',
     ];
 
     public function __construct(

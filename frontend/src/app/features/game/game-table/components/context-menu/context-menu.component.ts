@@ -25,7 +25,6 @@ export type ContextMenuAction =
   | { type: 'openLog' }
   | { type: 'leaveTable' }
   | { type: 'concedeGame' }
-  | { type: 'closeGame' }
   | { type: 'focusPlayer' }
   | { type: 'openZone'; zone: GameZoneName }
   | { type: 'changeLife'; delta: number }
@@ -112,7 +111,6 @@ export class ContextMenuComponent {
   readonly menu = input.required<GameContextMenu>();
   readonly currentPlayer = input<PlayerView | null>(null);
   readonly players = input.required<readonly PlayerView[]>();
-  readonly isGameOwner = input(false);
   readonly counterPresets = input.required<readonly string[]>();
   readonly moveZones = input.required<readonly GameZoneName[]>();
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
@@ -331,7 +329,7 @@ export class ContextMenuComponent {
   isCurrentPlayerActive(): boolean {
     const current = this.currentPlayer();
 
-    return current !== null && current.state.status !== 'conceded';
+    return current !== null && current.state.status === 'active';
   }
 
   canControlActivePlayer(): boolean {

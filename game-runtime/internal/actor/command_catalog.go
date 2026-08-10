@@ -57,7 +57,6 @@ var clientInvocableRuntimeCommandTypes = map[string]string{
 	"helper.updated":               "runtime websocket gameplay command",
 	"helper.removed":               "runtime websocket gameplay command",
 	"game.concede":                 "runtime websocket gameplay command",
-	"game.close":                   "runtime websocket gameplay command",
 	"disconnect.vote":              "runtime websocket lifecycle command",
 	"mulligan.take":                "runtime websocket mulligan command",
 	"mulligan.keep":                "runtime websocket mulligan command",
@@ -166,7 +165,6 @@ func FinalGameplayCommandTypes() []string {
 		"helper.updated",
 		"helper.removed",
 		"game.concede",
-		"game.close",
 		"disconnect.vote",
 		"mulligan.take",
 		"mulligan.keep",
@@ -185,6 +183,12 @@ func ClientInvocableRuntimeCommandTypes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func IsClientInvocableRuntimeCommandType(commandType string) bool {
+	canonical, _ := CanonicalCommandType(commandType)
+	_, ok := clientInvocableRuntimeCommandTypes[canonical]
+	return ok
 }
 
 func InternalOnlyCommandTypes() []string {

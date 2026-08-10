@@ -93,6 +93,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly allowQuickConcede = input(false);
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
   readonly contextLabel = input<string | null>(null);
   readonly returnActionLabel = input<string | null>(null);
@@ -103,6 +104,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly returnRequested = output<void>();
+  readonly quickConcedeRequested = output<void>();
   readonly lifeFeedback = signal<LifeFeedback | null>(null);
   readonly otherCountersExpanded = signal(false);
   readonly visibleSpecialEntities = computed(() =>
@@ -135,6 +137,14 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     const currentPlayer = this.player();
     return clampPlayerLife(currentPlayer.state.life + this.pendingLifeDelta(currentPlayer.id));
   });
+  readonly canQuickConcede = computed(() =>
+    this.allowQuickConcede()
+    && this.player().state.status === 'active'
+    && (
+      this.displayedLife() <= 0
+      || Object.values(this.player().state.commanderDamage).some((damage) => damage >= 21)
+    ),
+  );
 
   ngOnDestroy(): void {
     for (const timer of this.flushTimers.values()) {
@@ -232,6 +242,12 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.returnRequested.emit();
+  }
+
+  requestQuickConcede(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.quickConcedeRequested.emit();
   }
 
   counterValue(key: PlayerCounterKey): number {

@@ -4,8 +4,6 @@ namespace App\Application\Game;
 
 final class GameTurnSuccession
 {
-    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
-
     /**
      * @param array<string,mixed> $snapshot
      */
@@ -53,8 +51,7 @@ final class GameTurnSuccession
      */
     public static function playerIsAliveForTurn(array $snapshot, string $playerId): bool
     {
-        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
-            && !self::playerIsDefeated($snapshot, $playerId);
+        return ($snapshot['players'][$playerId]['status'] ?? null) === 'active';
     }
 
     /**
@@ -62,7 +59,7 @@ final class GameTurnSuccession
      */
     public static function playerIsDefeated(array $snapshot, string $playerId): bool
     {
-        return self::playerLife($snapshot, $playerId) <= 0 || self::hasLethalCommanderDamage($snapshot, $playerId);
+        return ($snapshot['players'][$playerId]['status'] ?? null) === 'conceded';
     }
 
     /**
@@ -92,30 +89,6 @@ final class GameTurnSuccession
     /**
      * @param array<string,mixed> $snapshot
      */
-    private static function playerLife(array $snapshot, string $playerId): int
-    {
-        return (int) ($snapshot['players'][$playerId]['life'] ?? 40);
-    }
-
-    /**
-     * @param array<string,mixed> $snapshot
-     */
-    private static function hasLethalCommanderDamage(array $snapshot, string $playerId): bool
-    {
-        $commanderDamage = $snapshot['players'][$playerId]['commanderDamage'] ?? [];
-        if (!is_array($commanderDamage)) {
-            return false;
-        }
-
-        foreach ($commanderDamage as $damage) {
-            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /**
      * @param array<string,mixed> $snapshot
      */

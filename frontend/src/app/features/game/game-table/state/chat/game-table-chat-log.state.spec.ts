@@ -269,7 +269,7 @@ describe('GameTableChatLogState', () => {
     expect(entries[0]?.message).toBe('Player poison counter increased from 0 to 3 (+3).');
   });
 
-  it('marks player death entries for red log styling', () => {
+  it('does not treat legacy automatic death entries as a concede', () => {
     const state = new GameTableChatLogState();
     const [entry] = state.eventLogView({
       ...snapshot(),
@@ -278,7 +278,7 @@ describe('GameTableChatLogState', () => {
       ],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.appearance).toBe('death');
+    expect(entry?.appearance).toBe('default');
     expect(entry?.messagePrefix).toBe('Player ha muerto.');
   });
 
@@ -295,7 +295,7 @@ describe('GameTableChatLogState', () => {
     expect(entry?.messagePrefix).toBe('Player conceded.');
   });
 
-  it('hides later game log entries from a player after their death entry', () => {
+  it('does not hide later game log entries after a legacy automatic death entry', () => {
     const state = new GameTableChatLogState();
     const entries = state.eventLog({
       ...snapshot(),
@@ -309,6 +309,7 @@ describe('GameTableChatLogState', () => {
     expect(entries.map((entry) => entry.message)).toEqual([
       'Lost 40 life (40 -> 0).',
       'Player ha muerto.',
+      'Drew 1 card.',
     ]);
   });
 

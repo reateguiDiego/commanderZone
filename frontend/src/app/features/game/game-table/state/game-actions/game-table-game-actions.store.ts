@@ -50,7 +50,7 @@ export class GameTableGameActionsStore {
       return;
     }
 
-    await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave'));
+    await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave_room'));
   }
 
   async leaveCurrentRoom(): Promise<void> {

@@ -110,9 +110,7 @@ final readonly class GameWebsocketPatchBuilder
             'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
-            'rematch.vote' => $this->rematchVote($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
-            'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
             default => null,
         };
@@ -1192,22 +1190,6 @@ final readonly class GameWebsocketPatchBuilder
             'op' => 'rematch.set',
             'rematch' => $nextRematch,
         ]];
-    }
-
-    /**
-     * @return list<array<string,mixed>>|null
-     */
-    private function rematchVote(array $previousSnapshot, array $nextSnapshot): ?array
-    {
-        $operations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
-        if ($operations === null) {
-            return null;
-        }
-
-        return [
-            ...$operations,
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
-        ];
     }
 
     /**

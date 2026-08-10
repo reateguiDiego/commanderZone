@@ -39,7 +39,7 @@ describe('GameTableChatStore', () => {
     expect(store.selectedChatTargetValue()).toBe('user-2');
   });
 
-  it('excludes defeated players from private chat recipients', () => {
+  it('excludes conceded players from private chat recipients', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableChatStore,
@@ -59,7 +59,7 @@ describe('GameTableChatStore', () => {
 
     const core = TestBed.inject(GameTableCoreState);
     const state = snapshot();
-    state.players['user-2']!.life = 0;
+    state.players['user-2']!.status = 'conceded';
     state.players['user-3'] = player('user-3', 'Alive opponent');
     core.snapshot.set(state);
 

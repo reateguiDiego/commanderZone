@@ -3,29 +3,23 @@
 namespace App\Application\Game;
 
 use App\Domain\Game\Game;
-use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
+use Symfony\Component\Uid\Uuid;
 
 class GameRematchService
 {
-    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
-
     public const VOTE_PLAY_AGAIN = 'play_again';
-    public const VOTE_LEAVE = 'leave';
+    public const VOTE_LEAVE = 'leave_room';
     public const STATUS_LEFT = 'left';
     public const STATUS_ROOM_DELETED = 'room_deleted';
     public const STATUS_WAITING_FOR_GAME_END = 'waiting_for_game_end';
     public const STATUS_WAITING_FOR_VOTES = 'waiting_for_votes';
     public const STATUS_ROOM_READY = 'room_ready';
 
-    public function __construct(private readonly GameCommandHandler $normalizer)
-    {
-    }
-
     /**
-     * @return array{event: GameEvent, snapshot: array<string,mixed>}
+     * @return array{event: array<string,mixed>}
      */
     public function recordVote(Game $game, User $actor, string $vote): array
     {
@@ -33,39 +27,40 @@ class GameRematchService
             throw new \InvalidArgumentException('Unsupported rematch vote.');
         }
 
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
-        if (!isset($snapshot['players'][$actor->id()])) {
+        if (!$game->room()->hasPlayer($actor)) {
             throw new \InvalidArgumentException('Only game players can vote for a rematch.');
         }
 
-        $votedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
-        $snapshot['rematch'] = $this->rematchState($snapshot);
-        $snapshot['rematch']['votes'][$actor->id()] = [
-            'playerId' => $actor->id(),
-            'displayName' => $actor->displayName(),
-            'vote' => $vote,
-            'votedAt' => $votedAt,
+        $votedAt = new \DateTimeImmutable();
+        $game->recordRematchVote($actor, $vote, $votedAt);
+        // This is a control-plane notification payload, not a GameEvent entity.
+        // It deliberately does not reserve or advance a gameplay stream version.
+        $event = [
+            'id' => Uuid::v7()->toRfc4122(),
+            // This is intentionally informational only. It is never used as a
+            // game_event stream version and does not participate in recovery.
+            'version' => max(1, (int) ($game->snapshot()['version'] ?? 1)),
+            'type' => 'room.rematch.vote',
+            'payload' => [
+                'playerId' => $actor->id(),
+                'vote' => $vote,
+                'votedAt' => $votedAt->format(DATE_ATOM),
+                'rematch' => $game->rematchState(),
+            ],
+            'clientActionId' => null,
+            'createdBy' => $actor->id(),
+            'createdAt' => $votedAt->format(DATE_ATOM),
         ];
-        $snapshot['version'] = ((int) ($snapshot['version'] ?? 1)) + 1;
-        $snapshot['updatedAt'] = $votedAt;
 
-        $game->replaceSnapshot($snapshot);
-        $event = new GameEvent($game, 'rematch.vote', [
-            'playerId' => $actor->id(),
-            'vote' => $vote,
-            'votedAt' => $votedAt,
-        ], $actor);
-        $game->addEvent($event);
-
-        return ['event' => $event, 'snapshot' => $snapshot];
+        return ['event' => $event];
     }
 
     /**
      * @return list<string>
      */
-    public function eligiblePlayAgainPlayerIds(Room $room, array $snapshot): array
+    public function eligiblePlayAgainPlayerIds(Room $room, Game $game): array
     {
-        $votes = $this->rematchState($snapshot)['votes'];
+        $votes = $game->rematchState()['votes'];
         $roomPlayerIds = [];
         foreach ($room->orderedPlayers() as $player) {
             if ($player instanceof RoomPlayer) {
@@ -87,7 +82,7 @@ class GameRematchService
                 continue;
             }
 
-            if (($player['status'] ?? 'active') === 'active' && !$this->playerIsDefeated($player)) {
+            if (($player['status'] ?? null) === 'active') {
                 ++$count;
             }
         }
@@ -95,16 +90,15 @@ class GameRematchService
         return $count;
     }
 
-    public function allSnapshotPlayersHaveVoted(array $snapshot): bool
+    public function allRemainingRoomPlayersHaveVoted(Room $room, Game $game): bool
     {
-        $playerIds = array_keys($snapshot['players'] ?? []);
-        if ($playerIds === []) {
+        if ($room->players()->count() === 0) {
             return false;
         }
 
-        $votes = $this->rematchState($snapshot)['votes'];
-        foreach ($playerIds as $playerId) {
-            if (!is_string($playerId) || !isset($votes[$playerId]['vote'])) {
+        $votes = $game->rematchState()['votes'];
+        foreach ($room->players() as $player) {
+            if (!$player instanceof RoomPlayer || !isset($votes[$player->user()->id()]['vote'])) {
                 return false;
             }
         }
@@ -112,11 +106,9 @@ class GameRematchService
         return true;
     }
 
-    public function shouldWaitForGameEnd(array $snapshot, User $actor): bool
+    public function shouldWaitForGameEnd(Game $game): bool
     {
-        $actorState = $snapshot['players'][$actor->id()] ?? [];
-
-        return is_array($actorState) && $this->playerIsDefeated($actorState) && $this->activeLifePlayerCount($snapshot) > 1;
+        return $game->status() !== Game::STATUS_FINISHED;
     }
 
     public function rematchOwner(Room $room, array $playerUserIds): User
@@ -126,8 +118,10 @@ class GameRematchService
             return $room->owner();
         }
 
-        foreach ($room->orderedPlayers() as $player) {
-            if ($player instanceof RoomPlayer && isset($eligible[$player->user()->id()])) {
+        $players = array_values(array_filter($room->players()->toArray(), static fn (mixed $player): bool => $player instanceof RoomPlayer));
+        usort($players, static fn (RoomPlayer $left, RoomPlayer $right): int => $left->joinedAt() <=> $right->joinedAt());
+        foreach ($players as $player) {
+            if (isset($eligible[$player->user()->id()])) {
                 return $player->user();
             }
         }
@@ -138,33 +132,4 @@ class GameRematchService
     /**
      * @return array{votes: array<string,array{playerId: string, displayName: string, vote: string, votedAt: string}>}
      */
-    private function rematchState(array $snapshot): array
-    {
-        $rematch = is_array($snapshot['rematch'] ?? null) ? $snapshot['rematch'] : [];
-        $votes = is_array($rematch['votes'] ?? null) ? $rematch['votes'] : [];
-
-        return ['votes' => array_filter($votes, static fn (mixed $vote): bool => is_array($vote))];
-    }
-
-    /**
-     * @param array<string,mixed> $player
-     */
-    private function playerIsDefeated(array $player): bool
-    {
-        if (($player['status'] ?? 'active') === 'conceded') {
-            return true;
-        }
-
-        if ((int) ($player['life'] ?? 0) <= 0) {
-            return true;
-        }
-
-        foreach (($player['commanderDamage'] ?? []) as $damage) {
-            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

@@ -51,24 +51,24 @@ describe('OpponentMiniBoardComponent', () => {
     expect(miniBattlefield.querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]')).not.toBeNull();
   });
 
-  it('replaces the mini battlefield with a defeated board when opponent life is zero or lower', () => {
+  it('keeps an active opponent in play when life is zero or lower', () => {
     fixture.componentRef.setInput('player', playerView({ life: 0 }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).toBeNull();
   });
 
-  it('replaces the mini battlefield with a defeated board when opponent has lethal commander damage', () => {
+  it('keeps an active opponent in play at 21 commander damage', () => {
     fixture.componentRef.setInput('player', playerView({ commanderDamage: { 'user-1': 21 } }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).toBeNull();
   });
 
-  it('keeps the defeated board instead of cards target when opponent life is zero or lower', () => {
-    fixture.componentRef.setInput('player', playerView({ life: -3 }));
+  it('keeps the defeated board instead of cards target after concede', () => {
+    fixture.componentRef.setInput('player', playerView({ status: 'conceded', life: 40 }));
     fixture.componentRef.setInput('cardsTargetCards', [{ card: cardInstance('card-1', 'Target'), role: 'target' }]);
     fixture.detectChanges();
 
