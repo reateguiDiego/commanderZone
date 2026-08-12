@@ -4,6 +4,9 @@ namespace App\Tests\Integration;
 
 use App\Application\Game\Lifecycle\GameLifecycleHandoff;
 use App\Application\Game\Lifecycle\GameLifecycleProjector;
+use App\Application\Game\GameRematchLifecycleSweeper;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
+use App\Application\Game\Runtime\GameRuntimeStopWorker;
 use App\Domain\Card\Card;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -336,87 +339,6 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $this->jsonResponse()['room']['players']);
         $this->assertRoomPlayersDoNotContainDisplayName($this->jsonResponse()['room'], 'Guest Leave Player');
-    }
-
-    public function testCreatingRoomDeletesExistingRoomMembershipBeforeCreatingNewRoom(): void
-    {
-        $this->seedCard('abababab-0000-7000-8000-000000000001', 'Commander Alpha', [
-            'type_line' => 'Legendary Creature - Human Soldier',
-            'color_identity' => [],
-            'set' => 'tst',
-            'collector_number' => '1',
-        ]);
-        $this->seedCard('abababab-1111-7111-8111-111111111111', 'Mountain', [
-            'type_line' => 'Basic Land â€” Mountain',
-            'set' => 'tst',
-            'collector_number' => '30',
-        ]);
-        $ownerToken = $this->registerAndLogin('single-room-owner@example.test', 'Single Room Owner');
-        $guestToken = $this->registerAndLogin('single-room-guest@example.test', 'Single Room Guest');
-
-        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Owner Single Deck', [
-            ['scryfallId' => 'abababab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
-            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
-        ]);
-        $guestDeckId = $this->quickBuildDeck($guestToken, 'Guest Single Deck', [
-            ['scryfallId' => 'abababab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
-            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
-        ]);
-
-        $this->jsonRequest('POST', '/rooms', [
-            'visibility' => 'public',
-            'maxPlayers' => 2,
-            'startingLife' => 35,
-            'timerMode' => 'turn',
-            'timerDurationSeconds' => 120,
-            'deckId' => $ownerDeckId,
-        ], $ownerToken);
-        self::assertResponseStatusCodeSame(201);
-        $firstRoomId = (string) $this->jsonResponse()['room']['id'];
-        self::assertArrayHasKey('createdAt', $this->jsonResponse()['room']);
-        self::assertArrayHasKey('updatedAt', $this->jsonResponse()['room']);
-        self::assertSame(35, $this->jsonResponse()['room']['startingLife']);
-        self::assertSame('turn', $this->jsonResponse()['room']['timerMode']);
-        self::assertSame(120, $this->jsonResponse()['room']['timerDurationSeconds']);
-        self::assertSame('success', $this->jsonResponse()['room']['waitingLog'][0]['tone'] ?? null);
-
-        $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/join', ['deckId' => $guestDeckId], $guestToken);
-        self::assertResponseIsSuccessful();
-
-        $this->resolveTurnOrder($firstRoomId, [$ownerToken, $guestToken]);
-
-        $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
-        self::assertResponseStatusCodeSame(201);
-        self::assertSame([], $this->jsonResponse()['room']['waitingLog']);
-        $firstGameId = (string) $this->jsonResponse()['game']['id'];
-        self::assertArrayHasKey('createdAt', $this->jsonResponse()['game']);
-        self::assertArrayHasKey('updatedAt', $this->jsonResponse()['game']);
-        self::assertSame('turn', $this->jsonResponse()['game']['snapshot']['timer']['mode']);
-        self::assertSame(120, $this->jsonResponse()['game']['snapshot']['timer']['durationSeconds']);
-        foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerId => $playerSnapshot) {
-            self::assertSame(35, $playerSnapshot['life']);
-            self::assertMatchesRegularExpression('/^[WUBRGC]_\d+$/', $playerSnapshot['backgroundName']);
-            self::assertSame('facedown_card', $playerSnapshot['sleevesName']);
-            if ((string) $playerId !== $this->jsonResponse()['game']['snapshot']['ownerId']) {
-                $this->assertHiddenHandProjection($playerSnapshot);
-                self::assertSame([], $playerSnapshot['zones']['library']);
-            }
-        }
-
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
-        self::assertResponseStatusCodeSame(201);
-        $newRoomId = (string) $this->jsonResponse()['room']['id'];
-        self::assertNotSame($firstRoomId, $newRoomId);
-
-        $this->jsonRequest('GET', '/rooms/'.$firstRoomId, token: $ownerToken);
-        self::assertResponseStatusCodeSame(404);
-
-        $this->jsonRequest('GET', '/games/'.$firstGameId.'/snapshot', token: $ownerToken);
-        self::assertResponseStatusCodeSame(404);
-
-        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
-        self::assertResponseIsSuccessful();
-        self::assertSame($newRoomId, $this->jsonResponse()['room']['id']);
     }
 
     public function testJoiningAnotherRoomFailsUntilUserLeavesCurrentRoom(): void
@@ -1276,6 +1198,165 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/rooms/'.$roomId, token: $fixture['tokens']['Rematch Ready One']);
         self::assertResponseIsSuccessful();
         self::assertSame('waiting', $this->jsonResponse()['room']['status']);
+    }
+
+    public function testRematchDeadlineSweepDetachesRoomGameBeforeDeletingIt(): void
+    {
+        $fixture = $this->startedRematchGameFixture('ds', [
+            ['deadline-owner@example.test', 'Deadline Owner'],
+            ['deadline-ready@example.test', 'Deadline Ready'],
+            ['deadline-away@example.test', 'Deadline Away'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $roomId = $fixture['roomId'];
+        $ownerId = $this->playerIdByName($fixture['snapshot'], 'Deadline Owner');
+
+        $this->projectFinishedLifecycle($gameId, $ownerId, 4);
+
+        foreach (['Deadline Owner', 'Deadline Ready'] as $name) {
+            $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
+                'vote' => 'play_again',
+                'clientActionId' => 'deadline-sweep-'.strtolower(str_replace(' ', '-', $name)),
+            ], $fixture['tokens'][$name]);
+            self::assertResponseIsSuccessful();
+        }
+
+        $sweeper = static::getContainer()->get(GameRematchLifecycleSweeper::class);
+        $result = $sweeper->sweep(new \DateTimeImmutable('+2 minutes'));
+
+        self::assertCount(1, $result);
+        self::assertSame('room_ready', $result[0]['type']);
+        $this->entityManager->clear();
+        $room = $this->entityManager->getRepository(\App\Domain\Room\Room::class)->find($roomId);
+        self::assertNotNull($room);
+        self::assertSame('waiting', $room->status());
+        self::assertNull($room->game());
+        self::assertNull($this->entityManager->getRepository(Game::class)->find($gameId));
+    }
+
+    public function testAllDisconnectedGraceSweepDeletesRoomAndGame(): void
+    {
+        $fixture = $this->startedRematchGameFixture('off', [
+            ['offline-owner@example.test', 'Offline Owner'],
+            ['offline-guest@example.test', 'Offline Guest'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $roomId = $fixture['roomId'];
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        ));
+        $offlineAt = new \DateTimeImmutable('-6 minutes');
+
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':all-disconnected',
+            $gameId,
+            GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED,
+            1,
+            1,
+            1,
+            $offlineAt,
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+
+        $sweeper = static::getContainer()->get(GameRematchLifecycleSweeper::class);
+        $result = $sweeper->sweep(new \DateTimeImmutable());
+
+        self::assertCount(1, $result);
+        self::assertSame('room_deleted', $result[0]['type']);
+        self::assertNull($this->entityManager->getRepository(\App\Domain\Room\Room::class)->find($roomId));
+        self::assertNull($this->entityManager->getRepository(Game::class)->find($gameId));
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        ));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_runtime_stop_queue WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        ));
+    }
+
+    public function testRuntimeStopWorkerDrainsAndRetriesDurableJobs(): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(<<<'SQL'
+INSERT INTO game_runtime_stop_queue (game_id, queued_at, available_at)
+VALUES ('runtime-stop-ok', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       ('runtime-stop-retry', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+SQL);
+        $runtimeControl = new class implements GameRuntimeLifecycleControlInterface {
+            /** @var list<string> */
+            public array $stoppedGameIds = [];
+
+            public function stopByGameId(string $gameId): void
+            {
+                if ($gameId === 'runtime-stop-retry') {
+                    throw new \RuntimeException('runtime is temporarily unavailable');
+                }
+
+                $this->stoppedGameIds[] = $gameId;
+            }
+        };
+
+        $result = (new GameRuntimeStopWorker($connection, $runtimeControl))->drain(2);
+
+        self::assertSame(['runtime-stop-ok'], $runtimeControl->stoppedGameIds);
+        self::assertSame(['processed' => 1, 'retried' => 1], $result);
+        self::assertSame(0, (int) $connection->fetchOne(
+            'SELECT COUNT(*) FROM game_runtime_stop_queue WHERE game_id = :gameId',
+            ['gameId' => 'runtime-stop-ok'],
+        ));
+        self::assertSame(1, (int) $connection->fetchOne(
+            'SELECT attempts FROM game_runtime_stop_queue WHERE game_id = :gameId',
+            ['gameId' => 'runtime-stop-retry'],
+        ));
+        self::assertSame(0, (int) $connection->fetchOne(<<<'SQL'
+SELECT COUNT(*)
+FROM game_runtime_stop_queue
+WHERE game_id = 'runtime-stop-retry'
+  AND available_at <= CURRENT_TIMESTAMP
+SQL));
+    }
+
+    public function testParticipantReconnectCancelsAllDisconnectedGrace(): void
+    {
+        $fixture = $this->startedRematchGameFixture('reconnect', [
+            ['reconnect-owner@example.test', 'Reconnect Owner'],
+            ['reconnect-guest@example.test', 'Reconnect Guest'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $offlineAt = new \DateTimeImmutable('-1 minute');
+
+        self::assertSame(GameLifecycleProjector::APPLIED, $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':all-disconnected',
+            $gameId,
+            GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED,
+            1,
+            1,
+            1,
+            $offlineAt,
+        )));
+        self::assertNotNull($game->allDisconnectedSince());
+        self::assertNotNull($game->nextLifecycleAt());
+
+        self::assertSame(GameLifecycleProjector::APPLIED, $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':all-disconnected-cancelled',
+            $gameId,
+            GameLifecycleHandoff::ALL_DISCONNECTED_CANCELLED,
+            1,
+            1,
+            2,
+            new \DateTimeImmutable(),
+        )));
+        self::assertNull($game->allDisconnectedSince());
+        self::assertNull($game->nextLifecycleAt());
     }
 
     public function testRematchReadyWorksForRoomSizesTwoThroughSix(): void

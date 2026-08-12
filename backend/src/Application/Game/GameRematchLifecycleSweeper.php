@@ -2,8 +2,8 @@
 
 namespace App\Application\Game;
 
-use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
+use App\Application\Game\Runtime\GameRuntimeStopQueue;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -19,31 +19,17 @@ final readonly class GameRematchLifecycleSweeper
     public function __construct(
         private EntityManagerInterface $entityManager,
         private GameRematchService $rematch,
-        private GameRuntimeLifecycleControlClient $runtimeControl,
         private GameRuntimeClosingFence $closingFence,
+        private GameRuntimeStopQueue $runtimeStopQueue,
     ) {
     }
 
     /** @return list<array{type:string, game:Game, roomId:string}> */
     public function sweep(\DateTimeImmutable $now, int $limit = 100): array
     {
-        $ids = $this->entityManager->createQueryBuilder()
-            ->select('game.id')
-            ->from(Game::class, 'game')
-            ->where('game.nextLifecycleAt IS NOT NULL')
-            ->andWhere('game.nextLifecycleAt <= :now')
-            ->setParameter('now', $now)
-            ->orderBy('game.nextLifecycleAt', 'ASC')
-            ->setMaxResults(max(1, $limit))
-            ->getQuery()
-            ->getSingleColumnResult();
-
         $results = [];
-        foreach ($ids as $id) {
-            if (!is_string($id)) {
-                continue;
-            }
-            $result = $this->sweepGame($id, $now);
+        for ($index = 0; $index < max(1, $limit); ++$index) {
+            $result = $this->sweepNextDueGame($now);
             if ($result !== null) {
                 $results[] = $result;
             }
@@ -53,11 +39,26 @@ final readonly class GameRematchLifecycleSweeper
     }
 
     /** @return array{type:string, game:Game, roomId:string}|null */
-    private function sweepGame(string $gameId, \DateTimeImmutable $now): ?array
+    private function sweepNextDueGame(\DateTimeImmutable $now): ?array
     {
-        $runtimeStopRequired = false;
         $this->entityManager->beginTransaction();
         try {
+            // The due index is the lifecycle queue. Locking its next item
+            // makes independent workers cooperative without a central timer.
+            $gameId = $this->entityManager->getConnection()->fetchOne(<<<'SQL'
+SELECT id
+FROM game
+WHERE next_lifecycle_at IS NOT NULL
+  AND next_lifecycle_at <= :now
+ORDER BY next_lifecycle_at ASC
+LIMIT 1
+FOR UPDATE SKIP LOCKED
+SQL, ['now' => $now->format('Y-m-d H:i:s')]);
+            if (!is_string($gameId)) {
+                $this->entityManager->commit();
+                return null;
+            }
+
             $game = $this->entityManager->find(Game::class, $gameId, LockMode::PESSIMISTIC_WRITE);
             if (!$game instanceof Game || $game->nextLifecycleAt() === null || $game->nextLifecycleAt() > $now) {
                 $this->entityManager->commit();
@@ -76,15 +77,18 @@ final readonly class GameRematchLifecycleSweeper
                 // while the subsequent post-commit stop is routed.
                 $roomId = $room->id();
                 $this->closingFence->claim($gameId);
-                $runtimeStopRequired = true;
+                $this->runtimeStopQueue->enqueue($gameId);
+                $this->deleteRuntimeArtifacts($gameId);
                 $room->detachGame();
+                // Room owns the nullable game FK. Persist the detach before
+                // scheduling the game removal, otherwise Doctrine may issue
+                // DELETE game before UPDATE room.game_id = NULL.
+                $this->entityManager->flush();
                 $this->entityManager->remove($game);
                 $this->entityManager->remove($room);
                 $this->entityManager->flush();
                 $this->entityManager->commit();
-                if ($runtimeStopRequired) {
-                    $this->runtimeControl->stop($game);
-                }
+                $this->entityManager->clear();
 
                 return ['type' => 'room_deleted', 'game' => $game, 'roomId' => $roomId];
             }
@@ -103,22 +107,26 @@ final readonly class GameRematchLifecycleSweeper
             $roomId = $room->id();
             $eligible = $this->rematch->eligiblePlayAgainPlayerIds($room, $game);
             $this->closingFence->claim($gameId);
-            $runtimeStopRequired = true;
+            $this->runtimeStopQueue->enqueue($gameId);
+            $this->deleteRuntimeArtifacts($gameId);
             if (count($eligible) >= Room::MIN_PLAYERS && $this->rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
                 $room->returnToWaitingForRematch($this->rematch->rematchOwner($room, $eligible), $eligible);
+                // See the deletion branch above: Room is the owning side of
+                // the one-to-one game relation and must be flushed first.
+                $this->entityManager->flush();
                 $this->entityManager->remove($game);
                 $type = 'room_ready';
             } else {
                 $room->detachGame();
+                // See the deletion branch above.
+                $this->entityManager->flush();
                 $this->entityManager->remove($game);
                 $this->entityManager->remove($room);
                 $type = 'room_deleted';
             }
             $this->entityManager->flush();
             $this->entityManager->commit();
-            if ($runtimeStopRequired) {
-                $this->runtimeControl->stop($game);
-            }
+            $this->entityManager->clear();
 
             return ['type' => $type, 'game' => $game, 'roomId' => $roomId];
         } catch (\Throwable $exception) {
@@ -127,5 +135,19 @@ final readonly class GameRematchLifecycleSweeper
             }
             throw $exception;
         }
+    }
+
+    /**
+     * Game events are removed through the Game aggregate, but compact runtime
+     * snapshots are intentionally not part of that aggregate. Delete them in
+     * the same transaction as the terminal lifecycle transition so an expired
+     * game never leaves a recoverable runtime snapshot behind.
+     */
+    private function deleteRuntimeArtifacts(string $gameId): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            'DELETE FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        );
     }
 }

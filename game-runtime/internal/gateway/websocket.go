@@ -201,6 +201,26 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		metrics.GameplayWSRoute["runtime_ws"]++
 	})
+	// Presence lifecycle is durable, not merely a side effect of gameplay
+	// commands. Load the actor before accepting the first socket so the last
+	// disconnect can persist its all-offline grace deadline even if nobody has
+	// made a gameplay command in this runtime process.
+	loadCtx, cancelLoad := context.WithTimeout(r.Context(), s.commandTimeout)
+	gameActor, _, err := s.runtime.LoadActorRecovered(loadCtx, claims.GameID, nil)
+	cancelLoad()
+	if err != nil {
+		if errors.Is(err, runtimesvc.ErrActorClosing) {
+			http.Error(w, "gameplay is closing", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, runtimesvc.ErrOwnershipNotHeld) {
+			http.Error(w, "runtime ownership is unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		http.Error(w, "runtime actor recovery failed", http.StatusServiceUnavailable)
+		return
+	}
+	gameActor.SetInternalResultPublisher(s.PublishRuntimeResult)
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {

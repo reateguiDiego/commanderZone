@@ -136,12 +136,12 @@ describe('RoomsComponent', () => {
     ]);
   });
 
-  it('shows and clears route toast passed from navigation state', () => {
+  it('shows and clears a one-navigation toast passed through navigation info', () => {
     vi.useFakeTimers();
     const router = TestBed.inject(Router);
     vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
       extras: {
-        state: {
+        info: {
           toast: 'Could not load game.',
         },
       },
@@ -166,7 +166,7 @@ describe('RoomsComponent', () => {
     const router = TestBed.inject(Router);
     vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
       extras: {
-        state: {
+        info: {
           toast: 'Could not load game.',
         },
       },
@@ -177,6 +177,22 @@ describe('RoomsComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Could not load game.');
     expect(fixture.nativeElement.textContent).not.toContain('snapshot');
+  });
+
+  it('does not replay a stale toast persisted in browser history', () => {
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'getCurrentNavigation').mockReturnValue(null);
+    const previousState = window.history.state;
+    window.history.replaceState({ toast: 'Could not load game.' }, '', window.location.href);
+
+    try {
+      const fixture = TestBed.createComponent(RoomsComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Could not load game.');
+    } finally {
+      window.history.replaceState(previousState, '', window.location.href);
+    }
   });
 
   it('deletes owned waiting rooms after modal confirmation', async () => {

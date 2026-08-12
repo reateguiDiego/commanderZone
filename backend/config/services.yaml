@@ -86,6 +86,9 @@ services:
     App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
         alias: App\Application\Game\Runtime\GameRuntimeCommandClient
 
+    App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeLifecycleControlClient
+
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier
 

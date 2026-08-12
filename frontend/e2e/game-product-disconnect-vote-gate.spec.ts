@@ -271,7 +271,11 @@ async function waitForPresence(frames: JsonObject[], playerId: string, status: s
 }
 
 async function waitForPatchV2(frames: JsonObject[], predicate: (patch: JsonObject) => boolean): Promise<JsonObject> {
-  await expect.poll(() => frames.some((message) => message['kind'] === 'patch.v2' && predicate(message)), { timeout: 30_000 }).toBe(true);
+  try {
+    await expect.poll(() => frames.some((message) => message['kind'] === 'patch.v2' && predicate(message)), { timeout: 30_000 }).toBe(true);
+  } catch (error) {
+    throw new Error(`patch.v2 predicate was not satisfied. Recent frames: ${JSON.stringify(frames.slice(-12), null, 2)}`, { cause: error });
+  }
   const patch = frames.find((message) => message['kind'] === 'patch.v2' && predicate(message));
   if (!patch) {
     throw new Error(`patch.v2 frame was not captured. Recent frames: ${JSON.stringify(frames.slice(-5), null, 2)}`);
@@ -315,7 +319,7 @@ function disconnectVoteFromPatch(patch: JsonObject, targetPlayerId: string): Jso
       continue;
     }
     const data = op['data'] as JsonObject | undefined;
-    const votes = data?.['disconnectVotes'] as Record<string, JsonObject> | undefined;
+    const votes = (op['disconnectVotes'] ?? data?.['disconnectVotes']) as Record<string, JsonObject> | undefined;
     const state = votes?.[targetPlayerId];
     if (state?.['targetPlayerId'] === targetPlayerId) {
       return state;

@@ -198,6 +198,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureUserReportTable($connection);
         $this->ensureAuthIdentityTable($connection);
         $this->ensureGameRuntimeClosingTable($connection);
+        $this->ensureGameRuntimeStopQueueTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -216,6 +217,7 @@ abstract class ApiTestCase extends WebTestCase
             'game_event',
             'game_snapshot_compact',
             'game_runtime_closing',
+            'game_runtime_stop_queue',
             'game',
             'room_waiting_log_entry',
             'room_player',
@@ -258,6 +260,19 @@ CREATE TABLE IF NOT EXISTS game_runtime_closing (
     claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
 )
 SQL);
+    }
+
+    private function ensureGameRuntimeStopQueueTable(Connection $connection): void
+    {
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_runtime_stop_queue (
+    game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    queued_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
+    available_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
+    attempts INT NOT NULL DEFAULT 0
+)
+SQL);
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_game_runtime_stop_queue_available_at ON game_runtime_stop_queue (available_at, queued_at)');
     }
 
     private function ensureCardImageStatusColumn(Connection $connection): void

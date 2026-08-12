@@ -88,7 +88,10 @@ export class GameTableGameActionsStore {
 
   async navigateToRoomsWithLoadError(): Promise<void> {
     await this.router.navigate(['/rooms'], {
-      state: {
+      // A load error is a one-navigation notification, never route state.
+      // `state` survives browser history restoration and made this toast
+      // reappear whenever the Rooms component was reconstructed.
+      info: {
         toast: 'Could not load game.',
       },
     });

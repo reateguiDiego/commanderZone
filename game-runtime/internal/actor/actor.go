@@ -267,8 +267,10 @@ func (a *GameActor) Run(ctx context.Context) {
 	}
 }
 
-// resolveDueDisconnectVotes shares the actor's existing heartbeat tick. The
-// number of inspected votes is bounded by the current game, never global.
+// resolveDueDisconnectVotes shares the actor's existing heartbeat tick. It
+// resolves expired ballots and reopens cooldowns for targets that remain
+// offline. The number of inspected votes is bounded by the current game,
+// never global.
 func (a *GameActor) resolveDueDisconnectVotes(ctx context.Context) {
 	snapshot := a.Snapshot()
 	if snapshot.Status == "finished" || a.isClosing() {
@@ -276,26 +278,47 @@ func (a *GameActor) resolveDueDisconnectVotes(ctx context.Context) {
 	}
 	now := time.Now().UTC()
 	for targetPlayerID, vote := range snapshot.DisconnectVotes {
-		if vote["status"] != "open" {
-			continue
-		}
-		deadlineAt, ok := vote["deadlineAt"].(string)
-		if !ok {
-			continue
-		}
-		deadline, err := time.Parse(time.RFC3339, deadlineAt)
-		if err != nil || now.Before(deadline) {
+		var actionID string
+		var payload map[string]any
+		switch vote["status"] {
+		case "open":
+			deadlineAt, ok := vote["deadlineAt"].(string)
+			if !ok {
+				continue
+			}
+			deadline, err := time.Parse(time.RFC3339, deadlineAt)
+			if err != nil || now.Before(deadline) {
+				continue
+			}
+			actionID = fmt.Sprintf("disconnect-timeout:%s:%s", targetPlayerID, deadlineAt)
+			payload = map[string]any{"targetPlayerId": targetPlayerID, "status": "timeout"}
+		case "resolved_wait":
+			cooldownUntil, ok := vote["cooldownUntil"].(string)
+			if !ok {
+				continue
+			}
+			cooldown, err := time.Parse(time.RFC3339, cooldownUntil)
+			if err != nil || now.Before(cooldown) {
+				continue
+			}
+			eligible := disconnectVoteEligible(vote, &snapshot, targetPlayerID, nil)
+			if len(eligible) == 0 {
+				continue
+			}
+			actionID = fmt.Sprintf("disconnect-reopen:%s:%s", targetPlayerID, cooldownUntil)
+			payload = map[string]any{"targetPlayerId": targetPlayerID, "status": "offline", "connectedUserIds": eligible}
+		default:
 			continue
 		}
 		result := a.ApplyDirect(ctx, protocol.CommandEnvelopeV2{
 			GameID: a.gameID, BaseVersion: a.Version(),
-			ClientActionID: fmt.Sprintf("disconnect-timeout:%s:%s", targetPlayerID, deadlineAt),
+			ClientActionID: actionID,
 			Type:           "disconnect.vote",
-			Payload:        map[string]any{"targetPlayerId": targetPlayerID, "status": "timeout"},
+			Payload:        payload,
 			Client:         map[string]any{"source": "runtime_actor_tick"},
 		}, "")
 		if result.Err != nil && !errors.Is(result.Err, ErrVersionConflict) {
-			slog.Warn("runtime disconnect deadline resolution failed", "gameId", a.gameID, "targetPlayerId", targetPlayerID, "error", result.Err)
+			slog.Warn("runtime due disconnect vote transition failed", "gameId", a.gameID, "targetPlayerId", targetPlayerID, "error", result.Err)
 			continue
 		}
 		if result.Err == nil {

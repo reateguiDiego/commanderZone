@@ -260,7 +260,7 @@ func openDisconnectVote(game *state.GameState, targetPlayerID string, connectedU
 
 func cancelDisconnectVoteOnReconnect(game *state.GameState, targetPlayerID string, start time.Time, emitter *PatchEmitter) map[string]any {
 	current := cloneMap(game.DisconnectVotes[targetPlayerID])
-	if current["status"] != "open" || current["targetPlayerId"] != targetPlayerID {
+	if (current["status"] != "open" && current["status"] != "resolved_wait") || current["targetPlayerId"] != targetPlayerID {
 		payload := disconnectVotePayload("cancel.ignored", game, targetPlayerID, start, emitter)
 		payload["idempotent"] = true
 		return payload
@@ -354,7 +354,10 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 				emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": nextTurn}})
 			}
 		}
-	} else if waitVotes >= majority {
+	} else if waitVotes >= majority || (waitVotes > 0 && waitVotes == expelVotes) {
+		// A split ballot deliberately favours keeping the disconnected player.
+		// This resolves the tie immediately instead of leaving the outcome to a
+		// later abstention or deadline.
 		reason = "vote.resolved"
 		current["status"] = "resolved_wait"
 		current["openedAt"] = nil

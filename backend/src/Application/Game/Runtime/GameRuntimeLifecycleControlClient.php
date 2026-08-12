@@ -8,7 +8,7 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /** Low-frequency control-plane disposal; it never dispatches a game command. */
-final readonly class GameRuntimeLifecycleControlClient
+final readonly class GameRuntimeLifecycleControlClient implements GameRuntimeLifecycleControlInterface
 {
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -19,12 +19,17 @@ final readonly class GameRuntimeLifecycleControlClient
 
     public function stop(Game $game): void
     {
-		$this->request(['gameId' => $game->id(), 'action' => 'stop']);
+        $this->stopByGameId($game->id());
+    }
+
+    public function stopByGameId(string $gameId): void
+    {
+        $this->request(['gameId' => $gameId, 'action' => 'stop']);
     }
 
     public function release(string $gameId): void
     {
-		$this->request(['gameId' => $gameId, 'action' => 'release']);
+        $this->request(['gameId' => $gameId, 'action' => 'release']);
     }
 
     /** @param array<string,string> $payload */

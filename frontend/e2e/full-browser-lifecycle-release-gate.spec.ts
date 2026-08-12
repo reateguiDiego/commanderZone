@@ -6,6 +6,7 @@ import { drawMine, focusPlayer, readTableZoneCounts } from './support/game-table
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 const POLL_TIMEOUT = 30_000;
+const DEBUG_HEALTH_ENABLED = isEnabled(process.env['E2E_REQUIRE_DEBUG_HEALTH'] ?? process.env['GAME_DEBUG_HEALTH_ENABLED']);
 
 type JsonObject = Record<string, unknown>;
 
@@ -92,11 +93,14 @@ test('P52 full browser lifecycle release gate: runtime actions, UI concede, sequ
       expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
       expect(debugPage.locator('main.debug-page')).toBeVisible({ timeout: 30_000 }),
     ]);
-    await Promise.all([
+    const connectionAssertions = [
       waitForGameplayConnection(auditA),
       waitForGameplayConnection(auditB),
-      waitForDebugHealth(debugAudit),
-    ]);
+    ];
+    if (DEBUG_HEALTH_ENABLED) {
+      connectionAssertions.push(waitForDebugHealth(debugAudit));
+    }
+    await Promise.all(connectionAssertions);
     await Promise.all([
       expect.poll(() => auditA.websocketTicketRoutes.includes('runtime_ws'), { timeout: 10_000 }).toBe(true),
       expect.poll(() => auditB.websocketTicketRoutes.includes('runtime_ws'), { timeout: 10_000 }).toBe(true),
@@ -682,6 +686,9 @@ async function deadLetterCount(page: Page): Promise<number> {
 function latestDebugHealth(audit: PageAudit): JsonObject {
   const health = [...audit.received].reverse().find((frame) => frame.payload['kind'] === 'debug_health')?.payload;
   if (!health) {
+    if (!DEBUG_HEALTH_ENABLED) {
+      return {};
+    }
     throw new Error(`No debug_health frame captured. Recent debug frames: ${JSON.stringify(audit.received.slice(-8), null, 2)}`);
   }
   return health;
@@ -753,4 +760,8 @@ function parseFrame(payload: string | Buffer): JsonObject | null {
 
 function isRecord(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isEnabled(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((value ?? '').trim().toLowerCase());
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"commanderzone/game-runtime/internal/lifecycle"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
@@ -800,6 +801,91 @@ func TestWebSocketFirstCommandRecoversActorFromCompactSnapshotWithoutInitialStat
 	}
 }
 
+func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *testing.T) {
+	gameID := "game-presence-lifecycle"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 1)}
+	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
+		store,
+		128,
+		nil,
+		runtimesvc.WithLifecycleSink(sink, 1),
+	)
+	defer shutdownRuntimeService(t, runtimeService)
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+	server := httptest.NewServer(NewWebSocketServer(validator, runtimeService))
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, gameID, 0, nil)
+	readUntil(t, conn, "connection_state")
+	if _, ok := runtimeService.Actor(gameID); !ok {
+		t.Fatal("websocket connection did not load the actor")
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close websocket: %v", err)
+	}
+
+	select {
+	case handoff := <-sink.handoffs:
+		if handoff.Type != lifecycle.AllPlayersDisconnected || handoff.GameID != gameID {
+			t.Fatalf("handoff = %#v, want all-players-disconnected for %s", handoff, gameID)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("last disconnect did not deliver an all-players-disconnected handoff")
+	}
+}
+
+func TestWebSocketReconnectCancelsAllDisconnectedGrace(t *testing.T) {
+	gameID := "game-presence-grace-cancel"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 2)}
+	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
+		store,
+		128,
+		nil,
+		runtimesvc.WithLifecycleSink(sink, 1),
+	)
+	defer shutdownRuntimeService(t, runtimeService)
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+	server := httptest.NewServer(NewWebSocketServer(validator, runtimeService))
+	defer server.Close()
+
+	first := dialRuntime(t, server.URL, gameID, 0, nil)
+	readUntil(t, first, "connection_state")
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first websocket: %v", err)
+	}
+
+	select {
+	case handoff := <-sink.handoffs:
+		if handoff.Type != lifecycle.AllPlayersDisconnected || handoff.GameID != gameID {
+			t.Fatalf("handoff = %#v, want all-players-disconnected for %s", handoff, gameID)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("last disconnect did not start the all-disconnected grace")
+	}
+
+	reconnected := dialRuntime(t, server.URL, gameID, 0, nil)
+	defer reconnected.Close()
+	select {
+	case handoff := <-sink.handoffs:
+		if handoff.Type != lifecycle.AllDisconnectedCanceled || handoff.GameID != gameID {
+			t.Fatalf("handoff = %#v, want all-disconnected cancellation for %s", handoff, gameID)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("participant reconnect did not cancel the all-disconnected grace")
+	}
+	readUntil(t, reconnected, "connection_state")
+}
+
 func TestWebSocketCacheMissRecoversCompactSnapshotAndEventLog(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	saveGatewayRuntimeSnapshot(t, store, testInitialState("game-replay"))
@@ -945,8 +1031,8 @@ func TestWebSocketReconnectAfterRuntimeRestartReplaysDurableReceiptHistory(t *te
 	if metrics.PatchReplayMemoryCount != 0 || metrics.PatchReplayDurableCount != 1 || metrics.PatchReplayResyncCount != 0 || metrics.ReconnectsWithoutGap != 1 {
 		t.Fatalf("gateway replay metrics = %#v, want durable replay only", metrics)
 	}
-	if runtimeMetrics := restartedRuntime.RuntimeMetrics(); runtimeMetrics.ActorCacheMissCount != 0 || runtimeMetrics.ActorLoadFromSnapshotCount != 0 {
-		t.Fatalf("durable replay should not recover actor: %#v", runtimeMetrics)
+	if runtimeMetrics := restartedRuntime.RuntimeMetrics(); runtimeMetrics.ActorCacheMissCount != 1 || runtimeMetrics.ActorLoadFromSnapshotCount != 1 {
+		t.Fatalf("reconnect must recover the actor for durable presence lifecycle: %#v", runtimeMetrics)
 	}
 }
 
@@ -979,8 +1065,8 @@ func TestWebSocketReconnectDurableLegacyEventMissingReceiptRequestsResync(t *tes
 	if metrics.PatchReplayMemoryCount != 0 || metrics.PatchReplayDurableCount != 0 || metrics.PatchReplayResyncCount != 1 || metrics.ReconnectsRequiringSync != 1 {
 		t.Fatalf("gateway replay metrics = %#v, want explicit durable receipt resync", metrics)
 	}
-	if _, ok := runtimeService.Actor(gameID); ok {
-		t.Fatal("reconnect resync should not recover actor for legacy receipt miss")
+	if _, ok := runtimeService.Actor(gameID); !ok {
+		t.Fatal("reconnect must recover the actor even when replay requires a resync")
 	}
 }
 
@@ -1337,6 +1423,15 @@ func testReorderState(gameID string) state.GameState {
 
 type fakeActivityStore struct {
 	chatCommands int
+}
+
+type recordingPresenceLifecycleSink struct {
+	handoffs chan lifecycle.Handoff
+}
+
+func (s *recordingPresenceLifecycleSink) Deliver(_ context.Context, handoff lifecycle.Handoff) error {
+	s.handoffs <- handoff
+	return nil
 }
 
 func (s *fakeActivityStore) AppendChatMessage(_ context.Context, gameID string, claims TicketClaims, command protocol.CommandEnvelopeV2, version int64) ([]protocol.PatchEnvelopeV2, error) {

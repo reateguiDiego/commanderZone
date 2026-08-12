@@ -73,6 +73,18 @@ describe('GameTableDisconnectVoteService', () => {
       expect.objectContaining({ playerId: 'player-1', vote: 'wait' }),
     ]));
   });
+
+  it('refreshes the visible disconnect countdown once per second', () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    TestBed.flushEffects();
+    expect(service.countdownSeconds()).toBe(0);
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+
+    service.ngOnDestroy();
+    setIntervalSpy.mockRestore();
+  });
 });
 
 function disconnectVotesSnapshot(): GameSnapshot {

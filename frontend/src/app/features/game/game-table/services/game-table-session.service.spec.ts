@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
@@ -425,6 +426,18 @@ describe('GameTableSessionService', () => {
 
     expect(navigateToRoomsWithLoadError).toHaveBeenCalledTimes(1);
     expect(setError).not.toHaveBeenCalledWith('Could not load game snapshot.');
+  });
+
+  it('navigates silently to rooms when an initial snapshot load returns 404', async () => {
+    const current = snapshot();
+    const navigateToRooms = vi.fn();
+    const navigateToRoomsWithLoadError = vi.fn();
+    gamesApi.snapshot.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+
+    await service.load(context(current, vi.fn(), vi.fn(), navigateToRoomsWithLoadError, vi.fn(), { navigateToRooms }));
+
+    expect(navigateToRooms).toHaveBeenCalledTimes(1);
+    expect(navigateToRoomsWithLoadError).not.toHaveBeenCalled();
   });
 });
 

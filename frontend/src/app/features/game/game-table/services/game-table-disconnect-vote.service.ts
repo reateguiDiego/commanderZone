@@ -267,7 +267,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
 
     this.countdownTimer = window.setInterval(() => {
       this.countdownTick.update((tick) => tick + 1);
-    }, 250);
+    }, 1000);
   }
 
   private stopCountdown(): void {

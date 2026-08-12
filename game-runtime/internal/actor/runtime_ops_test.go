@@ -1665,6 +1665,42 @@ func TestDisconnectVotesRemainIndependentAndTimeoutUsesWaitReducer(t *testing.T)
 	}
 }
 
+func TestDisconnectVoteTieResolvesToWaitImmediately(t *testing.T) {
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	initial.Players["p4"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+	open := command("game-1", 1, "open-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "status": "offline", "connectedUserIds": []string{"p1", "p3", "p4"},
+	})
+	open.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), open, ""); result.Err != nil {
+		t.Fatalf("open vote: %v", result.Err)
+	}
+	if result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Version(), "wait-p1", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "playerId": "p1", "vote": "wait",
+	}), "p1"); result.Err != nil {
+		t.Fatalf("record wait: %v", result.Err)
+	}
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Version(), "expel-p3", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "playerId": "p3", "vote": "expel",
+	}), "p3")
+	if result.Err != nil {
+		t.Fatalf("record expel: %v", result.Err)
+	}
+	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "disconnect.vote.set") == nil {
+		t.Fatalf("tie did not emit compact disconnect vote patch: %#v", result.Patches)
+	}
+	vote := gameActor.Snapshot().DisconnectVotes["p2"]
+	if vote["status"] != "resolved_wait" || vote["cooldownUntil"] == nil {
+		t.Fatalf("tie must resolve to wait: %#v", vote)
+	}
+	if gameActor.Snapshot().Players["p2"]["status"] != "active" {
+		t.Fatalf("tie must keep target active: %#v", gameActor.Snapshot().Players["p2"])
+	}
+}
+
 func TestDisconnectVoteDeadlineTickPublishesResolvedWaitPatch(t *testing.T) {
 	initial := testState()
 	initial.Players["p3"] = map[string]any{"life": 40, "status": "active"}
@@ -1693,6 +1729,60 @@ func TestDisconnectVoteDeadlineTickPublishesResolvedWaitPatch(t *testing.T) {
 	}
 	if vote := gameActor.Snapshot().DisconnectVotes["p2"]; vote["status"] != "resolved_wait" {
 		t.Fatalf("deadline vote status = %#v", vote)
+	}
+}
+
+func TestDisconnectVoteCooldownTickReopensVote(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	open := command("game-1", 1, "open-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "status": "offline", "connectedUserIds": []string{"p1"},
+	})
+	open.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), open, ""); result.Err != nil {
+		t.Fatalf("open vote: %v", result.Err)
+	}
+	wait := command("game-1", gameActor.Version(), "wait-p2", "disconnect.vote", map[string]any{
+		"targetPlayerId": "p2", "playerId": "p1", "vote": "wait",
+	})
+	if result := gameActor.ApplyDirect(context.Background(), wait, "p1"); result.Err != nil {
+		t.Fatalf("resolve wait vote: %v", result.Err)
+	}
+	gameActor.stateMu.Lock()
+	gameActor.state.DisconnectVotes["p2"]["cooldownUntil"] = "2000-01-01T00:00:00Z"
+	gameActor.stateMu.Unlock()
+	published := make(chan CommandResult, 1)
+	gameActor.SetInternalResultPublisher(func(_ context.Context, result CommandResult) { published <- result })
+
+	gameActor.resolveDueDisconnectVotes(context.Background())
+	select {
+	case result := <-published:
+		if result.Err != nil || patchForVisibility(result.Patches, protocol.VisibilityPublic, "disconnect.vote.set") == nil {
+			t.Fatalf("cooldown patch result = %#v", result)
+		}
+	default:
+		t.Fatal("cooldown tick did not publish its compact patch")
+	}
+	vote := gameActor.Snapshot().DisconnectVotes["p2"]
+	if vote["status"] != "open" || vote["openedAt"] == nil || vote["deadlineAt"] == nil || vote["cooldownUntil"] != nil || len(vote["votes"].(map[string]any)) != 0 {
+		t.Fatalf("cooldown vote was not reopened cleanly: %#v", vote)
+	}
+}
+
+func TestDisconnectVoteReconnectCancelsResolvedWait(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	gameActor.state.DisconnectVotes = map[string]map[string]any{
+		"p2": {
+			"targetPlayerId": "p2", "status": "resolved_wait", "openedAt": nil, "deadlineAt": nil,
+			"cooldownUntil": time.Now().UTC().Add(time.Minute).Format(time.RFC3339), "votes": map[string]any{}, "eligible": []string{"p1"},
+		},
+	}
+	online := command("game-1", 1, "online-p2", "disconnect.vote", map[string]any{"targetPlayerId": "p2", "status": "online"})
+	online.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), online, ""); result.Err != nil {
+		t.Fatalf("reconnect cancellation: %v", result.Err)
+	}
+	if vote := gameActor.Snapshot().DisconnectVotes["p2"]; vote["status"] != "cancelled" {
+		t.Fatalf("resolved wait was not cancelled by reconnect: %#v", vote)
 	}
 }
 

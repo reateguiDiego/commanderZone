@@ -1,4 +1,5 @@
 import { Injectable, computed, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameControlPlaneState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
@@ -84,14 +85,22 @@ export class GameTableSessionService {
         onMulliganPatchV2Applied: (patch, snapshot) => context.onMulliganPatchV2Applied?.(patch, snapshot),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
-    } catch {
-      context.navigateToRoomsWithLoadError();
+    } catch (error) {
+      if (this.isDeletedGameLoad(error)) {
+        context.navigateToRooms();
+      } else {
+        context.navigateToRoomsWithLoadError();
+      }
     } finally {
       context.setLoading(false);
       if (shouldRefreshViewerControlAccess) {
         await context.refreshViewerControlAccess?.();
       }
     }
+  }
+
+  private isDeletedGameLoad(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 404;
   }
 
   async refetch(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {

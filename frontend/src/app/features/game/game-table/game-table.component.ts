@@ -4149,7 +4149,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 250);
+    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 1000);
   }
 
   private updateRematchCountdown(): void {
