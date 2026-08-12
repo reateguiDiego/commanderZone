@@ -127,12 +127,16 @@ test.describe('TokenGroup authoritative state operations gate', () => {
 
     group = onlySetGroup((await apply('token.group.state.set', { groupId: group['groupId'], expectedRevision: 4, faceDown: false }, 'tg-state-show')).patch);
     expect(group).toMatchObject({ revision: 5, faceDown: false });
-    const positionPayload = { groupId: group['groupId'], expectedRevision: 5, position: ratio(.82, .18) };
+	group = onlySetGroup((await apply('token.group.counter.changed', { groupId: group['groupId'], expectedRevision: 5, counter: '+1/+1', delta: 2 }, 'tg-state-counter')).patch);
+	expect(group).toMatchObject({ revision: 6, counters: { '+1/+1': 2 } });
+	group = onlySetGroup((await apply('token.group.power_toughness.set', { groupId: group['groupId'], expectedRevision: 6, power: 4, toughness: 5 }, 'tg-state-pt')).patch);
+	expect(group).toMatchObject({ revision: 7, mutableStats: { power: 4, toughness: 5 } });
+    const positionPayload = { groupId: group['groupId'], expectedRevision: 7, position: ratio(.82, .18) };
     const positionBaseVersion = await gameVersion(request, setup.gameId, owner.token);
     const positionAction = 'tg-state-position';
     const positioned = await sendRuntimeCommand(request, { gameId: setup.gameId, token: owner.token, baseVersion: positionBaseVersion, clientActionId: positionAction, type: 'token.group.position.set', payload: positionPayload });
     group = onlySetGroup(positioned.patch);
-    expect(group).toMatchObject({ revision: 6, position: ratio(.82, .18) });
+		expect(group).toMatchObject({ revision: 8, position: ratio(.82, .18) });
     const logsBeforeRetry = gameLog(await snapshot(request, setup.gameId, owner.token)).length;
     const retried = await sendRuntimeCommand(request, { gameId: setup.gameId, token: owner.token, baseVersion: positionBaseVersion, clientActionId: positionAction, type: 'token.group.position.set', payload: positionPayload });
     expect(retried.version).toBe(positioned.version);
@@ -143,13 +147,16 @@ test.describe('TokenGroup authoritative state operations gate', () => {
       .rejects.toThrow('TOKEN_GROUP_MEMBER_REQUIRES_SPLIT');
     await expect(apply('arrow.created', { fromInstanceId: stateMembers[0], toInstanceId: retainedRoot }, 'tg-state-reject-arrow'))
       .rejects.toThrow('TOKEN_GROUP_RELATION_CONFLICT');
-    await expect(apply('token.group.position.set', { groupId: group['groupId'], expectedRevision: 5, position: ratio(.2, .2) }, 'tg-state-stale'))
+    await expect(apply('token.group.position.set', { groupId: group['groupId'], expectedRevision: 7, position: ratio(.2, .2) }, 'tg-state-stale'))
       .rejects.toThrow('TOKEN_GROUP_STALE');
 
     const beforeRestart = await Promise.all(setup.players.map((player) => bootstrap(request, setup.gameId, player.token)));
     await restartRuntime(request);
     const afterRestart = await Promise.all(setup.players.map((player) => bootstrap(request, setup.gameId, player.token)));
     expect(afterRestart.map(tokenGroups)).toEqual(beforeRestart.map(tokenGroups));
+
+		group = onlySetGroup((await apply('token.group.controller.changed', { groupId: group['groupId'], expectedRevision: 8, targetPlayerId: viewerB.user.id }, 'tg-state-controller')).patch);
+		expect(group).toMatchObject({ revision: 9, controllerId: viewerB.user.id });
 
     const valid = await apply('card.token.created', {
       playerId: owner.user.id, quantity: 1, card: { cardKey: 'token:post-restart', name: 'Post Restart Token' }, position: ratio(.5, .5),

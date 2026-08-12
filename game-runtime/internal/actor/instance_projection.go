@@ -94,6 +94,9 @@ func projectTokenGroupForViewer(game *state.GameState, group state.TokenGroupRun
 	}
 	if fullyAuthorized && len(memberRefs) == group.Quantity() {
 		projected["memberRefs"] = memberRefs
+		projected["counters"] = cloneIntMapAny(root.Counters)
+		projected["mutableStats"] = cloneMap(root.MutableStats)
+		projected["controllerId"] = root.ControllerID
 	}
 	return projected, true
 }

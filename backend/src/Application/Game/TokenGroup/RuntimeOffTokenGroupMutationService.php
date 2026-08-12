@@ -2,6 +2,8 @@
 
 namespace App\Application\Game\TokenGroup;
 
+use App\Application\Game\Compact\PowerToughnessModel;
+
 final class RuntimeOffTokenGroupMutationService
 {
     private const EFFECT_VERSION = 1;
@@ -36,6 +38,9 @@ final class RuntimeOffTokenGroupMutationService
             'token.group.state.set' => $this->setState($snapshot, $payload, $actorPlayerId),
             'token.group.position.set' => $this->setPosition($snapshot, $payload, $actorPlayerId),
             'token.group.move' => $this->move($snapshot, $payload, $actorPlayerId),
+            'token.group.counter.changed' => $this->changeCounter($snapshot, $payload, $actorPlayerId),
+            'token.group.power_toughness.set' => $this->setPowerToughness($snapshot, $payload, $actorPlayerId),
+            'token.group.controller.changed' => $this->changeController($snapshot, $payload, $actorPlayerId),
             default => throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, $commandType),
         };
     }
@@ -225,6 +230,93 @@ final class RuntimeOffTokenGroupMutationService
         $key = $hasTapped ? 'tapped' : 'faceDown'; $event[$key] = $payload[$key];
 
         return $this->result('token.group.state.changed', $event, sprintf('Changed state for %d tokens.', $event['quantity']), $hasTapped ? ($payload['tapped'] ? 'gameLog.tokenGroup.tapped' : 'gameLog.tokenGroup.untapped') : ($payload['faceDown'] ? 'gameLog.tokenGroup.faceDown' : 'gameLog.tokenGroup.faceUp'), $event);
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function changeCounter(array &$snapshot, array $payload, string $actorId): array
+    {
+        [$index, $group] = $this->group($snapshot, $payload, 'token.group.counter.changed', $actorId);
+        $counter = is_string($payload['counter'] ?? null) ? trim($payload['counter']) : (is_string($payload['key'] ?? null) ? trim($payload['key']) : '');
+        if ($counter === '' || (isset($payload['counter'], $payload['key']) && $payload['counter'] !== $payload['key'])) { throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, 'token.group.counter.changed'); }
+        $remove = $payload['remove'] ?? false;
+        if (!is_bool($remove)) { throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, 'token.group.counter.changed'); }
+        $hasValue = array_key_exists('value', $payload) && is_int($payload['value']);
+        $hasDelta = array_key_exists('delta', $payload) && is_int($payload['delta']);
+        if (($remove && ($hasValue || $hasDelta)) || (!$remove && $hasValue === $hasDelta)) { throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, 'token.group.counter.changed'); }
+        [, , $root] = $this->card($snapshot, $group['rootInstanceId']);
+        $rootCounters = is_array($root['counters'] ?? null) ? $root['counters'] : [];
+        $value = $remove ? 0 : ($hasValue ? $payload['value'] : ((int) ($rootCounters[$counter] ?? 0) + $payload['delta']));
+        $states = [];
+        foreach ($group['orderedMemberIds'] as $memberId) {
+            [$playerId, $cardIndex, $card] = $this->card($snapshot, $memberId);
+            $counters = is_array($card['counters'] ?? null) ? $card['counters'] : [];
+            if ($remove) { unset($counters[$counter]); } else { $counters[$counter] = $value; }
+            $card['counters'] = $counters;
+            $snapshot['players'][$playerId]['zones']['battlefield'][$cardIndex] = $card;
+            $states[] = $this->state($memberId, $card);
+        }
+        ++$group['revision']; $snapshot['tokenGroups'][$index] = $group;
+        $event = $this->effect($actorId, [$group['groupId']], [$group], []);
+        $event += ['instanceStates' => $states, 'counter' => $counter, 'value' => $value, 'remove' => $remove, 'quantity' => count($group['orderedMemberIds'])];
+        return $this->result('token.group.counter.changed', $event, sprintf('Changed counters on %d tokens.', $event['quantity']), $remove ? 'gameLog.tokenGroup.countersRemoved' : 'gameLog.tokenGroup.countersChanged', $event);
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function setPowerToughness(array &$snapshot, array $payload, string $actorId): array
+    {
+        [$index, $group] = $this->group($snapshot, $payload, 'token.group.power_toughness.set', $actorId);
+        $stats = [];
+        foreach (['power', 'toughness'] as $field) { if (array_key_exists($field, $payload)) { $stats[$field] = $payload[$field]; } }
+        if ($stats === []) { throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, 'token.group.power_toughness.set'); }
+        $states = [];
+        foreach ($group['orderedMemberIds'] as $memberId) {
+            [$playerId, $cardIndex, $card] = $this->card($snapshot, $memberId);
+            $faceIndex = max(0, (int) ($card['activeFaceIndex'] ?? 0));
+            $faceKey = (string) $faceIndex;
+            $printed = is_array($card['printedStats'] ?? null) ? $card['printedStats'] : PowerToughnessModel::printedStats($card);
+            $overrides = is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [];
+            $next = is_array($overrides[$faceKey] ?? null) ? $overrides[$faceKey] : [];
+            foreach ($stats as $field => $value) {
+                $normalized = PowerToughnessModel::overrideValue($value);
+                if ($normalized === null) { unset($next[$field]); } else { $next[$field] = $normalized; }
+            }
+            if (!array_key_exists('power', $next) && !array_key_exists('toughness', $next)) {
+                unset($overrides[$faceKey]);
+            } else {
+                $next['faceKey'] = $faceKey; $next['faceIndex'] = $faceIndex; $next['provenance'] = 'manual';
+                $next['updatedByPlayerId'] = $actorId; $next['updatedAtVersion'] = max(1, (int) ($snapshot['version'] ?? 1)) + 1;
+                $overrides[$faceKey] = $next;
+            }
+            $card['printedStats'] = $printed; $card['manualOverrides'] = $overrides;
+            foreach (['power', 'toughness'] as $field) { $card[$field] = PowerToughnessModel::activeAxis($printed, $overrides, $faceIndex, $field); }
+            $snapshot['players'][$playerId]['zones']['battlefield'][$cardIndex] = $card;
+            $states[] = $this->state($memberId, $card);
+        }
+        ++$group['revision']; $snapshot['tokenGroups'][$index] = $group;
+        $event = $this->effect($actorId, [$group['groupId']], [$group], []);
+        $event += ['instanceStates' => $states, 'stats' => $stats, 'quantity' => count($group['orderedMemberIds'])];
+        return $this->result('token.group.power_toughness.changed', $event, sprintf('Changed power/toughness for %d tokens.', $event['quantity']), 'gameLog.tokenGroup.powerToughnessChanged', $event);
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function changeController(array &$snapshot, array $payload, string $actorId): array
+    {
+        [$index, $group] = $this->group($snapshot, $payload, 'token.group.controller.changed', $actorId);
+        $controllerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : (is_string($payload['controllerId'] ?? null) ? trim($payload['controllerId']) : '');
+        if ($controllerId === '' || !isset($snapshot['players'][$controllerId])) { throw $this->error(TokenGroupCanonicalizer::INVARIANT_FAILED, 'token.group.controller.changed'); }
+        [, , $root] = $this->card($snapshot, $group['rootInstanceId']);
+        if (($root['controllerId'] ?? null) === $controllerId) { throw $this->error(TokenGroupCanonicalizer::PATCH_CONFLICT, 'token.group.controller.changed', ['count' => count($group['orderedMemberIds'])]); }
+        $states = [];
+        foreach ($group['orderedMemberIds'] as $memberId) {
+            [$playerId, $cardIndex, $card] = $this->card($snapshot, $memberId);
+            $card['controllerId'] = $controllerId;
+            $snapshot['players'][$playerId]['zones']['battlefield'][$cardIndex] = $card;
+            $states[] = $this->state($memberId, $card);
+        }
+        ++$group['revision']; $snapshot['tokenGroups'][$index] = $group;
+        $event = $this->effect($actorId, [$group['groupId']], [$group], []);
+        $event += ['instanceStates' => $states, 'controllerId' => $controllerId, 'quantity' => count($group['orderedMemberIds'])];
+        return $this->result('token.group.controller.changed', $event, sprintf('Changed controller for %d tokens.', $event['quantity']), 'gameLog.tokenGroup.controllerChanged', $event);
     }
 
     /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
@@ -431,6 +523,23 @@ final class RuntimeOffTokenGroupMutationService
         $result = []; $seen = [];
         foreach ($raw as $entry) { $id = is_array($entry) && is_string($entry['instanceId'] ?? null) ? $entry['instanceId'] : ''; if (!in_array($id, $members, true) || isset($seen[$id])) { throw $this->error(TokenGroupCanonicalizer::MEMBER_MISMATCH, $operation); } $seen[$id] = true; $result[] = ['instanceId' => $id, 'position' => $this->position($entry['position'] ?? null, $operation)]; }
         return $result;
+    }
+
+    /** @param array<string,mixed> $card @return array<string,mixed> */
+    private function state(string $instanceId, array $card): array
+    {
+        return [
+            'instanceId' => $instanceId,
+            'tapped' => (bool) ($card['tapped'] ?? false),
+            'rotation' => (int) ($card['rotation'] ?? 0),
+            'faceDown' => (bool) ($card['faceDown'] ?? false),
+            'visibleToMask' => 0,
+            'revealedTo' => array_values(is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : []),
+            'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
+            'mutableStats' => array_filter(['power' => $card['power'] ?? null, 'toughness' => $card['toughness'] ?? null], static fn (mixed $value): bool => $value !== null),
+            'manualOverrides' => is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [],
+            'controllerId' => (string) ($card['controllerId'] ?? ''),
+        ];
     }
 
     /** @return list<string> */

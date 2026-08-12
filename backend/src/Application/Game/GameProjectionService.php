@@ -346,6 +346,9 @@ class GameProjectionService
             ];
             if ($fullyAuthorized) {
                 $view['memberRefs'] = array_map(static fn (string $memberId): string => $resolvedByCanonical[$memberId], $members);
+				$view['counters'] = is_array($rootCard['counters'] ?? null) ? $rootCard['counters'] : [];
+				$view['mutableStats'] = array_filter(['power' => $rootCard['power'] ?? null, 'toughness' => $rootCard['toughness'] ?? null], static fn (mixed $value): bool => $value !== null);
+				if (is_string($rootCard['controllerId'] ?? null) && trim($rootCard['controllerId']) !== '') { $view['controllerId'] = $rootCard['controllerId']; }
             }
             $projected[] = $canonicalizer->normalizeProjected($view);
         }

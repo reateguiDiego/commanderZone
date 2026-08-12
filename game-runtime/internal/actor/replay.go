@@ -69,7 +69,7 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 			return err
 		}
 		return state.ValidateTokenGroupState(*game)
-	case "token.group.split", "token.group.merged", "token.group.members.removed", "token.group.dissolved", "token.group.state.changed", "token.group.position.changed", "token.group.moved":
+	case "token.group.split", "token.group.merged", "token.group.members.removed", "token.group.dissolved", "token.group.state.changed", "token.group.position.changed", "token.group.moved", "token.group.counter.changed", "token.group.power_toughness.changed", "token.group.controller.changed":
 		before := game.Clone()
 		if err := replayTokenGroupMutationEvent(game, event, appliers); err != nil {
 			*game = before
@@ -242,6 +242,30 @@ func replayTokenGroupMutationEvent(game *state.GameState, event protocol.EventPa
 				return fmt.Errorf("%w: instanceStates", ErrInvalidPayloadField)
 			}
 			instance.Tapped, instance.FaceDown, instance.Rotation, instance.VisibleToMask = tapped, faceDown, rotation, uint64(mask)
+			if rawCounters, exists := entry["counters"]; exists {
+				counters, valid := strictCounterMap(rawCounters)
+				if !valid {
+					return fmt.Errorf("%w: instanceStates counters", ErrInvalidPayloadField)
+				}
+				instance.Counters = counters
+			}
+			if rawStats, exists := entry["mutableStats"]; exists {
+				stats, valid := rawStats.(map[string]any)
+				if !valid {
+					return fmt.Errorf("%w: instanceStates mutableStats", ErrInvalidPayloadField)
+				}
+				instance.MutableStats = cloneMap(stats)
+			}
+			if rawController, exists := entry["controllerId"]; exists {
+				controllerID, valid := rawController.(string)
+				if !valid || controllerID == "" {
+					return fmt.Errorf("%w: instanceStates controllerId", ErrInvalidPayloadField)
+				}
+				location := game.Loc[instanceID]
+				location.ControllerID = controllerID
+				game.Loc[instanceID] = location
+				instance.ControllerID = controllerID
+			}
 			game.Instances[instanceID] = instance
 		}
 	}
@@ -255,6 +279,25 @@ func replayTokenGroupMutationEvent(game *state.GameState, event protocol.EventPa
 		}
 	}
 	return nil
+}
+
+func strictCounterMap(raw any) (map[string]int, bool) {
+	values, ok := raw.(map[string]any)
+	if typed, typedOK := raw.(map[string]int); typedOK {
+		return cloneIntMap(typed), true
+	}
+	if !ok {
+		return nil, false
+	}
+	result := make(map[string]int, len(values))
+	for key, value := range values {
+		parsed, valid := strictInteger(value)
+		if strings.TrimSpace(key) == "" || !valid {
+			return nil, false
+		}
+		result[key] = parsed
+	}
+	return result, true
 }
 
 func tokenGroupsFromMutationEvent(event protocol.EventPayloadV2) ([]state.TokenGroupRuntime, error) {

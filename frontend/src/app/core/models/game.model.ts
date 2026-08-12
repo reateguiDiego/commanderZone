@@ -81,6 +81,9 @@ export type GameCommandType =
   | 'token.group.state.set'
   | 'token.group.position.set'
   | 'token.group.move'
+  | 'token.group.counter.changed'
+  | 'token.group.power_toughness.set'
+  | 'token.group.controller.changed'
   | 'card.token_copy.created'
   | 'card.controller.changed'
   | 'turn.changed'
@@ -336,6 +339,10 @@ export interface GameTokenGroupView {
   faceDown?: boolean;
   tapped?: boolean;
   rotation?: number;
+  /** Present only when the viewer is authorized for the canonical root. */
+  counters?: Record<string, number>;
+  mutableStats?: Record<string, unknown>;
+  controllerId?: string;
   effectVersion: 1;
 }
 

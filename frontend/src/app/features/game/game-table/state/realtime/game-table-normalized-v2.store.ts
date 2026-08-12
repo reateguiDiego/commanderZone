@@ -2211,6 +2211,8 @@ function setTokenGroup(state: GameTableNormalizedV2State, incoming: GameTokenGro
     ...incoming,
     ...(memberRefs ? { memberRefs } : {}),
     position: { ...incoming.position },
+    ...(incoming.counters ? { counters: { ...incoming.counters } } : {}),
+    ...(incoming.mutableStats ? { mutableStats: { ...incoming.mutableStats } } : {}),
   };
   if (!validTokenGroupView(group)) {
     return { status: 'failed', reason: 'token_group_projection_incomplete' };
@@ -2315,6 +2317,10 @@ function tokenGroupViewEqual(left: GameTokenGroupView, right: GameTokenGroupView
     && left.faceDown === right.faceDown
     && left.tapped === right.tapped
     && left.rotation === right.rotation
+
+    && left.controllerId === right.controllerId
+    && JSON.stringify(left.counters ?? {}) === JSON.stringify(right.counters ?? {})
+    && JSON.stringify(left.mutableStats ?? {}) === JSON.stringify(right.mutableStats ?? {})
     && left.position.x === right.position.x
     && left.position.y === right.position.y
     && left.position.unit === right.position.unit

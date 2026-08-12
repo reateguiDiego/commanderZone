@@ -103,7 +103,11 @@
       "faceDown": "{{ actor }} turned {{ count }} tokens face down.",
       "faceUp": "{{ actor }} turned {{ count }} tokens face up.",
       "moved": "{{ actor }} moved {{ count }} tokens.",
-      "zoneMoved": "{{ actor }} moved {{ count }} tokens to {{ toZone }}."
+      "zoneMoved": "{{ actor }} moved {{ count }} tokens to {{ toZone }}.",
+      "countersChanged": "{{ actor }} changed {{ counter }} counters on {{ count }} tokens.",
+      "countersRemoved": "{{ actor }} removed {{ counter }} counters from {{ count }} tokens.",
+      "powerToughnessChanged": "{{ actor }} changed power/toughness for {{ count }} tokens.",
+      "controllerChanged": "{{ actor }} changed controller for {{ count }} tokens."
     },
     "game": {
       "concede": "{{ player }} conceded."

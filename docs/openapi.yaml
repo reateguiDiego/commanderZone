@@ -8149,6 +8149,16 @@ components:
         faceDown: { type: boolean }
         tapped: { type: boolean }
         rotation: { type: integer }
+        counters:
+          type: object
+          description: Shared counter state, emitted only when the viewer is authorized for the canonical group.
+          additionalProperties: { type: integer }
+        mutableStats:
+          type: object
+          description: Shared mutable P/T-related state, emitted only when authorized.
+        controllerId:
+          type: string
+          description: Shared controller reference, emitted only when authorized.
         effectVersion: { type: integer, const: 1 }
       examples:
         - groupId: token-group-336f356eb01ec0b4246b0528
@@ -8283,6 +8293,52 @@ components:
         toZone: { type: string, enum: [hand, library, graveyard, exile, command] }
         targetPlayerId: { type: string, minLength: 1 }
         position: { type: string, enum: [top, bottom] }
+    TokenGroupCounterChangedCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision, counter]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        counter: { type: string, minLength: 1 }
+        key: { type: string, minLength: 1 }
+        value: { type: integer }
+        delta: { type: integer }
+        remove: { type: boolean, const: true }
+      oneOf:
+        - required: [value]
+        - required: [delta]
+        - required: [remove]
+    TokenGroupPowerToughnessSetCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        power: {}
+        toughness: {}
+        loyalty: {}
+        defense: {}
+        saga: {}
+      anyOf:
+        - required: [power]
+        - required: [toughness]
+        - required: [loyalty]
+        - required: [defense]
+        - required: [saga]
+    TokenGroupControllerChangedCommand:
+      type: object
+      additionalProperties: false
+      required: [groupId, expectedRevision]
+      properties:
+        groupId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        targetPlayerId: { type: string, minLength: 1 }
+        controllerId: { type: string, minLength: 1 }
+      oneOf:
+        - required: [targetPlayerId]
+        - required: [controllerId]
     TokenGroupMutationEventPayload:
       type: object
       additionalProperties: true
@@ -8321,6 +8377,11 @@ components:
                 type: array
                 uniqueItems: true
                 items: { type: string, minLength: 1 }
+              counters:
+                type: object
+                additionalProperties: { type: integer }
+              mutableStats: { type: object }
+              controllerId: { type: string, minLength: 1 }
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8760,6 +8821,21 @@ components:
           then:
             properties: { payload: { $ref: '#/components/schemas/TokenGroupMoveCommand' } }
         - if:
+            properties: { type: { const: token.group.counter.changed } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupCounterChangedCommand' } }
+        - if:
+            properties: { type: { const: token.group.power_toughness.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupPowerToughnessSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.controller.changed } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupControllerChangedCommand' } }
+        - if:
             properties:
               type:
                 const: library.selection.move
@@ -8823,6 +8899,9 @@ components:
             - token.group.state.set
             - token.group.position.set
             - token.group.move
+            - token.group.counter.changed
+            - token.group.power_toughness.set
+            - token.group.controller.changed
             - card.token_copy.created
             - card.controller.changed
             - turn.changed
@@ -8995,7 +9074,7 @@ components:
         - if:
             properties:
               type:
-                enum: [token.group.split, token.group.merged, token.group.members.removed, token.group.dissolved, token.group.state.changed, token.group.position.changed, token.group.moved]
+                enum: [token.group.split, token.group.merged, token.group.members.removed, token.group.dissolved, token.group.state.changed, token.group.position.changed, token.group.moved, token.group.counter.changed, token.group.power_toughness.changed, token.group.controller.changed]
             required: [type]
           then:
             properties:
@@ -9133,6 +9212,21 @@ components:
             required: [type]
           then:
             properties: { payload: { $ref: '#/components/schemas/TokenGroupMoveCommand' } }
+        - if:
+            properties: { type: { const: token.group.counter.changed } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupCounterChangedCommand' } }
+        - if:
+            properties: { type: { const: token.group.power_toughness.set } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupPowerToughnessSetCommand' } }
+        - if:
+            properties: { type: { const: token.group.controller.changed } }
+            required: [type]
+          then:
+            properties: { payload: { $ref: '#/components/schemas/TokenGroupControllerChangedCommand' } }
       properties:
         gameId:
           type: string

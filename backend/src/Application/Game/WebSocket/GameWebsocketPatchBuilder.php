@@ -112,7 +112,10 @@ final readonly class GameWebsocketPatchBuilder
             'token.group.dissolved',
             'token.group.state.changed',
             'token.group.position.changed',
-            'token.group.moved' => $this->tokenGroupMutation($previousSnapshot, $nextSnapshot),
+            'token.group.moved',
+            'token.group.counter.changed',
+            'token.group.power_toughness.changed',
+            'token.group.controller.changed' => $this->tokenGroupMutation($previousSnapshot, $nextSnapshot),
             'card.token_copy.created' => $this->tokenCreated($previousSnapshot, $nextSnapshot),
             'stack.card_added' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'stack', 'stack.item.add', 'stack.item.remove', 'stack.set', 'item', 'stack'),
             'stack.item_removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'stack', 'stack.item.add', 'stack.item.remove', 'stack.set', 'item', 'stack'),
@@ -2500,6 +2503,7 @@ final readonly class GameWebsocketPatchBuilder
             'token.group.split', 'token.group.merged', 'token.group.members.removed',
             'token.group.dissolved', 'token.group.state.changed',
             'token.group.position.changed', 'token.group.moved',
+            'token.group.counter.changed', 'token.group.power_toughness.changed', 'token.group.controller.changed',
         ], true)) {
             return array_filter([
                 'effectVersion' => $payload['effectVersion'] ?? null,

@@ -428,6 +428,9 @@ final class GameEventReplayService
             case 'token.group.state.changed':
             case 'token.group.position.changed':
             case 'token.group.moved':
+            case 'token.group.counter.changed':
+            case 'token.group.power_toughness.changed':
+            case 'token.group.controller.changed':
                 $this->applyRuntimeTokenGroupMutation($snapshot, $event, $payload);
 
                 return true;
@@ -1901,6 +1904,25 @@ final class GameEventReplayService
                     $card['revealedTo'] = [];
                 } elseif (($entry['faceDown'] ?? false) === true) {
                     throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH);
+                }
+                if (array_key_exists('counters', $entry)) {
+                    if (!is_array($entry['counters']) || !array_is_list($entry['counters']) && array_filter(array_keys($entry['counters']), 'is_string') !== array_keys($entry['counters'])) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                    foreach ($entry['counters'] as $key => $value) { if (!is_string($key) || !is_int($value)) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); } }
+                    $card['counters'] = $entry['counters'];
+                }
+                if (array_key_exists('mutableStats', $entry)) {
+                    if (!is_array($entry['mutableStats']) || ($entry['mutableStats'] !== [] && array_is_list($entry['mutableStats']))) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                    foreach (['power', 'toughness'] as $axis) {
+                        if (array_key_exists($axis, $entry['mutableStats'])) { $card[$axis] = $entry['mutableStats'][$axis]; }
+                    }
+                }
+                if (array_key_exists('manualOverrides', $entry)) {
+                    if (!is_array($entry['manualOverrides'])) { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                    $card['manualOverrides'] = $entry['manualOverrides'];
+                }
+                if (array_key_exists('controllerId', $entry)) {
+                    if (!is_string($entry['controllerId']) || $entry['controllerId'] === '') { throw new \RuntimeException(TokenGroupCanonicalizer::MEMBER_MISMATCH); }
+                    $card['controllerId'] = $entry['controllerId'];
                 }
                 return $card;
             });

@@ -371,6 +371,50 @@ final class TokenGroupCrossRuntimeContractTest extends TestCase
         self::assertGreaterThan($sizes[2], $sizes[10]);
     }
 
+    public function testRuntimeOffUniformCounterStatsAndControllerPreserveGroupFingerprintAndReplay(): void
+    {
+        $actor = new User('group-uniform@example.test', 'Owner');
+        $other = new User('group-uniform-target@example.test', 'Target');
+        $before = $this->snapshot($actor->id());
+        $before['players'][$other->id()] = [...$before['players'][$actor->id()], 'user' => ['id' => $other->id(), 'displayName' => 'Target']];
+        $game = new Game(new Room($actor), $before);
+        $handler = new GameCommandHandler();
+        $events = [];
+        $events[] = $handler->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(), 'quantity' => 3, 'card' => ['cardKey' => 'token:treasure', 'name' => 'Treasure'],
+        ], $actor, 'php-uniform-create');
+        $group = $game->snapshot()['tokenGroups'][0];
+        $events[] = $handler->apply($game, 'token.group.counter.changed', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 1, 'counter' => '+1/+1', 'delta' => 2,
+        ], $actor, 'php-uniform-counter');
+        $events[] = $handler->apply($game, 'token.group.power_toughness.set', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 2, 'power' => 4, 'toughness' => 5,
+        ], $actor, 'php-uniform-stats');
+        $events[] = $handler->apply($game, 'token.group.controller.changed', [
+            'groupId' => $group['groupId'], 'expectedRevision' => 3, 'targetPlayerId' => $other->id(),
+        ], $actor, 'php-uniform-controller');
+        $live = $game->snapshot();
+        self::assertSame(4, $live['tokenGroups'][0]['revision']);
+        foreach ($live['players'][$actor->id()]['zones']['battlefield'] as $card) {
+            self::assertSame(2, $card['counters']['+1/+1']);
+            self::assertSame(4, $card['power']);
+            self::assertSame(5, $card['toughness']);
+            self::assertSame(4, $card['manualOverrides']['0']['power']);
+            self::assertSame(5, $card['manualOverrides']['0']['toughness']);
+            self::assertSame($other->id(), $card['controllerId']);
+        }
+        $replayed = (new GameEventReplayService())->replay($before, $events);
+        self::assertSame($live['tokenGroups'], $replayed['tokenGroups']);
+        foreach ($replayed['players'][$actor->id()]['zones']['battlefield'] as $card) {
+            self::assertSame(2, $card['counters']['+1/+1']);
+            self::assertSame(4, $card['power']);
+            self::assertSame(5, $card['toughness']);
+            self::assertSame($other->id(), $card['controllerId']);
+            self::assertSame(4, $card['manualOverrides']['0']['power']);
+            self::assertSame(5, $card['manualOverrides']['0']['toughness']);
+        }
+    }
+
 	public function testRuntimeOffUntapAllUpdatesUniformTokenGroupRevisionOnce(): void
 	{
 		$actor = new User('group-untap@example.test', 'Owner');

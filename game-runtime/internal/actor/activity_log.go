@@ -474,6 +474,24 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			key = "gameLog.tokenGroup.faceDown"
 		}
 		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "token.group.counter.changed":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		params["counter"] = counterLabel(firstString(payload["counter"]))
+		params["value"] = intFromPayload(payload, "value", 0)
+		key := "gameLog.tokenGroup.countersChanged"
+		if firstBool(payload["remove"]) {
+			key = "gameLog.tokenGroup.countersRemoved"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "token.group.power_toughness.set":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		return semantic("gameLog.tokenGroup.powerToughnessChanged", params, []string{actorPlayerID}, nil)
+	case "token.group.controller.changed":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "quantity", 0)
+		return semantic("gameLog.tokenGroup.controllerChanged", params, []string{actorPlayerID}, nil)
 	case "token.group.position.set":
 		params := baseParams()
 		params["count"] = intFromPayload(payload, "quantity", 0)
@@ -709,6 +727,12 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		return fmt.Sprintf("%s turned %d tokens face up.", displayName, count)
 	case "token.group.position.set", "token.group.move":
 		return fmt.Sprintf("%s moved %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
+	case "token.group.counter.changed":
+		return fmt.Sprintf("%s changed counters on %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
+	case "token.group.power_toughness.set":
+		return fmt.Sprintf("%s changed power/toughness for %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
+	case "token.group.controller.changed":
+		return fmt.Sprintf("%s changed controller for %d tokens.", displayName, intFromPayload(payload, "quantity", 0))
 	case "card.token_copy.created":
 		return fmt.Sprintf("%s created a token copy.", displayName)
 	case "library.view":

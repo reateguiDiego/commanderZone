@@ -360,7 +360,7 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 	}
 
 	switch command.Type {
-	case "token.group.split", "token.group.remove_members", "token.group.dissolve", "token.group.state.set", "token.group.position.set", "token.group.move":
+	case "token.group.split", "token.group.remove_members", "token.group.dissolve", "token.group.state.set", "token.group.position.set", "token.group.move", "token.group.counter.changed", "token.group.power_toughness.set", "token.group.controller.changed":
 		groupID := optionalPayloadString(command.Payload, "groupId")
 		group, ok := a.state.Relations.TokenGroups[groupID]
 		if !ok {
@@ -470,6 +470,7 @@ func (a *GameActor) requireExplicitTokenGroupIntent(command protocol.CommandEnve
 		"token.group.split": true, "token.group.merge": true, "token.group.remove_members": true,
 		"token.group.dissolve": true, "token.group.state.set": true,
 		"token.group.position.set": true, "token.group.move": true,
+		"token.group.counter.changed": true, "token.group.power_toughness.set": true, "token.group.controller.changed": true,
 	}
 	if groupCommands[command.Type] {
 		return nil

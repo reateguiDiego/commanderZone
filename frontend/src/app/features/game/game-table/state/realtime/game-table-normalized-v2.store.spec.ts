@@ -153,6 +153,36 @@ describe('game table normalized v2 store', () => {
 		expect(hydrateGameSnapshotFromV2State(state).tokenGroups?.[0].quantity).toBe(20);
 	});
 
+	it('keeps authorized uniform counter, mutable P/T and controller state in the TokenGroup projection', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const cards = ['token-a', 'token-b'].map((instanceId) => ({
+			instanceId, cardRef: 'token:beast', cardKey: 'token:beast', printId: 's-beast', cardVersion: 'beast-v1', language: 'en',
+			viewerVisibility: 'public' as const, zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', isToken: true,
+			tapped: false, position: { x: .5, y: .5, unit: 'ratio' as const },
+		}));
+		const base = {
+			groupId: 'group-uniform', rootRef: 'token-a', memberRefs: ['token-a', 'token-b'], quantity: 2,
+			revision: 1, position: { x: .5, y: .5, unit: 'ratio' as const }, effectVersion: 1 as const,
+		};
+		const created = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'zone.cards.add', playerId: 'player-1', zone: 'battlefield', cards },
+			{ op: 'token.group.set', group: base },
+		]));
+		const updated = applyPatchEnvelopeV2(created.state, patch(7, [{
+			op: 'token.group.set', group: {
+				...base, revision: 2, counters: { '+1/+1': 2 }, mutableStats: { power: 4, toughness: 5 }, controllerId: 'player-2',
+			},
+		}]));
+		expect(updated.status).toBe('applied');
+		expect(updated.state.relations.tokenGroupsById['group-uniform']).toMatchObject({
+			revision: 2, counters: { '+1/+1': 2 }, mutableStats: { power: 4, toughness: 5 }, controllerId: 'player-2',
+		});
+		const opaque = applyPatchEnvelopeV2(updated.state, patch(8, [{
+			op: 'token.group.set', group: { ...base, groupId: 'group-opaque', rootRef: 'token-a', revision: 1 },
+		}]));
+		expect(opaque.status).toBe('resync_required');
+	});
+
 	it('fails closed for missing projected roots or incomplete authorized membership', () => {
 		const missingRoot = bootstrapV2();
 		missingRoot.relations.tokenGroups = [{

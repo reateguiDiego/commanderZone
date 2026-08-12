@@ -54,9 +54,12 @@ Grouped Tokens usa N instancias de carta autoritativas y una relación `TokenGro
 - Patch.v2 sigue usando exclusivamente `token.group.set/remove`, con mutaciones de instancias entre remove y set cuando corresponda. El store normalizado reconstruye indices y termina equivalente a bootstrap.
 - GameLog agrega una entrada por intencion y no incluye groupId, root ni member IDs.
 
-## Reservado para Sprint 6C.1
+## Implementado en Sprint 6C.1
 
-- Counters, P/T overrides y cambio de controller uniformes. Las primitivas actuales son single-only y no se simula atomicidad mediante bucles de comandos.
+- `token.group.counter.changed`, `token.group.power_toughness.set` y `token.group.controller.changed` resuelven `groupId` y `expectedRevision` contra membership autoritativa. Cada intención genera un único evento final, versión, receipt y GameLog; no se encadenan comandos por instancia.
+- Counters y mutable P/T siguen siendo datos de cada instancia. La operación uniforme aplica el mismo resultado a todos los miembros, incrementa una sola revision de grupo y conserva el fingerprint. Controller cambia uniformemente sin cambiar owner ni membership.
+- Replay Go/PHP y runtime-off aplican `instanceStates` finales (counters, mutable stats, controller, tapped, faceDown y audiencia) y el grupo resultante sin recalcular valores. Patch.v2 continúa usando solo `token.group.remove/set` y patches de instancia viewer-safe.
+- Los viewers autorizados reciben el estado compartido adicional en `token.group.set`; las proyecciones opacas no reciben counters, mutableStats ni controllerId. Las mutaciones individuales continúan rechazándose con `TOKEN_GROUP_MEMBER_REQUIRES_SPLIT`.
 
 ## Pendiente para Sprint 6D
 

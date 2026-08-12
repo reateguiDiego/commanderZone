@@ -26,14 +26,22 @@ type TokenGroupDissolveApplier struct{}
 type TokenGroupStateSetApplier struct{}
 type TokenGroupPositionSetApplier struct{}
 type TokenGroupMoveApplier struct{}
+type TokenGroupCounterChangedApplier struct{}
+type TokenGroupPowerToughnessSetApplier struct{}
+type TokenGroupControllerChangedApplier struct{}
 
-func (TokenGroupSplitApplier) Type() string         { return "token.group.split" }
-func (TokenGroupMergeApplier) Type() string         { return "token.group.merge" }
-func (TokenGroupRemoveMembersApplier) Type() string { return "token.group.remove_members" }
-func (TokenGroupDissolveApplier) Type() string      { return "token.group.dissolve" }
-func (TokenGroupStateSetApplier) Type() string      { return "token.group.state.set" }
-func (TokenGroupPositionSetApplier) Type() string   { return "token.group.position.set" }
-func (TokenGroupMoveApplier) Type() string          { return "token.group.move" }
+func (TokenGroupSplitApplier) Type() string          { return "token.group.split" }
+func (TokenGroupMergeApplier) Type() string          { return "token.group.merge" }
+func (TokenGroupRemoveMembersApplier) Type() string  { return "token.group.remove_members" }
+func (TokenGroupDissolveApplier) Type() string       { return "token.group.dissolve" }
+func (TokenGroupStateSetApplier) Type() string       { return "token.group.state.set" }
+func (TokenGroupPositionSetApplier) Type() string    { return "token.group.position.set" }
+func (TokenGroupMoveApplier) Type() string           { return "token.group.move" }
+func (TokenGroupCounterChangedApplier) Type() string { return "token.group.counter.changed" }
+func (TokenGroupPowerToughnessSetApplier) Type() string {
+	return "token.group.power_toughness.set"
+}
+func (TokenGroupControllerChangedApplier) Type() string { return "token.group.controller.changed" }
 
 func (TokenGroupSplitApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	group, err := resolveCurrentTokenGroup(game, command)
@@ -329,6 +337,167 @@ func (TokenGroupStateSetApplier) Apply(ctx context.Context, game *state.GameStat
 	}
 	payload["quantity"] = group.Quantity()
 	return payload, nil
+}
+
+// TokenGroupCounterChangedApplier applies one counter mutation to the current
+// authoritative membership. It deliberately mutates instances directly rather
+// than dispatching N client commands: the resulting event is one atomic intent.
+func (TokenGroupCounterChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	group, err := resolveCurrentTokenGroup(game, command)
+	if err != nil {
+		return nil, err
+	}
+	counter, err := cardCounterName(command.Payload)
+	if err != nil {
+		return nil, err
+	}
+	remove, hasRemove := boolField(command.Payload, "remove")
+	if hasRemove && !remove {
+		return nil, fmt.Errorf("%w: remove", ErrInvalidPayloadField)
+	}
+	value, hasValue := intField(command.Payload, "value")
+	delta, hasDelta := intField(command.Payload, "delta")
+	if remove && (hasValue || hasDelta) || (!remove && hasValue == hasDelta) {
+		return nil, fmt.Errorf("%w: exactly one of value, delta, or remove", ErrInvalidPayloadField)
+	}
+	root := game.Instances[group.RootInstanceID]
+	if root.Counters == nil {
+		root.Counters = map[string]int{}
+	}
+	finalValue := value
+	if hasDelta {
+		finalValue = root.Counters[counter] + delta
+	}
+	if remove {
+		finalValue = 0
+	}
+	previous := captureTokenGroupProjections(game, []state.TokenGroupRuntime{group})
+	emitTokenGroupRemovals(emitter, previous, []state.TokenGroupRuntime{group}, "counter_changed")
+	states := make([]map[string]any, 0, group.Quantity())
+	for _, memberID := range group.OrderedMemberIDs {
+		instance := game.Instances[memberID]
+		if instance.Counters == nil {
+			instance.Counters = map[string]int{}
+		}
+		if remove {
+			delete(instance.Counters, counter)
+		} else {
+			instance.Counters[counter] = finalValue
+		}
+		game.Instances[memberID] = instance
+		location := game.Loc[memberID]
+		emitInstancePatchByViewer(emitter, game, memberID, "card.counters.patch", map[string]any{
+			"instanceId": memberID, "playerId": location.PlayerID, "zone": location.Zone, "counters": cloneIntMapAny(instance.Counters),
+		}, true)
+		states = append(states, tokenGroupInstanceState(game, instance))
+	}
+	if err := advanceTokenGroupRevision(game, &group); err != nil {
+		return nil, err
+	}
+	emitTokenGroupSets(emitter, game, []state.TokenGroupRuntime{group})
+	payload := tokenGroupMutationEffect(command, []string{group.GroupID}, []state.TokenGroupRuntime{group}, nil)
+	payload["_eventType"] = "token.group.counter.changed"
+	payload["instanceStates"] = states
+	payload["counter"] = counter
+	payload["value"] = finalValue
+	payload["remove"] = remove
+	payload["quantity"] = group.Quantity()
+	return payload, nil
+}
+
+func (TokenGroupPowerToughnessSetApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	group, err := resolveCurrentTokenGroup(game, command)
+	if err != nil {
+		return nil, err
+	}
+	changed := map[string]any{}
+	for _, key := range []string{"power", "toughness"} {
+		if hasPayloadKey(command.Payload, key) {
+			changed[key] = command.Payload[key]
+		}
+	}
+	if len(changed) == 0 {
+		return nil, fmt.Errorf("%w: power/toughness", ErrMissingPayloadField)
+	}
+	previous := captureTokenGroupProjections(game, []state.TokenGroupRuntime{group})
+	emitTokenGroupRemovals(emitter, previous, []state.TokenGroupRuntime{group}, "power_toughness_changed")
+	states := make([]map[string]any, 0, group.Quantity())
+	for _, memberID := range group.OrderedMemberIDs {
+		instance := game.Instances[memberID]
+		if instance.MutableStats == nil {
+			instance.MutableStats = map[string]any{}
+		}
+		for key, value := range changed {
+			instance.MutableStats[key] = value
+		}
+		game.Instances[memberID] = instance
+		location := game.Loc[memberID]
+		patch := map[string]any{"instanceId": memberID, "playerId": location.PlayerID, "zone": location.Zone}
+		for key, value := range changed {
+			patch[key] = value
+		}
+		emitInstancePatchByViewer(emitter, game, memberID, "card.field.set", patch, false)
+		states = append(states, tokenGroupInstanceState(game, instance))
+	}
+	if err := advanceTokenGroupRevision(game, &group); err != nil {
+		return nil, err
+	}
+	emitTokenGroupSets(emitter, game, []state.TokenGroupRuntime{group})
+	payload := tokenGroupMutationEffect(command, []string{group.GroupID}, []state.TokenGroupRuntime{group}, nil)
+	payload["_eventType"] = "token.group.power_toughness.changed"
+	payload["instanceStates"] = states
+	payload["stats"] = cloneMap(changed)
+	payload["quantity"] = group.Quantity()
+	return payload, nil
+}
+
+func (TokenGroupControllerChangedApplier) Apply(ctx context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	group, err := resolveCurrentTokenGroup(game, command)
+	if err != nil {
+		return nil, err
+	}
+	controllerID, err := stringField(command.Payload, "targetPlayerId")
+	if err != nil {
+		if controllerID, err = stringField(command.Payload, "controllerId"); err != nil {
+			return nil, fmt.Errorf("%w: targetPlayerId", ErrMissingPayloadField)
+		}
+	}
+	if _, exists := game.Players[controllerID]; !exists {
+		return nil, fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
+	}
+	if game.Instances[group.RootInstanceID].ControllerID == controllerID {
+		return nil, tokenGroupSimpleError(state.TokenGroupPatchConflict, command.Type, group.Quantity())
+	}
+	previous := captureTokenGroupProjections(game, []state.TokenGroupRuntime{group})
+	emitTokenGroupRemovals(emitter, previous, []state.TokenGroupRuntime{group}, "controller_changed")
+	states := make([]map[string]any, 0, group.Quantity())
+	for _, memberID := range group.OrderedMemberIDs {
+		single := command
+		single.Type = "card.controller.changed"
+		single.Payload = cloneMap(command.Payload)
+		single.Payload["instanceId"] = memberID
+		single.Payload["targetPlayerId"] = controllerID
+		if _, err := (CardControllerChangedApplier{}).Apply(ctx, game, single, emitter); err != nil {
+			return nil, err
+		}
+		states = append(states, tokenGroupInstanceState(game, game.Instances[memberID]))
+	}
+	if err := advanceTokenGroupRevision(game, &group); err != nil {
+		return nil, err
+	}
+	emitTokenGroupSets(emitter, game, []state.TokenGroupRuntime{group})
+	payload := tokenGroupMutationEffect(command, []string{group.GroupID}, []state.TokenGroupRuntime{group}, nil)
+	payload["_eventType"] = "token.group.controller.changed"
+	payload["instanceStates"] = states
+	payload["controllerId"] = controllerID
+	payload["quantity"] = group.Quantity()
+	return payload, nil
+}
+
+func advanceTokenGroupRevision(game *state.GameState, group *state.TokenGroupRuntime) error {
+	state.RemoveTokenGroup(game, group.GroupID)
+	group.Revision++
+	return state.AddTokenGroup(game, *group)
 }
 
 func (TokenGroupPositionSetApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
@@ -654,6 +823,8 @@ func tokenGroupInstanceState(game *state.GameState, instance state.CardInstanceR
 		"instanceId": instance.InstanceID, "tapped": instance.Tapped, "rotation": instance.Rotation,
 		"faceDown": instance.FaceDown, "visibleToMask": instance.VisibleToMask,
 		"revealedTo": revealedToForMask(game, instance.VisibleToMask),
+		"counters":   cloneIntMapAny(instance.Counters), "mutableStats": cloneMap(instance.MutableStats),
+		"controllerId": instance.ControllerID,
 	}
 }
 

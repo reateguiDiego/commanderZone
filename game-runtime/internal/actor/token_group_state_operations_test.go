@@ -137,6 +137,63 @@ func TestTokenGroupSeparateOneAndDissolve(t *testing.T) {
 	}
 }
 
+func TestTokenGroupUniformCounterPowerToughnessAndControllerAreAtomicAndReplayable(t *testing.T) {
+	initial := testState()
+	state.NormalizeForRecovery("game-1", &initial)
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", initial.Clone(), store, 8, DefaultAppliers())
+	create := tokenCreationCommand(3)
+	create.ClientActionID = "uniform-state-create"
+	if result := gameActor.ApplyDirect(context.Background(), create, "p1"); result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	group := onlyTokenGroup(t, gameActor.Snapshot())
+
+	operations := []protocol.CommandEnvelopeV2{
+		command("game-1", 2, "uniform-counter", "token.group.counter.changed", map[string]any{"groupId": group.GroupID, "expectedRevision": 1, "counter": "+1/+1", "delta": 2}),
+		command("game-1", 3, "uniform-pt", "token.group.power_toughness.set", map[string]any{"groupId": group.GroupID, "expectedRevision": 2, "power": 4, "toughness": 5}),
+		command("game-1", 4, "uniform-controller", "token.group.controller.changed", map[string]any{"groupId": group.GroupID, "expectedRevision": 3, "targetPlayerId": "p2"}),
+	}
+	for _, operation := range operations {
+		result := gameActor.ApplyDirect(context.Background(), operation, "p1")
+		if result.Err != nil {
+			t.Fatalf("%s: %v", operation.Type, result.Err)
+		}
+		if result.Event.Type == "" || result.Event.Version != operation.BaseVersion+1 {
+			t.Fatalf("non-atomic receipt: %#v", result.Event)
+		}
+	}
+	after := gameActor.Snapshot()
+	updated := onlyTokenGroup(t, after)
+	if updated.Revision != 4 {
+		t.Fatalf("revision=%d", updated.Revision)
+	}
+	for _, memberID := range updated.OrderedMemberIDs {
+		instance := after.Instances[memberID]
+		if instance.Counters["+1/+1"] != 2 || instance.MutableStats["power"] != 4 || instance.MutableStats["toughness"] != 5 || instance.ControllerID != "p2" || after.Loc[memberID].ControllerID != "p2" {
+			t.Fatalf("member did not receive uniform state: %#v / %#v", instance, after.Loc[memberID])
+		}
+	}
+	if result := gameActor.ApplyDirect(context.Background(), command("game-1", 5, "individual-counter", "card.counter.changed", map[string]any{"instanceId": updated.RootInstanceID, "counter": "charge", "value": 1}), "p2"); result.Err == nil {
+		t.Fatal("individual grouped counter was accepted")
+	} else if groupErr, ok := state.AsTokenGroupStateError(result.Err); !ok || groupErr.Code != state.TokenGroupMemberRequiresSplit {
+		t.Fatalf("individual error=%v", result.Err)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := ReplayEvents(initial, events, DefaultAppliers())
+	if err != nil {
+		t.Fatal(err)
+	}
+	live := gameActor.Snapshot()
+	live.Stack = replayed.Stack
+	if !reflect.DeepEqual(live, replayed) {
+		t.Fatalf("uniform replay mismatch\nlive=%#v\nreplay=%#v", live, replayed)
+	}
+}
+
 func TestTokenGroupSplitMatrixAndDeterministicRootPreservation(t *testing.T) {
 	tests := []struct {
 		name, actionID                          string

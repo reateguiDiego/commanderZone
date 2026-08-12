@@ -251,7 +251,7 @@ final class TokenGroupCanonicalizer
      */
     public function normalizeProjected(array $payload): array
     {
-        $allowed = ['groupId', 'rootRef', 'memberRefs', 'quantity', 'revision', 'position', 'faceDown', 'tapped', 'rotation', 'effectVersion'];
+        $allowed = ['groupId', 'rootRef', 'memberRefs', 'quantity', 'revision', 'position', 'faceDown', 'tapped', 'rotation', 'counters', 'mutableStats', 'controllerId', 'effectVersion'];
         if (array_diff(array_keys($payload), $allowed) !== []) {
             throw $this->error(self::PROJECTION_INCOMPLETE, ['invalidIndex' => -1]);
         }
@@ -307,6 +307,19 @@ final class TokenGroupCanonicalizer
             }
             $normalized['rotation'] = $payload['rotation'];
         }
+		if (array_key_exists('counters', $payload)) {
+			if (!is_array($payload['counters']) || ($payload['counters'] !== [] && array_is_list($payload['counters']))) { throw $this->error(self::PROJECTION_INCOMPLETE, ['count' => $payload['quantity'], 'invalidIndex' => -1]); }
+			foreach ($payload['counters'] as $key => $value) { if (!is_string($key) || !is_int($value)) { throw $this->error(self::PROJECTION_INCOMPLETE, ['count' => $payload['quantity'], 'invalidIndex' => -1]); } }
+			$normalized['counters'] = $payload['counters'];
+		}
+		if (array_key_exists('mutableStats', $payload)) {
+			if (!is_array($payload['mutableStats']) || ($payload['mutableStats'] !== [] && array_is_list($payload['mutableStats']))) { throw $this->error(self::PROJECTION_INCOMPLETE, ['count' => $payload['quantity'], 'invalidIndex' => -1]); }
+			$normalized['mutableStats'] = $payload['mutableStats'];
+		}
+		if (array_key_exists('controllerId', $payload)) {
+			if (!is_string($payload['controllerId']) || trim($payload['controllerId']) === '') { throw $this->error(self::PROJECTION_INCOMPLETE, ['count' => $payload['quantity'], 'invalidIndex' => -1]); }
+			$normalized['controllerId'] = $payload['controllerId'];
+		}
         $normalized['effectVersion'] = $payload['effectVersion'];
 
         return $normalized;

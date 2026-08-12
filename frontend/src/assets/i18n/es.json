@@ -1113,7 +1113,11 @@
       "faceDown": "{{ actor }} puso {{ count }} fichas boca abajo.",
       "faceUp": "{{ actor }} puso {{ count }} fichas boca arriba.",
       "moved": "{{ actor }} movió {{ count }} fichas.",
-      "zoneMoved": "{{ actor }} movió {{ count }} fichas a {{ toZone }}."
+      "zoneMoved": "{{ actor }} movió {{ count }} fichas a {{ toZone }}.",
+      "countersChanged": "{{ actor }} cambió contadores {{ counter }} en {{ count }} fichas.",
+      "countersRemoved": "{{ actor }} eliminó contadores {{ counter }} de {{ count }} fichas.",
+      "powerToughnessChanged": "{{ actor }} cambió fuerza/resistencia de {{ count }} fichas.",
+      "controllerChanged": "{{ actor }} cambió el controlador de {{ count }} fichas."
     },
     "game": {
       "concede": "{{ player }} concedió."
