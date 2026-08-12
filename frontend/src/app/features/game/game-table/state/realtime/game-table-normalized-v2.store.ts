@@ -36,6 +36,7 @@ type ZoneCountMap = Record<GameZoneName, number>;
 export interface GameTableNormalizedV2GameState {
   id: string;
   status: string;
+  controlPlaneRevision: number;
   winnerPlayerId: string | null;
   finishedAt: string | null;
   finishReason: string | null;
@@ -193,6 +194,7 @@ export class GameTableNormalizedV2Store {
       ...currentState,
       game: {
         ...currentState.game,
+        controlPlaneRevision: controlPlane.controlPlaneRevision,
         status: controlPlane.status,
         winnerPlayerId: controlPlane.winnerPlayerId,
         finishedAt: controlPlane.finishedAt,
@@ -231,24 +233,26 @@ export function createGameTableNormalizedV2State(
   const stack = createStackState(bootstrap.relations.stack);
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
   const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
+  const controlPlane = bootstrap.game.controlPlane;
 
   return {
     game: {
       id: bootstrap.game.id,
-      status: bootstrap.game.status,
-      winnerPlayerId: bootstrap.game.winnerPlayerId ?? null,
-      finishedAt: bootstrap.game.finishedAt ?? null,
-      finishReason: bootstrap.game.finishReason ?? null,
-      allDisconnectedSince: bootstrap.game.allDisconnectedSince ?? null,
-      nextLifecycleAt: bootstrap.game.nextLifecycleAt ?? null,
+      status: controlPlane?.status ?? bootstrap.game.status,
+      controlPlaneRevision: controlPlane?.controlPlaneRevision ?? bootstrap.game.controlPlaneRevision ?? 0,
+      winnerPlayerId: controlPlane?.winnerPlayerId ?? bootstrap.game.winnerPlayerId ?? null,
+      finishedAt: controlPlane?.finishedAt ?? bootstrap.game.finishedAt ?? null,
+      finishReason: controlPlane?.finishReason ?? bootstrap.game.finishReason ?? null,
+      allDisconnectedSince: controlPlane?.allDisconnectedSince ?? bootstrap.game.allDisconnectedSince ?? null,
+      nextLifecycleAt: controlPlane?.nextLifecycleAt ?? bootstrap.game.nextLifecycleAt ?? null,
       viewerId: bootstrap.game.viewerId,
-      ownerId: bootstrap.game.ownerId ?? null,
+      ownerId: controlPlane?.ownerId ?? bootstrap.game.ownerId ?? null,
       version: bootstrap.game.version,
       gamePhase: bootstrap.game.gamePhase ?? null,
       createdAt: bootstrap.game.createdAt ?? null,
       updatedAt: bootstrap.game.updatedAt ?? null,
       disconnectVotes: cloneDisconnectVotes(bootstrap.game.disconnectVotes ?? {}),
-      rematch: bootstrap.game.rematch ?? null,
+      rematch: controlPlane?.rematch ?? bootstrap.game.rematch ?? null,
       lastDiceResult: null,
     },
     players: Object.fromEntries(
@@ -282,6 +286,7 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
 
   return {
     version: state.lastAppliedVersion,
+    controlPlaneRevision: state.game.controlPlaneRevision,
     ownerId: state.game.ownerId ?? undefined,
     status: state.game.status,
     winnerPlayerId: state.game.winnerPlayerId,

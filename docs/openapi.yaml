@@ -3015,6 +3015,41 @@ paths:
           $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
+  /games/{id}/control-plane:
+    get:
+      tags: [Games]
+      summary: Read compact lifecycle and rematch state after a Mercure reconnection.
+      description: Returns only Symfony control-plane state. Clients call it once after a real Mercure reconnect; it must not be polled and never reads game_event history.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: afterRevision
+          in: query
+          required: true
+          description: Last controlPlaneRevision applied by the client.
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: A newer compact control-plane projection is available.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [controlPlane]
+                properties:
+                  controlPlane:
+                    $ref: '#/components/schemas/GameControlPlane'
+        '204':
+          description: No control-plane change exists after the requested revision.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /games/{id}/rematch-vote:
     post:
       tags: [Games]
@@ -3042,6 +3077,21 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+        '409':
+          description: The vote was replaced by a newer client action. Apply controlPlane and do not retry the stale action.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, code, controlPlane]
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [CONTROL_PLANE_ACTION_STALE]
+                  controlPlane:
+                    $ref: '#/components/schemas/GameControlPlane'
   /games/{id}/disconnect-vote:
     post:
       tags: [Games]
@@ -7402,7 +7452,7 @@ components:
           $ref: '#/components/schemas/GameLifecycleProjection'
     GameLifecycleProjection:
       type: object
-      required: [id, status, winnerPlayerId, finishedAt, finishReason, nextLifecycleAt]
+      required: [id, status, controlPlaneRevision, winnerPlayerId, finishedAt, finishReason, nextLifecycleAt]
       properties:
         id:
           type: string
@@ -7410,6 +7460,9 @@ components:
         status:
           type: string
           enum: [active, finished]
+        controlPlaneRevision:
+          type: integer
+          minimum: 0
         winnerPlayerId:
           type: [string, 'null']
           format: uuid
@@ -7431,6 +7484,11 @@ components:
         status:
           type: string
           enum: [active, finished]
+        controlPlaneRevision:
+          type: integer
+          minimum: 0
+        controlPlane:
+          $ref: '#/components/schemas/GameControlPlane'
         winnerPlayerId:
           type: [string, 'null']
           format: uuid
@@ -7901,6 +7959,39 @@ components:
         votedAt:
           type: string
           format: date-time
+        clientActionId:
+          type: string
+          description: Last accepted rematch action for this player. It is a control-plane idempotency cursor, never a gameplay event id.
+    GameControlPlane:
+      type: object
+      description: Compact durable state owned by Symfony. controlPlaneRevision is independent from the Go-owned gameplay stream version.
+      required: [controlPlaneRevision, status, winnerPlayerId, finishedAt, finishReason, allDisconnectedSince, nextLifecycleAt, ownerId, rematch]
+      properties:
+        controlPlaneRevision:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [active, finished]
+        winnerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+        finishReason:
+          type: [string, 'null']
+        allDisconnectedSince:
+          type: [string, 'null']
+          format: date-time
+        nextLifecycleAt:
+          type: [string, 'null']
+          format: date-time
+        ownerId:
+          type: [string, 'null']
+          format: uuid
+        rematch:
+          $ref: '#/components/schemas/GameRematch'
     GameDisconnectVote:
       type: object
       required: [targetPlayerId, status, openedAt, deadlineAt, cooldownUntil, votes]
@@ -7941,14 +8032,24 @@ components:
           format: date-time
     RematchVoteRequest:
       type: object
-      required: [vote]
+      required: [vote, clientActionId]
       properties:
         vote:
           type: string
           enum: [play_again, leave_room]
+        clientActionId:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Stable id reused when retrying the same vote after an uncertain response.
+        previousActionId:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: Last clientActionId confirmed for this player. Omit for the first vote; required when replacing a prior client vote.
     RematchVoteResponse:
       type: object
-      required: [status]
+      required: [status, clientActionId, controlPlane]
       properties:
         status:
           type: string
@@ -7957,10 +8058,14 @@ components:
           type: [string, 'null']
         event:
           $ref: '#/components/schemas/GameEvent'
-        snapshot:
-          $ref: '#/components/schemas/GameSnapshot'
-        version:
-          type: [integer, 'null']
+        clientActionId:
+          type: string
+          description: The accepted idempotency key for this request.
+        deduplicated:
+          type: boolean
+          description: True when this was a replay of an already accepted action and no new mutation or Mercure publication occurred.
+        controlPlane:
+          $ref: '#/components/schemas/GameControlPlane'
         room:
           $ref: '#/components/schemas/Room'
         left:

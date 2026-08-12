@@ -1,20 +1,23 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { GameControlPlaneState, GameRematchState, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, MercureGameEvent } from '../../../../core/models/game.model';
 import { MercureService } from '../../../../core/realtime/mercure.service';
 
 export interface GameTableRealtimeHandlers {
   onSnapshotInvalidated(event: MercureGameEvent): void;
   onControlPlaneState?(controlPlane: GameControlPlaneState, event: MercureGameEvent): void;
-  onRematchState(rematch: GameRematchState): void;
+  /** Invoked only after EventSource error -> open, never during the initial connection. */
+  onControlPlaneReconnect?(afterRevision: number): void;
   onRematchCreated(roomId: string): void;
+  /** The terminal lifecycle removed this room; the table must leave its dead topic. */
+  onRoomDeleted(): void;
 }
 
 @Injectable()
 export class GameTableGameRealtimeService implements OnDestroy {
   private readonly mercure = inject(MercureService);
   private subscription?: Subscription;
-  private controlPlaneCursor: ControlPlaneCursor | null = null;
+  private controlPlaneRevision: number | null = null;
 
   ngOnDestroy(): void {
     this.stop();
@@ -22,9 +25,18 @@ export class GameTableGameRealtimeService implements OnDestroy {
 
   subscribe(gameId: string, handlers: GameTableRealtimeHandlers): void {
     this.subscription?.unsubscribe();
-    this.controlPlaneCursor = null;
-    this.subscription = this.mercure.gameEvents(gameId).subscribe({
-      next: (event) => this.handleGameEvent(event, handlers),
+    this.controlPlaneRevision = null;
+    this.subscription = this.mercure.gameEventStream(gameId).subscribe({
+      next: (message) => {
+        if (message.kind === 'connected') {
+          if (message.reconnected) {
+            handlers.onControlPlaneReconnect?.(this.controlPlaneRevision ?? 0);
+          }
+          return;
+        }
+
+        this.handleGameEvent(message.event, handlers);
+      },
     });
   }
 
@@ -33,8 +45,44 @@ export class GameTableGameRealtimeService implements OnDestroy {
     this.subscription = undefined;
   }
 
+  /** Seeds the cursor from bootstrap/snapshot without applying a projection. */
+  seedControlPlaneRevision(revision: number | null | undefined): void {
+    if (!isControlPlaneRevision(revision)) {
+      return;
+    }
+
+    if (this.controlPlaneRevision === null || revision > this.controlPlaneRevision) {
+      this.controlPlaneRevision = revision;
+    }
+  }
+
+  /**
+   * Accepts an authoritative HTTP ACK or recovery response into the same
+   * cursor used for Mercure. Equal and lower revisions are already applied.
+   */
+  acceptControlPlaneState(controlPlane: GameControlPlaneState): boolean {
+    const revision = controlPlane.controlPlaneRevision;
+    if (!isControlPlaneRevision(revision)) {
+      return false;
+    }
+    if (this.controlPlaneRevision !== null && revision <= this.controlPlaneRevision) {
+      return false;
+    }
+
+    this.controlPlaneRevision = revision;
+    return true;
+  }
+
   private handleGameEvent(event: MercureGameEvent, handlers: GameTableRealtimeHandlers): void {
+    if (event.event.type === 'room.deleted') {
+      handlers.onRoomDeleted();
+      return;
+    }
+
     if (event.event.type === 'room.rematch.created') {
+      if (this.isControlPlaneState(event.controlPlane) && this.acceptControlPlaneState(event.controlPlane)) {
+        handlers.onControlPlaneState?.(event.controlPlane, event);
+      }
       const roomId = event.event.payload['roomId'];
       if (typeof roomId === 'string' && roomId.trim() !== '') {
         handlers.onRematchCreated(roomId);
@@ -44,7 +92,7 @@ export class GameTableGameRealtimeService implements OnDestroy {
     }
 
     if (this.isControlPlaneState(event.controlPlane)) {
-      if (this.isStaleControlPlaneEvent(event)) {
+      if (!this.acceptControlPlaneState(event.controlPlane)) {
         return;
       }
 
@@ -52,58 +100,29 @@ export class GameTableGameRealtimeService implements OnDestroy {
       return;
     }
 
+    // Rematch state is control-plane only. Do not use an unversioned legacy
+    // event to overwrite a newer compact projection or refetch gameplay.
     if (event.event.type === 'room.rematch.vote') {
-      const rematch = event.event.payload['rematch'];
-      if (this.isRematchState(rematch)) {
-        handlers.onRematchState(rematch);
-      }
-
       return;
     }
 
     handlers.onSnapshotInvalidated(event);
   }
 
-  private isRematchState(value: unknown): value is GameRematchState {
-    return typeof value === 'object' && value !== null && 'votes' in value
-      && typeof (value as { votes: unknown }).votes === 'object';
-  }
-
   private isControlPlaneState(value: unknown): value is GameControlPlaneState {
     return typeof value === 'object' && value !== null
+      && isControlPlaneRevision((value as { controlPlaneRevision?: unknown }).controlPlaneRevision)
       && typeof (value as { status?: unknown }).status === 'string'
-      && this.isRematchState((value as { rematch?: unknown }).rematch);
-  }
-
-  private isStaleControlPlaneEvent(event: MercureGameEvent): boolean {
-    const cursor: ControlPlaneCursor = {
-      gameplayVersion: event.version ?? -1,
-      createdAtMs: Date.parse(event.event.createdAt) || 0,
-      eventId: event.event.id,
-    };
-    const previous = this.controlPlaneCursor;
-    if (previous && compareControlPlaneCursor(cursor, previous) <= 0) {
-      return true;
-    }
-
-    this.controlPlaneCursor = cursor;
-    return false;
+      && isRematchState((value as { rematch?: unknown }).rematch);
   }
 }
 
-interface ControlPlaneCursor {
-  readonly gameplayVersion: number;
-  readonly createdAtMs: number;
-  readonly eventId: string;
+function isControlPlaneRevision(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
-function compareControlPlaneCursor(left: ControlPlaneCursor, right: ControlPlaneCursor): number {
-  if (left.gameplayVersion !== right.gameplayVersion) {
-    return left.gameplayVersion - right.gameplayVersion;
-  }
-  if (left.createdAtMs !== right.createdAtMs) {
-    return left.createdAtMs - right.createdAtMs;
-  }
-
-  return left.eventId.localeCompare(right.eventId);
+function isRematchState(value: unknown): value is { votes: Record<string, unknown> } {
+  return typeof value === 'object' && value !== null
+    && 'votes' in value
+    && typeof (value as { votes?: unknown }).votes === 'object';
 }

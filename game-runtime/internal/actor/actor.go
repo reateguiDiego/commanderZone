@@ -22,6 +22,7 @@ var (
 	ErrGameClosing                = errors.New("game is closing")
 	ErrGameFinished               = errors.New("game is finished")
 	ErrActorPermission            = errors.New("actor is not allowed to perform command")
+	ErrStalePresenceGeneration    = errors.New("stale presence generation")
 	ErrRuntimePatchReceiptMissing = errors.New("runtime patch receipt missing for duplicate command")
 )
 
@@ -373,6 +374,15 @@ func (a *GameActor) Snapshot() state.GameState {
 	return a.state.Clone()
 }
 
+// PresenceGeneration exposes only the actor-owned fence for a player. The
+// gateway uses it to seed a new local presence sequence after process/runtime
+// recovery without consulting the gameplay event store.
+func (a *GameActor) PresenceGeneration(playerID string) int64 {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.state.PresenceGenerations[playerID]
+}
+
 func (a *GameActor) ApplyDirect(ctx context.Context, command protocol.CommandEnvelopeV2, actorID string) CommandResult {
 	return a.apply(ctx, CommandRequest{Command: command, ActorID: actorID})
 }
@@ -420,6 +430,11 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		aliasTranslated = true
 		a.recordAliasTranslation()
 	}
+	// Gateway presence is an actor-internal lifecycle signal, not a browser
+	// gameplay command. Its execution point is the mailbox, so rebase it under
+	// the actor lock instead of reading the stream to discover a version. The
+	// presence generation in the payload still fences stale async transitions.
+	a.rebaseRuntimePresenceCommandLocked(&command)
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
 		if !eventCreatedByMatches(existing.Event, request.ActorID) {
 			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
@@ -429,7 +444,11 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		slog.Debug("runtime duplicate command served from actor memory", "gameId", a.gameID, "version", existing.Event.Version, "clientActionId", command.ClientActionID)
 		return existing
 	}
-	if a.store != nil && command.ClientActionID != "" {
+	// Presence commands carry an actor-persisted generation fence, so their
+	// normal path never needs an idempotency lookup just to discover state. A
+	// retried generation is rejected locally as stale; durable lookup remains
+	// available only on the exceptional append-conflict path below.
+	if a.store != nil && command.ClientActionID != "" && !isRuntimePresenceCommand(command) {
 		result, ok, err := a.storedDuplicateResult(ctx, command, request.ActorID)
 		if err != nil {
 			if errors.Is(err, ErrActorPermission) {
@@ -560,6 +579,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		}
 		if err != nil {
 			rollback.Restore(a.state)
+			if errors.Is(err, persistence.ErrGameClosing) {
+				return a.rejectedResult(ErrGameClosing, queueWait, startedAt)
+			}
 			if isRecoverableDuplicateAppend(err) && command.ClientActionID != "" {
 				result, ok, lookupErr := a.storedDuplicateResult(ctx, command, request.ActorID)
 				if lookupErr != nil {
@@ -604,6 +626,25 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	a.recordApplied(queueWait, time.Since(startedAt))
 	return result
+}
+
+func isRuntimePresenceCommand(command protocol.CommandEnvelopeV2) bool {
+	if command.Type != "disconnect.vote" || command.Client == nil {
+		return false
+	}
+	source, _ := command.Client["source"].(string)
+	return source == "runtime_ws_presence"
+}
+
+func (a *GameActor) rebaseRuntimePresenceCommandLocked(command *protocol.CommandEnvelopeV2) {
+	if command == nil || !isRuntimePresenceCommand(*command) {
+		return
+	}
+	baseVersion := a.state.Version
+	if baseVersion < 1 {
+		baseVersion = 1
+	}
+	command.BaseVersion = baseVersion
 }
 
 // recoverAuthoritativeStateLocked is deliberately restricted to the exceptional

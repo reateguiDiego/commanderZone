@@ -1087,6 +1087,7 @@ describe('game table normalized v2 store', () => {
     store.applyBootstrap(bootstrapV2());
 
     const snapshot = store.applyControlPlane({
+      controlPlaneRevision: 3,
       status: 'finished',
       winnerPlayerId: 'player-1',
       finishedAt: '2026-01-01T00:00:20.000Z',
@@ -1106,6 +1107,7 @@ describe('game table normalized v2 store', () => {
       winnerPlayerId: 'player-1',
       ownerId: 'player-2',
     }));
+    expect(snapshot?.controlPlaneRevision).toBe(3);
     expect(store.state()?.lastAppliedVersion).toBe(5);
   });
 

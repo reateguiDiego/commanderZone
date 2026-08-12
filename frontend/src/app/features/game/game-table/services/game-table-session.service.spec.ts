@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameControlPlaneState, GameRematchState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import { BootstrapV2 } from '../../../../core/models/game-v2.model';
 import { GameTableGameRealtimeService, GameTableRealtimeHandlers } from './game-table-game-realtime.service';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
@@ -13,6 +13,8 @@ import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normali
 const gameRealtime = {
   subscribe: vi.fn(),
   stop: vi.fn(),
+  seedControlPlaneRevision: vi.fn(),
+  acceptControlPlaneState: vi.fn(() => true),
 };
 
 describe('GameTableSessionService', () => {
@@ -21,6 +23,7 @@ describe('GameTableSessionService', () => {
   const gamesApi = {
     snapshot: vi.fn(),
     bootstrapV2: vi.fn(),
+    controlPlane: vi.fn(),
   };
   const gameplayV2Flags = {
     enabled: vi.fn(() => false),
@@ -39,10 +42,13 @@ describe('GameTableSessionService', () => {
     websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
     gamesApi.bootstrapV2.mockReset();
+    gamesApi.controlPlane.mockReset();
     gameplayV2Flags.enabled.mockReset();
     gameplayV2Flags.enabled.mockReturnValue(false);
     gameRealtime.subscribe.mockReset();
     gameRealtime.stop.mockReset();
+    gameRealtime.seedControlPlaneRevision.mockReset();
+    gameRealtime.acceptControlPlaneState.mockReset().mockReturnValue(true);
     websocket.start.mockReset();
     websocket.stop.mockReset();
     TestBed.configureTestingModule({
@@ -101,7 +107,21 @@ describe('GameTableSessionService', () => {
     expect(gameRealtime.subscribe).toHaveBeenCalledWith('game-1', expect.objectContaining({
       onSnapshotInvalidated: expect.any(Function),
       onRematchCreated: expect.any(Function),
+      onRoomDeleted: expect.any(Function),
     }));
+  });
+
+  it('stops live transports and leaves the table on a terminal room-deleted event', async () => {
+    const current = snapshot();
+    const navigateToRooms = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'finished', snapshot: current } }));
+
+    await service.load(context(current, vi.fn(), vi.fn(), vi.fn(), vi.fn(), { navigateToRooms }));
+    gameRealtimeHandlers().onRoomDeleted();
+
+    expect(websocket.stop).toHaveBeenCalledOnce();
+    expect(gameRealtime.stop).toHaveBeenCalledOnce();
+    expect(navigateToRooms).toHaveBeenCalledOnce();
   });
 
   it('loads bootstrap v2 when the frontend v2 flag is enabled', async () => {
@@ -230,21 +250,19 @@ describe('GameTableSessionService', () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     websocketStatus.set('connected');
     const initial = bootstrapV2();
-    const rematch: GameRematchState = {
-      votes: {
-        'player-1': {
-          playerId: 'player-1',
-          displayName: 'Player 1',
-          vote: 'play_again',
-          votedAt: '2026-01-01T00:00:10.000Z',
-        },
+    const projection = controlPlane(2, {
+      'player-1': {
+        playerId: 'player-1',
+        displayName: 'Player 1',
+        vote: 'play_again',
+        votedAt: '2026-01-01T00:00:10.000Z',
       },
-    };
+    });
     const setSnapshot = vi.fn();
     gamesApi.bootstrapV2.mockReturnValueOnce(of(initial));
 
     await service.load(context(snapshot(), setSnapshot));
-    gameRealtimeHandlers().onRematchState(rematch);
+    gameRealtimeHandlers().onControlPlaneState?.(projection, gameEvent('room.rematch.vote', initial.game.version));
     await Promise.resolve();
 
     expect(gamesApi.bootstrapV2).toHaveBeenCalledTimes(1);
@@ -267,6 +285,112 @@ describe('GameTableSessionService', () => {
       ownerId: 'player-2',
     }));
     expect(normalizedV2Store.state()?.lastAppliedVersion).toBe(bootstrapV2().game.version);
+  });
+
+  it('uses one compact endpoint recovery after a real Mercure reconnect', async () => {
+    const setSnapshot = vi.fn();
+    const current = snapshot();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
+    gamesApi.controlPlane.mockReturnValue(of({ controlPlane: controlPlane(3) }));
+
+    await service.load(context(current, setSnapshot));
+    gameRealtimeHandlers().onControlPlaneReconnect?.(2);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(gamesApi.controlPlane).toHaveBeenCalledWith('game-1', 2);
+    expect(gameRealtime.acceptControlPlaneState).toHaveBeenCalledWith(expect.objectContaining({ controlPlaneRevision: 3 }));
+    expect(setSnapshot).toHaveBeenLastCalledWith(expect.objectContaining({ controlPlaneRevision: 3 }));
+  });
+
+  it('seeds rematch idempotency from the initial compact control-plane snapshot', async () => {
+    const initial = snapshot();
+    const projection = controlPlane(4, {
+      'player-1': {
+        playerId: 'player-1',
+        displayName: 'Player',
+        vote: 'play_again',
+        votedAt: '2026-01-01T00:00:10.000Z',
+        clientActionId: 'accepted-vote-1',
+      },
+    });
+    const onControlPlaneAccepted = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({
+      game: { id: 'game-1', status: 'finished', snapshot: initial, controlPlane: projection },
+    }));
+
+    await service.load(context(initial, vi.fn(), vi.fn(), vi.fn(), vi.fn(), { onControlPlaneAccepted }));
+
+    expect(onControlPlaneAccepted).toHaveBeenCalledWith(expect.objectContaining({
+      controlPlaneRevision: 4,
+      rematch: expect.objectContaining({
+        votes: expect.objectContaining({
+          'player-1': expect.objectContaining({ clientActionId: 'accepted-vote-1' }),
+        }),
+      }),
+    }));
+  });
+
+  it('hydrates the full compact projection from a V2 bootstrap', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const projection = controlPlane(5, {
+      'player-1': {
+        playerId: 'player-1',
+        displayName: 'Player',
+        vote: 'play_again',
+        votedAt: '2026-01-01T00:00:10.000Z',
+        clientActionId: 'accepted-vote-v2',
+      },
+    });
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValue(of({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        status: 'active',
+        ownerId: 'player-1',
+        controlPlaneRevision: 1,
+        controlPlane: projection,
+      },
+    }));
+
+    await service.load(context(snapshot(), setSnapshot));
+
+    expect(setSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      controlPlaneRevision: 5,
+      status: 'finished',
+      ownerId: 'player-2',
+      rematch: expect.objectContaining({
+        votes: expect.objectContaining({
+          'player-1': expect.objectContaining({ clientActionId: 'accepted-vote-v2' }),
+        }),
+      }),
+    }));
+  });
+
+  it('preserves a newer control-plane projection when a gameplay snapshot is older', async () => {
+    const current = snapshot();
+    current.version = 4;
+    current.controlPlaneRevision = 7;
+    current.status = 'finished';
+    current.winnerPlayerId = 'player-1';
+    current.rematch = { votes: {}, deadlineAt: '2026-01-01T00:01:10.000Z' };
+    const staleGameplaySnapshot = snapshot();
+    staleGameplaySnapshot.version = 5;
+    staleGameplaySnapshot.controlPlaneRevision = 6;
+    staleGameplaySnapshot.status = 'active';
+    staleGameplaySnapshot.rematch = { votes: {}, deadlineAt: null };
+    const setSnapshot = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: staleGameplaySnapshot } }));
+
+    await service.refetch(context(current, setSnapshot));
+
+    expect(setSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      version: 5,
+      controlPlaneRevision: 7,
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+    }));
   });
 
   it('does not refetch when the current snapshot is already at the realtime event version', async () => {
@@ -322,8 +446,12 @@ function gameEvent(type: string, version: number): MercureGameEvent {
   };
 }
 
-function controlPlane(): GameControlPlaneState {
+function controlPlane(
+  controlPlaneRevision = 1,
+  votes: GameControlPlaneState['rematch']['votes'] = {},
+): GameControlPlaneState {
   return {
+    controlPlaneRevision,
     status: 'finished',
     winnerPlayerId: 'player-1',
     finishedAt: '2026-01-01T00:00:10.000Z',
@@ -331,7 +459,7 @@ function controlPlane(): GameControlPlaneState {
     allDisconnectedSince: null,
     nextLifecycleAt: '2026-01-01T00:01:10.000Z',
     ownerId: 'player-2',
-    rematch: { votes: {}, deadlineAt: '2026-01-01T00:01:10.000Z' },
+    rematch: { votes, deadlineAt: '2026-01-01T00:01:10.000Z' },
   };
 }
 
@@ -341,7 +469,7 @@ function context(
   navigateToWaitingRoom = vi.fn(),
   navigateToRoomsWithLoadError = vi.fn(),
   setError = vi.fn(),
-  overrides: Partial<Pick<GameTableSessionContext, 'setLoading' | 'refreshViewerControlAccess'>> = {},
+  overrides: Partial<Pick<GameTableSessionContext, 'setLoading' | 'refreshViewerControlAccess' | 'onControlPlaneAccepted' | 'navigateToRooms'>> = {},
 ): GameTableSessionContext {
   return {
     gameId: () => 'game-1',
@@ -354,7 +482,9 @@ function context(
     isPending: () => false,
     setLoading: overrides.setLoading ?? vi.fn(),
     setError,
+    onControlPlaneAccepted: overrides.onControlPlaneAccepted,
     refreshViewerControlAccess: overrides.refreshViewerControlAccess,
+    navigateToRooms: overrides.navigateToRooms ?? vi.fn(),
     navigateToRoomsWithLoadError,
     navigateToWaitingRoom,
   };

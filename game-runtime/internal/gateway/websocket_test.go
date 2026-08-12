@@ -78,6 +78,7 @@ func TestCloseGameClearsPeersAndEphemeralGatewayStateIdempotently(t *testing.T) 
 	handler.rooms["game-cleanup"] = map[*wsClient]struct{}{client: {}}
 	handler.histories["game-cleanup"] = &patchHistory{}
 	handler.offlineSince["game-cleanup"] = map[string]time.Time{"p1": time.Now()}
+	handler.presenceGenerations["game-cleanup"] = map[string]int64{"p1": 42}
 	handler.allDisconnectedSince["game-cleanup"] = time.Now()
 
 	handler.CloseGame("game-cleanup")
@@ -91,6 +92,9 @@ func TestCloseGameClearsPeersAndEphemeralGatewayStateIdempotently(t *testing.T) 
 	if _, exists := handler.offlineSince["game-cleanup"]; exists {
 		t.Fatal("offline presence retained after cleanup")
 	}
+	if _, exists := handler.presenceGenerations["game-cleanup"]; exists {
+		t.Fatal("presence generations retained after cleanup")
+	}
 	if _, exists := handler.allDisconnectedSince["game-cleanup"]; exists {
 		t.Fatal("all-disconnected state retained after cleanup")
 	}
@@ -98,6 +102,81 @@ func TestCloseGameClearsPeersAndEphemeralGatewayStateIdempotently(t *testing.T) 
 	case <-client.done:
 	default:
 		t.Fatal("peer was not closed")
+	}
+}
+
+func TestPresenceGenerationElevatesFromActorStateAfterGatewayRecovery(t *testing.T) {
+	gameID := "game-presence-generation"
+	runtimeService := runtimesvc.NewService()
+	defer shutdownRuntimeService(t, runtimeService)
+	gameActor, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, testInitialState(gameID))
+	if err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+	persistedGeneration := time.Now().UTC().UnixMicro() + 1_000_000
+	seed := protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "presence-p2-seed",
+		Type:           "disconnect.vote",
+		Payload: map[string]any{
+			"targetPlayerId":     "p2",
+			"status":             "offline",
+			"connectedUserIds":   []string{"p1"},
+			"presenceGeneration": persistedGeneration,
+		},
+		Client: map[string]any{"source": "runtime_ws_presence"},
+	}
+	if result := gameActor.ApplyDirect(context.Background(), seed, ""); result.Err != nil {
+		t.Fatalf("seed presence: %v", result.Err)
+	}
+
+	handler := NewWebSocketServer(nil, runtimeService)
+	handler.mu.Lock()
+	next := handler.nextPresenceGenerationLocked(gameID, "p2")
+	handler.mu.Unlock()
+	if next <= persistedGeneration {
+		t.Fatalf("gateway generation = %d, want > recovered actor generation %d", next, persistedGeneration)
+	}
+}
+
+func TestGatewayPresenceRebasesAgainstGameplayAndDropsLateOffline(t *testing.T) {
+	gameID := "game-presence-rebase"
+	initial := testInitialState(gameID)
+	initial.Players["p3"] = map[string]any{"life": 40}
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, gameID, initial, 128, 256)
+	defer server.Close()
+	defer shutdownRuntimeService(t, runtimeService)
+
+	handler.submitDisconnectPresence(context.Background(), gameID, "p2", "offline", 100, []string{"p1", "p3"})
+	gameActor, ok := runtimeService.Actor(gameID)
+	if !ok {
+		t.Fatal("offline presence removed the actor")
+	}
+	if gameActor.Version() != 2 {
+		t.Fatalf("offline presence version = %d, want 2", gameActor.Version())
+	}
+
+	if result := gameActor.ApplyDirect(context.Background(), command(gameID, 2, "life-between-presence", "life.changed", map[string]any{
+		"playerId": "p1",
+		"life":     39,
+	}, nil), "p1"); result.Err != nil {
+		t.Fatalf("gameplay between presence transitions: %v", result.Err)
+	}
+	handler.submitDisconnectPresence(context.Background(), gameID, "p2", "online", 101, []string{"p1", "p2", "p3"})
+	if snapshot := gameActor.Snapshot(); snapshot.Version != 4 || snapshot.DisconnectVotes["p2"]["status"] != "cancelled" {
+		t.Fatalf("online presence was not rebased/cancelled: %#v", snapshot)
+	}
+
+	handler.submitDisconnectPresence(context.Background(), gameID, "p2", "offline", 100, []string{"p1", "p3"})
+	if snapshot := gameActor.Snapshot(); snapshot.Version != 4 || snapshot.DisconnectVotes["p2"]["status"] != "cancelled" {
+		t.Fatalf("late offline reopened a vote: %#v", snapshot)
+	}
+	if result := gameActor.ApplyDirect(context.Background(), command(gameID, 4, "p3-after-late-presence", "life.changed", map[string]any{
+		"playerId": "p3",
+		"life":     38,
+	}, nil), "p3"); result.Err != nil || result.Event.Version != 5 {
+		t.Fatalf("gameplay after late presence = %#v, want usable actor at version 5", result)
 	}
 }
 

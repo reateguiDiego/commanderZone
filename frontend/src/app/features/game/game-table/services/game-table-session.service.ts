@@ -1,7 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameControlPlaneState, GameRematchState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameControlPlaneState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import {
   GameplayMulliganCompletedMessage,
   GameplayMulliganErrorMessage,
@@ -31,9 +31,15 @@ export interface GameTableSessionContext {
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
+  onControlPlaneAccepted?(controlPlane: GameControlPlaneState): void;
   refreshViewerControlAccess?(): Promise<void>;
+  navigateToRooms(): void;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
+}
+
+function isControlPlaneRevision(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 @Injectable()
@@ -45,6 +51,8 @@ export class GameTableSessionService {
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly staticCardCacheV2 = inject(GameTableStaticCardCacheV2Service);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
+  private controlPlaneRecoveryInFlight: Promise<void> | null = null;
+  private realtimeSubscriptionGeneration = 0;
   readonly realtimeStatus = computed<'connecting' | 'live' | 'degraded'>(() => {
     const status = this.websocket.status();
 
@@ -98,7 +106,10 @@ export class GameTableSessionService {
     }
 
     const response = await firstValueFrom(this.gamesApi.snapshot(gameId));
-    const nextSnapshot = response.game.snapshot;
+    const nextSnapshot = this.preserveNewerControlPlane(
+      context.snapshot(),
+      this.snapshotWithControlPlane(response.game.snapshot, response.game.controlPlane),
+    );
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
       this.logSessionDebug('info', context, {
@@ -143,19 +154,43 @@ export class GameTableSessionService {
   }
 
   stop(): void {
+    this.realtimeSubscriptionGeneration += 1;
     this.websocket.stop();
     this.gameRealtime.stop();
   }
 
+  /** Applies an HTTP ACK/recovery through the same state reducer as Mercure. */
+  applyControlPlaneAcknowledgement(context: GameTableSessionContext, controlPlane: GameControlPlaneState): boolean {
+    if (!this.gameRealtime.acceptControlPlaneState(controlPlane)) {
+      return false;
+    }
+
+    this.applyAcceptedControlPlaneState(context, controlPlane);
+    return true;
+  }
+
   private subscribeToGameRealtime(context: GameTableSessionContext, gameId: string): void {
+    const subscriptionGeneration = ++this.realtimeSubscriptionGeneration;
     this.gameRealtime.subscribe(gameId, {
       onSnapshotInvalidated: (event) => this.refetchIfSnapshotIsBehind(context, event),
-      onControlPlaneState: (controlPlane) => this.applyControlPlaneState(context, controlPlane),
-      onRematchState: (rematch) => this.applyRematchState(context, rematch),
+      onControlPlaneState: (controlPlane) => this.applyAcceptedControlPlaneState(context, controlPlane),
+      onControlPlaneReconnect: (afterRevision) => {
+        if (subscriptionGeneration === this.realtimeSubscriptionGeneration) {
+          void this.recoverControlPlaneAfterReconnect(context, gameId, afterRevision, subscriptionGeneration);
+        }
+      },
       onRematchCreated: (roomId) => {
         context.navigateToWaitingRoom(roomId);
       },
+      onRoomDeleted: () => {
+        // This is a terminal, post-commit control-plane notification. Stop
+        // both transports before navigating so a deleted game cannot trigger
+        // a reconnect/refetch loop while the router tears the table down.
+        this.stop();
+        context.navigateToRooms();
+      },
     });
+    this.gameRealtime.seedControlPlaneRevision(context.snapshot()?.controlPlaneRevision);
   }
 
   private refetchIfSnapshotIsBehind(context: GameTableSessionContext, event: MercureGameEvent): void {
@@ -173,31 +208,22 @@ export class GameTableSessionService {
 
   private applySnapshot(context: GameTableSessionContext, nextSnapshot: GameSnapshot): void {
     context.setSnapshot(nextSnapshot);
+    this.gameRealtime.seedControlPlaneRevision(nextSnapshot.controlPlaneRevision);
+    const controlPlane = this.controlPlaneFromSnapshot(nextSnapshot);
+    if (controlPlane) {
+      context.onControlPlaneAccepted?.(controlPlane);
+    }
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
   }
 
-  private applyRematchState(context: GameTableSessionContext, rematch: GameRematchState): void {
-    const snapshot = context.snapshot();
-    if (!snapshot) {
-      return;
-    }
-
-    context.setSnapshot({
-      ...snapshot,
-      rematch: {
-        votes: { ...rematch.votes },
-        deadlineAt: rematch.deadlineAt ?? null,
-      },
-    });
-  }
-
-  private applyControlPlaneState(context: GameTableSessionContext, controlPlane: GameControlPlaneState): void {
+  private applyAcceptedControlPlaneState(context: GameTableSessionContext, controlPlane: GameControlPlaneState): void {
     if (this.gameplayV2Flags.enabled()) {
       const snapshot = this.normalizedV2Store.applyControlPlane(controlPlane);
       if (snapshot) {
         context.setSnapshot(snapshot);
+        context.onControlPlaneAccepted?.(controlPlane);
       }
       return;
     }
@@ -209,6 +235,7 @@ export class GameTableSessionService {
 
     context.setSnapshot({
       ...snapshot,
+      controlPlaneRevision: controlPlane.controlPlaneRevision,
       status: controlPlane.status,
       winnerPlayerId: controlPlane.winnerPlayerId,
       finishedAt: controlPlane.finishedAt,
@@ -221,6 +248,41 @@ export class GameTableSessionService {
         deadlineAt: controlPlane.rematch.deadlineAt ?? null,
       },
     });
+    context.onControlPlaneAccepted?.(controlPlane);
+  }
+
+  private async recoverControlPlaneAfterReconnect(
+    context: GameTableSessionContext,
+    gameId: string,
+    afterRevision: number,
+    subscriptionGeneration: number,
+  ): Promise<void> {
+    if (this.controlPlaneRecoveryInFlight !== null) {
+      return;
+    }
+
+    const recovery = (async () => {
+      try {
+        const response = await firstValueFrom(this.gamesApi.controlPlane(gameId, afterRevision));
+        if (subscriptionGeneration !== this.realtimeSubscriptionGeneration || response === null) {
+          return;
+        }
+
+        this.applyControlPlaneAcknowledgement(context, response.controlPlane);
+      } catch {
+        // A later real EventSource reconnect gets one new recovery opportunity.
+        // Never turn a temporary control-plane stream failure into polling.
+      }
+    })();
+
+    this.controlPlaneRecoveryInFlight = recovery;
+    try {
+      await recovery;
+    } finally {
+      if (this.controlPlaneRecoveryInFlight === recovery) {
+        this.controlPlaneRecoveryInFlight = null;
+      }
+    }
   }
 
   private async refetchV2(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {
@@ -230,7 +292,16 @@ export class GameTableSessionService {
     }
 
     const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId, this.staticCardCacheV2.knownCatalogKeys()));
-    const nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
+    let nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
+    const currentControlPlane = this.controlPlaneFromSnapshot(context.snapshot());
+    const incomingControlPlaneRevision = bootstrap.game.controlPlane?.controlPlaneRevision
+      ?? bootstrap.game.controlPlaneRevision;
+    if (
+      currentControlPlane !== null
+      && (!isControlPlaneRevision(incomingControlPlaneRevision) || incomingControlPlaneRevision < currentControlPlane.controlPlaneRevision)
+    ) {
+      nextSnapshot = this.normalizedV2Store.applyControlPlane(currentControlPlane) ?? nextSnapshot;
+    }
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
       this.logSessionDebug('info', context, {
@@ -262,6 +333,10 @@ export class GameTableSessionService {
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {
+    if ((current.controlPlaneRevision ?? 0) !== (next.controlPlaneRevision ?? 0)) {
+      return true;
+    }
+
     const playerIds = new Set([...Object.keys(current.players), ...Object.keys(next.players)]);
 
     for (const playerId of playerIds) {
@@ -271,6 +346,82 @@ export class GameTableSessionService {
     }
 
     return false;
+  }
+
+  /** A stale gameplay bootstrap/snapshot must not roll back lifecycle UI. */
+  private preserveNewerControlPlane(current: GameSnapshot | null, incoming: GameSnapshot): GameSnapshot {
+    const currentControlPlane = this.controlPlaneFromSnapshot(current);
+    if (
+      currentControlPlane === null
+      || (isControlPlaneRevision(incoming.controlPlaneRevision)
+        && incoming.controlPlaneRevision >= currentControlPlane.controlPlaneRevision)
+    ) {
+      return incoming;
+    }
+
+    return {
+      ...incoming,
+      controlPlaneRevision: currentControlPlane.controlPlaneRevision,
+      status: currentControlPlane.status,
+      winnerPlayerId: currentControlPlane.winnerPlayerId,
+      finishedAt: currentControlPlane.finishedAt,
+      finishReason: currentControlPlane.finishReason,
+      allDisconnectedSince: currentControlPlane.allDisconnectedSince,
+      nextLifecycleAt: currentControlPlane.nextLifecycleAt,
+      ownerId: currentControlPlane.ownerId ?? undefined,
+      rematch: {
+        votes: { ...currentControlPlane.rematch.votes },
+        deadlineAt: currentControlPlane.rematch.deadlineAt ?? null,
+      },
+    };
+  }
+
+  private controlPlaneFromSnapshot(snapshot: GameSnapshot | null): GameControlPlaneState | null {
+    if (!snapshot || !isControlPlaneRevision(snapshot.controlPlaneRevision) || !snapshot.rematch) {
+      return null;
+    }
+
+    return {
+      controlPlaneRevision: snapshot.controlPlaneRevision,
+      status: snapshot.status ?? 'active',
+      winnerPlayerId: snapshot.winnerPlayerId ?? null,
+      finishedAt: snapshot.finishedAt ?? null,
+      finishReason: snapshot.finishReason ?? null,
+      allDisconnectedSince: snapshot.allDisconnectedSince ?? null,
+      nextLifecycleAt: snapshot.nextLifecycleAt ?? null,
+      ownerId: snapshot.ownerId ?? null,
+      rematch: {
+        votes: { ...snapshot.rematch.votes },
+        deadlineAt: snapshot.rematch.deadlineAt ?? null,
+      },
+    };
+  }
+
+  /**
+   * The legacy snapshot endpoint keeps gameplay in `snapshot` and returns the
+   * Symfony-owned lifecycle projection beside it. Fold the compact projection
+   * into the view model so a refresh preserves the rematch action cursor.
+   */
+  private snapshotWithControlPlane(snapshot: GameSnapshot, controlPlane?: GameControlPlaneState): GameSnapshot {
+    if (!controlPlane || !isControlPlaneRevision(controlPlane.controlPlaneRevision)) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      controlPlaneRevision: controlPlane.controlPlaneRevision,
+      status: controlPlane.status,
+      winnerPlayerId: controlPlane.winnerPlayerId,
+      finishedAt: controlPlane.finishedAt,
+      finishReason: controlPlane.finishReason,
+      allDisconnectedSince: controlPlane.allDisconnectedSince,
+      nextLifecycleAt: controlPlane.nextLifecycleAt,
+      ownerId: controlPlane.ownerId ?? undefined,
+      rematch: {
+        votes: { ...controlPlane.rematch.votes },
+        deadlineAt: controlPlane.rematch.deadlineAt ?? null,
+      },
+    };
   }
 
   private logSessionDebug(

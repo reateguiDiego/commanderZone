@@ -63,6 +63,12 @@ func (m *PostgresOwnershipManager) CheckSchema(ctx context.Context) error {
 	if !exists {
 		return errors.New("game_runtime_lease table is missing")
 	}
+	if err := m.db.QueryRowContext(ctx, `SELECT to_regclass('public.game_runtime_closing') IS NOT NULL`).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("game_runtime_closing table is missing")
+	}
 	return nil
 }
 
@@ -78,6 +84,13 @@ func (m *PostgresOwnershipManager) Acquire(ctx context.Context, gameID string, o
 	}
 	if ownerID == "" {
 		return OwnershipAcquireResult{}, fmt.Errorf("%w: ownerId is required", ErrOwnershipNotHeld)
+	}
+	closing, err := m.isGameClosing(ctx, gameID)
+	if err != nil {
+		return OwnershipAcquireResult{}, err
+	}
+	if closing {
+		return OwnershipAcquireResult{}, fmt.Errorf("%w: game %s", ErrGameClosing, gameID)
 	}
 
 	now := m.now()
@@ -131,8 +144,16 @@ WHERE game_id = $1
   AND owner_instance_id = $2
   AND fencing_token = $3
   AND expires_at > $4
+	  AND NOT EXISTS (SELECT 1 FROM game_runtime_closing WHERE game_id = $1::varchar)
 `, lease.GameID, lease.OwnerID, int64(lease.Token), m.now()).Scan(&expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
+		closing, closingErr := m.isGameClosing(ctx, lease.GameID)
+		if closingErr != nil {
+			return closingErr
+		}
+		if closing {
+			return fmt.Errorf("%w: game %s", ErrGameClosing, lease.GameID)
+		}
 		return fmt.Errorf("%w: game %s owner token is not held", ErrOwnershipNotHeld, lease.GameID)
 	}
 	if err != nil {
@@ -156,11 +177,17 @@ WHERE game_id = $1
 	return err
 }
 
+func (m *PostgresOwnershipManager) Revoke(ctx context.Context, gameID string) error {
+	_, err := m.db.ExecContext(ctx, `DELETE FROM game_runtime_lease WHERE game_id = $1`, gameID)
+	return err
+}
+
 func (m *PostgresOwnershipManager) insertLease(ctx context.Context, gameID string, ownerID string, expiresAt time.Time, now time.Time) (OwnershipLease, error) {
 	var lease OwnershipLease
 	err := m.db.QueryRowContext(ctx, `
 INSERT INTO game_runtime_lease (game_id, owner_instance_id, fencing_token, expires_at, updated_at)
-VALUES ($1, $2, 1, $3, $4)
+SELECT $1::varchar, $2::varchar, 1, $3::timestamp, $4::timestamp
+WHERE NOT EXISTS (SELECT 1 FROM game_runtime_closing WHERE game_id = $1::varchar)
 ON CONFLICT (game_id) DO NOTHING
 RETURNING game_id, owner_instance_id, fencing_token, expires_at
 `, gameID, ownerID, expiresAt, now).Scan(&lease.GameID, &lease.OwnerID, &lease.Token, &lease.ExpiresAt)
@@ -199,15 +226,29 @@ WHERE game_id = $1
   AND owner_instance_id = $2
   AND fencing_token = $3
   AND expires_at > $5
+	  AND NOT EXISTS (SELECT 1 FROM game_runtime_closing WHERE game_id = $1::varchar)
 RETURNING game_id, owner_instance_id, fencing_token, expires_at
 `, lease.GameID, lease.OwnerID, int64(lease.Token), expiresAt, now).Scan(&renewed.GameID, &renewed.OwnerID, &renewed.Token, &renewed.ExpiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
+		closing, closingErr := m.isGameClosing(ctx, lease.GameID)
+		if closingErr != nil {
+			return OwnershipLease{}, closingErr
+		}
+		if closing {
+			return OwnershipLease{}, fmt.Errorf("%w: game %s", ErrGameClosing, lease.GameID)
+		}
 		return OwnershipLease{}, fmt.Errorf("%w: game %s owner token cannot be renewed", ErrOwnershipNotHeld, lease.GameID)
 	}
 	if err != nil {
 		return OwnershipLease{}, err
 	}
 	return renewed, nil
+}
+
+func (m *PostgresOwnershipManager) isGameClosing(ctx context.Context, gameID string) (bool, error) {
+	var closing bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM game_runtime_closing WHERE game_id = $1)`, gameID).Scan(&closing)
+	return closing, err
 }
 
 func (m *PostgresOwnershipManager) stealExpiredLease(ctx context.Context, existing OwnershipLease, ownerID string, expiresAt time.Time, now time.Time) (OwnershipLease, bool, error) {

@@ -90,6 +90,7 @@ type WebSocketServer struct {
 	rooms                map[string]map[*wsClient]struct{}
 	histories            map[string]*patchHistory
 	offlineSince         map[string]map[string]time.Time
+	presenceGenerations  map[string]map[string]int64
 	allDisconnectedSince map[string]time.Time
 
 	connectionQueueSize int
@@ -159,6 +160,7 @@ func NewWebSocketServer(validator TicketValidator, runtime *runtimesvc.Service, 
 		rooms:                map[string]map[*wsClient]struct{}{},
 		histories:            map[string]*patchHistory{},
 		offlineSince:         map[string]map[string]time.Time{},
+		presenceGenerations:  map[string]map[string]int64{},
 		allDisconnectedSince: map[string]time.Time{},
 		connectionQueueSize:  defaultConnectionQueueSize,
 		commandTimeout:       defaultCommandTimeout,
@@ -221,7 +223,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if registered.WasOfflineBeyondGrace {
 		s.broadcastPresence(client.claims.GameID, client.playerID(), "online")
-		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.ConnectedPlayerIDs)
+		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.PresenceGeneration, registered.ConnectedPlayerIDs)
 	}
 	defer func() {
 		left := s.unregister(client)
@@ -239,7 +241,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// Presence opens the actor-owned vote immediately. The actor's shared
 				// heartbeat resolves its persisted 60s deadline; no gateway timer.
-				go s.submitDisconnectPresence(context.Background(), left.GameID, left.PlayerID, "offline", s.connectedPlayerIDsForGame(left.GameID))
+				go s.submitDisconnectPresence(context.Background(), left.GameID, left.PlayerID, "offline", left.PresenceGeneration, s.connectedPlayerIDsForGame(left.GameID))
 			}
 		}
 		if left.AllDisconnected {
@@ -266,14 +268,16 @@ type presenceRegistration struct {
 	ConnectedPlayerIDs    []string
 	WasOfflineBeyondGrace bool
 	CancelAllDisconnected bool
+	PresenceGeneration    int64
 }
 
 type presenceUnregistration struct {
-	GameID            string
-	PlayerID          string
-	UserConnections   int
-	AllDisconnected   bool
-	AllDisconnectedAt time.Time
+	GameID             string
+	PlayerID           string
+	UserConnections    int
+	AllDisconnected    bool
+	AllDisconnectedAt  time.Time
+	PresenceGeneration int64
 }
 
 func (s *WebSocketServer) register(client *wsClient) presenceRegistration {
@@ -288,15 +292,18 @@ func (s *WebSocketServer) register(client *wsClient) presenceRegistration {
 		delete(s.allDisconnectedSince, client.claims.GameID)
 	}
 	wasOfflineBeyondGrace := false
+	presenceGeneration := int64(0)
 	if _, ok := s.offlineSince[client.claims.GameID][playerID]; ok {
 		wasOfflineBeyondGrace = true
 		delete(s.offlineSince[client.claims.GameID], playerID)
+		presenceGeneration = s.nextPresenceGenerationLocked(client.claims.GameID, playerID)
 	}
 	s.rooms[client.claims.GameID][client] = struct{}{}
 	return presenceRegistration{
 		ConnectedPlayerIDs:    s.connectedPlayerIDsForGameLocked(client.claims.GameID),
 		WasOfflineBeyondGrace: wasOfflineBeyondGrace,
 		CancelAllDisconnected: cancelAllDisconnected,
+		PresenceGeneration:    presenceGeneration,
 	}
 }
 
@@ -318,6 +325,7 @@ func (s *WebSocketServer) unregister(client *wsClient) presenceUnregistration {
 	}
 	allDisconnected := len(s.rooms[client.claims.GameID]) == 0
 	allDisconnectedAt := time.Time{}
+	presenceGeneration := int64(0)
 	if allDisconnected {
 		allDisconnectedAt = time.Now().UTC()
 		s.allDisconnectedSince[client.claims.GameID] = allDisconnectedAt
@@ -330,10 +338,11 @@ func (s *WebSocketServer) unregister(client *wsClient) presenceUnregistration {
 		if _, ok := s.offlineSince[client.claims.GameID][playerID]; !ok {
 			s.offlineSince[client.claims.GameID][playerID] = time.Now()
 		}
+		presenceGeneration = s.nextPresenceGenerationLocked(client.claims.GameID, playerID)
 		s.incMetric(func(metrics *GatewayMetrics) { metrics.RuntimeDisconnects++ })
 	}
 	s.closeClient(client)
-	return presenceUnregistration{GameID: client.claims.GameID, PlayerID: playerID, UserConnections: userConnections, AllDisconnected: allDisconnected, AllDisconnectedAt: allDisconnectedAt}
+	return presenceUnregistration{GameID: client.claims.GameID, PlayerID: playerID, UserConnections: userConnections, AllDisconnected: allDisconnected, AllDisconnectedAt: allDisconnectedAt, PresenceGeneration: presenceGeneration}
 }
 
 func (s *WebSocketServer) deliverPresenceLifecycle(gameID string, handoffType string, occurredAt time.Time) {
@@ -378,6 +387,7 @@ func (s *WebSocketServer) CloseGame(gameID string) {
 	delete(s.rooms, gameID)
 	delete(s.histories, gameID)
 	delete(s.offlineSince, gameID)
+	delete(s.presenceGenerations, gameID)
 	delete(s.allDisconnectedSince, gameID)
 	s.mu.Unlock()
 
@@ -395,7 +405,11 @@ func (s *WebSocketServer) closeClient(client *wsClient) {
 	})
 }
 
-func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID string, playerID string, status string, connectedPlayerIDs []string) {
+func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID string, playerID string, status string, presenceGeneration int64, connectedPlayerIDs []string) {
+	if presenceGeneration < 1 {
+		s.incMetric(func(metrics *GatewayMetrics) { metrics.DisconnectPresenceSkip++ })
+		return
+	}
 	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, gameID, nil)
 	if err != nil {
 		if errors.Is(err, runtimesvc.ErrActorClosing) {
@@ -406,28 +420,19 @@ func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID s
 		return
 	}
 	gameActor.SetInternalResultPublisher(s.PublishRuntimeResult)
-	if status == "online" {
-		currentVote := gameActor.Snapshot().DisconnectVotes[playerID]
-		if currentVote == nil || currentVote["status"] != "open" {
-			// Presence remains realtime, but reconnecting without an active vote
-			// is not a gameplay mutation. Avoid a no-op game_event/version bump.
-			s.incMetric(func(metrics *GatewayMetrics) { metrics.DisconnectPresenceSkip++ })
-			return
-		}
-	}
-	baseVersion := gameActor.Version()
-	if baseVersion < 1 {
-		baseVersion = 1
-	}
+	// The actor rebases this internal signal after it reaches the mailbox. Do
+	// not snapshot/read a version here: gameplay may advance while this
+	// goroutine is scheduled and normal hot-path presence must stay read-free.
 	command := protocol.CommandEnvelopeV2{
 		GameID:         gameID,
-		BaseVersion:    baseVersion,
-		ClientActionID: fmt.Sprintf("runtime-presence-%s-%s-%d", status, playerID, time.Now().UnixNano()),
+		BaseVersion:    1,
+		ClientActionID: fmt.Sprintf("runtime-presence-%s-%d", playerID, presenceGeneration),
 		Type:           "disconnect.vote",
 		Payload: map[string]any{
-			"targetPlayerId":   playerID,
-			"status":           status,
-			"connectedUserIds": connectedPlayerIDs,
+			"targetPlayerId":     playerID,
+			"status":             status,
+			"connectedUserIds":   connectedPlayerIDs,
+			"presenceGeneration": presenceGeneration,
 		},
 		Client: map[string]any{"source": "runtime_ws_presence"},
 	}
@@ -451,7 +456,34 @@ func isBenignDisconnectPresenceError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, persistence.ErrDuplicateVersion) || errors.Is(err, persistence.ErrGameNotFound) || errors.Is(err, runtimesvc.ErrActorClosing)
+	return errors.Is(err, actor.ErrStalePresenceGeneration) || errors.Is(err, persistence.ErrDuplicateVersion) || errors.Is(err, persistence.ErrGameNotFound) || errors.Is(err, runtimesvc.ErrActorClosing)
+}
+
+// nextPresenceGenerationLocked creates a monotonic, process-local sequence
+// seeded from wall-clock microseconds. The seed remains JSON-safe and exceeds
+// the persisted sequence after a runtime restart, while the actor is still the
+// final authority that rejects an out-of-order transition.
+func (s *WebSocketServer) nextPresenceGenerationLocked(gameID string, playerID string) int64 {
+	if s.presenceGenerations == nil {
+		s.presenceGenerations = map[string]map[string]int64{}
+	}
+	if s.presenceGenerations[gameID] == nil {
+		s.presenceGenerations[gameID] = map[string]int64{}
+	}
+	next := time.Now().UTC().UnixMicro()
+	if previous := s.presenceGenerations[gameID][playerID]; next <= previous {
+		next = previous + 1
+	}
+	// A recovered actor may outlive this gateway map. Reading its compact hot
+	// state is O(1) and deliberately avoids an event-store lookup solely to
+	// allocate the next presence fence.
+	if gameActor, ok := s.runtime.Actor(gameID); ok {
+		if actorGeneration := gameActor.PresenceGeneration(playerID); next <= actorGeneration {
+			next = actorGeneration + 1
+		}
+	}
+	s.presenceGenerations[gameID][playerID] = next
+	return next
 }
 
 func (s *WebSocketServer) connectedPlayerIDsForGame(gameID string) []string {

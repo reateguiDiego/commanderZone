@@ -39,9 +39,11 @@ final class GameLifecycleProjectorTest extends TestCase
         self::assertSame('conceded', $game->lifecycleState()['players']['player-2']['status']);
         self::assertEquals($finishedAt->modify('+60 seconds'), $game->nextLifecycleAt());
         self::assertSame($finishedAt->modify('+60 seconds')->format(DATE_ATOM), $game->rematchState()['deadlineAt']);
+        self::assertSame(1, $game->controlPlaneRevision());
 
         self::assertSame(GameLifecycleProjector::DUPLICATE, $projector->apply($game, $handoff));
         self::assertSame('player-1', $game->winnerPlayerId());
+        self::assertSame(1, $game->controlPlaneRevision());
     }
 
     public function testStaleHandoffCannotOverwriteNewerLifecycleState(): void

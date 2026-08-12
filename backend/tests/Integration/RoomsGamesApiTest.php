@@ -527,7 +527,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->assertRoomPlayersContainDisplayName($this->jsonResponse()['room'], 'Single Invite Player');
     }
 
-    public function testCreatingRoomDeletesPreviousStartedRoomAndGame(): void
+    public function testCreatingRoomRejectsWhenUserStillBelongsToStartedRoom(): void
     {
         $this->seedCard('dddddddd-0000-7000-8000-000000000001', 'Commander Started Membership', [
             'type_line' => 'Legendary Creature - Human Knight',
@@ -568,15 +568,15 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $playerDeckId], $playerToken);
-        self::assertResponseStatusCodeSame(201);
-        $newRoomId = (string) $this->jsonResponse()['room']['id'];
-        self::assertNotSame($startedRoomId, $newRoomId);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('ACTIVE_GAME_ROOM_EXISTS', $this->jsonResponse()['code']);
+        self::assertSame($startedRoomId, $this->jsonResponse()['roomId']);
 
         $this->jsonRequest('GET', '/rooms/'.$startedRoomId, token: $ownerToken);
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
     }
 
     public function testLeavingStartedRoomDeletesRoomAndGameWhenNoPlayersRemain(): void
@@ -1051,17 +1051,152 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'play_again',
+            'clientActionId' => 'rematch-wait-lost-1',
         ], $fixture['tokens']['Rematch Wait Lost']);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
         self::assertSame('waiting_for_game_end', $response['status']);
         self::assertSame('Tu voto se ha guardado. Espera a que termine la partida.', $response['message']);
-        self::assertSame('play_again', $response['snapshot']['rematch']['votes'][$defeatedPlayerId]['vote']);
+        self::assertSame('rematch-wait-lost-1', $response['clientActionId']);
+        self::assertSame('play_again', $response['controlPlane']['rematch']['votes'][$defeatedPlayerId]['vote']);
 
         $this->jsonRequest('GET', '/rooms/'.$roomId, token: $fixture['tokens']['Rematch Wait Winner']);
         self::assertResponseIsSuccessful();
         self::assertSame('started', $this->jsonResponse()['room']['status']);
         self::assertSame($gameId, $this->jsonResponse()['room']['gameId']);
+    }
+
+    public function testRematchVoteAckIsCompactIdempotentAndRejectsStaleAction(): void
+    {
+        $fixture = $this->startedRematchGameFixture('cp-ack', [
+            ['control-plane-owner@example.test', 'Control Plane Owner'],
+            ['control-plane-voter@example.test', 'Control Plane Voter'],
+            ['control-plane-other@example.test', 'Control Plane Other'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $voterToken = $fixture['tokens']['Control Plane Voter'];
+        $voterId = $this->playerIdByName($fixture['snapshot'], 'Control Plane Voter');
+        // This voter is a conceded spectator. Its control-plane leave must
+        // not require a second gameplay concession while the game remains
+        // active for the other two players.
+        $this->projectConcededLifecycle($gameId, $voterId, 2);
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $gameEventCount = count($this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $game]));
+
+        RecordingMercureHub::reset();
+        $request = [
+            'vote' => 'play_again',
+            'clientActionId' => 'control-plane-vote-1',
+        ];
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', $request, $voterToken);
+        self::assertResponseIsSuccessful();
+        $first = $this->jsonResponse();
+        self::assertSame('control-plane-vote-1', $first['clientActionId']);
+        self::assertFalse($first['deduplicated']);
+        self::assertSame(2, $first['controlPlane']['controlPlaneRevision']);
+        self::assertSame('play_again', $first['controlPlane']['rematch']['votes'][$voterId]['vote']);
+        self::assertArrayNotHasKey('snapshot', $first);
+        self::assertArrayNotHasKey('version', $first);
+
+        $updates = RecordingMercureHub::updates();
+        self::assertCount(1, $updates);
+        $mercure = json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(2, $mercure['controlPlaneRevision']);
+        self::assertSame(2, $mercure['controlPlane']['controlPlaneRevision']);
+        self::assertSame($mercure['event']['id'], $updates[0]['id']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', $request, $voterToken);
+        self::assertResponseIsSuccessful();
+        $duplicate = $this->jsonResponse();
+        self::assertTrue($duplicate['deduplicated']);
+        self::assertSame(2, $duplicate['controlPlane']['controlPlaneRevision']);
+        self::assertCount(1, RecordingMercureHub::updates());
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
+            'vote' => 'leave_room',
+            'clientActionId' => 'control-plane-vote-2',
+            'previousActionId' => 'stale-action',
+        ], $voterToken);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('CONTROL_PLANE_ACTION_STALE', $this->jsonResponse()['code']);
+        self::assertSame(2, $this->jsonResponse()['controlPlane']['controlPlaneRevision']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
+            'vote' => 'leave_room',
+            'clientActionId' => 'control-plane-vote-2',
+            'previousActionId' => 'control-plane-vote-1',
+        ], $voterToken);
+        self::assertResponseIsSuccessful();
+        $leave = $this->jsonResponse();
+        self::assertSame('left', $leave['status']);
+        self::assertSame(3, $leave['controlPlane']['controlPlaneRevision']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
+            'vote' => 'leave_room',
+            'clientActionId' => 'control-plane-vote-2',
+        ], $voterToken);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['deduplicated']);
+        self::assertSame('left', $this->jsonResponse()['status']);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/control-plane?afterRevision=2', token: $fixture['tokens']['Control Plane Owner']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(3, $this->jsonResponse()['controlPlane']['controlPlaneRevision']);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/control-plane?afterRevision=3', token: $fixture['tokens']['Control Plane Owner']);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->entityManager->clear();
+        $persistedGame = $this->entityManager->find(Game::class, $gameId);
+        self::assertInstanceOf(Game::class, $persistedGame);
+        self::assertSame(3, $persistedGame->controlPlaneRevision());
+        self::assertCount($gameEventCount, $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $persistedGame]));
+    }
+
+    public function testActiveRematchLeaveRequiresGoConcedeBeforeRemovingMembership(): void
+    {
+        $fixture = $this->startedRematchGameFixture('leave-go', [
+            ['active-leave-owner@example.test', 'Active Leave Owner'],
+            ['active-leave-player@example.test', 'Active Leave Player'],
+            ['active-leave-other@example.test', 'Active Leave Other'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $roomId = $fixture['roomId'];
+        $leavingPlayerId = $this->playerIdByName($fixture['snapshot'], 'Active Leave Player');
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $gameEventCount = count($this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $game]));
+
+        // The integration environment intentionally has no Go runtime. The
+        // route must therefore fail before it changes membership, rematch
+        // state, or the Go-owned event stream.
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
+            'vote' => 'leave_room',
+            'clientActionId' => 'active-rematch-leave-1',
+        ], $fixture['tokens']['Active Leave Player']);
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame(
+            'The gameplay runtime is required to concede an active player before leaving.',
+            $this->jsonResponse()['error'],
+        );
+        self::assertSame([], RecordingMercureHub::updates());
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $fixture['tokens']['Active Leave Owner']);
+        self::assertResponseIsSuccessful();
+        $remainingPlayerIds = array_map(
+            static fn (array $player): string => (string) ($player['user']['id'] ?? ''),
+            $this->jsonResponse()['room']['players'],
+        );
+        self::assertContains($leavingPlayerId, $remainingPlayerIds);
+
+        $this->entityManager->clear();
+        $persistedGame = $this->entityManager->find(Game::class, $gameId);
+        self::assertInstanceOf(Game::class, $persistedGame);
+        self::assertSame(0, $persistedGame->controlPlaneRevision());
+        self::assertSame([], $persistedGame->rematchState()['votes']);
+        self::assertCount($gameEventCount, $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $persistedGame]));
     }
 
     public function testRematchVotesReturnSameRoomToWaitingWithVotingPlayers(): void
@@ -1091,18 +1226,21 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'play_again',
+            'clientActionId' => 'rematch-ready-one-1',
         ], $fixture['tokens']['Rematch Ready One']);
         self::assertResponseIsSuccessful();
         self::assertSame('waiting_for_votes', $this->jsonResponse()['status']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'play_again',
+            'clientActionId' => 'rematch-ready-winner-1',
         ], $fixture['tokens']['Rematch Ready Winner']);
         self::assertResponseIsSuccessful();
         self::assertSame('waiting_for_votes', $this->jsonResponse()['status']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'leave_room',
+            'clientActionId' => 'rematch-ready-two-1',
         ], $fixture['tokens']['Rematch Ready Two']);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
@@ -1110,7 +1248,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame($roomId, $response['room']['id']);
         self::assertSame('waiting', $response['room']['status']);
         self::assertNull($response['room']['gameId']);
-        self::assertSame(2, $response['room']['maxPlayers']);
+        self::assertSame(3, $response['room']['maxPlayers']);
         $this->assertRoomPlayersContainDisplayName($response['room'], 'Rematch Ready Winner');
         $this->assertRoomPlayersContainDisplayName($response['room'], 'Rematch Ready One');
         $this->assertRoomPlayersDoNotContainDisplayName($response['room'], 'Rematch Ready Two');
@@ -1169,12 +1307,14 @@ class RoomsGamesApiTest extends ApiTestCase
 
             $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
                 'vote' => 'play_again',
+                'clientActionId' => sprintf('rematch-size-%d-first-1', $playerCount),
             ], $fixture['tokens'][$firstDefeatedName]);
             self::assertResponseIsSuccessful();
             self::assertSame('waiting_for_votes', $this->jsonResponse()['status']);
 
             $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
                 'vote' => 'play_again',
+                'clientActionId' => sprintf('rematch-size-%d-winner-1', $playerCount),
             ], $fixture['tokens'][$winnerName]);
             self::assertResponseIsSuccessful();
             $response = $this->jsonResponse();
@@ -1184,6 +1324,7 @@ class RoomsGamesApiTest extends ApiTestCase
                 foreach (array_slice($players, 2) as $index => [, $displayName]) {
                     $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
                         'vote' => 'leave_room',
+                        'clientActionId' => sprintf('rematch-size-%d-leave-%d', $playerCount, $index),
                     ], $fixture['tokens'][$displayName]);
                     self::assertResponseIsSuccessful();
                     $response = $this->jsonResponse();
@@ -1198,7 +1339,7 @@ class RoomsGamesApiTest extends ApiTestCase
             self::assertSame($roomId, $response['room']['id']);
             self::assertSame('waiting', $response['room']['status']);
             self::assertNull($response['room']['gameId']);
-            self::assertSame(2, $response['room']['maxPlayers']);
+            self::assertSame($playerCount, $response['room']['maxPlayers']);
             self::assertCount(2, $response['room']['players']);
             $this->assertRoomPlayersContainDisplayName($response['room'], $winnerName);
             $this->assertRoomPlayersContainDisplayName($response['room'], $firstDefeatedName);
@@ -1228,9 +1369,15 @@ class RoomsGamesApiTest extends ApiTestCase
         ]);
         $gameId = $fixture['gameId'];
         $roomId = $fixture['roomId'];
+        $this->projectFinishedLifecycle(
+            $gameId,
+            $this->playerIdByName($fixture['snapshot'], 'Rematch Leave Owner'),
+            2,
+        );
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'leave_room',
+            'clientActionId' => 'rematch-last-guest-1',
         ], $fixture['tokens']['Rematch Leave Guest']);
         self::assertResponseIsSuccessful();
         self::assertSame('left', $this->jsonResponse()['status']);
@@ -1244,10 +1391,22 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'leave_room',
+            'clientActionId' => 'rematch-last-owner-1',
         ], $fixture['tokens']['Rematch Leave Owner']);
         self::assertResponseIsSuccessful();
         self::assertSame('room_deleted', $this->jsonResponse()['status']);
         self::assertTrue($this->jsonResponse()['roomDeleted']);
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_runtime_closing WHERE game_id = ?',
+            [$gameId],
+        ));
+
+        $terminalGameUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId]
+                && (json_decode($update['data'], true)['event']['type'] ?? null) === 'room.deleted',
+        ));
+        self::assertCount(1, $terminalGameUpdates);
 
         $this->jsonRequest('GET', '/rooms/current', token: $fixture['tokens']['Rematch Leave Owner']);
         self::assertResponseIsSuccessful();

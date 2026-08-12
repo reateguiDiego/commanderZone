@@ -67,6 +67,7 @@ final class GameLifecycleHandoffApiTest extends ApiTestCase
         self::assertSame(Game::STATUS_FINISHED, $persisted->status());
         self::assertSame($owner->id(), $persisted->winnerPlayerId());
         self::assertSame('last_player_standing', $persisted->finishReason());
+        self::assertSame(1, $persisted->controlPlaneRevision());
         self::assertSame('2026-08-10T12:00:00+00:00', $persisted->finishedAt()?->format(DATE_ATOM));
         self::assertSame('FINISHED', $persisted->snapshot()['gamePhase']);
         self::assertSame($owner->id(), $persisted->snapshot()['winnerPlayerId']);
@@ -129,6 +130,7 @@ final class GameLifecycleHandoffApiTest extends ApiTestCase
         self::assertTrue($persistedGame->canBeViewedBy($remaining));
         self::assertSame('leave_room', $persistedGame->rematchState()['votes'][$owner->id()]['vote'] ?? null);
         self::assertSame('conceded', $persistedGame->lifecycleState()['players'][$owner->id()]['status'] ?? null);
+        self::assertSame(2, $persistedGame->controlPlaneRevision());
         self::assertCount(0, $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $persistedGame]));
 
         $roomUpdates = array_values(array_filter(

@@ -279,6 +279,8 @@ export interface GameRematchVoteState {
   displayName: string;
   vote: GameRematchVote;
   votedAt: string;
+  /** Idempotency token for this player's last accepted control-plane vote. */
+  clientActionId?: string | null;
 }
 
 export interface GameRematchState {
@@ -293,6 +295,11 @@ export interface GameRematchState {
  * only writer of the versioned gameplay stream.
  */
 export interface GameControlPlaneState {
+  /**
+   * Monotonic Symfony control-plane revision. It is deliberately independent
+   * from the Go-owned gameplay event version.
+   */
+  controlPlaneRevision: number;
   status: string;
   winnerPlayerId: string | null;
   finishedAt: string | null;
@@ -328,6 +335,8 @@ export type GameDisconnectVotes = Record<string, GameDisconnectVoteState>;
 
 export interface GameSnapshot {
   version: number;
+  /** Low-frequency control-plane cursor, never a gameplay stream version. */
+  controlPlaneRevision?: number;
   ownerId?: string;
   status?: string;
   winnerPlayerId?: string | null;
@@ -361,6 +370,9 @@ export interface GameSnapshot {
 export interface Game {
   id: string;
   status: 'active' | string;
+  controlPlaneRevision?: number;
+  /** Compact Symfony-owned lifecycle/rematch projection returned with bootstrap. */
+  controlPlane?: GameControlPlaneState;
   winnerPlayerId?: string | null;
   finishedAt?: string | null;
   finishReason?: string | null;
@@ -387,6 +399,8 @@ export interface MercureGameEvent {
   gameId: string;
   event: GameEvent;
   version: number | null;
+  /** Mirrors controlPlane.controlPlaneRevision for lightweight diagnostics. */
+  controlPlaneRevision?: number | null;
   controlPlane?: GameControlPlaneState;
 }
 

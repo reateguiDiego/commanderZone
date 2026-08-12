@@ -31,22 +31,39 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   readonly pending = signal(false);
   readonly error = signal<string | null>(null);
 
+  private readonly openVoteStates = computed(() => {
+    return Object.values(this.store.snapshot()?.disconnectVotes ?? {})
+      .filter((vote) => vote.status === 'open')
+      .sort((left, right) => (left.openedAt ?? '').localeCompare(right.openedAt ?? ''));
+  });
+  private readonly visibleOpenVoteStates = computed(() => {
+    const dismissedVoteKeys = this.dismissedVoteKeys();
+
+    return this.openVoteStates().filter((vote) => {
+      const voteKey = this.voteKeyFor(vote);
+      return voteKey !== null && !dismissedVoteKeys.has(voteKey);
+    });
+  });
   readonly voteState = computed(() => {
     const currentPlayerId = this.currentPlayerId();
     if (!currentPlayerId) {
       return null;
     }
 
-    const dismissedVoteKeys = this.dismissedVoteKeys();
-    return Object.values(this.store.snapshot()?.disconnectVotes ?? {})
-      .filter((vote) => vote.status === 'open' && vote.eligible?.includes(currentPlayerId))
-      .sort((left, right) => (left.openedAt ?? '').localeCompare(right.openedAt ?? ''))
-      .find((vote) => {
-        const voteKey = this.voteKeyFor(vote);
-        return voteKey !== null && !dismissedVoteKeys.has(voteKey);
-      }) ?? null;
+    return this.visibleOpenVoteStates()
+      .find((vote) => vote.eligible?.includes(currentPlayerId)) ?? null;
   });
-  readonly targetPlayerId = computed(() => this.voteState()?.targetPlayerId ?? null);
+  /** Open vote visible to a conceded/spectating player without granting actions. */
+  readonly passiveVoteState = computed(() => {
+    if (this.voteState() !== null) {
+      return null;
+    }
+
+    return this.visibleOpenVoteStates()[0] ?? null;
+  });
+  readonly visibleVoteState = computed(() => this.voteState() ?? this.passiveVoteState());
+  readonly isPassive = computed(() => this.visibleVoteState() !== null && !this.canVote());
+  readonly targetPlayerId = computed(() => this.visibleVoteState()?.targetPlayerId ?? null);
   readonly targetPlayerName = computed(() => {
     const targetPlayerId = this.targetPlayerId();
     const snapshot = this.store.snapshot();
@@ -66,7 +83,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   });
   readonly currentPlayerId = computed(() => this.store.currentPlayer()?.id ?? null);
   readonly currentVote = computed<GameDisconnectVoteChoice | null>(() => {
-    const state = this.voteState();
+    const state = this.visibleVoteState();
     const currentPlayerId = this.currentPlayerId();
     if (!state || !currentPlayerId) {
       return null;
@@ -85,7 +102,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     if (currentPlayerId === state.targetPlayerId) {
       return false;
     }
-    if (snapshot.players[currentPlayerId]?.status === 'conceded' || !state.eligible?.includes(currentPlayerId)) {
+    if (snapshot.players[currentPlayerId]?.status !== 'active' || !state.eligible?.includes(currentPlayerId)) {
       return false;
     }
 
@@ -93,7 +110,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   });
   readonly players = computed<DisconnectVotePlayerView[]>(() => {
     const snapshot = this.store.snapshot();
-    const state = this.voteState();
+    const state = this.visibleVoteState();
     if (!snapshot || !state?.targetPlayerId) {
       return [];
     }
@@ -116,8 +133,9 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   });
   readonly countdownSeconds = computed(() => {
     this.countdownTick();
-    const deadlineAt = this.voteState()?.deadlineAt;
-    if (!deadlineAt || this.voteState()?.status !== 'open') {
+    const state = this.visibleVoteState();
+    const deadlineAt = state?.deadlineAt;
+    if (!deadlineAt || state?.status !== 'open') {
       return null;
     }
 
@@ -133,20 +151,22 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     this.subscriptions.add(this.transport.messages$.subscribe((message) => this.consumePresenceMessage(message)));
 
     effect(() => {
-      const canVote = this.canVote();
-      const voteKey = this.voteKey();
-      if (!canVote || !voteKey) {
+      const visibleVote = this.visibleVoteState();
+      if (!visibleVote) {
         this.modalOpen.set(false);
-        this.dismissedVoteKeys.set(new Set());
+        if (this.openVoteStates().length === 0 && this.dismissedVoteKeys().size > 0) {
+          this.dismissedVoteKeys.set(new Set());
+        }
         return;
       }
+
       this.modalOpen.set(true);
     });
 
     effect(() => {
       const open = this.modalOpen();
       const seconds = this.countdownSeconds();
-      const running = open && seconds !== null && this.voteState()?.status === 'open';
+      const running = open && seconds !== null && this.visibleVoteState()?.status === 'open';
       if (!running) {
         this.stopCountdown();
         return;
@@ -229,7 +249,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   }
 
   private voteKey(): string | null {
-    return this.voteKeyFor(this.voteState());
+    return this.voteKeyFor(this.visibleVoteState());
   }
 
   private voteKeyFor(state: GameDisconnectVoteState | null): string | null {

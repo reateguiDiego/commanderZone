@@ -94,6 +94,8 @@ class GamesControllerV2Test extends TestCase
 
         self::assertSame($game->id(), $payload['game']['id']);
         self::assertSame($viewer->id(), $payload['game']['viewerId']);
+        self::assertSame(0, $payload['game']['controlPlaneRevision']);
+        self::assertSame(0, $payload['game']['controlPlane']['controlPlaneRevision']);
         self::assertArrayHasKey($viewer->id().':battlefield', $payload['zones']);
         self::assertArrayHasKey('battlefield-1', $payload['instances']);
         self::assertArrayNotHasKey('snapshot', $payload['game']);

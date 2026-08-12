@@ -197,6 +197,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureUserMessageTable($connection);
         $this->ensureUserReportTable($connection);
         $this->ensureAuthIdentityTable($connection);
+        $this->ensureGameRuntimeClosingTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -214,6 +215,7 @@ abstract class ApiTestCase extends WebTestCase
             'friendship',
             'game_event',
             'game_snapshot_compact',
+            'game_runtime_closing',
             'game',
             'room_waiting_log_entry',
             'room_player',
@@ -245,6 +247,17 @@ abstract class ApiTestCase extends WebTestCase
 
         $connection->executeStatement('TRUNCATE '.implode(', ', $existingTables).' RESTART IDENTITY CASCADE');
         $this->seedBaseRoles($connection);
+    }
+
+    private function ensureGameRuntimeClosingTable(Connection $connection): void
+    {
+        $connection->executeStatement('ALTER TABLE game ADD COLUMN IF NOT EXISTS runtime_closing BOOLEAN NOT NULL DEFAULT FALSE');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_runtime_closing (
+    game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
     }
 
     private function ensureCardImageStatusColumn(Connection $connection): void

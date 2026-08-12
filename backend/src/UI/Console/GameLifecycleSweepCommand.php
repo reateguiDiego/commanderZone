@@ -31,6 +31,7 @@ final class GameLifecycleSweepCommand extends Command
                 $this->roomPublisher->publish($result['game']->room(), 'room.rematch.created');
                 continue;
             }
+            $this->gamePublisher->publishRoomDeleted($result['game']->id(), $result['roomId']);
             $this->roomPublisher->publishDeleted($result['roomId']);
         }
 

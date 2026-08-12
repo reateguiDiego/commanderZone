@@ -98,6 +98,97 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
   }
 });
 
+test('rematch vote ACK updates its voter and Mercure updates the other player without a gameplay snapshot', async ({ browser, request, baseURL }) => {
+  test.setTimeout(180_000);
+  if (!baseURL) {
+    throw new Error('Playwright baseURL is required.');
+  }
+  await assertGameRuntimeReady(request);
+
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const setup = await createCommanderGameWithBasicDecks(request, {
+    playerAPrefix: `rm-a-${suffix.slice(-7)}`,
+    playerBPrefix: `rm-b-${suffix.slice(-7)}`,
+  });
+  const { gameId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
+
+  const contextA = await browser.newContext({
+    baseURL,
+    storageState: authStorageState(baseURL, playerA.user, playerA.refreshToken),
+  });
+  const contextB = await browser.newContext({
+    baseURL,
+    storageState: authStorageState(baseURL, playerB.user, playerB.refreshToken),
+  });
+  await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
+
+  try {
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+    const framesA = collectWebSocketFrames(pageA);
+    const framesB = collectWebSocketFrames(pageB);
+    let gameplaySnapshotRequests = 0;
+    for (const page of [pageA, pageB]) {
+      page.on('request', (httpRequest) => {
+        const url = httpRequest.url();
+        if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
+          gameplaySnapshotRequests += 1;
+        }
+      });
+    }
+
+    await Promise.all([pageA.goto(`/games/${gameId}`), pageB.goto(`/games/${gameId}`)]);
+    await Promise.all([
+      expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
+      expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
+      waitForGameplayConnection(framesA),
+      waitForGameplayConnection(framesB),
+    ]);
+    const snapshotBaseline = gameplaySnapshotRequests;
+
+    const ticketB = await websocketTicket(request, gameId, playerB.token);
+    const concede = await sendRuntimeCommandAndWait(pageB, ticketB.websocketUrl, framesB, {
+      gameId,
+      baseVersion: await gameVersion(request, gameId, playerB.token),
+      type: 'game.concede',
+      payload: { playerId: playerB.user.id },
+      ownerPatch: (patch) => hasOp(patch, 'player.status.set'),
+    });
+
+    const playAgain = /Play again|Jugar de nuevo/i;
+    await Promise.all([
+      expect(pageA.getByRole('button', { name: playAgain })).toBeVisible({ timeout: 30_000 }),
+      expect(pageB.getByRole('button', { name: playAgain })).toBeVisible({ timeout: 30_000 }),
+    ]);
+
+    const voteResponse = pageB.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes(`/games/${gameId}/rematch-vote`),
+    );
+    await pageB.getByRole('button', { name: playAgain }).click();
+    const response = await voteResponse;
+    expect(response.ok()).toBe(true);
+    const responseBody = await response.json() as {
+      clientActionId?: unknown;
+      controlPlane?: { controlPlaneRevision?: unknown };
+      snapshot?: unknown;
+    };
+    expect(typeof responseBody.clientActionId).toBe('string');
+    expect(Number(responseBody.controlPlane?.controlPlaneRevision ?? 0)).toBeGreaterThan(0);
+    expect(responseBody.snapshot).toBeUndefined();
+    expect(await gameVersion(request, gameId, playerA.token)).toBe(concede.version);
+
+    const voterRow = pageB.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
+    const observerRow = pageA.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
+    await expect(voterRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again');
+    await expect(observerRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again', { timeout: 30_000 });
+    expect(gameplaySnapshotRequests).toBe(snapshotBaseline);
+  } finally {
+    await contextA.close();
+    await contextB.close();
+  }
+});
+
 test('disconnect vote emits patch.v2 without snapshot refetch or game_patch', async ({ browser, request, baseURL }) => {
   test.setTimeout(180_000);
   if (!baseURL) {

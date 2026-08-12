@@ -117,6 +117,7 @@ final class InternalGameLifecycleController extends ApiController
                 'finishedAt' => $game->finishedAt()?->format(DATE_ATOM),
                 'finishReason' => $game->finishReason(),
                 'nextLifecycleAt' => $game->nextLifecycleAt()?->format(DATE_ATOM),
+                'controlPlaneRevision' => $game->controlPlaneRevision(),
             ],
         ]);
     }

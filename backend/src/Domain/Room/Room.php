@@ -423,7 +423,6 @@ class Room
         $this->owner = $owner;
         $this->status = self::STATUS_WAITING;
         $this->game = null;
-        $this->maxPlayers = max(self::MIN_MAX_PLAYERS, min(self::MAX_MAX_PLAYERS, $this->players->count()));
         $this->touch();
     }
 

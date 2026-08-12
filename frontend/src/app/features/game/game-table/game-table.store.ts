@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameControlPlaneState, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
@@ -50,6 +50,7 @@ import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
+import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
@@ -83,6 +84,7 @@ export class GameTableStore implements OnDestroy {
   private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
+  private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
   private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
@@ -241,6 +243,11 @@ export class GameTableStore implements OnDestroy {
       },
       pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
       pendingLibraryMove: () => this.pendingLibraryMove(),
+      onControlPlaneAccepted: (controlPlane) => this.rematchVotes.acceptControlPlane(
+        this.gameId(),
+        this.currentPlayer()?.id ?? null,
+        controlPlane,
+      ),
     });
     this.pendingTransferState.setExpirationHandler((expiration) => this.handlePendingTransferExpired(expiration));
     effect(() => {
@@ -1754,6 +1761,11 @@ export class GameTableStore implements OnDestroy {
 
   private localPlayerFromSnapshot(): PlayerView | null {
     return this.selectors.currentPlayer(this.playersStore.players(), this.auth.user()?.id);
+  }
+
+  /** Applies an authoritative lifecycle/rematch ACK without touching gameplay versioning. */
+  applyControlPlaneAcknowledgement(controlPlane: GameControlPlaneState): boolean {
+    return this.session.applyControlPlaneAcknowledgement(this.contexts.session(), controlPlane);
   }
 
   async copyGameId(): Promise<void> {

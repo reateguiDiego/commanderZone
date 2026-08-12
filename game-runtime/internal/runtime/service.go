@@ -453,6 +453,14 @@ func (s *Service) recordActorCacheMiss() {
 // StopActor is an internal/system lifecycle operation. It is deliberately not
 // exposed as a gameplay command and never appends a game event.
 func (s *Service) StopActor(ctx context.Context, gameID string) error {
+	// A durable runtime-closing claim may be delivered to any node. Revoking
+	// the shared lease first prevents a remote owner from appending while its
+	// local actor is being stopped or until it observes the closing fence.
+	if revoker, ok := s.ownership.(OwnershipRevoker); ok {
+		if err := revoker.Revoke(ctx, gameID); err != nil {
+			return err
+		}
+	}
 	s.mu.Lock()
 	s.closing[gameID] = struct{}{}
 	gameActor := s.actors[gameID]
@@ -503,7 +511,7 @@ func (s *Service) stopActorIfCurrent(ctx context.Context, gameID string, expecte
 	if cancel != nil {
 		cancel()
 	}
-	if err := gameActor.Stop(ctx); err != nil {
+	if err := gameActor.Stop(ctx); err != nil && !errors.Is(err, persistence.ErrGameClosing) {
 		return err
 	}
 	s.releaseOwnership(ctx, gameID, lease)
@@ -555,6 +563,9 @@ func (s *Service) acquireOwnershipLocked(ctx context.Context, gameID string) err
 	if err != nil {
 		s.recordOwnershipRejected()
 		s.logger.Warn("runtime ownership acquire rejected", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "error", err)
+		if errors.Is(err, ErrGameClosing) {
+			return errors.Join(ErrActorClosing, err)
+		}
 		return err
 	}
 	s.leases[gameID] = result.Lease
@@ -583,6 +594,9 @@ func (s *Service) ensureOwnershipLocked(ctx context.Context, gameID string) erro
 		return wrapped
 	}
 	if err := s.ownership.EnsureHeld(ctx, lease); err != nil {
+		if errors.Is(err, ErrGameClosing) {
+			return errors.Join(ErrActorClosing, err)
+		}
 		s.recordOwnershipRejected()
 		if errors.Is(err, ErrOwnershipNotHeld) {
 			s.recordOwnershipLost()
@@ -606,6 +620,9 @@ func (s *Service) commandOwnershipGuard(gameID string) func(context.Context) (pe
 			return persistence.FencingToken{}, err
 		}
 		if err := s.ownership.EnsureHeld(ctx, lease); err != nil {
+			if errors.Is(err, ErrGameClosing) {
+				return persistence.FencingToken{}, errors.Join(ErrActorClosing, err)
+			}
 			s.recordOwnershipRejected()
 			if errors.Is(err, ErrOwnershipNotHeld) {
 				s.recordOwnershipLost()

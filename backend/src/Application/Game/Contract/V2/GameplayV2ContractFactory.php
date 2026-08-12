@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\Contract\V2;
 
+use App\Application\Game\GameControlPlaneProjection;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -11,6 +12,10 @@ final class GameplayV2ContractFactory
 {
     private const RULES_VERSION = 'commanderzone-manual-v1';
     private const CARD_CATALOG_VERSION = 'legacy-snapshot-v1';
+
+    public function __construct(private readonly ?GameControlPlaneProjection $controlPlane = null)
+    {
+    }
 
     /**
      * @param array<string,mixed> $command
@@ -192,10 +197,13 @@ final class GameplayV2ContractFactory
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 
+        $controlPlane = ($this->controlPlane ?? new GameControlPlaneProjection())->project($game);
         $payload = [
             'game' => [
                 'id' => $game->id(),
                 'status' => $game->status(),
+                'controlPlaneRevision' => $controlPlane['controlPlaneRevision'],
+                'controlPlane' => $controlPlane,
                 'winnerPlayerId' => $game->winnerPlayerId(),
                 'finishedAt' => $game->finishedAt()?->format(DATE_ATOM),
                 'finishReason' => $game->finishReason(),

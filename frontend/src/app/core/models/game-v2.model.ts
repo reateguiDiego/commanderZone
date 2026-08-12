@@ -6,6 +6,7 @@ import type {
   GameAttachment,
   GameCompactCardRef,
   GameCardPosition,
+  GameControlPlaneState,
   GameDisconnectVotes,
   GameLogEntry,
   GamePowerToughnessValue,
@@ -51,6 +52,8 @@ export interface EventPayloadV2 {
 export interface BootstrapGameV2 {
   id: string;
   status: string;
+  controlPlaneRevision?: number;
+  controlPlane?: GameControlPlaneState;
   winnerPlayerId?: string | null;
   finishedAt?: string | null;
   finishReason?: string | null;

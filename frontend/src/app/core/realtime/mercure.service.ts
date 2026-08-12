@@ -1,19 +1,36 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, firstValueFrom } from 'rxjs';
+import { Observable, filter, firstValueFrom, map } from 'rxjs';
 import { API_BASE_URL, MERCURE_URL } from '../api/api.config';
 import { FriendRealtimeEvent } from '../models/friendship.model';
 import { MercureGameEvent } from '../models/game.model';
 import { WaitingRoomEvent } from '../models/room.model';
+
+export type MercureGameStreamMessage =
+  | { readonly kind: 'connected'; readonly reconnected: boolean }
+  | { readonly kind: 'event'; readonly event: MercureGameEvent };
 
 @Injectable({ providedIn: 'root' })
 export class MercureService {
   constructor(private readonly http: HttpClient) {}
 
   gameEvents(gameId: string): Observable<MercureGameEvent> {
-    return new Observable<MercureGameEvent>((subscriber) => {
+    return this.gameEventStream(gameId).pipe(
+      filter((message): message is Extract<MercureGameStreamMessage, { kind: 'event' }> => message.kind === 'event'),
+      map((message) => message.event),
+    );
+  }
+
+  /**
+   * The game table consumes this single stream so it can recover a compact
+   * control-plane projection exactly once after a real EventSource reconnect.
+   */
+  gameEventStream(gameId: string): Observable<MercureGameStreamMessage> {
+    return new Observable<MercureGameStreamMessage>((subscriber) => {
       let source: EventSource | null = null;
       let closed = false;
+      let opened = false;
+      let reconnectPending = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`games/${gameId}`)}`;
       this.prepareMercureConnection()
         .then((withCredentials) => {
@@ -22,16 +39,25 @@ export class MercureService {
           }
           source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
+          source.onopen = () => {
+            const reconnected = opened && reconnectPending;
+            opened = true;
+            reconnectPending = false;
+            subscriber.next({ kind: 'connected', reconnected });
+          };
+
           source.onmessage = (message) => {
             try {
-              subscriber.next(JSON.parse(message.data) as MercureGameEvent);
+              subscriber.next({ kind: 'event', event: JSON.parse(message.data) as MercureGameEvent });
             } catch (error) {
               subscriber.error(error);
             }
           };
 
           source.onerror = () => {
-            // Snapshot polling in the gameplay store is the fallback. Keep the stream open.
+            // EventSource owns reconnection. Mark it so the next `open` can do
+            // one compact control-plane recovery without polling.
+            reconnectPending ||= opened;
           };
         })
         .catch((error) => subscriber.error(error));

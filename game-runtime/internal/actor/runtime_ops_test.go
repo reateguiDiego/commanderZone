@@ -2135,6 +2135,134 @@ func TestActorAcceptsStaleBaseVersionAfterPresenceOnlyVersionAdvance(t *testing.
 	}
 }
 
+func TestRuntimePresenceGenerationFencesLateOfflineAndRebasesAfterGameplay(t *testing.T) {
+	store := &presenceReadCountingStore{InMemoryEventStore: persistence.NewInMemoryEventStore()}
+	initial := testState()
+	initial.Players["p3"] = map[string]any{"life": 40, "status": "active", "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	gameActor := NewGameActor("game-1", initial, store, 8, DefaultAppliers())
+
+	presence := func(baseVersion int64, actionID string, status string, generation int64, connected []string) protocol.CommandEnvelopeV2 {
+		command := command("game-1", baseVersion, actionID, "disconnect.vote", map[string]any{
+			"targetPlayerId":     "p2",
+			"status":             status,
+			"connectedUserIds":   connected,
+			"presenceGeneration": generation,
+		})
+		command.Client = map[string]any{"source": "runtime_ws_presence"}
+		return command
+	}
+
+	offline := gameActor.ApplyDirect(context.Background(), presence(1, "presence-p2-100", "offline", 100, []string{"p1", "p3"}), "")
+	if offline.Err != nil || offline.Event.Version != 2 {
+		t.Fatalf("offline presence = %#v, want version 2", offline)
+	}
+
+	gameplay := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "p1-life-before-reconnect", "life.changed", map[string]any{
+		"playerId": "p1",
+		"life":     39,
+	}), "p1")
+	if gameplay.Err != nil || gameplay.Event.Version != 3 {
+		t.Fatalf("gameplay before reconnect = %#v, want version 3", gameplay)
+	}
+	store.eventByActionReads = 0
+	store.eventsAfterReads = 0
+
+	// The gateway supplied base version 1 before the gameplay action reached
+	// the actor. Runtime presence must rebase in the mailbox rather than
+	// performing an event-store version read or returning a conflict.
+	online := gameActor.ApplyDirect(context.Background(), presence(1, "presence-p2-101", "online", 101, []string{"p1", "p2", "p3"}), "")
+	if online.Err != nil || online.Event.Version != 4 {
+		t.Fatalf("reconnect presence = %#v, want rebased version 4", online)
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.PresenceGenerations["p2"] != 101 || snapshot.DisconnectVotes["p2"]["status"] != "cancelled" {
+		t.Fatalf("reconnect fence/state = generations=%#v votes=%#v", snapshot.PresenceGenerations, snapshot.DisconnectVotes)
+	}
+
+	lateOffline := gameActor.ApplyDirect(context.Background(), presence(1, "presence-p2-100-late", "offline", 100, []string{"p1", "p3"}), "")
+	if !errors.Is(lateOffline.Err, ErrStalePresenceGeneration) {
+		t.Fatalf("late offline error = %v, want %v", lateOffline.Err, ErrStalePresenceGeneration)
+	}
+	if snapshot = gameActor.Snapshot(); snapshot.Version != 4 || snapshot.DisconnectVotes["p2"]["status"] != "cancelled" {
+		t.Fatalf("late offline changed actor state: %#v", snapshot)
+	}
+	if store.eventByActionReads != 0 || store.eventsAfterReads != 0 {
+		t.Fatalf("runtime presence performed a normal-path store read: actionLookup=%d eventsAfter=%d", store.eventByActionReads, store.eventsAfterReads)
+	}
+
+	after := gameActor.ApplyDirect(context.Background(), command("game-1", 4, "p3-life-after-late-presence", "life.changed", map[string]any{
+		"playerId": "p3",
+		"life":     38,
+	}), "p3")
+	if after.Err != nil || after.Event.Version != 5 {
+		t.Fatalf("gameplay after late presence = %#v, want version 5", after)
+	}
+
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatalf("events after: %v", err)
+	}
+	if len(events) != 4 || events[2].Payload["presenceGeneration"] != int64(101) {
+		t.Fatalf("durable stream = %#v, want no event for stale offline and persisted reconnect fence", events)
+	}
+}
+
+type presenceReadCountingStore struct {
+	*persistence.InMemoryEventStore
+	eventByActionReads int
+	eventsAfterReads   int
+}
+
+func (s *presenceReadCountingStore) EventByClientActionID(ctx context.Context, gameID string, clientActionID string) (protocol.EventPayloadV2, bool, error) {
+	s.eventByActionReads++
+	return s.InMemoryEventStore.EventByClientActionID(ctx, gameID, clientActionID)
+}
+
+func (s *presenceReadCountingStore) EventsAfter(ctx context.Context, gameID string, version int64) ([]protocol.EventPayloadV2, error) {
+	s.eventsAfterReads++
+	return s.InMemoryEventStore.EventsAfter(ctx, gameID, version)
+}
+
+func TestDisconnectPresenceGenerationReplaysAcrossActorRecovery(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	initial := testState()
+	gameActor := NewGameActor("game-1", initial, store, 8, DefaultAppliers())
+	presence := command("game-1", 1, "presence-p2-400", "disconnect.vote", map[string]any{
+		"targetPlayerId":     "p2",
+		"status":             "offline",
+		"connectedUserIds":   []string{"p1"},
+		"presenceGeneration": 400,
+	})
+	presence.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := gameActor.ApplyDirect(context.Background(), presence, ""); result.Err != nil {
+		t.Fatalf("persist presence: %v", result.Err)
+	}
+
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatalf("events after: %v", err)
+	}
+	recovered, err := ReplayEvents(initial, events, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if recovered.PresenceGenerations["p2"] != 400 {
+		t.Fatalf("recovered generation = %#v, want p2=400", recovered.PresenceGenerations)
+	}
+
+	recoveredActor := NewGameActor("game-1", recovered, store, 8, DefaultAppliers())
+	late := command("game-1", 1, "presence-p2-399-late", "disconnect.vote", map[string]any{
+		"targetPlayerId":     "p2",
+		"status":             "offline",
+		"connectedUserIds":   []string{"p1"},
+		"presenceGeneration": 399,
+	})
+	late.Client = map[string]any{"source": "runtime_ws_presence"}
+	if result := recoveredActor.ApplyDirect(context.Background(), late, ""); !errors.Is(result.Err, ErrStalePresenceGeneration) {
+		t.Fatalf("recovered actor accepted stale offline: %#v", result)
+	}
+}
+
 func TestActorRejectsStaleBaseVersionAfterGameplayEvent(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())

@@ -50,6 +50,29 @@ describe('GameTableDisconnectVoteService', () => {
 
     expect(service.targetPlayerId()).toBeNull();
   });
+
+  it('shows synchronized votes passively to a conceded spectator without granting a vote action', () => {
+    const spectatorSnapshot = disconnectVotesSnapshot();
+    spectatorSnapshot.players['player-1'] = {
+      ...spectatorSnapshot.players['player-1']!,
+      status: 'conceded',
+    };
+    spectatorSnapshot.disconnectVotes!['player-2']!.votes['player-1'] = {
+      playerId: 'player-1',
+      displayName: 'Player 1',
+      vote: 'wait',
+      votedAt: '2026-01-01T00:00:03.000Z',
+    };
+    snapshot.set(spectatorSnapshot);
+
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    expect(service.canVote()).toBe(false);
+    expect(service.isPassive()).toBe(true);
+    expect(service.players()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ playerId: 'player-1', vote: 'wait' }),
+    ]));
+  });
 });
 
 function disconnectVotesSnapshot(): GameSnapshot {

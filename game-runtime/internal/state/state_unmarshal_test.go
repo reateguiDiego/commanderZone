@@ -122,3 +122,28 @@ func TestGameStateNormalizesEmptyDisconnectVotesArray(t *testing.T) {
 		t.Fatalf("disconnectVotes = %#v, want empty map", game.DisconnectVotes)
 	}
 }
+
+func TestGameStatePreservesPresenceGenerationsForRecovery(t *testing.T) {
+	payload := []byte(`{
+		"gameId": "game-1",
+		"version": 3,
+		"status": "active",
+		"players": {},
+		"turn": {},
+		"disconnectVotes": [],
+		"presenceGenerations": {"p2": 1234},
+		"instances": {},
+		"zones": {},
+		"loc": {},
+		"visibility": {},
+		"relations": {}
+	}`)
+
+	var game GameState
+	if err := json.Unmarshal(payload, &game); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if game.PresenceGenerations["p2"] != 1234 {
+		t.Fatalf("presence generations = %#v, want p2=1234", game.PresenceGenerations)
+	}
+}

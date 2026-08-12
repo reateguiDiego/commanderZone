@@ -14,6 +14,8 @@ use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Game\Runtime\GameRuntimeGatewayException;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Room\ActiveRoomMembershipService;
@@ -130,6 +132,15 @@ class RoomsController extends ApiController
 
         $deletedRoomIds = [];
         foreach ($activeRoomMembership->activeRoomsForUser($user) as $existingRoom) {
+            // Creating a waiting room must never silently delete a started
+            // room. A started room owns a Go actor and is left to the explicit
+            // server-side leave lifecycle instead.
+            if ($existingRoom->status() !== Room::STATUS_WAITING) {
+                return $this->fail('Leave your active game before creating another room.', 409, [
+                    'code' => 'ACTIVE_GAME_ROOM_EXISTS',
+                    'roomId' => $existingRoom->id(),
+                ]);
+            }
             $deletedRoomIds[] = $existingRoom->id();
             $this->removeRoomWithGame($existingRoom, $entityManager);
         }
@@ -408,6 +419,8 @@ class RoomsController extends ApiController
         GameEventPublisher $gameEventPublisher,
         GameRematchService $gameRematch,
         GameRuntimeLifecycleCommandService $runtimeLifecycle,
+        ?GameRuntimeLifecycleControlClient $runtimeControl = null,
+        ?GameRuntimeClosingFence $closingFence = null,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -432,6 +445,7 @@ class RoomsController extends ApiController
         $gameControlPlaneEvent = null;
         $roomDeleted = false;
         $alreadyLeft = false;
+        $runtimeStopRequired = false;
         $runtimeConcedeRequired = $startedRoom
             && $game instanceof Game
             && $this->gameHasSnapshotPlayer($game, $user)
@@ -458,9 +472,16 @@ class RoomsController extends ApiController
                 return $this->fail($exception->getMessage());
             }
 
-            // The handoff is synchronous with the accepted runtime command.
-            // Refresh the control-plane projection before changing membership.
+            // Go can durably append a concession while its lifecycle handoff
+            // is temporarily unavailable. Do not let membership advance ahead
+            // of the durable Symfony fact; retrying the same deterministic
+            // action id redelivers it without a second gameplay append.
             $entityManager->refresh($game);
+            if ($game->status() === Game::STATUS_ACTIVE && $this->gameCanConcedeLeavingPlayer($game, $user)) {
+                return $this->fail('Gameplay lifecycle confirmation is pending. Retry leave_room.', 503, [
+                    'code' => 'LIFECYCLE_CONFIRMATION_PENDING',
+                ]);
+            }
         }
 
         try {
@@ -484,6 +505,10 @@ class RoomsController extends ApiController
                 $wasOwner = $room->owner()->id() === $user->id();
                 $room->removeUser($user);
                 if ($room->players()->count() === 0) {
+                    if ($game instanceof Game) {
+                        $closingFence?->claim($game->id());
+                        $runtimeStopRequired = true;
+                    }
                     $this->removeRoomWithGame($room, $entityManager);
                     $roomDeleted = true;
                 } else {
@@ -511,6 +536,10 @@ class RoomsController extends ApiController
         }
 
         if ($roomDeleted) {
+            if ($runtimeStopRequired && $game instanceof Game) {
+                $runtimeControl?->stop($game);
+                $gameEventPublisher->publishRoomDeleted($game->id(), $id);
+            }
             $roomEventPublisher->publishDeleted($id);
 
             return $this->json(['left' => true, 'roomDeleted' => true]);

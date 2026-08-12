@@ -87,6 +87,9 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 		return nil, fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
 	}
 	if rawVotes, ok := command.Payload["disconnectVotes"].(map[string]any); ok {
+		if err := restorePresenceGeneration(game, targetPlayerID, command.Payload); err != nil {
+			return nil, err
+		}
 		game.DisconnectVotes = disconnectVotesByTarget(rawVotes)
 		emitDisconnectVotePatch(game, emitter)
 		if command.Payload["status"] == "resolved_expel" {
@@ -117,22 +120,89 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 		}
 		return payload, nil
 	}
+	presenceGeneration, err := advanceRuntimePresenceGeneration(game, command, targetPlayerID)
+	if err != nil {
+		return nil, err
+	}
 
 	status, _ := command.Payload["status"].(string)
+	var payload map[string]any
 	switch status {
 	case "offline":
-		return openDisconnectVote(game, targetPlayerID, connectedUserIDs(command.Payload), start, emitter), nil
+		payload = openDisconnectVote(game, targetPlayerID, connectedUserIDs(command.Payload), start, emitter)
 	case "online":
-		return cancelDisconnectVoteOnReconnect(game, targetPlayerID, start, emitter), nil
+		payload = cancelDisconnectVoteOnReconnect(game, targetPlayerID, start, emitter)
 	case "timeout":
-		return resolveDisconnectVoteTimeout(game, targetPlayerID, start, emitter), nil
+		payload = resolveDisconnectVoteTimeout(game, targetPlayerID, start, emitter)
+	default:
+		vote, _ := command.Payload["vote"].(string)
+		if vote != "wait" && vote != "expel" {
+			return nil, fmt.Errorf("%w: vote", ErrInvalidPayloadField)
+		}
+		payload, err = recordDisconnectVote(game, command, targetPlayerID, vote, connectedUserIDs(command.Payload), start, emitter)
+		if err != nil {
+			return nil, err
+		}
 	}
+	if presenceGeneration > 0 {
+		payload["presenceGeneration"] = presenceGeneration
+	}
+	return payload, nil
+}
 
-	vote, _ := command.Payload["vote"].(string)
-	if vote != "wait" && vote != "expel" {
-		return nil, fmt.Errorf("%w: vote", ErrInvalidPayloadField)
+// advanceRuntimePresenceGeneration accepts only a newer gateway transition.
+// The gateway can enqueue offline and online signals concurrently, so status
+// alone is not enough to preserve the happens-before relation. The value is
+// intentionally actor-owned and is carried in the resulting event payload for
+// deterministic replay/recovery.
+func advanceRuntimePresenceGeneration(game *state.GameState, command protocol.CommandEnvelopeV2, targetPlayerID string) (int64, error) {
+	if !isRuntimePresenceCommand(command) {
+		return 0, nil
 	}
-	return recordDisconnectVote(game, command, targetPlayerID, vote, connectedUserIDs(command.Payload), start, emitter)
+	generation, present, err := presenceGenerationFromPayload(command.Payload)
+	if err != nil {
+		return 0, err
+	}
+	// Keep compatibility with pre-generation internal handoffs while all new
+	// gateway-originated transitions include the field.
+	if !present {
+		return 0, nil
+	}
+	if game.PresenceGenerations == nil {
+		game.PresenceGenerations = map[string]int64{}
+	}
+	if generation <= game.PresenceGenerations[targetPlayerID] {
+		return 0, ErrStalePresenceGeneration
+	}
+	game.PresenceGenerations[targetPlayerID] = generation
+	return generation, nil
+}
+
+// restorePresenceGeneration replays the compact fence stored alongside the
+// disconnect vote event. Historical events simply omit the field.
+func restorePresenceGeneration(game *state.GameState, targetPlayerID string, payload map[string]any) error {
+	generation, present, err := presenceGenerationFromPayload(payload)
+	if err != nil || !present {
+		return err
+	}
+	if game.PresenceGenerations == nil {
+		game.PresenceGenerations = map[string]int64{}
+	}
+	if generation > game.PresenceGenerations[targetPlayerID] {
+		game.PresenceGenerations[targetPlayerID] = generation
+	}
+	return nil
+}
+
+func presenceGenerationFromPayload(payload map[string]any) (int64, bool, error) {
+	if _, present := payload["presenceGeneration"]; !present {
+		return 0, false, nil
+	}
+	generation, ok := intField(payload, "presenceGeneration")
+	if !ok || generation < 1 {
+		return 0, false, fmt.Errorf("%w: presenceGeneration", ErrInvalidPayloadField)
+	}
+	return int64(generation), true, nil
 }
 
 func openDisconnectVote(game *state.GameState, targetPlayerID string, connectedUserIDs []string, start time.Time, emitter *PatchEmitter) map[string]any {

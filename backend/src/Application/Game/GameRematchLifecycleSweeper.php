@@ -3,6 +3,7 @@
 namespace App\Application\Game;
 
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -19,6 +20,7 @@ final readonly class GameRematchLifecycleSweeper
         private EntityManagerInterface $entityManager,
         private GameRematchService $rematch,
         private GameRuntimeLifecycleControlClient $runtimeControl,
+        private GameRuntimeClosingFence $closingFence,
     ) {
     }
 
@@ -53,6 +55,7 @@ final readonly class GameRematchLifecycleSweeper
     /** @return array{type:string, game:Game, roomId:string}|null */
     private function sweepGame(string $gameId, \DateTimeImmutable $now): ?array
     {
+        $runtimeStopRequired = false;
         $this->entityManager->beginTransaction();
         try {
             $game = $this->entityManager->find(Game::class, $gameId, LockMode::PESSIMISTIC_WRITE);
@@ -68,16 +71,20 @@ final readonly class GameRematchLifecycleSweeper
                     return null;
                 }
 
-                // Stop claims the runtime closing fence before deleting. This
-                // is a control-plane cleanup, never a Symfony game_event.
+                // Commit the durable fence before any delete. Go checks it in
+                // both lease and persistence SQL, so no runtime can append
+                // while the subsequent post-commit stop is routed.
                 $roomId = $room->id();
-                $this->runtimeControl->stop($game);
+                $this->closingFence->claim($gameId);
+                $runtimeStopRequired = true;
                 $room->detachGame();
                 $this->entityManager->remove($game);
                 $this->entityManager->remove($room);
                 $this->entityManager->flush();
                 $this->entityManager->commit();
-                $this->runtimeControl->release($gameId);
+                if ($runtimeStopRequired) {
+                    $this->runtimeControl->stop($game);
+                }
 
                 return ['type' => 'room_deleted', 'game' => $game, 'roomId' => $roomId];
             }
@@ -95,7 +102,8 @@ final readonly class GameRematchLifecycleSweeper
 
             $roomId = $room->id();
             $eligible = $this->rematch->eligiblePlayAgainPlayerIds($room, $game);
-            $this->runtimeControl->stop($game);
+            $this->closingFence->claim($gameId);
+            $runtimeStopRequired = true;
             if (count($eligible) >= Room::MIN_PLAYERS && $this->rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
                 $room->returnToWaitingForRematch($this->rematch->rematchOwner($room, $eligible), $eligible);
                 $this->entityManager->remove($game);
@@ -108,7 +116,9 @@ final readonly class GameRematchLifecycleSweeper
             }
             $this->entityManager->flush();
             $this->entityManager->commit();
-            $this->runtimeControl->release($gameId);
+            if ($runtimeStopRequired) {
+                $this->runtimeControl->stop($game);
+            }
 
             return ['type' => $type, 'game' => $game, 'roomId' => $roomId];
         } catch (\Throwable $exception) {

@@ -50,7 +50,10 @@ export class GameTableGameActionsStore {
       return;
     }
 
-    await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave_room'));
+    await firstValueFrom(this.gamesApi.rematchVote(gameId, {
+      vote: 'leave_room',
+      clientActionId: this.clientActionId(),
+    }));
   }
 
   async leaveCurrentRoom(): Promise<void> {
@@ -109,6 +112,10 @@ export class GameTableGameActionsStore {
     }
 
     return this.errorMessage(error).toLowerCase().includes('only room players can leave');
+  }
+
+  private clientActionId(): string {
+    return globalThis.crypto?.randomUUID?.() ?? `leave-room-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   private errorMessage(error: HttpErrorResponse): string {

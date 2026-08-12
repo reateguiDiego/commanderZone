@@ -180,6 +180,33 @@ VALUES ($1, $2, $3, $4, $5)
 	}
 }
 
+func TestPostgresClosingFenceRejectsFencedEventAndSnapshotWrites(t *testing.T) {
+	store := postgresStoreForTest(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if _, err := store.db.ExecContext(ctx, `
+INSERT INTO game_runtime_lease (game_id, owner_instance_id, fencing_token, expires_at, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+`, "game-1", "node-a", int64(1), now.Add(time.Minute), now); err != nil {
+		t.Fatalf("insert lease: %v", err)
+	}
+	if _, err := store.db.ExecContext(ctx, `INSERT INTO game_runtime_closing (game_id, claimed_at) VALUES ($1, $2)`, "game-1", now); err != nil {
+		t.Fatalf("claim closing: %v", err)
+	}
+	if err := store.AppendEventWithFence(ctx, testEvent(2, "closing-event"), FencingToken{
+		GameID: "game-1", OwnerInstanceID: "node-a", Token: 1, Required: true,
+	}); !errors.Is(err, ErrGameClosing) {
+		t.Fatalf("fenced append err = %v, want %v", err, ErrGameClosing)
+	}
+	snapshot, err := NewCompactSnapshot(compactState())
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if err := store.SaveSnapshot(ctx, snapshot); !errors.Is(err, ErrGameClosing) {
+		t.Fatalf("snapshot save err = %v, want %v", err, ErrGameClosing)
+	}
+}
+
 func postgresStoreForTest(t *testing.T) *PostgresEventStore {
 	t.Helper()
 	dsn := os.Getenv("GAME_RUNTIME_TEST_DATABASE_URL")
@@ -201,9 +228,11 @@ func postgresStoreForTest(t *testing.T) *PostgresEventStore {
 func resetPostgresSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 	statements := []string{
+		`DROP TABLE IF EXISTS game_runtime_closing`,
 		`DROP TABLE IF EXISTS game_runtime_lease`,
 		`DROP TABLE IF EXISTS game_snapshot_compact`,
 		`DROP TABLE IF EXISTS game_event`,
+		`ALTER TABLE game ADD COLUMN IF NOT EXISTS runtime_closing BOOLEAN NOT NULL DEFAULT FALSE`,
 		`CREATE TABLE game_event (
 			id VARCHAR(36) NOT NULL PRIMARY KEY,
 			game_id VARCHAR(36) NOT NULL,
@@ -237,6 +266,10 @@ func resetPostgresSchema(t *testing.T, db *sql.DB) {
 		)`,
 		`CREATE INDEX idx_game_runtime_lease_owner ON game_runtime_lease (owner_instance_id)`,
 		`CREATE INDEX idx_game_runtime_lease_expires_at ON game_runtime_lease (expires_at)`,
+		`CREATE TABLE game_runtime_closing (
+			game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+			claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+		)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {

@@ -112,6 +112,7 @@ test.describe('product disconnect vote gate', () => {
 
       await disconnectVoteModal(pageA).getByRole('button', { name: EXPEL_BUTTON }).click();
       await waitForDisconnectVoteVote(framesA, playerB.user.id, playerA.user.id, 'expel');
+      await waitForDisconnectVoteVote(framesC, playerB.user.id, playerA.user.id, 'expel');
 
       await disconnectVoteModal(pageC).getByRole('button', { name: EXPEL_BUTTON }).click();
       const resolvedPatch = await waitForPatchV2(framesA, (patch) =>
@@ -313,7 +314,9 @@ function disconnectVoteFromPatch(patch: JsonObject, targetPlayerId: string): Jso
     if (op['op'] !== 'disconnect.vote.set') {
       continue;
     }
-    const state = op['disconnectVote'] as JsonObject | undefined;
+    const data = op['data'] as JsonObject | undefined;
+    const votes = data?.['disconnectVotes'] as Record<string, JsonObject> | undefined;
+    const state = votes?.[targetPlayerId];
     if (state?.['targetPlayerId'] === targetPlayerId) {
       return state;
     }

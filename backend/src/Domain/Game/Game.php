@@ -68,6 +68,14 @@ class Game
     #[ORM\Column(type: 'integer')]
     private int $lifecycleVersion = 0;
 
+    /**
+     * Monotonic revision for durable lifecycle/rematch state only.
+     *
+     * It never participates in the Go-owned game_event stream version.
+     */
+    #[ORM\Column(type: 'integer')]
+    private int $controlPlaneRevision = 0;
+
     #[ORM\Column(type: 'string', length: 120, nullable: true)]
     private ?string $lastLifecycleEventId = null;
 
@@ -159,7 +167,7 @@ class Game
         ];
     }
 
-    public function recordRematchVote(User $actor, string $vote, \DateTimeImmutable $votedAt): void
+    public function recordRematchVote(User $actor, string $vote, \DateTimeImmutable $votedAt, string $clientActionId): void
     {
         $this->rematchState = $this->rematchState();
         $this->rematchState['votes'][$actor->id()] = [
@@ -167,8 +175,25 @@ class Game
             'displayName' => $actor->displayName(),
             'vote' => $vote,
             'votedAt' => $votedAt->format(DATE_ATOM),
+            'clientActionId' => $clientActionId,
         ];
+        $this->advanceControlPlaneRevision();
         $this->touch();
+    }
+
+    /** @return array<string,mixed>|null */
+    public function rematchVoteFor(string $playerId): ?array
+    {
+        $vote = $this->rematchState()['votes'][$playerId] ?? null;
+
+        return is_array($vote) ? $vote : null;
+    }
+
+    public function hasRematchAction(string $playerId, string $clientActionId): bool
+    {
+        $vote = $this->rematchVoteFor($playerId);
+
+        return is_array($vote) && ($vote['clientActionId'] ?? null) === $clientActionId;
     }
 
     /** @return array{players: array<string,array<string,mixed>>} */
@@ -245,7 +270,13 @@ class Game
         $this->lifecycleVersion = $version;
         $this->lastLifecycleEventId = $eventId;
         $this->lastLifecycleOccurredAt = $occurredAt;
+        $this->advanceControlPlaneRevision();
         $this->touch();
+    }
+
+    public function controlPlaneRevision(): int
+    {
+        return $this->controlPlaneRevision;
     }
 
     public function winnerPlayerId(): ?string
@@ -345,6 +376,7 @@ class Game
         return [
             'id' => $this->id,
             'status' => $this->status,
+            'controlPlaneRevision' => $this->controlPlaneRevision,
             'winnerPlayerId' => $this->winnerPlayerId,
             'finishedAt' => $this->finishedAt?->format(DATE_ATOM),
             'finishReason' => $this->finishReason,
@@ -359,5 +391,10 @@ class Game
     private function touch(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    private function advanceControlPlaneRevision(): void
+    {
+        ++$this->controlPlaneRevision;
     }
 }

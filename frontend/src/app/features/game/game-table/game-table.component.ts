@@ -11,7 +11,6 @@ import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance,
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { Card } from '../../../core/models/card.model';
 import { CardsApi } from '../../../core/api/cards.api';
-import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
@@ -27,6 +26,7 @@ import { GameTableGameRealtimeService } from './services/game-table-game-realtim
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
+import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
@@ -495,6 +495,7 @@ interface MotionSourceRect {
     GameTableBattlefieldDragCoordinatorService,
     GameTableGameRealtimeService,
     GameTableDisconnectVoteService,
+    GameTableRematchVoteService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,
     GameTableCommandService,
@@ -537,7 +538,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly cardsApi = inject(CardsApi);
-  private readonly gamesApi = inject(GamesApi);
+  private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
   private readonly chatReadState = inject(GameTableChatReadStateService);
@@ -4172,7 +4173,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.rematchPending.set(true);
     this.rematchToast.set(null);
     try {
-      const response = await firstValueFrom(this.gamesApi.rematchVote(gameId, vote));
+      const response = await this.rematchVotes.submit(gameId, vote);
+      if (response.controlPlane) {
+        this.store.applyControlPlaneAcknowledgement(response.controlPlane);
+        this.rematchVotes.acceptControlPlane(gameId, this.store.currentPlayer()?.id ?? null, response.controlPlane);
+      }
       if (vote === 'leave_room') {
         this.rematchModalOpen.set(false);
         await this.router.navigate(['/rooms']);
@@ -4194,6 +4199,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       }
 
     } catch (error) {
+      const controlPlane = this.rematchVotes.controlPlaneFromError(error);
+      if (controlPlane) {
+        this.store.applyControlPlaneAcknowledgement(controlPlane);
+        this.rematchVotes.acceptControlPlane(gameId, this.store.currentPlayer()?.id ?? null, controlPlane);
+      }
       this.showRematchToast(this.rematchErrorMessage(error));
     } finally {
       this.rematchPending.set(false);

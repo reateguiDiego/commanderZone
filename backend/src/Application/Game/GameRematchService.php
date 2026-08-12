@@ -19,12 +19,55 @@ class GameRematchService
     public const STATUS_ROOM_READY = 'room_ready';
 
     /**
-     * @return array{event: array<string,mixed>}
+     * @return array{event:?array<string,mixed>,deduplicated:bool,clientActionId:string,vote:string}
      */
-    public function recordVote(Game $game, User $actor, string $vote): array
+    public function recordVote(
+        Game $game,
+        User $actor,
+        string $vote,
+        ?string $clientActionId = null,
+        ?string $previousActionId = null,
+    ): array
     {
         if (!in_array($vote, [self::VOTE_PLAY_AGAIN, self::VOTE_LEAVE], true)) {
             throw new \InvalidArgumentException('Unsupported rematch vote.');
+        }
+
+        $isClientAction = $clientActionId !== null;
+        $clientActionId = $isClientAction
+            ? trim($clientActionId)
+            : sprintf('system:%s', Uuid::v7()->toRfc4122());
+        if ($clientActionId === '' || strlen($clientActionId) > 120) {
+            throw new \InvalidArgumentException('clientActionId must be between 1 and 120 characters.');
+        }
+
+        $previousActionId = $previousActionId !== null ? trim($previousActionId) : null;
+        if ($previousActionId === '') {
+            $previousActionId = null;
+        }
+        if ($previousActionId !== null && strlen($previousActionId) > 120) {
+            throw new \InvalidArgumentException('previousActionId must be at most 120 characters.');
+        }
+
+        $currentVote = $game->rematchVoteFor($actor->id());
+        $currentActionId = is_array($currentVote) && is_string($currentVote['clientActionId'] ?? null) && trim((string) $currentVote['clientActionId']) !== ''
+            ? (string) $currentVote['clientActionId']
+            : null;
+        if ($currentActionId === $clientActionId) {
+            if (($currentVote['vote'] ?? null) !== $vote) {
+                throw new RematchVoteActionConflictException('This rematch action id was already accepted with a different vote.');
+            }
+
+            return [
+                'event' => null,
+                'deduplicated' => true,
+                'clientActionId' => $clientActionId,
+                'vote' => $vote,
+            ];
+        }
+
+        if ($isClientAction && $currentActionId !== $previousActionId) {
+            throw new RematchVoteActionConflictException('The rematch vote was changed by a newer action.');
         }
 
         if (!$game->room()->hasPlayer($actor)) {
@@ -32,27 +75,28 @@ class GameRematchService
         }
 
         $votedAt = new \DateTimeImmutable();
-        $game->recordRematchVote($actor, $vote, $votedAt);
+        $game->recordRematchVote($actor, $vote, $votedAt, $clientActionId);
         // This is a control-plane notification payload, not a GameEvent entity.
         // It deliberately does not reserve or advance a gameplay stream version.
         $event = [
             'id' => Uuid::v7()->toRfc4122(),
-            // This is intentionally informational only. It is never used as a
-            // game_event stream version and does not participate in recovery.
-            'version' => max(1, (int) ($game->snapshot()['version'] ?? 1)),
             'type' => 'room.rematch.vote',
             'payload' => [
                 'playerId' => $actor->id(),
                 'vote' => $vote,
                 'votedAt' => $votedAt->format(DATE_ATOM),
-                'rematch' => $game->rematchState(),
             ],
-            'clientActionId' => null,
+            'clientActionId' => $clientActionId,
             'createdBy' => $actor->id(),
             'createdAt' => $votedAt->format(DATE_ATOM),
         ];
 
-        return ['event' => $event];
+        return [
+            'event' => $event,
+            'deduplicated' => false,
+            'clientActionId' => $clientActionId,
+            'vote' => $vote,
+        ];
     }
 
     /**
@@ -128,8 +172,4 @@ class GameRematchService
 
         throw new \InvalidArgumentException('Could not resolve a rematch room owner.');
     }
-
-    /**
-     * @return array{votes: array<string,array{playerId: string, displayName: string, vote: string, votedAt: string}>}
-     */
 }

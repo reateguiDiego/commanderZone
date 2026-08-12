@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthStore } from '../../../../../core/auth/auth.store';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameControlPlaneState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragContext } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCardActionContext } from '../../services/game-table-card-actions.service';
@@ -45,6 +45,7 @@ export interface GameTableContextSource {
   readonly setPendingLibraryMove: (move: PendingLibraryMove | null) => void;
   readonly pendingBattlefieldMove: () => PendingBattlefieldMove | null;
   readonly pendingLibraryMove: () => PendingLibraryMove | null;
+  readonly onControlPlaneAccepted: (controlPlane: GameControlPlaneState) => void;
 }
 
 @Injectable()
@@ -448,7 +449,11 @@ export class GameTableContextStore {
       onMulliganError: (message) => this.mulliganState.handleError(message),
       onMulliganCompleted: (message) => this.mulliganState.handleCompleted(message),
       onMulliganPatchV2Applied: (patch, snapshot) => this.mulliganState.handlePatchV2Applied(patch, snapshot),
+      onControlPlaneAccepted: (controlPlane) => source.onControlPlaneAccepted(controlPlane),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
+      navigateToRooms: () => {
+        void this.gameActionsStore.navigateToRooms();
+      },
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();
       },

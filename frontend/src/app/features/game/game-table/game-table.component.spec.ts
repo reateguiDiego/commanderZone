@@ -128,6 +128,7 @@ describe('GameTableComponent', () => {
   };
   const mercureService = {
     gameEvents: vi.fn(),
+    gameEventStream: vi.fn(),
   };
   const websocketMessages = new Subject<unknown>();
   const websocketStatus = signal('connected');
@@ -281,6 +282,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReset().mockReturnValue(null);
     authStore.logout.mockReset().mockResolvedValue(undefined);
     mercureService.gameEvents.mockReset().mockReturnValue(EMPTY);
+    mercureService.gameEventStream.mockReset().mockReturnValue(EMPTY);
     vi.stubGlobal('WebSocket', vi.fn());
     window.localStorage.clear();
 
@@ -5664,7 +5666,10 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.abandonRematchRoom();
 
-    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave_room');
+    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', expect.objectContaining({
+      vote: 'leave_room',
+      clientActionId: expect.any(String),
+    }));
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
     expect(navigate).not.toHaveBeenCalledWith(['/rooms', 'room-1', 'waiting']);
   });

@@ -4,7 +4,9 @@ namespace App\Application\User;
 
 use App\Application\Game\GameRematchService;
 use App\Application\Game\Runtime\GameRuntimeGatewayException;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Game\Game;
@@ -21,6 +23,8 @@ class UserAccountDeletionService
     public function __construct(
         private readonly GameRematchService $gameRematch,
         private readonly GameRuntimeLifecycleCommandService $runtimeLifecycle,
+        private readonly ?GameRuntimeLifecycleControlClient $runtimeControl = null,
+        private readonly ?GameRuntimeClosingFence $closingFence = null,
     ) {
     }
 
@@ -129,20 +133,36 @@ class UserAccountDeletionService
                 !$room->hasPlayer($user)
                 || !$startedRoom
                 || !$game instanceof Game
-                || !$this->roomHasOtherPlayers($room, $user, $entityManager)
                 || !$this->gameHasSnapshotPlayer($game, $user)
-                || !$this->gameCanConcedeLeavingPlayer($game, $user)
             ) {
                 continue;
             }
 
-            if (!$this->runtimeLifecycle->isRuntimePrimary('game.concede')) {
-                throw new GameRuntimeGatewayException('The gameplay runtime is required to concede an active player before leaving.');
+            if ($this->gameCanConcedeLeavingPlayer($game, $user)) {
+                if (!$this->runtimeLifecycle->isRuntimePrimary('game.concede')) {
+                    throw new GameRuntimeGatewayException('The gameplay runtime is required to concede an active player before leaving.');
+                }
+
+                // Keep the Go write outside the account-deletion transaction
+                // and game-row lock. A repeated deletion request reuses the
+                // action id.
+                $this->runtimeLifecycle->concedeForLeave($game, $user, 'account_deletion');
+                $entityManager->refresh($game);
+                if ($game->status() === Game::STATUS_ACTIVE && $this->gameCanConcedeLeavingPlayer($game, $user)) {
+                    throw new GameRuntimeGatewayException('Gameplay lifecycle confirmation is pending. Retry account deletion.');
+                }
             }
 
-            // Keep the Go write outside the account-deletion transaction and
-            // game-row lock. A repeated deletion request reuses the action id.
-            $this->runtimeLifecycle->concedeForLeave($game, $user, 'account_deletion');
+            if (!$this->roomHasOtherPlayers($room, $user, $entityManager)) {
+                if (!$this->runtimeControl instanceof GameRuntimeLifecycleControlClient || !$this->closingFence instanceof GameRuntimeClosingFence) {
+                    throw new GameRuntimeGatewayException('Runtime lifecycle disposal is required before deleting the final active room member.');
+                }
+                // The game is still present and no Doctrine lock is held. The
+                // durable claim blocks every runtime writer before shutdown;
+                // only then may the account transaction delete its game.
+                $this->closingFence->claim($game->id());
+                $this->runtimeControl->stop($game);
+            }
         }
     }
 

@@ -5,6 +5,7 @@ import { API_BASE_URL, MERCURE_URL } from '../api/api.config';
 import { MercureService } from './mercure.service';
 
 class MockEventSource {
+  onopen: ((event: Event) => void) | null = null;
   onmessage: ((message: MessageEvent<string>) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   readonly close = vi.fn();
@@ -51,6 +52,26 @@ describe('MercureService', () => {
 
     subscription.unsubscribe();
     expect(eventSources[0].close).toHaveBeenCalled();
+  });
+
+  it('marks only an error-to-open transition as a game stream reconnect', async () => {
+    const post = vi.fn().mockReturnValue(of(undefined));
+    const service = new MercureService({ post } as unknown as HttpClient);
+    const received: unknown[] = [];
+    const subscription = service.gameEventStream('game-1').subscribe((event) => received.push(event));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    eventSources[0].onopen?.(new Event('open'));
+    eventSources[0].onerror?.(new Event('error'));
+    eventSources[0].onopen?.(new Event('open'));
+
+    expect(received).toEqual([
+      { kind: 'connected', reconnected: false },
+      { kind: 'connected', reconnected: true },
+    ]);
+    subscription.unsubscribe();
   });
 
   it('subscribes to waiting room events with the room topic', async () => {

@@ -3,6 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\GameRematchService;
+use App\Application\Game\RematchVoteActionConflictException;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -22,13 +23,49 @@ class GameRematchServiceTest extends TestCase
         ]);
         $service = new GameRematchService();
 
-        $recorded = $service->recordVote($game, $actor, GameRematchService::VOTE_PLAY_AGAIN);
+        $recorded = $service->recordVote($game, $actor, GameRematchService::VOTE_PLAY_AGAIN, 'rematch-action-1');
 
         self::assertSame(7, $game->snapshot()['version']);
         self::assertCount(0, $game->events());
         self::assertSame('play_again', $game->rematchState()['votes'][$actor->id()]['vote']);
+        self::assertSame('rematch-action-1', $game->rematchState()['votes'][$actor->id()]['clientActionId']);
+        self::assertSame(1, $game->controlPlaneRevision());
         self::assertSame('room.rematch.vote', $recorded['event']['type']);
-        self::assertSame(7, $recorded['event']['version']);
+        self::assertSame('rematch-action-1', $recorded['event']['clientActionId']);
+        self::assertArrayNotHasKey('version', $recorded['event']);
+    }
+
+    public function testSameClientActionIsDeduplicatedWithoutAdvancingControlPlaneRevision(): void
+    {
+        $actor = new User('rematch-dedup@example.test', 'Rematch Dedup');
+        $room = new Room($actor);
+        $room->addPlayer(new RoomPlayer($room, $actor));
+        $game = new Game($room, ['version' => 7, 'players' => [$actor->id() => $this->player('conceded')]]);
+        $service = new GameRematchService();
+
+        $service->recordVote($game, $actor, GameRematchService::VOTE_PLAY_AGAIN, 'rematch-action-1');
+        $duplicate = $service->recordVote($game, $actor, GameRematchService::VOTE_PLAY_AGAIN, 'rematch-action-1');
+
+        self::assertTrue($duplicate['deduplicated']);
+        self::assertNull($duplicate['event']);
+        self::assertSame(1, $game->controlPlaneRevision());
+        self::assertSame(7, $game->snapshot()['version']);
+        self::assertCount(0, $game->events());
+    }
+
+    public function testConcurrentClientActionWithoutTheLatestCursorCannotReplaceNewerVote(): void
+    {
+        $actor = new User('rematch-stale@example.test', 'Rematch Stale');
+        $room = new Room($actor);
+        $room->addPlayer(new RoomPlayer($room, $actor));
+        $game = new Game($room, ['version' => 7, 'players' => [$actor->id() => $this->player('conceded')]]);
+        $service = new GameRematchService();
+        $service->recordVote($game, $actor, GameRematchService::VOTE_PLAY_AGAIN, 'rematch-action-1');
+
+        $this->expectException(RematchVoteActionConflictException::class);
+        // Simulates a request that read the pre-vote state before another
+        // request acquired the game row lock and committed action-1.
+        $service->recordVote($game, $actor, GameRematchService::VOTE_LEAVE, 'rematch-action-2');
     }
 
     public function testConcededPlayerPlayAgainVoteWaitsWhileMultiplePlayersRemainAlive(): void

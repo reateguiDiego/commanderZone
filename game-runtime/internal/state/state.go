@@ -254,14 +254,18 @@ type GameState struct {
 	Turn           map[string]any            `json:"turn"`
 	// DisconnectVotes is actor-owned hot state keyed by disconnected target.
 	// Keeping targets independent avoids a global modal/vote bottleneck.
-	DisconnectVotes map[string]map[string]any      `json:"disconnectVotes,omitempty"`
-	Instances       map[string]CardInstanceRuntime `json:"instances"`
-	Zones           map[string]PlayerZones         `json:"zones"`
-	Loc             map[string]Location            `json:"loc"`
-	Visibility      VisibilityIndex                `json:"visibility"`
-	Relations       Relations                      `json:"relations"`
-	Stack           []StackItem                    `json:"stack"`
-	Mulligan        MulliganState                  `json:"mulligan,omitempty"`
+	DisconnectVotes map[string]map[string]any `json:"disconnectVotes,omitempty"`
+	// PresenceGenerations fences asynchronous offline/online transitions for
+	// each player. It is actor-owned and persisted with compact state so an
+	// old gateway goroutine cannot reopen a vote after a newer reconnect.
+	PresenceGenerations map[string]int64               `json:"presenceGenerations,omitempty"`
+	Instances           map[string]CardInstanceRuntime `json:"instances"`
+	Zones               map[string]PlayerZones         `json:"zones"`
+	Loc                 map[string]Location            `json:"loc"`
+	Visibility          VisibilityIndex                `json:"visibility"`
+	Relations           Relations                      `json:"relations"`
+	Stack               []StackItem                    `json:"stack"`
+	Mulligan            MulliganState                  `json:"mulligan,omitempty"`
 }
 
 func (s *GameState) UnmarshalJSON(data []byte) error {
@@ -274,8 +278,10 @@ func (s *GameState) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	disconnectVotes := raw["disconnectVotes"]
+	presenceGenerations := raw["presenceGenerations"]
 	legacyDisconnectVoteRaw := raw["disconnectVote"]
 	delete(raw, "disconnectVotes")
+	delete(raw, "presenceGenerations")
 	normalized, err := json.Marshal(raw)
 	if err != nil {
 		return err
@@ -288,6 +294,9 @@ func (s *GameState) UnmarshalJSON(data []byte) error {
 		s.Phase = gamePhase
 	}
 	if err := decodeMapOrEmpty(disconnectVotes, &s.DisconnectVotes); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(presenceGenerations, &s.PresenceGenerations); err != nil {
 		return err
 	}
 	// Snapshots written before multiple simultaneous targets used one vote.
@@ -327,6 +336,9 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	}
 	if game.DisconnectVotes == nil {
 		game.DisconnectVotes = map[string]map[string]any{}
+	}
+	if game.PresenceGenerations == nil {
+		game.PresenceGenerations = map[string]int64{}
 	}
 	if game.Instances == nil {
 		game.Instances = map[string]CardInstanceRuntime{}
@@ -386,6 +398,10 @@ func (s GameState) Clone() GameState {
 	clone.DisconnectVotes = map[string]map[string]any{}
 	for targetPlayerID, vote := range s.DisconnectVotes {
 		clone.DisconnectVotes[targetPlayerID] = cloneAnyMap(vote)
+	}
+	clone.PresenceGenerations = map[string]int64{}
+	for playerID, generation := range s.PresenceGenerations {
+		clone.PresenceGenerations[playerID] = generation
 	}
 	clone.Instances = map[string]CardInstanceRuntime{}
 	for instanceID, instance := range s.Instances {
