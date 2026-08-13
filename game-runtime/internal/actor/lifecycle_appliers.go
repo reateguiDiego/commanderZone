@@ -91,6 +91,10 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 			return nil, err
 		}
 		game.DisconnectVotes = disconnectVotesByTarget(rawVotes)
+		isOnline, hasPresence := command.Payload["isOnline"].(bool)
+		if hasPresence {
+			setPlayerOnline(game, targetPlayerID, isOnline, emitter)
+		}
 		emitDisconnectVotePatch(game, emitter)
 		if command.Payload["status"] == "resolved_expel" {
 			if player, ok := game.Players[targetPlayerID]; ok {
@@ -114,6 +118,9 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 			emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": cloneMap(turn)}})
 		}
 		payload := disconnectVotePayload("replayed", game, targetPlayerID, start, emitter)
+		if hasPresence {
+			payload["isOnline"] = isOnline
+		}
 		if playerStatus(game, targetPlayerID) == "conceded" {
 			payload["concededAt"] = game.Players[targetPlayerID]["concededAt"]
 			finishWhenOneActivePlayerRemains(game, command.Payload, payload, emitter)
@@ -129,8 +136,10 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 	var payload map[string]any
 	switch status {
 	case "offline":
+		setPlayerOnline(game, targetPlayerID, false, emitter)
 		payload = openDisconnectVote(game, targetPlayerID, connectedUserIDs(command.Payload), start, emitter)
 	case "online":
+		setPlayerOnline(game, targetPlayerID, true, emitter)
 		payload = cancelDisconnectVoteOnReconnect(game, targetPlayerID, start, emitter)
 	case "timeout":
 		payload = resolveDisconnectVoteTimeout(game, targetPlayerID, start, emitter)
@@ -147,7 +156,29 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 	if presenceGeneration > 0 {
 		payload["presenceGeneration"] = presenceGeneration
 	}
+	if status == "offline" || status == "online" {
+		payload["isOnline"] = status == "online"
+	}
 	return payload, nil
+}
+
+// setPlayerOnline keeps the current presence as one boolean on the player
+// snapshot. It emits a tiny semantic patch inside the existing patch.v2
+// envelope, so presence changes require neither polling nor a second message.
+func setPlayerOnline(game *state.GameState, playerID string, isOnline bool, emitter *PatchEmitter) {
+	player, ok := game.Players[playerID]
+	if !ok {
+		return
+	}
+	if current, ok := player["isOnline"].(bool); ok && current == isOnline {
+		return
+	}
+	player["isOnline"] = isOnline
+	game.Players[playerID] = player
+	emitter.EmitPublic(protocol.PatchOp{
+		Op:   "player.presence.set",
+		Data: map[string]any{"playerId": playerID, "isOnline": isOnline},
+	})
 }
 
 // advanceRuntimePresenceGeneration accepts only a newer gateway transition.

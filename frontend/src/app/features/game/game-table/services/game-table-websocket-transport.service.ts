@@ -32,6 +32,8 @@ export class GameTableWebsocketTransportService implements OnDestroy {
   private activeRoute: GameTableWebsocketRoute | null = null;
 
   readonly status = signal<GameTableWebsocketStatus>('stopped');
+  /** Latest player presence received for the currently connected game. */
+  readonly playerOnlineByPlayerId = signal<Record<string, boolean>>({});
   readonly messages$ = this.messagesSubject.asObservable();
 
   ngOnDestroy(): void {
@@ -57,6 +59,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
     const socket = this.socket;
     this.socket = null;
     this.stopPing();
+    this.playerOnlineByPlayerId.set({});
     if (socket && socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING) {
       socket.close();
     }
@@ -270,7 +273,19 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       gamePatch: message.kind === 'game_patch',
       resyncRequired: message.kind === 'resync_required',
     });
+    this.capturePlayerPresence(message);
     this.messagesSubject.next(message);
+  }
+
+  private capturePlayerPresence(message: GameplayServerMessage): void {
+    if (message.kind !== 'player_presence_changed') {
+      return;
+    }
+
+    this.playerOnlineByPlayerId.update((current) => ({
+      ...current,
+      [message.playerId]: message.status === 'online',
+    }));
   }
 
   private normalizeServerMessage(message: JsonRecord): JsonRecord | null {

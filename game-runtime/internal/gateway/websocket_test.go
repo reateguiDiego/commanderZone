@@ -141,6 +141,23 @@ func TestPresenceGenerationElevatesFromActorStateAfterGatewayRecovery(t *testing
 	}
 }
 
+func TestGatewayRegisterRestoresOfflinePresenceFromRecoveredActorState(t *testing.T) {
+	gameID := "game-presence-restore"
+	initial := testInitialState(gameID)
+	initial.Players["p1"]["isOnline"] = false
+	runtimeService := runtimesvc.NewService()
+	defer shutdownRuntimeService(t, runtimeService)
+	if _, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, initial); err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+
+	handler := NewWebSocketServer(nil, runtimeService)
+	registration := handler.register(&wsClient{claims: TicketClaims{GameID: gameID, PlayerID: "p1"}})
+	if !registration.PresenceRestored || registration.PresenceGeneration < 1 {
+		t.Fatalf("registration = %#v, want restored online presence", registration)
+	}
+}
+
 func TestGatewayPresenceRebasesAgainstGameplayAndDropsLateOffline(t *testing.T) {
 	gameID := "game-presence-rebase"
 	initial := testInitialState(gameID)
@@ -223,10 +240,13 @@ func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
 	if patch.Version != 2 {
 		t.Fatalf("disconnect vote patch version = %d, want 2", patch.Version)
 	}
-	if len(patch.Ops) == 0 || patch.Ops[0]["op"] != "disconnect.vote.set" {
-		t.Fatalf("ops = %#v, want disconnect.vote.set", patch.Ops)
+	if len(patch.Ops) < 2 || patch.Ops[0]["op"] != "player.presence.set" || patch.Ops[1]["op"] != "disconnect.vote.set" {
+		t.Fatalf("ops = %#v, want presence then disconnect.vote.set", patch.Ops)
 	}
-	votes := patch.Ops[0]["disconnectVotes"].(map[string]any)
+	if patch.Ops[0]["playerId"] != "p2" || patch.Ops[0]["isOnline"] != false {
+		t.Fatalf("presence op = %#v, want p2 offline", patch.Ops[0])
+	}
+	votes := patch.Ops[1]["disconnectVotes"].(map[string]any)
 	vote := votes["p2"].(map[string]any)
 	if vote["status"] != "open" || vote["targetPlayerId"] != "p2" {
 		t.Fatalf("disconnect vote = %#v, want open for p2", vote)
@@ -805,7 +825,7 @@ func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *te
 	gameID := "game-presence-lifecycle"
 	store := persistence.NewInMemoryEventStore()
 	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
-	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 1)}
+	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 2)}
 	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
 		store,
 		128,
@@ -822,6 +842,7 @@ func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *te
 
 	conn := dialRuntime(t, server.URL, gameID, 0, nil)
 	readUntil(t, conn, "connection_state")
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllDisconnectedCanceled, gameID)
 	if _, ok := runtimeService.Actor(gameID); !ok {
 		t.Fatal("websocket connection did not load the actor")
 	}
@@ -829,21 +850,14 @@ func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *te
 		t.Fatalf("close websocket: %v", err)
 	}
 
-	select {
-	case handoff := <-sink.handoffs:
-		if handoff.Type != lifecycle.AllPlayersDisconnected || handoff.GameID != gameID {
-			t.Fatalf("handoff = %#v, want all-players-disconnected for %s", handoff, gameID)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("last disconnect did not deliver an all-players-disconnected handoff")
-	}
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllPlayersDisconnected, gameID)
 }
 
 func TestWebSocketReconnectCancelsAllDisconnectedGrace(t *testing.T) {
 	gameID := "game-presence-grace-cancel"
 	store := persistence.NewInMemoryEventStore()
 	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
-	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 2)}
+	sink := &recordingPresenceLifecycleSink{handoffs: make(chan lifecycle.Handoff, 4)}
 	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
 		store,
 		128,
@@ -860,29 +874,16 @@ func TestWebSocketReconnectCancelsAllDisconnectedGrace(t *testing.T) {
 
 	first := dialRuntime(t, server.URL, gameID, 0, nil)
 	readUntil(t, first, "connection_state")
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllDisconnectedCanceled, gameID)
 	if err := first.Close(); err != nil {
 		t.Fatalf("close first websocket: %v", err)
 	}
 
-	select {
-	case handoff := <-sink.handoffs:
-		if handoff.Type != lifecycle.AllPlayersDisconnected || handoff.GameID != gameID {
-			t.Fatalf("handoff = %#v, want all-players-disconnected for %s", handoff, gameID)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("last disconnect did not start the all-disconnected grace")
-	}
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllPlayersDisconnected, gameID)
 
 	reconnected := dialRuntime(t, server.URL, gameID, 0, nil)
 	defer reconnected.Close()
-	select {
-	case handoff := <-sink.handoffs:
-		if handoff.Type != lifecycle.AllDisconnectedCanceled || handoff.GameID != gameID {
-			t.Fatalf("handoff = %#v, want all-disconnected cancellation for %s", handoff, gameID)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("participant reconnect did not cancel the all-disconnected grace")
-	}
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllDisconnectedCanceled, gameID)
 	readUntil(t, reconnected, "connection_state")
 }
 
@@ -979,11 +980,7 @@ func TestWebSocketReconnectReplaysPatchHistoryAfterActorEviction(t *testing.T) {
 	readUntil(t, conn, "patch.v2")
 	_ = conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := runtimeService.HibernateActor(ctx, "game-history"); err != nil {
-		t.Fatalf("hibernate actor: %v", err)
-	}
+	hibernateWhenIdle(t, runtimeService, "game-history")
 
 	reconnected := dialRuntime(t, server.URL, "game-history", 1, nil)
 	defer reconnected.Close()
@@ -1160,15 +1157,14 @@ func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEve
 		t.Fatalf("first carrier = %#v, want public version.advance carrier", firstCarrier)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := runtimeService.HibernateActor(ctx, gameID); err != nil {
-		t.Fatalf("hibernate actor: %v", err)
-	}
+	_ = conn.Close()
+	hibernateWhenIdle(t, runtimeService, gameID)
 
-	writeCommand(t, conn, command)
-	retryPrivate := readPatchWithoutResync(t, conn)
-	retryCarrier := readPatchWithoutResync(t, conn)
+	reconnected := dialRuntime(t, server.URL, gameID, 0, nil)
+	defer reconnected.Close()
+	writeCommand(t, reconnected, command)
+	retryPrivate := readPatchForAction(t, reconnected, command.ClientActionID)
+	retryCarrier := readPatchForAction(t, reconnected, command.ClientActionID)
 	if retryPrivate.Version != firstPrivate.Version ||
 		retryPrivate.AckClientActionID != command.ClientActionID ||
 		retryPrivate.Visibility != firstPrivate.Visibility ||
@@ -1185,8 +1181,17 @@ func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEve
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 1 || events[0].Version != 2 || events[0].ClientActionID != command.ClientActionID {
-		t.Fatalf("events = %#v, want one original event only", events)
+	matchingActions := 0
+	for _, event := range events {
+		if event.ClientActionID == command.ClientActionID {
+			matchingActions++
+			if event.Version != 2 {
+				t.Fatalf("retried action version = %d, want 2", event.Version)
+			}
+		}
+	}
+	if matchingActions != 1 {
+		t.Fatalf("events = %#v, want one original action event", events)
 	}
 	gameActor, ok := runtimeService.Actor(gameID)
 	if !ok {
@@ -1196,7 +1201,6 @@ func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEve
 	if metrics.DuplicateDurableCount != 1 ||
 		metrics.DuplicateMemoryCount != 0 ||
 		metrics.DuplicateReceiptMissingCount != 0 ||
-		metrics.CommandAppliedCount != 0 ||
 		metrics.LegacyFallbackCount != 0 {
 		t.Fatalf("retry actor metrics mismatch: %#v", metrics)
 	}
@@ -1379,6 +1383,26 @@ func readPatchWithoutResync(t *testing.T, conn *websocket.Conn) ServerMessage {
 	}
 }
 
+func readPatchForAction(t *testing.T, conn *websocket.Conn, actionID string) ServerMessage {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("set deadline: %v", err)
+	}
+	for {
+		var message ServerMessage
+		if err := conn.ReadJSON(&message); err != nil {
+			t.Fatalf("read websocket message while waiting for %s: %v", actionID, err)
+		}
+		if message.Kind == "resync_required" || message.Kind == "error" {
+			t.Fatalf("unexpected websocket message while waiting for %s: %#v", actionID, message)
+		}
+		if message.Kind == "patch.v2" && message.AckClientActionID == actionID {
+			return message
+		}
+	}
+}
+
 func command(gameID string, baseVersion int64, actionID string, commandType string, payload map[string]any, client map[string]any) protocol.CommandEnvelopeV2 {
 	if client == nil {
 		client = map[string]any{}
@@ -1408,6 +1432,36 @@ func saveGatewayRuntimeSnapshot(t *testing.T, store persistence.EventStore, game
 	}
 	if err := store.SaveSnapshot(context.Background(), snapshot); err != nil {
 		t.Fatalf("save snapshot: %v", err)
+	}
+}
+
+func hibernateWhenIdle(t *testing.T, runtimeService *runtimesvc.Service, gameID string) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		hibernated, err := runtimeService.HibernateActor(ctx, gameID)
+		cancel()
+		if err != nil {
+			t.Fatalf("hibernate actor: %v", err)
+		}
+		if hibernated {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("runtime actor %s kept an active connection after close", gameID)
+}
+
+func assertPresenceHandoff(t *testing.T, handoffs <-chan lifecycle.Handoff, expectedType string, gameID string) {
+	t.Helper()
+	select {
+	case handoff := <-handoffs:
+		if handoff.Type != expectedType || handoff.GameID != gameID {
+			t.Fatalf("handoff = %#v, want %s for %s", handoff, expectedType, gameID)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("did not receive %s lifecycle handoff for %s", expectedType, gameID)
 	}
 }
 

@@ -686,11 +686,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       .find((player) => player.id === playerId)
       ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly rollModalOpen = signal(false);
-  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
+  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave'
+    ? 'game.gameTable.leaveTableConfirmationTitle'
+    : 'game.gameTable.concedeGameConfirmationTitle');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
-    ? 'You will concede this game and leave the room. This cannot be undone.'
-    : 'You will lose this game immediately. This cannot be undone.');
-  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave' ? 'Leave table' : 'Concede');
+    ? 'game.gameTable.leaveTableConfirmationMessage'
+    : 'game.gameTable.concedeGameConfirmationMessage');
+  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave'
+    ? 'game.contextMenu.labels.leaveTable'
+    : 'game.contextMenu.labels.concede');
+  readonly canConcedeFromBattlefieldControls = computed(() => {
+    const localPlayer = this.store.currentPlayer();
+
+    return localPlayer !== null
+      && localPlayer.state.status === 'active'
+      && (
+        localPlayer.state.life <= 0
+        || Object.values(localPlayer.state.commanderDamage).some((damage) => damage >= 21)
+      );
+  });
   private readonly leavingTable = signal(false);
   private readonly tableExitPending = computed(() => this.tableExitAction() !== null || this.leavingTable());
   readonly manualRelationTargetingActive = computed(() =>
@@ -1261,6 +1275,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   requestUnsupportedViewportLeave(event: MouseEvent): void {
     event.stopPropagation();
     this.requestTableExit('leave');
+  }
+
+  requestBattlefieldConcedeConfirmation(): void {
+    this.requestTableExit('concede');
   }
 
   @HostListener('window:resize')

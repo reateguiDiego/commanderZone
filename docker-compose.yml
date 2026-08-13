@@ -63,7 +63,7 @@ services:
     command: php bin/console app:game-lifecycle-sweep --watch --interval=5 --batch-size=100
     restart: unless-stopped
     deploy:
-      replicas: ${LIFECYCLE_SWEEPER_REPLICAS:-4}
+      replicas: ${LIFECYCLE_SWEEPER_REPLICAS:-1}
     # This is a queue-like worker, not an HTTP server. The image healthcheck
     # probes Caddy's admin port, which is intentionally absent for this
     # command and would permanently mark an otherwise healthy worker down.
@@ -93,7 +93,7 @@ services:
     command: php bin/console app:game-runtime-stop-worker --watch --interval=1 --batch-size=100
     restart: unless-stopped
     deploy:
-      replicas: ${RUNTIME_STOP_WORKER_REPLICAS:-4}
+      replicas: ${RUNTIME_STOP_WORKER_REPLICAS:-1}
     healthcheck:
       disable: true
     environment:

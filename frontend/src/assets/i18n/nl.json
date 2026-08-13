@@ -661,7 +661,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "Disconnect-stemmen",
-      "expel": "Verdrijven",
+      "expel": "Uitsluiten",
       "genericDisconnectedMessage": "Een speler is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
       "noVote": "Geen stem",
       "playerDisconnectedMessage": "{{ playerName }} is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
@@ -669,6 +669,7 @@
       "playerDisconnected": "Speler ontkoppeld",
       "yourVote": "Joje stem:",
       "timeRemaining": "Resterende tijd:",
+      "voteFinished": "Stemming beëindigd",
       "targetPlayerBackOnline": "De doelspeler is weer online."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Beurvolgorde"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Beurt: {{ name }}",
       "turnPhases": "Beurt fases",
       "focusTheActiveTurnPlayer": "Focus de actieve speler aan de beurt",
       "focusTurn": "Focus beurt",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Partijlog, ongelezen acties",
       "chatUnreadMessages": "Chat, ongelezen berichten",
       "moveCardToAnotherBattlefield": "Verplaats de kaart naar een andere battlefield",
-      "putIntoLibrary": "Leg in library"
+      "putIntoLibrary": "Leg in library",
+      "focusedOpponentLabel": "Je bekijkt:",
+      "returnToOwnBattlefield": "Ga naar je slagveld",
+      "leaveTableConfirmationTitle": "Tafel verlaten?",
+      "leaveTableConfirmationMessage": "Je geeft dit spel op en verlaat de kamer. Deze actie kan niet ongedaan worden gemaakt.",
+      "concedeGameConfirmationTitle": "Spel opgeven?",
+      "concedeGameConfirmationMessage": "Je verliest dit spel onmiddellijk. Deze actie kan niet ongedaan worden gemaakt."
     },
     "reactions": {
       "like": "Zoals",

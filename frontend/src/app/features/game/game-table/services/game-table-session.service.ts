@@ -352,6 +352,9 @@ export class GameTableSessionService {
       if ((current.players[playerId]?.deckName ?? null) !== (next.players[playerId]?.deckName ?? null)) {
         return true;
       }
+      if (current.players[playerId]?.isOnline !== next.players[playerId]?.isOnline) {
+        return true;
+      }
     }
 
     return false;

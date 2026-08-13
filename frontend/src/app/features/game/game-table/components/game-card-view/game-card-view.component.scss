@@ -35,6 +35,7 @@
   width: var(--game-card-view-width);
   border-radius: 9px;
   touch-action: none;
+  transition: transform var(--cz-motion-duration-medium) var(--cz-motion-ease-standard);
 }
 
 .mini-card img,
@@ -958,6 +959,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .game-card {
+    transition: none;
+  }
+
   .game-card.drop-settling .card-visual,
   .game-card.mana-drop-settling .card-visual,
   .game-card.drop-settling .card-visual::before,

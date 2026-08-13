@@ -185,17 +185,24 @@ func (a *GameActor) BeginClosing() {
 	a.closing = true
 }
 
-// ClearDisconnectVotesForAllOffline removes actor-hot vote state without
-// creating a gameplay event. With zero connected players there is no eligible
-// voter; the persisted all-disconnected lifecycle is the only authority.
+// ClearDisconnectVotesForAllOffline removes actor-hot vote state and records
+// the final offline presence in the compact snapshot without a gameplay event.
+// With zero connected players there is no eligible voter; the persisted
+// all-disconnected lifecycle is the only authority.
 func (a *GameActor) ClearDisconnectVotesForAllOffline() bool {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
-	if len(a.state.DisconnectVotes) == 0 {
-		return false
-	}
+	changed := len(a.state.DisconnectVotes) > 0
 	a.state.DisconnectVotes = map[string]map[string]any{}
-	return true
+	for playerID, player := range a.state.Players {
+		if online, ok := player["isOnline"].(bool); ok && !online {
+			continue
+		}
+		player["isOnline"] = false
+		a.state.Players[playerID] = player
+		changed = true
+	}
+	return changed
 }
 
 func (a *GameActor) Enqueue(request CommandRequest) error {

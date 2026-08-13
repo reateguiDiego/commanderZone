@@ -25,6 +25,10 @@
       <p class="vote-line countdown">{{ 'game.gameDisconnectVoteModal.timeRemaining' | runtimeTranslate }} <strong>{{ countdownSeconds() }}s</strong></p>
     }
 
+    @if (voteFinished()) {
+      <p class="vote-line vote-finished">{{ 'game.gameDisconnectVoteModal.voteFinished' | runtimeTranslate }}</p>
+    }
+
     @if (targetOnline()) {
       <p class="vote-line reconnect">{{ 'game.gameDisconnectVoteModal.targetPlayerBackOnline' | runtimeTranslate }}</p>
     }

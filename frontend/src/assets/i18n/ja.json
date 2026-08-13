@@ -661,7 +661,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "åˆ‡æ–­æŠ•ç¥¨",
-      "expel": "è¿½ã„å‡ºã™",
+      "expel": "追放する",
       "genericDisconnectedMessage": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒåˆ‡æ–­ã—ã¾ã—ãŸã€‚å†æŽ¥ç¶šã‚’å¾…ã¤ã‹ã€ãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰è¿½æ”¾ã™ã‚‹ã‹æŠ•ç¥¨ã—ã¦ãã ã•ã„ã€‚",
       "noVote": "æŠ•ç¥¨ãªã—",
       "playerDisconnectedMessage": "{{ playerName }} ãŒåˆ‡æ–­ã—ã¾ã—ãŸã€‚å†æŽ¥ç¶šã‚’å¾…ã¤ã‹ã€ãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰è¿½æ”¾ã™ã‚‹ã‹æŠ•ç¥¨ã—ã¦ãã ã•ã„ã€‚",
@@ -669,6 +669,7 @@
       "playerDisconnected": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒåˆ‡æ–­ã•ã‚Œã¾ã—ãŸ",
       "yourVote": "ã‚ãªãŸã®æŠ•ç¥¨:",
       "timeRemaining": "æ®‹ã‚Šæ™‚é–“:",
+      "voteFinished": "投票終了",
       "targetPlayerBackOnline": "å¯¾è±¡ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒã‚ªãƒ³ãƒ©ã‚¤ãƒ³ã«æˆ»ã‚Šã¾ã—ãŸã€‚"
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "ã‚¿ãƒ¼ãƒ³é †"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "ターン: {{ name }}",
       "turnPhases": "ã‚¿ãƒ¼ãƒ³ãƒ•ã‚§ã‚¤ã‚º",
       "focusTheActiveTurnPlayer": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªã‚¿ãƒ¼ãƒ³ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ç„¦ç‚¹ã‚’å½“ã¦ã‚‹",
       "focusTurn": "ã‚¿ãƒ¼ãƒ³ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "ã‚²ãƒ¼ãƒ ãƒ­ã‚°ã€æœªèª­ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
       "chatUnreadMessages": "ãƒãƒ£ãƒƒãƒˆã€æœªèª­ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
       "moveCardToAnotherBattlefield": "ã‚«ãƒ¼ãƒ‰ã‚’åˆ¥ã®æˆ¦å ´ã«ç§»å‹•ã™ã‚‹",
-      "putIntoLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã«ç½®ã"
+      "putIntoLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã«ç½®ã",
+      "focusedOpponentLabel": "表示中：",
+      "returnToOwnBattlefield": "自分の戦場へ",
+      "leaveTableConfirmationTitle": "テーブルから離れますか？",
+      "leaveTableConfirmationMessage": "このゲームを投了してルームを離れます。この操作は元に戻せません。",
+      "concedeGameConfirmationTitle": "ゲームを投了しますか？",
+      "concedeGameConfirmationMessage": "このゲームは直ちに敗北になります。この操作は元に戻せません。"
     },
     "reactions": {
       "like": "ã„ã„ã­",

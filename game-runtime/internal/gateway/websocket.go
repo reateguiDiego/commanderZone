@@ -201,12 +201,11 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		metrics.GameplayWSRoute["runtime_ws"]++
 	})
-	// Presence lifecycle is durable, not merely a side effect of gameplay
-	// commands. Load the actor before accepting the first socket so the last
-	// disconnect can persist its all-offline grace deadline even if nobody has
-	// made a gameplay command in this runtime process.
+	// Reserve the actor before accepting the socket. This makes a reconnect and
+	// a scheduled hibernation mutually exclusive without retaining an actor for
+	// the full all-offline grace period.
 	loadCtx, cancelLoad := context.WithTimeout(r.Context(), s.commandTimeout)
-	gameActor, _, err := s.runtime.LoadActorRecovered(loadCtx, claims.GameID, nil)
+	gameActor, firstConnection, releaseConnection, err := s.runtime.AcquireConnection(loadCtx, claims.GameID)
 	cancelLoad()
 	if err != nil {
 		if errors.Is(err, runtimesvc.ErrActorClosing) {
@@ -221,9 +220,23 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gameActor.SetInternalResultPublisher(s.PublishRuntimeResult)
+	if firstConnection {
+		// Persist cancellation before the socket is admitted. Besides ordinary
+		// reconnects this covers a runtime restart, where gateway-local presence
+		// maps no longer know that the game was previously all-offline.
+		if err := s.runtime.DeliverPresenceLifecycle(r.Context(), claims.GameID, lifecycle.AllDisconnectedCanceled, time.Now().UTC()); err != nil {
+			releaseConnection()
+			stopCtx, stopCancel := context.WithTimeout(context.Background(), s.commandTimeout)
+			_ = s.runtime.StopActor(stopCtx, claims.GameID)
+			stopCancel()
+			http.Error(w, "gameplay lifecycle recovery failed", http.StatusServiceUnavailable)
+			return
+		}
+	}
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		releaseConnection()
 		return
 	}
 
@@ -236,15 +249,11 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		done:    make(chan struct{}),
 	}
 	registered := s.register(client)
-	if registered.CancelAllDisconnected {
-		// This is the linearization point against the indexed sweeper: a
-		// reconnect persists cancellation before the socket is admitted.
-		s.deliverPresenceLifecycle(client.claims.GameID, lifecycle.AllDisconnectedCanceled, time.Now().UTC())
-	}
-	if registered.WasOfflineBeyondGrace {
+	if registered.PresenceRestored {
 		s.broadcastPresence(client.claims.GameID, client.playerID(), "online")
 		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.PresenceGeneration, registered.ConnectedPlayerIDs)
 	}
+	defer releaseConnection()
 	defer func() {
 		left := s.unregister(client)
 		if left.PlayerID == "" {
@@ -286,7 +295,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type presenceRegistration struct {
 	ConnectedPlayerIDs    []string
-	WasOfflineBeyondGrace bool
+	PresenceRestored      bool
 	CancelAllDisconnected bool
 	PresenceGeneration    int64
 }
@@ -311,17 +320,21 @@ func (s *WebSocketServer) register(client *wsClient) presenceRegistration {
 	if cancelAllDisconnected {
 		delete(s.allDisconnectedSince, client.claims.GameID)
 	}
-	wasOfflineBeyondGrace := false
+	playerBecameOnline := s.countConnectionsForPlayerInGameLocked(client.claims.GameID, playerID) == 0
+	presenceRestored := false
 	presenceGeneration := int64(0)
-	if _, ok := s.offlineSince[client.claims.GameID][playerID]; ok {
-		wasOfflineBeyondGrace = true
+	if playerBecameOnline && (s.playerIsOfflineInRuntime(client.claims.GameID, playerID) || s.playerWasOfflineLocked(client.claims.GameID, playerID)) {
+		// A gateway restart deliberately loses its ephemeral offline map. The
+		// compact player flag is therefore restored by the first connection,
+		// not by relying on that map being warm.
 		delete(s.offlineSince[client.claims.GameID], playerID)
 		presenceGeneration = s.nextPresenceGenerationLocked(client.claims.GameID, playerID)
+		presenceRestored = true
 	}
 	s.rooms[client.claims.GameID][client] = struct{}{}
 	return presenceRegistration{
 		ConnectedPlayerIDs:    s.connectedPlayerIDsForGameLocked(client.claims.GameID),
-		WasOfflineBeyondGrace: wasOfflineBeyondGrace,
+		PresenceRestored:      presenceRestored,
 		CancelAllDisconnected: cancelAllDisconnected,
 		PresenceGeneration:    presenceGeneration,
 	}
@@ -504,6 +517,21 @@ func (s *WebSocketServer) nextPresenceGenerationLocked(gameID string, playerID s
 	}
 	s.presenceGenerations[gameID][playerID] = next
 	return next
+}
+
+func (s *WebSocketServer) playerWasOfflineLocked(gameID string, playerID string) bool {
+	_, offline := s.offlineSince[gameID][playerID]
+	return offline
+}
+
+func (s *WebSocketServer) playerIsOfflineInRuntime(gameID string, playerID string) bool {
+	gameActor, ok := s.runtime.Actor(gameID)
+	if !ok {
+		return false
+	}
+	player := gameActor.Snapshot().Players[playerID]
+	isOnline, known := player["isOnline"].(bool)
+	return known && !isOnline
 }
 
 func (s *WebSocketServer) connectedPlayerIDsForGame(gameID string) []string {

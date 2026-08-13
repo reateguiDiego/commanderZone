@@ -669,6 +669,7 @@
       "playerDisconnected": "Joueur dÃ©connectÃ©",
       "yourVote": "Votre vote :",
       "timeRemaining": "Temps restant :",
+      "voteFinished": "Vote terminé",
       "targetPlayerBackOnline": "Le joueur ciblÃ© est Ã  nouveau en ligne."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Ordre du tour"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Tour : {{ name }}",
       "turnPhases": "Phases du tour",
       "focusTheActiveTurnPlayer": "Concentrez le joueur actif du tour",
       "focusTurn": "Centrer le tour",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Journal de partie, actions non lues",
       "chatUnreadMessages": "Chat, messages non lus",
       "moveCardToAnotherBattlefield": "DÃ©placer la carte vers un autre champ de bataille",
-      "putIntoLibrary": "Mettre en bibliothÃ¨que"
+      "putIntoLibrary": "Mettre en bibliothÃ¨que",
+      "focusedOpponentLabel": "Vous regardez :",
+      "returnToOwnBattlefield": "Aller sur votre champ de bataille",
+      "leaveTableConfirmationTitle": "Quitter la table ?",
+      "leaveTableConfirmationMessage": "Vous allez concéder cette partie et quitter la salle. Cette action est irréversible.",
+      "concedeGameConfirmationTitle": "Concéder la partie ?",
+      "concedeGameConfirmationMessage": "Vous perdrez cette partie immédiatement. Cette action est irréversible."
     },
     "reactions": {
       "like": "Jâ€™aime",

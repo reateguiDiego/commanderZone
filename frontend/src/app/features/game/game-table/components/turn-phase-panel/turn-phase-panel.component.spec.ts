@@ -25,6 +25,16 @@ describe('TurnPhasePanelComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="pass-turn"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="follow-active-turn-player"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="active-turn-player-pill"]')?.textContent).toContain('Turn: player-2');
+  });
+
+  it('does not render the active-turn player pill for the current turn player', async () => {
+    const fixture = await renderTurnPhasePanel({
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 3 },
+      currentPlayerId: 'player-1',
+    });
+
+    expect(fixture.nativeElement.querySelector('[data-testid="active-turn-player-pill"]')).toBeNull();
   });
 
   it('emits follow active player changes from the focus checkbox', async () => {

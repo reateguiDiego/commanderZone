@@ -275,15 +275,79 @@
   background: transparent;
 }
 
-.rematch-votes-button {
+.battlefield-top-left-controls {
   position: absolute;
   top: 0.75rem;
   left: 0.75rem;
-  z-index: 250;
+  right: 4.25rem;
+  z-index: 255;
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  max-width: none;
+  pointer-events: none;
+}
+
+.rematch-votes-button {
   border-radius: 8px;
   background: rgb(8 10 8 / 82%);
   font-size: 0.82rem;
   font-weight: 900;
+  pointer-events: auto;
+}
+
+.battlefield-concede-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid rgb(255 105 116 / 92%);
+  background: linear-gradient(135deg, rgb(127 25 35 / 96%), rgb(77 13 22 / 96%));
+  box-shadow:
+    0 0 0.5rem rgb(255 52 73 / 90%),
+    0 0 1.2rem rgb(232 31 57 / 72%),
+    inset 0 0 0.7rem rgb(255 131 138 / 32%);
+  color: #fff7f7;
+  font-size: 0.82rem;
+  font-weight: 900;
+  pointer-events: auto;
+  text-shadow: 0 0 0.45rem rgb(255 219 221 / 82%);
+  animation: battlefield-concede-glow 1.35s ease-in-out infinite alternate;
+}
+
+.battlefield-concede-button:hover,
+.battlefield-concede-button:focus-visible {
+  border-color: #ffe2e4;
+  box-shadow:
+    0 0 0.75rem rgb(255 103 116),
+    0 0 1.7rem rgb(255 39 65 / 94%),
+    0 0 2.6rem rgb(211 14 43 / 72%),
+    inset 0 0 0.8rem rgb(255 171 177 / 46%);
+  outline: none;
+  transform: translateY(-1px) scale(1.025);
+}
+
+@keyframes battlefield-concede-glow {
+  from {
+    box-shadow:
+      0 0 0.45rem rgb(255 52 73 / 76%),
+      0 0 1rem rgb(232 31 57 / 58%),
+      inset 0 0 0.55rem rgb(255 131 138 / 24%);
+  }
+
+  to {
+    box-shadow:
+      0 0 0.8rem rgb(255 91 106),
+      0 0 1.55rem rgb(241 25 55 / 90%),
+      0 0 2.2rem rgb(190 12 37 / 58%),
+      inset 0 0 0.85rem rgb(255 161 167 / 44%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battlefield-concede-button {
+    animation: none;
+  }
 }
 
 .battlefield-zoom-host {
@@ -294,12 +358,8 @@
 }
 
 .battlefield-owner-summary {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 255;
-  width: min(20rem, calc(100% - 5rem));
-  min-width: min(16rem, calc(100% - 5rem));
+  width: min(20rem, 100%);
+  min-width: min(16rem, 100%);
   pointer-events: auto;
 }
 

@@ -661,7 +661,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "æ–­çº¿æŠ•ç¥¨",
-      "expel": "ç§»å‡º",
+      "expel": "逐出",
       "genericDisconnectedMessage": "æœ‰çŽ©å®¶æ–­çº¿ã€‚æŠ•ç¥¨å†³å®šç­‰å¾…å…¶é‡è¿žæˆ–å°†å…¶ç§»å‡ºæ¡Œé¢ã€‚",
       "noVote": "æœªæŠ•ç¥¨",
       "playerDisconnectedMessage": "{{ playerName }} å·²æ–­çº¿ã€‚æŠ•ç¥¨å†³å®šç­‰å¾…å…¶é‡è¿žæˆ–å°†å…¶ç§»å‡ºæ¡Œé¢ã€‚",
@@ -669,6 +669,7 @@
       "playerDisconnected": "çŽ©å®¶å·²æ–­å¼€è¿žæŽ¥",
       "yourVote": "æ‚¨çš„æŠ•ç¥¨ï¼š",
       "timeRemaining": "å‰©ä½™æ—¶é—´ï¼š",
+      "voteFinished": "投票已结束",
       "targetPlayerBackOnline": "ç›®æ ‡çŽ©å®¶å†æ¬¡åœ¨çº¿ã€‚"
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "å›žåˆé¡ºåº"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "回合：{{ name }}",
       "turnPhases": "å›žåˆé˜¶æ®µ",
       "focusTheActiveTurnPlayer": "èšç„¦å½“å‰å›žåˆçŽ©å®¶",
       "focusTurn": "èšç„¦å›žåˆ",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "å¯¹å±€æ—¥å¿—ï¼Œæœ‰æœªè¯»æ“ä½œ",
       "chatUnreadMessages": "èŠå¤©ã€æœªè¯»æ¶ˆæ¯",
       "moveCardToAnotherBattlefield": "å°†ç‰Œç§»è‡³å¦ä¸€ä¸ªæˆ˜åœº",
-      "putIntoLibrary": "æ”¾å…¥ç‰Œåº“"
+      "putIntoLibrary": "æ”¾å…¥ç‰Œåº“",
+      "focusedOpponentLabel": "正在查看：",
+      "returnToOwnBattlefield": "前往你的战场",
+      "leaveTableConfirmationTitle": "离开牌桌？",
+      "leaveTableConfirmationMessage": "你将认输并离开房间。此操作无法撤销。",
+      "concedeGameConfirmationTitle": "认输此局？",
+      "concedeGameConfirmationMessage": "你将立即输掉此局。此操作无法撤销。"
     },
     "reactions": {
       "like": "å–œæ¬¢",

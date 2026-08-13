@@ -175,6 +175,7 @@ final class GameplayV2ContractFactory
                 'user' => is_array($player['user'] ?? null) ? $player['user'] : null,
                 'displayName' => $player['user']['displayName'] ?? $playerId,
                 'life' => (int) ($player['life'] ?? 0),
+                'isOnline' => is_bool($player['isOnline'] ?? null) ? $player['isOnline'] : null,
                 'status' => is_string($player['status'] ?? null) ? $player['status'] : 'active',
                 'handCount' => (int) ($player['handCount'] ?? ($player['zoneCounts']['hand'] ?? 0)),
                 'zoneIds' => $playerZoneIds,

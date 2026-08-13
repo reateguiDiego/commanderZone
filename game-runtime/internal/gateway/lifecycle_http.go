@@ -43,6 +43,16 @@ func (s *LifecycleHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		_ = json.NewEncoder(w).Encode(map[string]bool{"released": true})
 		return
 	}
+	if request.Action == "hibernate" {
+		hibernated, err := s.runtime.HibernateActor(ctx, request.GameID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"hibernated": hibernated})
+		return
+	}
 	if request.Action != "" && request.Action != "stop" {
 		http.Error(w, "unsupported lifecycle action", http.StatusBadRequest)
 		return

@@ -81,6 +81,18 @@ describe('GameTableSessionService', () => {
     expect(setSnapshot).toHaveBeenCalledWith(next);
   });
 
+  it('applies same-version snapshots when a player presence changed', async () => {
+    const current = snapshot();
+    const next = snapshot();
+    next.players['player-1'] = { ...next.players['player-1']!, isOnline: false };
+    const setSnapshot = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: next } }));
+
+    await service.refetch(context(current, setSnapshot));
+
+    expect(setSnapshot).toHaveBeenCalledWith(next);
+  });
+
   it('ignores same-version snapshots when projection metadata did not change', async () => {
     const current = snapshot({ deckName: 'Food and Fellowship' });
     const next = snapshot({ deckName: 'Food and Fellowship' });

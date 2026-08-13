@@ -669,6 +669,7 @@
       "playerDisconnected": "Jugador desconectado",
       "yourVote": "Tu voto:",
       "timeRemaining": "Tiempo restante:",
+      "voteFinished": "Votación finalizada",
       "targetPlayerBackOnline": "El jugador objetivo está nuevamente en línea."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Orden de turno"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Turno: {{ name }}",
       "turnPhases": "Fases del turno",
       "focusTheActiveTurnPlayer": "Enfocar al jugador activo",
       "focusTurn": "Enfocar turno",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Registro de partida, acciones sin leer",
       "chatUnreadMessages": "Chat, mensajes no leídos",
       "moveCardToAnotherBattlefield": "Poner carta en otro campo de batalla",
-      "putIntoLibrary": "Poner en la biblioteca"
+      "putIntoLibrary": "Poner en la biblioteca",
+      "focusedOpponentLabel": "Estás viendo a:",
+      "returnToOwnBattlefield": "Ir a tu campo de batalla",
+      "leaveTableConfirmationTitle": "¿Abandonar la mesa?",
+      "leaveTableConfirmationMessage": "Concederás esta partida y abandonarás la sala. Esta acción no se puede deshacer.",
+      "concedeGameConfirmationTitle": "¿Conceder la partida?",
+      "concedeGameConfirmationMessage": "Perderás esta partida de inmediato. Esta acción no se puede deshacer."
     },
     "reactions": {
       "like": "Me gusta",

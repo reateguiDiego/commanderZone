@@ -419,6 +419,11 @@ export type GameSnapshotPatchOperation =
       concededAt?: GameSnapshot['players'][string]['concededAt'];
     }
   | {
+      op: 'player.presence.set';
+      playerId: string;
+      isOnline: boolean;
+    }
+  | {
       op: 'stack.item.add';
       item: GameSnapshot['stack'][number];
     }

@@ -547,11 +547,13 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('keeps the header summary on the current player and shows a readonly focused battlefield owner summary', async () => {
+  it('keeps Concede hidden for a healthy local player when a focused opponent has lost', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
+    snapshot.players['user-2']!.life = 0;
+    snapshot.players['user-2']!.commanderDamage = { 'commander-1': 21 };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
 
     const fixture = TestBed.createComponent(GameTableComponent);
@@ -564,6 +566,7 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     const headerLife = fixture.nativeElement.querySelector('.player-strip [data-testid="focused-player-life"]') as HTMLElement;
+    const battlefieldControls = fixture.nativeElement.querySelector('.battlefield-top-left-controls') as HTMLElement;
     const ownerSummary = fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]') as HTMLElement;
     const ownerLife = ownerSummary.querySelector('[data-testid="focused-player-life"]') as HTMLElement;
 
@@ -575,6 +578,8 @@ describe('GameTableComponent', () => {
     expect(ownerLife.dataset['playerId']).toBe('user-2');
     expect(ownerSummary.querySelector('[data-testid="life-decrease"]')).toBeNull();
     expect(ownerSummary.querySelector('[data-testid="life-increase"]')).toBeNull();
+    expect(battlefieldControls.children[0]).toBe(ownerSummary);
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-concede"]')).toBeNull();
 
     (ownerSummary.querySelector('[data-testid="return-own-battlefield"]') as HTMLButtonElement).click();
     fixture.detectChanges();
@@ -582,6 +587,76 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-concede"]')).toBeNull();
+  });
+
+  it('shows Concede in battlefield controls at zero life and opens the existing confirmation', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.life = 0;
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.focusOpponentFromSidebar('user-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const battlefieldControls = fixture.nativeElement.querySelector('.battlefield-top-left-controls') as HTMLElement;
+    const ownerSummary = fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]') as HTMLElement;
+    const concedeButton = fixture.nativeElement.querySelector('[data-testid="battlefield-concede"]') as HTMLButtonElement;
+
+    expect(battlefieldControls.children[0]).toBe(ownerSummary);
+    expect(battlefieldControls.children[1]).toBe(concedeButton);
+    concedeButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tableExitAction()).toBe('concede');
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
+  });
+
+  it('shows Concede in battlefield controls at 21 commander damage', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.commanderDamage = { 'commander-1': 21 };
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.focusOpponentFromSidebar('user-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-concede"]')).not.toBeNull();
+  });
+
+  it('hides Concede after the local player has already conceded', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.status = 'conceded';
+    snapshot.players['user-1']!.concededAt = '2026-04-30T20:00:00+00:00';
+    snapshot.players['user-1']!.life = 0;
+    snapshot.players['user-1']!.commanderDamage = { 'commander-2': 21 };
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.canConcedeFromBattlefieldControls()).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-concede"]')).toBeNull();
   });
 
   it('renders opponent mechanics pills without the legacy mechanics modal entrypoint', async () => {
@@ -1875,6 +1950,22 @@ describe('GameTableComponent', () => {
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the same confirmation when Concede is requested from battlefield controls', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const activeSnapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.requestBattlefieldConcedeConfirmation();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tableExitAction()).toBe('concede');
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('sends only leave room from an active game', async () => {

@@ -74,6 +74,7 @@ export interface BootstrapPlayerV2 {
   user: User | null;
   displayName: string;
   life: number;
+  isOnline?: boolean;
   status: string;
   handCount: number;
   zoneIds: string[];
@@ -645,6 +646,11 @@ export type GameplayPatchV2Operation =
       playerId: string;
       status: 'active' | 'conceded';
       concededAt?: string | null;
+    }
+  | {
+      op: 'player.presence.set';
+      playerId: string;
+      isOnline: boolean;
     }
   | {
       op: 'disconnect.vote.set';

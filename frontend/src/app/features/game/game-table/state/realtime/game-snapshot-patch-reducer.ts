@@ -123,6 +123,9 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
 
+    case 'player.presence.set':
+      return updatePlayer(snapshot, operation.playerId, (player) => ({ ...player, isOnline: operation.isOnline }));
+
     case 'card.position.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
         ...card,

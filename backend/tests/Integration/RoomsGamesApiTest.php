@@ -1248,7 +1248,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
             ['gameId' => $gameId],
         ));
-        $offlineAt = new \DateTimeImmutable('-6 minutes');
+        $offlineAt = new \DateTimeImmutable('-31 minutes');
 
         $projector = static::getContainer()->get(GameLifecycleProjector::class);
         $projector->apply($game, new GameLifecycleHandoff(
@@ -1280,13 +1280,84 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
     }
 
+    public function testAllDisconnectedGraceSchedulesHibernateBeforeFinalExpiry(): void
+    {
+        $fixture = $this->startedRematchGameFixture('hibernate', [
+            ['hibernate-owner@example.test', 'Hibernate Owner'],
+            ['hibernate-guest@example.test', 'Hibernate Guest'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $roomId = $fixture['roomId'];
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $offlineAt = new \DateTimeImmutable('-3 minutes');
+
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':all-disconnected',
+            $gameId,
+            GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED,
+            1,
+            1,
+            1,
+            $offlineAt,
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+
+        $sweeper = static::getContainer()->get(GameRematchLifecycleSweeper::class);
+        $result = $sweeper->sweep(new \DateTimeImmutable());
+
+        self::assertCount(1, $result);
+        self::assertSame('runtime_hibernation_scheduled', $result[0]['type']);
+        self::assertNotNull($this->entityManager->getRepository(Game::class)->find($gameId));
+        self::assertNotNull($this->entityManager->getRepository(\App\Domain\Room\Room::class)->find($roomId));
+        self::assertSame('hibernate', $this->entityManager->getConnection()->fetchOne(
+            'SELECT action FROM game_runtime_stop_queue WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        ));
+    }
+
+    public function testParticipantReconnectRemovesAllDisconnectedLifecycleIndexes(): void
+    {
+        $fixture = $this->startedRematchGameFixture('hib-rec', [
+            ['hibernate-reconnect-owner@example.test', 'Hibernate Owner'],
+            ['hibernate-reconnect-guest@example.test', 'Hibernate Guest'],
+        ]);
+        $gameId = $fixture['gameId'];
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        self::assertInstanceOf(Game::class, $game);
+        $projector = static::getContainer()->get(GameLifecycleProjector::class);
+        $offlineAt = new \DateTimeImmutable('-3 minutes');
+        $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':offline', $gameId, GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED, 2, 1, 1, $offlineAt,
+        ));
+        self::assertTrue($game->scheduleAllDisconnectedHibernation(new \DateTimeImmutable('-1 minute'), $offlineAt->modify('+30 minutes')));
+        $this->entityManager->flush();
+
+        self::assertSame(GameLifecycleProjector::APPLIED, $projector->apply($game, new GameLifecycleHandoff(
+            $gameId.':online', $gameId, GameLifecycleHandoff::ALL_DISCONNECTED_CANCELLED, 2, 1, 1, new \DateTimeImmutable(),
+        )));
+        $this->entityManager->flush();
+        $row = $this->entityManager->getConnection()->fetchAssociative(<<<'SQL'
+SELECT all_disconnected_since, all_disconnected_hibernate_requested_at, next_lifecycle_at
+FROM game
+WHERE id = :gameId
+SQL, ['gameId' => $gameId]);
+
+        self::assertIsArray($row);
+        self::assertNull($row['all_disconnected_since']);
+        self::assertNull($row['all_disconnected_hibernate_requested_at']);
+        self::assertNull($row['next_lifecycle_at']);
+    }
+
     public function testRuntimeStopWorkerDrainsAndRetriesDurableJobs(): void
     {
         $connection = $this->entityManager->getConnection();
         $connection->executeStatement(<<<'SQL'
-INSERT INTO game_runtime_stop_queue (game_id, queued_at, available_at)
-VALUES ('runtime-stop-ok', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-       ('runtime-stop-retry', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO game_runtime_stop_queue (game_id, action, queued_at, available_at)
+VALUES ('runtime-stop-ok', 'stop', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       ('runtime-stop-retry', 'stop', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 SQL);
         $runtimeControl = new class implements GameRuntimeLifecycleControlInterface {
             /** @var list<string> */
@@ -1299,6 +1370,11 @@ SQL);
                 }
 
                 $this->stoppedGameIds[] = $gameId;
+            }
+
+            public function hibernateByGameId(string $gameId): bool
+            {
+                return true;
             }
         };
 

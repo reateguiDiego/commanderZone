@@ -154,6 +154,7 @@ export interface GamePlayerMulliganState {
 
 export interface GamePlayerState {
   user: User;
+  isOnline?: boolean;
   status?: 'active' | 'conceded';
   concededAt?: string | null;
   deckName?: string | null;

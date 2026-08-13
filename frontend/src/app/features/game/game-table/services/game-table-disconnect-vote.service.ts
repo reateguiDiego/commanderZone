@@ -21,7 +21,6 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly transport = inject(GameTableWebsocketTransportService);
 
-  private readonly onlineByPlayerId = signal<Record<string, boolean>>({});
   private readonly dismissedVoteKeys = signal<ReadonlySet<string>>(new Set());
   private readonly countdownTick = signal(0);
   private countdownTimer: number | null = null;
@@ -30,6 +29,26 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   readonly modalOpen = signal(false);
   readonly pending = signal(false);
   readonly error = signal<string | null>(null);
+
+  isPlayerOffline(playerId: string, userId = playerId): boolean {
+    const snapshot = this.store.snapshot();
+    const snapshotPlayer = snapshot?.players[playerId]
+      ?? Object.values(snapshot?.players ?? {}).find((player) => player.user.id === userId);
+    if (snapshotPlayer?.isOnline !== undefined) {
+      return !snapshotPlayer.isOnline;
+    }
+
+    const onlineByPlayerId = this.transport.playerOnlineByPlayerId();
+    const playerPresence = onlineByPlayerId[playerId];
+    const userPresence = userId === playerId ? undefined : onlineByPlayerId[userId];
+    const presence = playerPresence ?? userPresence;
+    if (presence !== undefined) {
+      return !presence;
+    }
+
+    const vote = snapshot?.disconnectVotes?.[playerId];
+    return vote?.targetPlayerId === playerId && vote.status !== 'cancelled';
+  }
 
   private readonly openVoteStates = computed(() => {
     return Object.values(this.store.snapshot()?.disconnectVotes ?? {})
@@ -79,7 +98,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       return false;
     }
 
-    return this.onlineByPlayerId()[targetPlayerId] === true;
+    return this.transport.playerOnlineByPlayerId()[targetPlayerId] === true;
   });
   readonly currentPlayerId = computed(() => this.store.currentPlayer()?.id ?? null);
   readonly currentVote = computed<GameDisconnectVoteChoice | null>(() => {
@@ -92,11 +111,19 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     const vote = state.votes[currentPlayerId]?.vote;
     return vote === 'wait' || vote === 'expel' ? vote : null;
   });
+  readonly voteFinished = computed(() => {
+    const state = this.visibleVoteState();
+
+    return state?.status === 'open' && this.countdownSeconds() === 0;
+  });
   readonly canVote = computed(() => {
     const snapshot = this.store.snapshot();
     const state = this.voteState();
     const currentPlayerId = this.currentPlayerId();
     if (!snapshot || !state || !currentPlayerId || state.status !== 'open' || !state.targetPlayerId) {
+      return false;
+    }
+    if (this.countdownSeconds() === 0) {
       return false;
     }
     if (currentPlayerId === state.targetPlayerId) {
@@ -116,7 +143,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     }
 
     const votes = state.votes;
-    const onlineByPlayerId = this.onlineByPlayerId();
+    const onlineByPlayerId = this.transport.playerOnlineByPlayerId();
 
     return Object.entries(snapshot.players)
       .filter(([playerId]) => playerId !== state.targetPlayerId && state.eligible?.includes(playerId))
@@ -166,7 +193,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     effect(() => {
       const open = this.modalOpen();
       const seconds = this.countdownSeconds();
-      const running = open && seconds !== null && this.visibleVoteState()?.status === 'open';
+      const running = open && seconds !== null && seconds > 0 && this.visibleVoteState()?.status === 'open';
       if (!running) {
         this.stopCountdown();
         return;
@@ -237,19 +264,40 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     return 'Sin voto';
   }
 
+  private voteKey(): string | null {
+    return this.voteKeyFor(this.visibleVoteState());
+  }
+
   private consumePresenceMessage(message: GameplayServerMessage): void {
     if (message.kind !== 'player_presence_changed') {
       return;
     }
 
-    this.onlineByPlayerId.update((current) => ({
-      ...current,
-      [message.playerId]: message.status === 'online',
-    }));
-  }
+    this.store.snapshot.update((snapshot) => {
+      if (!snapshot) {
+        return snapshot;
+      }
 
-  private voteKey(): string | null {
-    return this.voteKeyFor(this.visibleVoteState());
+      const playerId = Object.entries(snapshot.players)
+        .find(([candidateId, player]) => candidateId === message.playerId || player.user.id === message.playerId)?.[0];
+      if (!playerId) {
+        return snapshot;
+      }
+
+      const player = snapshot.players[playerId]!;
+      const isOnline = message.status === 'online';
+      if (player.isOnline === isOnline) {
+        return snapshot;
+      }
+
+      return {
+        ...snapshot,
+        players: {
+          ...snapshot.players,
+          [playerId]: { ...player, isOnline },
+        },
+      };
+    });
   }
 
   private voteKeyFor(state: GameDisconnectVoteState | null): string | null {

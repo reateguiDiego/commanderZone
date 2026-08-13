@@ -25,6 +25,7 @@ type Service struct {
 	cancels             map[string]context.CancelFunc
 	leases              map[string]OwnershipLease
 	closing             map[string]struct{}
+	connections         map[string]int
 	actorStoppedHook    func(string)
 	store               persistence.EventStore
 	queueSize           int
@@ -130,6 +131,7 @@ func NewServiceWithStoreAndOptions(store persistence.EventStore, queueSize int, 
 		cancels:             map[string]context.CancelFunc{},
 		leases:              map[string]OwnershipLease{},
 		closing:             map[string]struct{}{},
+		connections:         map[string]int{},
 		store:               store,
 		queueSize:           queueSize,
 		appliers:            appliers,
@@ -267,7 +269,8 @@ func (s *Service) DeliverPresenceLifecycle(ctx context.Context, gameID string, h
 
 // ClearDisconnectVotesForAllOffline persists only the compact actor snapshot;
 // it deliberately cannot append game_event because zero connected players
-// cannot open or resolve a disconnect vote.
+// cannot open or resolve a disconnect vote. It also records every player as
+// offline so the durable grace lifecycle can recover exact presence.
 func (s *Service) ClearDisconnectVotesForAllOffline(ctx context.Context, gameID string) error {
 	s.mu.RLock()
 	gameActor := s.actors[gameID]
@@ -346,6 +349,37 @@ func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {
 	defer s.mu.RUnlock()
 	gameActor, ok := s.actors[gameID]
 	return gameActor, ok
+}
+
+// AcquireConnection reserves an actor for a WebSocket before the handshake is
+// accepted. The reservation closes the hibernate/reconnect race: a hibernate
+// request can only detach an actor when no live handshake or socket owns it.
+func (s *Service) AcquireConnection(ctx context.Context, gameID string) (*actor.GameActor, bool, func(), error) {
+	for {
+		gameActor, _, err := s.LoadActorRecovered(ctx, gameID, nil)
+		if err != nil {
+			return nil, false, nil, err
+		}
+
+		s.mu.Lock()
+		if s.actors[gameID] == gameActor {
+			firstConnection := s.connections[gameID] == 0
+			s.connections[gameID]++
+			s.mu.Unlock()
+			return gameActor, firstConnection, func() { s.releaseConnection(gameID) }, nil
+		}
+		s.mu.Unlock()
+	}
+}
+
+func (s *Service) releaseConnection(gameID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.connections[gameID] <= 1 {
+		delete(s.connections, gameID)
+		return
+	}
+	s.connections[gameID]--
 }
 
 func (s *Service) EventsAfter(ctx context.Context, gameID string, version int64) ([]protocol.EventPayloadV2, error) {
@@ -473,9 +507,39 @@ func (s *Service) StopActor(ctx context.Context, gameID string) error {
 
 // HibernateActor releases an idle runtime after all players disconnect. It is
 // intentionally not closing: a reconnect may recover the actor from its
-// compact snapshot and cancel the persisted control-plane deadline.
-func (s *Service) HibernateActor(ctx context.Context, gameID string) error {
-	return s.stopActorIfCurrent(ctx, gameID, nil)
+// compact snapshot and cancel the persisted control-plane deadline. A false
+// result means a handshake or live WebSocket won the race and owns the actor.
+func (s *Service) HibernateActor(ctx context.Context, gameID string) (bool, error) {
+	s.mu.Lock()
+	if s.connections[gameID] > 0 {
+		s.mu.Unlock()
+		return false, nil
+	}
+	gameActor, ok := s.actors[gameID]
+	cancel := s.cancels[gameID]
+	lease := s.leases[gameID]
+	delete(s.actors, gameID)
+	delete(s.cancels, gameID)
+	s.mu.Unlock()
+
+	if !ok {
+		s.releaseOwnership(ctx, gameID, lease)
+		return true, nil
+	}
+	if cancel != nil {
+		cancel()
+	}
+	if err := gameActor.Stop(ctx); err != nil && !errors.Is(err, persistence.ErrGameClosing) {
+		return false, err
+	}
+	s.releaseOwnership(ctx, gameID, lease)
+	s.mu.RLock()
+	hook := s.actorStoppedHook
+	s.mu.RUnlock()
+	if hook != nil {
+		hook(gameID)
+	}
+	return true, nil
 }
 
 func (s *Service) stopFinishedActor(gameID string, expected *actor.GameActor) {

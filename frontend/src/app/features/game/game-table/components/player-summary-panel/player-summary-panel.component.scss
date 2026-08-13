@@ -2,10 +2,6 @@
   display: contents;
 }
 
-:host(.player-summary-panel-context) {
-  container-type: inline-size;
-}
-
 .player-summary-panel {
   position: relative;
   z-index: 720;
@@ -18,6 +14,7 @@
   max-width: 500px;
   min-width: 0;
   min-height: 0;
+  container-type: inline-size;
   padding: 0 0.48rem;
   border: 0;
   border-radius: 0;
@@ -80,6 +77,11 @@
 
 :host(.player-summary-panel-context) .player-summary-panel-long-name .player-avatar {
   display: none;
+}
+
+:host(.player-summary-panel-context) .player-summary-panel-long-name .player-copy {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 :host(.player-summary-panel-context) .player-summary-panel-long-name .player-summary-context-label {
@@ -484,32 +486,6 @@
   border-top: 1px solid rgb(255 238 183 / 10%);
 }
 
-.quick-concede-button {
-  width: 100%;
-  min-height: 1.28rem;
-  border: 0;
-  border-top: 1px solid rgb(255 238 183 / 10%);
-  background: rgb(131 28 28 / 34%);
-  color: rgb(255 211 201);
-  cursor: pointer;
-  font-size: 0.6rem;
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.quick-concede-button:hover,
-.quick-concede-button:focus-visible {
-  background: rgb(164 41 41 / 48%);
-  color: #fff4ef;
-}
-
-.quick-concede-button:focus-visible {
-  outline: 1px solid rgb(255 207 189 / 86%);
-  outline-offset: -2px;
-}
-
 .life-controls .player-extra-actions ::ng-deep .extra-actions {
   display: grid;
   width: 100%;
@@ -829,26 +805,13 @@
   }
 }
 
-@container (max-width: 18rem) {
-  :host(.player-summary-panel-context) .player-summary-panel {
-    grid-template-columns: minmax(0, 1fr) minmax(4.65rem, auto);
-  }
-
-  :host(.player-summary-panel-context) .player-avatar {
+@container (max-width: 250px) {
+  .player-avatar {
     display: none;
   }
 
-  :host(.player-summary-panel-context) .player-summary-context-label,
-  :host(.player-summary-panel-context) .player-copy {
-    grid-column: 1;
-  }
-
-  :host(.player-summary-panel-context) .life-controls {
-    grid-column: 2;
-    min-width: 4.65rem;
-  }
-
-  :host(.player-summary-panel-context) .summary-return-button {
-    grid-column: 2;
+  .player-summary-context-label,
+  .player-copy {
+    grid-column: 1 / 3;
   }
 }

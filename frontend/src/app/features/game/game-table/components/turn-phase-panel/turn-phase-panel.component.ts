@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameSnapshot } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
@@ -24,6 +24,17 @@ export class TurnPhasePanelComponent {
   readonly advancePhase = output<void>();
   readonly passTurn = output<void>();
   readonly followActiveTurnPlayerChanged = output<boolean>();
+  readonly activeTurnPlayerName = computed(() => {
+    const activePlayerId = this.turn().activePlayerId;
+    if (!activePlayerId) {
+      return null;
+    }
+
+    const player = this.players().find(({ id }) => id === activePlayerId);
+    const displayName = player?.state.user.displayName?.trim();
+
+    return displayName || null;
+  });
 
   isCurrentTurnPlayer(): boolean {
     const currentPlayerId = this.currentPlayerId();

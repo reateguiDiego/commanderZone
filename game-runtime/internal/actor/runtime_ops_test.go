@@ -2213,6 +2213,12 @@ func TestActorAcceptsStaleBaseVersionAfterPresenceOnlyVersionAdvance(t *testing.
 	if presenceResult.Event.Version != 2 || presenceResult.Event.Type != "disconnect.vote.updated" {
 		t.Fatalf("presence event mismatch: %#v", presenceResult.Event)
 	}
+	if snapshot := gameActor.Snapshot(); snapshot.Players["p2"]["isOnline"] != true {
+		t.Fatalf("online presence was not projected into player snapshot: %#v", snapshot.Players["p2"])
+	}
+	if patch := patchForVisibility(presenceResult.Patches, protocol.VisibilityPublic, "player.presence.set"); patch == nil || patch.Data["isOnline"] != true {
+		t.Fatalf("online presence patch = %#v, want player.presence.set true", presenceResult.Patches)
+	}
 
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "draw-after-presence", "library.draw", map[string]any{
 		"playerId": "p1",

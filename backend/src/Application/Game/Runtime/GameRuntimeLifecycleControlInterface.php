@@ -6,4 +6,7 @@ namespace App\Application\Game\Runtime;
 interface GameRuntimeLifecycleControlInterface
 {
     public function stopByGameId(string $gameId): void;
+
+    /** True when the actor was absent or hibernated; false when a reconnect owns it. */
+    public function hibernateByGameId(string $gameId): bool;
 }

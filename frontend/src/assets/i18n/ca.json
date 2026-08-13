@@ -669,6 +669,7 @@
       "playerDisconnected": "Jugador desconnectat",
       "yourVote": "El teu vot:",
       "timeRemaining": "Temps restant:",
+      "voteFinished": "Votació finalitzada",
       "targetPlayerBackOnline": "El jugador objectiu torna a estar en lÃ­nia."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Ordre de torn"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Torn: {{ name }}",
       "turnPhases": "Fases de torn",
       "focusTheActiveTurnPlayer": "Centrar el jugador de torn actiu",
       "focusTurn": "Gir de focus",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Registre del joc, accions no llegides",
       "chatUnreadMessages": "Xat, missatges no llegits",
       "moveCardToAnotherBattlefield": "Posa la carta en un altre camp de batalla",
-      "putIntoLibrary": "Posar a la biblioteca"
+      "putIntoLibrary": "Posar a la biblioteca",
+      "focusedOpponentLabel": "Estàs veient:",
+      "returnToOwnBattlefield": "Ves al teu camp de batalla",
+      "leaveTableConfirmationTitle": "Abandonar la taula?",
+      "leaveTableConfirmationMessage": "Concediràs aquesta partida i abandonaràs la sala. Aquesta acció no es pot desfer.",
+      "concedeGameConfirmationTitle": "Concedir la partida?",
+      "concedeGameConfirmationMessage": "Perdràs aquesta partida immediatament. Aquesta acció no es pot desfer."
     },
     "reactions": {
       "like": "Com",

@@ -25,21 +25,27 @@ final readonly class GameRuntimeStopWorker
         for ($index = 0; $index < max(1, $limit); ++$index) {
             $this->connection->beginTransaction();
             try {
-                $gameId = $this->connection->fetchOne(<<<'SQL'
-SELECT game_id
+                $job = $this->connection->fetchAssociative(<<<'SQL'
+SELECT game_id, action
 FROM game_runtime_stop_queue
 WHERE available_at <= CURRENT_TIMESTAMP
 ORDER BY available_at ASC, queued_at ASC
 LIMIT 1
 FOR UPDATE SKIP LOCKED
 SQL);
-                if (!is_string($gameId)) {
+                $gameId = is_array($job) ? ($job['game_id'] ?? null) : null;
+                $action = is_array($job) ? ($job['action'] ?? null) : null;
+                if (!is_string($gameId) || !in_array($action, ['hibernate', 'stop'], true)) {
                     $this->connection->commit();
                     break;
                 }
 
                 try {
-                    $this->runtimeControl->stopByGameId($gameId);
+                    if ($action === 'hibernate') {
+                        $this->runtimeControl->hibernateByGameId($gameId);
+                    } else {
+                        $this->runtimeControl->stopByGameId($gameId);
+                    }
                     $this->connection->executeStatement(
                         'DELETE FROM game_runtime_stop_queue WHERE game_id = :gameId',
                         ['gameId' => $gameId],

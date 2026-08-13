@@ -7605,6 +7605,9 @@ components:
           example: facedown_card
         life:
           type: integer
+        isOnline:
+          type: boolean
+          description: Current WebSocket presence for this player. Absent for legacy snapshots.
         zones:
           type: object
           required: [library, hand, battlefield, graveyard, exile, command]

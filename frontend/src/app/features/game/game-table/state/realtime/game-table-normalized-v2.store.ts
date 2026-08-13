@@ -63,6 +63,7 @@ export interface GameTableNormalizedV2PlayerState {
   user: BootstrapPlayerV2['user'];
   displayName: string;
   life: number;
+  isOnline?: boolean;
   status: string;
   handCount: number;
   zoneCounts: Partial<Record<GameZoneName, number>>;
@@ -561,6 +562,9 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         status: operation.status,
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
+
+    case 'player.presence.set':
+      return updatePlayer(state, operation.playerId, (player) => ({ ...player, isOnline: operation.isOnline }));
 
     case 'turn.set':
       return {
@@ -1967,6 +1971,7 @@ function hydratePlayerState(
       roles: [],
     },
     status: player.status as GamePlayerState['status'],
+    isOnline: player.isOnline,
     concededAt: player.concededAt ?? null,
     deckName: player.deckName ?? null,
     colorIdentity: [...player.colorIdentity],
@@ -2085,6 +2090,7 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     user: player.user,
     displayName: player.displayName,
     life: player.life,
+    isOnline: player.isOnline,
     status: player.status,
     handCount: player.handCount,
     zoneCounts: { ...player.zoneCounts },

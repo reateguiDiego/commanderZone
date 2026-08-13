@@ -78,11 +78,9 @@
 .room-title-line h2 {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--cz-text);
   font-size: calc(clamp(1.08rem, 1.65vw, 1.55rem) * var(--cz-text-fit-scale, 1));
   line-height: 1.05;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

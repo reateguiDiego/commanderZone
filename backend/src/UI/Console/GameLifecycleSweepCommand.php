@@ -78,6 +78,9 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
     {
         $results = $this->sweeper->sweep(new \DateTimeImmutable(), $batchSize);
         foreach ($results as $result) {
+            if ($result['type'] === 'runtime_hibernation_scheduled') {
+                continue;
+            }
             if ($result['type'] === 'room_ready') {
                 // The waiting-room topic carries the authoritative room state;
                 // game topic only instructs table clients to navigate.

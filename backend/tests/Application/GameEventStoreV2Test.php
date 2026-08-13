@@ -210,6 +210,7 @@ class GameEventStoreV2Test extends TestCase
         $event = new GameEvent($game, 'disconnect.vote.updated', [
             'targetPlayerId' => $target->id(),
             'status' => 'resolved_expel',
+            'isOnline' => false,
             'disconnectVotes' => [$target->id() => $disconnectVote],
             'concededAt' => '2026-01-01T00:00:11+00:00',
         ], $actor, 'runtime-disconnect-vote', 2);
@@ -217,6 +218,7 @@ class GameEventStoreV2Test extends TestCase
         $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
 
         self::assertSame([$target->id() => $disconnectVote], $rebuilt['disconnectVotes']);
+        self::assertFalse($rebuilt['players'][$target->id()]['isOnline']);
         self::assertSame('conceded', $rebuilt['players'][$target->id()]['status']);
         self::assertSame('2026-01-01T00:00:11+00:00', $rebuilt['players'][$target->id()]['concededAt']);
         self::assertSame(2, $rebuilt['version']);

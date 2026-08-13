@@ -453,6 +453,9 @@ final class GameEventReplayService
         }
 
         $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '';
+        if ($targetPlayerId !== '' && is_bool($payload['isOnline'] ?? null) && isset($snapshot['players'][$targetPlayerId])) {
+            $snapshot['players'][$targetPlayerId]['isOnline'] = $payload['isOnline'];
+        }
         if ($targetPlayerId !== '' && ($payload['status'] ?? null) === 'resolved_expel' && isset($snapshot['players'][$targetPlayerId])) {
             $snapshot['players'][$targetPlayerId]['status'] = 'conceded';
             if (is_string($payload['concededAt'] ?? null)) {

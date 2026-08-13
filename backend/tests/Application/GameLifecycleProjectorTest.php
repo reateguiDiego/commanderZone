@@ -72,7 +72,7 @@ final class GameLifecycleProjectorTest extends TestCase
         self::assertSame(GameLifecycleProjector::APPLIED, $projector->apply($game, $newer));
         self::assertSame(GameLifecycleProjector::STALE, $projector->apply($game, $stale));
         self::assertEquals($newer->occurredAt, $game->allDisconnectedSince());
-        self::assertEquals($newer->occurredAt->modify('+5 minutes'), $game->nextLifecycleAt());
+        self::assertEquals($newer->occurredAt->modify('+120 seconds'), $game->nextLifecycleAt());
     }
 
     public function testLaterReconnectAtSameGameplayVersionCancelsGraceDeadline(): void
@@ -92,6 +92,7 @@ final class GameLifecycleProjectorTest extends TestCase
 
         self::assertSame(GameLifecycleProjector::APPLIED, $result);
         self::assertNull($game->allDisconnectedSince());
+        self::assertNull($game->allDisconnectedHibernateRequestedAt());
         self::assertNull($game->nextLifecycleAt());
     }
 

@@ -10,6 +10,11 @@
         [turnNumber]="currentTurn.number"
       />
     </div>
+    @if (!isCurrentTurnPlayer() && activeTurnPlayerName(); as activePlayerName) {
+      <span class="active-turn-player-pill" data-testid="active-turn-player-pill">
+        {{ 'game.turnPhasePanel.activeTurnPlayer' | runtimeTranslate: { name: activePlayerName } }}
+      </span>
+    }
     <div class="turn-actions">
       @if (isCurrentTurnPlayer()) {
         <button

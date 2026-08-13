@@ -669,6 +669,7 @@
       "playerDisconnected": "Giocatore disconnesso",
       "yourVote": "Il tuo voto:",
       "timeRemaining": "Tempo rimanente:",
+      "voteFinished": "Votazione conclusa",
       "targetPlayerBackOnline": "Il giocatore bersaglio Ã¨ di nuovo online."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Ordine di turno"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Turno: {{ name }}",
       "turnPhases": "Fasi di svolta",
       "focusTheActiveTurnPlayer": "Focalizza il giocatore di turno attivo",
       "focusTurn": "Turno di messa a fuoco",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Registro di gioco, azioni non lette",
       "chatUnreadMessages": "Chat, messaggi non letti",
       "moveCardToAnotherBattlefield": "Sposta la carta su un altro campo di battaglia",
-      "putIntoLibrary": "Metti in grimorio"
+      "putIntoLibrary": "Metti in grimorio",
+      "focusedOpponentLabel": "Stai guardando:",
+      "returnToOwnBattlefield": "Vai al tuo campo di battaglia",
+      "leaveTableConfirmationTitle": "Lasciare il tavolo?",
+      "leaveTableConfirmationMessage": "Concederai questa partita e lascerai la stanza. Questa azione non può essere annullata.",
+      "concedeGameConfirmationTitle": "Concedere la partita?",
+      "concedeGameConfirmationMessage": "Perderai questa partita immediatamente. Questa azione non può essere annullata."
     },
     "reactions": {
       "like": "Mi piace",

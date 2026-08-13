@@ -87,6 +87,11 @@
   color: var(--cz-primary);
 }
 
+.defeated-skull {
+  flex: 0 0 auto;
+  color: var(--cz-danger);
+}
+
 .player-life {
   color: var(--muted);
   font-size: 0.82rem;

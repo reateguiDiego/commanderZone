@@ -41,6 +41,27 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
   });
 
+  it('renders the opponent username below the deck title', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-user-name"]')?.textContent?.trim()).toBe('Opponent');
+  });
+
+  it('renders an offline pill below the active turn pill when the opponent is offline', () => {
+    fixture.componentRef.setInput('isActiveTurnPlayer', true);
+    fixture.componentRef.setInput('isOffline', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-turn-pill"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-offline-pill"]')?.textContent?.trim()).toBe('Offline');
+  });
+
+  it('does not render an offline pill while the opponent is online', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-offline-pill"]')).toBeNull();
+  });
+
   it('passes mechanic cards to the mini battlefield overlay', () => {
     fixture.componentRef.setInput('mechanicCards', [cardInstance('monarch-card', 'The Monarch')]);
     fixture.detectChanges();

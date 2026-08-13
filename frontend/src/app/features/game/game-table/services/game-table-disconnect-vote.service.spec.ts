@@ -10,9 +10,11 @@ import { GameTableWebsocketTransportService } from './game-table-websocket-trans
 
 describe('GameTableDisconnectVoteService', () => {
   const snapshot = signal<GameSnapshot | null>(disconnectVotesSnapshot());
+  const playerOnlineByPlayerId = signal<Record<string, boolean>>({});
 
   beforeEach(() => {
     snapshot.set(disconnectVotesSnapshot());
+    playerOnlineByPlayerId.set({});
     TestBed.configureTestingModule({
       providers: [
         GameTableDisconnectVoteService,
@@ -34,7 +36,7 @@ describe('GameTableDisconnectVoteService', () => {
         },
         {
           provide: GameTableWebsocketTransportService,
-          useValue: { messages$: new Subject() },
+          useValue: { messages$: new Subject(), playerOnlineByPlayerId },
         },
       ],
     });
@@ -79,15 +81,54 @@ describe('GameTableDisconnectVoteService', () => {
     const service = TestBed.inject(GameTableDisconnectVoteService);
 
     TestBed.flushEffects();
-    expect(service.countdownSeconds()).toBe(0);
+    expect(service.countdownSeconds()).toBeGreaterThan(0);
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
 
     service.ngOnDestroy();
     setIntervalSpy.mockRestore();
   });
+
+  it('stops client voting when the visible deadline has elapsed', () => {
+    snapshot.set(disconnectVotesSnapshot(new Date(Date.now() - 1_000).toISOString()));
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    expect(service.countdownSeconds()).toBe(0);
+    expect(service.voteFinished()).toBe(true);
+    expect(service.canVote()).toBe(false);
+  });
+
+  it('projects websocket presence into the matching player snapshot entry', () => {
+    const messages = TestBed.inject(GameTableWebsocketTransportService).messages$ as Subject<unknown>;
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    expect(service.isPlayerOffline('player-2')).toBe(true);
+    expect(service.isPlayerOffline('player-1')).toBe(false);
+
+    messages.next({ kind: 'player_presence_changed', playerId: 'player-2', status: 'offline' });
+
+    expect(snapshot()?.players['player-2']?.isOnline).toBe(false);
+    expect(service.isPlayerOffline('player-2')).toBe(true);
+
+    messages.next({ kind: 'player_presence_changed', playerId: 'player-2', status: 'online' });
+
+    expect(snapshot()?.players['player-2']?.isOnline).toBe(true);
+    expect(service.isPlayerOffline('player-2')).toBe(false);
+  });
+
+  it('does not retain offline presence after the persisted transition is cancelled', () => {
+    const cancelledSnapshot = disconnectVotesSnapshot();
+    cancelledSnapshot.disconnectVotes!['player-2'] = {
+      ...cancelledSnapshot.disconnectVotes!['player-2']!,
+      status: 'cancelled',
+    };
+    snapshot.set(cancelledSnapshot);
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    expect(service.isPlayerOffline('player-2')).toBe(false);
+  });
 });
 
-function disconnectVotesSnapshot(): GameSnapshot {
+function disconnectVotesSnapshot(deadlineAt = new Date(Date.now() + 60_000).toISOString()): GameSnapshot {
   return {
     version: 8,
     players: {
@@ -101,8 +142,8 @@ function disconnectVotesSnapshot(): GameSnapshot {
     chat: [],
     eventLog: [],
     disconnectVotes: {
-      'player-2': vote('player-2', '2026-01-01T00:00:00.000Z'),
-      'player-3': vote('player-3', '2026-01-01T00:00:01.000Z'),
+      'player-2': vote('player-2', '2026-01-01T00:00:00.000Z', deadlineAt),
+      'player-3': vote('player-3', '2026-01-01T00:00:01.000Z', deadlineAt),
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   };
@@ -119,12 +160,12 @@ function player(displayName: string) {
   };
 }
 
-function vote(targetPlayerId: string, openedAt: string) {
+function vote(targetPlayerId: string, openedAt: string, deadlineAt: string) {
   return {
     targetPlayerId,
     status: 'open' as const,
     openedAt,
-    deadlineAt: '2026-01-01T00:01:00.000Z',
+    deadlineAt,
     cooldownUntil: null,
     eligible: ['player-1'],
     votes: {},

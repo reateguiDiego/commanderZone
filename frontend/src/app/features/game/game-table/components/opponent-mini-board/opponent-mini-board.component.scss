@@ -126,21 +126,40 @@
   gap: 0.52rem;
 }
 
-.opponent-deck-title {
+.opponent-player-identity {
   flex: 1 1 auto;
+  display: grid;
+  min-width: 0;
+  gap: 0.06rem;
+}
+
+.opponent-deck-title {
   min-width: 0;
   padding: 0.03rem 0 0.08rem 5px;
   color: rgb(255 255 255 / 94%);
   font-family: var(--font-display, inherit);
-  font-size: 0.84rem;
-  font-weight: 820;
-  letter-spacing: 0;
-  line-height: 1.22;
+  font-size: 0.96rem;
+  font-weight: 900;
+  letter-spacing: 0.012em;
+  line-height: 1.16;
   overflow: visible;
   text-overflow: clip;
   text-shadow:
     0 1px 0 rgb(0 0 0 / 82%),
     0 0 0.5rem color-mix(in srgb, var(--player-card-border, var(--gold, #d7b46a)) 18%, transparent);
+  white-space: nowrap;
+}
+
+.opponent-user-name {
+  min-width: 0;
+  padding-left: 5px;
+  overflow: hidden;
+  color: rgb(232 225 208 / 64%);
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 68%);
   white-space: nowrap;
 }
 
@@ -194,6 +213,12 @@
   gap: 0.36rem;
 }
 
+.opponent-presence-pills {
+  display: grid;
+  justify-items: center;
+  gap: 0.18rem;
+}
+
 .opponent-turn-pill {
   padding: 0 0.52rem;
   border-color: color-mix(in srgb, var(--gold, #d7b46a) 58%, rgb(255 255 255 / 10%));
@@ -206,6 +231,28 @@
     0 0.35rem 0.75rem rgb(0 0 0 / 26%),
     0 0 0.82rem color-mix(in srgb, var(--gold, #d7b46a) 36%, transparent);
   animation: active-turn-pill-pulse 1.85s ease-in-out infinite;
+}
+
+.opponent-offline-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.08rem;
+  padding: 0 0.42rem;
+  border: 1px solid rgb(var(--cz-danger-rgb) / 54%);
+  border-radius: 999px;
+  background: var(--cz-danger);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+    0 0 0.55rem rgb(var(--cz-danger-rgb) / 16%);
+  color: var(--cz-text);
+  font-size: 0.56rem;
+  font-weight: 860;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 64%);
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .opponent-life {
@@ -501,7 +548,7 @@
   }
 
   .opponent-deck-title {
-    font-size: 0.78rem;
+    font-size: 0.86rem;
   }
 
   .opponent-targeting-pill {
@@ -550,7 +597,7 @@
   }
 
   .opponent-deck-title {
-    font-size: 0.72rem;
+    font-size: 0.78rem;
   }
 
   .opponent-life {

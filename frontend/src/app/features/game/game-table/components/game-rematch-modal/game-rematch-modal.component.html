@@ -39,6 +39,8 @@
           <span class="player-name">
             @if (player.winner) {
               <lucide-icon class="winner-crown" name="crown" size="17" aria-hidden="true" />
+            } @else if (player.defeated) {
+              <lucide-icon class="defeated-skull" name="skull" size="17" aria-hidden="true" />
             }
             {{ player.displayName }}
           </span>

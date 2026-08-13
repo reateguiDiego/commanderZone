@@ -90,6 +90,7 @@ export class OpponentMiniBoardComponent {
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly arrowTargeting = input(false);
   readonly isActiveTurnPlayer = input(false);
+  readonly isOffline = input(false);
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
   readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);

@@ -223,12 +223,6 @@
   pointer-events: none;
 }
 
-@media (max-width: 1180px) {
-  .card-preview-overlay {
-    display: none;
-  }
-}
-
 @keyframes card-preview-face-flip {
   0% {
     filter: brightness(1) saturate(1);

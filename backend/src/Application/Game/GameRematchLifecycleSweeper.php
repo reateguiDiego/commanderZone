@@ -4,6 +4,7 @@ namespace App\Application\Game;
 
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeStopQueue;
+use App\Application\Game\Lifecycle\AllDisconnectedGracePolicy;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -21,6 +22,7 @@ final readonly class GameRematchLifecycleSweeper
         private GameRematchService $rematch,
         private GameRuntimeClosingFence $closingFence,
         private GameRuntimeStopQueue $runtimeStopQueue,
+        private AllDisconnectedGracePolicy $allDisconnectedGrace,
     ) {
     }
 
@@ -30,9 +32,10 @@ final readonly class GameRematchLifecycleSweeper
         $results = [];
         for ($index = 0; $index < max(1, $limit); ++$index) {
             $result = $this->sweepNextDueGame($now);
-            if ($result !== null) {
-                $results[] = $result;
+            if ($result === null) {
+                break;
             }
+            $results[] = $result;
         }
 
         return $results;
@@ -72,12 +75,24 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
                     return null;
                 }
 
+                if ($game->allDisconnectedHibernateRequestedAt() === null) {
+                    $expiresAt = $this->allDisconnectedGrace->expiresAt($game->allDisconnectedSince());
+                    if ($expiresAt > $now && $game->scheduleAllDisconnectedHibernation($now, $expiresAt)) {
+                        $this->runtimeStopQueue->enqueueHibernate($gameId);
+                        $this->entityManager->flush();
+                        $this->entityManager->commit();
+                        $this->entityManager->clear();
+
+                        return ['type' => 'runtime_hibernation_scheduled', 'game' => $game, 'roomId' => $room->id()];
+                    }
+                }
+
                 // Commit the durable fence before any delete. Go checks it in
                 // both lease and persistence SQL, so no runtime can append
                 // while the subsequent post-commit stop is routed.
                 $roomId = $room->id();
                 $this->closingFence->claim($gameId);
-                $this->runtimeStopQueue->enqueue($gameId);
+                $this->runtimeStopQueue->enqueueStop($gameId);
                 $this->deleteRuntimeArtifacts($gameId);
                 $room->detachGame();
                 // Room owns the nullable game FK. Persist the detach before
@@ -107,7 +122,7 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
             $roomId = $room->id();
             $eligible = $this->rematch->eligiblePlayAgainPlayerIds($room, $game);
             $this->closingFence->claim($gameId);
-            $this->runtimeStopQueue->enqueue($gameId);
+            $this->runtimeStopQueue->enqueueStop($gameId);
             $this->deleteRuntimeArtifacts($gameId);
             if (count($eligible) >= Room::MIN_PLAYERS && $this->rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
                 $room->returnToWaitingForRematch($this->rematch->rematchOwner($room, $eligible), $eligible);

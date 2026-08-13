@@ -63,7 +63,6 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
-              [allowQuickConcede]="true"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
@@ -71,7 +70,6 @@
               (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
-              (quickConcedeRequested)="store.concedeGame()"
             />
           }
 
@@ -289,39 +287,53 @@
             />
           }
 
-          @if (focusedOpponentPlayer(); as battlefieldOwner) {
-            <div
-              class="battlefield-owner-summary"
-              data-testid="battlefield-owner-summary"
-              (click)="$event.stopPropagation()"
-              (contextmenu)="$event.stopPropagation()"
-            >
-              <app-player-summary-panel
-                class="player-summary-panel-context"
-                contextLabel="Estas viendo a:"
-                returnActionLabel="Ir a tu battlefield"
-                [player]="battlefieldOwner"
-                [players]="store.players()"
-                [colorAccent]="colorAccent"
-                [deckLabel]="deckLabel"
-                [manaSymbols]="manaSymbols"
-                [playerCounterValue]="playerCounterValue"
-                [canEditCounters]="false"
-                [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
-                (helperPreviewRequested)="showHelperPreview($event)"
-                (helperPreviewHidden)="store.hideCardPreview()"
-                (helperContextRequested)="handleHelperContextRequest($event)"
-                (returnRequested)="returnToCurrentPlayerBattlefield()"
-              />
-            </div>
-          }
+          <div class="battlefield-top-left-controls">
+            @if (focusedOpponentPlayer(); as battlefieldOwner) {
+              <div
+                class="battlefield-owner-summary"
+                data-testid="battlefield-owner-summary"
+                (click)="$event.stopPropagation()"
+                (contextmenu)="$event.stopPropagation()"
+              >
+                <app-player-summary-panel
+                  class="player-summary-panel-context"
+                  [contextLabel]="'game.gameTable.focusedOpponentLabel' | runtimeTranslate"
+                  [returnActionLabel]="'game.gameTable.returnToOwnBattlefield' | runtimeTranslate"
+                  [player]="battlefieldOwner"
+                  [players]="store.players()"
+                  [colorAccent]="colorAccent"
+                  [deckLabel]="deckLabel"
+                  [manaSymbols]="manaSymbols"
+                  [playerCounterValue]="playerCounterValue"
+                  [canEditCounters]="false"
+                  [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+                  (helperPreviewRequested)="showHelperPreview($event)"
+                  (helperPreviewHidden)="store.hideCardPreview()"
+                  (helperContextRequested)="handleHelperContextRequest($event)"
+                  (returnRequested)="returnToCurrentPlayerBattlefield()"
+                />
+              </div>
+            }
 
-          @if (shouldShowRematchVotesButton()) {
-            <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
-              <lucide-icon name="vote" size="16" />
-              <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
-            </button>
-          }
+            @if (canConcedeFromBattlefieldControls()) {
+              <button
+                class="battlefield-concede-button danger-button"
+                data-testid="battlefield-concede"
+                type="button"
+                (click)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
+              >
+                <lucide-icon name="skull" size="16" />
+                <span>{{ 'game.contextMenu.labels.concede' | runtimeTranslate }}</span>
+              </button>
+            }
+
+            @if (shouldShowRematchVotesButton()) {
+              <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
+                <lucide-icon name="vote" size="16" />
+                <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
+              </button>
+            }
+          </div>
 
           <app-focused-battlefield
             [player]="player"
@@ -485,6 +497,7 @@
               [isCardTransferPending]="isCardTransferPending"
               [arrowTargeting]="manualRelationTargetingActive()"
               [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
+              [isOffline]="player.state.isOnline === false"
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
               [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
@@ -547,7 +560,7 @@
         [title]="tableExitTitle()"
         [message]="tableExitMessage()"
         [primaryLabel]="tableExitPrimaryLabel()"
-        secondaryLabel="Cancel"
+        secondaryLabel="common.modal.cancel"
         [danger]="true"
         [lockBodyScroll]="false"
         (primary)="confirmTableExitAction()"
@@ -577,6 +590,7 @@
         [canVote]="disconnectVote.canVote()"
         [pending]="disconnectVote.pending()"
         [countdownSeconds]="disconnectVote.countdownSeconds()"
+        [voteFinished]="disconnectVote.voteFinished()"
         [error]="disconnectVote.error()"
         (voteWait)="voteDisconnectWait()"
         (voteExpel)="voteDisconnectExpel()"

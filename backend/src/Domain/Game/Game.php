@@ -56,6 +56,14 @@ class Game
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $allDisconnectedSince = null;
 
+    /**
+     * Durable acknowledgement that the runtime hibernation job was scheduled.
+     * It prevents the lifecycle sweeper from enqueueing the same low-frequency
+     * operation on every pass while keeping the final expiry independently due.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $allDisconnectedHibernateRequestedAt = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $nextLifecycleAt = null;
 
@@ -243,14 +251,28 @@ class Game
         $this->touch();
     }
 
-    public function markAllDisconnected(\DateTimeImmutable $since): void
+    public function markAllDisconnected(\DateTimeImmutable $since, \DateTimeImmutable $hibernateAt): void
     {
         if ($this->status === self::STATUS_FINISHED) {
             return;
         }
         $this->allDisconnectedSince = $since;
-        $this->nextLifecycleAt = $since->modify('+5 minutes');
+        $this->allDisconnectedHibernateRequestedAt = null;
+        $this->nextLifecycleAt = $hibernateAt;
         $this->touch();
+    }
+
+    public function scheduleAllDisconnectedHibernation(\DateTimeImmutable $requestedAt, \DateTimeImmutable $expiresAt): bool
+    {
+        if ($this->status === self::STATUS_FINISHED || $this->allDisconnectedSince === null || $this->allDisconnectedHibernateRequestedAt !== null) {
+            return false;
+        }
+
+        $this->allDisconnectedHibernateRequestedAt = $requestedAt;
+        $this->nextLifecycleAt = $expiresAt;
+        $this->touch();
+
+        return true;
     }
 
     public function cancelAllDisconnected(): void
@@ -259,6 +281,7 @@ class Game
             return;
         }
         $this->allDisconnectedSince = null;
+        $this->allDisconnectedHibernateRequestedAt = null;
         $this->nextLifecycleAt = null;
         $this->touch();
     }
@@ -302,6 +325,11 @@ class Game
     public function nextLifecycleAt(): ?\DateTimeImmutable
     {
         return $this->nextLifecycleAt;
+    }
+
+    public function allDisconnectedHibernateRequestedAt(): ?\DateTimeImmutable
+    {
+        return $this->allDisconnectedHibernateRequestedAt;
     }
 
     public function room(): Room

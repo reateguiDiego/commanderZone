@@ -661,7 +661,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "Abstimmung bei Verbindungsabbruch",
-      "expel": "Entfernen",
+      "expel": "Ausschließen",
       "genericDisconnectedMessage": "Ein Spieler hat die Verbindung verloren. Stimme ab, ob ihr auf seine RÃ¼ckkehr wartet oder ihn vom Tisch entfernt.",
       "noVote": "Keine Abstimmung",
       "playerDisconnectedMessage": "{{ playerName }} hat die Verbindung verloren. Stimme ab, ob ihr auf die RÃ¼ckkehr wartet oder ihn vom Tisch entfernt.",
@@ -669,6 +669,7 @@
       "playerDisconnected": "Spielerverbindung getrennt",
       "yourVote": "Deine Stimme:",
       "timeRemaining": "Verbleibende Zeit:",
+      "voteFinished": "Abstimmung beendet",
       "targetPlayerBackOnline": "Der Zielspieler ist wieder online."
     },
     "gameRematchModal": {
@@ -752,6 +753,7 @@
       "turnOrder": "Turn-Reihenfolge"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Zug: {{ name }}",
       "turnPhases": "Wendephasen",
       "focusTheActiveTurnPlayer": "Fokussiere den Spieler, der am Zug ist",
       "focusTurn": "Fokusdrehung",
@@ -796,7 +798,13 @@
       "gameLogUnreadActions": "Spielprotokoll, ungelesene Aktionen",
       "chatUnreadMessages": "Chat, ungelesene Nachrichten",
       "moveCardToAnotherBattlefield": "Karte auf ein anderes Spielfeld legen",
-      "putIntoLibrary": "In die Bibliothek legen"
+      "putIntoLibrary": "In die Bibliothek legen",
+      "focusedOpponentLabel": "Du siehst:",
+      "returnToOwnBattlefield": "Zu deinem Schlachtfeld gehen",
+      "leaveTableConfirmationTitle": "Tisch verlassen?",
+      "leaveTableConfirmationMessage": "Du gibst dieses Spiel auf und verlässt den Raum. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "concedeGameConfirmationTitle": "Spiel aufgeben?",
+      "concedeGameConfirmationMessage": "Du verlierst dieses Spiel sofort. Diese Aktion kann nicht rückgängig gemacht werden."
     },
     "reactions": {
       "like": "Wie",

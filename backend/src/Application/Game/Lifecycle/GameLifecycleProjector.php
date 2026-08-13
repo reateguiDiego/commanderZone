@@ -10,6 +10,13 @@ final class GameLifecycleProjector
     public const DUPLICATE = 'duplicate';
     public const STALE = 'stale';
 
+    private readonly AllDisconnectedGracePolicy $allDisconnectedGrace;
+
+    public function __construct(?AllDisconnectedGracePolicy $allDisconnectedGrace = null)
+    {
+        $this->allDisconnectedGrace = $allDisconnectedGrace ?? new AllDisconnectedGracePolicy();
+    }
+
     public function apply(Game $game, GameLifecycleHandoff $handoff): string
     {
         if ($handoff->gameId !== $game->id()) {
@@ -34,7 +41,7 @@ final class GameLifecycleProjector
             }
             $game->projectFinished($handoff->winnerPlayerId, $handoff->occurredAt, (string) $handoff->finishReason);
         } elseif ($handoff->type === GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED) {
-            $game->markAllDisconnected($handoff->occurredAt);
+            $game->markAllDisconnected($handoff->occurredAt, $this->allDisconnectedGrace->hibernateAt($handoff->occurredAt));
         } elseif ($handoff->type === GameLifecycleHandoff::ALL_DISCONNECTED_CANCELLED) {
             $game->cancelAllDisconnected();
         }
@@ -71,4 +78,3 @@ final class GameLifecycleProjector
         return $cursor['occurredAt'] instanceof \DateTimeImmutable && $handoff->occurredAt <= $cursor['occurredAt'];
     }
 }
-

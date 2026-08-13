@@ -147,8 +147,59 @@ func TestAllDisconnectedClearsVotesInSnapshotWithoutGameplayEvent(t *testing.T) 
 	if votes := gameActor.Snapshot().DisconnectVotes; len(votes) != 0 {
 		t.Fatalf("votes retained with zero connected players: %#v", votes)
 	}
+	for playerID, player := range gameActor.Snapshot().Players {
+		if online, ok := player["isOnline"].(bool); !ok || online {
+			t.Fatalf("player %s presence = %#v, want offline", playerID, player["isOnline"])
+		}
+	}
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || !hibernated {
+		t.Fatalf("hibernate all-offline actor = %v, %v", hibernated, err)
+	}
+	recovered, _, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("recover all-offline actor: %v", err)
+	}
+	for playerID, player := range recovered.Snapshot().Players {
+		if online, ok := player["isOnline"].(bool); !ok || online {
+			t.Fatalf("recovered player %s presence = %#v, want offline", playerID, player["isOnline"])
+		}
+	}
 	if events, err := store.EventsAfter(context.Background(), gameID, 0); err != nil || len(events) != 1 {
 		t.Fatalf("all-disconnected cleanup appended gameplay event: events=%#v err=%v", events, err)
+	}
+}
+
+func TestHibernateActorDefersToAnActiveConnectionAndThenReleasesIt(t *testing.T) {
+	gameID := "game-hibernate-connection"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	defer shutdownService(t, service)
+
+	gameActor, first, release, err := service.AcquireConnection(context.Background(), gameID)
+	if err != nil || !first || gameActor == nil {
+		t.Fatalf("acquire connection: actor=%v first=%v err=%v", gameActor, first, err)
+	}
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || hibernated {
+		t.Fatalf("hibernate while connected = hibernated=%v err=%v", hibernated, err)
+	}
+	if current, ok := service.Actor(gameID); !ok || current != gameActor {
+		t.Fatal("active connection lost its actor")
+	}
+
+	release()
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || !hibernated {
+		t.Fatalf("hibernate after release = hibernated=%v err=%v", hibernated, err)
+	}
+	if _, ok := service.Actor(gameID); ok {
+		t.Fatal("hibernated actor remained registered")
+	}
+
+	recovered, created, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil || !created || recovered == nil {
+		t.Fatalf("recover hibernated actor: actor=%v created=%v err=%v", recovered, created, err)
 	}
 }
 

@@ -73,46 +73,6 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(parentContextMenu).not.toHaveBeenCalled();
   });
 
-  it('shows the quick Concede action when life is zero or below and emits the existing action request', () => {
-    const fixture = createFixture({ allowQuickConcede: true, life: 0 });
-    const requested = vi.fn();
-    fixture.componentInstance.quickConcedeRequested.subscribe(requested);
-
-    const button = fixture.nativeElement.querySelector('[data-testid="player-summary-quick-concede"]') as HTMLButtonElement;
-
-    expect(button.textContent?.trim()).toBe('Concede');
-    button.click();
-
-    expect(requested).toHaveBeenCalledOnce();
-  });
-
-  it('shows the quick Concede action when any commander damage reaches 21', () => {
-    const fixture = createFixture({
-      allowQuickConcede: true,
-      commanderDamage: {
-        'commander-1': 21,
-      },
-    });
-
-    expect(fixture.nativeElement.querySelector('[data-testid="player-summary-quick-concede"]')).not.toBeNull();
-  });
-
-  it('shows one quick Concede action when both thresholds apply', () => {
-    const fixture = createFixture({
-      allowQuickConcede: true,
-      life: 0,
-      commanderDamage: { 'commander-1': 21 },
-    });
-
-    expect(fixture.nativeElement.querySelectorAll('[data-testid="player-summary-quick-concede"]')).toHaveLength(1);
-  });
-
-  it('does not show quick Concede for an active player below both thresholds', () => {
-    const fixture = createFixture({ allowQuickConcede: true, life: 1, commanderDamage: { 'commander-1': 20 } });
-
-    expect(fixture.nativeElement.querySelector('[data-testid="player-summary-quick-concede"]')).toBeNull();
-  });
-
   it('clamps life changes between -99 and 499 before emitting', () => {
     vi.useFakeTimers();
     const fixture = createFixture({ life: 499 });
@@ -291,6 +251,9 @@ describe('PlayerSummaryPanelComponent', () => {
     const returnRequested = vi.fn();
     fixture.componentInstance.returnRequested.subscribe(returnRequested);
 
+    const summaryPanel = fixture.nativeElement.querySelector('[data-testid="player-summary-panel"]') as HTMLElement;
+    expect(summaryPanel.classList.contains('player-summary-panel-long-name')).toBe(true);
+
     const returnButton = fixture.nativeElement.querySelector('[data-testid="return-own-battlefield"]') as HTMLButtonElement;
 
     returnButton.click();
@@ -363,7 +326,6 @@ describe('PlayerSummaryPanelComponent', () => {
 function createFixture(
   options: {
     canEditCounters?: boolean;
-    allowQuickConcede?: boolean;
     counterValues?: Partial<Record<string, number>>;
     contextLabel?: string;
     displayName?: string;
@@ -391,7 +353,6 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
-  fixture.componentRef.setInput('allowQuickConcede', options.allowQuickConcede ?? false);
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);

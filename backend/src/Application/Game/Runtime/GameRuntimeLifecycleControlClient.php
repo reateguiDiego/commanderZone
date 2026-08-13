@@ -27,13 +27,21 @@ final readonly class GameRuntimeLifecycleControlClient implements GameRuntimeLif
         $this->request(['gameId' => $gameId, 'action' => 'stop']);
     }
 
+    public function hibernateByGameId(string $gameId): bool
+    {
+        $response = $this->request(['gameId' => $gameId, 'action' => 'hibernate']);
+
+        return (bool) ($response['hibernated'] ?? false);
+    }
+
     public function release(string $gameId): void
     {
         $this->request(['gameId' => $gameId, 'action' => 'release']);
     }
 
     /** @param array<string,string> $payload */
-    private function request(array $payload): void
+    /** @return array<string,mixed> */
+    private function request(array $payload): array
     {
         try {
             $response = $this->httpClient->request('POST', rtrim($this->runtimeUrl, '/').'/lifecycle/stop', [
@@ -43,6 +51,9 @@ final readonly class GameRuntimeLifecycleControlClient implements GameRuntimeLif
             if ($response->getStatusCode() >= 300) {
                 throw new GameRuntimeGatewayException('Runtime lifecycle request was rejected.');
             }
+            $decoded = $response->toArray(false);
+
+            return is_array($decoded) ? $decoded : [];
         } catch (ExceptionInterface $exception) {
             throw new GameRuntimeGatewayException('Runtime lifecycle request failed: '.$exception->getMessage(), 0, $exception);
         }
