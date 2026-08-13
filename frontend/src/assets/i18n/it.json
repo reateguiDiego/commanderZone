@@ -363,7 +363,8 @@
       "thisPlayer": "questo giocatore",
       "tieBreakRoll": "Lancio di spareggio",
       "tieBreakRollMessage": "Hai pareggiato con {{ playerNames }}. Lancia di nuovo per risolvere il pareggio.",
-      "waitingForDecksAndRolls": "In attesa di mazzi e lanci"
+      "waitingForDecksAndRolls": "In attesa di mazzi e lanci",
+      "realtimeUnavailable": "La connessione in tempo reale si sta ripristinando. Le modifiche alla stanza potrebbero subire ritardi."
     },
     "setup": {
       "gameSetupLifeControl": {

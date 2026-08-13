@@ -98,6 +98,9 @@ class Room
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $waitingExpiresAt = null;
+
     public function __construct(User $owner)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -296,6 +299,21 @@ class Room
         return $this->game;
     }
 
+    public function waitingExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->waitingExpiresAt;
+    }
+
+    public function scheduleWaitingExpiry(\DateTimeImmutable $expiresAt): void
+    {
+        if ($this->status !== self::STATUS_WAITING || $this->game !== null) {
+            return;
+        }
+
+        $this->waitingExpiresAt = $expiresAt;
+        $this->touch();
+    }
+
     public function addPlayer(RoomPlayer $player): bool
     {
         foreach ($this->players as $existing) {
@@ -430,6 +448,7 @@ class Room
     {
         $this->status = self::STATUS_STARTED;
         $this->game = $game;
+        $this->waitingExpiresAt = null;
         $this->waitingLogEntries->clear();
         $this->touch();
     }

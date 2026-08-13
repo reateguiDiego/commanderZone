@@ -363,7 +363,8 @@
       "thisPlayer": "este jogador",
       "tieBreakRoll": "Rolagem de desempate",
       "tieBreakRollMessage": "VocÃª empatou com {{ playerNames }}. Role de novo para desempatar.",
-      "waitingForDecksAndRolls": "Aguardando decks e rolagens"
+      "waitingForDecksAndRolls": "Aguardando decks e rolagens",
+      "realtimeUnavailable": "A ligação em tempo real está a recuperar. As alterações na sala podem sofrer atraso."
     },
     "setup": {
       "gameSetupLifeControl": {

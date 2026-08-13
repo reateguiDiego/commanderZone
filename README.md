@@ -169,7 +169,7 @@ The production frontend currently targets:
 - API: `https://api.commanderzone.com`
 - Mercure: `https://api.commanderzone.com/.well-known/mercure`
 
-Backend production values must be provided by the hosting environment or by an untracked `backend/.env.prod`. Use `backend/.env.prod.example` as a template and never commit real secrets.
+Backend production values must be provided by the hosting environment or by the untracked root `.env.prod`. Never commit real secrets.
 
 ## GitHub Actions (CI/CD)
 
@@ -200,6 +200,11 @@ For production safety, `HETZNER_ENV_FILE` is mandatory and must be exactly:
 - `/opt/commanderZone/.env.prod`
 
 Deploys are rejected if that path is missing, different, points to `.env`, or does not exist on the server.
+
+The backend deploy starts and verifies one `lifecycle-sweeper` and one
+`runtime-stop-worker` after migrations. They are required for the 120-second
+hot grace, runtime hibernation, and final 30-minute cleanup of an entirely
+offline game.
 
 ### Frontend deploy requirements
 

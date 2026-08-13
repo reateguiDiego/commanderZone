@@ -83,6 +83,10 @@ export class RoomsApi {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {});
   }
 
+  presence(roomId: string): Observable<void> {
+    return this.http.post<void>(`${API_BASE_URL}/rooms/${roomId}/presence`, {});
+  }
+
   leave(roomId: string, _skipGlobalLoading = false): Observable<LeaveRoomResponse> {
     return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
   }

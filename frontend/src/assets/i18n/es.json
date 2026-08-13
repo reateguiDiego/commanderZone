@@ -363,7 +363,8 @@
       "thisPlayer": "este jugador",
       "tieBreakRoll": "Tirada de desempate",
       "tieBreakRollMessage": "Has empatado con {{ playerNames }}. Vuelve a tirar para romper el empate.",
-      "waitingForDecksAndRolls": "Esperando mazos y tiradas"
+      "waitingForDecksAndRolls": "Esperando mazos y tiradas",
+      "realtimeUnavailable": "La conexión en tiempo real se está recuperando. Los cambios de la sala pueden retrasarse."
     },
     "setup": {
       "gameSetupLifeControl": {

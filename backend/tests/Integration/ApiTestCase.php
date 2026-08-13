@@ -189,6 +189,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureDeckLikeTable($connection);
         $this->ensureDeckEditorTokenSnapshotTable($connection);
         $this->ensureRoomMulliganColumns($connection);
+        $this->ensureWaitingRoomExpiryColumn($connection);
         $this->ensureUserThemeColumn($connection);
         $this->ensureUserPublicHandleColumn($connection);
         $this->ensureUserRoleTables($connection);
@@ -200,6 +201,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureAllDisconnectedHibernateColumn($connection);
         $this->ensureGameRuntimeClosingTable($connection);
         $this->ensureGameRuntimeStopQueueTable($connection);
+        $this->ensureGameRuntimeLifecycleOutboxTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -219,6 +221,7 @@ abstract class ApiTestCase extends WebTestCase
             'game_snapshot_compact',
             'game_runtime_closing',
             'game_runtime_stop_queue',
+            'game_runtime_lifecycle_outbox',
             'game',
             'room_waiting_log_entry',
             'room_player',
@@ -268,6 +271,12 @@ SQL);
         $connection->executeStatement('ALTER TABLE game ADD COLUMN IF NOT EXISTS all_disconnected_hibernate_requested_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
+    private function ensureWaitingRoomExpiryColumn(Connection $connection): void
+    {
+        $connection->executeStatement('ALTER TABLE room ADD COLUMN IF NOT EXISTS waiting_expires_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_room_waiting_expires_at ON room (waiting_expires_at) WHERE waiting_expires_at IS NOT NULL');
+    }
+
     private function ensureGameRuntimeStopQueueTable(Connection $connection): void
     {
         $connection->executeStatement(<<<'SQL'
@@ -281,6 +290,25 @@ CREATE TABLE IF NOT EXISTS game_runtime_stop_queue (
 SQL);
         $connection->executeStatement("ALTER TABLE game_runtime_stop_queue ADD COLUMN IF NOT EXISTS action VARCHAR(16) NOT NULL DEFAULT 'stop'");
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_game_runtime_stop_queue_available_at ON game_runtime_stop_queue (available_at, queued_at)');
+    }
+
+    private function ensureGameRuntimeLifecycleOutboxTable(Connection $connection): void
+    {
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_runtime_lifecycle_outbox (
+    event_id VARCHAR(120) NOT NULL PRIMARY KEY,
+    game_id VARCHAR(36) NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    generation INT NOT NULL,
+    fencing BIGINT NOT NULL,
+    version INT NOT NULL,
+    occurred_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
+    queued_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
+    available_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
+    attempts INT NOT NULL DEFAULT 0
+)
+SQL);
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_game_runtime_lifecycle_outbox_available_at ON game_runtime_lifecycle_outbox (available_at, queued_at)');
     }
 
     private function ensureCardImageStatusColumn(Connection $connection): void

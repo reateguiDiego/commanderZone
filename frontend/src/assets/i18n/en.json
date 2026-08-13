@@ -363,7 +363,8 @@
       "thisPlayer": "this player",
       "tieBreakRoll": "Tie-break roll",
       "tieBreakRollMessage": "You tied with {{ playerNames }}. Roll again to break the tie.",
-      "waitingForDecksAndRolls": "Waiting for decks and rolls"
+      "waitingForDecksAndRolls": "Waiting for decks and rolls",
+      "realtimeUnavailable": "The real-time connection is recovering. Room changes may be delayed."
     },
     "setup": {
       "gameSetupLifeControl": {

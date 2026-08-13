@@ -853,6 +853,31 @@ func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *te
 	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllPlayersDisconnected, gameID)
 }
 
+func TestWebSocketLastDisconnectRetriesTransientLifecycleHandoffFailure(t *testing.T) {
+	gameID := "game-presence-retry"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	sink := &flakyPresenceLifecycleSink{failuresRemaining: 1, handoffs: make(chan lifecycle.Handoff, 1)}
+	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
+		store,
+		128,
+		nil,
+		runtimesvc.WithLifecycleSink(sink, 1),
+	)
+	defer shutdownRuntimeService(t, runtimeService)
+	if _, _, err := runtimeService.LoadActorRecovered(context.Background(), gameID, nil); err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+
+	handler := NewWebSocketServer(nil, runtimeService)
+	handler.deliverPresenceLifecycle(gameID, lifecycle.AllPlayersDisconnected, time.Now().UTC())
+
+	if sink.attempts != 2 {
+		t.Fatalf("handoff attempts = %d, want 2", sink.attempts)
+	}
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllPlayersDisconnected, gameID)
+}
+
 func TestWebSocketReconnectCancelsAllDisconnectedGrace(t *testing.T) {
 	gameID := "game-presence-grace-cancel"
 	store := persistence.NewInMemoryEventStore()
@@ -1484,6 +1509,22 @@ type recordingPresenceLifecycleSink struct {
 }
 
 func (s *recordingPresenceLifecycleSink) Deliver(_ context.Context, handoff lifecycle.Handoff) error {
+	s.handoffs <- handoff
+	return nil
+}
+
+type flakyPresenceLifecycleSink struct {
+	failuresRemaining int
+	attempts          int
+	handoffs          chan lifecycle.Handoff
+}
+
+func (s *flakyPresenceLifecycleSink) Deliver(_ context.Context, handoff lifecycle.Handoff) error {
+	s.attempts++
+	if s.failuresRemaining > 0 {
+		s.failuresRemaining--
+		return errors.New("temporary lifecycle endpoint failure")
+	}
 	s.handoffs <- handoff
 	return nil
 }

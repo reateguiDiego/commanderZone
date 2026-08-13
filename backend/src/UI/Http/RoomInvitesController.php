@@ -5,6 +5,7 @@ namespace App\UI\Http;
 use App\Application\Auth\ImpersonationContext;
 use App\Application\Deck\DeckValidator;
 use App\Application\Room\ActiveRoomMembershipService;
+use App\Application\Room\Lifecycle\WaitingRoomLifecycleScheduler;
 use App\Domain\Deck\Deck;
 use App\Domain\Friendship\Friendship;
 use App\Domain\Room\Room;
@@ -59,7 +60,7 @@ class RoomInvitesController extends ApiController
     }
 
     #[Route('/rooms/{id}/invites', methods: ['POST'])]
-    public function invite(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher, RoomInviteEventPublisher $roomInvitePublisher): JsonResponse
+    public function invite(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher, RoomInviteEventPublisher $roomInvitePublisher, WaitingRoomLifecycleScheduler $waitingRoomLifecycle): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
@@ -104,6 +105,7 @@ class RoomInvitesController extends ApiController
             $invite = new RoomInvite($room, $user, $recipient);
             $entityManager->persist($invite);
         }
+        $waitingRoomLifecycle->renew($room);
 
         $entityManager->flush();
         $this->publishInviteEventToRoomActors($roomInvitePublisher, 'room.invite.created', $invite);
@@ -123,6 +125,7 @@ class RoomInvitesController extends ApiController
         RoomEventPublisher $roomEventPublisher,
         DeckValidator $deckValidator,
         ActiveRoomMembershipService $activeRoomMembership,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
     ): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
@@ -173,6 +176,7 @@ class RoomInvitesController extends ApiController
             $room->appendWaitingLog(sprintf('%s selected deck: %s.', $this->userDisplayName($user), $deck->name()));
         }
         $invite->accept();
+        $waitingRoomLifecycle->renew($room);
         $entityManager->flush();
         $this->publishInviteEventToRoomActors($roomInvitePublisher, 'room.invite.accepted', $invite);
         $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
@@ -182,7 +186,7 @@ class RoomInvitesController extends ApiController
     }
 
     #[Route('/rooms/invites/{id}/decline', methods: ['POST'])]
-    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher, RoomInviteEventPublisher $roomInvitePublisher): JsonResponse
+    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher, RoomInviteEventPublisher $roomInvitePublisher, WaitingRoomLifecycleScheduler $waitingRoomLifecycle): JsonResponse
     {
         $invite = $this->pendingInvite($entityManager, $id, $user);
         if (!$invite instanceof RoomInvite) {
@@ -190,6 +194,7 @@ class RoomInvitesController extends ApiController
         }
 
         $invite->decline();
+        $waitingRoomLifecycle->renew($invite->room());
         $entityManager->flush();
         $this->publishInviteEventToRoomActors($roomInvitePublisher, 'room.invite.declined', $invite);
         $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.declined', $invite);
@@ -285,4 +290,5 @@ class RoomInvitesController extends ApiController
 
         return $name !== '' ? $name : 'A player';
     }
+
 }

@@ -3,6 +3,7 @@
 namespace App\UI\Console;
 
 use App\Application\Game\GameRematchLifecycleSweeper;
+use App\Application\Room\Lifecycle\WaitingRoomLifecycleSweeper;
 use App\Infrastructure\Realtime\GameEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -19,6 +20,7 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
 
     public function __construct(
         private readonly GameRematchLifecycleSweeper $sweeper,
+        private readonly WaitingRoomLifecycleSweeper $waitingRoomSweeper,
         private readonly GameEventPublisher $gamePublisher,
         private readonly RoomEventPublisher $roomPublisher,
     ) {
@@ -41,7 +43,7 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
         $batchSize = max(1, (int) $input->getOption('batch-size'));
 
         do {
-            $processed = $this->sweepDueGames($batchSize);
+            $processed = $this->sweepDueLifecycles($batchSize);
             if (!$watch || !$this->running) {
                 break;
             }
@@ -74,11 +76,11 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
         return false;
     }
 
-    private function sweepDueGames(int $batchSize): int
+    private function sweepDueLifecycles(int $batchSize): int
     {
         $results = $this->sweeper->sweep(new \DateTimeImmutable(), $batchSize);
         foreach ($results as $result) {
-            if ($result['type'] === 'runtime_hibernation_scheduled') {
+            if (in_array($result['type'], ['runtime_hibernation_scheduled', 'lifecycle_noop'], true)) {
                 continue;
             }
             if ($result['type'] === 'room_ready') {
@@ -92,6 +94,11 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
             $this->roomPublisher->publishDeleted($result['roomId']);
         }
 
-        return count($results);
+        $deletedWaitingRoomIds = $this->waitingRoomSweeper->sweep(new \DateTimeImmutable(), $batchSize);
+        foreach ($deletedWaitingRoomIds as $roomId) {
+            $this->roomPublisher->publishDeleted($roomId);
+        }
+
+        return count($results) + count($deletedWaitingRoomIds);
     }
 }

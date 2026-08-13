@@ -363,7 +363,8 @@
       "thisPlayer": "deze speler",
       "tieBreakRoll": "Tiebreak-worp",
       "tieBreakRollMessage": "Je speelde gelijk met {{ playerNames }}. Werp opnieuw om de gelijke stand te doorbreken.",
-      "waitingForDecksAndRolls": "Wachten op decks en worpen"
+      "waitingForDecksAndRolls": "Wachten op decks en worpen",
+      "realtimeUnavailable": "De realtimeverbinding wordt hersteld. Wijzigingen in de kamer kunnen vertraagd zijn."
     },
     "setup": {
       "gameSetupLifeControl": {

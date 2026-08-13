@@ -50,6 +50,33 @@ func main() {
 
 	validator := ticketValidatorFromEnv(logger)
 	commandTimeout := envDuration(os.Getenv("GAME_RUNTIME_COMMAND_TIMEOUT"), 15*time.Second)
+	var presenceOutbox *lifecycle.PresenceOutbox
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")), "postgres") {
+		sink := lifecycleSinkFromEnv(logger)
+		if sink == nil {
+			logger.Error("postgres runtime requires GAME_RUNTIME_LIFECYCLE_URL for durable all-disconnected cleanup")
+			os.Exit(1)
+		}
+		outbox, err := lifecycle.NewPresenceOutbox(normalizePostgresURL(os.Getenv("DATABASE_URL")))
+		if err != nil {
+			logger.Error("runtime lifecycle outbox configuration failed", "error", err)
+			os.Exit(1)
+		}
+		outboxCtx, cancelOutbox := context.WithCancel(context.Background())
+		defer outbox.Close()
+		defer cancelOutbox()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = outbox.CheckSchema(ctx)
+		cancel()
+		if err != nil {
+			logger.Error("runtime lifecycle outbox schema check failed", "error", err)
+			os.Exit(1)
+		}
+		presenceOutbox = outbox
+		go outbox.Run(outboxCtx, sink, func(deliveryErr error) {
+			logger.Warn("runtime lifecycle outbox delivery failed", "error", deliveryErr)
+		})
+	}
 	var activityStore gateway.ActivityStore
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")), "postgres") {
 		store, err := gateway.NewPostgresActivityStore(normalizePostgresURL(os.Getenv("DATABASE_URL")))
@@ -63,6 +90,9 @@ func main() {
 	webSocketOptions := []gateway.WebSocketOption{}
 	if activityStore != nil {
 		webSocketOptions = append(webSocketOptions, gateway.WithActivityStore(activityStore))
+	}
+	if presenceOutbox != nil {
+		webSocketOptions = append(webSocketOptions, gateway.WithPresenceLifecycleOutbox(presenceOutbox))
 	}
 	webSocketOptions = append(webSocketOptions, gateway.WithCommandTimeout(commandTimeout))
 	webSocketServer := gateway.NewWebSocketServer(validator, runtimeService, webSocketOptions...)

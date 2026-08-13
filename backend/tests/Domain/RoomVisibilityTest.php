@@ -278,4 +278,15 @@ class RoomVisibilityTest extends TestCase
         self::assertTrue($room->canBeViewedBy($player));
         self::assertFalse($room->canBeViewedBy($external));
     }
+
+    public function testStartingRoomClearsWaitingExpiry(): void
+    {
+        $owner = new User('expiry-owner@example.test', 'Owner');
+        $room = new Room($owner);
+        $room->scheduleWaitingExpiry(new \DateTimeImmutable('+30 minutes'));
+
+        $room->start(new \App\Domain\Game\Game($room, ['players' => []]));
+
+        self::assertNull($room->waitingExpiresAt());
+    }
 }

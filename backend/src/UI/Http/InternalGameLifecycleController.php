@@ -49,7 +49,10 @@ final class InternalGameLifecycleController extends ApiController
             if (!$game instanceof Game) {
                 $entityManager->rollback();
 
-                return $this->fail('Game not found.', 404);
+                // The runtime outbox may race terminal deletion. Treat a
+                // missing aggregate as an idempotent acknowledgement so that
+                // obsolete handoffs do not retry forever.
+                return $this->json(['result' => 'gone']);
             }
             // Lifecycle and manual leave both acquire game then room. This
             // serializes expel/leave membership consequences without a

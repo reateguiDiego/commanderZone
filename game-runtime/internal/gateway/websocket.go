@@ -81,10 +81,11 @@ type ServerErrorPayload struct {
 }
 
 type WebSocketServer struct {
-	validator TicketValidator
-	runtime   *runtimesvc.Service
-	activity  ActivityStore
-	upgrader  websocket.Upgrader
+	validator      TicketValidator
+	runtime        *runtimesvc.Service
+	activity       ActivityStore
+	presenceOutbox *lifecycle.PresenceOutbox
+	upgrader       websocket.Upgrader
 
 	mu                   sync.RWMutex
 	rooms                map[string]map[*wsClient]struct{}
@@ -150,6 +151,14 @@ func WithCommandTimeout(timeout time.Duration) WebSocketOption {
 func WithActivityStore(store ActivityStore) WebSocketOption {
 	return func(s *WebSocketServer) {
 		s.activity = store
+	}
+}
+
+// WithPresenceLifecycleOutbox makes all-offline handoffs durable before the
+// actor can hibernate. It is intentionally optional for in-memory test mode.
+func WithPresenceLifecycleOutbox(outbox *lifecycle.PresenceOutbox) WebSocketOption {
+	return func(s *WebSocketServer) {
+		s.presenceOutbox = outbox
 	}
 }
 
@@ -309,6 +318,16 @@ type presenceUnregistration struct {
 	PresenceGeneration int64
 }
 
+// Presence handoffs are low-frequency control-plane facts. A short retry
+// budget absorbs an API restart without keeping an idle actor alive or adding
+// a per-game timer. The same occurredAt value makes every retry idempotent.
+var presenceLifecycleRetryDelays = []time.Duration{
+	100 * time.Millisecond,
+	500 * time.Millisecond,
+	2 * time.Second,
+	5 * time.Second,
+}
+
 func (s *WebSocketServer) register(client *wsClient) presenceRegistration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -379,11 +398,37 @@ func (s *WebSocketServer) unregister(client *wsClient) presenceUnregistration {
 }
 
 func (s *WebSocketServer) deliverPresenceLifecycle(gameID string, handoffType string, occurredAt time.Time) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.commandTimeout)
-	defer cancel()
-	if err := s.runtime.DeliverPresenceLifecycle(ctx, gameID, handoffType, occurredAt); err != nil {
-		slog.Warn("runtime presence lifecycle handoff failed", "gameId", gameID, "type", handoffType, "error", err)
+	if s.presenceOutbox != nil {
+		handoff, err := s.runtime.PresenceLifecycleHandoff(gameID, handoffType, occurredAt)
+		if err != nil {
+			slog.Warn("runtime presence lifecycle handoff could not be recorded", "gameId", gameID, "type", handoffType, "error", err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), s.commandTimeout)
+		err = s.presenceOutbox.Enqueue(ctx, handoff)
+		cancel()
+		if err != nil {
+			slog.Warn("runtime presence lifecycle handoff durable enqueue failed", "gameId", gameID, "type", handoffType, "error", err)
+		}
+		return
 	}
+	var lastErr error
+	for attempt := 0; attempt <= len(presenceLifecycleRetryDelays); attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), s.commandTimeout)
+		lastErr = s.runtime.DeliverPresenceLifecycle(ctx, gameID, handoffType, occurredAt)
+		cancel()
+		if lastErr == nil {
+			return
+		}
+		if errors.Is(lastErr, runtimesvc.ErrActorClosing) || errors.Is(lastErr, runtimesvc.ErrActorStateNotFound) {
+			break
+		}
+		if attempt < len(presenceLifecycleRetryDelays) {
+			time.Sleep(presenceLifecycleRetryDelays[attempt])
+		}
+	}
+
+	slog.Warn("runtime presence lifecycle handoff failed after retries", "gameId", gameID, "type", handoffType, "error", lastErr)
 }
 
 func (s *WebSocketServer) broadcastPresence(gameID string, playerID string, status string) {

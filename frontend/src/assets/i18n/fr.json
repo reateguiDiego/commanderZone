@@ -363,7 +363,8 @@
       "thisPlayer": "ce joueur",
       "tieBreakRoll": "Lancement dÃ©cisif",
       "tieBreakRollMessage": "Vous Ãªtes Ã  Ã©galitÃ© avec {{ playerNames }}. Lancez Ã  nouveau pour briser lâ€™Ã©galitÃ©.",
-      "waitingForDecksAndRolls": "En attente des decks et des lancers"
+      "waitingForDecksAndRolls": "En attente des decks et des lancers",
+      "realtimeUnavailable": "La connexion en temps réel se rétablit. Les changements de salle peuvent être retardés."
     },
     "setup": {
       "gameSetupLifeControl": {

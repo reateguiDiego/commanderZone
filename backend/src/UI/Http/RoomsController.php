@@ -19,6 +19,7 @@ use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Room\ActiveRoomMembershipService;
+use App\Application\Room\Lifecycle\WaitingRoomLifecycleScheduler;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Game\Game;
@@ -28,7 +29,9 @@ use App\Domain\Room\RoomPlayer;
 use App\Domain\Room\RoomWaitingLogEntry;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\GameEventPublisher;
+use App\Infrastructure\Realtime\FriendEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -105,6 +108,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
         LoggerInterface $logger,
         CardLocalizationService $localization,
     ): JsonResponse
@@ -160,6 +164,7 @@ class RoomsController extends ApiController
         $room->setFirstMulliganFree($firstMulliganFree);
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
         $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
+        $waitingRoomLifecycle->renew($room);
 
         try {
             $entityManager->persist($room);
@@ -198,8 +203,66 @@ class RoomsController extends ApiController
         return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
+    #[Route('/rooms/{id}/presence', name: 'rooms.presence', methods: ['POST'])]
+    public function presence(
+        string $id,
+        #[CurrentUser] User $user,
+        Connection $connection,
+        EntityManagerInterface $entityManager,
+        FriendEventPublisher $friendEventPublisher,
+    ): JsonResponse
+    {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
+        // This is intentionally the entire hot path: one conditional UPDATE
+        // verifies normal waiting-room membership and refreshes global
+        // presence without hydrating Room, RoomPlayer, decks or waiting logs.
+        $updated = $connection->fetchAssociative(<<<'SQL'
+WITH eligible AS (
+    SELECT user_row.id, user_row.last_seen_at
+    FROM app_user user_row
+    WHERE user_row.id = :userId
+      AND EXISTS (
+          SELECT 1
+          FROM room_player player
+          JOIN room ON room.id = player.room_id
+          WHERE player.room_id = :roomId
+            AND player.user_id = :userId
+            AND room.status = 'waiting'
+            AND room.game_id IS NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM table_assistant_room assistant WHERE assistant.room_id = room.id
+            )
+      )
+)
+UPDATE app_user user_row
+SET last_seen_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+FROM eligible
+WHERE user_row.id = eligible.id
+RETURNING eligible.last_seen_at AS previous_last_seen_at
+SQL, ['roomId' => $id, 'userId' => $user->id()]);
+        if (!is_array($updated)) {
+            // Deliberately do not disclose whether the room exists, has
+            // started, or belongs to another player.
+            return $this->fail('Room not found.', 404);
+        }
+
+        $previousSeenAt = $updated['previous_last_seen_at'] ?? null;
+        if ($previousSeenAt === null || new \DateTimeImmutable((string) $previousSeenAt) < new \DateTimeImmutable('-5 minutes')) {
+            // This read and publication happen only on an offline-to-online
+            // transition; routine heartbeats stay a single SQL statement.
+            $entityManager->refresh($user);
+            $friendEventPublisher->publishPresenceChanged($user);
+        }
+
+        return $this->json(null, 204);
+    }
+
     #[Route('/rooms/{id}', methods: ['PATCH'])]
-    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
+    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, WaitingRoomLifecycleScheduler $waitingRoomLifecycle): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
@@ -258,6 +321,7 @@ class RoomsController extends ApiController
             $previousMulliganRule,
             $previousFirstMulliganFree,
         );
+        $waitingRoomLifecycle->renew($room);
 
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.updated');
@@ -275,6 +339,7 @@ class RoomsController extends ApiController
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
     ): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
@@ -286,7 +351,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization, $waitingRoomLifecycle);
     }
 
     #[Route('/rooms/code/{code}/join', methods: ['POST'])]
@@ -299,6 +364,7 @@ class RoomsController extends ApiController
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
     ): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
@@ -310,7 +376,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization, $waitingRoomLifecycle);
     }
 
     private function joinRoom(
@@ -322,6 +388,7 @@ class RoomsController extends ApiController
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
     ): JsonResponse
     {
         if ($room->status() !== Room::STATUS_WAITING) {
@@ -370,6 +437,7 @@ class RoomsController extends ApiController
         } elseif ($deck instanceof Deck && $deck->id() !== $previousDeckId) {
             $room->appendWaitingLog(sprintf('%s selected deck: %s.', $this->userDisplayName($user), $deck->name()));
         }
+        $waitingRoomLifecycle->renew($room);
         $entityManager->flush();
         $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
 
@@ -377,7 +445,7 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
-    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, GameRandomizer $randomizer): JsonResponse
+    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, GameRandomizer $randomizer, WaitingRoomLifecycleScheduler $waitingRoomLifecycle): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
@@ -404,6 +472,7 @@ class RoomsController extends ApiController
 
         $player->rollTurnOrder($randomizer->intBetween(1, 20));
         $room->appendWaitingLog(sprintf('%s rolled %s.', $this->userDisplayName($user), implode(' - ', $player->turnRolls())));
+        $waitingRoomLifecycle->renew($room);
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
 
@@ -421,6 +490,7 @@ class RoomsController extends ApiController
         GameRuntimeLifecycleCommandService $runtimeLifecycle,
         ?GameRuntimeLifecycleControlClient $runtimeControl = null,
         ?GameRuntimeClosingFence $closingFence = null,
+        ?WaitingRoomLifecycleScheduler $waitingRoomLifecycle = null,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -516,6 +586,7 @@ class RoomsController extends ApiController
                         $room->transferOwnershipToOldestRemainingPlayer();
                     }
                     $room->appendWaitingLog(sprintf('%s left the room.', $leavingName));
+                    $waitingRoomLifecycle?->renew($room);
                 }
             }
 
@@ -565,6 +636,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
+        WaitingRoomLifecycleScheduler $waitingRoomLifecycle,
     ): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
@@ -593,6 +665,7 @@ class RoomsController extends ApiController
         $kickedName = $this->userDisplayName($targetPlayer->user());
         $room->removeUser($targetPlayer->user());
         $room->appendWaitingLog(sprintf('%s left the room.', $kickedName));
+        $waitingRoomLifecycle->renew($room);
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
@@ -643,86 +716,112 @@ class RoomsController extends ApiController
             return $response;
         }
 
-        $room = $entityManager->getRepository(Room::class)->find($id);
-        if (!$room instanceof Room) {
-            return $this->fail('Room not found.', 404);
-        }
-        if ($room->owner()->id() !== $user->id()) {
-            return $this->fail('Only the room owner can start the game.', 403);
-        }
-        if ($room->status() !== Room::STATUS_WAITING) {
-            return $this->fail('Room has already started.', 409);
-        }
-        if ($room->players()->count() < Room::MIN_PLAYERS) {
-            return $this->fail('At least two players are required.');
-        }
-        if ($room->players()->count() !== $room->maxPlayers()) {
-            return $this->fail('The room must be full before starting the game.');
-        }
-        foreach ($room->players() as $player) {
-            if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
-                return $this->fail('Every player needs a deck before starting the game.');
-            }
-        }
-        if (!$room->hasResolvedTurnOrder()) {
-            return $this->fail('Every player needs a unique turn-order roll before starting the game.');
-        }
-        $invalidDecks = [];
-        foreach ($room->players() as $player) {
-            if (!$player instanceof RoomPlayer) {
-                continue;
+        $connection = $entityManager->getConnection();
+        $abort = static function (JsonResponse $response) use ($entityManager): JsonResponse {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
             }
 
-            $deck = $player->deck();
-            if (!$deck instanceof Deck) {
-                continue;
-            }
+            return $response;
+        };
 
-            $playerData = [
-                'playerId' => $player->user()->id(),
-                'displayName' => $player->user()->displayName(),
-                'deckId' => $deck->id(),
-            ];
-            if ($deck->owner()->id() !== $player->user()->id()) {
-                $invalidDecks[] = [
-                    ...$playerData,
-                    'errors' => [[
-                        'code' => 'deck.owner_mismatch',
-                        'title' => 'Deck owner mismatch',
-                        'detail' => 'Player must use their own deck.',
-                        'cards' => [],
-                    ]],
+        $entityManager->beginTransaction();
+        try {
+            // The sweeper claims this same Room row before it decides whether
+            // to delete it. Whichever transaction locks first wins; starting
+            // clears waiting_expires_at atomically, so both transitions can
+            // never commit for the same room.
+            $room = $entityManager->find(Room::class, $id, LockMode::PESSIMISTIC_WRITE);
+            if (!$room instanceof Room) {
+                return $abort($this->fail('Room not found.', 404));
+            }
+            if ($room->owner()->id() !== $user->id()) {
+                return $abort($this->fail('Only the room owner can start the game.', 403));
+            }
+            if ($room->status() !== Room::STATUS_WAITING) {
+                return $abort($this->fail('Room has already started.', 409));
+            }
+            if ($room->players()->count() < Room::MIN_PLAYERS) {
+                return $abort($this->fail('At least two players are required.'));
+            }
+            if ($room->players()->count() !== $room->maxPlayers()) {
+                return $abort($this->fail('The room must be full before starting the game.'));
+            }
+            foreach ($room->players() as $player) {
+                if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
+                    return $abort($this->fail('Every player needs a deck before starting the game.'));
+                }
+            }
+            if (!$room->hasResolvedTurnOrder()) {
+                return $abort($this->fail('Every player needs a unique turn-order roll before starting the game.'));
+            }
+            $invalidDecks = [];
+            foreach ($room->players() as $player) {
+                if (!$player instanceof RoomPlayer) {
+                    continue;
+                }
+
+                $deck = $player->deck();
+                if (!$deck instanceof Deck) {
+                    continue;
+                }
+
+                $playerData = [
+                    'playerId' => $player->user()->id(),
+                    'displayName' => $player->user()->displayName(),
+                    'deckId' => $deck->id(),
                 ];
-                continue;
+                if ($deck->owner()->id() !== $player->user()->id()) {
+                    $invalidDecks[] = [
+                        ...$playerData,
+                        'errors' => [[
+                            'code' => 'deck.owner_mismatch',
+                            'title' => 'Deck owner mismatch',
+                            'detail' => 'Player must use their own deck.',
+                            'cards' => [],
+                        ]],
+                    ];
+                    continue;
+                }
+
+                $validation = $deckValidator->validate($deck);
+                $deck->markValidationResult(($validation['valid'] ?? false) === true);
+                if (($validation['valid'] ?? false) !== true) {
+                    $invalidDecks[] = [
+                        ...$playerData,
+                        'validation' => $validation,
+                    ];
+                }
+            }
+            if ($invalidDecks !== []) {
+                // Validation state is useful to the waiting-room UI, so this
+                // intentional non-start transition is committed under the
+                // same lock before returning the validation response.
+                $entityManager->flush();
+                $entityManager->commit();
+
+                return $this->fail(
+                    'Every player must have a Commander-valid deck before starting the game.',
+                    400,
+                    ['invalidDecks' => $invalidDecks],
+                );
             }
 
-            $validation = $deckValidator->validate($deck);
-            $deck->markValidationResult(($validation['valid'] ?? false) === true);
-            if (($validation['valid'] ?? false) !== true) {
-                $invalidDecks[] = [
-                    ...$playerData,
-                    'validation' => $validation,
-                ];
+            $game = new Game($room, $snapshotFactory->fromRoom($room));
+            if ($compactRuntimeFlags->enabled() && $compactStateMapper->isCompactSnapshot($game->snapshot())) {
+                $game->replaceSnapshot($compactStateMapper->withGameMetadata($game->snapshot(), $game->id(), $game->status()));
             }
-        }
-        if ($invalidDecks !== []) {
+            $room->start($game);
+            $entityManager->persist($game);
+            $eventStoreV2?->initializeStartedGame($entityManager, $game, $user);
             $entityManager->flush();
-
-            return $this->fail(
-                'Every player must have a Commander-valid deck before starting the game.',
-                400,
-                ['invalidDecks' => $invalidDecks],
-            );
+            $entityManager->commit();
+        } catch (\Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+            throw $exception;
         }
-
-        $game = new Game($room, $snapshotFactory->fromRoom($room));
-        if ($compactRuntimeFlags->enabled() && $compactStateMapper->isCompactSnapshot($game->snapshot())) {
-            $game->replaceSnapshot($compactStateMapper->withGameMetadata($game->snapshot(), $game->id(), $game->status()));
-        }
-        $room->start($game);
-        $entityManager->persist($game);
-        $eventStoreV2?->initializeStartedGame($entityManager, $game, $user);
-        $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.started');
 
         return $this->json([

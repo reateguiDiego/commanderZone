@@ -26,6 +26,7 @@ use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketConfigurationException;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketUrlFactory;
+use App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
@@ -870,6 +871,7 @@ class GamesController extends ApiController
         \App\Application\Game\Runtime\GameRuntimeLifecycleControlClient $runtimeControl,
         GameRuntimeLifecycleCommandService $runtimeLifecycle,
         ?GameRuntimeClosingFence $closingFence = null,
+        ?WaitingRoomInactivityPolicy $waitingRoomInactivity = null,
     ): JsonResponse {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
@@ -986,7 +988,7 @@ class GamesController extends ApiController
             }
 
             if (!$deduplicated && !$roomDeleted && $game->status() === Game::STATUS_FINISHED) {
-                $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $rematch, $entityManager);
+                $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $rematch, $entityManager, $waitingRoomInactivity);
                 if (!$roomReady && $rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
                     // Fewer than two players chose play_again. This terminal
                     // path removes the remaining memberships with the room.
@@ -1538,6 +1540,7 @@ class GamesController extends ApiController
         Game $game,
         GameRematchService $rematch,
         EntityManagerInterface $entityManager,
+        ?WaitingRoomInactivityPolicy $waitingRoomInactivity,
     ): bool {
         if ($game->status() !== Game::STATUS_FINISHED || !$rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
             return false;
@@ -1550,6 +1553,9 @@ class GamesController extends ApiController
 
         $owner = $rematch->rematchOwner($room, $eligiblePlayerIds);
         $room->returnToWaitingForRematch($owner, $eligiblePlayerIds);
+        if ($waitingRoomInactivity instanceof WaitingRoomInactivityPolicy) {
+            $room->scheduleWaitingExpiry($waitingRoomInactivity->expiresFromNow());
+        }
         $entityManager->remove($game);
 
         return true;

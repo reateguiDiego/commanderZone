@@ -363,7 +363,8 @@
       "thisPlayer": "dieser Spieler",
       "tieBreakRoll": "Tie-Break-Wurf",
       "tieBreakRollMessage": "Du hast mit {{ playerNames }} gleichgezogen. WÃ¼rfle noch einmal, um den Gleichstand aufzulÃ¶sen.",
-      "waitingForDecksAndRolls": "Warten auf Decks und WÃ¼rfe"
+      "waitingForDecksAndRolls": "Warten auf Decks und WÃ¼rfe",
+      "realtimeUnavailable": "Die Echtzeitverbindung wird wiederhergestellt. Änderungen im Raum können verzögert eintreffen."
     },
     "setup": {
       "gameSetupLifeControl": {

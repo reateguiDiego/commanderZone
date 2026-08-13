@@ -237,16 +237,27 @@ func (s *Service) ReleaseClosingTombstone(gameID string) {
 }
 
 func (s *Service) DeliverPresenceLifecycle(ctx context.Context, gameID string, handoffType string, occurredAt time.Time) error {
+	handoff, err := s.PresenceLifecycleHandoff(gameID, handoffType, occurredAt)
+	if err != nil {
+		return err
+	}
 	if s.lifecycleSink == nil {
 		return nil
 	}
+	return s.lifecycleSink.Deliver(ctx, handoff)
+}
+
+// PresenceLifecycleHandoff creates an idempotent control-plane fact from the
+// runtime's fenced ownership state. The gateway may persist it in an outbox
+// before attempting HTTP delivery.
+func (s *Service) PresenceLifecycleHandoff(gameID string, handoffType string, occurredAt time.Time) (lifecycle.Handoff, error) {
 	s.mu.RLock()
 	gameActor, actorExists := s.actors[gameID]
 	lease, leaseExists := s.leases[gameID]
 	generation := s.lifecycleGeneration
 	s.mu.RUnlock()
 	if !actorExists || !leaseExists {
-		return ErrActorStateNotFound
+		return lifecycle.Handoff{}, ErrActorStateNotFound
 	}
 	version := gameActor.Version()
 	if version < 1 {
@@ -255,7 +266,7 @@ func (s *Service) DeliverPresenceLifecycle(ctx context.Context, gameID string, h
 	if occurredAt.IsZero() {
 		occurredAt = time.Now().UTC()
 	}
-	handoff := lifecycle.Handoff{
+	return lifecycle.Handoff{
 		EventID:    fmt.Sprintf("%s:presence:%d", gameID, occurredAt.UnixNano()),
 		GameID:     gameID,
 		Type:       handoffType,
@@ -263,8 +274,7 @@ func (s *Service) DeliverPresenceLifecycle(ctx context.Context, gameID string, h
 		Generation: generation,
 		Fencing:    lease.Token,
 		OccurredAt: occurredAt,
-	}
-	return s.lifecycleSink.Deliver(ctx, handoff)
+	}, nil
 }
 
 // ClearDisconnectVotesForAllOffline persists only the compact actor snapshot;

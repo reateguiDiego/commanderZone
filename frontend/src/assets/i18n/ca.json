@@ -363,7 +363,8 @@
       "thisPlayer": "aquest jugador",
       "tieBreakRoll": "Tirada de desempat",
       "tieBreakRollMessage": "Has empatat amb {{ playerNames }}. Torna a tirar per desfer l'empat.",
-      "waitingForDecksAndRolls": "Esperant baralles i tirades"
+      "waitingForDecksAndRolls": "Esperant baralles i tirades",
+      "realtimeUnavailable": "La connexió en temps real s'està recuperant. Els canvis de la sala poden endarrerir-se."
     },
     "setup": {
       "gameSetupLifeControl": {

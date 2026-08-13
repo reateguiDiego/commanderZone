@@ -33,6 +33,7 @@ describe('WaitingRoomComponent', () => {
     leave: vi.fn(),
     kickPlayer: vi.fn(),
     rollTurn: vi.fn(),
+    presence: vi.fn(),
     start: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -51,6 +52,7 @@ describe('WaitingRoomComponent', () => {
     roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     roomsApi.kickPlayer.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.rollTurn.mockReset().mockReturnValue(of({ room: room() }));
+    roomsApi.presence.mockReset().mockReturnValue(of(undefined));
     roomsApi.start.mockReset().mockReturnValue(of({ room: room(), game: { id: 'game-1' } }));
     roomsApi.update.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));

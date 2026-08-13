@@ -58,8 +58,10 @@ parameters:
     gameplay_max_token_create_quantity: '%env(int:default:gameplay_max_token_create_quantity_default:GAMEPLAY_MAX_TOKEN_CREATE_QUANTITY)%'
     all_disconnected_hot_grace_seconds_default: '120'
     all_disconnected_total_grace_seconds_default: '1800'
+    waiting_room_inactivity_grace_seconds_default: '1800'
     all_disconnected_hot_grace_seconds: '%env(int:default:all_disconnected_hot_grace_seconds_default:GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS)%'
     all_disconnected_total_grace_seconds: '%env(int:default:all_disconnected_total_grace_seconds_default:GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS)%'
+    waiting_room_inactivity_grace_seconds: '%env(int:default:waiting_room_inactivity_grace_seconds_default:WAITING_ROOM_INACTIVITY_GRACE_SECONDS)%'
     contact_inbox_address: '%env(default:contact_inbox_address_default:CONTACT_INBOX_ADDRESS)%'
     google_oidc_client_ids: '%env(default:google_oidc_client_ids_default:GOOGLE_OIDC_CLIENT_IDS)%'
     google_oidc_jwks_uri: '%env(default:google_oidc_jwks_uri_default:GOOGLE_OIDC_JWKS_URI)%'
@@ -97,6 +99,11 @@ services:
         arguments:
             $hotGraceSeconds: '%all_disconnected_hot_grace_seconds%'
             $totalGraceSeconds: '%all_disconnected_total_grace_seconds%'
+
+    App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy:
+        arguments:
+            $graceSeconds: '%waiting_room_inactivity_grace_seconds%'
+
 
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier

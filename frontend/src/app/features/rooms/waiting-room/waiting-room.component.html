@@ -2,6 +2,9 @@
   @if (error()) {
     <p class="notice error">{{ error() }}</p>
   }
+  @if (mercureUnavailable()) {
+    <p class="notice realtime-warning" role="status">{{ 'rooms.waitingRoom.realtimeUnavailable' | runtimeTranslate }}</p>
+  }
 
   @if (currentRoom(); as room) {
     <div class="waiting-layout">

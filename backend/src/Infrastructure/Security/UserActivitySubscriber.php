@@ -30,7 +30,8 @@ class UserActivitySubscriber implements EventSubscriberInterface
 
     public function markCurrentUserSeen(ControllerEvent $event): void
     {
-        if ($event->getRequest()->getPathInfo() === '/me/offline') {
+        if (in_array($event->getRequest()->attributes->get('_route'), ['rooms.presence'], true)
+            || $event->getRequest()->getPathInfo() === '/me/offline') {
             return;
         }
 

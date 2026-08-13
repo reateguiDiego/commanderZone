@@ -5,6 +5,7 @@ namespace App\Application\Game;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeStopQueue;
 use App\Application\Game\Lifecycle\AllDisconnectedGracePolicy;
+use App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -23,6 +24,7 @@ final readonly class GameRematchLifecycleSweeper
         private GameRuntimeClosingFence $closingFence,
         private GameRuntimeStopQueue $runtimeStopQueue,
         private AllDisconnectedGracePolicy $allDisconnectedGrace,
+        private WaitingRoomInactivityPolicy $waitingRoomInactivity,
     ) {
     }
 
@@ -71,8 +73,15 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
             $this->entityManager->lock($room, LockMode::PESSIMISTIC_WRITE);
             if ($game->status() !== Game::STATUS_FINISHED) {
                 if ($game->allDisconnectedSince() === null) {
+                    // A cancelled grace period must never leave an obsolete
+                    // indexed due date ahead of real expirations. Clear it
+                    // atomically and let this pass advance to the next game.
+                    $game->cancelAllDisconnected();
+                    $this->entityManager->flush();
                     $this->entityManager->commit();
-                    return null;
+                    $this->entityManager->clear();
+
+                    return ['type' => 'lifecycle_noop', 'game' => $game, 'roomId' => $room->id()];
                 }
 
                 if ($game->allDisconnectedHibernateRequestedAt() === null) {
@@ -126,6 +135,7 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
             $this->deleteRuntimeArtifacts($gameId);
             if (count($eligible) >= Room::MIN_PLAYERS && $this->rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
                 $room->returnToWaitingForRematch($this->rematch->rematchOwner($room, $eligible), $eligible);
+                $room->scheduleWaitingExpiry($this->waitingRoomInactivity->expiresFromNow());
                 // See the deletion branch above: Room is the owning side of
                 // the one-to-one game relation and must be flushed first.
                 $this->entityManager->flush();
@@ -160,8 +170,16 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
      */
     private function deleteRuntimeArtifacts(string $gameId): void
     {
-        $this->entityManager->getConnection()->executeStatement(
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
             'DELETE FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        );
+        // Presence handoffs are only meaningful while their aggregate exists.
+        // Purging them in the terminal transaction prevents stale retries from
+        // accumulating after a game/room is gone.
+        $connection->executeStatement(
+            'DELETE FROM game_runtime_lifecycle_outbox WHERE game_id = :gameId',
             ['gameId' => $gameId],
         );
     }

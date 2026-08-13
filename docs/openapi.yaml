@@ -2684,6 +2684,20 @@ paths:
           $ref: '#/components/responses/Error'
         '409':
           $ref: '#/components/responses/Error'
+  /rooms/{id}/presence:
+    post:
+      tags: [Rooms]
+      summary: Record lightweight presence for a visible waiting-room player.
+      description: Performs one conditional presence update without returning room state or extending the waiting-room inactivity deadline.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Presence recorded.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /rooms/{id}/leave:
     post:
       tags: [Rooms]

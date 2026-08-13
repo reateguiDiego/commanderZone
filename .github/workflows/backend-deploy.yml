@@ -156,6 +156,34 @@ jobs:
           docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
           docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
           docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup
+
+          # These workers own the durable all-disconnected lifecycle: the
+          # sweeper transitions hot grace -> hibernation -> expiry, and the
+          # stop worker routes the low-frequency runtime operation. They must
+          # be started after migrations so a new lifecycle schema is never
+          # consumed by an older database.
+          docker compose "${COMPOSE_ARGS[@]}" up -d --no-deps lifecycle-sweeper runtime-stop-worker
+          for SERVICE in lifecycle-sweeper runtime-stop-worker; do
+            WORKER_CONTAINER_ID="$(docker compose "${COMPOSE_ARGS[@]}" ps -q "$SERVICE")"
+            if [ -z "$WORKER_CONTAINER_ID" ]; then
+              echo "$SERVICE container was not created by deployment." >&2
+              exit 1
+            fi
+
+            for i in $(seq 1 15); do
+              WORKER_RUNNING="$(docker inspect --format='{{.State.Running}}' "$WORKER_CONTAINER_ID" 2>/dev/null || true)"
+              if [ "$WORKER_RUNNING" = "true" ]; then
+                break
+              fi
+              sleep 1
+            done
+
+            if [ "$WORKER_RUNNING" != "true" ]; then
+              echo "$SERVICE did not remain running after deployment." >&2
+              docker compose "${COMPOSE_ARGS[@]}" logs --tail=100 "$SERVICE" || true
+              exit 1
+            fi
+          done
           EOF
 
           rm -f ./deploy_key

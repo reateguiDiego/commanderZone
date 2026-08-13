@@ -21,6 +21,22 @@ final class GameLifecycleHandoffApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function testLifecycleHandoffForAlreadyDeletedGameIsAcknowledged(): void
+    {
+        $this->signedLifecycleRequest([
+            'eventId' => 'deleted-game:all-disconnected',
+            'gameId' => 'deleted-game',
+            'type' => 'game.all_players_disconnected',
+            'version' => 1,
+            'generation' => 1,
+            'fencing' => 1,
+            'occurredAt' => '2026-08-10T12:00:00+00:00',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('gone', $this->jsonResponse()['result']);
+    }
+
     public function testSignedFinishHandoffIsPersistedWithoutWritingGameEvent(): void
     {
         $owner = new User('handoff-owner@example.test', 'Handoff Owner');
@@ -140,6 +156,60 @@ final class GameLifecycleHandoffApiTest extends ApiTestCase
         self::assertCount(1, $roomUpdates);
         $roomPayload = json_decode($roomUpdates[0]['data'], true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
+    }
+
+    public function testAllDisconnectedHandoffIndexesGraceAndReconnectCancelsIt(): void
+    {
+        $owner = new User('all-disconnected-owner@example.test', 'Lifecycle Owner');
+        $owner->setPassword('test-password-hash');
+        $room = new Room($owner);
+        $game = new Game($room, [
+            'version' => 1,
+            'players' => [
+                $owner->id() => ['status' => 'active'],
+                'player-2' => ['status' => 'active'],
+            ],
+        ]);
+        $this->entityManager->persist($owner);
+        $this->entityManager->persist($room);
+        $this->entityManager->persist($game);
+        $this->entityManager->flush();
+
+        $offlineAt = new \DateTimeImmutable('2026-08-10T12:00:00+00:00');
+        $this->signedLifecycleRequest([
+            'eventId' => $game->id().':all-disconnected',
+            'gameId' => $game->id(),
+            'type' => 'game.all_players_disconnected',
+            'version' => 2,
+            'generation' => 1,
+            'fencing' => 9,
+            'occurredAt' => $offlineAt->format(DATE_ATOM),
+        ]);
+        self::assertResponseIsSuccessful();
+
+        $this->entityManager->clear();
+        $persisted = $this->entityManager->find(Game::class, $game->id());
+        self::assertInstanceOf(Game::class, $persisted);
+        self::assertSame($offlineAt->format(DATE_ATOM), $persisted->allDisconnectedSince()?->format(DATE_ATOM));
+        self::assertSame('2026-08-10T12:02:00+00:00', $persisted->nextLifecycleAt()?->format(DATE_ATOM));
+
+        $this->signedLifecycleRequest([
+            'eventId' => $game->id().':all-disconnected-cancelled',
+            'gameId' => $game->id(),
+            'type' => 'game.all_disconnected_cancelled',
+            'version' => 3,
+            'generation' => 1,
+            'fencing' => 9,
+            'occurredAt' => '2026-08-10T12:01:00+00:00',
+        ]);
+        self::assertResponseIsSuccessful();
+
+        $this->entityManager->clear();
+        $persisted = $this->entityManager->find(Game::class, $game->id());
+        self::assertInstanceOf(Game::class, $persisted);
+        self::assertNull($persisted->allDisconnectedSince());
+        self::assertNull($persisted->allDisconnectedHibernateRequestedAt());
+        self::assertNull($persisted->nextLifecycleAt());
     }
 
     /** @param array<string,mixed> $payload */

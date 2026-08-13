@@ -30,6 +30,9 @@ services:
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
       GAME_RUNTIME_WEBSOCKET_PUBLIC_URL: ${GAME_RUNTIME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8091/ws}
       GAME_RUNTIME_TICKET_SECRET: ${GAME_RUNTIME_TICKET_SECRET:-commanderzone-dev-runtime-secret-change-me}
+      GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS: ${GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS:-120}
+      GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS: ${GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS:-1800}
+      WAITING_ROOM_INACTIVITY_GRACE_SECONDS: ${WAITING_ROOM_INACTIVITY_GRACE_SECONDS:-1800}
       GAMEPLAY_V2_ENABLED: ${GAMEPLAY_V2_ENABLED:-1}
       GAMEPLAY_V2_COMMAND_ENABLED: ${GAMEPLAY_V2_COMMAND_ENABLED:-1}
       GAMEPLAY_V2_COMMANDS_ALLOWLIST: ${GAMEPLAY_V2_COMMANDS_ALLOWLIST-life.changed,turn.changed,dice.rolled,card.tapped,card.face_down.changed,card.revealed,card.controller.changed,cards.position.changed,card.counter.changed,counter.changed,commander.damage.changed,card.power_toughness.changed,card.position.changed,library.draw,library.draw_many,library.reveal_top,library.reveal,library.play_top_revealed,library.reorder_top,library.move_top,library.put_top,library.put_bottom,library.view,library.shuffle,card.token.created,card.token_copy.created,zone.random_card.selected,card.dungeon_marker.changed,card.face.changed,card.moved,cards.moved,zone.reorderedByIds,zone.move_all,battlefield.untap_all,stack.card_added,stack.item_removed,arrow.created,arrow.removed,attachment.created,attachment.removed,helper.created,helper.updated,helper.removed,game.concede,mulligan.take,mulligan.keep,mulligan.cards_bottomed,mulligan.scry.confirm,mulligan.ready,mulligan.completed,game.phase.set,disconnect.vote}
@@ -62,8 +65,6 @@ services:
     image: commanderzone-api
     command: php bin/console app:game-lifecycle-sweep --watch --interval=5 --batch-size=100
     restart: unless-stopped
-    deploy:
-      replicas: ${LIFECYCLE_SWEEPER_REPLICAS:-1}
     # This is a queue-like worker, not an HTTP server. The image healthcheck
     # probes Caddy's admin port, which is intentionally absent for this
     # command and would permanently mark an otherwise healthy worker down.
@@ -80,6 +81,9 @@ services:
       GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
       GAME_RUNTIME_TICKET_SECRET: ${GAME_RUNTIME_TICKET_SECRET:-commanderzone-dev-runtime-secret-change-me}
+      GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS: ${GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS:-120}
+      GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS: ${GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS:-1800}
+      WAITING_ROOM_INACTIVITY_GRACE_SECONDS: ${WAITING_ROOM_INACTIVITY_GRACE_SECONDS:-1800}
     depends_on:
       database:
         condition: service_healthy
@@ -92,8 +96,6 @@ services:
     image: commanderzone-api
     command: php bin/console app:game-runtime-stop-worker --watch --interval=1 --batch-size=100
     restart: unless-stopped
-    deploy:
-      replicas: ${RUNTIME_STOP_WORKER_REPLICAS:-1}
     healthcheck:
       disable: true
     environment:

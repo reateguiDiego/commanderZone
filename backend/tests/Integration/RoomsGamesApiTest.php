@@ -7,14 +7,97 @@ use App\Application\Game\Lifecycle\GameLifecycleProjector;
 use App\Application\Game\GameRematchLifecycleSweeper;
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Application\Game\Runtime\GameRuntimeStopWorker;
+use App\Application\Room\Lifecycle\WaitingRoomLifecycleSweeper;
 use App\Domain\Card\Card;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
+use App\Domain\Room\Room;
+use App\Domain\Room\RoomInvite;
 use App\Domain\User\User;
 use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
 {
+    public function testWaitingRoomLifecycleDeletesOnlyExpiredOfflineGameRooms(): void
+    {
+        $offlineToken = $this->registerAndLogin('waiting-lifecycle-offline@example.test', 'Offline player');
+        $onlineToken = $this->registerAndLogin('waiting-lifecycle-online@example.test', 'Online player');
+        $assistantToken = $this->registerAndLogin('waiting-lifecycle-assistant@example.test', 'Assistant player');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $offlineToken);
+        self::assertResponseStatusCodeSame(201);
+        $offlineRoomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $onlineToken);
+        self::assertResponseStatusCodeSame(201);
+        $onlineRoomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', ['playerCount' => 2], $assistantToken);
+        self::assertResponseStatusCodeSame(201);
+        $assistantRoomId = (string) $this->jsonResponse()['tableAssistantRoom']['id'];
+
+        $offlineOwner = $this->entityManager->getRepository(User::class)->find($this->currentUserId($offlineToken));
+        $onlineOwner = $this->entityManager->getRepository(User::class)->find($this->currentUserId($onlineToken));
+        $offlineRoom = $this->entityManager->getRepository(Room::class)->find($offlineRoomId);
+        self::assertInstanceOf(User::class, $offlineOwner);
+        self::assertInstanceOf(User::class, $onlineOwner);
+        self::assertInstanceOf(Room::class, $offlineRoom);
+        $this->entityManager->persist(new RoomInvite($offlineRoom, $offlineOwner, $onlineOwner));
+        $this->entityManager->flush();
+
+        $now = new \DateTimeImmutable();
+        $connection = $this->entityManager->getConnection();
+        foreach ([$offlineRoomId, $onlineRoomId, $assistantRoomId] as $roomId) {
+            $connection->executeStatement('UPDATE room SET waiting_expires_at = :expiredAt WHERE id = :roomId', [
+                'expiredAt' => $now->modify('-1 minute')->format('Y-m-d H:i:s'),
+                'roomId' => $roomId,
+            ]);
+        }
+        $connection->executeStatement('UPDATE app_user SET last_seen_at = NULL WHERE id = :userId', ['userId' => $offlineOwner->id()]);
+        $connection->executeStatement('UPDATE app_user SET last_seen_at = :now WHERE id = :userId', [
+            'now' => $now->format('Y-m-d H:i:s'),
+            'userId' => $onlineOwner->id(),
+        ]);
+        $this->entityManager->clear();
+
+        $deletedRoomIds = static::getContainer()->get(WaitingRoomLifecycleSweeper::class)->sweep($now, 10);
+
+        self::assertContains($offlineRoomId, $deletedRoomIds);
+        self::assertFalse((bool) $connection->fetchOne('SELECT 1 FROM room WHERE id = :roomId', ['roomId' => $offlineRoomId]));
+        self::assertSame('0', (string) $connection->fetchOne('SELECT COUNT(*) FROM room_invite WHERE room_id = :roomId', ['roomId' => $offlineRoomId]));
+        self::assertTrue((bool) $connection->fetchOne('SELECT 1 FROM room WHERE id = :roomId', ['roomId' => $onlineRoomId]));
+        self::assertGreaterThan(
+            $now->getTimestamp(),
+            (new \DateTimeImmutable((string) $connection->fetchOne('SELECT waiting_expires_at FROM room WHERE id = :roomId', ['roomId' => $onlineRoomId])))->getTimestamp(),
+        );
+        self::assertTrue((bool) $connection->fetchOne('SELECT 1 FROM room WHERE id = :roomId', ['roomId' => $assistantRoomId]));
+    }
+
+    public function testWaitingRoomPresenceEndpointIsLightweightAndRequiresMembership(): void
+    {
+        $ownerToken = $this->registerAndLogin('waiting-presence-owner@example.test', 'Presence owner');
+        $otherToken = $this->registerAndLogin('waiting-presence-other@example.test', 'Presence other');
+        $ownerId = $this->currentUserId($ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+        $this->entityManager->getConnection()->executeStatement(
+            'UPDATE app_user SET last_seen_at = NULL WHERE id = :userId',
+            ['userId' => $ownerId],
+        );
+        $this->entityManager->clear();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/presence', token: $ownerToken);
+        self::assertResponseStatusCodeSame(204);
+        self::assertNotNull($this->entityManager->getConnection()->fetchOne(
+            'SELECT last_seen_at FROM app_user WHERE id = :userId',
+            ['userId' => $ownerId],
+        ));
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/presence', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testCurrentRoomEndpointReturnsActiveMembership(): void
     {
         $ownerToken = $this->registerAndLogin('current-room-owner@example.test', 'Current Room Owner');
@@ -1248,6 +1331,12 @@ class RoomsGamesApiTest extends ApiTestCase
             'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
             ['gameId' => $gameId],
         ));
+        $this->entityManager->getConnection()->executeStatement(<<<'SQL'
+INSERT INTO game_runtime_lifecycle_outbox (
+    event_id, game_id, type, generation, fencing, version, occurred_at, queued_at, available_at
+)
+VALUES (:eventId, :gameId, 'game.all_players_disconnected', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+SQL, ['eventId' => $gameId.':outbox', 'gameId' => $gameId]);
         $offlineAt = new \DateTimeImmutable('-31 minutes');
 
         $projector = static::getContainer()->get(GameLifecycleProjector::class);
@@ -1278,6 +1367,56 @@ class RoomsGamesApiTest extends ApiTestCase
             'SELECT COUNT(*) FROM game_runtime_stop_queue WHERE game_id = :gameId',
             ['gameId' => $gameId],
         ));
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_runtime_lifecycle_outbox WHERE game_id = :gameId',
+            ['gameId' => $gameId],
+        ));
+    }
+
+    public function testStaleLifecycleDeadlineCannotBlockLaterExpiredGameDeletion(): void
+    {
+        $staleFixture = $this->startedRematchGameFixture('stale', [
+            ['stale-owner@example.test', 'Stale Owner'],
+            ['stale-guest@example.test', 'Stale Guest'],
+        ]);
+        $expiredFixture = $this->startedRematchGameFixture('expired', [
+            ['expired-owner@example.test', 'Expired Owner'],
+            ['expired-guest@example.test', 'Expired Guest'],
+        ]);
+        $staleGameId = $staleFixture['gameId'];
+        $expiredGameId = $expiredFixture['gameId'];
+        $expiredRoomId = $expiredFixture['roomId'];
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
+            'UPDATE game SET next_lifecycle_at = :dueAt WHERE id = :gameId',
+            ['dueAt' => (new \DateTimeImmutable('-40 minutes'))->format('Y-m-d H:i:s'), 'gameId' => $staleGameId],
+        );
+
+        $expiredGame = $this->entityManager->getRepository(Game::class)->find($expiredGameId);
+        self::assertInstanceOf(Game::class, $expiredGame);
+        static::getContainer()->get(GameLifecycleProjector::class)->apply($expiredGame, new GameLifecycleHandoff(
+            $expiredGameId.':all-disconnected',
+            $expiredGameId,
+            GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED,
+            1,
+            1,
+            1,
+            new \DateTimeImmutable('-31 minutes'),
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+
+        $result = static::getContainer()->get(GameRematchLifecycleSweeper::class)->sweep(new \DateTimeImmutable(), 2);
+
+        self::assertSame(['lifecycle_noop', 'room_deleted'], array_column($result, 'type'));
+        $row = $connection->fetchAssociative(
+            'SELECT next_lifecycle_at FROM game WHERE id = :gameId',
+            ['gameId' => $staleGameId],
+        );
+        self::assertIsArray($row);
+        self::assertNull($row['next_lifecycle_at']);
+        self::assertNull($this->entityManager->getRepository(Game::class)->find($expiredGameId));
+        self::assertNull($this->entityManager->getRepository(\App\Domain\Room\Room::class)->find($expiredRoomId));
     }
 
     public function testAllDisconnectedGraceSchedulesHibernateBeforeFinalExpiry(): void

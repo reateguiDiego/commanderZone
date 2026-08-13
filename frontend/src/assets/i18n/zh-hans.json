@@ -363,7 +363,8 @@
       "thisPlayer": "è¿™ä½çŽ©å®¶",
       "tieBreakRoll": "å¹³å±€é‡æŽ·",
       "tieBreakRollMessage": "ä½ ä¸Ž {{ playerNames }} å¹³å±€ã€‚è¯·å†æ¬¡æŽ·éª°å†³å®šé¡ºåºã€‚",
-      "waitingForDecksAndRolls": "ç­‰å¾…å¥—ç‰Œå’ŒæŽ·éª°"
+      "waitingForDecksAndRolls": "ç­‰å¾…å¥—ç‰Œå’ŒæŽ·éª°",
+      "realtimeUnavailable": "实时连接正在恢复。房间变更可能会延迟显示。"
     },
     "setup": {
       "gameSetupLifeControl": {
