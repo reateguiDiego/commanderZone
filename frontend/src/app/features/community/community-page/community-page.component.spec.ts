@@ -36,6 +36,7 @@ describe('CommunityPageComponent', () => {
                 { id: 'card-3', scryfallId: 'card-scryfall-3', name: 'Cyclonic Rift', cropImage: 'https://cards.test/rift.jpg', cardType: 'Instant', cardTypeIcon: 'instant', timesPlayed: 2600 },
                 { id: 'card-4', scryfallId: 'card-scryfall-4', name: 'Should Not Render', cropImage: 'https://cards.test/extra-card.jpg', cardType: 'Artifact', cardTypeIcon: 'artifact', timesPlayed: 1200 },
               ],
+              publicDeckCount: 7,
               decks: Array.from({ length: 7 }, (_, index) => ({
                 id: `deck-${index + 1}`,
                 name: `Deck ${index + 1}`,
@@ -90,6 +91,7 @@ describe('CommunityPageComponent', () => {
 
     expect(element.textContent).toContain('Community decks');
     expect(element.textContent).toContain('Discover public decks');
+    expect(element.textContent).toContain('(7)');
     expect(element.textContent).toContain('Most played commanders');
     expect(element.textContent).toContain('Most played cards');
     expect(element.textContent).toContain('Based on games played by the community');

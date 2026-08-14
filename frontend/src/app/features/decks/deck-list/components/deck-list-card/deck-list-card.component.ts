@@ -2,15 +2,17 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.model';
+import { DeckBracketLabel } from '../../../../../core/models/deck-analysis.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
+import { BracketLabelPillComponent } from '../../../../../shared/ui/bracket-label-pill/bracket-label-pill.component';
 
 export type DeckListCardMetricsMode = 'none' | 'owner';
 
 @Component({
   selector: 'app-deck-list-card',
-  imports: [NgTemplateOutlet, LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, TooltipComponent],
+  imports: [NgTemplateOutlet, LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, TooltipComponent, BracketLabelPillComponent],
   templateUrl: './deck-list-card.component.html',
   styleUrl: './deck-list-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,6 +28,8 @@ export class DeckListCardComponent {
   readonly hasIssues = input(false);
   readonly issueTooltip = input('');
   readonly metricsMode = input<DeckListCardMetricsMode>('none');
+  readonly bracket = input<DeckBracketLabel | null>(null);
+  readonly showVisibility = input(true);
 
   readonly openDeck = output<void>();
 

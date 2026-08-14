@@ -24,6 +24,7 @@ class CommunityDeckGridHostComponent {
     updatedAt: '2026-06-26T00:00:00Z',
     likes: 17,
     copies: 4,
+    bracket: { bracket: 2, label: 'Core' },
     creatorUserId: 'user-1',
   }]);
 }
@@ -52,5 +53,7 @@ describe('CommunityDeckGridComponent', () => {
     expect(metricValues).toEqual(['17', '4']);
     expect(metrics?.querySelector('.metric-likes')?.getAttribute('aria-label')).toBe('Likes: 17');
     expect(metrics?.querySelector('.metric-copies')?.getAttribute('aria-label')).toBe('Copies: 4');
+    expect(fixture.nativeElement.querySelector('app-bracket-label-pill')?.textContent).toContain('Bracket 2');
+    expect(fixture.nativeElement.querySelector('.visibility-pill')).toBeNull();
   });
 });

@@ -26,12 +26,14 @@ describe('DeckListCardComponent', () => {
       cards: [],
     });
     fixture.componentRef.setInput('colorIdentity', ['G', 'U']);
+    fixture.componentRef.setInput('bracket', { bracket: 3, label: 'Upgraded' });
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.textContent).toContain('Public Deck');
     expect(element.querySelector('.visibility-pill')?.textContent?.trim()).toBe('Public');
+    expect(element.querySelector('app-bracket-label-pill')?.textContent).toContain('Bracket 3');
     expect(element.querySelector('.deck-row-actions')).toBeNull();
     expect(element.querySelector('button')).toBeNull();
   });

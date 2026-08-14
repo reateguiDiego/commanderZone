@@ -26,7 +26,7 @@
         @if (selectedOption()?.flagAsset; as flagAsset) {
           <img class="format-select-flag" [src]="flagAsset" alt="" aria-hidden="true" draggable="false" />
         }
-        <span class="format-select-trigger-label">{{ selectedLabel() | runtimeTranslate }}</span>
+        <span class="format-select-trigger-label">{{ selectedLabel() | runtimeTranslate: selectedTranslationParams() }}</span>
       </span>
       <span class="format-select-caret" aria-hidden="true"></span>
     </button>
@@ -56,7 +56,7 @@
               @if (option.flagAsset) {
                 <img class="format-select-flag" [src]="option.flagAsset" alt="" aria-hidden="true" draggable="false" />
               }
-              <span>{{ optionLabel(option) | runtimeTranslate }}</span>
+              <span>{{ optionLabel(option) | runtimeTranslate: option.translationParams }}</span>
             </span>
             @if (value() === option.id) {
               <span class="format-select-selected-mark" aria-hidden="true"></span>

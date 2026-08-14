@@ -78,6 +78,21 @@
   object-fit: contain;
 }
 
+.random-deck-button.roll-pending:not(:disabled) {
+  border-color: rgb(var(--cz-accent-rgb) / 78%);
+  background: linear-gradient(180deg, var(--cz-accent), var(--cz-primary));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 22%),
+    0 0 0 0.16rem rgb(var(--cz-accent-rgb) / 24%),
+    0 0 1.1rem 0.3rem rgb(var(--cz-accent-rgb) / 76%),
+    0 0 2.4rem 0.55rem rgb(var(--cz-primary-rgb) / 42%);
+  animation: roll-pending-glow 1.15s ease-in-out infinite alternate;
+}
+
+.random-deck-button.roll-pending:not(:disabled) img {
+  filter: drop-shadow(0 0 0.45rem rgb(var(--cz-accent-rgb) / 92%));
+}
+
 .deck-select-trigger:hover,
 .deck-select-option:hover,
 .deck-select-option.selected,
@@ -171,6 +186,32 @@
 
 .deck-colors {
   flex: 0 0 auto;
+}
+
+@keyframes roll-pending-glow {
+  from {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--cz-text-rgb) / 22%),
+      0 0 0 0.12rem rgb(var(--cz-accent-rgb) / 18%),
+      0 0 0.8rem 0.16rem rgb(var(--cz-accent-rgb) / 54%),
+      0 0 1.7rem 0.35rem rgb(var(--cz-primary-rgb) / 24%);
+    transform: scale(1);
+  }
+
+  to {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--cz-text-rgb) / 22%),
+      0 0 0 0.22rem rgb(var(--cz-accent-rgb) / 32%),
+      0 0 1.45rem 0.42rem rgb(var(--cz-accent-rgb) / 92%),
+      0 0 3.25rem 0.8rem rgb(var(--cz-primary-rgb) / 48%);
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .random-deck-button.roll-pending:not(:disabled) {
+    animation: none;
+  }
 }
 
 @media (max-width: 760px) {

@@ -483,8 +483,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Buscar comandante...",
       "commanderSelect": "Seleccionar comandante",
-      "filterFormat": "Formato",
-      "allFormats": "Todos los formatos",
+        "filterFormat": "Formato",
+        "allFormats": "Todos los formatos",
+        "filterBracket": "Bracket",
+        "allBrackets": "Todos los brackets",
       "searchButton": "Buscar",
       "empty": "Aún no hay mazos públicos disponibles.",
       "error": "No se pudieron cargar los mazos públicos."

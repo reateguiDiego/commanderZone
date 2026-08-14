@@ -485,6 +485,8 @@
       "commanderSelect": "é€‰æ‹©",
       "filterFormat": "æ ¼å¼",
       "allFormats": "æ‰€æœ‰æ ¼å¼",
+      "filterBracket": "分组",
+      "allBrackets": "所有分组",
       "searchButton": "æœç´¢",
       "empty": "å°šæ— å¯ç”¨çš„å…¬å…±å¥—ç‰Œã€‚",
       "error": "æ— æ³•åŠ è½½å…¬å…±å¥—ç‰Œã€‚"

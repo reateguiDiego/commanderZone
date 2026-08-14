@@ -483,8 +483,10 @@
       "filterCommander": "Commandant",
       "filterCommanderPlaceholder": "Rechercher un commandant...",
       "commanderSelect": "SÃ©lectionner",
-      "filterFormat": "Format",
-      "allFormats": "Tous les formats",
+        "filterFormat": "Format",
+        "allFormats": "Tous les formats",
+        "filterBracket": "Bracket",
+        "allBrackets": "Tous les brackets",
       "searchButton": "Rechercher",
       "empty": "Aucun deck public disponible pour lâ€™instant.",
       "error": "Impossible de charger les decks publics."

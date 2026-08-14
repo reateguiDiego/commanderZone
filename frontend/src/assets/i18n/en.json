@@ -483,8 +483,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Search commander...",
       "commanderSelect": "Select",
-      "filterFormat": "Format",
-      "allFormats": "All formats",
+        "filterFormat": "Format",
+        "allFormats": "All formats",
+        "filterBracket": "Bracket",
+        "allBrackets": "All brackets",
       "searchButton": "Search",
       "empty": "No public decks available yet.",
       "error": "Could not load public decks."

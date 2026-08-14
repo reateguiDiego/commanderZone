@@ -1,6 +1,7 @@
 import { CardPreviewItem } from './card-preview.model';
 import { Card } from './card.model';
 import { Deck, DeckCard, DeckVisibility } from './deck.model';
+import { DeckBracketLabel } from './deck-analysis.model';
 import { UserAvatar, UserDisplayNameStyle } from './user.model';
 
 export interface CommunityDeckSummary {
@@ -17,6 +18,7 @@ export interface CommunityDeckSummary {
   updatedAt: string;
   likes: number;
   copies: number;
+  bracket?: DeckBracketLabel | null;
   creatorUserId: string;
 }
 
@@ -52,6 +54,7 @@ export interface CommunityHome {
   commanders: CardPreviewItem[];
   cards: CardPreviewItem[];
   decks: CommunityDeckSummary[];
+  publicDeckCount: number;
 }
 
 export interface CommunityPreviewCards {
@@ -110,6 +113,7 @@ export function toDeckCardListItem(summary: CommunityDeckSummary): Deck {
     creatorUserId: summary.creatorUserId,
     likes: summary.likes,
     copies: summary.copies,
+    bracket: summary.bracket,
     folderId: null,
     cards: [],
   };

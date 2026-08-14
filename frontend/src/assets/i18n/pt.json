@@ -483,8 +483,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Pesquisar Comandante...",
       "commanderSelect": "Selecione",
-      "filterFormat": "Formato",
-      "allFormats": "Todos os formatos",
+        "filterFormat": "Formato",
+        "allFormats": "Todos os formatos",
+        "filterBracket": "Bracket",
+        "allBrackets": "Todos os brackets",
       "searchButton": "Pesquisar",
       "empty": "Nenhum deck pÃºblico disponÃ­vel ainda.",
       "error": "NÃ£o foi possÃ­vel carregar os decks pÃºblicos."

@@ -21,6 +21,14 @@
 }
 
 :host(.current) { border-color: rgb(var(--cz-primary-rgb) / 72%); box-shadow: 0 1.4rem 3.2rem rgb(var(--cz-bg-rgb) / 30%), inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 24%); }
+:host(.player-ready) {
+  border-color: rgb(var(--cz-accent-rgb) / 62%);
+  box-shadow:
+    0 1.4rem 3.2rem rgb(var(--cz-bg-rgb) / 30%),
+    inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 30%),
+    0 0 1rem rgb(var(--cz-primary-rgb) / 26%);
+  animation: player-ready-glow 2.6s ease-in-out infinite alternate;
+}
 :host(.selector-open) { z-index: 2400; border-color: rgb(var(--cz-text-rgb) / 76%); }
 :host(.has-deck-art) { background: rgb(var(--cz-bg-rgb) / 55%); }
 :host(.has-deck-art)::before {
@@ -46,6 +54,15 @@
   opacity: 1;
   pointer-events: none;
   transition: opacity 160ms ease;
+}
+
+:host(.player-ready.has-deck-art)::after {
+  background:
+    linear-gradient(115deg, transparent 30%, rgb(var(--cz-accent-rgb) / 14%) 48%, rgb(var(--cz-primary-rgb) / 8%) 58%, transparent 74%),
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 18%), rgb(var(--cz-bg-rgb) / 66%));
+  background-size: 220% 100%, 100% 100%;
+  background-position: 115% 0, 0 0;
+  animation: player-ready-art-shimmer 4.2s ease-in-out infinite;
 }
 
 :host(.has-dual-deck-art)::before {
@@ -221,6 +238,7 @@
 
 .player-summary,
 .player-deck-area,
+.player-status-stack,
 .host-ribbon,
 .roll-badge {
   transition: opacity 140ms ease, transform 140ms ease;
@@ -228,6 +246,7 @@
 
 :host(.has-deck-art:not(.current):hover) .player-summary,
 :host(.has-deck-art:not(.current):hover) .player-deck-area,
+:host(.has-deck-art:not(.current):hover) .player-status-stack,
 :host(.has-deck-art:not(.current):hover) .host-ribbon,
 :host(.has-deck-art:not(.current):hover) .roll-badge {
   opacity: 0;
@@ -266,13 +285,19 @@
   min-height: 0;
 }
 
-.host-ribbon {
+.player-status-stack {
   position: absolute;
   top: 0.45rem;
   left: 50%;
   z-index: 3;
   transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
   max-width: calc(100% - 6.5rem);
+}
+
+.host-ribbon {
   overflow: hidden;
   border: 1px solid rgb(var(--cz-primary-rgb) / 46%);
   border-radius: 999px;
@@ -324,6 +349,39 @@
   border-color: rgb(var(--cz-success-rgb) / 44%);
   color: var(--cz-secondary);
   background: rgb(var(--cz-success-rgb) / 10%);
+}
+
+@keyframes player-ready-glow {
+  from {
+    box-shadow:
+      0 1.4rem 3.2rem rgb(var(--cz-bg-rgb) / 30%),
+      inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 22%),
+      0 0 0.45rem rgb(var(--cz-primary-rgb) / 14%);
+  }
+
+  to {
+    box-shadow:
+      0 1.4rem 3.2rem rgb(var(--cz-bg-rgb) / 30%),
+      inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 44%),
+      0 0 1.4rem rgb(var(--cz-primary-rgb) / 32%);
+  }
+}
+
+@keyframes player-ready-art-shimmer {
+  0%, 100% {
+    background-position: 115% 0, 0 0;
+  }
+
+  50% {
+    background-position: -25% 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host(.player-ready),
+  :host(.player-ready.has-deck-art)::after {
+    animation: none;
+  }
 }
 
 .roll-badge {

@@ -170,7 +170,8 @@
                       [hasCommanderArt]="store.deckCommanderImage(item.deck) !== null"
                       [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
                       [hasIssues]="store.deckHasIssues(item.deck)"
-                      [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                    [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                    [bracket]="item.deck.bracket ?? null"
                       metricsMode="owner"
                       (openDeck)="store.openDeck(item.deck)"
                     />
@@ -235,6 +236,7 @@
                     [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
                     [hasIssues]="store.deckHasIssues(deck)"
                     [issueTooltip]="store.deckIssueTooltip(deck)"
+                    [bracket]="deck.bracket ?? null"
                     metricsMode="owner"
                     (openDeck)="store.openDeck(deck)"
                   />

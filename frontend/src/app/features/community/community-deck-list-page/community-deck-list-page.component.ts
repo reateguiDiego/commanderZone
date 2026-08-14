@@ -31,6 +31,7 @@ export class CommunityDeckListPageComponent {
   readonly searchQuery = signal(this.cache.deckListState().searchQuery);
   readonly commanderQuery = signal(this.cache.deckListState().commanderQuery);
   readonly selectedFormat = signal(this.cache.deckListState().selectedFormat);
+  readonly selectedBracket = signal(this.cache.deckListState().selectedBracket);
   readonly page = signal(this.cache.deckListState().page);
   readonly loading = signal(this.cache.peekDecks(this.filters()) === null || this.cache.peekFormats() === null);
   readonly error = signal<string | null>(null);
@@ -44,6 +45,14 @@ export class CommunityDeckListPageComponent {
     { id: '', name: 'community.deckList.allFormats' },
     ...this.formats().map((format) => ({ id: format.id, name: format.name })),
   ]);
+  readonly bracketOptions: readonly FormatSelectOption[] = [
+    { id: '', name: 'community.deckList.allBrackets' },
+    ...[1, 2, 3, 4, 5].map((bracket) => ({
+      id: String(bracket),
+      name: 'bracket.tooltip.current',
+      translationParams: { bracket },
+    })),
+  ];
 
   constructor() {
     this.seo.apply({
@@ -72,6 +81,12 @@ export class CommunityDeckListPageComponent {
 
   setSelectedFormat(value: string): void {
     this.selectedFormat.set(value);
+    this.page.set(1);
+    this.syncFilters();
+  }
+
+  setSelectedBracket(value: string): void {
+    this.selectedBracket.set(value);
     this.page.set(1);
     this.syncFilters();
   }
@@ -143,11 +158,12 @@ export class CommunityDeckListPageComponent {
     }
   }
 
-  private filters(): { q?: string; commander?: string; format?: string; page: number } {
+  private filters(): { q?: string; commander?: string; format?: string; bracket?: string; page: number } {
     return {
       q: this.searchQuery().trim() || undefined,
       commander: this.commanderQuery().trim() || undefined,
       format: this.selectedFormat() || undefined,
+      bracket: this.selectedBracket() || undefined,
       page: this.page(),
     };
   }
@@ -157,6 +173,7 @@ export class CommunityDeckListPageComponent {
       searchQuery: this.searchQuery(),
       commanderQuery: this.commanderQuery(),
       selectedFormat: this.selectedFormat(),
+      selectedBracket: this.selectedBracket(),
       page: this.page(),
     });
   }

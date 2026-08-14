@@ -8,6 +8,7 @@ use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckBracketSignalProvider;
+use App\Application\Deck\DeckBracketLabelProvider;
 use App\Application\Deck\DeckEditorTokenSnapshotService;
 use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
@@ -36,7 +37,7 @@ class DecksController extends ApiController
     private const MAX_DECK_NAME_LENGTH = 20;
 
     #[Route('/decks', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckBracketLabelProvider $bracketLabels): JsonResponse
     {
         $criteria = ['owner' => $user];
         if ($request->query->has('folderId')) {
@@ -53,9 +54,15 @@ class DecksController extends ApiController
         }
 
         $decks = $entityManager->getRepository(Deck::class)->findBy($criteria, ['id' => 'DESC']);
+        $cachedBracketLabels = $bracketLabels->labelsByDeckIds(array_map(static fn (Deck $deck): string => $deck->id(), $decks), true);
 
         return $this->json(['data' => array_map(
-            fn (Deck $deck): array => $this->localizeDeckPayload($deck->toArray(), $user, $localization),
+            function (Deck $deck) use ($cachedBracketLabels, $user, $localization): array {
+                $payload = $this->localizeDeckPayload($deck->toArray(), $user, $localization);
+                $payload['bracket'] = $cachedBracketLabels[$deck->id()] ?? null;
+
+                return $payload;
+            },
             $decks,
         )]);
     }

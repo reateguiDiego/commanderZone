@@ -55,16 +55,21 @@
   }
 
   <div class="deck-card-footer">
-    <app-tooltip [text]="visibilityLabelKey(deck().visibility) | runtimeTranslate">
-      <span
-        class="visibility-pill"
-        [class.public]="deck().visibility === 'public'"
-        [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
-      >
-        <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
-        <span class="visibility-pill-label">{{ visibilityPillLabelKey(deck().visibility) | runtimeTranslate }}</span>
-      </span>
-    </app-tooltip>
+    <div class="deck-card-badges">
+      <app-bracket-label-pill [bracket]="bracket()" />
+      @if (showVisibility()) {
+        <app-tooltip [text]="visibilityLabelKey(deck().visibility) | runtimeTranslate">
+          <span
+            class="visibility-pill"
+            [class.public]="deck().visibility === 'public'"
+            [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+          >
+            <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
+            <span class="visibility-pill-label">{{ visibilityPillLabelKey(deck().visibility) | runtimeTranslate }}</span>
+          </span>
+        </app-tooltip>
+      }
+    </div>
     @if (hasIssues()) {
       <div class="deck-card-status">
         <app-tooltip [text]="issueTooltip()">

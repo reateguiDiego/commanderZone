@@ -22,6 +22,7 @@ export interface CommunityDeckListFilters {
   q?: string;
   commander?: string;
   format?: string;
+  bracket?: string;
   colors?: string;
   lang?: string;
   page?: number;

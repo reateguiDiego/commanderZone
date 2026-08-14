@@ -34,8 +34,11 @@ class CommunityApiTest extends ApiTestCase
 
         $response = $this->jsonResponse();
         self::assertCount(1, $response['decks']);
+        self::assertSame(1, $response['publicDeckCount']);
         self::assertSame($publicValidDeckId, $response['decks'][0]['id']);
         self::assertSame('https://cards.scryfall.io/art_crop/front/home-commander.jpg', $response['decks'][0]['cropImage']);
+        self::assertContains($response['decks'][0]['bracket']['bracket'], [1, 2, 3, 4, 5]);
+        self::assertNotSame('', $response['decks'][0]['bracket']['label']);
         self::assertCount(3, $response['commanders']);
         self::assertCount(3, $response['cards']);
     }
@@ -67,11 +70,17 @@ class CommunityApiTest extends ApiTestCase
         self::assertCount(1, $response['decks']);
         self::assertSame($matchingDeckId, $response['decks'][0]['id']);
         self::assertSame(['G'], $response['decks'][0]['colorIdentity']);
+        self::assertContains($response['decks'][0]['bracket']['bracket'], [1, 2, 3, 4, 5]);
+        self::assertNotSame('', $response['decks'][0]['bracket']['label']);
         self::assertSame(1, $response['page']);
         self::assertSame(20, $response['limit']);
         self::assertSame(1, $response['total']);
         self::assertSame(1, $response['totalPages']);
         self::assertFalse($response['hasMore']);
+
+        $this->jsonRequest('GET', '/community/decks?q=Searchable&commander=Search%20Commander&format=commander&colors=G&bracket='.$response['decks'][0]['bracket']['bracket']);
+        self::assertResponseIsSuccessful();
+        self::assertSame([$matchingDeckId], array_column($this->jsonResponse()['decks'], 'id'));
     }
 
     public function testCommunityHomeReturnsTopDecksBySocialRanking(): void

@@ -1432,6 +1432,13 @@ paths:
           in: query
           schema:
             type: string
+        - name: bracket
+          in: query
+          description: Filter by Commander bracket level.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
         - name: colors
           in: query
           description: Simple commander color filter using W,U,B,R,G or C.
@@ -4694,7 +4701,7 @@ components:
           minimum: 0
     CommunityHomeResponse:
       type: object
-      required: [commanders, cards, decks]
+      required: [commanders, cards, decks, publicDeckCount]
       properties:
         commanders:
           type: array
@@ -4708,6 +4715,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CommunityDeckSummary'
+        publicDeckCount:
+          type: integer
+          minimum: 0
     CommunityDeckListResponse:
       type: object
       required: [decks, page, limit, total, totalPages, hasMore]
@@ -4923,6 +4933,10 @@ components:
         copies:
           type: integer
           minimum: 0
+        bracket:
+          allOf:
+            - $ref: '#/components/schemas/DeckBracketLabel'
+          nullable: true
         creatorUserId:
           type: string
           format: uuid
@@ -5031,6 +5045,10 @@ components:
         copies:
           type: integer
           minimum: 0
+        bracket:
+          allOf:
+            - $ref: '#/components/schemas/DeckBracketLabel'
+          nullable: true
         commanders:
           type: array
           description: Fully localized commander cards for this deck, in display order.
@@ -5045,6 +5063,17 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/DeckCard'
+    DeckBracketLabel:
+      type: object
+      required: [bracket, label]
+      properties:
+        bracket:
+          type: integer
+          minimum: 1
+          maximum: 5
+        label:
+          type: string
+          enum: [Exhibition, Core, Upgraded, Optimized, cEDH]
     DeckCard:
       type: object
       required: [id, quantity, section, card]

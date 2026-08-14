@@ -7,6 +7,7 @@ export interface FormatSelectOption {
   readonly id: string;
   readonly name?: string;
   readonly labelKey?: string;
+  readonly translationParams?: Record<string, unknown>;
   readonly flagAsset?: string;
   readonly disabled?: boolean;
 }
@@ -67,6 +68,7 @@ export class FormatSelectComponent {
     const selectedOption = this.selectedOption();
     return selectedOption ? this.optionLabel(selectedOption) : 'Select format';
   });
+  readonly selectedTranslationParams = computed(() => this.selectedOption()?.translationParams);
   readonly visibleLabel = computed(() => this.labelKey() ?? this.label());
 
   constructor() {

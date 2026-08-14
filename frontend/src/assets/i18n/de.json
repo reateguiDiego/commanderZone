@@ -483,8 +483,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Kommandeur suchen...",
       "commanderSelect": "AuswÃ¤hlen",
-      "filterFormat": "Format",
-      "allFormats": "Alle Formate",
+        "filterFormat": "Format",
+        "allFormats": "Alle Formate",
+        "filterBracket": "Bracket",
+        "allBrackets": "Alle Brackets",
       "searchButton": "Suchen",
       "empty": "Noch sind keine Ã¶ffentlichen Decks verfÃ¼gbar.",
       "error": "Ã–ffentliche Decks konnten nicht geladen werden."

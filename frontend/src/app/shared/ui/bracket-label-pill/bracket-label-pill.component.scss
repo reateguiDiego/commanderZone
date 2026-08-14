@@ -1,0 +1,70 @@
+:host {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.bracket-label-pill {
+  --bracket-pill-color: var(--cz-text);
+  --bracket-pill-rgb: var(--cz-text-rgb);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  max-width: 100%;
+  min-height: 2rem;
+  padding: 0 0.6rem 0 0.28rem;
+  border: 1px solid rgb(var(--bracket-pill-rgb) / 68%);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgb(var(--bracket-pill-rgb) / 30%), rgb(var(--bracket-pill-rgb) / 16%)),
+    rgb(var(--cz-bg-rgb) / 58%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--bracket-pill-rgb) / 38%),
+    0 0 0.7rem rgb(var(--bracket-pill-rgb) / 18%);
+  color: var(--cz-text);
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bracket-label-pill--1 {
+  --bracket-pill-color: var(--cz-text);
+  --bracket-pill-rgb: var(--cz-text-rgb);
+}
+
+.bracket-label-pill--2 {
+  --bracket-pill-color: var(--cz-accent);
+  --bracket-pill-rgb: var(--cz-accent-rgb);
+}
+
+.bracket-label-pill--3 {
+  --bracket-pill-color: var(--cz-success);
+  --bracket-pill-rgb: var(--cz-success-rgb);
+}
+
+.bracket-label-pill--4 {
+  --bracket-pill-color: var(--cz-danger);
+  --bracket-pill-rgb: var(--cz-danger-rgb);
+}
+
+.bracket-label-pill--5 {
+  --bracket-pill-color: var(--cz-bracket-5);
+  --bracket-pill-rgb: var(--cz-bracket-5-rgb);
+
+  border-color: rgb(var(--bracket-pill-rgb) / 100%);
+  background:
+    linear-gradient(135deg, rgb(var(--bracket-pill-rgb) / 82%), rgb(var(--bracket-pill-rgb) / 46%)),
+    rgb(var(--cz-bg-rgb) / 38%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--bracket-pill-rgb) / 88%),
+    0 0 1.45rem rgb(var(--bracket-pill-rgb) / 72%);
+}
+
+.bracket-label-pill img {
+  display: block;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}

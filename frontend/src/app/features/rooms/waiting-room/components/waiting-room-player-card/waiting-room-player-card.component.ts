@@ -1,13 +1,15 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { DeckBracketEstimate } from '../../../../../core/models/deck-analysis.model';
 import { RoomPlayer } from '../../../../../core/models/room.model';
 import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
+import { BracketLabelPillComponent } from '../../../../../shared/ui/bracket-label-pill/bracket-label-pill.component';
 import { WaitingRoomDeckSelectorComponent, WaitingDeckOption } from '../waiting-room-deck-selector/waiting-room-deck-selector.component';
 
 @Component({
   selector: 'app-waiting-room-player-card',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayerInfoComponent, WaitingRoomDeckSelectorComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayerInfoComponent, BracketLabelPillComponent, WaitingRoomDeckSelectorComponent],
   templateUrl: './waiting-room-player-card.component.html',
   styleUrl: './waiting-room-player-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,6 +26,7 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');
+  readonly deckBracket = input<DeckBracketEstimate | null>(null);
   readonly turnPosition = input<number | null>(null);
   readonly updatingDeck = input(false);
   readonly deckLocked = input(false);

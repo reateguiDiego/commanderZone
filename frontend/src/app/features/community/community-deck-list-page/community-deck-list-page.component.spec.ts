@@ -90,9 +90,13 @@ describe('CommunityDeckListPageComponent', () => {
     expect(fixture.componentInstance.totalPages()).toBe(2);
     expect(fixture.componentInstance.hasMore()).toBe(true);
 
+    fixture.componentInstance.setSelectedBracket('3');
+    await fixture.componentInstance.applyFilters();
+    expect(api.decks).toHaveBeenLastCalledWith({ bracket: '3', page: 1 });
+
     await fixture.componentInstance.nextPage();
     fixture.detectChanges();
-    expect(api.decks).toHaveBeenCalledWith({ page: 2 });
+    expect(api.decks).toHaveBeenCalledWith({ bracket: '3', page: 2 });
     expect(fixture.nativeElement.textContent).toContain('Partner Value');
 
     fixture.componentInstance.openDeck({

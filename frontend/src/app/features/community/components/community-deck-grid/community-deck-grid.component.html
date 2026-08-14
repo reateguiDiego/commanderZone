@@ -9,6 +9,8 @@
         [colorIdentity]="deck.colorIdentity"
         [hasCommanderArt]="hasCommanderArt(deck)"
         [hasDualCommanderArt]="hasDualCommanderArt(deck)"
+        [bracket]="deck.bracket ?? null"
+        [showVisibility]="false"
         (openDeck)="openDeck(deck)"
       />
       <div class="community-deck-metrics">

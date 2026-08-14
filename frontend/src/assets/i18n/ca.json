@@ -483,8 +483,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Cerca comandant...",
       "commanderSelect": "Selecciona",
-      "filterFormat": "Format",
-      "allFormats": "Tots els formats",
+        "filterFormat": "Format",
+        "allFormats": "Tots els formats",
+        "filterBracket": "Bracket",
+        "allBrackets": "Tots els brackets",
       "searchButton": "Cerca",
       "empty": "Encara no hi ha baralles pÃºbliques disponibles.",
       "error": "No s'han pogut carregar les baralles pÃºbliques."

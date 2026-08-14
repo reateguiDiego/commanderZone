@@ -41,6 +41,7 @@ class CommunityController extends ApiController
             'q' => $request->query->get('q'),
             'commander' => $request->query->get('commander'),
             'format' => $request->query->get('format'),
+            'bracket' => $request->query->get('bracket'),
             'colors' => $request->query->get('colors'),
             'page' => $request->query->get('page'),
         ], $requestedLanguage));

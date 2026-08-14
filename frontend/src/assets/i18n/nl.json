@@ -483,8 +483,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Zoek Commander...",
       "commanderSelect": "Selecteer",
-      "filterFormat": "Formaat",
-      "allFormats": "Alle formaten",
+        "filterFormat": "Formaat",
+        "allFormats": "Alle formaten",
+        "filterBracket": "Bracket",
+        "allBrackets": "Alle brackets",
       "searchButton": "Zoeken",
       "empty": "Er zijn nog geen openbare decks beschikbaar.",
       "error": "Kan openbare decks niet laden."

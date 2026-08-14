@@ -21,6 +21,7 @@ export interface CommunityDeckListViewState {
   readonly searchQuery: string;
   readonly commanderQuery: string;
   readonly selectedFormat: string;
+  readonly selectedBracket: string;
   readonly page: number;
 }
 
@@ -35,6 +36,7 @@ const COMMUNITY_FILTERS_DEFAULT_STATE: CommunityDeckListViewState = {
   searchQuery: '',
   commanderQuery: '',
   selectedFormat: '',
+  selectedBracket: '',
   page: 1,
 };
 
@@ -121,6 +123,7 @@ export class CommunityCacheService {
       searchQuery: state.searchQuery,
       commanderQuery: state.commanderQuery,
       selectedFormat: state.selectedFormat,
+      selectedBracket: state.selectedBracket,
       page: Math.max(1, Math.floor(state.page)),
     });
   }
@@ -130,6 +133,7 @@ export class CommunityCacheService {
       searchQuery: patch.searchQuery ?? current.searchQuery,
       commanderQuery: patch.commanderQuery ?? current.commanderQuery,
       selectedFormat: patch.selectedFormat ?? current.selectedFormat,
+      selectedBracket: patch.selectedBracket ?? current.selectedBracket,
       page: patch.page ?? current.page,
     }));
   }

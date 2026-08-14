@@ -24,6 +24,10 @@ import { WaitingRoomComponent } from './waiting-room.component';
 class DummyRoomsPageComponent {}
 
 describe('WaitingRoomComponent', () => {
+  const decksApi = {
+    list: vi.fn(),
+    bracketAnalysis: vi.fn(),
+  };
   const roomsApi = {
     list: vi.fn(),
     show: vi.fn(),
@@ -44,6 +48,8 @@ describe('WaitingRoomComponent', () => {
   };
 
   beforeEach(async () => {
+    decksApi.list.mockReset().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] }));
+    decksApi.bracketAnalysis.mockReset().mockReturnValue(of({ bracket: null }));
     roomsApi.list.mockReset().mockReturnValue(of({ data: [room()] }));
     roomsApi.show.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
@@ -64,7 +70,7 @@ describe('WaitingRoomComponent', () => {
       providers: [
         provideRouter([{ path: 'rooms', component: DummyRoomsPageComponent }]),
         importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Minus, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
-        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] })) } },
+        { provide: DecksApi, useValue: decksApi },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
@@ -541,6 +547,7 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentPlayerCanRoll()).toBe(true);
     expect(rollButton).not.toBeNull();
     expect(rollButton?.disabled).toBe(false);
+    expect(rollButton?.classList.contains('roll-pending')).toBe(true);
   });
 
   it('keeps a lagging tied player rollable after another tied player has already rerolled', async () => {

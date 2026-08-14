@@ -483,8 +483,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Cerca comandante...",
       "commanderSelect": "Seleziona",
-      "filterFormat": "Formato",
-      "allFormats": "Tutti i formati",
+        "filterFormat": "Formato",
+        "allFormats": "Tutti i formati",
+        "filterBracket": "Bracket",
+        "allBrackets": "Tutti i bracket",
       "searchButton": "Cerca",
       "empty": "Nessun mazzo pubblico ancora disponibile.",
       "error": "Impossibile caricare i mazzi pubblici."

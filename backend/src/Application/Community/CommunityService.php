@@ -5,6 +5,7 @@ namespace App\Application\Community;
 use App\Application\Card\CardLocalizationService;
 use App\Application\Card\CommanderCandidateSql;
 use App\Application\Deck\DeckFormatCatalog;
+use App\Application\Deck\DeckBracketLabelProvider;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
@@ -30,11 +31,13 @@ final class CommunityService
     private const PREVIEW_MIN_PLAYED_COUNT = 500;
     private const PREVIEW_MAX_PLAYED_COUNT = 3000;
     private const PREVIEW_TYPE_FILTERS = ['artifact', 'battle', 'creature', 'enchantment', 'instant', 'land', 'planeswalker', 'sorcery'];
+    private const BRACKET_VALUES = ['1', '2', '3', '4', '5'];
     private const PREVIEW_MESSAGE = "Pr\u{00F3}ximamente: estad\u{00ED}sticas basadas en partidas reales de CommanderZone.";
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly CardLocalizationService $localization,
+        private readonly DeckBracketLabelProvider $bracketLabels,
         private readonly CacheInterface $cache,
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
@@ -46,7 +49,8 @@ final class CommunityService
      * @return array{
      *   commanders:list<array{id:string,scryfallId:string,name:string,cropImage:?string,colors:list<string>,cardType:?string,cardTypeIcon:?string,timesPlayed:int}>,
      *   cards:list<array{id:string,scryfallId:string,name:string,cropImage:?string,colors:list<string>,cardType:?string,cardTypeIcon:?string,timesPlayed:int}>,
-     *   decks:list<array<string,mixed>>
+     *   decks:list<array<string,mixed>>,
+     *   publicDeckCount:int
      * }
      */
     public function home(?string $requestedLanguage): array
@@ -70,13 +74,14 @@ final class CommunityService
                         $this->topPublicValidDeckIds(self::HOME_DECKS_LIMIT),
                         $requestedLanguage,
                     ),
+                    'publicDeckCount' => $this->publicValidDeckCount(),
                 ];
             },
         );
     }
 
     /**
-     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed,page?:mixed} $filters
+     * @param array{q?:mixed,commander?:mixed,format?:mixed,bracket?:mixed,colors?:mixed,page?:mixed} $filters
      *
      * @return array{decks:list<array<string,mixed>>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}
      */
@@ -89,6 +94,7 @@ final class CommunityService
             $this->cacheKey('decks', ['lang' => $requestedLanguage, 'filters' => $normalizedFilters, 'page' => $page]),
             self::DECK_LIST_CACHE_TTL_SECONDS,
             function () use ($normalizedFilters, $page, $requestedLanguage): array {
+                $this->ensureBracketLabelsForMatchingDecks($normalizedFilters);
                 $deckPage = $this->listPublicValidDeckPage($normalizedFilters, $page);
 
                 return [
@@ -416,7 +422,36 @@ SQL,
     }
 
     /**
-     * @param array{q:string,commander:string,format:string,colors:string} $filters
+     * Ensures that filtering is complete before pagination, including decks whose
+     * bracket snapshot has not yet been requested by a visitor.
+     *
+     * @param array{q:string,commander:string,format:string,bracket:string,colors:string} $filters
+     */
+    private function ensureBracketLabelsForMatchingDecks(array $filters): void
+    {
+        if ($filters['bracket'] === '' || !$this->isValidBracket($filters['bracket'])) {
+            return;
+        }
+
+        $unfilteredFilters = $filters;
+        $unfilteredFilters['bracket'] = '';
+        $query = $this->publicDeckListQuery($unfilteredFilters);
+        if ($query === null) {
+            return;
+        }
+
+        $deckIds = $this->stringIds(
+            $this->entityManager->getConnection()->fetchFirstColumn(
+                'SELECT d.id '.$query['fromWhereSql'],
+                $query['params'],
+            ),
+        );
+
+        $this->bracketLabels->labelsByDeckIds($deckIds, true);
+    }
+
+    /**
+     * @param array{q:string,commander:string,format:string,bracket:string,colors:string} $filters
      *
      * @return array{ids:list<string>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}
      */
@@ -467,7 +502,7 @@ SQL,
     }
 
     /**
-     * @param array{q:string,commander:string,format:string,colors:string} $filters
+     * @param array{q:string,commander:string,format:string,bracket:string,colors:string} $filters
      *
      * @return array{fromWhereSql:string,params:array<string,mixed>}|null
      */
@@ -506,6 +541,25 @@ SQL;
 
             $sql .= "\n  AND d.format = :format";
             $params['format'] = $normalizedFormat;
+        }
+
+        if ($filters['bracket'] !== '') {
+            if (!$this->isValidBracket($filters['bracket'])) {
+                return null;
+            }
+
+            $sql .= <<<'SQL'
+
+  AND EXISTS (
+      SELECT 1
+      FROM deck_analysis_snapshot bracket_snapshot
+      WHERE bracket_snapshot.deck_id = d.id
+        AND bracket_snapshot.updated_at >= d.updated_at
+        AND jsonb_exists(bracket_snapshot.result_json, 'bracket')
+        AND bracket_snapshot.result_json->'bracket'->>'bracket' = :bracket
+  )
+SQL;
+            $params['bracket'] = $filters['bracket'];
         }
 
         if ($filters['commander'] !== '') {
@@ -830,7 +884,16 @@ SQL,
             $summaries[] = $this->mapDeckSummaryFromArray($grouped[$deckId]);
         }
 
-        return $summaries;
+        $cachedBracketLabels = $this->bracketLabels->labelsByDeckIds($deckIds, true);
+
+        return array_map(
+            static function (array $summary) use ($cachedBracketLabels): array {
+                $summary['bracket'] = $cachedBracketLabels[(string) $summary['id']] ?? null;
+
+                return $summary;
+            },
+            $summaries,
+        );
     }
 
     /**
@@ -1264,9 +1327,9 @@ SQL,
     }
 
     /**
-     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed,page?:mixed} $filters
+     * @param array{q?:mixed,commander?:mixed,format?:mixed,bracket?:mixed,colors?:mixed,page?:mixed} $filters
      *
-     * @return array{q:string,commander:string,format:string,colors:string}
+     * @return array{q:string,commander:string,format:string,bracket:string,colors:string}
      */
     private function normalizedFilters(array $filters): array
     {
@@ -1274,8 +1337,22 @@ SQL,
             'q' => trim((string) ($filters['q'] ?? '')),
             'commander' => trim((string) ($filters['commander'] ?? '')),
             'format' => trim((string) ($filters['format'] ?? '')),
+            'bracket' => trim((string) ($filters['bracket'] ?? '')),
             'colors' => trim((string) ($filters['colors'] ?? '')),
         ];
+    }
+
+    private function publicValidDeckCount(): int
+    {
+        return (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM deck WHERE visibility = :visibility AND is_valid = true',
+            ['visibility' => Deck::VISIBILITY_PUBLIC],
+        );
+    }
+
+    private function isValidBracket(string $bracket): bool
+    {
+        return in_array($bracket, self::BRACKET_VALUES, true);
     }
 
     /**
