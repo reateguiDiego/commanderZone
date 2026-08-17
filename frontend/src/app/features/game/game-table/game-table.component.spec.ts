@@ -44,6 +44,7 @@ import {
   LucideAngularModule,
   Maximize2,
   Menu,
+  MessageCircle,
   MessageSquare,
   Minus,
   MoonStar,
@@ -63,6 +64,7 @@ import {
   ShieldCheck,
   Skull,
   Sparkles,
+  ScrollText,
   Swords,
   Sun,
   TabletSmartphone,
@@ -346,6 +348,7 @@ describe('GameTableComponent', () => {
           LogOut,
           Maximize2,
           Menu,
+          MessageCircle,
           MessageSquare,
           Minus,
           MoonStar,
@@ -365,6 +368,7 @@ describe('GameTableComponent', () => {
           ShieldCheck,
           Skull,
           Sparkles,
+          ScrollText,
           Swords,
           Sun,
           TabletSmartphone,
@@ -3058,11 +3062,11 @@ describe('GameTableComponent', () => {
     const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
     const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(chatButton.classList).toContain('has-unread');
-    expect(chatButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(chatButton.classList).toContain('attention');
     expect(playChatMessage).toHaveBeenCalledOnce();
     expect(playGameLogMessage).not.toHaveBeenCalled();
     expect(logButton.classList).not.toContain('has-unread');
-    expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(logButton.classList).not.toContain('attention');
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
       .not.toContain('has-unread-notifications');
 
@@ -3070,7 +3074,7 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     expect(chatButton.classList).not.toContain('has-unread');
-    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(chatButton.classList).not.toContain('attention');
   });
 
   it('highlights unread chat messages and evaporates the highlight after reading them', async () => {
@@ -3383,11 +3387,11 @@ describe('GameTableComponent', () => {
 
     const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(logButton.classList).toContain('has-unread');
-    expect(logButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(logButton.classList).toContain('attention');
     expect(playGameLogMessage).toHaveBeenCalledOnce();
     expect(playChatMessage).not.toHaveBeenCalled();
     expect(chatButton.classList).not.toContain('has-unread');
-    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(chatButton.classList).not.toContain('attention');
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
       .not.toContain('has-unread-notifications');
 
@@ -3395,7 +3399,7 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     expect(logButton.classList).not.toContain('has-unread');
-    expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(logButton.classList).not.toContain('attention');
   });
 
   it('highlights unread game log entries and evaporates the highlight after reading them', async () => {

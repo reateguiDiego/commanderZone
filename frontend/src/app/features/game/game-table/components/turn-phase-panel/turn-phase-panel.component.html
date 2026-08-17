@@ -18,6 +18,8 @@
     <div class="turn-actions">
       @if (isCurrentTurnPlayer()) {
         <button
+          czButton="primary"
+          czButtonSize="sm"
           type="button"
           class="turn-action-button pass-turn-button"
           data-testid="pass-turn"
@@ -29,6 +31,8 @@
           <span>{{ 'game.turnPhasePanel.passTurn' | runtimeTranslate }}</span>
         </button>
         <button
+          czButton="primary"
+          czButtonSize="sm"
           type="button"
           class="turn-action-button advance-phase-button"
           data-testid="advance-phase"
@@ -40,15 +44,15 @@
           <span data-testid="end-step">{{ nextPhaseLabel() }}</span>
         </button>
       }
-      <label class="turn-focus-toggle" [title]="'game.turnPhasePanel.focusTheActiveTurnPlayer' | runtimeTranslate">
-        <input
-          type="checkbox"
-          data-testid="follow-active-turn-player"
-          [checked]="followActiveTurnPlayer()"
-          (change)="updateFollowActiveTurnPlayer($event)"
-        />
-        <span>{{ 'game.turnPhasePanel.focusTurn' | runtimeTranslate }}</span>
-      </label>
+      <app-compact-checkbox
+        class="turn-focus-toggle"
+        testId="follow-active-turn-player"
+        [label]="'game.turnPhasePanel.focusTurn' | runtimeTranslate"
+        [title]="'game.turnPhasePanel.focusTheActiveTurnPlayer' | runtimeTranslate"
+        [tooltipStretch]="true"
+        [checked]="followActiveTurnPlayer()"
+        (checkedChange)="followActiveTurnPlayerChanged.emit($event)"
+      />
     </div>
   </div>
   <div class="phase-tracker" [attr.aria-label]="'game.turnPhasePanel.turnPhases' | runtimeTranslate">

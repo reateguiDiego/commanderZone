@@ -2,10 +2,16 @@ import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
+import { AppThemeService } from '../../../../../core/theme/app-theme.service';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { ZonePilesPanelComponent } from './zone-piles-panel.component';
 
 describe('ZonePilesPanelComponent', () => {
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
   it('exposes the zone dock and each pile as motion zones', async () => {
     const fixture = await renderZonePilesPanel();
 
@@ -16,6 +22,18 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'command').dataset['motionZone']).toBe('player-1:command');
     expect(zoneElement(fixture, 'graveyard').dataset['motionZone']).toBe('player-1:graveyard');
     expect(zoneElement(fixture, 'exile').dataset['motionZone']).toBe('player-1:exile');
+  });
+
+  it('uses the theme-specific command zone logo asset', async () => {
+    const fixture = await renderZonePilesPanel();
+    const appTheme = TestBed.inject(AppThemeService);
+
+    expect(commandZoneLogo(fixture).getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
+
+    appTheme.selectTheme('candy-summoners');
+    fixture.detectChanges();
+
+    expect(commandZoneLogo(fixture).getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header_black.webp');
   });
 
   it('exposes the top draggable pile card as a motion origin', async () => {
@@ -779,6 +797,10 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
 
 function zoneElement(fixture: ComponentFixture<ZonePilesPanelComponent>, zone: GameZoneName): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-testid="drop-zone"][data-zone="${zone}"]`);
+}
+
+function commandZoneLogo(fixture: ComponentFixture<ZonePilesPanelComponent>): HTMLImageElement {
+  return zoneElement(fixture, 'command').querySelector('.zone-pile-logo') as HTMLImageElement;
 }
 
 function card(instanceId: string, name: string, zone: GameZoneName): GameCardInstance {

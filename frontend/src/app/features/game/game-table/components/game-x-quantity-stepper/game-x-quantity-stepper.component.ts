@@ -27,7 +27,9 @@ export class GameXQuantityStepperComponent {
       return;
     }
 
-    this.updateValue(event.target.value);
+    const normalized = this.normalizedValue(event.target.value);
+    event.target.value = String(normalized);
+    this.updateValue(normalized);
   }
 
   updateValue(value: string | number): void {
@@ -47,7 +49,9 @@ export class GameXQuantityStepperComponent {
   }
 
   private normalizedValue(value: string | number): number {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
+    const parsed = typeof value === 'number'
+      ? Math.floor(value)
+      : Number.parseInt(value.replace(/\D/g, '').slice(0, 2), 10);
 
     if (!Number.isFinite(parsed)) {
       return this.min();

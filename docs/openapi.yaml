@@ -4343,13 +4343,15 @@ components:
           $ref: '#/components/schemas/UserGamePreferences'
     UserGamePreferences:
       type: object
-      required: [showManaHelperOnStartup, enableManaRow, enableStackMana, gameAnimations, chatNotificationSounds]
+      required: [showManaHelperOnStartup, enableManaRow, enableStackMana, autoApplyCommanderDamageToLife, gameAnimations, chatNotificationSounds]
       properties:
         showManaHelperOnStartup:
           type: boolean
         enableManaRow:
           type: boolean
         enableStackMana:
+          type: boolean
+        autoApplyCommanderDamageToLife:
           type: boolean
         gameAnimations:
           type: boolean

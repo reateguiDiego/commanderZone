@@ -11,7 +11,7 @@
         }
         <strong>{{ currentModal.total }} cards</strong>
       </div>
-      <button class="zone-modal-close" type="button" data-testid="zone-modal-close" [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate" (click)="close.emit()">
+      <button class="zone-modal-close" type="button" czButton="icon" czButtonSize="sm" data-testid="zone-modal-close" [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate" (click)="close.emit()">
         <lucide-icon name="x" size="18" />
       </button>
     </header>

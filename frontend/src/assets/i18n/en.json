@@ -484,10 +484,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Search commander...",
       "commanderSelect": "Select",
-        "filterFormat": "Format",
-        "allFormats": "All formats",
-        "filterBracket": "Bracket",
-        "allBrackets": "All brackets",
+      "filterFormat": "Format",
+      "allFormats": "All formats",
+      "filterBracket": "Bracket",
+      "allBrackets": "All brackets",
       "searchButton": "Search",
       "empty": "No public decks available yet.",
       "error": "Could not load public decks."
@@ -731,6 +731,8 @@
       "lifeTotal": "Life total",
       "playerCounters": "Player counters",
       "commanderDamage": "Commander damage",
+      "autoApplyCommanderDamageToLife": "Subtract life automatically",
+      "autoApplyCommanderDamageToLifeTooltip": "When enabled, commander damage changes also adjust that player's life total.",
       "otherCounters": "Other counters",
       "extras": "Extras",
       "openExtraPlayerCounters": "Open extra player counters",
@@ -834,7 +836,8 @@
         "title": "View top cards",
         "description": "Choose how many cards from the top of your library to look at.",
         "confirm": "View"
-      }
+      },
+      "deckCardCount": "Your deck has {{ count }} cards."
     },
     "playerCounters": {
       "poison": "Poison",

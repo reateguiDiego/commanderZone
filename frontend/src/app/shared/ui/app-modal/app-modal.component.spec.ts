@@ -23,6 +23,21 @@ describe('AppModalComponent', () => {
     expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
   });
 
+  it('reserves header space when the close button is visible', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('title', 'Player disconnected');
+    fixture.componentRef.setInput('message', 'A long message that should wrap before it reaches the close button.');
+    fixture.componentRef.setInput('showCloseButton', true);
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('.modal-panel') as HTMLElement;
+    const header = fixture.nativeElement.querySelector('header') as HTMLElement;
+
+    expect(panel.classList).toContain('modal-panel-has-close-button');
+    expect(getComputedStyle(header).paddingInlineEnd).toBe('3.35rem');
+  });
+
   it('locks body scroll while open and restores it when closed', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);

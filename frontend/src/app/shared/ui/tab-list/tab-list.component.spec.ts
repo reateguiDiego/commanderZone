@@ -20,7 +20,9 @@ describe('TabListComponent', () => {
   it('renders tabs with the active state and tab semantics', () => {
     fixture.detectChanges();
 
-    const buttons = fixture.nativeElement.querySelectorAll('.tab-list-button') as NodeListOf<HTMLButtonElement>;
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.tab-list-button',
+    ) as NodeListOf<HTMLButtonElement>;
 
     expect(fixture.nativeElement.querySelector('[role="tablist"]')).not.toBeNull();
     expect(buttons.length).toBe(2);
@@ -33,11 +35,36 @@ describe('TabListComponent', () => {
     fixture.componentInstance.tabSelected.subscribe(selectedSpy);
     fixture.detectChanges();
 
-    const buttons = fixture.nativeElement.querySelectorAll('.tab-list-button') as NodeListOf<HTMLButtonElement>;
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.tab-list-button',
+    ) as NodeListOf<HTMLButtonElement>;
     buttons[0].click();
     buttons[1].click();
 
     expect(selectedSpy).toHaveBeenCalledTimes(1);
     expect(selectedSpy).toHaveBeenCalledWith('general');
+  });
+
+  it('projects optional test ids and item state classes', () => {
+    fixture.componentRef.setInput('items', [
+      { id: 'log', label: 'Log', testId: 'game-log-open' },
+      {
+        id: 'chat',
+        label: 'Chat',
+        testId: 'chat-open',
+        classNames: ['has-unread'],
+        attention: true,
+      },
+    ]);
+    fixture.componentRef.setInput('activeId', 'chat');
+    fixture.detectChanges();
+
+    const chatButton = fixture.nativeElement.querySelector(
+      '[data-testid="chat-open"]',
+    ) as HTMLButtonElement;
+
+    expect(fixture.nativeElement.querySelector('[data-testid="game-log-open"]')).not.toBeNull();
+    expect(chatButton.classList).toContain('has-unread');
+    expect(chatButton.classList).toContain('attention');
   });
 });

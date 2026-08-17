@@ -38,10 +38,10 @@
   border: 1px solid rgb(232 225 208 / 34%);
   border-radius: 3px;
   appearance: none;
-  background: rgb(4 5 4);
+  background: var(--game-surface-deep);
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 10%) inset,
-    0 0.18rem 0.34rem rgb(0 0 0 / 34%);
+    0 0 0 1px rgb(var(--highlight-rgb) / 10%) inset,
+    0 0.18rem 0.34rem rgb(var(--shadow-rgb) / 34%);
   pointer-events: auto;
 }
 

@@ -5,6 +5,7 @@ import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../.
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import {
   PLAYER_SUMMARY_ACTION_DEBOUNCE_MS,
+  PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS,
   PlayerSummaryPanelComponent,
 } from './player-summary-panel.component';
 
@@ -125,17 +126,23 @@ describe('PlayerSummaryPanelComponent', () => {
     vi.useFakeTimers();
     const fixture = createFixture();
     const commanderDamageChanged = vi.fn();
+    const lifeChanged = vi.fn();
     const playerCounterChanged = vi.fn();
     fixture.componentInstance.commanderDamageChanged.subscribe(commanderDamageChanged);
+    fixture.componentInstance.lifeChanged.subscribe(lifeChanged);
     fixture.componentInstance.playerCounterChanged.subscribe(playerCounterChanged);
 
     extraToggle(fixture).click();
     fixture.detectChanges();
 
+    const lifeButton = fixture.nativeElement.querySelector('[data-testid="life-value"]') as HTMLButtonElement;
+    const autoLifeCheckbox = fixture.nativeElement.querySelector('[data-testid="auto-apply-commander-damage-to-life"]') as HTMLInputElement;
     const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Add commander damage from Opponent"]') as HTMLButtonElement;
     const removeCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Remove commander damage from Opponent"]') as HTMLButtonElement;
     const addPoison = fixture.nativeElement.querySelector('[aria-label="Add Poison counter"]') as HTMLButtonElement;
     const removePoison = fixture.nativeElement.querySelector('[aria-label="Remove Poison counter"]') as HTMLButtonElement;
+
+    expect(autoLifeCheckbox.checked).toBe(true);
 
     addCommanderDamage.click();
     addCommanderDamage.click();
@@ -143,20 +150,98 @@ describe('PlayerSummaryPanelComponent', () => {
     removePoison.click();
     removePoison.click();
     addPoison.click();
+    fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('.commander-damage-stepper .counter-feedback-gain')?.textContent.trim()).toBe('+1');
+    expect(fixture.nativeElement.querySelector('.player-counter-row .counter-feedback-damage')?.textContent.trim()).toBe('-1');
+    expect(lifeButton.textContent?.trim()).toBe('39');
     expect(commanderDamageChanged).not.toHaveBeenCalled();
+    expect(lifeChanged).not.toHaveBeenCalled();
     expect(playerCounterChanged).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
+    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS - 1);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.counter-feedback-exiting')).toBeNull();
+
+    vi.advanceTimersByTime(1);
+    fixture.detectChanges();
 
     expect(commanderDamageChanged).toHaveBeenCalledOnce();
+    expect(lifeChanged).toHaveBeenCalledOnce();
     expect(playerCounterChanged).toHaveBeenCalledOnce();
+    expect(fixture.nativeElement.querySelectorAll('.counter-feedback-exiting').length).toBe(2);
     expect(commanderDamageChanged).toHaveBeenCalledWith({
       targetPlayerId: 'player-1',
       sourcePlayerId: 'player-2',
       commanderInstanceId: 'commander-1',
       delta: 1,
     });
+    expect(lifeChanged).toHaveBeenCalledWith({ playerId: 'player-1', delta: -1 });
     expect(playerCounterChanged).toHaveBeenCalledWith({ playerId: 'player-1', key: 'poison', delta: -1 });
+
+    vi.advanceTimersByTime(PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.counter-feedback')).toBeNull();
+  });
+
+  it('can disable automatic life changes for commander damage', () => {
+    vi.useFakeTimers();
+    const fixture = createFixture();
+    const commanderDamageChanged = vi.fn();
+    const lifeChanged = vi.fn();
+    fixture.componentInstance.commanderDamageChanged.subscribe(commanderDamageChanged);
+    fixture.componentInstance.lifeChanged.subscribe(lifeChanged);
+
+    extraToggle(fixture).click();
+    fixture.detectChanges();
+
+    const lifeButton = fixture.nativeElement.querySelector('[data-testid="life-value"]') as HTMLButtonElement;
+    const autoLifeCheckbox = fixture.nativeElement.querySelector('[data-testid="auto-apply-commander-damage-to-life"]') as HTMLInputElement;
+    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Add commander damage from Opponent"]') as HTMLButtonElement;
+
+    autoLifeCheckbox.checked = false;
+    autoLifeCheckbox.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    addCommanderDamage.click();
+    fixture.detectChanges();
+    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
+
+    expect(lifeButton.textContent?.trim()).toBe('40');
+    expect(commanderDamageChanged).toHaveBeenCalledOnce();
+    expect(commanderDamageChanged).toHaveBeenCalledWith({
+      targetPlayerId: 'player-1',
+      sourcePlayerId: 'player-2',
+      commanderInstanceId: 'commander-1',
+      delta: 1,
+    });
+    expect(lifeChanged).not.toHaveBeenCalled();
+  });
+
+  it('uses the persisted automatic commander damage life setting as the default', () => {
+    vi.useFakeTimers();
+    const fixture = createFixture({ autoApplyCommanderDamageToLife: false });
+    const commanderDamageChanged = vi.fn();
+    const lifeChanged = vi.fn();
+    fixture.componentInstance.commanderDamageChanged.subscribe(commanderDamageChanged);
+    fixture.componentInstance.lifeChanged.subscribe(lifeChanged);
+
+    extraToggle(fixture).click();
+    fixture.detectChanges();
+
+    const lifeButton = fixture.nativeElement.querySelector('[data-testid="life-value"]') as HTMLButtonElement;
+    const autoLifeCheckbox = fixture.nativeElement.querySelector('[data-testid="auto-apply-commander-damage-to-life"]') as HTMLInputElement;
+    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Add commander damage from Opponent"]') as HTMLButtonElement;
+
+    expect(autoLifeCheckbox.checked).toBe(false);
+
+    addCommanderDamage.click();
+    fixture.detectChanges();
+    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
+
+    expect(lifeButton.textContent?.trim()).toBe('40');
+    expect(commanderDamageChanged).toHaveBeenCalledOnce();
+    expect(lifeChanged).not.toHaveBeenCalled();
   });
 
   it('groups commander damage from the same opponent in one row', () => {
@@ -333,6 +418,7 @@ function createFixture(
     returnActionLabel?: string;
     commanderDamage?: Record<string, number>;
     opponentCommanders?: GameCardInstance[];
+    autoApplyCommanderDamageToLife?: boolean;
     specialEntities?: readonly GameSpecialEntity[];
   } = {},
 ): ComponentFixture<PlayerSummaryPanelComponent> {
@@ -353,6 +439,7 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
+  fixture.componentRef.setInput('autoApplyCommanderDamageToLife', options.autoApplyCommanderDamageToLife ?? true);
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);

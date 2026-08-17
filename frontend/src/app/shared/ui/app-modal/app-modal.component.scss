@@ -110,6 +110,10 @@
   gap: 0.35rem;
 }
 
+.modal-panel-has-close-button header {
+  padding-inline-end: 3.35rem;
+}
+
 .modal-header-image {
   width: min(10rem, 52vw);
   max-height: 3.2rem;

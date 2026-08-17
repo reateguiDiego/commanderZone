@@ -25,11 +25,11 @@
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid rgb(var(--highlight-rgb) / 14%);
   border-radius: 10px;
   padding: 0.55rem;
-  background: linear-gradient(145deg, rgb(12 15 14 / 96%), rgb(8 10 10 / 94%));
-  box-shadow: 0 0.95rem 2rem rgb(0 0 0 / 42%);
+  background: linear-gradient(145deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 94%));
+  box-shadow: 0 0.95rem 2rem rgb(var(--shadow-rgb) / 42%);
   backdrop-filter: blur(14px);
 }
 
@@ -53,8 +53,8 @@
 .menu-item:hover,
 .language-item:hover,
 .language-item.selected {
-  border-color: rgb(215 180 106 / 32%);
-  background: rgb(215 180 106 / 10%);
+  border-color: rgb(var(--gold-rgb) / 32%);
+  background: rgb(var(--gold-rgb) / 10%);
 }
 
 .menu-item.with-detail {
@@ -86,16 +86,16 @@
 }
 
 .menu-item.danger {
-  color: #ffb4b4;
+  color: color-mix(in srgb, var(--game-danger) 58%, var(--game-text));
 }
 
 .language-list {
   display: grid;
   gap: 0.32rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--highlight-rgb) / 10%);
   border-radius: 8px;
   padding: 0.35rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgb(var(--highlight-rgb) / 4%);
 }
 
 .language-item {

@@ -39,6 +39,7 @@ describe('DashboardSettingsModalComponent', () => {
           showManaHelperOnStartup: false,
           enableManaRow: true,
           enableStackMana: false,
+          autoApplyCommanderDamageToLife: true,
           gameAnimations: true,
           chatNotificationSounds: true,
         },
@@ -130,6 +131,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Enable mana row');
     expect(fixture.nativeElement.textContent).toContain('Preserve mana pool');
+    expect(fixture.nativeElement.textContent).toContain('Subtract life automatically');
     expect(fixture.nativeElement.textContent).toContain('Game animations');
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
   });
@@ -158,6 +160,7 @@ describe('DashboardSettingsModalComponent', () => {
         showManaHelperOnStartup: false,
         enableManaRow: false,
         enableStackMana: false,
+        autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
       },
@@ -428,6 +431,7 @@ describe('DashboardSettingsModalComponent', () => {
         showManaHelperOnStartup: false,
         enableManaRow: true,
         enableStackMana: false,
+        autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
       },
@@ -565,6 +569,7 @@ describe('DashboardSettingsModalComponent', () => {
         showManaHelperOnStartup: false,
         enableManaRow: true,
         enableStackMana: false,
+        autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
       },

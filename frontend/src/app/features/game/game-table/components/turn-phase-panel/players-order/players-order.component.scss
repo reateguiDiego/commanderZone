@@ -23,27 +23,27 @@
   min-height: clamp(1.86rem, 3.1vw, 2.2rem);
   overflow: hidden;
   padding: 0.22rem 0.32rem 0.18rem;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgb(var(--highlight-rgb) / 8%);
   border-radius: 0.36rem;
-  background: rgb(255 255 255 / 3%);
+  background: rgb(var(--highlight-rgb) / 3%);
   color: var(--game-text-muted, #c8c0ad);
   line-height: 1;
 }
 
 .player-order-card.active {
-  border-color: rgb(236 202 132 / 62%);
+  border-color: rgb(var(--gold-rgb) / 62%);
   background:
     linear-gradient(160deg, rgb(255 228 155 / 18%), rgb(103 70 18 / 18%)),
-    rgb(255 255 255 / 4%);
-  color: var(--game-accent, #d7b46a);
+    rgb(var(--highlight-rgb) / 4%);
+  color: var(--game-accent);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 12%),
-    0 0 0.65rem rgb(215 180 106 / 24%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 12%),
+    0 0 0.65rem rgb(var(--gold-rgb) / 24%);
 }
 
 .player-order-card.current-player:not(.active) {
-  border-color: rgb(215 180 106 / 38%);
-  color: var(--game-accent, #d7b46a);
+  border-color: rgb(var(--gold-rgb) / 38%);
+  color: var(--game-accent);
 }
 
 .player-order-card.defeated {
@@ -54,7 +54,7 @@
   min-width: 0;
   width: 100%;
   overflow: visible;
-  color: var(--game-text, #f3f0e8);
+  color: var(--game-text);
   font-size: clamp(0.42rem, 0.66vw, 0.62rem);
   font-weight: 900;
   line-height: 1.18;
@@ -63,11 +63,15 @@
 }
 
 .player-order-step {
-  color: currentColor;
+  color: var(--game-info);
   font-size: clamp(0.32rem, 0.48vw, 0.44rem);
   font-weight: 1000;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.player-order-card.active .player-order-step {
+  color: currentColor;
 }
 
 .player-order-card.active .player-order-name {
@@ -90,7 +94,7 @@
     min-height: 0.72rem;
     padding: 0.08rem 0.26rem;
     border-radius: 999px;
-    background: rgb(255 255 255 / 2%);
+    background: rgb(var(--highlight-rgb) / 2%);
   }
 
   .player-order-card:not(.active):not(.current-player) {
@@ -99,8 +103,8 @@
 
   .player-order-card.active {
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 10%),
-      0 0 0.45rem rgb(215 180 106 / 18%);
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+      0 0 0.45rem rgb(var(--gold-rgb) / 18%);
   }
 
   .player-order-name {

@@ -5,10 +5,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardSpoilerGridComponent } from '../card-spoiler-grid/card-spoiler-grid.component';
 import { ZoneModalState } from '../../state/zones/game-table-zone-modal.state';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-zone-modal',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent, CzButtonDirective],
   templateUrl: './zone-modal.component.html',
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -484,10 +484,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Cerca comandante...",
       "commanderSelect": "Seleziona",
-        "filterFormat": "Formato",
-        "allFormats": "Tutti i formati",
-        "filterBracket": "Bracket",
-        "allBrackets": "Tutti i bracket",
+      "filterFormat": "Formato",
+      "allFormats": "Tutti i formati",
+      "filterBracket": "Bracket",
+      "allBrackets": "Tutti i bracket",
       "searchButton": "Cerca",
       "empty": "Nessun mazzo pubblico ancora disponibile.",
       "error": "Impossibile caricare i mazzi pubblici."
@@ -731,6 +731,8 @@
       "lifeTotal": "Vita totale",
       "playerCounters": "Segnalini dei giocatori",
       "commanderDamage": "Danno da comandante",
+      "autoApplyCommanderDamageToLife": "Sottrai vita automaticamente",
+      "autoApplyCommanderDamageToLifeTooltip": "Se attivo, le modifiche al danno da comandante regolano anche i punti vita di quel giocatore.",
       "otherCounters": "Altri segnalini",
       "extras": "Extra",
       "openExtraPlayerCounters": "Apri i segnalini dei giocatori aggiuntivi",
@@ -834,7 +836,8 @@
         "title": "Mostra carte in cima",
         "description": "Scegli quante carte guardare dalla cima del tuo grimorio.",
         "confirm": "Mostra"
-      }
+      },
+      "deckCardCount": "Il tuo deck ha {{ count }} carte."
     },
     "playerCounters": {
       "poison": "Veleno",
@@ -2240,8 +2243,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

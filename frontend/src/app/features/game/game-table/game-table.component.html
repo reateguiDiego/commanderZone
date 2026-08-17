@@ -63,6 +63,7 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              [autoApplyCommanderDamageToLife]="autoApplyCommanderDamageToLife()"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
@@ -100,32 +101,15 @@
             (transitionend)="handleFloatingPanelTransitionEnd($event)"
           >
             <header class="floating-handle">
-              <button
-                type="button"
-                data-testid="game-log-open"
-                [class.active]="store.activeFloatingTab() === 'log'"
-                [class.has-unread]="unreadLog()"
-                [attr.aria-label]="(unreadLog() ? 'game.gameTable.gameLogUnreadActions' : 'game.gameTable.gameLog') | runtimeTranslate"
-                (click)="openFloatingTab('log')"
-              >
-                <span>{{ 'game.gameTable.gameLog' | runtimeTranslate }}</span>
-                @if (unreadLog()) {
-                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
-                }
-              </button>
-              <button
-                type="button"
-                data-testid="chat-open"
-                [class.active]="store.activeFloatingTab() === 'chat'"
-                [class.has-unread]="unreadChat()"
-                [attr.aria-label]="(unreadChat() ? 'game.gameTable.chatUnreadMessages' : 'game.gameTable.chat') | runtimeTranslate"
-                (click)="openFloatingTab('chat')"
-              >
-                <span>{{ 'game.gameTable.chat' | runtimeTranslate }}</span>
-                @if (unreadChat()) {
-                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
-                }
-              </button>
+              <app-tab-list
+                [items]="floatingPanelTabs()"
+                [activeId]="store.activeFloatingTab()"
+                ariaLabel="game.gameTable.gameLog"
+                variant="pill"
+                size="md"
+                [iconSize]="13"
+                (tabSelected)="selectFloatingTab($event)"
+              />
             </header>
             <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
               @if (store.activeFloatingTab() === 'log') {
@@ -637,6 +621,7 @@
 
       @if (rollModalOpen()) {
         <app-roll-modal
+          size="big"
           (rolled)="recordRollResult($event)"
           (closed)="closeRollModal()"
         />

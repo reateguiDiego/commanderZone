@@ -12,6 +12,7 @@ import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zo
 import { CommandersStackCard, CommandersStackComponent } from '../commanders-stack/commanders-stack.component';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
+import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -84,6 +85,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 export class ZonePilesPanelComponent {
   readonly zonePointerDrag = inject(GameTableZonePointerDragService);
   readonly specialEntities = inject(GameTableSpecialEntitiesState);
+  readonly themeAssets = inject(AppThemeAssetsService);
   private pointerDragStartedInstanceId: string | null = null;
   private suppressedClickZone: GameZoneName | null = null;
 

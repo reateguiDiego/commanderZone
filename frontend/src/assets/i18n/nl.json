@@ -484,10 +484,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Zoek Commander...",
       "commanderSelect": "Selecteer",
-        "filterFormat": "Formaat",
-        "allFormats": "Alle formaten",
-        "filterBracket": "Bracket",
-        "allBrackets": "Alle brackets",
+      "filterFormat": "Formaat",
+      "allFormats": "Alle formaten",
+      "filterBracket": "Bracket",
+      "allBrackets": "Alle brackets",
       "searchButton": "Zoeken",
       "empty": "Er zijn nog geen openbare decks beschikbaar.",
       "error": "Kan openbare decks niet laden."
@@ -731,6 +731,8 @@
       "lifeTotal": "Levenstotaal",
       "playerCounters": "Speler counters",
       "commanderDamage": "Commander damage",
+      "autoApplyCommanderDamageToLife": "Levens automatisch aftrekken",
+      "autoApplyCommanderDamageToLifeTooltip": "Als dit is ingeschakeld, passen wijzigingen in commander damage ook het levenstotaal van die speler aan.",
       "otherCounters": "Andere counters",
       "extras": "Extra's",
       "openExtraPlayerCounters": "Open extra speler counters",
@@ -834,7 +836,8 @@
         "title": "Bekijk de bovenste kaarten",
         "description": "Kies hoeveel kaarten je van de bovenkant van je library bekijkt.",
         "confirm": "Bekijk"
-      }
+      },
+      "deckCardCount": "Je deck heeft {{ count }} kaarten."
     },
     "playerCounters": {
       "poison": "Vergif",
@@ -2240,8 +2243,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

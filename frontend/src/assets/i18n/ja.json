@@ -731,6 +731,8 @@
       "lifeTotal": "ãƒ©ã‚¤ãƒ•ç·é‡",
       "playerCounters": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
       "commanderDamage": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸",
+      "autoApplyCommanderDamageToLife": "ライフを自動で減らす",
+      "autoApplyCommanderDamageToLifeTooltip": "有効にすると、統率者ダメージの変更に合わせてそのプレイヤーのライフも調整します。",
       "otherCounters": "ãã®ä»–ã®ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
       "extras": "ã‚¨ã‚¯ã‚¹ãƒˆãƒ©",
       "openExtraPlayerCounters": "è¿½åŠ ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼ã‚’é–‹ã",
@@ -834,7 +836,8 @@
         "title": "ãƒˆãƒƒãƒ—ã‚«ãƒ¼ãƒ‰ã‚’è¦‹ã‚‹",
         "description": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸Šã‹ã‚‰ä½•æžšè¦‹ã‚‹ã‹ã‚’é¸æŠžã—ã¾ã™ã€‚",
         "confirm": "è¦‹ã‚‹"
-      }
+      },
+      "deckCardCount": "あなたのデッキには{{ count }}枚のカードがあります。"
     },
     "playerCounters": {
       "poison": "æ¯’",
@@ -2240,8 +2243,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

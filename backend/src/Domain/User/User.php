@@ -115,6 +115,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $enableStackMana = false;
 
     #[ORM\Column(type: 'boolean')]
+    private bool $autoApplyCommanderDamageToLife = true;
+
+    #[ORM\Column(type: 'boolean')]
     private bool $gameAnimations = true;
 
     #[ORM\Column(type: 'boolean')]
@@ -483,6 +486,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *   showManaHelperOnStartup?: bool,
      *   enableManaRow?: bool,
      *   enableStackMana?: bool,
+     *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
      *   chatNotificationSounds?: bool
      * } $preferences
@@ -494,6 +498,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 'showManaHelperOnStartup' => $this->showManaHelperOnStartup = $value,
                 'enableManaRow' => $this->enableManaRow = $value,
                 'enableStackMana' => $this->enableStackMana = $value,
+                'autoApplyCommanderDamageToLife' => $this->autoApplyCommanderDamageToLife = $value,
                 'gameAnimations' => $this->gameAnimations = $value,
                 'chatNotificationSounds' => $this->chatNotificationSounds = $value,
                 default => throw new \InvalidArgumentException('Unsupported game preference.'),
@@ -511,6 +516,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'showManaHelperOnStartup' => $this->showManaHelperOnStartup,
             'enableManaRow' => $this->enableManaRow,
             'enableStackMana' => $this->enableStackMana,
+            'autoApplyCommanderDamageToLife' => $this->autoApplyCommanderDamageToLife,
             'gameAnimations' => $this->gameAnimations,
             'chatNotificationSounds' => $this->chatNotificationSounds,
         ];

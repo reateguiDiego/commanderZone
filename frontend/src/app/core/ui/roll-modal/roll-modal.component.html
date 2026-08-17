@@ -1,13 +1,31 @@
 <div class="modal-backdrop" role="presentation" (click)="close()">
-  <section class="roll-modal" role="dialog" aria-modal="true" [attr.aria-label]="'modals.roll.rollModal.rollDice' | runtimeTranslate" (click)="$event.stopPropagation()">
+  <section
+    class="roll-modal"
+    [class.roll-modal--big]="size() === 'big'"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'modals.roll.rollModal.rollDice' | runtimeTranslate"
+    (click)="$event.stopPropagation()"
+  >
     <header>
       <span class="eyebrow">{{ 'modals.roll.rollModal.rollDice' | runtimeTranslate }}</span>
-      <button type="button" [attr.aria-label]="'modals.roll.rollModal.closeRoll' | runtimeTranslate" (click)="close()">&#10005;</button>
+      <button
+        class="roll-close-button"
+        type="button"
+        czButton="icon"
+        czButtonSize="sm"
+        czButtonTone="danger"
+        [attr.aria-label]="'modals.roll.rollModal.closeRoll' | runtimeTranslate"
+        (click)="close()"
+      >
+        &#10005;
+      </button>
     </header>
 
     <div class="roll-options" [attr.aria-label]="'modals.roll.rollModal.rollType' | runtimeTranslate">
       @for (option of rollOptions; track option.kind) {
         <button
+          class="roll-option-button"
           type="button"
           [class.selected]="isSelected(option.kind)"
           [attr.aria-pressed]="isSelected(option.kind)"
@@ -33,8 +51,8 @@
     }
 
     <footer>
-      <button class="secondary-action" type="button" (click)="close()">{{ 'modals.roll.rollModal.close' | runtimeTranslate }}</button>
-      <button class="primary-action" type="button" (click)="roll()">
+      <button class="secondary-action" type="button" czButton="secondary" (click)="close()">{{ 'modals.roll.rollModal.close' | runtimeTranslate }}</button>
+      <button class="primary-action" type="button" czButton="primary" (click)="roll()">
         {{ (rollResult() ? 'modals.roll.rollModal.rollAgain' : 'modals.roll.rollModal.roll') | runtimeTranslate }}
       </button>
     </footer>

@@ -9,9 +9,9 @@
   width: 16.5rem;
   overflow: visible;
   padding: 0.35rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border: 1px solid var(--game-line-soft);
   border-radius: 8px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  background: var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 88%));
 }
 
 .context-menu.arrow-menu {
@@ -39,21 +39,21 @@
 .context-menu button:hover:not(:disabled),
 .context-menu button:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
-    rgb(255 255 255 / 2%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    rgb(var(--highlight-rgb) / 2%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 34%),
-    0 0.45rem 1rem rgb(0 0 0 / 28%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
   transform: translateY(-1px);
 }
 
 .context-menu button:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
-    rgb(255 255 255 / 3%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    rgb(var(--highlight-rgb) / 3%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 44%),
-    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
+    0 0.22rem 0.55rem rgb(var(--shadow-rgb) / 24%);
   transform: translateY(0);
 }
 
@@ -75,7 +75,7 @@
 
 .menu-item-label lucide-icon {
   flex: 0 0 auto;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
 }
 
 .menu-item-label .menu-item-image-icon {
@@ -93,14 +93,14 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  color: var(--gold, var(--game-accent, #d7b46a));
+  color: var(--gold, var(--game-accent));
   font-size: 1.16rem;
   line-height: 1;
-  filter: drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 62%));
+  filter: drop-shadow(0 0.08rem 0.08rem rgb(var(--shadow-rgb) / 62%));
 }
 
 .menu-item-mana-icon ::ng-deep .ms {
-  color: var(--gold, var(--game-accent, #d7b46a));
+  color: var(--gold, var(--game-accent));
 }
 
 .menu-item-pt-icon {
@@ -109,7 +109,7 @@
   flex: 0 0 auto;
   justify-content: center;
   align-items: center;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
@@ -129,7 +129,7 @@
 }
 
 .menu-item-remove-stack-icon lucide-icon {
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
 }
 
 .menu-item-remove-stack-icon::after {
@@ -137,11 +137,11 @@
   position: absolute;
   right: -0.26rem;
   bottom: -0.2rem;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
   font-size: 0.84rem;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 0 0.18rem rgb(0 0 0 / 72%);
+  text-shadow: 0 0 0.18rem rgb(var(--shadow-rgb) / 72%);
 }
 
 .danger-menu-item {
@@ -156,8 +156,8 @@
 .context-menu .danger-menu-item:focus-visible:not(:disabled) {
   background:
     linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
-    rgb(255 255 255 / 2%);
+    rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(248 113 113 / 42%),
-    0 0.45rem 1rem rgb(0 0 0 / 28%);
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
 }

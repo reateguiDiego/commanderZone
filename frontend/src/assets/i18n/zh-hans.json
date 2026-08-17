@@ -731,6 +731,8 @@
       "lifeTotal": "æ€»ç”Ÿå‘½",
       "playerCounters": "çŽ©å®¶æŒ‡ç¤ºç‰©",
       "commanderDamage": "æŒ‡æŒ¥å®˜ä¼¤å®³",
+      "autoApplyCommanderDamageToLife": "自动扣减生命",
+      "autoApplyCommanderDamageToLifeTooltip": "启用后，指挥官伤害的变化也会调整该玩家的生命值。",
       "otherCounters": "å…¶ä»–æŒ‡ç¤ºç‰©",
       "extras": "Extras",
       "openExtraPlayerCounters": "æ‰“å¼€çŽ©å®¶é¢å¤–æŒ‡ç¤ºç‰©",
@@ -834,7 +836,8 @@
         "title": "æŸ¥çœ‹ç‰Œåº“é¡¶ç‰Œ",
         "description": "é€‰æ‹©æŸ¥çœ‹å‡ å¼ ç‰Œåº“é¡¶ç‰Œã€‚",
         "confirm": "æŸ¥çœ‹"
-      }
+      },
+      "deckCardCount": "你的牌库有 {{ count }} 张牌。"
     },
     "playerCounters": {
       "poison": "æ¯’",
@@ -2245,8 +2248,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

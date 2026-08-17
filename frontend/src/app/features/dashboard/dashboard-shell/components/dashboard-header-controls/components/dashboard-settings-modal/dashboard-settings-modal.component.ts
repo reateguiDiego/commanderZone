@@ -37,7 +37,7 @@ type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
 type PasswordResetRequestState = 'idle' | 'sending' | 'sent' | 'error';
-type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'enableStackMana' | 'gameAnimations' | 'chatNotificationSounds';
+type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'enableStackMana' | 'autoApplyCommanderDamageToLife' | 'gameAnimations' | 'chatNotificationSounds';
 export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
@@ -65,6 +65,7 @@ const GAME_SETTINGS_TOGGLE_DEFAULTS: UserGamePreferences = {
   showManaHelperOnStartup: false,
   enableManaRow: true,
   enableStackMana: false,
+  autoApplyCommanderDamageToLife: true,
   gameAnimations: true,
   chatNotificationSounds: true,
 };
@@ -83,6 +84,11 @@ const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
     id: 'enableStackMana',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description',
+  },
+  {
+    id: 'autoApplyCommanderDamageToLife',
+    labelKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLife',
+    descriptionKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip',
   },
   {
     id: 'gameAnimations',

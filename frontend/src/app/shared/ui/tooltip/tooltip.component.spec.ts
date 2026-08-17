@@ -36,6 +36,7 @@ describe('TooltipComponent', () => {
   afterEach(() => {
     document.documentElement.style.removeProperty('--cz-secondary');
     document.documentElement.style.removeProperty('--cz-secondary-rgb');
+    document.documentElement.style.removeProperty('--cz-tooltip-z-index');
   });
 
   it('uses dark text on light tooltip backgrounds', async () => {
@@ -60,6 +61,17 @@ describe('TooltipComponent', () => {
     });
 
     expect(getComputedStyle(bubble(fixture)).color).toBe('rgb(255, 255, 255)');
+  });
+
+  it('renders above game overlays by default', async () => {
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+
+    await openTooltip(fixture, {
+      triggerRect: rect({ top: 80, bottom: 104, left: 140, right: 180, width: 40, height: 24 }),
+      bubbleRect: rect({ width: 160, height: 48 }),
+    });
+
+    expect(tooltipBubbleRule()).toContain('z-index: var(--cz-tooltip-z-index, 3600)');
   });
 });
 
@@ -90,6 +102,18 @@ function trigger(fixture: ComponentFixture<TooltipHostComponent>): HTMLElement {
 
 function bubble(fixture: ComponentFixture<TooltipHostComponent>): HTMLElement {
   return fixture.nativeElement.querySelector('.cz-tooltip__bubble') as HTMLElement;
+}
+
+function tooltipBubbleRule(): string {
+  for (const styleSheet of Array.from(document.styleSheets)) {
+    for (const rule of Array.from(styleSheet.cssRules)) {
+      if (rule instanceof CSSStyleRule && rule.selectorText.includes('.cz-tooltip__bubble')) {
+        return rule.cssText;
+      }
+    }
+  }
+
+  return '';
 }
 
 function rect(values: Partial<DOMRect>): DOMRect {

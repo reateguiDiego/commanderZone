@@ -484,10 +484,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Pesquisar Comandante...",
       "commanderSelect": "Selecione",
-        "filterFormat": "Formato",
-        "allFormats": "Todos os formatos",
-        "filterBracket": "Bracket",
-        "allBrackets": "Todos os brackets",
+      "filterFormat": "Formato",
+      "allFormats": "Todos os formatos",
+      "filterBracket": "Bracket",
+      "allBrackets": "Todos os brackets",
       "searchButton": "Pesquisar",
       "empty": "Nenhum deck pÃºblico disponÃ­vel ainda.",
       "error": "NÃ£o foi possÃ­vel carregar os decks pÃºblicos."
@@ -731,6 +731,8 @@
       "lifeTotal": "Vida total",
       "playerCounters": "Marcadores de jogadores",
       "commanderDamage": "Dano de comandante",
+      "autoApplyCommanderDamageToLife": "Subtrair vida automaticamente",
+      "autoApplyCommanderDamageToLifeTooltip": "Quando ativado, alterações no dano de comandante também ajustam a vida desse jogador.",
       "otherCounters": "Outros marcadores",
       "extras": "Extras",
       "openExtraPlayerCounters": "Abrir marcadores extras do jogador",
@@ -834,7 +836,8 @@
         "title": "Ver cartas do topo",
         "description": "Escolha quantas cartas do topo do seu grimÃ³rio olhar.",
         "confirm": "Olhar"
-      }
+      },
+      "deckCardCount": "Seu deck tem {{ count }} cartas."
     },
     "playerCounters": {
       "poison": "Veneno",
@@ -2240,8 +2243,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

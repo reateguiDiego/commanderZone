@@ -484,10 +484,10 @@
       "filterCommander": "Comandante",
       "filterCommanderPlaceholder": "Buscar comandante...",
       "commanderSelect": "Seleccionar comandante",
-        "filterFormat": "Formato",
-        "allFormats": "Todos los formatos",
-        "filterBracket": "Bracket",
-        "allBrackets": "Todos los brackets",
+      "filterFormat": "Formato",
+      "allFormats": "Todos los formatos",
+      "filterBracket": "Bracket",
+      "allBrackets": "Todos los brackets",
       "searchButton": "Buscar",
       "empty": "Aún no hay mazos públicos disponibles.",
       "error": "No se pudieron cargar los mazos públicos."
@@ -731,6 +731,8 @@
       "lifeTotal": "Total de vida",
       "playerCounters": "Contadores de jugadores",
       "commanderDamage": "Daño de comandante",
+      "autoApplyCommanderDamageToLife": "Restar vida automáticamente",
+      "autoApplyCommanderDamageToLifeTooltip": "Si está activado, los cambios de daño de comandante también ajustan las vidas de ese jugador.",
       "otherCounters": "Otros contadores",
       "extras": "Extras",
       "openExtraPlayerCounters": "Abrir contadores de jugadores adicionales",
@@ -834,7 +836,8 @@
         "title": "Ver cartas superiores",
         "description": "Elige cuántas cartas de la parte superior de tu biblioteca quieres mirar.",
         "confirm": "Vista"
-      }
+      },
+      "deckCardCount": "Tu deck tiene {{ count }} cartas."
     },
     "playerCounters": {
       "poison": "Veneno",
@@ -962,23 +965,23 @@
   },
   "gameLog": {
     "library": {
-      "draw": "{{ actor }} rob\u00f3 una carta.",
-      "drawMany": "{{ actor }} rob\u00f3 {{ count }} cartas.",
-      "shuffle": "{{ actor }} baraj\u00f3 su biblioteca."
+      "draw": "{{ actor }} robó una carta.",
+      "drawMany": "{{ actor }} robó {{ count }} cartas.",
+      "shuffle": "{{ actor }} barajó su biblioteca."
     },
     "card": {
-      "moved": "{{ actor }} movi\u00f3 una carta de {{ fromZone }} a {{ toZone }}.",
-      "tapped": "{{ actor }} gir\u00f3 un permanente.",
-      "untapped": "{{ actor }} enderez\u00f3 un permanente."
+      "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
+      "tapped": "{{ actor }} giró un permanente.",
+      "untapped": "{{ actor }} enderezó un permanente."
     },
     "cardCounter": {
       "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
     },
     "life": {
-      "changed": "{{ actor }} cambi\u00f3 la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+      "changed": "{{ actor }} cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}."
     },
     "dice": {
-      "rolled": "{{ actor }} tir\u00f3 {{ kind }} y sac\u00f3 {{ result }}.",
+      "rolled": "{{ actor }} tiró {{ kind }} y sacó {{ result }}.",
       "coin": "una moneda",
       "dice": "dados",
       "d4": "d4",
@@ -987,17 +990,17 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lanz\u00f3 su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+      "cast": "{{ actor }} lanzó su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
     },
     "token": {
-      "created": "{{ actor }} cre\u00f3 una ficha: {{ tokenName }}.",
-      "createdMany": "{{ actor }} cre\u00f3 {{ count }} fichas: {{ tokenName }}."
+      "created": "{{ actor }} creó una ficha: {{ tokenName }}.",
+      "createdMany": "{{ actor }} creó {{ count }} fichas: {{ tokenName }}."
     },
     "tokenCopy": {
-      "created": "{{ actor }} cre\u00f3 una copia de ficha."
+      "created": "{{ actor }} creó una copia de ficha."
     },
     "game": {
-      "concede": "{{ player }} concedi\u00f3."
+      "concede": "{{ player }} concedió."
     },
     "zone": {
       "battlefield": "campo de batalla",

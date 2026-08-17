@@ -853,6 +853,59 @@ func TestWebSocketConnectionLoadsActorBeforeLastDisconnectLifecycleHandoff(t *te
 	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllPlayersDisconnected, gameID)
 }
 
+func TestWebSocketLifecycleRecoveryFailureDoesNotLeaveActorClosing(t *testing.T) {
+	gameID := "game-presence-recovery-failure"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	sink := &flakyPresenceLifecycleSink{failuresRemaining: 1, handoffs: make(chan lifecycle.Handoff, 1)}
+	runtimeService := runtimesvc.NewServiceWithStoreAndOptions(
+		store,
+		128,
+		nil,
+		runtimesvc.WithLifecycleSink(sink, 1),
+	)
+	defer shutdownRuntimeService(t, runtimeService)
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+	server := httptest.NewServer(NewWebSocketServer(validator, runtimeService))
+	defer server.Close()
+
+	ticket, err := SignTicket(testTicketSecret, TicketClaims{
+		UserID:      "u1",
+		PlayerID:    "p1",
+		GameID:      gameID,
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	}, time.Minute)
+	if err != nil {
+		t.Fatalf("sign ticket: %v", err)
+	}
+	wsURL := URLWithTicket("ws"+strings.TrimPrefix(server.URL, "http")+"/ws", ticket, 0)
+	conn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err == nil {
+		_ = conn.Close()
+		t.Fatal("first websocket dial unexpectedly succeeded")
+	}
+	if response == nil || response.StatusCode != 503 {
+		status := 0
+		if response != nil {
+			status = response.StatusCode
+		}
+		t.Fatalf("first websocket status = %d, want 503", status)
+	}
+	if _, ok := runtimeService.Actor(gameID); ok {
+		t.Fatal("failed lifecycle recovery left actor loaded")
+	}
+
+	reconnected := dialRuntime(t, server.URL, gameID, 0, nil)
+	defer reconnected.Close()
+	assertPresenceHandoff(t, sink.handoffs, lifecycle.AllDisconnectedCanceled, gameID)
+	readUntil(t, reconnected, "connection_state")
+}
+
 func TestWebSocketLastDisconnectRetriesTransientLifecycleHandoffFailure(t *testing.T) {
 	gameID := "game-presence-retry"
 	store := persistence.NewInMemoryEventStore()

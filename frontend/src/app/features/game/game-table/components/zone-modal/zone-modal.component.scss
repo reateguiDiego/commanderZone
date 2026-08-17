@@ -6,8 +6,8 @@
   place-items: center;
   padding: clamp(1rem, 2vw, 2rem);
   background:
-    radial-gradient(circle at 18% 10%, rgb(215 180 106 / 12%), transparent 24rem),
-    rgb(0 0 0 / 68%);
+    radial-gradient(circle at 18% 10%, rgb(var(--gold-rgb) / 12%), transparent 24rem),
+    rgb(var(--shadow-rgb) / 68%);
   backdrop-filter: blur(6px);
 }
 
@@ -20,15 +20,15 @@
   min-height: 30rem;
   max-width: calc(100vw - 2rem);
   max-height: calc(100dvh - 2rem);
-  border: 1px solid var(--game-accent-line, rgb(215 180 106 / 32%));
+  border: 1px solid var(--game-accent-line);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 8%), transparent 32%),
-    linear-gradient(180deg, rgb(21 24 19 / 96%), rgb(5 7 6 / 96%));
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 8%), transparent 32%),
+    linear-gradient(180deg, rgb(21 24 19 / 96%), rgb(var(--game-surface-deep-rgb) / 96%));
   box-shadow:
-    0 1.8rem 5rem rgb(0 0 0 / 56%),
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    inset 0 0 0 1px rgb(0 0 0 / 52%);
+    0 1.8rem 5rem rgb(var(--shadow-rgb) / 56%),
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%),
+    inset 0 0 0 1px rgb(var(--shadow-rgb) / 52%);
   overflow: hidden;
 }
 
@@ -38,7 +38,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.1rem 0.9rem;
-  border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border-bottom: 1px solid var(--game-line-soft);
 }
 
 .zone-title-block {
@@ -56,20 +56,20 @@
 }
 
 .zone-title-block strong {
-  color: var(--game-muted, #aaa99f);
+  color: var(--game-muted);
   font-size: 0.86rem;
   font-weight: 800;
 }
 
 .zone-title-block h2 {
   margin: 0;
-  color: var(--game-text, #f3f0e8);
+  color: var(--game-text);
   font-size: clamp(1rem, 1.6vw, 1.22rem);
   line-height: 1.1;
 }
 
 .zone-title-block small {
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -84,10 +84,10 @@ button,
 select,
 input {
   min-height: 2.4rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border: 1px solid var(--game-line-soft);
   border-radius: 8px;
-  background: var(--game-surface-soft, rgb(32 37 29 / 72%));
-  color: var(--game-text, #f3f0e8);
+  background: var(--game-surface-soft, var(--game-surface-soft));
+  color: var(--game-text);
 }
 
 button {
@@ -95,7 +95,7 @@ button {
 }
 
 button:hover {
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  border-color: var(--game-accent-strong);
 }
 
 select,
@@ -110,7 +110,7 @@ input {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1.1rem;
-  border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border-bottom: 1px solid var(--game-line-soft);
 }
 
 .zone-filters label {

@@ -680,8 +680,8 @@ export class GameTableDragService {
     preview.style.height = `${height}px`;
     preview.style.overflow = 'visible';
     preview.style.boxShadow = [
-      '0 20px 46px rgb(0 0 0 / 50%)',
-      '0 0 0 1px rgb(255 255 255 / 10%)',
+      '0 20px 46px rgb(var(--cz-bg-rgb) / 50%)',
+      '0 0 0 1px rgb(var(--cz-text-rgb) / 10%)',
     ].join(', ');
     preview.style.filter = 'brightness(1.03) saturate(1.03)';
     preview.style.opacity = '1';

@@ -12,16 +12,16 @@
   box-sizing: border-box;
   width: 100%;
   padding: 0.36rem 0.22rem 0.24rem;
-  border: 1px solid color-mix(in srgb, var(--player-card-border, rgb(232 225 208)) 46%, rgb(232 225 208 / 12%));
+  border: 1px solid color-mix(in srgb, var(--player-card-border, var(--game-text)) 46%, rgb(var(--game-text-rgb) / 12%));
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 18%),
-    linear-gradient(180deg, rgb(18 19 17 / 96%), rgb(7 8 7 / 98%));
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 4%), transparent 18%),
+    linear-gradient(180deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 98%));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    inset 0 -1px 0 rgb(0 0 0 / 58%),
-    0 0.75rem 1.5rem rgb(0 0 0 / 24%);
-  color: var(--game-text, #f3f0e8);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 7%),
+    inset 0 -1px 0 rgb(var(--shadow-rgb) / 58%),
+    0 0.75rem 1.5rem rgb(var(--shadow-rgb) / 24%);
+  color: var(--game-text);
   cursor: pointer;
   pointer-events: auto;
   text-align: left;
@@ -52,23 +52,23 @@
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 50% 0%, rgb(255 255 255 / 5%), transparent 48%),
-    linear-gradient(90deg, rgb(255 255 255 / 4%), transparent 26%, rgb(0 0 0 / 18%));
+    radial-gradient(circle at 50% 0%, rgb(var(--highlight-rgb) / 5%), transparent 48%),
+    linear-gradient(90deg, rgb(var(--highlight-rgb) / 4%), transparent 26%, rgb(var(--shadow-rgb) / 18%));
   opacity: 0.72;
   pointer-events: none;
   z-index: -1;
 }
 
 .player-thumb:hover {
-  border-color: color-mix(in srgb, var(--player-card-border, rgb(232 225 208)) 60%, rgb(232 225 208 / 20%));
+  border-color: color-mix(in srgb, var(--player-card-border, var(--game-text)) 60%, rgb(var(--game-text-rgb) / 20%));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 9%),
-    inset 0 0 0 1px rgb(255 255 255 / 5%),
-    0 0.95rem 1.8rem rgb(0 0 0 / 30%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 9%),
+    inset 0 0 0 1px rgb(var(--highlight-rgb) / 5%),
+    0 0.95rem 1.8rem rgb(var(--shadow-rgb) / 30%);
 }
 
 .player-thumb:focus-visible {
-  outline: 1px solid rgb(232 225 208 / 38%);
+  outline: 1px solid rgb(var(--game-text-rgb) / 38%);
   outline-offset: 2px;
 }
 
@@ -77,23 +77,23 @@
 }
 
 .player-thumb.drop-target-active {
-  border-color: color-mix(in srgb, var(--game-accent, #d7b46a) 54%, rgb(255 255 255 / 22%));
+  border-color: color-mix(in srgb, var(--game-accent) 54%, rgb(var(--highlight-rgb) / 22%));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #d7b46a) 40%, transparent),
-    0 0 1.2rem color-mix(in srgb, var(--game-accent, #d7b46a) 18%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--game-accent) 40%, transparent),
+    0 0 1.2rem color-mix(in srgb, var(--game-accent) 18%, transparent);
 }
 
 .player-thumb.active-turn-player {
-  border-color: color-mix(in srgb, var(--gold, #d7b46a) 86%, rgb(255 255 255 / 18%));
+  border-color: color-mix(in srgb, var(--gold, var(--game-accent)) 86%, rgb(var(--highlight-rgb) / 18%));
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 6%), transparent 20%),
-    linear-gradient(180deg, rgb(23 24 21 / 98%), rgb(7 8 7 / 98%));
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 6%), transparent 20%),
+    linear-gradient(180deg, rgb(var(--game-surface-rgb) / 98%), rgb(var(--game-surface-deep-rgb) / 98%));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    inset 0 0 0 1px color-mix(in srgb, var(--gold, #d7b46a) 34%, transparent),
-    0 1rem 2rem rgb(0 0 0 / 32%),
-    0 0 1.35rem color-mix(in srgb, var(--gold, #d7b46a) 42%, transparent),
-    0 0 3rem color-mix(in srgb, var(--gold, #d7b46a) 22%, transparent);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+    inset 0 0 0 1px color-mix(in srgb, var(--gold, var(--game-accent)) 34%, transparent),
+    0 1rem 2rem rgb(var(--shadow-rgb) / 32%),
+    0 0 1.35rem color-mix(in srgb, var(--gold, var(--game-accent)) 42%, transparent),
+    0 0 3rem color-mix(in srgb, var(--gold, var(--game-accent)) 22%, transparent);
   animation: active-turn-aura 3.1s ease-in-out infinite;
 }
 
@@ -108,10 +108,10 @@
   opacity: 1;
   z-index: 0;
   background:
-    linear-gradient(115deg, transparent 0 35%, color-mix(in srgb, var(--gold, #d7b46a) 18%, transparent) 47%, transparent 60%),
-    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--gold, #d7b46a) 34%, transparent), transparent 34%),
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gold, #d7b46a) 16%, transparent), transparent 46%),
-    linear-gradient(180deg, rgb(255 255 255 / 6%), transparent 30%, rgb(0 0 0 / 18%));
+    linear-gradient(115deg, transparent 0 35%, color-mix(in srgb, var(--gold, var(--game-accent)) 18%, transparent) 47%, transparent 60%),
+    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--gold, var(--game-accent)) 34%, transparent), transparent 34%),
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gold, var(--game-accent)) 16%, transparent), transparent 46%),
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 6%), transparent 30%, rgb(var(--shadow-rgb) / 18%));
   background-size: 220% 100%, 100% 100%, 100% 100%, 100% 100%;
   animation: active-turn-sheen 3.4s ease-in-out infinite;
 }
@@ -136,7 +136,7 @@
 .opponent-deck-title {
   min-width: 0;
   padding: 0.03rem 0 0.08rem 5px;
-  color: rgb(255 255 255 / 94%);
+  color: rgb(var(--highlight-rgb) / 94%);
   font-family: var(--font-display, inherit);
   font-size: 0.96rem;
   font-weight: 900;
@@ -144,9 +144,6 @@
   line-height: 1.16;
   overflow: visible;
   text-overflow: clip;
-  text-shadow:
-    0 1px 0 rgb(0 0 0 / 82%),
-    0 0 0.5rem color-mix(in srgb, var(--player-card-border, var(--gold, #d7b46a)) 18%, transparent);
   white-space: nowrap;
 }
 
@@ -154,17 +151,16 @@
   min-width: 0;
   padding-left: 5px;
   overflow: hidden;
-  color: rgb(232 225 208 / 64%);
+  color: rgb(var(--game-text-rgb) / 64%);
   font-size: 0.64rem;
   font-weight: 600;
   line-height: 1.15;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 68%);
   white-space: nowrap;
 }
 
 .opponent-deck-title.muted {
-  color: var(--game-text-muted, #c8c0ad);
+  color: var(--game-muted);
   font-weight: 760;
 }
 
@@ -175,19 +171,19 @@
   align-items: center;
   justify-content: center;
   height: 1.35rem;
-  border: 1px solid rgb(232 225 208 / 14%);
+  border: 1px solid rgb(var(--game-text-rgb) / 14%);
   border-radius: 999px;
-  background: rgb(6 7 6 / 72%);
+  background: rgb(var(--game-surface-deep-rgb) / 72%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 0.35rem 0.75rem rgb(0 0 0 / 24%);
-  color: rgb(232 225 208 / 82%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 7%),
+    0 0.35rem 0.75rem rgb(var(--shadow-rgb) / 24%);
+  color: rgb(var(--game-text-rgb) / 82%);
   font-size: 0.64rem;
   font-weight: 860;
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 62%);
+  text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 62%);
   white-space: nowrap;
 }
 
@@ -198,12 +194,12 @@
 }
 
 .opponent-targeting-pill-incoming {
-  border-color: rgb(232 225 208 / 20%);
-  color: rgb(242 214 204 / 90%);
+  border-color: rgb(var(--game-text-rgb) / 20%);
+  color: rgb(var(--game-danger-rgb) / 90%);
 }
 
 .opponent-targeting-pill-outgoing {
-  border-color: rgb(232 225 208 / 18%);
+  border-color: rgb(var(--game-text-rgb) / 18%);
 }
 
 .opponent-life-group {
@@ -221,15 +217,15 @@
 
 .opponent-turn-pill {
   padding: 0 0.52rem;
-  border-color: color-mix(in srgb, var(--gold, #d7b46a) 58%, rgb(255 255 255 / 10%));
+  border-color: color-mix(in srgb, var(--gold, var(--game-accent)) 58%, rgb(var(--highlight-rgb) / 10%));
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 8%), transparent 48%),
-    rgb(15 14 10 / 86%);
-  color: rgb(247 232 186);
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 8%), transparent 48%),
+    rgb(var(--game-surface-deep-rgb) / 86%);
+  color: color-mix(in srgb, var(--gold) 68%, var(--game-text));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    0 0.35rem 0.75rem rgb(0 0 0 / 26%),
-    0 0 0.82rem color-mix(in srgb, var(--gold, #d7b46a) 36%, transparent);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+    0 0.35rem 0.75rem rgb(var(--shadow-rgb) / 26%),
+    0 0 0.82rem color-mix(in srgb, var(--gold, var(--game-accent)) 36%, transparent);
   animation: active-turn-pill-pulse 1.85s ease-in-out infinite;
 }
 
@@ -250,7 +246,7 @@
   font-weight: 860;
   letter-spacing: 0.02em;
   line-height: 1;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 64%);
+  text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 64%);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -263,31 +259,31 @@
   min-width: 2.8rem;
   min-height: 2rem;
   padding: 0 0.52rem;
-  border: 1px solid rgb(232 225 208 / 16%);
+  border: 1px solid rgb(var(--game-text-rgb) / 16%);
   border-radius: 6px;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 7%), transparent 44%),
-    rgb(4 5 4 / 66%);
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 7%), transparent 44%),
+    rgb(var(--game-surface-deep-rgb) / 66%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    inset 0 -1px 0 rgb(0 0 0 / 58%),
-    0 0.35rem 0.78rem rgb(0 0 0 / 26%);
-  color: rgb(242 238 225 / 92%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%),
+    inset 0 -1px 0 rgb(var(--shadow-rgb) / 58%),
+    0 0.35rem 0.78rem rgb(var(--shadow-rgb) / 26%);
+  color: rgb(var(--game-text-rgb) / 92%);
   font-family: var(--font-display, inherit);
   font-size: 1rem;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 82%);
+  text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 82%);
 }
 
 .active-turn-player .opponent-life {
-  border-color: color-mix(in srgb, var(--gold, #d7b46a) 70%, rgb(255 255 255 / 10%));
-  color: rgb(255 239 191);
+  border-color: color-mix(in srgb, var(--gold, var(--game-accent)) 70%, rgb(var(--highlight-rgb) / 10%));
+  color: color-mix(in srgb, var(--gold) 72%, var(--game-text));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    inset 0 -1px 0 rgb(0 0 0 / 62%),
-    0 0.35rem 0.78rem rgb(0 0 0 / 28%),
-    0 0 1rem color-mix(in srgb, var(--gold, #d7b46a) 34%, transparent);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+    inset 0 -1px 0 rgb(var(--shadow-rgb) / 62%),
+    0 0.35rem 0.78rem rgb(var(--shadow-rgb) / 28%),
+    0 0 1rem color-mix(in srgb, var(--gold, var(--game-accent)) 34%, transparent);
 }
 
 .opponent-board-stage {
@@ -297,22 +293,22 @@
   isolation: isolate;
   min-height: 10.8rem;
   overflow: hidden;
-  border: 1px solid rgb(232 225 208 / 9%);
+  border: 1px solid rgb(var(--game-text-rgb) / 9%);
   border-radius: 6px;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 3%), rgb(0 0 0 / 12%)),
-    rgb(4 5 4);
+    linear-gradient(180deg, rgb(var(--highlight-rgb) / 3%), rgb(var(--shadow-rgb) / 12%)),
+    var(--game-surface-deep);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 4%),
-    inset 0 0 1.2rem rgb(0 0 0 / 22%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 4%),
+    inset 0 0 1.2rem rgb(var(--shadow-rgb) / 22%);
   transform: translateZ(0);
 }
 
 .active-turn-player .opponent-board-stage {
-  border-color: rgb(232 225 208 / 9%);
+  border-color: rgb(var(--game-text-rgb) / 9%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 4%),
-    inset 0 0 1.2rem rgb(0 0 0 / 22%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 4%),
+    inset 0 0 1.2rem rgb(var(--shadow-rgb) / 22%);
 }
 
 .opponent-board-stage::before {
@@ -322,9 +318,9 @@
   z-index: 2;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--gold, #d7b46a) 52%, transparent), transparent 42%),
-    radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--gold, #d7b46a) 28%, transparent), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--gold, #d7b46a) 22%, transparent), transparent 54%);
+    radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--gold, var(--game-accent)) 52%, transparent), transparent 42%),
+    radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--gold, var(--game-accent)) 28%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--gold, var(--game-accent)) 22%, transparent), transparent 54%);
   opacity: 0;
   pointer-events: none;
 }
@@ -342,10 +338,10 @@
 }
 
 .opponent-board-stage.showing-cards-target::after {
-  border-color: color-mix(in srgb, var(--gold, #d7b46a) 58%, rgb(232 225 208 / 12%));
+  border-color: color-mix(in srgb, var(--gold, var(--game-accent)) 58%, rgb(var(--game-text-rgb) / 12%));
   box-shadow:
-    inset 0 0 1.6rem color-mix(in srgb, var(--gold, #d7b46a) 24%, transparent),
-    inset 0 0 0 1px rgb(255 255 255 / 4%);
+    inset 0 0 1.6rem color-mix(in srgb, var(--gold, var(--game-accent)) 24%, transparent),
+    inset 0 0 0 1px rgb(var(--highlight-rgb) / 4%);
 }
 
 .active-turn-player .opponent-board-stage::before {
@@ -359,11 +355,11 @@
   place-items: center;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgb(4 5 4 / 72%), rgb(2 3 2 / 84%)),
-    radial-gradient(circle at 28% 12%, rgb(255 255 255 / 8%), transparent 42%),
+    linear-gradient(180deg, rgb(var(--game-surface-deep-rgb) / 72%), rgb(var(--game-surface-deep-rgb) / 84%)),
+    radial-gradient(circle at 28% 12%, rgb(var(--highlight-rgb) / 8%), transparent 42%),
     var(--opponent-defeated-background, none) center / cover no-repeat,
-    rgb(2 3 2 / 42%);
-  box-shadow: inset 0 0 1.2rem rgb(0 0 0 / 28%);
+    rgb(var(--game-surface-deep-rgb) / 42%);
+  box-shadow: inset 0 0 1.2rem rgb(var(--shadow-rgb) / 28%);
   animation: opponent-board-enter 260ms cubic-bezier(0.2, 0.78, 0.22, 1);
 }
 
@@ -375,8 +371,8 @@
   pointer-events: none;
   filter:
     grayscale(0.28)
-    drop-shadow(0 0.35rem 0.65rem rgb(0 0 0 / 74%))
-    drop-shadow(0 0 0.9rem rgb(232 225 208 / 10%));
+    drop-shadow(0 0.35rem 0.65rem rgb(var(--shadow-rgb) / 74%))
+    drop-shadow(0 0 0.9rem rgb(var(--game-text-rgb) / 10%));
 }
 
 .opponent-board-stage app-opponent-mini-battlefield,
@@ -407,20 +403,20 @@
   0%,
   100% {
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 10%),
-      inset 0 0 0 1px color-mix(in srgb, var(--gold, #d7b46a) 28%, transparent),
-      0 1rem 2rem rgb(0 0 0 / 32%),
-      0 0 1.25rem color-mix(in srgb, var(--gold, #d7b46a) 32%, transparent),
-      0 0 2.5rem color-mix(in srgb, var(--gold, #d7b46a) 15%, transparent);
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+      inset 0 0 0 1px color-mix(in srgb, var(--gold, var(--game-accent)) 28%, transparent),
+      0 1rem 2rem rgb(var(--shadow-rgb) / 32%),
+      0 0 1.25rem color-mix(in srgb, var(--gold, var(--game-accent)) 32%, transparent),
+      0 0 2.5rem color-mix(in srgb, var(--gold, var(--game-accent)) 15%, transparent);
   }
 
   50% {
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 12%),
-      inset 0 0 0 1px color-mix(in srgb, var(--gold, #d7b46a) 48%, transparent),
-      0 1rem 2rem rgb(0 0 0 / 34%),
-      0 0 2rem color-mix(in srgb, var(--gold, #d7b46a) 54%, transparent),
-      0 0 3.4rem color-mix(in srgb, var(--gold, #d7b46a) 24%, transparent);
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 12%),
+      inset 0 0 0 1px color-mix(in srgb, var(--gold, var(--game-accent)) 48%, transparent),
+      0 1rem 2rem rgb(var(--shadow-rgb) / 34%),
+      0 0 2rem color-mix(in srgb, var(--gold, var(--game-accent)) 54%, transparent),
+      0 0 3.4rem color-mix(in srgb, var(--gold, var(--game-accent)) 24%, transparent);
   }
 }
 
@@ -453,16 +449,16 @@
   0%,
   100% {
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 10%),
-      0 0.35rem 0.75rem rgb(0 0 0 / 26%),
-      0 0 0.72rem color-mix(in srgb, var(--gold, #d7b46a) 28%, transparent);
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+      0 0.35rem 0.75rem rgb(var(--shadow-rgb) / 26%),
+      0 0 0.72rem color-mix(in srgb, var(--gold, var(--game-accent)) 28%, transparent);
   }
 
   50% {
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 14%),
-      0 0.35rem 0.75rem rgb(0 0 0 / 30%),
-      0 0 1.18rem color-mix(in srgb, var(--gold, #d7b46a) 54%, transparent);
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 14%),
+      0 0.35rem 0.75rem rgb(var(--shadow-rgb) / 30%),
+      0 0 1.18rem color-mix(in srgb, var(--gold, var(--game-accent)) 54%, transparent);
   }
 }
 
@@ -484,7 +480,7 @@
   justify-content: center;
   gap: 0.42rem;
   min-width: 0;
-  color: rgb(232 225 208 / 62%);
+  color: rgb(var(--game-text-rgb) / 62%);
   font-size: 0.95rem;
   line-height: 1;
 }
@@ -493,7 +489,7 @@
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-  color: rgb(232 225 208 / 58%);
+  color: rgb(var(--game-text-rgb) / 58%);
   opacity: 0.82;
   stroke-width: 2;
 }
@@ -509,7 +505,7 @@
     grayscale(0.78)
     saturate(0.42)
     brightness(0.94)
-    drop-shadow(0 1px 1px rgb(0 0 0 / 42%));
+    drop-shadow(0 1px 1px rgb(var(--shadow-rgb) / 42%));
 }
 
 .opponent-hand-icon {
@@ -525,12 +521,12 @@
     grayscale(0.55)
     saturate(0.5)
     brightness(0.86)
-    drop-shadow(0 1px 1px rgb(0 0 0 / 58%));
+    drop-shadow(0 1px 1px rgb(var(--shadow-rgb) / 58%));
 }
 
 .opponent-zone-count strong {
   min-width: 1.2rem;
-  color: rgb(242 238 225 / 82%);
+  color: rgb(var(--game-text-rgb) / 82%);
   font-size: 1.02rem;
   font-weight: 850;
   text-align: left;

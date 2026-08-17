@@ -26,12 +26,12 @@
 .card-marker {
   display: grid;
   place-items: center;
-  border: 1px solid rgb(215 180 106 / 76%);
-  background: rgb(7 8 7 / 84%);
+  border: 1px solid rgb(var(--gold-rgb) / 76%);
+  background: rgb(var(--game-surface-deep-rgb) / 84%);
   box-shadow:
-    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
-    0 0 0.62rem rgb(215 180 106 / 24%);
-  color: var(--gold, #d7b46a);
+    0 0.28rem 0.7rem rgb(var(--shadow-rgb) / 58%),
+    0 0 0.62rem rgb(var(--gold-rgb) / 24%);
+  color: var(--gold, var(--game-accent));
   pointer-events: auto;
 }
 
@@ -42,15 +42,15 @@
   border-radius: 999px;
   background: transparent;
   box-shadow:
-    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
-    0 0 0.5rem rgb(215 180 106 / 18%);
+    0 0.28rem 0.7rem rgb(var(--shadow-rgb) / 58%),
+    0 0 0.5rem rgb(var(--gold-rgb) / 18%);
 }
 
 .token-copy-marker img {
   width: 112%;
   height: 112%;
   object-fit: contain;
-  filter: drop-shadow(0 0.12rem 0.16rem rgb(0 0 0 / 68%));
+  filter: drop-shadow(0 0.12rem 0.16rem rgb(var(--shadow-rgb) / 68%));
 }
 
 .oracle-rulings-marker {
@@ -64,10 +64,10 @@
   min-height: 1.26rem;
   place-items: center;
   border-radius: 999px;
-  background: rgb(7 8 7 / 92%);
+  background: rgb(var(--game-surface-deep-rgb) / 92%);
   box-shadow:
-    0 0.2rem 0.55rem rgb(0 0 0 / 56%),
-    0 0 0.38rem rgb(215 180 106 / 18%);
+    0 0.2rem 0.55rem rgb(var(--shadow-rgb) / 56%),
+    0 0 0.38rem rgb(var(--gold-rgb) / 18%);
   opacity: 0;
   pointer-events: none;
   cursor: pointer;
@@ -93,14 +93,14 @@
 .oracle-rulings-marker:hover,
 .oracle-rulings-marker:focus-visible {
   box-shadow:
-    0 0.24rem 0.62rem rgb(0 0 0 / 56%),
-    0 0 0.62rem rgb(215 180 106 / 34%);
+    0 0.24rem 0.62rem rgb(var(--shadow-rgb) / 56%),
+    0 0 0.62rem rgb(var(--gold-rgb) / 34%);
   filter: brightness(1.08);
 }
 
 .oracle-rulings-marker lucide-icon {
-  color: var(--gold, #d7b46a);
-  filter: drop-shadow(0 0.1rem 0.16rem rgb(0 0 0 / 68%));
+  color: var(--gold, var(--game-accent));
+  filter: drop-shadow(0 0.1rem 0.16rem rgb(var(--shadow-rgb) / 68%));
 }
 
 .counter-marker {
@@ -122,11 +122,11 @@
 
 .counter-marker:hover,
 .counter-marker:focus-visible {
-  border-color: var(--gold, #d7b46a);
+  border-color: var(--gold, var(--game-accent));
   box-shadow:
-    0 0 0 2px rgb(7 8 7 / 84%),
-    0 0.35rem 0.8rem rgb(0 0 0 / 48%),
-    0 0 0.75rem rgb(215 180 106 / 34%);
+    0 0 0 2px rgb(var(--game-surface-deep-rgb) / 84%),
+    0 0.35rem 0.8rem rgb(var(--shadow-rgb) / 48%),
+    0 0 0.75rem rgb(var(--gold-rgb) / 34%);
   filter: brightness(1.08);
 }
 
@@ -136,10 +136,10 @@
 
 .readonly-counter-marker:hover,
 .readonly-counter-marker:focus-visible {
-  border-color: rgb(215 180 106 / 76%);
+  border-color: rgb(var(--gold-rgb) / 76%);
   box-shadow:
-    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
-    0 0 0.62rem rgb(215 180 106 / 24%);
+    0 0.28rem 0.7rem rgb(var(--shadow-rgb) / 58%),
+    0 0 0.62rem rgb(var(--gold-rgb) / 24%);
   filter: none;
 }
 
@@ -149,10 +149,10 @@
   height: 1.62rem;
   min-height: 1.62rem;
   padding: 0;
-  border-color: rgb(255 255 255 / 28%);
+  border-color: rgb(var(--highlight-rgb) / 28%);
   background:
-    radial-gradient(circle at 35% 24%, rgb(255 255 255 / 44%), transparent 34%),
-    var(--counter-color, rgb(7 8 7 / 98%));
+    radial-gradient(circle at 35% 24%, rgb(var(--highlight-rgb) / 44%), transparent 34%),
+    var(--counter-color, rgb(var(--game-surface-deep-rgb) / 98%));
 }
 
 .color-counter-marker span {
@@ -173,11 +173,11 @@
   justify-content: space-between;
   border-radius: 999px;
   background:
-    linear-gradient(145deg, rgb(7 8 7 / 96%), rgb(28 25 16 / 94%));
+    linear-gradient(145deg, rgb(var(--game-surface-deep-rgb) / 96%), rgb(28 25 16 / 94%));
 }
 
 .stat-counter-marker {
-  border-color: rgb(215 180 106 / 78%);
+  border-color: rgb(var(--gold-rgb) / 78%);
 }
 
 .stat-counter-marker span,
@@ -192,17 +192,17 @@
   padding: 0 0.12rem;
   place-items: center;
   border-radius: 999px;
-  background: rgb(3 3 3 / 92%);
-  color: var(--gold, #d7b46a);
+  background: rgb(var(--game-surface-deep-rgb) / 92%);
+  color: var(--gold, var(--game-accent));
   font-size: 0.78rem;
   line-height: 1;
   text-shadow:
-    0 0 0.35rem rgb(0 0 0 / 70%),
-    0 0 0.35rem rgb(215 180 106 / 32%);
+    0 0 0.35rem rgb(var(--shadow-rgb) / 70%),
+    0 0 0.35rem rgb(var(--gold-rgb) / 32%);
 }
 
 .color-counter-marker .counter-value-badge {
-  background: rgb(0 0 0 / 44%);
+  background: rgb(var(--shadow-rgb) / 44%);
   color: #fff;
 }
 

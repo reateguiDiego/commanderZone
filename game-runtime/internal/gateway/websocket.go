@@ -235,9 +235,11 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// maps no longer know that the game was previously all-offline.
 		if err := s.runtime.DeliverPresenceLifecycle(r.Context(), claims.GameID, lifecycle.AllDisconnectedCanceled, time.Now().UTC()); err != nil {
 			releaseConnection()
-			stopCtx, stopCancel := context.WithTimeout(context.Background(), s.commandTimeout)
-			_ = s.runtime.StopActor(stopCtx, claims.GameID)
-			stopCancel()
+			hibernateCtx, hibernateCancel := context.WithTimeout(context.Background(), s.commandTimeout)
+			if _, hibernateErr := s.runtime.HibernateActor(hibernateCtx, claims.GameID); hibernateErr != nil {
+				slog.Warn("runtime actor cleanup failed after lifecycle recovery failure", "gameId", claims.GameID, "error", hibernateErr)
+			}
+			hibernateCancel()
 			http.Error(w, "gameplay lifecycle recovery failed", http.StatusServiceUnavailable)
 			return
 		}

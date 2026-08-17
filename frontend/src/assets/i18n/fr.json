@@ -484,10 +484,10 @@
       "filterCommander": "Commandant",
       "filterCommanderPlaceholder": "Rechercher un commandant...",
       "commanderSelect": "SÃ©lectionner",
-        "filterFormat": "Format",
-        "allFormats": "Tous les formats",
-        "filterBracket": "Bracket",
-        "allBrackets": "Tous les brackets",
+      "filterFormat": "Format",
+      "allFormats": "Tous les formats",
+      "filterBracket": "Bracket",
+      "allBrackets": "Tous les brackets",
       "searchButton": "Rechercher",
       "empty": "Aucun deck public disponible pour lâ€™instant.",
       "error": "Impossible de charger les decks publics."
@@ -731,6 +731,8 @@
       "lifeTotal": "Total de vie",
       "playerCounters": "Marqueurs de joueurs",
       "commanderDamage": "dÃ©gÃ¢ts de commandant",
+      "autoApplyCommanderDamageToLife": "Soustraire les points de vie automatiquement",
+      "autoApplyCommanderDamageToLifeTooltip": "Lorsque cette option est activée, les changements de dégâts de commandant ajustent aussi les points de vie de ce joueur.",
       "otherCounters": "Autres marqueurs",
       "extras": "SupplÃ©ments",
       "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplÃ©mentaires",
@@ -834,7 +836,8 @@
         "title": "Regarder les cartes du dessus",
         "description": "Choisissez le nombre de cartes du haut de votre bibliothÃ¨que que vous souhaitez consulter.",
         "confirm": "Regarder"
-      }
+      },
+      "deckCardCount": "Votre deck contient {{ count }} cartes."
     },
     "playerCounters": {
       "poison": "Poison",
@@ -2245,8 +2248,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

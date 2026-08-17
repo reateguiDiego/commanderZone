@@ -16,21 +16,21 @@
 }
 
 .zone-card-stack-layer {
-  border: 1px solid rgb(0 0 0 / 42%);
+  border: 1px solid rgb(var(--shadow-rgb) / 42%);
   filter: brightness(0.64) saturate(0.82) contrast(1.04);
   opacity: 0.94;
   box-shadow:
-    0 0 0 1px rgb(215 180 106 / 8%),
-    0 0.18rem 0.42rem rgb(0 0 0 / 22%);
+    0 0 0 1px rgb(var(--gold-rgb) / 8%),
+    0 0.18rem 0.42rem rgb(var(--shadow-rgb) / 22%);
   transform: translate(var(--stack-offset), var(--stack-offset));
 }
 
 .zone-card-stack-top {
   z-index: 20;
-  border: 1px solid rgb(215 180 106 / 16%);
+  border: 1px solid rgb(var(--gold-rgb) / 16%);
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 48%),
-    0 0.5rem 0.9rem rgb(0 0 0 / 36%);
+    0 0 0 1px rgb(var(--shadow-rgb) / 48%),
+    0 0.5rem 0.9rem rgb(var(--shadow-rgb) / 36%);
   transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 

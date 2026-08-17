@@ -4,9 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom, Subscription } from 'rxjs';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { Card } from '../../../core/models/card.model';
@@ -463,6 +465,7 @@ interface MotionSourceRect {
     ChatRecipientSelectComponent,
     GlobalLoaderComponent,
     RollModalComponent,
+    TabListComponent,
   ],
   providers: [
     GameTableStore,
@@ -540,6 +543,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly cardsApi = inject(CardsApi);
   private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly router = inject(Router);
+  private readonly authStore = inject(AuthStore);
   private readonly motion = inject(GameTableMotionService);
   private readonly chatReadState = inject(GameTableChatReadStateService);
   readonly manaComets = inject(GameTableManaCometService);
@@ -558,6 +562,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly effectiveBattlefieldCardWidthRem = computed(() => this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldGapRem = computed(() => this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldManaLaneHeightRem = computed(() => this.battlefieldZoom.manaLaneMinHeightRemFor(this.effectiveBattlefieldZoomPercent()));
+  readonly autoApplyCommanderDamageToLife = computed(() =>
+    this.authStore.user()?.preferences?.game?.autoApplyCommanderDamageToLife ?? true,
+  );
   readonly handMotionActive = this.motion.handMotionActive;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -736,6 +743,26 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly floatingPanelTabs = computed<readonly TabListItem[]>(() => [
+    {
+      id: 'log',
+      label: 'game.gameTable.gameLog',
+      icon: 'scroll-text',
+      testId: 'game-log-open',
+      ariaLabel: this.unreadLog() ? 'game.gameTable.gameLogUnreadActions' : 'game.gameTable.gameLog',
+      attention: this.unreadLog(),
+      classNames: this.unreadLog() ? ['has-unread'] : [],
+    },
+    {
+      id: 'chat',
+      label: 'game.gameTable.chat',
+      icon: 'message-circle',
+      testId: 'chat-open',
+      ariaLabel: this.unreadChat() ? 'game.gameTable.chatUnreadMessages' : 'game.gameTable.chat',
+      attention: this.unreadChat(),
+      classNames: this.unreadChat() ? ['has-unread'] : [],
+    },
+  ]);
   readonly hoveredPreviewAttachmentInfo = computed(() => {
     const preview = this.store.hoveredPreview();
     const snapshot = this.store.snapshot();
@@ -1137,6 +1164,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.activeFloatingTab.set(tab);
     this.markFloatingTabRead(tab);
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
+  }
+
+  selectFloatingTab(tabId: string): void {
+    if (tabId === 'chat' || tabId === 'log') {
+      this.openFloatingTab(tabId);
+    }
   }
 
   chatMessageKey(message: ChatMessage, index: number): string {
@@ -3429,6 +3462,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private openDrawDialog(playerId: string): void {
     this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
     this.numberActionDialog.set({
       kind: 'draw',
       playerId,
@@ -3436,6 +3474,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       description: 'game.numberAction.drawCards.description',
       defaultValue: 1,
       min: 1,
+      max,
       confirmLabel: 'game.numberAction.drawCards.confirm',
     });
   }
@@ -3684,6 +3723,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private openViewTopLibraryDialog(playerId: string): void {
     this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
     this.numberActionDialog.set({
       kind: 'viewTop',
       playerId,
@@ -3691,8 +3735,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       description: 'game.numberAction.viewTopCards.description',
       defaultValue: 1,
       min: 1,
+      max,
       confirmLabel: 'game.numberAction.viewTopCards.confirm',
     });
+  }
+
+  private numberActionLibraryMax(playerId: string): number {
+    return Math.min(99, Math.max(0, this.store.zoneCardCountById(playerId, 'library')));
   }
 
   private libraryMoveTopDestinationLabel(toZone: GameZoneName, targetPlayerId?: string, position?: 'top' | 'bottom'): string {

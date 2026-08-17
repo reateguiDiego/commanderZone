@@ -184,12 +184,12 @@ export class GameTableMotionService {
       gsap.fromTo(
         element,
         {
-          boxShadow: 'inset 0 0 0 2px rgb(215 180 106 / 44%), 0 0 1.2rem rgb(215 180 106 / 26%)',
+          boxShadow: 'inset 0 0 0 2px rgb(var(--cz-accent-rgb) / 44%), 0 0 1.2rem rgb(var(--cz-accent-rgb) / 26%)',
           filter: 'brightness(1.16) saturate(1.08)',
           scale: 0.98,
         },
         {
-          boxShadow: 'inset 0 0 0 0 rgb(215 180 106 / 0%), 0 0 0 rgb(215 180 106 / 0%)',
+          boxShadow: 'inset 0 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-accent-rgb) / 0%)',
           clearProps: 'boxShadow,filter,scale',
           duration: 0.46,
           ease: 'power2.out',
@@ -723,11 +723,11 @@ export class GameTableMotionService {
     gsap.fromTo(
       visuals,
       {
-        boxShadow: '0 0 0 2px rgb(255 232 166 / 70%), 0 0 2.25rem rgb(232 199 126 / 58%), 0 1.1rem 2rem rgb(0 0 0 / 36%)',
+        boxShadow: '0 0 0 2px rgb(var(--cz-accent-rgb) / 70%), 0 0 2.25rem rgb(var(--cz-accent-rgb) / 58%), 0 1.1rem 2rem rgb(var(--cz-bg-rgb) / 36%)',
         filter: 'brightness(1.24) saturate(1.14)',
       },
       {
-        boxShadow: '0 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(0 0 0 / 0%)',
+        boxShadow: '0 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-bg-rgb) / 0%)',
         clearProps: 'boxShadow,filter',
         duration: 0.78,
         ease: 'power2.out',
@@ -761,9 +761,9 @@ export class GameTableMotionService {
     burst.style.borderRadius = '999px';
     burst.style.pointerEvents = 'none';
     burst.style.zIndex = '5100';
-    burst.style.border = '2px solid rgb(255 232 166 / 72%)';
-    burst.style.boxShadow = '0 0 0.65rem rgb(255 232 166 / 52%), 0 0 2rem rgb(215 180 106 / 46%)';
-    burst.style.background = 'radial-gradient(circle, rgb(255 232 166 / 18%) 0%, rgb(215 180 106 / 10%) 42%, rgb(215 180 106 / 0%) 70%)';
+    burst.style.border = '2px solid rgb(var(--cz-accent-rgb) / 72%)';
+    burst.style.boxShadow = '0 0 0.65rem rgb(var(--cz-accent-rgb) / 52%), 0 0 2rem rgb(var(--cz-accent-rgb) / 46%)';
+    burst.style.background = 'radial-gradient(circle, rgb(var(--cz-accent-rgb) / 18%) 0%, rgb(var(--cz-accent-rgb) / 10%) 42%, rgb(var(--cz-accent-rgb) / 0%) 70%)';
     burst.style.mixBlendMode = 'screen';
     burst.style.transformOrigin = '50% 50%';
     burst.style.willChange = 'opacity, transform';

@@ -484,10 +484,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Kommandeur suchen...",
       "commanderSelect": "AuswÃ¤hlen",
-        "filterFormat": "Format",
-        "allFormats": "Alle Formate",
-        "filterBracket": "Bracket",
-        "allBrackets": "Alle Brackets",
+      "filterFormat": "Format",
+      "allFormats": "Alle Formate",
+      "filterBracket": "Bracket",
+      "allBrackets": "Alle Brackets",
       "searchButton": "Suchen",
       "empty": "Noch sind keine Ã¶ffentlichen Decks verfÃ¼gbar.",
       "error": "Ã–ffentliche Decks konnten nicht geladen werden."
@@ -731,6 +731,8 @@
       "lifeTotal": "Lebenssumme",
       "playerCounters": "Spielermarken",
       "commanderDamage": "Kommandeurschaden",
+      "autoApplyCommanderDamageToLife": "Lebenspunkte automatisch abziehen",
+      "autoApplyCommanderDamageToLifeTooltip": "Wenn aktiviert, passen Änderungen am Kommandeurschaden auch die Lebenspunkte dieses Spielers an.",
       "otherCounters": "Andere Marken",
       "extras": "Extras",
       "openExtraPlayerCounters": "ZusÃ¤tzliche Spielermarken Ã¶ffnen",
@@ -834,7 +836,8 @@
         "title": "Top-Karten ansehen",
         "description": "WÃ¤hle aus, wie viele Karten oben von deiner Bibliothek du ansehen mÃ¶chtest.",
         "confirm": "Ansicht"
-      }
+      },
+      "deckCardCount": "Dein Deck hat {{ count }} Karten."
     },
     "playerCounters": {
       "poison": "Gift",
@@ -2245,8 +2248,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

@@ -484,10 +484,10 @@
       "filterCommander": "Commander",
       "filterCommanderPlaceholder": "Cerca comandant...",
       "commanderSelect": "Selecciona",
-        "filterFormat": "Format",
-        "allFormats": "Tots els formats",
-        "filterBracket": "Bracket",
-        "allBrackets": "Tots els brackets",
+      "filterFormat": "Format",
+      "allFormats": "Tots els formats",
+      "filterBracket": "Bracket",
+      "allBrackets": "Tots els brackets",
       "searchButton": "Cerca",
       "empty": "Encara no hi ha baralles pÃºbliques disponibles.",
       "error": "No s'han pogut carregar les baralles pÃºbliques."
@@ -731,6 +731,8 @@
       "lifeTotal": "Total de vida",
       "playerCounters": "Comptadors de jugadors",
       "commanderDamage": "Dany de comandant",
+      "autoApplyCommanderDamageToLife": "Resta vida automàticament",
+      "autoApplyCommanderDamageToLifeTooltip": "Si està activat, els canvis de dany de comandant també ajusten les vides d'aquest jugador.",
       "otherCounters": "Altres comptadors",
       "extras": "Extres",
       "openExtraPlayerCounters": "Obrir comptadors de jugadors addicionals",
@@ -834,7 +836,8 @@
         "title": "Mirar cartes superiors",
         "description": "Tria quantes cartes de la part superior de la biblioteca vols mirar.",
         "confirm": "Vista"
-      }
+      },
+      "deckCardCount": "El teu deck té {{ count }} cartes."
     },
     "playerCounters": {
       "poison": "VerÃ­",
@@ -2245,8 +2248,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

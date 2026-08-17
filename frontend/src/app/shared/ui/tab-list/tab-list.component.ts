@@ -10,6 +10,8 @@ export interface TabListItem {
   readonly badge?: string | number;
   readonly ariaLabel?: string;
   readonly title?: string;
+  readonly testId?: string;
+  readonly classNames?: readonly string[];
   readonly attention?: boolean;
   readonly alignEnd?: boolean;
   readonly labelHidden?: boolean;
@@ -33,7 +35,9 @@ export class TabListComponent {
   readonly variant = input<TabListVariant>('pill');
   readonly size = input<TabListSize>('md');
   readonly iconSize = input(16);
-  readonly activeIndex = computed(() => this.items().findIndex((item) => item.id === this.activeId()));
+  readonly activeIndex = computed(() =>
+    this.items().findIndex((item) => item.id === this.activeId()),
+  );
   readonly activeIndicatorWidth = computed(() => `${100 / Math.max(this.items().length, 1)}%`);
   readonly tabSelected = output<string>();
 

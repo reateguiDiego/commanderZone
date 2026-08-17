@@ -10,7 +10,11 @@
   [style.--cz-tab-active-index]="activeIndex()"
 >
   @if (variant() === 'pill' && activeIndex() >= 0) {
-    <span class="tab-list-active-indicator" [style.width]="activeIndicatorWidth()" aria-hidden="true"></span>
+    <span
+      class="tab-list-active-indicator"
+      [style.width]="activeIndicatorWidth()"
+      aria-hidden="true"
+    ></span>
   }
 
   @for (item of items(); track item.id) {
@@ -18,10 +22,12 @@
       class="tab-list-button"
       type="button"
       role="tab"
+      [class.has-unread]="item.classNames?.includes('has-unread')"
       [class.active]="activeId() === item.id"
       [class.attention]="item.attention"
       [class.align-end]="item.alignEnd"
       [disabled]="item.disabled"
+      [attr.data-testid]="item.testId ?? null"
       [attr.aria-selected]="activeId() === item.id"
       [attr.aria-label]="item.ariaLabel ? (item.ariaLabel | runtimeTranslate) : null"
       [attr.title]="item.title ? (item.title | runtimeTranslate) : null"
