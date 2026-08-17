@@ -980,6 +980,8 @@ describe('ContextMenuComponent', () => {
       playerId: 'user-1',
       zone: 'hand',
       card: card('card-1'),
+    }, {
+      currentPlayer: player('user-1', 'User'),
     });
     const text = menuText(fixture);
 
@@ -1002,9 +1004,10 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'revealTo');
     fixture.detectChanges();
     const revealText = menuText(fixture);
-    expect(revealText).toContain('All');
-    expect(revealText).toContain('User');
     expect(revealText).toContain('Opponent');
+    expect(revealText).not.toContain('All');
+    expect(revealText).not.toContain('User');
+    expect(fixture.componentInstance.revealToMenuItems().map((item) => item.value)).toEqual(['user-2']);
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).not.toBeNull();
     expect(text).not.toContain('Tap / untap');
     expect(text).not.toContain('Power/Toughness');
@@ -1024,6 +1027,24 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectRevealTarget('user-2');
 
     expect(selected).toHaveBeenCalledWith({ type: 'revealCard', target: 'user-2' });
+  });
+
+  it('shows All in reveal visibility targets only when there are several other players', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: card('card-1'),
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Spectator'),
+      ],
+    });
+
+    expect(fixture.componentInstance.revealToMenuItems().map((item) => item.value)).toEqual(['all', 'user-2', 'user-3']);
   });
 
   it('shows tap actions for saga cards on the battlefield', () => {
@@ -1120,6 +1141,13 @@ describe('ContextMenuComponent', () => {
       kind: 'zone',
       playerId: 'user-1',
       zone: 'library',
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Spectator'),
+      ],
     });
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
@@ -1149,8 +1177,15 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectLibraryMoveTop('battlefield:user-2');
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryRevealTop');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryRevealTopMenuItems().map((item) => item.value)).toEqual(['all', 'user-2', 'user-3']);
+    expect(menuText(fixture)).toContain('Opponent');
+    expect(menuText(fixture)).toContain('Spectator');
+    expect(menuText(fixture)).not.toContain('User');
     fixture.componentInstance.selectLibraryRevealTopTarget('user-2');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryReveal');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryRevealMenuItems().map((item) => item.value)).toEqual(['user-2', 'user-3']);
     fixture.componentInstance.selectLibraryRevealTarget('user-2');
     const playTopButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.textContent?.includes('Play with top card revealed'));

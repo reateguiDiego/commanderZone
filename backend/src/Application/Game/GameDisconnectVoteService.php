@@ -18,7 +18,7 @@ class GameDisconnectVoteService
     public const STATUS_RESOLVED_WAIT = 'resolved_wait';
     public const STATUS_RESOLVED_EXPEL = 'resolved_expel';
     public const STATUS_CANCELLED = 'cancelled';
-    public const OFFLINE_GRACE_SECONDS = 5;
+    public const OFFLINE_GRACE_SECONDS = 15;
 
     private const TIMEOUT_SECONDS = 60;
     private const COOLDOWN_SECONDS = 300;

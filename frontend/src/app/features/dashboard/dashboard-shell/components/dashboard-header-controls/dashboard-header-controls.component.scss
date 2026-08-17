@@ -54,6 +54,12 @@ app-player-info {
   min-height: 2.75rem;
   line-height: 0;
   overflow: visible;
+  transform-origin: center;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease,
+    background-color 360ms ease;
 }
 
 .admin-action lucide-icon,
@@ -61,6 +67,11 @@ app-player-info {
 .messages-action lucide-icon {
   display: grid;
   place-items: center;
+  transform-origin: center;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 360ms ease,
+    color 360ms ease;
 }
 
 .admin-action lucide-icon {
@@ -78,6 +89,22 @@ app-player-info {
 
 .messages-action lucide-icon {
   color: var(--cz-info);
+}
+
+.friends-dropdown.open .friends-action,
+.messages-dropdown.open .messages-action {
+  border-color: rgb(var(--cz-primary-rgb) / 45%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
+  box-shadow:
+    0 0.72rem 1.4rem rgb(var(--cz-bg-rgb) / 18%),
+    0 0 0 1px rgb(var(--cz-primary-rgb) / 10%);
+  transform: translateY(-0.5px);
+}
+
+.friends-dropdown.open .friends-action lucide-icon,
+.messages-dropdown.open .messages-action lucide-icon {
+  filter: drop-shadow(0 0 0.45rem rgb(var(--cz-primary-rgb) / 34%));
+  transform: scale(1.025);
 }
 
 .friends-action.has-notifications,
@@ -129,6 +156,8 @@ app-player-info {
   top: calc(100% + 0.55rem);
   right: 0;
   z-index: 302;
+  transform-origin: top right;
+  animation: header-dropdown-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .friends-dropdown.open::before,
@@ -359,5 +388,17 @@ app-player-info {
       0 0 0 0.24rem rgb(var(--cz-info-rgb) / 12%),
       0 0.65rem 1.25rem rgb(var(--cz-info-rgb) / 12%);
     transform: translateY(-1px);
+  }
+}
+
+@keyframes header-dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.18rem) scale(0.995);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

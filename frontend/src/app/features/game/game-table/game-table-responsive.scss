@@ -308,7 +308,7 @@
   }
 
   .floating-panel:hover,
-  .floating-panel:focus-within {
+  .floating-panel:has(.floating-expanded-content:focus-within) {
     height: min(58dvh, 26rem);
     max-height: none;
   }
@@ -634,13 +634,11 @@
   }
 
   .floating-panel:hover,
-  .floating-panel:focus-within {
-    position: absolute;
-    top: 0;
-    right: 0.24rem;
+  .floating-panel:has(.floating-expanded-content:focus-within) {
     z-index: 2600;
-    width: min(24rem, calc(100vw - 0.7rem));
+    width: 100%;
     height: min(58dvh, 26rem);
+    min-height: 100%;
     max-height: none;
     background: var(--game-surface-deep);
   }
@@ -662,15 +660,10 @@
   }
 
   .floating-panel:hover header,
-  .floating-panel:focus-within header {
+  .floating-panel:has(.floating-expanded-content:focus-within) header {
     height: auto;
     min-height: var(--game-log-overlay-peek-height);
     border-bottom: 1px solid var(--game-line-soft);
-  }
-
-  .floating-panel:not(:hover):not(:focus-within) .floating-collapsed-preview,
-  .floating-panel:not(:hover):not(:focus-within) .floating-expanded-content {
-    display: none;
   }
 
   .opponents-list {

@@ -163,19 +163,11 @@ export class ContextMenuComponent {
   );
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
-  readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
-    ...this.sortedItems(this.players().map((player) => ({
-      value: player.id,
-      label: this.playerLabel(player),
-      icon: 'users',
-      preserveCase: true,
-    }))),
-  ]);
+  readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
   readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
   readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
   readonly libraryRevealMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
-    this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+    this.sortedItems(this.libraryRevealTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
       icon: 'users',
@@ -629,6 +621,23 @@ export class ContextMenuComponent {
     return this.players().filter((player) => player.id !== currentOwnerId && !playerIsDefeated(player));
   }
 
+  visibilityTargetPlayers(): readonly PlayerView[] {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+
+    return this.players().filter((player) => player.id !== currentPlayerId);
+  }
+
+  libraryRevealTargets(): readonly PlayerView[] {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const sourcePlayerId = this.menu().playerId;
+
+    return this.players().filter((player) =>
+      player.id !== currentPlayerId
+      && player.id !== sourcePlayerId
+      && !playerIsDefeated(player),
+    );
+  }
+
   private monarchHolderPlayerId(): string | null {
     const currentMenu = this.menu();
     if (!this.isMonarchCardMenu()) {
@@ -897,15 +906,16 @@ export class ContextMenuComponent {
   }
 
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
-    return [
-      { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
-      ...this.sortedItems(this.players().map((player) => ({
-        value: player.id,
-        label: this.playerLabel(player),
-        icon: 'users',
-        preserveCase: true,
-      }))),
-    ];
+    const playerItems = this.sortedItems(this.visibilityTargetPlayers().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'users',
+      preserveCase: true,
+    })));
+
+    return playerItems.length > 1
+      ? [{ value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' }, ...playerItems]
+      : playerItems;
   }
 
   private buildCounterMenuItems(): readonly ContextSubmenuItem[] {

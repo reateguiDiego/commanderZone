@@ -494,6 +494,7 @@
   align-self: stretch;
   justify-self: stretch;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
@@ -506,7 +507,12 @@
   background: var(--game-surface-deep);
   box-shadow: 0 1rem 2rem rgb(var(--shadow-rgb) / 22%);
   overflow: hidden;
-  transition: max-height 220ms ease;
+  transform-origin: top right;
+  transition:
+    height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
 }
 
 .floating-panel[data-active-tab='log'] {
@@ -514,24 +520,59 @@
 }
 
 .floating-panel:hover,
-.floating-panel:focus-within {
-  position: absolute;
-  top: 0;
-  right: 0;
+.floating-panel:has(.floating-expanded-content:focus-within) {
   z-index: 2600;
-  width: min(24rem, calc(100vw - 1rem));
+  width: 100%;
   height: min(58dvh, 26rem);
+  min-height: 100%;
   max-height: none;
   background: var(--game-surface-deep);
+  border-color: var(--game-accent-line);
+  box-shadow:
+    0 1.35rem 2.8rem rgb(var(--shadow-rgb) / 34%),
+    0 0 0 1px rgb(var(--gold-rgb) / 16%);
+}
+
+.floating-panel .floating-collapsed-preview,
+.floating-panel .floating-expanded-content {
+  grid-column: 1;
+  grid-row: 2 / -1;
+  min-height: 0;
+  transition:
+    opacity 170ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 170ms;
+  will-change: opacity, transform;
+}
+
+.floating-panel .floating-collapsed-preview {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+}
+
+.floating-panel .floating-expanded-content {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.35rem) scale(0.985);
+  visibility: hidden;
 }
 
 .floating-panel:hover .floating-collapsed-preview,
-.floating-panel:focus-within .floating-collapsed-preview {
-  display: none;
+.floating-panel:has(.floating-expanded-content:focus-within) .floating-collapsed-preview {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.2rem) scale(0.985);
+  visibility: hidden;
 }
 
-.floating-panel:not(:hover):not(:focus-within) .floating-expanded-content {
-  display: none;
+.floating-panel:hover .floating-expanded-content,
+.floating-panel:has(.floating-expanded-content:focus-within) .floating-expanded-content {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  transition-delay: 45ms, 0s, 0s;
 }
 
 .floating-panel header {
@@ -542,9 +583,12 @@
 }
 
 .floating-panel header app-tab-list {
+  display: block;
+  width: 100%;
   min-width: 0;
   --cz-tabs-border-bottom: 0;
   --cz-tabs-padding: 0;
+  --cz-tab-track-size: minmax(0, 1fr);
   --cz-tab-active-bg: var(--game-accent-soft);
   --cz-tab-active-border-color: var(--game-accent-line);
   --cz-tab-active-color: var(--game-text);
