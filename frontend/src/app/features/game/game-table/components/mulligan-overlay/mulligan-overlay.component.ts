@@ -335,10 +335,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private handAnimationKey(): string {
-    return [
-      this.currentMulligan()?.mulligansTaken ?? 0,
-      ...this.hand().map((card) => card.instanceId),
-    ].join('|');
+    return this.hand().map((card) => card.instanceId).join('|');
   }
 
   private descriptionKeyForRule(rule: MulliganRule): string {

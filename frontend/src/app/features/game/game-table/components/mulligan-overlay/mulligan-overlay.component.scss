@@ -216,7 +216,8 @@ h2 {
 .mulligan-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--mulligan-card-slot-width)), var(--mulligan-card-slot-width)));
-  align-content: start;
+  align-content: center;
+  align-items: center;
   justify-content: center;
   justify-items: center;
   gap: clamp(0.8rem, 1.35vw, 1.2rem);

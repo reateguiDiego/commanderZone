@@ -5,7 +5,6 @@ import { MulliganRule } from '../../../../../core/models/game.model';
 export class MulliganOverlayAnimations {
   private readonly maxHandImageWaitMs = 4000;
   private context: gsap.Context | null;
-  private handAnimationFrame: number | null = null;
   private handTimeline: gsap.core.Timeline | null = null;
   private selectedCardsTween: gsap.core.Tween | null = null;
   private lastHandKey = '';
@@ -22,7 +21,6 @@ export class MulliganOverlayAnimations {
     if (!handKey) {
       this.lastHandKey = '';
       this.handEntryRunId += 1;
-      this.cancelHandFrame();
       return;
     }
 
@@ -32,11 +30,7 @@ export class MulliganOverlayAnimations {
 
     this.lastHandKey = handKey;
     const runId = ++this.handEntryRunId;
-    this.cancelHandFrame();
-    this.handAnimationFrame = this.requestFrame(() => {
-      this.handAnimationFrame = null;
-      void this.animateHandEntry(runId);
-    });
+    void this.animateHandEntry(runId);
   }
 
   animateHandExit(): void {
@@ -115,12 +109,10 @@ export class MulliganOverlayAnimations {
   resetTransientState(): void {
     this.lastHandKey = '';
     this.handEntryRunId += 1;
-    this.cancelHandFrame();
   }
 
   destroy(): void {
     this.handEntryRunId += 1;
-    this.cancelHandFrame();
     this.handTimeline?.kill();
     this.selectedCardsTween?.kill();
     this.context?.revert();
@@ -318,17 +310,6 @@ export class MulliganOverlayAnimations {
 
   private prefersReducedMotion(): boolean {
     return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  }
-
-  private requestFrame(callback: FrameRequestCallback): number {
-    return window.requestAnimationFrame(callback);
-  }
-
-  private cancelHandFrame(): void {
-    if (this.handAnimationFrame !== null) {
-      window.cancelAnimationFrame(this.handAnimationFrame);
-      this.handAnimationFrame = null;
-    }
   }
 
 }
