@@ -294,6 +294,7 @@
       "timer": "å®šæ—¶å™¨",
       "mulligan": "Mulligan",
       "firstMulliganFree": "é¦–æ¬¡å†è°ƒåº¦å…è´¹",
+      "firstMulliganNotFree": "First mulligan is not free",
       "mulliganDescriptions": {
         "london": "æ¯æ¬¡æŠ“ 7 å¼ ç‰Œã€‚å†³å®šä¿ç•™æ‰‹ç‰ŒåŽï¼Œæ¯æ¬¡æœ‰æ•ˆå†è°ƒåº¦å°†ä¸€å¼ ç‰Œç½®äºŽç‰Œåº“åº•ã€‚",
         "vancouver": "æ¯æ¬¡æœ‰æ•ˆå†è°ƒåº¦å°‘æŠ“ä¸€å¼ ç‰Œã€‚è‹¥åœ¨æœ‰æ•ˆå†è°ƒåº¦åŽä¿ç•™æ‰‹ç‰Œï¼Œåˆ™å åœ 1ã€‚",
@@ -916,7 +917,8 @@
       "title": "å†è°ƒåº¦",
       "metaAriaLabel": "è°ƒåº¦çŠ¶æ€",
       "firstMulliganFree": "é¦–æ¬¡å†è°ƒåº¦å…è´¹",
-      "mulligansTaken": "è°ƒåº¦ï¼š{{ count }}",
+      "firstMulliganNotFree": "First mulligan is not free",
+      "mulligansTaken": "You have taken {{ count }} mulligans",
       "effectiveMulligans": "æœ‰æ•ˆï¼š{{ count }}",
       "scryTitle": "å åœ 1",
       "scryDescription": "é€‰æ‹©å¦‚ä½•å¤„ç†ç‰Œåº“é¡¶ç‰Œã€‚",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "å†³å®š",
         "scrying": "å åœ",
-        "ready": "å‡†å¤‡å¥½",
-        "bottoming": "Bottoming cards"
+        "ready": "å‡†å¤‡å¥½"
       },
       "actions": {
         "keepOnTop": "ä¿ç•™åœ¨é¡¶",
         "putOnBottom": "ç½®äºŽåº•",
-        "removeFromBottom": "ä»Žåº•å–å‡º"
+        "removeFromBottom": "ä»Žåº•å–å‡º",
+        "keepHand": "Keep hand",
+        "keepWithBottom": "Keep and bottom"
       },
       "description": {
         "londonNoBottom": "æŠ“ 7 å¼ ã€‚ä½ ä¸éœ€è¦å°†ç‰Œç½®äºŽç‰Œåº“åº•ã€‚",

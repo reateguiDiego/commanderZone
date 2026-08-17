@@ -214,6 +214,7 @@ final class GameplayV2ContractFactory
                 'viewerId' => $viewer->id(),
                 'ownerId' => $projectedSnapshot['ownerId'] ?? null,
                 'gamePhase' => $projectedSnapshot['gamePhase'] ?? 'PLAYING',
+                'mulligan' => is_array($projectedSnapshot['mulligan'] ?? null) ? $projectedSnapshot['mulligan'] : null,
                 'disconnectVotes' => is_array($projectedSnapshot['disconnectVotes'] ?? null) ? $projectedSnapshot['disconnectVotes'] : [],
                 'rematch' => is_array($projectedSnapshot['rematch'] ?? null) ? $projectedSnapshot['rematch'] : null,
                 'createdAt' => $projectedSnapshot['createdAt'] ?? null,

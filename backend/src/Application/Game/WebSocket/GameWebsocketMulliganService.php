@@ -501,6 +501,7 @@ final readonly class GameWebsocketMulliganService
             if (!is_array($patch)) {
                 continue;
             }
+            $patch = $this->completeRuntimeMulliganPrivateState($patch, $runtimeResult->event);
             $patch = $this->hydratePrivateMulliganStaticCards($patch, $staticCardsByCardKey);
             $basePatch = $basePatch === [] ? $patch : $basePatch;
             $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
@@ -557,6 +558,94 @@ final readonly class GameWebsocketMulliganService
 
     /**
      * @param array<string,mixed>               $patch
+     * @param array<string,mixed>               $runtimeEvent
+     *
+     * @return array<string,mixed>
+     */
+    private function completeRuntimeMulliganPrivateState(array $patch, array $runtimeEvent): array
+    {
+        $mulligan = is_array($runtimeEvent['mulligan'] ?? null) ? $runtimeEvent['mulligan'] : [];
+        $playerStatuses = is_array($mulligan['playerStatus'] ?? null) ? $mulligan['playerStatus'] : [];
+        if ($playerStatuses === []) {
+            return $patch;
+        }
+
+        $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
+        $changed = false;
+        foreach ($ops as $index => $op) {
+            if (!is_array($op)) {
+                continue;
+            }
+
+            $operationKind = is_string($op['op'] ?? null) ? $op['op'] : '';
+            $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+            $playerId = is_string($operationData['playerId'] ?? null) ? $operationData['playerId'] : '';
+            $playerStatus = is_array($playerStatuses[$playerId] ?? null) ? $playerStatuses[$playerId] : [];
+            if ($playerId === '' || $playerStatus === []) {
+                continue;
+            }
+
+            if ($operationKind === 'mulligan.status.set') {
+                $nextOperationData = [
+                    ...$operationData,
+                    'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $operationData['mulligansTaken'] ?? 0)),
+                    'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $operationData['effectiveMulligans'] ?? 0)),
+                ];
+                if (is_array($op['data'] ?? null)) {
+                    $ops[$index]['data'] = $nextOperationData;
+                } else {
+                    $ops[$index] = [
+                        ...$op,
+                        ...$nextOperationData,
+                    ];
+                }
+                $changed = true;
+                continue;
+            }
+
+            if ($operationKind !== 'mulligan.private_state.set') {
+                continue;
+            }
+
+            $state = is_array($operationData['state'] ?? null) ? $operationData['state'] : [];
+            $firstMulliganFree = ($mulligan['firstMulliganFree'] ?? $state['firstMulliganFree'] ?? false) === true;
+            $currentHandSize = max(0, (int) ($playerStatus['currentHandSize'] ?? $state['handSize'] ?? $state['drawCount'] ?? 0));
+            $cardsToBottom = max(0, (int) ($playerStatus['cardsToBottom'] ?? $state['cardsToBottom'] ?? $state['bottomSelectionCount'] ?? 0));
+            $bottomPending = ($playerStatus['bottomPending'] ?? $state['bottomPending'] ?? false) === true;
+            $status = is_string($playerStatus['status'] ?? null) ? $playerStatus['status'] : ($state['status'] ?? 'DECIDING');
+
+            $nextState = [
+                ...$state,
+                'rule' => is_string($mulligan['rule'] ?? null) ? $mulligan['rule'] : ($state['rule'] ?? null),
+                'firstMulliganFree' => $firstMulliganFree,
+                'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $state['mulligansTaken'] ?? 0)),
+                'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $state['effectiveMulligans'] ?? 0)),
+                'drawCount' => $currentHandSize,
+                'bottomSelectionCount' => $cardsToBottom,
+                'finalHandSize' => $bottomPending ? max(0, $currentHandSize - $cardsToBottom) : $currentHandSize,
+                'needsBottomSelection' => $bottomPending,
+                'bottomOrderMode' => is_string($playerStatus['bottomOrderMode'] ?? null) ? $playerStatus['bottomOrderMode'] : ($state['bottomOrderMode'] ?? 'NONE'),
+                'needsScryAfterKeep' => ($playerStatus['scryPending'] ?? $state['scryPending'] ?? false) === true,
+                'canTakeAnotherMulligan' => $status === 'DECIDING',
+                'status' => $status,
+                'ready' => $status === 'READY',
+            ];
+            if (is_array($op['data'] ?? null)) {
+                $ops[$index]['data'] = [
+                    ...$operationData,
+                    'state' => $nextState,
+                ];
+            } else {
+                $ops[$index]['state'] = $nextState;
+            }
+            $changed = true;
+        }
+
+        return $changed ? [...$patch, 'ops' => $ops] : $patch;
+    }
+
+    /**
+     * @param array<string,mixed>               $patch
      * @param array<string,array<string,mixed>> $staticCardsByCardKey
      *
      * @return array<string,mixed>
@@ -575,7 +664,8 @@ final readonly class GameWebsocketMulliganService
                 continue;
             }
 
-            $hand = is_array($op['hand'] ?? null) ? $op['hand'] : [];
+            $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+            $hand = is_array($operationData['hand'] ?? null) ? $operationData['hand'] : [];
             $staticCards = [];
             foreach ($hand as $cardIndex => $card) {
                 if (!is_array($card)) {
@@ -589,8 +679,16 @@ final readonly class GameWebsocketMulliganService
                 }
             }
             if ($staticCards !== []) {
-                $ops[$index]['hand'] = $hand;
-                $ops[$index]['staticCards'] = $staticCards;
+                if (is_array($op['data'] ?? null)) {
+                    $ops[$index]['data'] = [
+                        ...$operationData,
+                        'hand' => $hand,
+                        'staticCards' => $staticCards,
+                    ];
+                } else {
+                    $ops[$index]['hand'] = $hand;
+                    $ops[$index]['staticCards'] = $staticCards;
+                }
                 $changed = true;
             }
         }
@@ -876,6 +974,7 @@ final readonly class GameWebsocketMulliganService
         $hand = is_array($player['zones']['hand'] ?? null) ? array_values($player['zones']['hand']) : [];
         $compactHand = $this->compactHand($hand);
         $status = is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING';
+        $firstMulliganFree = ($mulligan['firstMulliganFree'] ?? $snapshot['mulligan']['firstMulliganFree'] ?? false) === true;
         $bottomSelectionCount = max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0));
         $needsBottomSelection = ($mulligan['needsBottomSelection'] ?? false) === true;
         $needsScryAfterKeep = ($mulligan['needsScryAfterKeep'] ?? false) === true;
@@ -889,6 +988,7 @@ final readonly class GameWebsocketMulliganService
             'handSize' => count($compactHand),
             'mulligan' => [
                 'rule' => $mulligan['rule'] ?? null,
+                'firstMulliganFree' => $firstMulliganFree,
                 'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
                 'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
                 'drawCount' => max(0, (int) ($mulligan['drawCount'] ?? 0)),
@@ -906,6 +1006,8 @@ final readonly class GameWebsocketMulliganService
                     'op' => 'mulligan.private_state.set',
                     'playerId' => $playerId,
                     'status' => $status,
+                    'firstMulliganFree' => $firstMulliganFree,
+                    'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
                     'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
                     'handSize' => count($compactHand),
                     'cardsToBottom' => $bottomSelectionCount,

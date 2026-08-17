@@ -819,6 +819,7 @@
         [publicPlayers]="store.mulliganPublicPlayers()"
         [pending]="store.mulliganPending()"
         [error]="store.mulliganError()"
+        [ownerBackgroundImage]="gameBackgroundImage(store.currentPlayer())"
         [cardImage]="cardImage"
         (take)="store.takeMulligan()"
         (keep)="store.keepMulligan($event)"

@@ -294,6 +294,7 @@
       "timer": "Timer",
       "mulligan": "Mulligan",
       "firstMulliganFree": "De eerste Mulligan is gratis",
+      "firstMulliganNotFree": "De eerste Mulligan is niet gratis",
       "mulliganDescriptions": {
         "london": "Trek elke keer 7 kaarten. Wanneer je houdt, leg je Ã©Ã©n kaart onderop je library voor elke effectieve mulligan.",
         "vancouver": "Elke effectieve mulligan trekt Ã©Ã©n kaart minder. Als je na een effectieve mulligan houdt, doe je scry 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Mulligan-status",
       "firstMulliganFree": "De eerste Mulligan is gratis",
-      "mulligansTaken": "Mulligans: {{ count }}",
+      "firstMulliganNotFree": "De eerste Mulligan is niet gratis",
+      "mulligansTaken": "Je hebt {{ count }} mulligans genomen",
       "effectiveMulligans": "Effectief: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Kies wat je met de bovenste kaart van je library wilt doen.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "beslissen",
         "scrying": "schreejeen",
-        "ready": "klaar",
-        "bottoming": "Bottoming cards"
+        "ready": "klaar"
       },
       "actions": {
         "keepOnTop": "Blijf bovenaan",
         "putOnBottom": "Onderaan zetten",
-        "removeFromBottom": "Van onderaf verwijderen"
+        "removeFromBottom": "Van onderaf verwijderen",
+        "keepHand": "Hand houden",
+        "keepWithBottom": "Houden en onderaan zetten"
       },
       "description": {
         "londonNoBottom": "Trek 7. Je hoeft geen kaarten onderop te leggen.",

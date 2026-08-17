@@ -11,6 +11,7 @@ import type {
   GameControlPlaneState,
   GameDisconnectVotes,
   GameLogEntry,
+  GameMulliganConfig,
   GamePlayerMulliganState,
   GamePlayerState,
   GameRematchState,
@@ -46,6 +47,7 @@ export interface GameTableNormalizedV2GameState {
   ownerId: string | null;
   version: number;
   gamePhase: string | null;
+  mulligan: GameMulliganConfig | null;
   createdAt: string | null;
   updatedAt: string | null;
   lastDiceResult?: {
@@ -250,6 +252,7 @@ export function createGameTableNormalizedV2State(
       ownerId: controlPlane?.ownerId ?? bootstrap.game.ownerId ?? null,
       version: bootstrap.game.version,
       gamePhase: bootstrap.game.gamePhase ?? null,
+      mulligan: bootstrap.game.mulligan ?? null,
       createdAt: bootstrap.game.createdAt ?? null,
       updatedAt: bootstrap.game.updatedAt ?? null,
       disconnectVotes: cloneDisconnectVotes(bootstrap.game.disconnectVotes ?? {}),
@@ -296,6 +299,7 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     allDisconnectedSince: state.game.allDisconnectedSince,
     nextLifecycleAt: state.game.nextLifecycleAt,
     gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
+    mulligan: state.game.mulligan ?? undefined,
     players,
     counters: Object.fromEntries(
       Object.entries(state.sharedCounters).map(([scope, counters]) => [scope, { ...counters }]),
@@ -337,7 +341,7 @@ export function applyPatchEnvelopeV2(
 
   let nextState = state;
   for (const operation of patch.ops) {
-    const result = applyOperation(nextState, operation);
+    const result = applyOperation(nextState, normalizePatchOperation(operation));
     if (result.status === 'failed') {
       return { status: 'resync_required', state, reason: result.reason };
     }
@@ -366,7 +370,7 @@ function applySameVersionPatch(
 ): GameTableNormalizedV2ApplyInternalResult {
   let nextState = state;
   for (const operation of patch.ops) {
-    const result = applySameVersionOperation(nextState, operation);
+    const result = applySameVersionOperation(nextState, normalizePatchOperation(operation));
     if (result.status === 'failed') {
       return { status: 'resync_required', state, reason: result.reason };
     }
@@ -523,6 +527,22 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
 type OperationApplyResult =
   | { status: 'applied'; state: GameTableNormalizedV2State }
   | { status: 'failed'; reason: Exclude<GameTableNormalizedV2ApplyFailureReason, 'version_gap' | 'missing_state'> };
+
+type GameplayPatchV2WireOperation = GameplayPatchV2Operation & {
+  data?: Record<string, unknown>;
+};
+
+function normalizePatchOperation(operation: GameplayPatchV2Operation): GameplayPatchV2Operation {
+  const data = (operation as GameplayPatchV2WireOperation).data;
+  if (!data || Array.isArray(data)) {
+    return operation;
+  }
+
+  return {
+    ...data,
+    op: operation.op,
+  } as GameplayPatchV2Operation;
+}
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
   switch (operation.op) {
@@ -719,6 +739,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         mulligan: {
           ...emptyMulliganState(),
           ...player.mulligan,
+          ...(operation.mulligansTaken !== undefined ? { mulligansTaken: operation.mulligansTaken } : {}),
           ...(operation.effectiveMulligans !== undefined ? { effectiveMulligans: operation.effectiveMulligans } : {}),
           status: operation.status,
           ready: operation.ready ?? player.mulligan?.ready ?? operation.status === 'READY',
@@ -728,12 +749,13 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     }
 
     case 'mulligan.private_state.set': {
+      const patch = mulliganPrivateStatePatch(operation);
       let nextState = updatePlayer(state, operation.playerId, (player) => ({
         ...player,
         mulligan: mergeMulliganPrivateStatePatch(
           player.mulligan,
-          operation.state,
-          operation.hand?.length ?? operation.state.handSize ?? player.handCount,
+          patch,
+          operation.hand?.length ?? patch.handSize ?? player.handCount,
           operation.scryCard ? compactRefToLegacyCard(operation.scryCard, operation.playerId, 'library') : undefined,
         ),
       }));
@@ -1857,10 +1879,20 @@ function emptyMulliganState(): GamePlayerMulliganState {
   };
 }
 
-type MulliganPrivateStatePatch = Extract<
+type MulliganPrivateStateOperation = Extract<
   GameplayPatchV2Operation,
   { op: 'mulligan.private_state.set' }
->['state'];
+>;
+type MulliganPrivateStatePatch = MulliganPrivateStateOperation['state'];
+type FlatMulliganPrivateStateOperation = Omit<MulliganPrivateStateOperation, 'state'> & {
+  state?: MulliganPrivateStatePatch;
+} & Partial<MulliganPrivateStatePatch>;
+
+function mulliganPrivateStatePatch(operation: MulliganPrivateStateOperation): MulliganPrivateStatePatch {
+  const flatOperation = operation as FlatMulliganPrivateStateOperation;
+
+  return flatOperation.state ?? flatOperation;
+}
 
 function mergeMulliganPrivateStatePatch(
   current: GamePlayerMulliganState | undefined,
@@ -1875,6 +1907,9 @@ function mergeMulliganPrivateStatePatch(
 
   if (patch.rule !== undefined) {
     next.rule = patch.rule as GamePlayerMulliganState['rule'];
+  }
+  if (patch.firstMulliganFree !== undefined) {
+    next.firstMulliganFree = patch.firstMulliganFree;
   }
   if (patch.mulligansTaken !== undefined) {
     next.mulligansTaken = patch.mulligansTaken;

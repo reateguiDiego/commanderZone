@@ -207,7 +207,7 @@ export interface GameplayMulliganPrivateStateMessage {
     | 'canTakeAnotherMulligan'
     | 'status'
     | 'ready'
-  >> & Pick<GamePlayerMulliganState, 'rule'>;
+  >> & Pick<GamePlayerMulliganState, 'rule' | 'firstMulliganFree'>;
   scryCard?: GameplayMulliganPrivateCard;
   visibility?: 'private' | `player:${string}`;
   staticCards?: Record<string, unknown>;
@@ -218,9 +218,15 @@ export interface GameplayMulliganPrivateStateMessage {
 export type GameplayMulliganPrivateCard = GameCompactCardRef | GameCardInstance;
 
 export type GameplayMulliganSemanticOperation =
-  | { op: 'mulligan.status.set'; playerId: string; status: MulliganPlayerStatus; ready?: boolean; handCount?: number; effectiveMulligans?: number }
+  | { op: 'mulligan.status.set'; playerId: string; status: MulliganPlayerStatus; ready?: boolean; handCount?: number; mulligansTaken?: number; effectiveMulligans?: number }
   | { op: 'mulligan.player.choice.set'; playerId: string; choice: 'take' | 'keep' | 'scry_top' | 'scry_bottom'; effectiveMulligans?: number }
-  | { op: 'mulligan.private_state.set'; playerId: string; state: GameplayMulliganPrivateStateMessage['mulligan']; hand?: GameplayMulliganPrivateCard[]; scryCard?: GameplayMulliganPrivateCard }
+  | ({
+      op: 'mulligan.private_state.set';
+      playerId: string;
+      hand?: GameplayMulliganPrivateCard[];
+      scryCard?: GameplayMulliganPrivateCard;
+      state?: GameplayMulliganPrivateStateMessage['mulligan'];
+    } & Partial<GameplayMulliganPrivateStateMessage['mulligan']>)
   | { op: 'mulligan.hand.replace_private'; playerId: string; hand: GameplayMulliganPrivateCard[]; staticCards?: Record<string, unknown> }
   | { op: 'mulligan.hand.count.set'; playerId: string; count: number }
   | { op: 'mulligan.bottom.required.set'; playerId: string; count: number; orderMode?: GamePlayerMulliganState['bottomOrderMode'] }

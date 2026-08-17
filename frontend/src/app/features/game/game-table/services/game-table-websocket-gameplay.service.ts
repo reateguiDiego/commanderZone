@@ -533,7 +533,23 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return true;
     }
 
-    return this.transport.send(message);
+    const sent = this.transport.send(message);
+    if (sent && message.gameId) {
+      this.scheduleMulliganReconciliation(message.gameId);
+    }
+
+    return sent;
+  }
+
+  private scheduleMulliganReconciliation(gameId: string): void {
+    window.setTimeout(() => {
+      const context = this.context;
+      if (!context || context.gameId() !== gameId) {
+        return;
+      }
+
+      void context.refetch(true);
+    }, 600);
   }
 
   private drainMulliganQueue(): void {

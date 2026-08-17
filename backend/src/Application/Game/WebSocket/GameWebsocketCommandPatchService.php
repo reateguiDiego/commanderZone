@@ -607,6 +607,7 @@ final readonly class GameWebsocketCommandPatchService
                     $runtimeProjected = $this->runtimePatchedResult(
                         $game,
                         $runtimeResult->patches,
+                        $runtimeResult->event,
                         $currentVersion,
                         $clientActionId,
                         $runtimeCommand['type'],
@@ -1123,6 +1124,7 @@ final readonly class GameWebsocketCommandPatchService
             $patched = $this->runtimeFinalPatchedResult(
                 $gameId,
                 $runtimeResult->patches,
+                $runtimeResult->event,
                 $baseVersion,
                 $clientActionId,
                 [
@@ -1226,6 +1228,87 @@ final readonly class GameWebsocketCommandPatchService
 
     /**
      * @param list<array<string,mixed>> $patches
+     * @param array<string,mixed>       $runtimeEvent
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function completeRuntimeMulliganPatches(array $patches, array $runtimeEvent): array
+    {
+        $mulligan = is_array($runtimeEvent['mulligan'] ?? null) ? $runtimeEvent['mulligan'] : [];
+        $playerStatuses = is_array($mulligan['playerStatus'] ?? null) ? $mulligan['playerStatus'] : [];
+        if ($playerStatuses === []) {
+            return $patches;
+        }
+
+        foreach ($patches as $patchIndex => $patch) {
+            $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
+            $changed = false;
+            foreach ($ops as $opIndex => $op) {
+                if (!is_array($op)) {
+                    continue;
+                }
+
+                $operationKind = is_string($op['op'] ?? null) ? $op['op'] : '';
+                if (!in_array($operationKind, ['mulligan.status.set', 'mulligan.private_state.set'], true)) {
+                    continue;
+                }
+
+                $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+                $playerId = is_string($operationData['playerId'] ?? null) ? $operationData['playerId'] : '';
+                $playerStatus = is_array($playerStatuses[$playerId] ?? null) ? $playerStatuses[$playerId] : [];
+                if ($playerId === '' || $playerStatus === []) {
+                    continue;
+                }
+
+                if ($operationKind === 'mulligan.status.set') {
+                    $operationData = [
+                        ...$operationData,
+                        'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $operationData['mulligansTaken'] ?? 0)),
+                        'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $operationData['effectiveMulligans'] ?? 0)),
+                    ];
+                } else {
+                    $state = is_array($operationData['state'] ?? null) ? $operationData['state'] : [];
+                    $currentHandSize = max(0, (int) ($playerStatus['currentHandSize'] ?? $state['handSize'] ?? $state['drawCount'] ?? 0));
+                    $cardsToBottom = max(0, (int) ($playerStatus['cardsToBottom'] ?? $state['cardsToBottom'] ?? $state['bottomSelectionCount'] ?? 0));
+                    $bottomPending = ($playerStatus['bottomPending'] ?? $state['bottomPending'] ?? false) === true;
+                    $status = is_string($playerStatus['status'] ?? null) ? $playerStatus['status'] : ($state['status'] ?? 'DECIDING');
+                    $operationData = [
+                        ...$operationData,
+                        'state' => [
+                            ...$state,
+                            'rule' => is_string($mulligan['rule'] ?? null) ? $mulligan['rule'] : ($state['rule'] ?? null),
+                            'firstMulliganFree' => ($mulligan['firstMulliganFree'] ?? $state['firstMulliganFree'] ?? false) === true,
+                            'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $state['mulligansTaken'] ?? 0)),
+                            'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $state['effectiveMulligans'] ?? 0)),
+                            'drawCount' => $currentHandSize,
+                            'bottomSelectionCount' => $cardsToBottom,
+                            'finalHandSize' => $bottomPending ? max(0, $currentHandSize - $cardsToBottom) : $currentHandSize,
+                            'needsBottomSelection' => $bottomPending,
+                            'bottomOrderMode' => is_string($playerStatus['bottomOrderMode'] ?? null) ? $playerStatus['bottomOrderMode'] : ($state['bottomOrderMode'] ?? 'NONE'),
+                            'needsScryAfterKeep' => ($playerStatus['scryPending'] ?? $state['scryPending'] ?? false) === true,
+                            'canTakeAnotherMulligan' => $status === 'DECIDING',
+                            'status' => $status,
+                            'ready' => $status === 'READY',
+                        ],
+                    ];
+                }
+
+                $ops[$opIndex] = is_array($op['data'] ?? null)
+                    ? [...$op, 'data' => $operationData]
+                    : [...$op, ...$operationData];
+                $changed = true;
+            }
+
+            if ($changed) {
+                $patches[$patchIndex] = [...$patch, 'ops' => $ops];
+            }
+        }
+
+        return $patches;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $patches
      * @param array<string,float>       $phaseTimings
      *
      * @return array{result: GameWebsocketCommandResult, patch_ms: float, patch_bytes: int}
@@ -1233,6 +1316,7 @@ final readonly class GameWebsocketCommandPatchService
     private function runtimeFinalPatchedResult(
         string $gameId,
         array $patches,
+        array $runtimeEvent,
         int $baseVersion,
         string $ackClientActionId,
         array $phaseTimings,
@@ -1241,6 +1325,7 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
+        $patches = $this->completeRuntimeMulliganPatches($patches, $runtimeEvent);
         $version = null;
         foreach ($patches as $patch) {
             if (is_int($patch['version'] ?? null)) {
@@ -2227,6 +2312,7 @@ final readonly class GameWebsocketCommandPatchService
     private function runtimePatchedResult(
         Game $game,
         array $patches,
+        array $runtimeEvent,
         int $baseVersion,
         string $ackClientActionId,
         string $runtimeCommandType,
@@ -2237,6 +2323,7 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
+        $patches = $this->completeRuntimeMulliganPatches($patches, $runtimeEvent);
         $snapshot = $game->snapshot();
         $baseStaticCardsByCardKey = [
             ...$this->staticCardsByCardKey($snapshot),

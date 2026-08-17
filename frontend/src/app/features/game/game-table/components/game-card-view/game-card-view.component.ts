@@ -158,6 +158,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly statDropSettling = input(false);
   readonly commanderEntrySettling = input(false);
   readonly hoverInteractionsEnabled = input(true);
+  readonly faceToggleEnabled = input(true);
   readonly activeHoverInstanceId = input<string | null>(null);
   readonly motionActive = input(false);
   readonly faceDown = input(false);
@@ -269,6 +270,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     const currentCard = this.card();
 
     return !this.faceDown()
+      && this.faceToggleEnabled()
       && currentCard.hidden !== true
       && canShowAlternateFaceToggle(currentCard);
   });

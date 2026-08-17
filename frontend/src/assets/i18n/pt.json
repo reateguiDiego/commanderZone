@@ -294,6 +294,7 @@
       "timer": "Temporizador",
       "mulligan": "Mulligan",
       "firstMulliganFree": "O primeiro mulligan Ã© grÃ¡tis",
+      "firstMulliganNotFree": "O primeiro mulligan nÃ£o Ã© grÃ¡tis",
       "mulliganDescriptions": {
         "london": "Compre 7 cartas a cada vez. Quando ficar com a mÃ£o, coloque uma carta no fundo do grimÃ³rio para cada mulligan efetivo.",
         "vancouver": "Cada mulligan efetivo compra uma carta a menos. Se ficar com a mÃ£o apÃ³s um mulligan efetivo, faÃ§a vidÃªncia 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Status de Mulligan",
       "firstMulliganFree": "O primeiro mulligan Ã© grÃ¡tis",
-      "mulligansTaken": "Mulligans: {{ count }}",
+      "firstMulliganNotFree": "O primeiro mulligan nÃ£o Ã© grÃ¡tis",
+      "mulligansTaken": "VocÃª fez {{ count }} mulligans",
       "effectiveMulligans": "Efetivo: {{ count }}",
       "scryTitle": "VidÃªncia 1",
       "scryDescription": "Escolha o que fazer com a carta do topo do seu grimÃ³rio.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "decidindo",
         "scrying": "vidÃªncia",
-        "ready": "pronto",
-        "bottoming": "Bottoming cards"
+        "ready": "pronto"
       },
       "actions": {
         "keepOnTop": "Mantenha-se no topo",
         "putOnBottom": "Coloque em baixo",
-        "removeFromBottom": "Remover do fundo"
+        "removeFromBottom": "Remover do fundo",
+        "keepHand": "Ficar com a mão",
+        "keepWithBottom": "Ficar e colocar no fundo"
       },
       "description": {
         "londonNoBottom": "Compre 7. VocÃª nÃ£o precisa colocar nenhuma carta no fundo.",

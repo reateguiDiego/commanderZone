@@ -2981,6 +2981,7 @@ class GameCommandHandler
         $state = GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken);
         $snapshot['players'][$playerId]['mulligan'] = [
             ...$state,
+            'firstMulliganFree' => $firstMulliganFree,
             'status' => $status,
             'ready' => $status === self::MULLIGAN_STATUS_READY,
             'scryCardInstanceId' => $status === self::MULLIGAN_STATUS_SCRYING && $scryCardInstanceId !== ''
@@ -4375,6 +4376,7 @@ class GameCommandHandler
     {
         return [
             'rule' => is_string($state['rule'] ?? null) ? $state['rule'] : null,
+            'firstMulliganFree' => ($state['firstMulliganFree'] ?? false) === true,
             'mulligansTaken' => max(0, (int) ($state['mulligansTaken'] ?? 0)),
             'effectiveMulligans' => max(0, (int) ($state['effectiveMulligans'] ?? 0)),
             'drawCount' => max(0, (int) ($state['drawCount'] ?? 0)),

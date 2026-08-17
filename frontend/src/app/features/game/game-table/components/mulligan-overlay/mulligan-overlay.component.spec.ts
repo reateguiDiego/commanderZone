@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CheckCircle2, ChevronDown, ChevronUp, LucideAngularModule, X } from 'lucide-angular';
+import { CheckCircle2, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GamePlayerMulliganState, MulliganRule } from '../../../../../core/models/game.model';
 import { MulliganOverlayComponent } from './mulligan-overlay.component';
 
@@ -11,7 +11,7 @@ describe('MulliganOverlayComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MulliganOverlayComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ CheckCircle2, ChevronDown, ChevronUp, X })),
+        importProvidersFrom(LucideAngularModule.pick({ CheckCircle2 })),
       ],
     }).compileComponents();
 
@@ -60,9 +60,9 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-bottom-selection"]')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('The chosen order');
-    expect(fixture.nativeElement.textContent).toContain('Desktop: right click to put a card on the bottom.');
-    expect(fixture.nativeElement.textContent).toContain('Mobile/tablet: use the');
+    expect(fixture.nativeElement.textContent).toContain('0 / 1 selected');
+    expect(fixture.nativeElement.querySelector('.bottom-selection-help')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.bottom-pills')).toBeNull();
   });
 
   it('selects a bottom card with desktop contextmenu', () => {
@@ -74,8 +74,7 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('1 / 1 selected');
-    expect(bottomPills().length).toBe(1);
-    expect(bottomPills()[0].textContent).toContain('Sol Ring');
+    expect(fixture.nativeElement.querySelector('.bottom-pill')).toBeNull();
   });
 
   it('selects a bottom card with the mobile/tablet action button', () => {
@@ -87,26 +86,25 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('1 / 1 selected');
-    expect(bottomPills().length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.bottom-pill')).toBeNull();
     expect(bottomActionButton('card-1').textContent).toContain('Remove from bottom');
   });
 
-  it('deselects a bottom card when removing its pill', () => {
+  it('deselects a bottom card when toggling the selected card action', () => {
     setMulligan('LONDON', { bottomSelectionCount: 1 });
     fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
     fixture.detectChanges();
 
     selectCardWithButton('card-1');
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[aria-label="Remove"]') as HTMLButtonElement).click();
+    selectCardWithButton('card-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('0 / 1 selected');
-    expect(bottomPills().length).toBe(0);
     expect(bottomActionButton('card-1').textContent).toContain('Put on bottom');
   });
 
-  it('allows ordering London bottom pills and sends the visible order on accept', () => {
+  it('sends London bottom cards in selection order on accept', () => {
     const keepSpy = vi.fn();
     fixture.componentInstance.keep.subscribe(keepSpy);
     setMulligan('LONDON', { bottomSelectionCount: 2 });
@@ -117,14 +115,12 @@ describe('MulliganOverlayComponent', () => {
     selectCard('card-2');
     fixture.detectChanges();
 
-    (bottomPills()[0].querySelector('[aria-label="Move down"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
     acceptButton().click();
 
-    expect(keepSpy).toHaveBeenCalledWith(['card-2', 'card-1']);
+    expect(keepSpy).toHaveBeenCalledWith(['card-1', 'card-2']);
   });
 
-  it('shows random server-side order for Generous and does not render reorder buttons', () => {
+  it('shows selection count for Generous and does not render bottom pills', () => {
     setMulligan('GENEROUS', { drawCount: 10, bottomSelectionCount: 3, bottomOrderMode: 'RANDOM_SERVER_SIDE' });
     fixture.componentRef.setInput('config', { rule: 'GENEROUS', firstMulliganFree: true });
     fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
@@ -133,9 +129,8 @@ describe('MulliganOverlayComponent', () => {
     selectCard('card-1');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('The final order');
-    expect(fixture.nativeElement.querySelector('[aria-label="Subir"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[aria-label="Move down"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('1 / 3 selected');
+    expect(fixture.nativeElement.querySelector('.bottom-pills')).toBeNull();
   });
 
   it('shows ten opening cards for Generous and requires three selected bottom cards', () => {
@@ -156,27 +151,6 @@ describe('MulliganOverlayComponent', () => {
 
     selectCard('card-3');
     fixture.detectChanges();
-    expect(acceptButton().disabled).toBe(false);
-  });
-
-  it('allows selecting and accepting bottom cards after runtime enters BOTTOMING', () => {
-    setMulligan('GENEROUS', {
-      status: 'BOTTOMING',
-      drawCount: 10,
-      bottomSelectionCount: 3,
-      bottomOrderMode: 'RANDOM_SERVER_SIDE',
-    });
-    fixture.componentRef.setInput('config', { rule: 'GENEROUS', firstMulliganFree: true });
-    fixture.componentRef.setInput('hand', Array.from({ length: 10 }, (_, index) => card(`card-${index + 1}`, `Card ${index + 1}`)));
-    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
-    fixture.detectChanges();
-
-    selectCard('card-1');
-    selectCard('card-2');
-    selectCard('card-3');
-    fixture.detectChanges();
-
-    expect(bottomPills().length).toBe(3);
     expect(acceptButton().disabled).toBe(false);
   });
 
@@ -353,10 +327,6 @@ describe('MulliganOverlayComponent', () => {
     return fixture.nativeElement.querySelector(
       `.mulligan-card[data-card-instance-id="${instanceId}"] .bottom-card-action`,
     ) as HTMLButtonElement;
-  }
-
-  function bottomPills(): HTMLElement[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('[data-testid="mulligan-bottom-pill"]'));
   }
 
   function acceptButton(): HTMLButtonElement {

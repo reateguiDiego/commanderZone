@@ -294,6 +294,7 @@
       "timer": "Timer",
       "mulligan": "Mulligan",
       "firstMulliganFree": "Der erste Mulligan ist kostenlos",
+      "firstMulliganNotFree": "Der erste Mulligan ist nicht kostenlos",
       "mulliganDescriptions": {
         "london": "Ziehe jedes Mal 7 Karten. Wenn du deine Hand behÃ¤ltst, legst du fÃ¼r jeden effektiven Mulligan eine Karte unter deine Bibliothek.",
         "vancouver": "Jeder effektive Mulligan zieht eine Karte weniger. Wenn du nach einem effektiven Mulligan behÃ¤ltst, fÃ¼hrst du Hellsicht 1 durch.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Mulligan-Status",
       "firstMulliganFree": "Der erste Mulligan ist kostenlos",
-      "mulligansTaken": "Genommene Mulligans: {{ count }}",
+      "firstMulliganNotFree": "Der erste Mulligan ist nicht kostenlos",
+      "mulligansTaken": "Du hast {{ count }} Mulligans genommen",
       "effectiveMulligans": "Effektiv: {{ count }}",
       "scryTitle": "Hellsicht 1",
       "scryDescription": "WÃ¤hle, was mit der obersten Karte deiner Bibliothek geschehen soll.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "entscheiden",
         "scrying": "Hellsicht",
-        "ready": "fertig",
-        "bottoming": "Bottoming cards"
+        "ready": "fertig"
       },
       "actions": {
         "keepOnTop": "Oben lassen",
         "putOnBottom": "Auf den Boden legen",
-        "removeFromBottom": "Von unten entfernen"
+        "removeFromBottom": "Von unten entfernen",
+        "keepHand": "Hand behalten",
+        "keepWithBottom": "Behalten und nach unten legen"
       },
       "description": {
         "londonNoBottom": "Ziehe 7. Du musst keine Karten unter deine Bibliothek legen.",

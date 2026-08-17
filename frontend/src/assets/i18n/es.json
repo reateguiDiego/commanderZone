@@ -294,6 +294,7 @@
       "timer": "Minutero",
       "mulligan": "Mulligan",
       "firstMulliganFree": "El primer mulligan es gratis.",
+      "firstMulliganNotFree": "El primer mulligan no es gratis.",
       "mulliganDescriptions": {
         "london": "Roba 7 cartas cada vez. Cuando te quedes una mano, pon una carta en el fondo de tu biblioteca por cada mulligan efectivo.",
         "vancouver": "Cada mulligan efectivo roba una carta menos. Si te quedas la mano después de un mulligan efectivo, adivina 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Estado de mulligan",
       "firstMulliganFree": "El primer mulligan es gratis.",
-      "mulligansTaken": "Mulligan: {{ count }}",
+      "firstMulliganNotFree": "El primer mulligan no es gratis.",
+      "mulligansTaken": "Has hecho {{ count }} mulligans",
       "effectiveMulligans": "Efectivo: {{ count }}",
       "scryTitle": "Adivina 1",
       "scryDescription": "Elige qué hacer con la carta superior de tu biblioteca.",
@@ -935,7 +937,6 @@
         "generous": "Generoso"
       },
       "status": {
-        "bottoming": "eligiendo fondo",
         "deciding": "decidiendo",
         "scrying": "Adivinando",
         "ready": "listo"
@@ -943,7 +944,9 @@
       "actions": {
         "keepOnTop": "Dejar arriba",
         "putOnBottom": "Poner en el fondo",
-        "removeFromBottom": "Quitar desde abajo"
+        "removeFromBottom": "Quitar desde abajo",
+        "keepHand": "Quedarse mano",
+        "keepWithBottom": "Quedarse y enviar al fondo"
       },
       "description": {
         "londonNoBottom": "Roba 7. No tienes que poner ninguna carta en el fondo.",

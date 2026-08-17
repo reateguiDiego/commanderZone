@@ -294,6 +294,7 @@
       "timer": "Minuteur",
       "mulligan": "Mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
+      "firstMulliganNotFree": "Le premier mulligan n'est pas gratuit",
       "mulliganDescriptions": {
         "london": "Piochez 7 cartes Ã  chaque fois. Quand vous gardez une main, mettez une carte au-dessous de votre bibliothÃ¨que pour chaque mulligan effectif.",
         "vancouver": "Chaque mulligan effectif vous fait piocher une carte de moins. Si vous gardez aprÃ¨s un mulligan effectif, regard 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Ã‰tat du mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
-      "mulligansTaken": "Mulligans : {{ count }}",
+      "firstMulliganNotFree": "Le premier mulligan n'est pas gratuit",
+      "mulligansTaken": "Vous avez pris {{ count }} mulligans",
       "effectiveMulligans": "Effectifs : {{ count }}",
       "scryTitle": "Regard 1",
       "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothÃ¨que.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "en rÃ©flexion",
         "scrying": "regard",
-        "ready": "prÃªt",
-        "bottoming": "Bottoming cards"
+        "ready": "prÃªt"
       },
       "actions": {
         "keepOnTop": "Laisser au-dessus",
         "putOnBottom": "Mettre au-dessous",
-        "removeFromBottom": "Retirer du dessous"
+        "removeFromBottom": "Retirer du dessous",
+        "keepHand": "Garder la main",
+        "keepWithBottom": "Garder et mettre au-dessous"
       },
       "description": {
         "londonNoBottom": "Piochez 7. Vous nâ€™avez pas besoin de mettre de cartes au-dessous.",

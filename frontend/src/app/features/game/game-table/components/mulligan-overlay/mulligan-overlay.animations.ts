@@ -3,14 +3,13 @@ import { gsap } from 'gsap';
 import { MulliganRule } from '../../../../../core/models/game.model';
 
 export class MulliganOverlayAnimations {
+  private readonly maxHandImageWaitMs = 4000;
   private context: gsap.Context | null;
   private handAnimationFrame: number | null = null;
-  private pillAnimationFrame: number | null = null;
   private handTimeline: gsap.core.Timeline | null = null;
   private selectedCardsTween: gsap.core.Tween | null = null;
-  private knownPillIds = new Set<string>();
   private lastHandKey = '';
-  private readonly floatingClones = new Set<HTMLElement>();
+  private handEntryRunId = 0;
 
   constructor(
     private readonly hostRef: ElementRef<HTMLElement>,
@@ -22,6 +21,7 @@ export class MulliganOverlayAnimations {
   syncHand(handKey: string): void {
     if (!handKey) {
       this.lastHandKey = '';
+      this.handEntryRunId += 1;
       this.cancelHandFrame();
       return;
     }
@@ -31,26 +31,11 @@ export class MulliganOverlayAnimations {
     }
 
     this.lastHandKey = handKey;
+    const runId = ++this.handEntryRunId;
     this.cancelHandFrame();
     this.handAnimationFrame = this.requestFrame(() => {
       this.handAnimationFrame = null;
-      this.animateHandEntry();
-    });
-  }
-
-  syncPills(selectedIds: readonly string[]): void {
-    const nextIds = new Set(selectedIds);
-    const addedIds = selectedIds.filter((id) => !this.knownPillIds.has(id));
-    this.knownPillIds = nextIds;
-
-    if (addedIds.length === 0) {
-      return;
-    }
-
-    this.cancelPillFrame();
-    this.pillAnimationFrame = this.requestFrame(() => {
-      this.pillAnimationFrame = null;
-      this.animatePillEntry(addedIds);
+      void this.animateHandEntry(runId);
     });
   }
 
@@ -127,63 +112,36 @@ export class MulliganOverlayAnimations {
     });
   }
 
-  animatePillRemoval(instanceId: string): void {
-    const pill = this.findBottomPill(instanceId);
-    if (!pill) {
-      return;
-    }
-
-    const rect = pill.getBoundingClientRect();
-    const clone = pill.cloneNode(true) as HTMLElement;
-    clone.setAttribute('aria-hidden', 'true');
-    clone.classList.add('bottom-pill-floating');
-    Object.assign(clone.style, {
-      height: `${rect.height}px`,
-      left: `${rect.left}px`,
-      margin: '0',
-      pointerEvents: 'none',
-      position: 'fixed',
-      top: `${rect.top}px`,
-      width: `${rect.width}px`,
-      zIndex: '4700',
-    });
-
-    document.body.appendChild(clone);
-    this.floatingClones.add(clone);
-
-    this.runInContext(() => {
-      const reducedMotion = this.prefersReducedMotion();
-      gsap.to(clone, {
-        autoAlpha: 0,
-        duration: reducedMotion ? 0.08 : 0.16,
-        ease: 'power1.out',
-        onComplete: () => this.removeFloatingClone(clone),
-        scale: reducedMotion ? 1 : 0.94,
-        y: reducedMotion ? 0 : -6,
-      });
-    });
-  }
-
   resetTransientState(): void {
-    this.knownPillIds.clear();
     this.lastHandKey = '';
+    this.handEntryRunId += 1;
     this.cancelHandFrame();
-    this.cancelPillFrame();
   }
 
   destroy(): void {
+    this.handEntryRunId += 1;
     this.cancelHandFrame();
-    this.cancelPillFrame();
     this.handTimeline?.kill();
     this.selectedCardsTween?.kill();
-    this.removeFloatingClones();
     this.context?.revert();
     this.context = null;
   }
 
-  private animateHandEntry(): void {
+  private async animateHandEntry(runId: number): Promise<void> {
     const cards = this.handCardElements();
     if (cards.length === 0) {
+      return;
+    }
+
+    this.runInContext(() => {
+      this.handTimeline?.kill();
+      gsap.killTweensOf(cards);
+      gsap.set(cards, { autoAlpha: 0 });
+    });
+
+    await this.waitForHandImages(cards);
+
+    if (runId !== this.handEntryRunId) {
       return;
     }
 
@@ -193,74 +151,141 @@ export class MulliganOverlayAnimations {
 
       if (this.prefersReducedMotion()) {
         this.handTimeline = gsap.timeline();
-        this.handTimeline.fromTo(cards, { autoAlpha: 0 }, {
-          autoAlpha: 1,
-          clearProps: 'opacity,visibility',
-          duration: 0.12,
-          ease: 'power1.out',
+        cards.forEach((card, index) => {
+          this.handTimeline?.fromTo(card, { autoAlpha: 0 }, {
+            autoAlpha: 1,
+            clearProps: 'opacity,visibility',
+            duration: 0.12,
+            ease: 'power1.out',
+          }, index * 0.035);
         });
         return;
       }
 
       this.handTimeline = gsap.timeline();
-      this.handTimeline.fromTo(
-        cards,
-        {
-          autoAlpha: 0,
-          rotate: (index: number) => (index % 2 === 0 ? -3 : 3),
-          scale: 0.965,
-          y: 28,
-        },
-        {
-          autoAlpha: 1,
-          clearProps: 'opacity,visibility,rotate,scale,transform,y',
-          duration: 0.46,
-          ease: 'power3.out',
-          rotate: 0,
-          scale: 1,
-          stagger: Math.min(0.045, 0.26 / Math.max(cards.length, 1)),
-          y: 0,
-        },
-      );
+      const centerIndex = (cards.length - 1) / 2;
+
+      cards.forEach((card, index) => {
+        const distanceFromCenter = index - centerIndex;
+        const direction = distanceFromCenter === 0 ? (index % 2 === 0 ? -1 : 1) : Math.sign(distanceFromCenter);
+        const delay = index * 0.072;
+
+        this.handTimeline?.fromTo(
+          card,
+          {
+            autoAlpha: 0,
+            filter: 'blur(0.35rem)',
+            rotate: direction * (4.5 + (index % 3)),
+            scale: 0.88,
+            x: direction * (18 + Math.abs(distanceFromCenter) * 4),
+            y: 64 + (index % 2) * 16,
+          },
+          {
+            autoAlpha: 1,
+            clearProps: 'opacity,visibility,rotate,scale,transform,x,y,filter',
+            duration: 0.62,
+            ease: 'back.out(1.35)',
+            filter: 'blur(0)',
+            rotate: 0,
+            scale: 1,
+            x: 0,
+            y: 0,
+          },
+          delay,
+        );
+      });
     });
   }
 
-  private animatePillEntry(instanceIds: readonly string[]): void {
-    const pills = instanceIds
-      .map((instanceId) => this.findBottomPill(instanceId))
-      .filter((pill): pill is HTMLElement => pill !== null);
-
-    if (pills.length === 0) {
+  animateFaceFlip(instanceId: string): void {
+    const cardVisual = this.findCardVisual(instanceId);
+    if (!cardVisual) {
       return;
     }
 
     this.runInContext(() => {
-      gsap.killTweensOf(pills);
+      gsap.killTweensOf(cardVisual);
 
       if (this.prefersReducedMotion()) {
-        gsap.fromTo(pills, { autoAlpha: 0 }, {
+        gsap.fromTo(cardVisual, { autoAlpha: 0.72 }, {
           autoAlpha: 1,
           clearProps: 'opacity,visibility',
-          duration: 0.1,
+          duration: 0.14,
           ease: 'power1.out',
         });
         return;
       }
 
-      gsap.fromTo(
-        pills,
-        { autoAlpha: 0, scale: 0.96, y: 6 },
-        {
-          autoAlpha: 1,
-          clearProps: 'opacity,visibility,scale,transform,y',
-          duration: 0.22,
-          ease: 'power2.out',
+      gsap.timeline()
+        .fromTo(cardVisual, {
+          filter: 'brightness(1) saturate(1)',
+          rotateY: 0,
           scale: 1,
-          stagger: 0.025,
-          y: 0,
-        },
-      );
+        }, {
+          duration: 0.22,
+          ease: 'power2.in',
+          filter: 'brightness(1.32) saturate(1.14)',
+          rotateY: 78,
+          scale: 1.035,
+        })
+        .to(cardVisual, {
+          clearProps: 'filter,rotateY,scale,transform',
+          duration: 0.34,
+          ease: 'back.out(1.12)',
+          filter: 'brightness(1)',
+          rotateY: 0,
+          scale: 1,
+        });
     });
+  }
+
+  private async waitForHandImages(cards: readonly HTMLElement[]): Promise<void> {
+    const images = cards
+      .map((card) => card.querySelector<HTMLImageElement>('.card-visual img'))
+      .filter((image): image is HTMLImageElement => image !== null);
+
+    if (images.length === 0) {
+      return;
+    }
+
+    await Promise.race([
+      Promise.all(images.map((image) => this.waitForImage(image))),
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, this.maxHandImageWaitMs);
+      }),
+    ]);
+  }
+
+  private async waitForImage(image: HTMLImageElement): Promise<void> {
+    if (image.complete) {
+      await this.decodeImage(image);
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const finish = (): void => {
+        image.removeEventListener('load', finish);
+        image.removeEventListener('error', finish);
+        resolve();
+      };
+
+      image.addEventListener('load', finish, { once: true });
+      image.addEventListener('error', finish, { once: true });
+    });
+
+    await this.decodeImage(image);
+  }
+
+  private async decodeImage(image: HTMLImageElement): Promise<void> {
+    if (!image.decode) {
+      return;
+    }
+
+    try {
+      await image.decode();
+    } catch {
+      // Broken or cross-origin images should not block the mulligan UI indefinitely.
+    }
   }
 
   private runInContext(animation: () => void): void {
@@ -281,8 +306,10 @@ export class MulliganOverlayAnimations {
     return this.host.querySelector<HTMLElement>(`.mulligan-card[data-card-instance-id="${cssEscape(instanceId)}"]`);
   }
 
-  private findBottomPill(instanceId: string): HTMLElement | null {
-    return this.host.querySelector<HTMLElement>(`[data-bottom-pill-id="${cssEscape(instanceId)}"]`);
+  private findCardVisual(instanceId: string): HTMLElement | null {
+    return this.host.querySelector<HTMLElement>(
+      `[data-card-instance-id="${cssEscape(instanceId)}"] .card-visual`,
+    );
   }
 
   private get host(): HTMLElement {
@@ -304,25 +331,6 @@ export class MulliganOverlayAnimations {
     }
   }
 
-  private cancelPillFrame(): void {
-    if (this.pillAnimationFrame !== null) {
-      window.cancelAnimationFrame(this.pillAnimationFrame);
-      this.pillAnimationFrame = null;
-    }
-  }
-
-  private removeFloatingClone(clone: HTMLElement): void {
-    clone.remove();
-    this.floatingClones.delete(clone);
-  }
-
-  private removeFloatingClones(): void {
-    for (const clone of this.floatingClones) {
-      clone.remove();
-    }
-
-    this.floatingClones.clear();
-  }
 }
 
 function cssEscape(value: string): string {

@@ -9,6 +9,7 @@ import type {
   GameControlPlaneState,
   GameDisconnectVotes,
   GameLogEntry,
+  GameMulliganConfig,
   GamePowerToughnessValue,
   GamePlayerMulliganState,
   GameRematchState,
@@ -63,6 +64,7 @@ export interface BootstrapGameV2 {
   viewerId: string;
   ownerId?: string | null;
   gamePhase?: string | null;
+  mulligan?: GameMulliganConfig | null;
   disconnectVotes?: GameDisconnectVotes;
   rematch?: GameRematchState | null;
   createdAt?: string | null;
@@ -461,6 +463,7 @@ export type GameplayPatchV2Operation =
       status: MulliganPlayerStatus;
       ready?: boolean;
       handCount?: number;
+      mulligansTaken?: number;
       effectiveMulligans?: number;
     }
   | {
@@ -468,6 +471,7 @@ export type GameplayPatchV2Operation =
       playerId: string;
       state: {
         rule?: string;
+        firstMulliganFree?: boolean;
         mulligansTaken?: number;
         effectiveMulligans?: number;
         drawCount?: number;

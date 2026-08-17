@@ -294,6 +294,7 @@
       "timer": "Timer",
       "mulligan": "Mulligan",
       "firstMulliganFree": "Il primo mulligan Ã¨ gratuito",
+      "firstMulliganNotFree": "Il primo mulligan non Ã¨ gratuito",
       "mulliganDescriptions": {
         "london": "Pesca 7 carte ogni volta. Quando tieni, metti una carta in fondo per ogni mulligan efficace.",
         "vancouver": "Ogni mulligan effettivo pesca una carta in meno. Se tieni dopo un mulligan effettivo, profetizza 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Stato del mulligan",
       "firstMulliganFree": "Il primo mulligan Ã¨ gratuito",
-      "mulligansTaken": "Mulligan: {{count}}",
+      "firstMulliganNotFree": "Il primo mulligan non Ã¨ gratuito",
+      "mulligansTaken": "Hai fatto {{ count }} mulligan",
       "effectiveMulligans": "Efficace: {{count}}",
       "scryTitle": "Profetizza 1",
       "scryDescription": "Scegli cosa fare con la prima carta del tuo grimorio.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "decidere",
         "scrying": "divinazione",
-        "ready": "pronto",
-        "bottoming": "Bottoming cards"
+        "ready": "pronto"
       },
       "actions": {
         "keepOnTop": "Tieniti al top",
         "putOnBottom": "Metti sul fondo",
-        "removeFromBottom": "Rimuovere dal basso"
+        "removeFromBottom": "Rimuovere dal basso",
+        "keepHand": "Tieni la mano",
+        "keepWithBottom": "Tieni e metti sul fondo"
       },
       "description": {
         "londonNoBottom": "Pesca 7. Non devi mettere carte in fondo.",

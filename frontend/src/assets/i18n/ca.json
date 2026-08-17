@@ -294,6 +294,7 @@
       "timer": "Temporitzador",
       "mulligan": "Mulligan",
       "firstMulliganFree": "El primer mulligan Ã©s gratuÃ¯t",
+      "firstMulliganNotFree": "El primer mulligan no Ã©s gratuÃ¯t",
       "mulliganDescriptions": {
         "london": "Roba 7 cartes cada vegada. Quan et quedis la mÃ , posa una carta al fons de la biblioteca per cada mulligan efectiu.",
         "vancouver": "Cada mulligan efectiu roba una carta menys. Si et quedes la mÃ  desprÃ©s d'un mulligan efectiu, fes scry 1.",
@@ -916,7 +917,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Estat del mulligan",
       "firstMulliganFree": "El primer mulligan Ã©s gratuÃ¯t",
-      "mulligansTaken": "Mulligans: {{ count }}",
+      "firstMulliganNotFree": "El primer mulligan no Ã©s gratuÃ¯t",
+      "mulligansTaken": "Has fet {{ count }} mulligans",
       "effectiveMulligans": "Efectius: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Tria quÃ¨ vols fer amb la carta superior de la teva biblioteca.",
@@ -937,13 +939,14 @@
       "status": {
         "deciding": "decidint",
         "scrying": "plorant",
-        "ready": "llest",
-        "bottoming": "Bottoming cards"
+        "ready": "llest"
       },
       "actions": {
         "keepOnTop": "Mantenir a dalt",
         "putOnBottom": "Posar al fons",
-        "removeFromBottom": "Treure del fons"
+        "removeFromBottom": "Treure del fons",
+        "keepHand": "Quedar-se la mà",
+        "keepWithBottom": "Quedar-se-la i posar al fons"
       },
       "description": {
         "londonNoBottom": "Roba 7. No cal posar cap carta al fons.",
