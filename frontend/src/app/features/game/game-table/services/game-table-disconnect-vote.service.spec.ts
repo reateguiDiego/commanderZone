@@ -126,6 +126,18 @@ describe('GameTableDisconnectVoteService', () => {
 
     expect(service.isPlayerOffline('player-2')).toBe(false);
   });
+
+  it('shows a clear message instead of a technical error when a reconnect closes the vote', async () => {
+    const websocket = TestBed.inject(GameTableWebsocketGameplayService) as unknown as {
+      sendCommand: ReturnType<typeof vi.fn>;
+    };
+    websocket.sendCommand.mockRejectedValueOnce(new Error('invalid payload field: disconnectVote'));
+    const service = TestBed.inject(GameTableDisconnectVoteService);
+
+    await service.vote('wait');
+
+    expect(service.error()).toBe('La votacion ya no esta disponible porque el jugador se ha reconectado.');
+  });
 });
 
 function disconnectVotesSnapshot(deadlineAt = new Date(Date.now() + 60_000).toISOString()): GameSnapshot {

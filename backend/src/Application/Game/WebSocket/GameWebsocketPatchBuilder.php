@@ -1381,7 +1381,7 @@ final readonly class GameWebsocketPatchBuilder
     {
         $operations = [[
             'op' => 'disconnect.vote.set',
-            'disconnectVote' => is_array($nextSnapshot['disconnectVote'] ?? null) ? $nextSnapshot['disconnectVote'] : null,
+            'disconnectVotes' => is_array($nextSnapshot['disconnectVotes'] ?? null) ? $nextSnapshot['disconnectVotes'] : [],
         ]];
         $rematchOperations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
         if ($rematchOperations === null) {
@@ -1391,9 +1391,8 @@ final readonly class GameWebsocketPatchBuilder
             $operations = [...$operations, ...$rematchOperations];
         }
 
-        $targetPlayerId = is_string($nextSnapshot['disconnectVote']['targetPlayerId'] ?? null)
-            ? $nextSnapshot['disconnectVote']['targetPlayerId']
-            : null;
+        $changedVote = $this->changedDisconnectVote($previousSnapshot, $nextSnapshot);
+        $targetPlayerId = is_string($changedVote['targetPlayerId'] ?? null) ? $changedVote['targetPlayerId'] : null;
         if ($targetPlayerId !== null) {
             $previousPlayer = $previousSnapshot['players'][$targetPlayerId] ?? null;
             $nextPlayer = $nextSnapshot['players'][$targetPlayerId] ?? null;
@@ -1432,6 +1431,24 @@ final readonly class GameWebsocketPatchBuilder
             ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $previousSnapshot
+     * @param array<string,mixed> $nextSnapshot
+     * @return array<string,mixed>
+     */
+    private function changedDisconnectVote(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $previousVotes = is_array($previousSnapshot['disconnectVotes'] ?? null) ? $previousSnapshot['disconnectVotes'] : [];
+        $nextVotes = is_array($nextSnapshot['disconnectVotes'] ?? null) ? $nextSnapshot['disconnectVotes'] : [];
+        foreach ($nextVotes as $targetPlayerId => $vote) {
+            if (is_string($targetPlayerId) && is_array($vote) && ($previousVotes[$targetPlayerId] ?? null) !== $vote) {
+                return $vote;
+            }
+        }
+
+        return [];
     }
 
     /**

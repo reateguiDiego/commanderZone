@@ -66,6 +66,11 @@ func TestWebSocketCommandTimeoutCanBeConfigured(t *testing.T) {
 	if handler.commandTimeout != defaultCommandTimeout {
 		t.Fatalf("zero command timeout = %s, want default %s", handler.commandTimeout, defaultCommandTimeout)
 	}
+
+	handler = NewWebSocketServer(validator, runtimeService, WithDisconnectVoteGrace(25*time.Millisecond))
+	if handler.disconnectVoteGrace != 25*time.Millisecond {
+		t.Fatalf("disconnect vote grace = %s, want 25ms", handler.disconnectVoteGrace)
+	}
 }
 
 func TestCloseGameClearsPeersAndEphemeralGatewayStateIdempotently(t *testing.T) {
@@ -201,7 +206,7 @@ func TestGatewayPresenceRebasesAgainstGameplayAndDropsLateOffline(t *testing.T) 
 func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
 	initial := testInitialState("game-1")
 	initial.Players["p3"] = map[string]any{"life": 40}
-	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", initial, 128, 256)
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", initial, 128, 256, WithDisconnectVoteGrace(250*time.Millisecond))
 	defer server.Close()
 
 	playerA := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
@@ -235,6 +240,9 @@ func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
 	presence := readUntil(t, playerA, "player_presence_changed")
 	if presence.PlayerID != "p2" || presence.Status != "offline" {
 		t.Fatalf("presence = %#v, want p2 offline", presence)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatal("disconnect vote opened before the offline grace elapsed")
 	}
 	patch := readPatchWithoutResync(t, playerA)
 	if patch.Version != 2 {
@@ -1320,7 +1328,7 @@ func testWebSocketServerWithState(t *testing.T, gameID string, initial state.Gam
 	return server, runtimeService
 }
 
-func testWebSocketServerWithStateAndHandler(t *testing.T, gameID string, initial state.GameState, queueSize int, historyLimit int) (*httptest.Server, *runtimesvc.Service, *WebSocketServer) {
+func testWebSocketServerWithStateAndHandler(t *testing.T, gameID string, initial state.GameState, queueSize int, historyLimit int, extraOptions ...WebSocketOption) (*httptest.Server, *runtimesvc.Service, *WebSocketServer) {
 	t.Helper()
 	runtimeService := runtimesvc.NewService()
 	if _, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, initial); err != nil {
@@ -1330,7 +1338,7 @@ func testWebSocketServerWithStateAndHandler(t *testing.T, gameID string, initial
 	if err != nil {
 		t.Fatalf("validator: %v", err)
 	}
-	handler := NewWebSocketServer(validator, runtimeService, WithConnectionQueueSize(queueSize), WithPatchHistoryLimit(historyLimit))
+	handler := NewWebSocketServer(validator, runtimeService, append([]WebSocketOption{WithConnectionQueueSize(queueSize), WithPatchHistoryLimit(historyLimit)}, extraOptions...)...)
 	return httptest.NewServer(handler), runtimeService, handler
 }
 

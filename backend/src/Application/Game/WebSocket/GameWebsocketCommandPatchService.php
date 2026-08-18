@@ -1940,10 +1940,10 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function disconnectVoteDirectPatchPayload(array $snapshot, GameEvent $event, string $clientActionId): array
     {
-        $disconnectVote = is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null;
+        $disconnectVotes = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
         $operations = [[
             'op' => 'disconnect.vote.set',
-            'disconnectVote' => $disconnectVote,
+            'disconnectVotes' => $disconnectVotes,
         ]];
         $payload = $event->payload();
         if (($payload['status'] ?? null) === GameDisconnectVoteService::STATUS_RESOLVED_EXPEL && is_string($payload['targetPlayerId'] ?? null)) {

@@ -30,6 +30,11 @@ describe('gameTableErrorMessage', () => {
     })).toBe('La accion ya no es valida en el estado actual.');
   });
 
+  it('does not expose a stale disconnect-vote payload error to players', () => {
+    expect(gameTableErrorMessage(new Error('invalid payload field: disconnectVote')))
+      .toBe('La votacion ya no esta disponible porque el jugador se ha reconectado.');
+  });
+
   it('falls back to server detail or generic error text', () => {
     expect(gameTableErrorMessage({
       error: {

@@ -4,6 +4,7 @@ import { GameDisconnectVoteChoice, GameDisconnectVoteState } from '../../../../c
 import { GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameTableStore } from '../game-table.store';
 import { GameTableContextStore } from '../state/core/game-table-context.store';
+import { gameTableErrorMessage } from '../state/core/game-table-error-message.util';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
@@ -328,11 +329,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
   }
 
   private errorMessage(error: unknown): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const response = (error as { error?: { error?: string; detail?: string } }).error;
-      return response?.error ?? response?.detail ?? 'No se pudo guardar tu voto.';
-    }
-
-    return error instanceof Error ? error.message : 'No se pudo guardar tu voto.';
+    const message = gameTableErrorMessage(error);
+    return message === 'Action failed.' ? 'No se pudo guardar tu voto.' : message;
   }
 }

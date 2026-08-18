@@ -25,6 +25,7 @@ import {
 } from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
+import { gameTableErrorMessage } from '../state/core/game-table-error-message.util';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
@@ -796,7 +797,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     this.setErrorThrottled(
       `${clientActionId ?? 'global'}:${message.error.code}:${message.error.message}`,
-      message.error.message || 'WebSocket gameplay error.',
+      gameTableErrorMessage({
+        error: {
+          code: message.error.code,
+          detail: message.error.message,
+        },
+      }),
     );
     this.drainQueue();
   }

@@ -36,7 +36,7 @@ class GameDisconnectVoteService
     {
         $now ??= new \DateTimeImmutable();
         $snapshot = $game->snapshot();
-        $state = $this->currentDisconnectVote($game, $snapshot);
+        $state = $this->currentDisconnectVote($game, $snapshot, $targetPlayerId);
 
         if ($this->maybeResolveOnTimeout($snapshot, $state, $connectedUserIds, $now)) {
             $game->replaceRuntimeSnapshot($snapshot);
@@ -81,6 +81,7 @@ class GameDisconnectVoteService
             'deadlineAt' => $now->modify('+'.self::TIMEOUT_SECONDS.' seconds')->format(DATE_ATOM),
             'cooldownUntil' => null,
             'votes' => [],
+            'eligible' => $voterIds,
         ];
         $snapshot['disconnectVote'] = $state;
         $this->appendSystemLog($snapshot, sprintf('%s se ha desconectado. Se abre votacion de mesa.', $this->playerName($snapshot, $targetPlayerId)), $now);
@@ -196,7 +197,7 @@ class GameDisconnectVoteService
     {
         $now ??= new \DateTimeImmutable();
         $snapshot = $game->snapshot();
-        $state = $this->currentDisconnectVote($game, $snapshot);
+        $state = $this->currentDisconnectVote($game, $snapshot, $targetPlayerId);
         if (!$this->isOpenVote($state) || ($state['targetPlayerId'] ?? null) !== $targetPlayerId) {
             return null;
         }
@@ -375,6 +376,10 @@ class GameDisconnectVoteService
             'deadlineAt' => is_string($disconnectVote['deadlineAt'] ?? null) ? $disconnectVote['deadlineAt'] : null,
             'cooldownUntil' => is_string($disconnectVote['cooldownUntil'] ?? null) ? $disconnectVote['cooldownUntil'] : null,
             'votes' => $normalizedVotes,
+            'eligible' => array_values(array_filter(
+                is_array($disconnectVote['eligible'] ?? null) ? $disconnectVote['eligible'] : [],
+                static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== '',
+            )),
         ];
     }
 
@@ -383,7 +388,7 @@ class GameDisconnectVoteService
      *
      * @return array<string,mixed>
      */
-    private function currentDisconnectVote(Game $game, array $snapshot): array
+    private function currentDisconnectVote(Game $game, array $snapshot, ?string $targetPlayerId = null): array
     {
         $latest = null;
         foreach ($game->events() as $event) {
@@ -391,7 +396,8 @@ class GameDisconnectVoteService
                 continue;
             }
             $payload = $event->payload();
-            $candidate = $payload['disconnectVote'] ?? null;
+            $candidate = $this->disconnectVoteFromCollection($payload['disconnectVotes'] ?? null, $targetPlayerId)
+                ?? $payload['disconnectVote'] ?? null;
             if (!is_array($candidate)) {
                 continue;
             }
@@ -407,7 +413,10 @@ class GameDisconnectVoteService
             return $this->normalizeDisconnectVoteState($latest['state']);
         }
 
-        return $this->normalizedDisconnectVote($snapshot);
+        return $this->normalizedDisconnectVote([
+            'disconnectVote' => $this->disconnectVoteFromCollection($snapshot['disconnectVotes'] ?? null, $targetPlayerId)
+                ?? $snapshot['disconnectVote'] ?? null,
+        ]);
     }
 
     /**
@@ -425,21 +434,63 @@ class GameDisconnectVoteService
      */
     private function createTechnicalEvent(Game $game, array &$snapshot, string $reason, ?User $actor): array
     {
+        $this->migrateLegacyDisconnectVote($snapshot);
         $now = new \DateTimeImmutable();
         $snapshot['version'] = $this->nextEventVersion($game, $snapshot);
         $snapshot['updatedAt'] = $now->format(DATE_ATOM);
         $game->replaceRuntimeSnapshot($snapshot);
 
+        $disconnectVotes = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
+        $disconnectVote = $this->disconnectVoteFromCollection($disconnectVotes, null) ?? [];
         $event = new GameEvent($game, self::EVENT_TYPE, [
             'reason' => $reason,
-            'targetPlayerId' => $snapshot['disconnectVote']['targetPlayerId'] ?? null,
-            'status' => $snapshot['disconnectVote']['status'] ?? null,
-            'disconnectVote' => $snapshot['disconnectVote'] ?? null,
+            'targetPlayerId' => $disconnectVote['targetPlayerId'] ?? null,
+            'status' => $disconnectVote['status'] ?? null,
+            'disconnectVotes' => $disconnectVotes,
             'snapshot_write_count' => 0,
         ], $actor, null, (int) $snapshot['version']);
         $game->addEvent($event);
 
         return ['event' => $event, 'snapshot' => $snapshot];
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function migrateLegacyDisconnectVote(array &$snapshot): void
+    {
+        $disconnectVotes = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
+        $legacyVote = $snapshot['disconnectVote'] ?? null;
+        if (is_array($legacyVote)) {
+            $targetPlayerId = is_string($legacyVote['targetPlayerId'] ?? null) ? trim($legacyVote['targetPlayerId']) : '';
+            if ($targetPlayerId !== '') {
+                $disconnectVotes[$targetPlayerId] = $legacyVote;
+            }
+        }
+
+        $snapshot['disconnectVotes'] = $disconnectVotes;
+        unset($snapshot['disconnectVote']);
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>|null
+     */
+    private function disconnectVoteFromCollection(mixed $value, ?string $targetPlayerId): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        if ($targetPlayerId !== null && is_array($value[$targetPlayerId] ?? null)) {
+            return $value[$targetPlayerId];
+        }
+
+        foreach ($value as $vote) {
+            if (is_array($vote)) {
+                return $vote;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -180,10 +180,10 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
     private function disconnectVotePatch(string $gameId, array $snapshot, \App\Domain\Game\GameEvent $event): array
     {
         $version = max(1, (int) ($snapshot['version'] ?? $event->version()));
-        $disconnectVote = is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null;
+        $disconnectVotes = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
         $ops = [[
             'op' => 'disconnect.vote.set',
-            'disconnectVote' => $disconnectVote,
+            'disconnectVotes' => $disconnectVotes,
         ]];
 
         $payload = $event->payload();

@@ -26,6 +26,7 @@ const (
 	defaultConnectionQueueSize = 64
 	defaultPatchHistoryLimit   = 256
 	defaultCommandTimeout      = 3 * time.Second
+	defaultDisconnectVoteGrace = 15 * time.Second
 )
 
 var (
@@ -96,6 +97,7 @@ type WebSocketServer struct {
 
 	connectionQueueSize int
 	commandTimeout      time.Duration
+	disconnectVoteGrace time.Duration
 	patchHistoryLimit   int
 
 	metricsMu sync.Mutex
@@ -148,6 +150,16 @@ func WithCommandTimeout(timeout time.Duration) WebSocketOption {
 	}
 }
 
+// WithDisconnectVoteGrace configures how long a player must remain offline
+// before the table is asked to vote. Presence is still broadcast immediately.
+func WithDisconnectVoteGrace(grace time.Duration) WebSocketOption {
+	return func(s *WebSocketServer) {
+		if grace >= 0 {
+			s.disconnectVoteGrace = grace
+		}
+	}
+}
+
 func WithActivityStore(store ActivityStore) WebSocketOption {
 	return func(s *WebSocketServer) {
 		s.activity = store
@@ -173,6 +185,7 @@ func NewWebSocketServer(validator TicketValidator, runtime *runtimesvc.Service, 
 		allDisconnectedSince: map[string]time.Time{},
 		connectionQueueSize:  defaultConnectionQueueSize,
 		commandTimeout:       defaultCommandTimeout,
+		disconnectVoteGrace:  defaultDisconnectVoteGrace,
 		patchHistoryLimit:    defaultPatchHistoryLimit,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(_ *http.Request) bool { return true },
@@ -279,9 +292,10 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				cancel()
 			} else {
-				// Presence opens the actor-owned vote immediately. The actor's shared
-				// heartbeat resolves its persisted 60s deadline; no gateway timer.
-				go s.submitDisconnectPresence(context.Background(), left.GameID, left.PlayerID, "offline", left.PresenceGeneration, s.connectedPlayerIDsForGame(left.GameID))
+				// The player is visibly offline straight away, but a transient socket
+				// loss must not open a vote. The generation fence makes a reconnect
+				// cancel this delayed transition without requiring timer cancellation.
+				s.scheduleOfflineDisconnectVote(left.GameID, left.PlayerID, left.PresenceGeneration)
 			}
 		}
 		if left.AllDisconnected {
@@ -302,6 +316,41 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go client.writeLoop()
 	client.readLoop()
+}
+
+func (s *WebSocketServer) scheduleOfflineDisconnectVote(gameID string, playerID string, presenceGeneration int64) {
+	go func() {
+		if s.disconnectVoteGrace > 0 {
+			timer := time.NewTimer(s.disconnectVoteGrace)
+			defer timer.Stop()
+			<-timer.C
+		}
+
+		connectedPlayerIDs, stillOffline := s.offlinePresenceStillCurrent(gameID, playerID, presenceGeneration)
+		if !stillOffline {
+			s.incMetric(func(metrics *GatewayMetrics) { metrics.DisconnectPresenceSkip++ })
+			return
+		}
+
+		s.submitDisconnectPresence(context.Background(), gameID, playerID, "offline", presenceGeneration, connectedPlayerIDs)
+	}()
+}
+
+func (s *WebSocketServer) offlinePresenceStillCurrent(gameID string, playerID string, presenceGeneration int64) ([]string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if presenceGeneration < 1 || s.presenceGenerations[gameID][playerID] != presenceGeneration {
+		return nil, false
+	}
+	if _, offline := s.offlineSince[gameID][playerID]; !offline {
+		return nil, false
+	}
+	if s.countConnectionsForPlayerInGameLocked(gameID, playerID) != 0 || len(s.rooms[gameID]) == 0 {
+		return nil, false
+	}
+
+	return s.connectedPlayerIDsForGameLocked(gameID), true
 }
 
 type presenceRegistration struct {
