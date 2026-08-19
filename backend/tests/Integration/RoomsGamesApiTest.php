@@ -2872,11 +2872,11 @@ SQL));
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Snapshot Owner Deck', [
             ['scryfallId' => 'abab1234-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'abab1234-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
-        ]);
+        ], ['backgroundName' => 'free_g_2', 'sleevesName' => 'azorius_1']);
         $playerDeckId = $this->quickBuildDeck($playerToken, 'Snapshot Player Deck', [
             ['scryfallId' => 'abab1234-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'abab1234-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
-        ]);
+        ], ['backgroundName' => 'free_g_2', 'sleevesName' => 'grixis_1']);
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -2904,6 +2904,17 @@ SQL));
         );
 
         $ownerPlayerId = (string) $snapshot['ownerId'];
+        $guestPlayerIds = array_values(array_filter(
+            array_keys($snapshot['players']),
+            static fn (string $playerId): bool => $playerId !== $ownerPlayerId,
+        ));
+        self::assertCount(1, $guestPlayerIds);
+        $guestPlayerId = $guestPlayerIds[0];
+        self::assertSame('free_g_2', $snapshot['players'][$ownerPlayerId]['backgroundName']);
+        self::assertSame('azorius_1', $snapshot['players'][$ownerPlayerId]['sleevesName']);
+        self::assertSame('free_g_2', $snapshot['players'][$guestPlayerId]['backgroundName']);
+        self::assertSame('grixis_1', $snapshot['players'][$guestPlayerId]['sleevesName']);
+
         foreach ($snapshot['players'] as $playerId => $playerState) {
             self::assertSame(40, $playerState['life']);
             self::assertArrayHasKey('backgroundName', $playerState);
@@ -3433,12 +3444,14 @@ SQL));
 
     /**
      * @param list<array<string,mixed>> $cards
+     * @param array{backgroundName?: string, sleevesName?: string} $visuals
      */
-    private function quickBuildDeck(string $token, string $name, array $cards): string
+    private function quickBuildDeck(string $token, string $name, array $cards, array $visuals = []): string
     {
         $this->jsonRequest('POST', '/decks/quick-build', [
             'name' => $name,
             'cards' => $cards,
+            ...$visuals,
         ], $token);
         self::assertResponseStatusCodeSame(201);
 
