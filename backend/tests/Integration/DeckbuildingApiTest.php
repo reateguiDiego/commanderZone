@@ -53,6 +53,11 @@ class DeckbuildingApiTest extends ApiTestCase
         self::assertSame('free_g_2', $this->jsonResponse()['deck']['backgroundName']);
         self::assertSame('azorius_1', $this->jsonResponse()['deck']['sleevesName']);
 
+        $this->jsonRequest('GET', '/decks', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('free_g_2', $this->jsonResponse()['data'][0]['backgroundName']);
+        self::assertSame('azorius_1', $this->jsonResponse()['data'][0]['sleevesName']);
+
         $storedDeck = $this->storedDeck($deckId);
         self::assertSame('free_g_2', $storedDeck->backgroundName());
         self::assertSame('azorius_1', $storedDeck->sleevesName());

@@ -83,9 +83,9 @@ export class DeckListComponent implements OnInit, OnDestroy {
   readonly draftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
   readonly selectedSleevePath = computed(() => sleevePathFromName(this.store.newDeckSleevesName()));
   readonly draftSleevePath = signal(DEFAULT_SLEEVE_PATH);
-  readonly editSelectedPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly editSelectedPlaymatPath = computed(() => playmatPathFromName(this.store.editDeckBackgroundName));
   readonly editDraftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
-  readonly editSelectedSleevePath = signal(DEFAULT_SLEEVE_PATH);
+  readonly editSelectedSleevePath = computed(() => sleevePathFromName(this.store.editDeckSleevesName));
   readonly editDraftSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly searchPanelOpen = signal(false);
   readonly createModalTitle = computed(() => {
@@ -172,8 +172,6 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   openDeckEditModal(deck: Deck): void {
     this.store.openDeckEditModal(deck);
-    this.editSelectedPlaymatPath.set(playmatPathFromName(this.store.editDeckBackgroundName));
-    this.editSelectedSleevePath.set(sleevePathFromName(this.store.editDeckSleevesName));
   }
 
   openPlaymatEditor(context: Exclude<CosmeticEditorContext, null> = 'create'): void {
@@ -224,7 +222,6 @@ export class DeckListComponent implements OnInit, OnDestroy {
     if (this.cosmeticEditorContext() === 'edit') {
       const selectedPath = this.editDraftPlaymatPath();
       this.store.editDeckBackgroundName = playmatNameFromPath(selectedPath);
-      this.editSelectedPlaymatPath.set(selectedPath);
     } else {
       this.store.newDeckBackgroundName.set(playmatNameFromPath(this.draftPlaymatPath()));
     }
@@ -246,7 +243,6 @@ export class DeckListComponent implements OnInit, OnDestroy {
     if (this.cosmeticEditorContext() === 'edit') {
       const selectedPath = this.editDraftSleevePath();
       this.store.editDeckSleevesName = sleeveNameFromPath(selectedPath);
-      this.editSelectedSleevePath.set(selectedPath);
     } else {
       this.store.newDeckSleevesName.set(sleeveNameFromPath(this.draftSleevePath()));
     }

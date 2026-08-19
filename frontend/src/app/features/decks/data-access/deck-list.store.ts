@@ -83,6 +83,10 @@ export class DeckListStore {
   readonly selectedCommanders = signal<Card[]>([]);
   readonly newDeckBackgroundName = signal(DEFAULT_DECK_BACKGROUND_NAME);
   readonly newDeckSleevesName = signal(DEFAULT_DECK_SLEEVES_NAME);
+  private readonly editDeckVisuals = signal({
+    backgroundName: DEFAULT_DECK_BACKGROUND_NAME,
+    sleevesName: DEFAULT_DECK_SLEEVES_NAME,
+  });
   readonly currentFolderId = signal<string | null>(null);
   readonly editingDeckId = signal<string | null>(null);
   readonly searchQuery = signal('');
@@ -184,8 +188,21 @@ export class DeckListStore {
   editDeckName = '';
   editDeckVisibility: DeckVisibility = 'private';
   editDeckFolderId = '';
-  editDeckBackgroundName = DEFAULT_DECK_BACKGROUND_NAME;
-  editDeckSleevesName = DEFAULT_DECK_SLEEVES_NAME;
+  get editDeckBackgroundName(): string {
+    return this.editDeckVisuals().backgroundName;
+  }
+
+  set editDeckBackgroundName(backgroundName: string) {
+    this.editDeckVisuals.update((visuals) => ({ ...visuals, backgroundName }));
+  }
+
+  get editDeckSleevesName(): string {
+    return this.editDeckVisuals().sleevesName;
+  }
+
+  set editDeckSleevesName(sleevesName: string) {
+    this.editDeckVisuals.update((visuals) => ({ ...visuals, sleevesName }));
+  }
   commanderQuery = '';
   createdDecklist = '';
   private createSuccessRedirectUrl: string | null = null;
@@ -724,8 +741,10 @@ export class DeckListStore {
     this.editDeckName = deck.name;
     this.editDeckVisibility = deck.visibility ?? 'private';
     this.editDeckFolderId = deck.folderId ?? '';
-    this.editDeckBackgroundName = deck.backgroundName ?? DEFAULT_DECK_BACKGROUND_NAME;
-    this.editDeckSleevesName = deck.sleevesName ?? DEFAULT_DECK_SLEEVES_NAME;
+    this.editDeckVisuals.set({
+      backgroundName: deck.backgroundName ?? DEFAULT_DECK_BACKGROUND_NAME,
+      sleevesName: deck.sleevesName ?? DEFAULT_DECK_SLEEVES_NAME,
+    });
     this.deckEditModalOpen.set(true);
   }
 
@@ -735,8 +754,10 @@ export class DeckListStore {
     this.editDeckName = '';
     this.editDeckVisibility = 'private';
     this.editDeckFolderId = '';
-    this.editDeckBackgroundName = DEFAULT_DECK_BACKGROUND_NAME;
-    this.editDeckSleevesName = DEFAULT_DECK_SLEEVES_NAME;
+    this.editDeckVisuals.set({
+      backgroundName: DEFAULT_DECK_BACKGROUND_NAME,
+      sleevesName: DEFAULT_DECK_SLEEVES_NAME,
+    });
   }
 
   cancelDeckRename(): void {
