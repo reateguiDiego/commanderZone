@@ -165,6 +165,7 @@ class GamesController extends ApiController
             playerId: $user->id(),
             role: $role,
             permissions: $permissions,
+            viewerMask: max(0, (int) ($game->snapshot()['visibility']['viewerBits'][$user->id()] ?? 0)),
         );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {

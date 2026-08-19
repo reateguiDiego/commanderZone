@@ -46,6 +46,8 @@ export interface GameTableContextSource {
   readonly pendingBattlefieldMove: () => PendingBattlefieldMove | null;
   readonly pendingLibraryMove: () => PendingLibraryMove | null;
   readonly onControlPlaneAccepted: (controlPlane: GameControlPlaneState) => void;
+  readonly openRevealedLibrary: (playerId: string, recipients?: readonly string[]) => void;
+  readonly openRevealedTopLibrary: (playerId: string, count: number) => void;
 }
 
 @Injectable()
@@ -193,6 +195,8 @@ export class GameTableContextStore {
         setSnapshot: (snapshot) => source.setSnapshot(snapshot),
         refetch: (force) => source.refetch(force, 'websocket.request_resync'),
         setError: (message) => this.core.error.set(message),
+        onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
+        onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
         onCommandBlocked: (_reason, type, payload) => this.handleCommandBlocked(source, type, payload),
       }),
       errorMessage: (error) => this.errorMessage(error),
@@ -449,6 +453,8 @@ export class GameTableContextStore {
       onMulliganError: (message) => this.mulliganState.handleError(message),
       onMulliganCompleted: (message) => this.mulliganState.handleCompleted(message),
       onMulliganPatchV2Applied: (patch, snapshot) => this.mulliganState.handlePatchV2Applied(patch, snapshot),
+      onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
+      onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
       onControlPlaneAccepted: (controlPlane) => source.onControlPlaneAccepted(controlPlane),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
       navigateToRooms: () => {

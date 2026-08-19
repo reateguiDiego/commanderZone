@@ -147,6 +147,11 @@
       </span>
     }
     <span class="card-visual">
+      @if (showRevealIndicator()) {
+        <span class="reveal-indicator" aria-label="Revealed card">
+          <lucide-icon name="eye" size="15" aria-hidden="true" />
+        </span>
+      }
       <app-card-marker-rail
         [showTokenCopyMarker]="currentCard.isTokenCopy === true"
         [showRulingsMarker]="showRulingsMarker()"

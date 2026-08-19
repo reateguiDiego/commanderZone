@@ -10,10 +10,12 @@ describe('GameTableStaticCardResolverV2Service', () => {
   let service: GameTableStaticCardResolverV2Service;
   const cardsApi = {
     getSilently: vi.fn(),
+    getManySilently: vi.fn(),
   };
 
   beforeEach(() => {
     cardsApi.getSilently.mockReset();
+    cardsApi.getManySilently.mockReset();
     TestBed.configureTestingModule({
       providers: [
         GameTableStaticCardResolverV2Service,
@@ -111,6 +113,21 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(JSON.stringify(hydrated)).not.toContain('print-forest');
   });
 
+  it('resolves an owner face-down preview image from the card catalog when it is not cached locally', async () => {
+    cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
+
+    const image = await service.resolveOwnerFaceDownPreviewImage({
+      instanceId: 'face-down-forest',
+      scryfallId: 'print-forest',
+      name: 'Card',
+      tapped: false,
+      faceDown: true,
+    });
+
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('print-forest');
+    expect(image).toBe('https://cards.test/print-forest.jpg');
+  });
+
   it('does not call the catalog when static identity is already cached', async () => {
     const cached = staticCard('runtime-card-forest', 'print-forest', 'Forest');
     const patch = patchV2([{
@@ -133,6 +150,28 @@ describe('GameTableStaticCardResolverV2Service', () => {
 
     expect(hydrated).toBe(patch);
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
+  });
+
+  it('hydrates a revealed library through one bulk catalog request', async () => {
+    cardsApi.getManySilently.mockReturnValue(of({
+      cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+    }));
+    const patch = patchV2([{
+      op: 'library.revealed.set',
+      playerId: 'player-1',
+      cards: [
+        { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
+        { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
+      ],
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const reveal = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'library.revealed.set' }>;
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
+    expect(cardsApi.getSilently).not.toHaveBeenCalled();
+    expect(reveal.staticCards?.['forest']?.name).toBe('Forest');
+    expect(reveal.staticCards?.['island']?.name).toBe('Island');
   });
 
   it('replaces a synthetic Card placeholder hint with resolved static content', async () => {

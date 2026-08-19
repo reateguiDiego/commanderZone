@@ -46,6 +46,7 @@ export type GameCommandType =
   | 'card.dungeon_marker.changed'
   | 'cards.position.changed'
   | 'card.face_down.changed'
+  | 'card.face_down.inspected'
   | 'card.face.changed'
   | 'card.revealed'
   | 'card.token.created'
@@ -60,6 +61,7 @@ export type GameCommandType =
   | 'library.draw_many'
   | 'library.shuffle'
   | 'library.move_top'
+  | 'library.play_top_face_down'
   | 'library.reveal_top'
   | 'library.reveal'
   | 'library.view'
@@ -104,6 +106,7 @@ export interface GameCardInstance {
   activeFaceIndex?: number;
   hidden?: boolean;
   revealedTo?: string[];
+  revealMarker?: boolean;
   position?: GameCardPosition;
   dungeonMarker?: GameCardDungeonMarker | null;
   rotation?: number;
@@ -163,7 +166,10 @@ export interface GamePlayerState {
   backgroundName?: string;
   sleevesName?: string;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
   revealedLibraryTo?: string[];
+  revealedHandIndexes?: number[];
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;

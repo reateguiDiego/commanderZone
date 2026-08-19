@@ -22,6 +22,18 @@ describe('ZoneCardStackComponent', () => {
     expect(layers.length).toBe(9);
     expect(layers.at(-1)?.style.getPropertyValue('--stack-offset')).toBe('7px');
   });
+
+  it('renders the Lucide eye SVG only while the top card is revealed', async () => {
+    const fixture = await renderZoneCardStack(4, '/assets/second-card.jpg');
+
+    expect(fixture.nativeElement.querySelector('.zone-card-stack-reveal-indicator')).toBeNull();
+
+    fixture.componentRef.setInput('showRevealIndicator', true);
+    fixture.detectChanges();
+
+    const eye = fixture.nativeElement.querySelector('.zone-card-stack-reveal-indicator svg.lucide-eye') as SVGElement | null;
+    expect(eye?.getAttribute('viewBox')).toBe('0 0 24 24');
+  });
 });
 
 async function renderZoneCardStack(count: number, layerImage: string | null = null): Promise<ComponentFixture<ZoneCardStackComponent>> {

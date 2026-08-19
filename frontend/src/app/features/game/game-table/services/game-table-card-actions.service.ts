@@ -491,6 +491,23 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
+  async stopRevealCard(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card || !context.canControlPlayer(menu.playerId)) {
+      return;
+    }
+
+    for (const item of this.actionTargets(context, menu)) {
+      await context.command('card.revealed', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        revealed: false,
+        clearAll: true,
+      });
+    }
+    context.closeContextMenu();
+  }
+
   async tokenCopy(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
     if (!menu.card) {
       return;

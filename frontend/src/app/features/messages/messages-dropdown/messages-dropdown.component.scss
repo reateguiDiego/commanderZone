@@ -11,12 +11,16 @@
   height: var(--messages-menu-height);
   max-height: var(--messages-menu-height);
   overflow: hidden;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 58%);
   border-radius: 8px;
   background:
-    radial-gradient(circle at 10% 0%, rgb(var(--cz-primary-rgb) / 16%), transparent 35%),
-    rgb(var(--cz-surface-rgb) / 96%);
-  box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 42%);
+    radial-gradient(circle at 10% 0%, rgb(var(--cz-primary-rgb) / 24%), transparent 35%),
+    radial-gradient(circle at 100% 0%, rgb(var(--cz-accent-rgb) / 12%), transparent 42%),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 98%), rgb(var(--cz-bg-rgb) / 100%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 22%),
+    0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 52%);
   color: var(--cz-text);
 }
 

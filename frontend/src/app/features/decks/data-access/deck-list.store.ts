@@ -681,7 +681,7 @@ export class DeckListStore {
 
     const colors = commanderColorIdentityUnion(deck);
 
-    return colors.length > 0 ? colors : ['C'];
+    return colors.length > 0 ? colors : ['1'];
   }
 
   shouldWarnNewDeckPublicInPrivateFolder(): boolean {

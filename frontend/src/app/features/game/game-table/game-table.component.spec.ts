@@ -959,6 +959,32 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.manaActionDialog()).toBeNull();
   });
 
+  it('opens the owner face-down inspection preview after closing its context menu', () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const card = { ...snapshot.players['user-1']!.zones.battlefield[0]!, faceDown: true, hidden: true };
+    snapshot.players['user-1']!.zones.battlefield = [card];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'lookAtFaceDownCard' }, {
+      x: 120,
+      y: 160,
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card,
+    });
+
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.hoveredPreview()).toEqual(expect.objectContaining({
+      card,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      revealFaceDownCard: true,
+    }));
+  });
+
   it('waits for the mana comet before adding confirmed card mana to the pool', () => {
     vi.useFakeTimers();
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -6274,6 +6300,22 @@ describe('GameTableComponent', () => {
       card,
     }));
     expect(fixture.componentInstance.store.hoveredPreview()).toBeNull();
+  });
+
+  it('does not show historical reveal recipients for battlefield card previews', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const revealedCard = { ...snapshot.players['user-1'].zones.battlefield[0]!, revealedTo: ['user-2'] };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.revealLabelForCard(revealedCard, 'battlefield')).toBeNull();
+    expect(fixture.componentInstance.revealLabelForCard(revealedCard, 'graveyard')).toBeNull();
+    expect(fixture.componentInstance.revealLabelForCard(revealedCard, 'hand')).toContain('Revealed to');
   });
 
   it('does not open context menus for command zone cards or the command zone', async () => {

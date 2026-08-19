@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { withGlobalLoadingForFeature, withoutGlobalLoading } from '../loading/loading-context';
 import { Card } from '../models/card.model';
-import { CardImageResponse, CardResponse, DataResponse } from '../models/api-responses.model';
+import { CardImageResponse, CardResponse, CardsResponse, DataResponse } from '../models/api-responses.model';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
 export interface CardSearchFilters {
@@ -144,6 +144,13 @@ export class CardsApi {
   getSilently(scryfallId: string): Observable<CardResponse> {
     return this.http.get<CardResponse>(`${API_BASE_URL}/cards/${scryfallId}`, {
       params: { lang: this.languagePreferences.cardLanguage() },
+      context: withoutGlobalLoading(),
+    });
+  }
+
+  getManySilently(scryfallIds: readonly string[]): Observable<CardsResponse> {
+    return this.http.get<CardsResponse>(`${API_BASE_URL}/cards/bulk`, {
+      params: { ids: scryfallIds.join(',') },
       context: withoutGlobalLoading(),
     });
   }

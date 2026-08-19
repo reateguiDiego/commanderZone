@@ -547,6 +547,9 @@
       "current": "Actuel",
       "counters": "Marqueurs"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jouée face cachée"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Regarder lâ€™autre face",
       "loadingCards": "Chargement des cartes"
@@ -598,8 +601,10 @@
         "flipCardFace": "Retourner la carte",
         "playFaceDown": "Jouez face cachÃ©e",
         "previewCard": "PrÃ©visualiser la carte",
+        "lookAtFaceDownCard": "Regarder la carte",
         "moveTop": "DÃ©placer vers le haut",
         "revealTopCard": "RÃ©vÃ©ler la carte du dessus",
+        "revealXTopCards": "Révéler les X cartes du dessus",
         "revealLibrary": "RÃ©vÃ©ler la bibliothÃ¨que",
         "moveAllTo": "DÃ©placez tout vers",
         "counters": "Marqueurs",
@@ -607,6 +612,9 @@
         "moveTo": "Passer Ã ",
         "giveTo": "Donner Ã ",
         "reveal": "RÃ©vÃ©ler",
+        "stopRevealing": "Ne plus révéler",
+        "playTopRevealed": "Jouer avec la carte du dessus révélée",
+        "stopPlayingTopRevealed": "Ne plus jouer avec la carte du dessus révélée",
         "viewAllLibrary": "Voir la bibliothÃ¨que",
         "viewXTopCards": "Regarder les X cartes du dessus",
         "bottomOfLibrary": "Dessous de la bibliothÃ¨que",
@@ -837,6 +845,11 @@
         "description": "Choisissez le nombre de cartes du haut de votre bibliothÃ¨que que vous souhaitez consulter.",
         "confirm": "Regarder"
       },
+      "revealTopCards": {
+        "title": "Révéler les cartes du dessus",
+        "description": "Choisissez combien de cartes du dessus de votre bibliothèque révéler à l'adversaire sélectionné.",
+        "confirm": "Révéler"
+      },
       "deckCardCount": "Votre deck contient {{ count }} cartes."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Piochez des cartes {{ drawCount }}. Choisissez {{ bottomCount }} Ã  mettre au-dessous dans un ordre alÃ©atoire.",
         "generousRandomOrder": "Lâ€™ordre final sera alÃ©atoire."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} a regardé une carte face cachée.",
+      "playTopFaceDown": "{{ actor }} a joué face cachée la carte du dessus de sa bibliothèque."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "RÃ©partition des types",
-      "utilityCounts": "DÃ©compte des utilitaires"
+      "utilityCounts": "DÃ©compte des utilitaires",
+      "reloadPageForData": "Rechargez la page pour obtenir les données d'analyse."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Ã‰quilibre du mana",

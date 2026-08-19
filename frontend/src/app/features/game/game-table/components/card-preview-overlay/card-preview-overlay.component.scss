@@ -223,6 +223,54 @@
   pointer-events: none;
 }
 
+.preview-reveal-column {
+  justify-items: start;
+}
+
+.preview-reveal-counter {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.24rem 0.42rem;
+  border: 1px solid rgb(var(--a) / 62%);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 82%);
+  color: var(--game-accent);
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-reveal-column app-tooltip {
+  pointer-events: auto;
+}
+
+.preview-face-down-column {
+  justify-items: center;
+}
+
+.preview-face-down-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.28rem 0.46rem;
+  border: 1px solid var(--game-accent-strong);
+  border-radius: 999px;
+  background: var(--game-accent-soft);
+  color: var(--game-text);
+  font-size: 0.64rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.preview-face-down-pill lucide-icon {
+  color: var(--game-accent);
+}
+
 @keyframes card-preview-face-flip {
   0% {
     filter: brightness(1) saturate(1);

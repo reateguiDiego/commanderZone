@@ -62,6 +62,7 @@ final readonly class GameWebsocketCommandPatchService
         'cards.position.changed' => 'playerId',
         'card.dungeon_marker.changed' => 'playerId',
         'card.face_down.changed' => 'playerId',
+        'card.face_down.inspected' => 'playerId',
         'card.face.changed' => 'playerId',
         'card.revealed' => 'playerId',
         'card.controller.changed' => 'playerId',

@@ -166,9 +166,31 @@
   width: min(6.2rem, 84%);
   aspect-ratio: 0.716;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--zone-accent) 64%, var(--game-bg, #11130f));
+  border: 1px solid var(--game-accent-line);
   border-radius: 7px;
   background: var(--game-surface);
+}
+
+.library-top-revealed-indicator {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  z-index: 34;
+  display: grid;
+  width: 1.72rem;
+  height: 1.72rem;
+  place-items: center;
+  border: 1px solid rgb(var(--a) / 72%);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 92%);
+  box-shadow:
+    0 0.3rem 0.8rem rgb(var(--shadow-rgb) / 48%),
+    0 0 0.7rem rgb(var(--a) / 22%);
+  color: var(--game-accent);
+}
+
+.library-top-revealed-indicator svg {
+  display: grid;
 }
 
 .zone-monarch-badge {
@@ -203,13 +225,14 @@
 }
 
 .zone-art.card-stack {
-  border-color: var(--game-line-soft);
+  border-color: var(--game-accent-line);
   background: transparent;
   box-shadow: 0 0.85rem 1.25rem rgb(var(--shadow-rgb) / 28%);
 }
 
 .zone-art.empty {
   border-style: dashed;
+  border-color: var(--game-accent-strong);
   background: rgb(var(--game-surface-deep-rgb) / 52%);
 }
 

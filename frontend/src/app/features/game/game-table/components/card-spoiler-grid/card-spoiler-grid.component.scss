@@ -2,6 +2,8 @@
   --card-spoiler-width: 250px;
   --card-spoiler-height: 346px;
   --card-spoiler-radius: 8px;
+  --card-spoiler-theme-color: var(--game-accent);
+  --card-spoiler-theme-rgb: var(--game-accent-rgb);
 
   display: block;
   min-height: 0;
@@ -24,6 +26,8 @@
   display: block;
   width: var(--card-spoiler-width);
   height: var(--card-spoiler-height);
+  content-visibility: auto;
+  contain-intrinsic-size: var(--card-spoiler-width) var(--card-spoiler-height);
   min-height: 0;
   padding: 0;
   border: 0;
@@ -58,15 +62,17 @@
   left: 50%;
   z-index: 2;
   max-width: calc(100% - 0.8rem);
+  margin-top: 5px;
   padding: 0.28rem 0.52rem;
-  border: 1px solid rgb(246 216 141 / 58%);
+  border: 1px solid rgb(var(--gold-rgb) / 58%);
   border-radius: 999px;
-  color: rgb(255 244 203);
+  color: var(--game-text);
   background:
-    linear-gradient(180deg, rgb(52 42 21 / 94%), rgb(14 12 8 / 92%));
+    linear-gradient(180deg, rgb(var(--gold-rgb) / 20%), rgb(var(--game-surface-deep-rgb) / 92%));
   box-shadow:
     0 0.45rem 1rem rgb(var(--shadow-rgb) / 42%),
-    inset 0 1px 0 rgb(var(--highlight-rgb) / 10%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 10%),
+    0 0 0.65rem rgb(var(--gold-rgb) / 16%);
   font-size: 0.67rem;
   font-weight: 900;
   line-height: 1;
@@ -83,29 +89,33 @@
 
 .card-spoiler:hover .zone-art,
 .card-spoiler:focus-visible .zone-art {
-  border-color: rgb(235 200 120 / 66%);
+  border-color: var(--card-spoiler-theme-color);
+  box-shadow:
+    0 0.9rem 1.6rem rgb(var(--shadow-rgb) / 34%),
+    0 0 0.75rem rgb(var(--card-spoiler-theme-rgb) / 22%),
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%);
 }
 
 .card-spoiler.active .zone-art {
-  border-color: rgb(246 216 141 / 86%);
+  border-color: var(--card-spoiler-theme-color);
   box-shadow:
     0 0.9rem 1.6rem rgb(var(--shadow-rgb) / 34%),
-    0 0 0 2px rgb(var(--gold-rgb) / 30%),
+    0 0 0 2px rgb(var(--card-spoiler-theme-rgb) / 30%),
     inset 0 1px 0 rgb(var(--highlight-rgb) / 6%);
 }
 
 .card-spoiler.drop-target .zone-art {
-  border-color: rgb(255 247 178);
+  border-color: var(--game-accent);
   background:
-    radial-gradient(circle at 50% 44%, rgb(255 234 122 / 72%), transparent 58%),
-    radial-gradient(circle at 50% 100%, rgb(255 182 34 / 42%), transparent 50%),
-    linear-gradient(180deg, rgb(140 96 12 / 96%), rgb(26 16 3 / 98%));
+    radial-gradient(circle at 50% 44%, rgb(var(--game-accent-rgb) / 72%), transparent 58%),
+    radial-gradient(circle at 50% 100%, rgb(var(--game-accent-rgb) / 42%), transparent 50%),
+    linear-gradient(180deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 98%));
   box-shadow:
     0 0.9rem 1.6rem rgb(var(--shadow-rgb) / 30%),
-    inset 0 0 0 4px rgb(255 250 192),
-    inset 0 0 0 10px rgb(246 177 34 / 68%),
-    inset 0 0 4.2rem rgb(255 225 106 / 86%),
-    inset 0 0 7rem rgb(255 174 20 / 52%);
+    inset 0 0 0 4px rgb(var(--game-text-rgb) / 74%),
+    inset 0 0 0 10px rgb(var(--game-accent-rgb) / 68%),
+    inset 0 0 4.2rem rgb(var(--game-accent-rgb) / 86%),
+    inset 0 0 7rem rgb(var(--game-accent-rgb) / 52%);
 }
 
 .card-spoiler.drop-target .zone-art::before {
@@ -146,7 +156,7 @@
   z-index: 3;
   border-radius: inherit;
   box-shadow:
-    inset 0 0 0 2px rgb(246 220 151 / 82%),
+    inset 0 0 0 2px rgb(var(--game-accent-rgb) / 82%),
     inset 0 0 1.15rem rgb(var(--gold-rgb) / 28%);
   pointer-events: none;
 }
@@ -157,11 +167,11 @@
   display: block;
   width: 100%;
   height: 100%;
-  border: 1px solid rgb(var(--gold-rgb) / 26%);
+  border: 1px solid var(--game-accent-line);
   border-radius: var(--card-spoiler-radius);
   background:
-    radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb) / 13%), transparent 9rem),
-    linear-gradient(180deg, rgb(23 27 22 / 94%), rgb(7 9 8 / 96%));
+    radial-gradient(circle at 50% 0%, rgb(var(--card-spoiler-theme-rgb) / 13%), transparent 9rem),
+    linear-gradient(180deg, rgb(var(--game-surface-rgb) / 94%), rgb(var(--game-surface-deep-rgb) / 96%));
   box-shadow:
     0 0.9rem 1.6rem rgb(var(--shadow-rgb) / 34%),
     inset 0 1px 0 rgb(var(--highlight-rgb) / 6%);
@@ -174,6 +184,7 @@
 
 .zone-art.empty {
   border-style: dashed;
+  border-color: var(--game-accent-strong);
   background: rgb(var(--game-surface-deep-rgb) / 52%);
 }
 
@@ -195,8 +206,8 @@
 
 .zone-art.face-flipping::before {
   background:
-    radial-gradient(circle at 50% 50%, rgb(255 245 196 / 44%) 0 18%, transparent 58%),
-    linear-gradient(108deg, transparent 18%, rgb(var(--gold-rgb) / 0%) 34%, rgb(var(--gold-rgb) / 54%) 49%, rgb(109 184 255 / 22%) 54%, transparent 70%);
+    radial-gradient(circle at 50% 50%, rgb(var(--highlight-rgb) / 44%) 0 18%, transparent 58%),
+    linear-gradient(108deg, transparent 18%, rgb(var(--gold-rgb) / 0%) 34%, rgb(var(--gold-rgb) / 54%) 49%, rgb(var(--highlight-rgb) / 22%) 54%, transparent 70%);
   mix-blend-mode: screen;
   animation: card-spoiler-face-flip-sheen 620ms cubic-bezier(0.19, 1, 0.22, 1);
 }
@@ -229,7 +240,7 @@
   place-items: center;
   border-radius: 999px;
   background: rgb(var(--game-surface-deep-rgb) / 78%);
-  color: #ffe8a6;
+  color: var(--gold);
   line-height: 0;
   opacity: 0;
   pointer-events: none;
@@ -275,7 +286,7 @@
     filter: brightness(1.36) saturate(1.18) contrast(1.06);
     transform: rotateY(78deg) scale(1.045);
     box-shadow:
-      inset 0 0 1rem rgb(255 224 148 / 34%);
+      inset 0 0 1rem rgb(var(--gold-rgb) / 34%);
   }
 
   56% {
@@ -316,21 +327,21 @@
     opacity: 0;
     box-shadow:
       inset 0 0 0 1px rgb(var(--gold-rgb) / 0%),
-      inset 0 0 0 rgb(109 184 255 / 0%);
+      inset 0 0 0 rgb(var(--highlight-rgb) / 0%);
   }
 
   42% {
     opacity: 1;
     box-shadow:
       inset 0 0 0 1px rgb(var(--gold-rgb) / 72%),
-      inset 0 0 1.2rem rgb(109 184 255 / 30%);
+      inset 0 0 1.2rem rgb(var(--highlight-rgb) / 30%);
   }
 
   100% {
     opacity: 0;
     box-shadow:
       inset 0 0 0 1px rgb(var(--gold-rgb) / 0%),
-      inset 0 0 0 rgb(109 184 255 / 0%);
+      inset 0 0 0 rgb(var(--highlight-rgb) / 0%);
   }
 }
 

@@ -29,7 +29,7 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 		"displayName": displayName,
 		"createdAt":   createdAt.UTC().Format(time.RFC3339),
 	}
-	if instanceID := firstString(payload["instanceId"], command.Payload["instanceId"]); instanceID != "" {
+	if instanceID := firstString(payload["instanceId"], command.Payload["instanceId"]); instanceID != "" && runtimeLogIncludesCardReference(command.Type) {
 		entry["cardInstanceId"] = instanceID
 		if location, ok := game.Loc[instanceID]; ok {
 			entry["cardPlayerId"] = location.PlayerID
@@ -70,6 +70,10 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	switch command.Type {
+	case "card.face_down.inspected":
+		return semantic("gameLog.card.faceDownInspected", baseParams(), []string{actorPlayerID}, nil)
+	case "library.play_top_face_down":
+		return semantic("gameLog.library.playTopFaceDown", baseParams(), []string{actorPlayerID}, nil)
 	case "library.draw", "library.draw_many":
 		count := intFromPayload(payload, "count", 1)
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
@@ -179,6 +183,15 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	return nil
 }
 
+func runtimeLogIncludesCardReference(commandType string) bool {
+	switch commandType {
+	case "card.face_down.inspected", "library.play_top_face_down":
+		return false
+	default:
+		return true
+	}
+}
+
 func runtimeLogRefs(game *state.GameState, playerIDs []string, cardIDs []string) map[string]any {
 	refs := map[string]any{}
 	if players := runtimeLogPlayerRefs(game, playerIDs); len(players) > 0 {
@@ -248,6 +261,10 @@ func runtimeLogCardIsPublic(instance state.CardInstanceRuntime, location state.L
 
 func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, displayName string) string {
 	switch command.Type {
+	case "card.face_down.inspected":
+		return fmt.Sprintf("%s looked at a face-down card.", displayName)
+	case "library.play_top_face_down":
+		return fmt.Sprintf("%s played the top card of their library face down.", displayName)
 	case "library.draw", "library.draw_many":
 		count := intFromPayload(payload, "count", 1)
 		if count == 1 {
@@ -321,9 +338,18 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 	case "library.view":
 		count := intFromPayload(payload, "count", 1)
 		return fmt.Sprintf("%s looked at the top %d cards of their library.", displayName, count)
-	case "library.reveal", "library.reveal_top":
+	case "library.reveal":
+		return fmt.Sprintf("%s revealed their library.", displayName)
+	case "library.reveal_top":
 		count := intFromPayload(payload, "count", 1)
 		return fmt.Sprintf("%s revealed the top %d cards of their library.", displayName, count)
+	case "card.revealed":
+		return fmt.Sprintf("%s revealed a card.", displayName)
+	case "library.play_top_revealed":
+		if firstBool(payload["enabled"], command.Payload["enabled"]) {
+			return fmt.Sprintf("%s is playing with the top card of their library revealed.", displayName)
+		}
+		return fmt.Sprintf("%s stopped playing with the top card of their library revealed.", displayName)
 	case "library.shuffle":
 		return fmt.Sprintf("%s shuffled their library.", displayName)
 	case "game.concede":

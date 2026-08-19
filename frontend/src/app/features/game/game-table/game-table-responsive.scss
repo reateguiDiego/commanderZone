@@ -676,3 +676,15 @@
     align-content: start;
   }
 }
+@container game-table-surface (max-width: 1625px) {
+  .player-strip.game-table-main-top {
+    grid-template-columns:
+      var(--game-top-summary-column)
+      var(--game-top-turn-column)
+      var(--game-top-log-column);
+  }
+
+  .player-strip.game-table-main-top > app-game-ad-banner {
+    display: none;
+  }
+}

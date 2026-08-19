@@ -23,13 +23,14 @@
   max-height: min(var(--friends-menu-height), calc(100dvh - 6rem));
   overflow: auto;
   padding: var(--friends-menu-padding);
-  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 58%);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 24%), transparent 15rem),
-    radial-gradient(circle at 100% 0%, rgb(var(--cz-secondary-rgb) / 14%), transparent 12rem),
-    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 94%), rgb(var(--cz-bg-rgb) / 98%));
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 28%), transparent 15rem),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 98%), rgb(var(--cz-bg-rgb) / 100%));
   box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 22%),
     0 1.35rem 2.7rem rgb(var(--cz-bg-rgb) / 56%);
 }
 

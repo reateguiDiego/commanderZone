@@ -163,6 +163,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly motionActive = input(false);
   readonly faceDown = input(false);
   readonly hidden = input(false);
+  readonly revealMarker = input(false);
   readonly visible = input(true);
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
@@ -295,6 +296,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     && this.dungeonMarkerPosition() !== null
   ));
   readonly monarchCard = computed(() => isMonarchCard(this.card()));
+  readonly showRevealIndicator = computed(() => this.revealMarker());
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {

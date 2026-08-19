@@ -54,6 +54,10 @@ export interface CardResponse {
   card: Card;
 }
 
+export interface CardsResponse {
+  cards: Card[];
+}
+
 export interface CardImageResponse {
   scryfallId: string;
   format: string;

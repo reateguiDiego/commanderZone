@@ -52,16 +52,17 @@
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
-  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 58%);
   border-radius: 10px;
   padding: 0.55rem;
   background:
-    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 22%), transparent 11rem),
-    radial-gradient(circle at 100% 0%, rgb(var(--cz-secondary-rgb) / 12%), transparent 9rem),
-    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 94%), rgb(var(--cz-bg-rgb) / 98%));
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 28%), transparent 11rem),
+    radial-gradient(circle at 100% 0%, rgb(var(--cz-secondary-rgb) / 18%), transparent 9rem),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 98%), rgb(var(--cz-bg-rgb) / 100%));
   box-shadow:
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
-    0 0.95rem 2rem rgb(var(--cz-bg-rgb) / 48%),
+    inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 22%),
+    0 0.95rem 2rem rgb(var(--cz-bg-rgb) / 58%),
     0 0 1.4rem rgb(var(--cz-primary-rgb) / 10%);
   backdrop-filter: blur(14px);
   transform-origin: top right;
@@ -82,7 +83,7 @@
 
 .header-menu-dropdown.open::before {
   z-index: 10;
-  background: rgb(var(--cz-primary-rgb) / 48%);
+  background: rgb(var(--cz-primary-rgb) / 58%);
 }
 
 .header-menu-dropdown.open::after {
@@ -92,8 +93,8 @@
   right: 0.87rem;
   top: calc(100% - 0.09rem);
   background:
-    radial-gradient(circle at 50% 0%, rgb(var(--cz-primary-rgb) / 24%), transparent 58%),
-    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 96%), rgb(var(--cz-bg-rgb) / 98%));
+    radial-gradient(circle at 50% 0%, rgb(var(--cz-primary-rgb) / 28%), transparent 58%),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 98%), rgb(var(--cz-bg-rgb) / 100%));
 }
 
 .menu-item,

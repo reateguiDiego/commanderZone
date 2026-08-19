@@ -59,6 +59,18 @@ describe('FormatSelectComponent', () => {
     expect(selectedValues).toEqual(['public']);
   });
 
+  it('returns focus to the trigger before hiding the dropdown menu', () => {
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+    const option = fixture.nativeElement.querySelector('.format-select-option') as HTMLButtonElement;
+    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
+    option.focus();
+
+    fixture.componentInstance.closeDropdown();
+
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('renders option flags in the trigger and dropdown', () => {
     fixture.componentRef.setInput('formats', []);
     fixture.componentRef.setInput('options', [

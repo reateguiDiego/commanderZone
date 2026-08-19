@@ -14,7 +14,7 @@ export interface DeckViewStore {
   readonly cardPreview: Signal<CardPreviewState | null>;
   toggleGroup(groupId: string): void;
   isGroupCollapsed(groupId: string): boolean;
-  deckColorIdentitySymbols(): readonly ('W' | 'U' | 'B' | 'R' | 'G')[];
+  deckColorIdentitySymbols(): readonly string[];
   displayCardImageUrl(card: Card): string | null;
   ensureCardImages(cards: readonly DeckCard[]): void;
   showCardPreview(event: MouseEvent, card: Card): void;

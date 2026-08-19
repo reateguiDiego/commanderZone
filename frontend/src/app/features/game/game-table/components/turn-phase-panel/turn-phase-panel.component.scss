@@ -78,6 +78,10 @@
   height: 0.96rem;
 }
 
+.pass-turn-button {
+  margin-right: 5px;
+}
+
 .turn-action-button span {
   min-width: 0;
   overflow: hidden;
@@ -604,8 +608,9 @@
     display: inline-flex;
     min-width: 0;
     max-width: 100%;
+    width: fit-content;
     align-items: center;
-    justify-self: stretch;
+    justify-self: start;
     padding: 0.18rem 0.3rem;
     overflow: hidden;
     border: 1px solid rgb(var(--gold-rgb) / 34%);

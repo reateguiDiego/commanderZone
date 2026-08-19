@@ -188,6 +188,69 @@ describe('DeckEditorComponent', () => {
     expect(decksApi.getDeckAdvancedAnalysis).not.toHaveBeenCalled();
   });
 
+  it('does not render the commander bracket for an invalid deck', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard({ valid: false }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.store.bracket()?.bracket).toBe(3));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.visibleBracket()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-bracket-pill')).toBeNull();
+  });
+
+  it('hides the analysis tab while the deck is invalid', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard({ valid: false }), {}, {
+      validateCommander: vi.fn().mockReturnValue(of({
+        ...validCommanderValidation(),
+        valid: false,
+        errors: [{
+          code: 'deck.invalid',
+          title: 'Invalid deck',
+          detail: 'Deck is invalid.',
+          cards: [],
+        }],
+      })),
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.store.deck()?.id).toBe('deck-1'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tabItems().map((item) => item.id)).not.toContain('analysis');
+    expect(fixture.componentInstance.store.visibleActiveTab()).toBe('validation');
+    expect(fixture.nativeElement.querySelector('app-deck-analysis-panel')).toBeNull();
+  });
+
+  it('shows the analysis tab after validation marks an invalid deck as valid', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard({ valid: false }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.componentInstance.store.validation.set(validCommanderValidation());
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tabItems().map((item) => item.id)).toContain('analysis');
+    expect(fixture.componentInstance.store.visibleActiveTab()).toBe('analysis');
+    expect(fixture.nativeElement.querySelector('app-deck-analysis-panel')).not.toBeNull();
+  });
+
+  it('asks to reload the page when analysis has no data', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard({ cards: [] }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('app-deck-analysis-panel') as HTMLElement | null;
+
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('Reload the page to get analysis data.');
+    expect(panel?.querySelector('.analysis-advanced-button')).not.toBeNull();
+  });
+
   it('keeps the page loading until the commander bracket request completes', async () => {
     const bracketResponse = new Subject<{ bracket: ReturnType<typeof buildBracketEstimate> }>();
     await setup({ id: 'deck-1' }, buildDeckWithSingleCard(), {}, {

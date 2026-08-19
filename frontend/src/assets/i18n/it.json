@@ -547,6 +547,9 @@
       "current": "Corrente",
       "counters": "Segnalini"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Giocata a faccia in giù"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Guarda l'altra faccia",
       "loadingCards": "Caricamento delle carte"
@@ -598,8 +601,10 @@
         "flipCardFace": "Gira la faccia della carta",
         "playFaceDown": "Gioca a faccia in giÃ¹",
         "previewCard": "Anteprima carta",
+        "lookAtFaceDownCard": "Guarda la carta",
         "moveTop": "Sposta in alto",
         "revealTopCard": "Rivela la prima carta",
+        "revealXTopCards": "Rivela le prime X carte",
         "revealLibrary": "Rivela il grimorio",
         "moveAllTo": "Sposta tutto in",
         "counters": "Segnalini",
@@ -607,6 +612,9 @@
         "moveTo": "Spostati in",
         "giveTo": "Dai a",
         "reveal": "Rivela",
+        "stopRevealing": "Smetti di rivelare",
+        "playTopRevealed": "Gioca con la prima carta rivelata",
+        "stopPlayingTopRevealed": "Smetti di giocare con la prima carta rivelata",
         "viewAllLibrary": "Mostra il grimorio",
         "viewXTopCards": "Guarda le prime X carte",
         "bottomOfLibrary": "Fondo del grimorio",
@@ -837,6 +845,11 @@
         "description": "Scegli quante carte guardare dalla cima del tuo grimorio.",
         "confirm": "Mostra"
       },
+      "revealTopCards": {
+        "title": "Rivela le carte in cima",
+        "description": "Scegli quante carte dalla cima del tuo grimorio rivelare all'avversario selezionato.",
+        "confirm": "Rivela"
+      },
       "deckCardCount": "Il tuo deck ha {{ count }} carte."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Pesca {{ drawCount }} carta/e. Scegline {{ bottomCount }} da mettere in fondo in ordine casuale.",
         "generousRandomOrder": "L'ordine finale sarÃ  casuale."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} ha guardato una carta a faccia in giù.",
+      "playTopFaceDown": "{{ actor }} ha giocato a faccia in giù la prima carta del suo grimorio."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Ripartizione del tipo",
-      "utilityCounts": "L'utilitÃ  conta"
+      "utilityCounts": "L'utilitÃ  conta",
+      "reloadPageForData": "Ricarica la pagina per ottenere i dati di analisi."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Equilibrio di mana",

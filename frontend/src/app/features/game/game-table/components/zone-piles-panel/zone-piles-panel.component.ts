@@ -129,6 +129,10 @@ export class ZonePilesPanelComponent {
     return this.specialEntities.globalEntity('monarch')?.ownerPlayerId === playerId;
   }
 
+  isLibraryTopRevealMarked(player: PlayerView): boolean {
+    return player.state.playTopLibraryRevealed === true || player.state.topLibraryRevealMarker === true;
+  }
+
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
     if (!this.canControlPlayer()(player.id)) {
       event.preventDefault();

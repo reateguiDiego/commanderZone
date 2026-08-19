@@ -36,6 +36,52 @@ describe('GameTableChatLogState', () => {
     expect(entry?.messagePrefix).toBe('Alice drew 2 cards.');
   });
 
+  it('renders face-down inspection logs without resolving a card reference', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-face-down-inspected',
+        type: 'card.face_down.inspected',
+        message: 'Alice looked at a face-down card.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.card.faceDownInspected',
+        params: { actorPlayerId: 'player-1' },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('Alice looked at a face-down card.');
+    expect(entry?.card).toBeNull();
+  });
+
+  it('renders play-top-face-down logs without resolving a card reference', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-play-top-face-down',
+        type: 'library.play_top_face_down',
+        message: 'Alice played the top card of their library face down.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.library.playTopFaceDown',
+        params: { actorPlayerId: 'player-1' },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('Alice played the top card of their library face down.');
+    expect(entry?.card).toBeNull();
+  });
+
   it('renders semantic game log entries with the platform translation service', () => {
     const state = new GameTableChatLogState({
       instant: (key: string, params?: Record<string, unknown>) => {

@@ -547,6 +547,9 @@
       "current": "Atual",
       "counters": "Marcadores"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jogada virada para baixo"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Olhar a outra face",
       "loadingCards": "Carregando cartas"
@@ -598,8 +601,10 @@
         "flipCardFace": "Virar a face da carta",
         "playFaceDown": "Jogue de bruÃ§os",
         "previewCard": "Carta de visualizaÃ§Ã£o",
+        "lookAtFaceDownCard": "Ver carta",
         "moveTop": "Mover para cima",
         "revealTopCard": "Revelar a carta superior",
+        "revealXTopCards": "Revelar as X cartas do topo",
         "revealLibrary": "Revelar grimÃ³rio",
         "moveAllTo": "Mova tudo para",
         "counters": "Marcadores",
@@ -607,6 +612,9 @@
         "moveTo": "Mover para",
         "giveTo": "DÃª para",
         "reveal": "Revelar",
+        "stopRevealing": "Parar de revelar",
+        "playTopRevealed": "Jogar com a carta do topo revelada",
+        "stopPlayingTopRevealed": "Parar de jogar com a carta do topo revelada",
         "viewAllLibrary": "Ver grimÃ³rio",
         "viewXTopCards": "Veja as principais cartas X",
         "bottomOfLibrary": "Fundo do grimÃ³rio",
@@ -837,6 +845,11 @@
         "description": "Escolha quantas cartas do topo do seu grimÃ³rio olhar.",
         "confirm": "Olhar"
       },
+      "revealTopCards": {
+        "title": "Revelar cartas do topo",
+        "description": "Escolha quantas cartas do topo do seu grimório revelar ao oponente selecionado.",
+        "confirm": "Revelar"
+      },
       "deckCardCount": "Seu deck tem {{ count }} cartas."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Compre {{ drawCount }} carta(s). Escolha {{ bottomCount }} para colocar no fundo em ordem aleatÃ³ria.",
         "generousRandomOrder": "A ordem final serÃ¡ aleatÃ³ria."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} olhou uma carta virada para baixo.",
+      "playTopFaceDown": "{{ actor }} jogou virada para baixo a carta do topo do próprio grimório."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "DivisÃ£o de tipo",
-      "utilityCounts": "Contagens de utilidades"
+      "utilityCounts": "Contagens de utilidades",
+      "reloadPageForData": "Recarregue a página para obter dados de análise."
     },
     "deckManaBalancePanel": {
       "manaBalance": "EquilÃ­brio de mana",

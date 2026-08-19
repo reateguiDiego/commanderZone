@@ -160,7 +160,19 @@ interface ViewTopNumberActionRequest {
   readonly confirmLabel: string;
 }
 
-type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
+interface RevealTopNumberActionRequest {
+  readonly kind: 'revealTop';
+  readonly playerId: string;
+  readonly targetPlayerId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultValue: number;
+  readonly min: number;
+  readonly max?: number;
+  readonly confirmLabel: string;
+}
+
+type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest | RevealTopNumberActionRequest;
 type TableExitAction = 'concede' | 'leave';
 type FloatingPanelTab = 'chat' | 'log';
 const CHAT_REACTION_WINDOW_MS = 30 * 60 * 1000;
@@ -764,16 +776,33 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     },
   ]);
   readonly hoveredPreviewAttachmentInfo = computed(() => {
+    const previewCard = this.hoveredPreviewCard();
+
+    return previewCard ? buildCardPreviewAttachmentInfo(this.store.snapshot(), previewCard) : null;
+  });
+  readonly hoveredPreviewCard = computed(() => {
     const preview = this.store.hoveredPreview();
     const snapshot = this.store.snapshot();
 
-    return preview ? buildCardPreviewAttachmentInfo(snapshot, resolveCardPreviewCard(snapshot, preview)) : null;
+    return preview ? resolveCardPreviewCard(snapshot, preview) : null;
+  });
+  readonly hoveredPreviewZone = computed<GameZoneName | null>(() => {
+    const preview = this.store.hoveredPreview();
+    const snapshot = this.store.snapshot();
+    if (!preview) {
+      return null;
+    }
+
+    const isOnBattlefield = Object.values(snapshot?.players ?? {}).some((player) =>
+      player.zones.battlefield.some((card) => card.instanceId === preview.card.instanceId),
+    );
+
+    return isOnBattlefield ? 'battlefield' : preview.zone;
   });
   readonly hoveredPreviewCardStateInfo = computed(() => {
-    const preview = this.store.hoveredPreview();
-    const snapshot = this.store.snapshot();
+    const previewCard = this.hoveredPreviewCard();
 
-    return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
+    return previewCard ? buildCardPreviewCardStateInfo(previewCard) : null;
   });
 
   private battlefieldEmblemsForPlayer(playerId: string): readonly GameCardInstance[] {
@@ -2372,6 +2401,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'drawPrompt':
         this.openDrawDialog(menu.playerId);
         return;
+      case 'revealTopPrompt':
+        this.openRevealTopDialog(menu.playerId, action.targetPlayerId);
+        return;
       case 'moveTop':
         this.openMoveTopDialog(menu.playerId, action.zone, {
           targetPlayerId: action.targetPlayerId,
@@ -2385,6 +2417,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'revealTop':
         this.store.closeContextMenu();
         void this.store.revealTop(menu.playerId, action.target ?? 'all');
+        return;
+      case 'stopRevealTop':
+        this.store.closeContextMenu();
+        void this.store.stopRevealTop(menu.playerId, action.target);
         return;
       case 'revealLibrary':
         this.store.closeContextMenu();
@@ -2424,11 +2460,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'playFaceDown':
         void this.store.playFaceDown(menu);
         return;
+      case 'playTopFaceDown':
+        void this.store.playTopFaceDown(menu.playerId);
+        return;
       case 'flipCardFace':
         void this.store.flipCardFace(menu);
         return;
       case 'revealCard':
         void this.store.revealCard(menu, action.target);
+        return;
+      case 'stopRevealCard':
+        void this.store.stopRevealCard(menu);
         return;
       case 'createToken':
         this.openGameplayCardSearchModal(menu.playerId, 'token');
@@ -2548,6 +2590,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         }
         this.store.closeContextMenu();
         return;
+      case 'lookAtFaceDownCard':
+        this.store.closeContextMenu();
+        if (menu.card && this.canInspectOwnFaceDownCard(menu.card)) {
+          this.store.inspectFaceDownCard(menu.card, menu.playerId, menu.zone, true);
+          this.store.recordFaceDownCardInspection(menu.card, menu.playerId, menu.zone);
+        }
+        return;
       }
   }
 
@@ -2568,6 +2617,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'viewTop':
         void this.store.viewTopLibrary(request.playerId, value);
+        return;
+      case 'revealTop':
+        void this.store.revealTop(request.playerId, request.targetPlayerId, value);
         return;
     }
   }
@@ -3740,6 +3792,26 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     });
   }
 
+  private openRevealTopDialog(playerId: string, targetPlayerId: string): void {
+    this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
+    this.numberActionDialog.set({
+      kind: 'revealTop',
+      playerId,
+      targetPlayerId,
+      title: 'game.numberAction.revealTopCards.title',
+      description: 'game.numberAction.revealTopCards.description',
+      defaultValue: 1,
+      min: 1,
+      max,
+      confirmLabel: 'game.numberAction.revealTopCards.confirm',
+    });
+  }
+
   private numberActionLibraryMax(playerId: string): number {
     return Math.min(99, Math.max(0, this.store.zoneCardCountById(playerId, 'library')));
   }
@@ -3800,6 +3872,24 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private playerName(playerId: string): string {
     return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
+  }
+
+  revealLabelForCard(card: GameCardInstance, zone: GameZoneName | null): string | null {
+    const recipients = card.revealedTo ?? [];
+    if ((zone !== 'hand' && zone !== 'library') || card.hidden || card.faceDown || recipients.length === 0) {
+      return null;
+    }
+
+    const players = this.store.players();
+    const recipientsLabel = recipients.length === players.length
+      ? 'everyone'
+      : recipients.map((playerId) => this.playerName(playerId)).join(', ');
+
+    return `Revealed to ${recipientsLabel}`;
+  }
+
+  private canInspectOwnFaceDownCard(card: GameCardInstance): boolean {
+    return card.faceDown === true && card.ownerId === this.store.currentPlayer()?.id;
   }
 
   private sortOpponentSidebarPlayers(players: readonly PlayerView[]): PlayerView[] {

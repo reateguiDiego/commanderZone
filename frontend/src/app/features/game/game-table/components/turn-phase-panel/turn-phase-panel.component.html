@@ -23,8 +23,7 @@
           type="button"
           class="turn-action-button pass-turn-button"
           data-testid="pass-turn"
-          [disabled]="pending()"
-          [title]="pending() ? 'Applying action' : 'Pass turn'"
+          title="Pass turn"
           (click)="passTurn.emit()"
         >
           <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
@@ -36,8 +35,7 @@
           type="button"
           class="turn-action-button advance-phase-button"
           data-testid="advance-phase"
-          [disabled]="pending()"
-          [title]="pending() ? 'Applying action' : 'Advance to ' + nextPhaseLabel()"
+          [title]="'Advance to ' + nextPhaseLabel()"
           (click)="advancePhase.emit()"
         >
           <lucide-icon name="play" size="17" aria-hidden="true" />

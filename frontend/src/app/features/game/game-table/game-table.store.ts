@@ -50,6 +50,7 @@ import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
+import { GameTableStaticCardResolverV2Service } from './services/game-table-static-card-resolver-v2.service';
 import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
@@ -70,6 +71,7 @@ interface AutomaticTapManaTarget extends SelectedCard {
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
+  private readonly faceDownPreviewImages = signal<ReadonlyMap<string, string>>(new Map());
   private locallyConcededPlayerId: string | null = null;
   private lastSeenActiveTurnPlayerId: string | null = null;
 
@@ -84,6 +86,7 @@ export class GameTableStore implements OnDestroy {
   private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
+  private readonly staticCardResolver = inject(GameTableStaticCardResolverV2Service);
   private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
@@ -248,6 +251,10 @@ export class GameTableStore implements OnDestroy {
       },
       pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
       pendingLibraryMove: () => this.pendingLibraryMove(),
+      openRevealedLibrary: (playerId, recipients) => {
+        void this.openRevealedLibraryForRecipients(playerId, recipients);
+      },
+      openRevealedTopLibrary: (playerId, count) => this.libraryTopState.openRevealedTopLibrary(playerId, count),
       onControlPlaneAccepted: (controlPlane) => this.rematchVotes.acceptControlPlane(
         this.gameId(),
         this.currentPlayer()?.id ?? null,
@@ -369,6 +376,10 @@ export class GameTableStore implements OnDestroy {
 
   publicCardImage(card: GameCardInstance): string | null {
     return this.cardsState.publicCardImage(card);
+  }
+
+  faceDownPreviewImage(card: GameCardInstance): string | null {
+    return this.publicCardImage(card) ?? this.faceDownPreviewImages().get(card.instanceId) ?? null;
   }
 
   cardBackImage(player?: PlayerView | null): string {
@@ -966,8 +977,62 @@ export class GameTableStore implements OnDestroy {
     await this.libraryActions.shuffleRevealedLibrary(this.contexts.libraryAction(), playerId);
   }
 
-  async revealTop(playerId: string, target = 'all'): Promise<void> {
-    await this.libraryActions.revealTop(this.contexts.libraryAction(), playerId, target);
+  async revealTop(playerId: string, target = 'all', count = 1): Promise<void> {
+    await this.libraryActions.revealTop(this.contexts.libraryAction(), playerId, target, count);
+  }
+
+  inspectFaceDownCard(
+    card: GameCardInstance,
+    playerId?: string,
+    zone?: GameZoneName,
+    revealFaceDownCard = false,
+  ): void {
+    this.uiState.showPinnedCardPreview(
+      card,
+      () => Boolean(this.draggingCardInstanceId()),
+      playerId,
+      zone,
+      revealFaceDownCard,
+    );
+    if (revealFaceDownCard) {
+      void this.cacheOwnerFaceDownPreviewImage(card);
+    }
+  }
+
+  recordFaceDownCardInspection(card: GameCardInstance, playerId: string, zone: GameZoneName): void {
+    if (card.faceDown !== true || zone !== 'battlefield') {
+      return;
+    }
+
+    void this.command('card.face_down.inspected', {
+      instanceId: card.instanceId,
+      playerId,
+    });
+  }
+
+  private async cacheOwnerFaceDownPreviewImage(card: GameCardInstance): Promise<void> {
+    if (this.faceDownPreviewImage(card)) {
+      return;
+    }
+
+    const image = await this.staticCardResolver.resolveOwnerFaceDownPreviewImage(card);
+    if (!image) {
+      return;
+    }
+
+    this.faceDownPreviewImages.update((images) => {
+      if (images.get(card.instanceId) === image) {
+        return images;
+      }
+
+      const nextImages = new Map(images);
+      nextImages.set(card.instanceId, image);
+      return nextImages;
+    });
+  }
+
+  async stopRevealTop(playerId: string, target?: string): Promise<void> {
+    await this.libraryActions.stopRevealTop(this.contexts.libraryAction(), playerId, target);
   }
 
   async setPlayTopRevealed(playerId: string, enabled: boolean): Promise<void> {
@@ -1070,6 +1135,11 @@ export class GameTableStore implements OnDestroy {
 
   async playFaceDown(menu: GameContextMenu): Promise<void> {
     await this.cardActions.playFaceDown(this.contexts.cardAction(), menu);
+  }
+
+  async playTopFaceDown(playerId: string): Promise<void> {
+    await this.libraryActions.playTopFaceDown(this.contexts.libraryAction(), playerId);
+    this.closeContextMenu();
   }
 
   startBattlefieldPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
@@ -1410,6 +1480,10 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.revealCard(this.contexts.cardAction(), menu, target);
   }
 
+  async stopRevealCard(menu: GameContextMenu): Promise<void> {
+    await this.cardActions.stopRevealCard(this.contexts.cardAction(), menu);
+  }
+
   async tokenCopy(menu: GameContextMenu): Promise<void> {
     await this.cardActions.tokenCopy(this.contexts.cardAction(), menu);
   }
@@ -1637,7 +1711,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean } = {},
   ): void {
     this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
@@ -1689,7 +1763,12 @@ export class GameTableStore implements OnDestroy {
 
     this.openingRevealedLibraryPlayerId = playerId;
     try {
-      await this.openZone(playerId, 'library', null, true);
+      const snapshot = this.snapshot();
+      const cards = snapshot?.players[playerId]?.zones.library ?? [];
+      this.openFixedZone(playerId, 'library', `${this.playerName(playerId)} ${this.zoneTitle('library')}`, cards, null, false, {
+        readOnly: true,
+        showFilters: true,
+      });
       this.shuffleLibraryOnModalClosePlayerId.set(playerId);
       this.shuffleLibraryOnModalCloseReason.set('revealed-library-closed');
     } finally {
@@ -1766,6 +1845,14 @@ export class GameTableStore implements OnDestroy {
 
   private localPlayerFromSnapshot(): PlayerView | null {
     return this.selectors.currentPlayer(this.playersStore.players(), this.auth.user()?.id);
+  }
+
+  private async openRevealedLibraryForRecipients(playerId: string, recipients?: readonly string[]): Promise<void> {
+    const currentPlayerId = this.currentPlayer()?.id;
+    if (recipients && (!currentPlayerId || !recipients.includes(currentPlayerId))) {
+      return;
+    }
+    await this.openRevealedLibraryModal(playerId);
   }
 
   /** Applies an authoritative lifecycle/rematch ACK without touching gameplay versioning. */

@@ -547,6 +547,9 @@
       "current": "ç¾åœ¨",
       "counters": "ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "裏向きでプレイ済み"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "ä»–ã®é¡”ã‚’è¦‹ã¦ãã ã•ã„",
       "loadingCards": "ã‚«ãƒ¼ãƒ‰ã‚’èª­ã¿è¾¼ã¿ã™ã‚‹"
@@ -598,8 +601,10 @@
         "flipCardFace": "ã‚«ãƒ¼ãƒ‰ã®é¢ã‚’åè»¢",
         "playFaceDown": "è£å‘ãã§ãƒ—ãƒ¬ã‚¤ã™ã‚‹",
         "previewCard": "ã‚«ãƒ¼ãƒ‰ã‚’ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
+        "lookAtFaceDownCard": "カードを見る",
         "moveTop": "ä¸Šã«ç§»å‹•",
         "revealTopCard": "ä¸€ç•ªä¸Šã®ã‚«ãƒ¼ãƒ‰ã‚’å…¬é–‹",
+        "revealXTopCards": "ライブラリーの上からX枚を公開",
         "revealLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã‚’å…¬é–‹",
         "moveAllTo": "ã™ã¹ã¦ç§»å‹•",
         "counters": "ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
@@ -607,6 +612,9 @@
         "moveTo": "ç§»å‹•å…ˆ",
         "giveTo": "æ¸¡ã™",
         "reveal": "å…¬é–‹",
+        "stopRevealing": "公開をやめる",
+        "playTopRevealed": "一番上のカードを公開してプレイ",
+        "stopPlayingTopRevealed": "一番上のカードを公開してプレイをやめる",
         "viewAllLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã‚’è¡¨ç¤º",
         "viewXTopCards": "ä¸€ç•ªä¸Šã‹ã‚‰Xæžšã‚’è¦‹ã‚‹",
         "bottomOfLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹",
@@ -837,6 +845,11 @@
         "description": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸Šã‹ã‚‰ä½•æžšè¦‹ã‚‹ã‹ã‚’é¸æŠžã—ã¾ã™ã€‚",
         "confirm": "è¦‹ã‚‹"
       },
+      "revealTopCards": {
+        "title": "上からカードを公開",
+        "description": "選択した対戦相手に公開するライブラリー上部のカード枚数を選択します。",
+        "confirm": "公開"
+      },
       "deckCardCount": "あなたのデッキには{{ count }}枚のカードがあります。"
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "{{ drawCount }} æžšå¼•ãã¾ã™ã€‚{{ bottomCount }} æžšã‚’é¸ã³ã€ç„¡ä½œç‚ºãªé †ç•ªã§ä¸€ç•ªä¸‹ã«ç½®ãã¾ã™ã€‚",
         "generousRandomOrder": "æœ€çµ‚çš„ãªé †ç•ªã¯ãƒ©ãƒ³ãƒ€ãƒ ã¨ãªã‚Šã¾ã™ã€‚"
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} は裏向きのカードを確認しました。",
+      "playTopFaceDown": "{{ actor }} はライブラリーの一番上のカードを裏向きでプレイしました。"
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "ã‚¿ã‚¤ãƒ—ã®å†…è¨³",
-      "utilityCounts": "ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ã‚«ã‚¦ãƒ³ãƒˆ"
+      "utilityCounts": "ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ã‚«ã‚¦ãƒ³ãƒˆ",
+      "reloadPageForData": "分析データを取得するにはページを再読み込みしてください。"
     },
     "deckManaBalancePanel": {
       "manaBalance": "ãƒžãƒŠãƒãƒ©ãƒ³ã‚¹",

@@ -547,6 +547,9 @@
       "current": "Actual",
       "counters": "Contadores"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jugada boca abajo"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Mira otra cara",
       "loadingCards": "Cargando cartas"
@@ -598,8 +601,10 @@
         "flipCardFace": "Dar la vuelta a la carta",
         "playFaceDown": "Jugar boca abajo",
         "previewCard": "Vista previa de la carta",
+        "lookAtFaceDownCard": "Mirar carta",
         "moveTop": "Mover arriba",
         "revealTopCard": "Revelar la carta superior",
+        "revealXTopCards": "Revelar las X primeras cartas",
         "revealLibrary": "Revelar biblioteca",
         "moveAllTo": "Mover todo a",
         "counters": "Contadores",
@@ -607,6 +612,9 @@
         "moveTo": "Mover a",
         "giveTo": "Dar a",
         "reveal": "Revelar",
+        "stopRevealing": "Dejar de revelar",
+        "playTopRevealed": "Jugar con la carta superior revelada",
+        "stopPlayingTopRevealed": "Dejar de jugar con la carta superior revelada",
         "viewAllLibrary": "Ver biblioteca",
         "viewXTopCards": "Ver las X cartas superiores",
         "bottomOfLibrary": "Fondo de la biblioteca",
@@ -837,6 +845,11 @@
         "description": "Elige cuántas cartas de la parte superior de tu biblioteca quieres mirar.",
         "confirm": "Vista"
       },
+      "revealTopCards": {
+        "title": "Revelar cartas superiores",
+        "description": "Elige cuántas cartas de la parte superior de tu biblioteca revelar al oponente seleccionado.",
+        "confirm": "Revelar"
+      },
       "deckCardCount": "Tu deck tiene {{ count }} cartas."
     },
     "playerCounters": {
@@ -967,10 +980,12 @@
     "library": {
       "draw": "{{ actor }} robó una carta.",
       "drawMany": "{{ actor }} robó {{ count }} cartas.",
+      "playTopFaceDown": "{{ actor }} ha jugado la primera carta de su biblioteca boca abajo.",
       "shuffle": "{{ actor }} barajó su biblioteca."
     },
     "card": {
       "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
+      "faceDownInspected": "{{ actor }} ha mirado una carta boca abajo.",
       "tapped": "{{ actor }} giró un permanente.",
       "untapped": "{{ actor }} enderezó un permanente."
     },
@@ -1190,7 +1205,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Desglose de tipos",
-      "utilityCounts": "Recuento de utilidad"
+      "utilityCounts": "Recuento de utilidad",
+      "reloadPageForData": "Recarga la página para obtener datos de análisis."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Equilibrio de maná",

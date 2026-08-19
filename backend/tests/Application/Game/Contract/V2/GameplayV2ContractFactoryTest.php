@@ -142,6 +142,39 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertTrue($bootstrap->instances['commander-without-flag']['isCommander'] ?? false);
     }
 
+    public function testBootstrapIncludesPublicHandRevealMarkersWithoutCardIdentity(): void
+    {
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $room = new Room($viewer);
+        $room->addPlayer(new RoomPlayer($room, $viewer));
+        $canonicalSnapshot = $this->projectedSnapshot($viewer);
+        $canonicalSnapshot['players'][$viewer->id()]['zones']['hand'][0]['revealedTo'] = ['another-player'];
+        $canonicalSnapshot['players'][$viewer->id()]['libraryVisibilityEpoch'] = 2;
+        $topLibraryIndex = array_key_last($canonicalSnapshot['players'][$viewer->id()]['zones']['library']);
+        $canonicalSnapshot['players'][$viewer->id()]['zones']['library'][$topLibraryIndex]['revealedTo'] = ['another-player'];
+        $canonicalSnapshot['players'][$viewer->id()]['zones']['library'][$topLibraryIndex]['libraryVisibilityEpoch'] = 2;
+        $game = new Game($room, $canonicalSnapshot);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $this->projectedSnapshot($viewer));
+
+        self::assertSame([0], $bootstrap->players[$viewer->id()]['revealedHandIndexes']);
+        self::assertTrue($bootstrap->players[$viewer->id()]['topLibraryRevealMarker']);
+        self::assertArrayNotHasKey('revealedTo', $bootstrap->players[$viewer->id()]);
+    }
+
+    public function testBootstrapHidesLibraryIdentityUntilTheTopCardIsRevealed(): void
+    {
+        [$game, $viewer] = $this->game();
+        $snapshot = $this->projectedSnapshot($viewer);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+        $libraryZone = $bootstrap->zones[$viewer->id().':library'];
+        $topInstanceId = $libraryZone['instanceIds'][array_key_last($libraryZone['instanceIds'])];
+
+        self::assertTrue($bootstrap->instances[$topInstanceId]['hidden']);
+        self::assertArrayNotHasKey('cardKey', $bootstrap->instances[$topInstanceId]);
+    }
+
     public function testBootstrapUsesSharedStaticRefForGenericTokensAndCompactStackRelations(): void
     {
         [$game, $viewer] = $this->game();
@@ -198,7 +231,7 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('synthetic:bear-token', $bootstrap->instances['token-1']['cardRef'] ?? null);
         self::assertSame('synthetic:bear-token', $bootstrap->instances['token-2']['cardRef'] ?? null);
         self::assertArrayHasKey('synthetic:bear-token', $bootstrap->staticCards);
-        self::assertCount(4, $bootstrap->staticCards);
+        self::assertCount(3, $bootstrap->staticCards);
         self::assertSame('stack-1', $bootstrap->relations['stack'][0]['stackId'] ?? null);
         self::assertSame('battlefield-1', $bootstrap->relations['stack'][0]['sourceInstanceId'] ?? null);
         self::assertArrayNotHasKey('card', $bootstrap->relations['stack'][0]);

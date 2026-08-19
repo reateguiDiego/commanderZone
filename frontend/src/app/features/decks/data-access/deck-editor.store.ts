@@ -102,6 +102,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   readonly lastImportStats = signal<ImportStats | null>(null);
   readonly validation = signal<CommanderValidation | null>(null);
   readonly bracket = signal<DeckBracketEstimate | null>(null);
+  readonly visibleBracket = computed(() => this.deck()?.valid === false ? null : this.bracket());
   readonly activeTab = signal<DeckEditorTab>('analysis');
   readonly viewMode = signal<DeckEditorViewMode>('text');
   readonly importModalOpen = signal(false);
@@ -148,14 +149,26 @@ export class DeckEditorStore implements DeckAnalysisStore {
   });
   readonly deckIssueTooltip = computed(() => this.backendErrorMessages().join('\n'));
   readonly hasDeckIssues = computed(() => this.backendErrorMessages().length > 0);
+  readonly canShowAnalysisTab = computed(() => this.validation()?.valid ?? this.deck()?.valid !== false);
   readonly hasMissingContent = computed(() => (
     this.missingItems().length > 0
     || this.missingSearch() !== null
     || this.missingStore.watchlist().length > 0
   ));
-  readonly visibleActiveTab = computed<DeckEditorTab>(() => (
-    this.activeTab() === 'missing' && !this.hasMissingContent() ? 'analysis' : this.activeTab()
-  ));
+  readonly visibleActiveTab = computed<DeckEditorTab>(() => {
+    const fallbackTab: DeckEditorTab = this.canShowAnalysisTab() ? 'analysis' : 'validation';
+    const activeTab = this.activeTab();
+
+    if (activeTab === 'analysis' && !this.canShowAnalysisTab()) {
+      return 'validation';
+    }
+
+    if (activeTab === 'missing' && !this.hasMissingContent()) {
+      return fallbackTab;
+    }
+
+    return activeTab;
+  });
   readonly typeMetrics = computed(() => {
     const analysis = this.analysis();
     return [
@@ -177,7 +190,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   readonly manaSourceProfiles = computed(() => this.buildManaSourceProfiles());
   readonly manaSourceTotal = computed(() => this.manaSourceProfiles().reduce((sum, profile) => sum + profile.sourceCount, 0));
   readonly manaSourceDonutBackground = computed(() => this.buildManaSourceDonutBackground());
-  readonly deckColorIdentitySymbols = computed(() => this.deckColorIdentity());
+  readonly deckColorIdentitySymbols = computed(() => this.commanderColorIdentitySymbols());
   readonly deckbuilderSearchFilters = computed<CardSearchFilters>(() => {
     const commanderIdentity = this.commanderColorIdentity();
     return commanderIdentity.length > 0 ? { colorIdentity: commanderIdentity } : {};
@@ -1431,6 +1444,19 @@ export class DeckEditorStore implements DeckAnalysisStore {
     return ['W', 'U', 'B', 'R', 'G'].filter((color) => (
       this.analysis().colorProfiles.some((profile) => profile.color === color && profile.count > 0)
     )) as Array<'W' | 'U' | 'B' | 'R' | 'G'>;
+  }
+
+  private commanderColorIdentitySymbols(): string[] {
+    if (this.commanderCards().length === 0) {
+      return [];
+    }
+
+    const commanderColors = this.commanderColorIdentity();
+    if (commanderColors.length > 0) {
+      return commanderColors;
+    }
+
+    return ['1'];
   }
 
   private commanderColorIdentity(): Array<'W' | 'U' | 'B' | 'R' | 'G'> {

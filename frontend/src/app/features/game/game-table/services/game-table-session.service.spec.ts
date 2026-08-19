@@ -124,6 +124,28 @@ describe('GameTableSessionService', () => {
     }));
   });
 
+  it('forwards library reveal callbacks from the live websocket session', async () => {
+    const current = snapshot();
+    const onLibraryRevealed = vi.fn();
+    const onLibraryTopRevealed = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
+
+    await service.load(context(current, vi.fn(), vi.fn(), vi.fn(), vi.fn(), {
+      onLibraryRevealed,
+      onLibraryTopRevealed,
+    }));
+
+    const websocketContext = websocket.start.mock.calls[0]?.[0] as {
+      onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
+      onLibraryTopRevealed?(playerId: string, count: number): void;
+    };
+    websocketContext.onLibraryRevealed?.('player-2', ['player-1']);
+    websocketContext.onLibraryTopRevealed?.('player-2', 3);
+
+    expect(onLibraryRevealed).toHaveBeenCalledWith('player-2', ['player-1']);
+    expect(onLibraryTopRevealed).toHaveBeenCalledWith('player-2', 3);
+  });
+
   it('stops live transports and leaves the table on a terminal room-deleted event', async () => {
     const current = snapshot();
     const navigateToRooms = vi.fn();
@@ -494,7 +516,10 @@ function context(
   navigateToWaitingRoom = vi.fn(),
   navigateToRoomsWithLoadError = vi.fn(),
   setError = vi.fn(),
-  overrides: Partial<Pick<GameTableSessionContext, 'setLoading' | 'refreshViewerControlAccess' | 'onControlPlaneAccepted' | 'navigateToRooms'>> = {},
+  overrides: Partial<Pick<
+    GameTableSessionContext,
+    'setLoading' | 'refreshViewerControlAccess' | 'onControlPlaneAccepted' | 'onLibraryRevealed' | 'onLibraryTopRevealed' | 'navigateToRooms'
+  >> = {},
 ): GameTableSessionContext {
   return {
     gameId: () => 'game-1',
@@ -508,6 +533,8 @@ function context(
     setLoading: overrides.setLoading ?? vi.fn(),
     setError,
     onControlPlaneAccepted: overrides.onControlPlaneAccepted,
+    onLibraryRevealed: overrides.onLibraryRevealed,
+    onLibraryTopRevealed: overrides.onLibraryTopRevealed,
     refreshViewerControlAccess: overrides.refreshViewerControlAccess,
     navigateToRooms: overrides.navigateToRooms ?? vi.fn(),
     navigateToRoomsWithLoadError,

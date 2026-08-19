@@ -78,6 +78,10 @@ export interface GameTableNormalizedV2PlayerState {
   concededAt?: string | null;
   mulligan?: GamePlayerMulliganState;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
+  revealedLibraryTo?: string[];
+  revealedHandIndexes?: number[];
 }
 
 export interface GameTableNormalizedV2RelationsState {
@@ -184,6 +188,24 @@ export class GameTableNormalizedV2Store {
       ...result,
       snapshot,
     };
+  }
+
+  mergeStaticCards(staticCards: Record<string, BootstrapStaticCardV2>): GameSnapshot | null {
+    const currentState = this.state();
+    const entries = Object.entries(staticCards);
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextStaticCards = { ...currentState.staticCards };
+    for (const [cardRef, staticCard] of entries) {
+      nextStaticCards[cardRef] = mergeStaticCard(nextStaticCards[cardRef], staticCard);
+    }
+
+    const nextState = { ...currentState, staticCards: nextStaticCards };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
   }
 
   /** Applies Symfony control-plane state without advancing a Go gameplay version. */
@@ -485,10 +507,34 @@ function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
 }
 
 function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
+  if (patch.ops.length === 0) {
+    return false;
+  }
+
+  // Public reveal markers can be delivered independently from a private
+  // identity/audience patch at the same version. They are scalar, idempotent
+  // UI state, so they must not require the command acknowledgement.
+  if (patch.ops.every(isIdempotentVisibilityOperation)) {
+    return true;
+  }
+
   return typeof patch.ackClientActionId === 'string'
     && patch.ackClientActionId.trim() !== ''
-    && patch.ops.length > 0
     && patch.ops.every(isSameVersionVisibilityMergeOperation);
+}
+
+function isIdempotentVisibilityOperation(operation: GameplayPatchV2Operation): boolean {
+  return operation.op === 'hand.reveal_marker.set'
+    || operation.op === 'hand.reveal_marker.clear'
+    || operation.op === 'library.top.reveal_marker.set'
+    // The selected opponent can receive this private identity patch after the
+    // public version carrier. It has no side effects beyond replacing the
+    // visible top-card identities, so merging it at the same version is safe.
+    || operation.op === 'library.top.revealed'
+    // Full-library identity is sent only to the selected audience. It may
+    // arrive after the public version carrier on that recipient, so it must be
+    // mergeable without the actor's acknowledgement.
+    || operation.op === 'library.revealed.set';
 }
 
 function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
@@ -500,6 +546,10 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'zone.cards.batchMove':
     case 'zone.count.set':
     case 'library.count.set':
+    case 'hand.reveal_marker.set':
+    case 'hand.reveal_marker.clear':
+    case 'library.top.reveal_marker.set':
+    case 'library.top.reveal_audience.set':
     case 'library.top.revealed':
     case 'library.top.viewed':
     case 'library.revealed.set':
@@ -611,16 +661,24 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       };
     }
 
-    case 'card.field.set':
-      return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
+    case 'card.field.set': {
+      const result = updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
         ...instance,
         ...(operation.tapped !== undefined ? { tapped: operation.tapped } : {}),
         ...(operation.rotation !== undefined ? { rotation: operation.rotation } : {}),
         ...(operation.faceDown !== undefined ? { faceDown: operation.faceDown } : {}),
         ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
+        ...(operation.faceDown === false && operation.hidden === false && operation.cardKey
+          ? { staticCardPending: !operation.staticCard }
+          : {}),
         ...(operation.cardKey !== undefined && operation.cardKey !== null ? { cardKey: operation.cardKey, cardRef: operation.cardKey } : {}),
+        ...(operation.printId !== undefined && operation.printId !== null ? { printId: operation.printId } : {}),
+        ...(operation.cardVersion !== undefined && operation.cardVersion !== null ? { cardVersion: operation.cardVersion } : {}),
+        ...(operation.language !== undefined && operation.language !== null ? { language: operation.language } : {}),
+        ...(operation.viewerVisibility !== undefined && operation.viewerVisibility !== null ? { viewerVisibility: operation.viewerVisibility } : {}),
         ...(operation.controllerId !== undefined ? { controllerId: operation.controllerId } : {}),
-        ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
+        ...(operation.revealedTo !== undefined ? { revealedTo: Array.isArray(operation.revealedTo) ? [...operation.revealedTo] : [] } : {}),
+        ...(operation.revealMarker !== undefined ? { revealMarker: operation.revealMarker } : {}),
         ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
         ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker } : {}),
         ...(operation.activeFaceIndex !== undefined ? { activeFaceIndex: operation.activeFaceIndex } : {}),
@@ -630,6 +688,33 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
         ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
         ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        ...(operation.staticCard ? { staticCardPending: false } : {}),
+      }));
+      if (result.status === 'failed' || !operation.staticCard) {
+        return result;
+      }
+      return {
+        status: 'applied',
+        state: {
+          ...result.state,
+          staticCards: {
+            ...result.state.staticCards,
+            [operation.staticCard.cardRef]: mergeStaticCard(result.state.staticCards[operation.staticCard.cardRef], operation.staticCard),
+          },
+        },
+      };
+    }
+
+    case 'hand.reveal_marker.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        revealedHandIndexes: setRevealedHandIndex(player.revealedHandIndexes, operation.index, operation.revealed),
+      }));
+
+    case 'hand.reveal_marker.clear':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        revealedHandIndexes: clearRevealedHandIndexes(player.revealedHandIndexes, operation.indexes),
       }));
 
     case 'card.counters.patch':
@@ -673,14 +758,41 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     case 'library.count.set':
       return setZoneCount(state, operation.playerId, 'library', operation.count);
 
+    case 'library.top.reveal_marker.set':
+      return updatePlayer(state, operation.playerId, (player) => ({ ...player, topLibraryRevealMarker: operation.revealed }));
+
+    case 'library.top.reveal_audience.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        topLibraryRevealedTo: Array.isArray(operation.revealedTo) ? [...operation.revealedTo] : [],
+      }));
+
     case 'library.top.revealed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
 
     case 'library.top.viewed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
 
-    case 'library.revealed.set':
-      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+    case 'library.revealed.set': {
+      const result = revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+      if (result.status === 'failed' || operation.revealedTo === undefined) {
+        return result;
+      }
+      const player = result.state.players[operation.playerId];
+      return !player ? result : {
+        status: 'applied',
+        state: {
+          ...result.state,
+          players: {
+            ...result.state.players,
+            [operation.playerId]: { ...player, revealedLibraryTo: [...operation.revealedTo] },
+          },
+        },
+      };
+    }
+
+    case 'player.library.visibility.set':
+      return setPlayerLibraryVisibility(state, operation);
 
     case 'library.play_top_revealed.set':
       return setPlayTopLibraryRevealed(state, operation.playerId, operation.enabled);
@@ -1206,6 +1318,9 @@ function moveOneCard(
       );
     }
     nextInstance = completeInstanceIdentity(nextInstance, nextStaticCards[nextInstance.cardRef]);
+    if (operation.from.zone === 'hand' && operation.to.zone !== 'hand') {
+      nextInstance = { ...nextInstance, revealedTo: undefined };
+    }
     nextInstances[operation.instanceId] = nextInstance;
   } else {
     const existing = nextInstances[operation.instanceId];
@@ -1216,6 +1331,7 @@ function moveOneCard(
       ...existing,
       zoneId: zoneId(operation.to.playerId, operation.to.zone),
       position: battlefieldPositionForZone(operation.to.zone, existing.position, existing.position),
+      ...(operation.from.zone === 'hand' && operation.to.zone !== 'hand' ? { revealedTo: undefined } : {}),
     };
   }
 
@@ -1440,6 +1556,31 @@ function clearKnownLibraryOrder(
         [playerId]: {
           ...playerZones,
           library: [],
+        },
+      },
+    },
+  };
+}
+
+function setPlayerLibraryVisibility(
+  state: GameTableNormalizedV2State,
+  operation: Extract<GameplayPatchV2Operation, { op: 'player.library.visibility.set' }>,
+): OperationApplyResult {
+  const player = state.players[operation.playerId];
+  if (!player) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      players: {
+        ...state.players,
+        [operation.playerId]: {
+          ...player,
+          ...(operation.playTopLibraryRevealed === undefined ? {} : { playTopLibraryRevealed: operation.playTopLibraryRevealed }),
+          ...(operation.revealedLibraryTo === undefined ? {} : { revealedLibraryTo: [...operation.revealedLibraryTo] }),
         },
       },
     },
@@ -2025,6 +2166,9 @@ function hydratePlayerState(
     handCount: zoneCounts.hand ?? player.handCount,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
     playTopLibraryRevealed: player.playTopLibraryRevealed,
+    topLibraryRevealMarker: player.topLibraryRevealMarker,
+    topLibraryRevealedTo: player.topLibraryRevealedTo ? [...player.topLibraryRevealedTo] : undefined,
+    revealedHandIndexes: player.revealedHandIndexes ? [...player.revealedHandIndexes] : undefined,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
   };
@@ -2046,7 +2190,9 @@ function hydrateCardInstance(
     instanceId,
     ownerId: instance.ownerId ?? undefined,
     controllerId: instance.controllerId ?? undefined,
-    scryfallId: staticCard?.scryfallId ?? undefined,
+    // Owners retain the private print identity for an explicit face-down
+    // inspection, while public projections never contain these fields.
+    scryfallId: staticCard?.scryfallId ?? instance.printId ?? instance.cardKey ?? undefined,
     name: staticCard?.name ?? 'Card',
     imageUris: toLegacyImageUris(staticCard?.imageUris),
     cardFaces: staticCard?.cardFaces ?? undefined,
@@ -2069,6 +2215,7 @@ function hydrateCardInstance(
     dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
+    revealMarker: instance.revealMarker ?? undefined,
     position: instance.position ?? undefined,
     rotation: instance.rotation ?? 0,
     counters: instance.counters ? { ...instance.counters } : undefined,
@@ -2136,8 +2283,33 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     backgroundName: player.backgroundName ?? null,
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
+    topLibraryRevealMarker: player.topLibraryRevealMarker ?? false,
+    topLibraryRevealedTo: player.topLibraryRevealedTo ? [...player.topLibraryRevealedTo] : [],
+    revealedHandIndexes: player.revealedHandIndexes ? [...player.revealedHandIndexes] : [],
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
   };
+}
+
+function setRevealedHandIndex(indexes: readonly number[] | undefined, index: number, revealed: boolean): number[] {
+  const current = new Set(indexes ?? []);
+  if (revealed) {
+    current.add(index);
+  } else {
+    current.delete(index);
+  }
+
+  return [...current].sort((left, right) => left - right);
+}
+
+function clearRevealedHandIndexes(indexes: readonly number[] | undefined, removedIndexes: readonly number[]): number[] {
+  const removed = [...new Set(removedIndexes)].sort((left, right) => left - right);
+  if (removed.length === 0) {
+    return [...(indexes ?? [])];
+  }
+
+  return (indexes ?? [])
+    .filter((index) => !removed.includes(index))
+    .map((index) => index - removed.filter((removedIndex) => removedIndex < index).length);
 }
 
 function normalizeInstance(instance: BootstrapInstanceV2): BootstrapInstanceV2 {
@@ -2594,10 +2766,6 @@ function assertRenderableIdentity(
     return;
   }
 
-  if (!staticCard) {
-    throw new Error(`Identity contract violation: visible card ${instanceId} has no static card for ${instance.cardRef}.`);
-  }
-
   const requiredIdentity: Array<[string, string | null | undefined]> = [
     ['cardKey', instance.cardKey],
     ['printId', instance.printId],
@@ -2608,6 +2776,17 @@ function assertRenderableIdentity(
   const missingInstanceField = requiredIdentity.find(([, value]) => value === undefined || value === null || value.trim() === '');
   if (missingInstanceField) {
     throw new Error(`Identity contract violation: visible card ${instanceId} is missing ${missingInstanceField[0]} for ${instance.cardRef}.`);
+  }
+
+  // A face-up transition may arrive before its static-card cache update.
+  // Keep that one valid identity renderable as a temporary Card placeholder
+  // instead of rejecting the patch and forcing a snapshot resync.
+  if (!staticCard && instance.staticCardPending === true) {
+    return;
+  }
+
+  if (!staticCard) {
+    throw new Error(`Identity contract violation: visible card ${instanceId} has no static card for ${instance.cardRef}.`);
   }
 
   const staticIdentity: Array<[string, string | null | undefined]> = [

@@ -292,6 +292,24 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'library.reveal':
+                $this->applyRuntimeLibraryReveal($snapshot, $payload);
+
+                return true;
+
+            case 'library.reveal_top':
+                $this->applyRuntimeLibraryTopReveal($snapshot, $payload);
+
+                return true;
+
+            case 'library.play_top_revealed':
+                $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
+                if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
+                    $snapshot['players'][$playerId]['playTopLibraryRevealed'] = ($payload['enabled'] ?? true) === true;
+                }
+
+                return true;
+
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
@@ -665,6 +683,39 @@ final class GameEventReplayService
             $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
         }
         $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyRuntimeLibraryReveal(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = $viewers !== [] ? $viewers : ['all'];
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyRuntimeLibraryTopReveal(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        foreach ($this->stringList($payload['instanceIds'] ?? []) as $instanceId) {
+            $card =& $this->locateCard($snapshot, $instanceId);
+            if (is_array($card)) {
+                $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+            }
+        }
     }
 
     /**

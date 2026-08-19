@@ -38,6 +38,58 @@ describe('DeckListCardComponent', () => {
     expect(element.querySelector('button')).toBeNull();
   });
 
+  it('hides the bracket for an invalid deck even when a bracket is present', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Invalid Deck',
+      format: 'commander',
+      valid: false,
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('bracket', { bracket: 3, label: 'Upgraded' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bracket-label-pill')).toBeNull();
+  });
+
+  it('does not render commander colors when the deck has no color identity', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'No Commander Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('colorIdentity', []);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.deck-commander-colors')).toBeNull();
+    expect(element.textContent).not.toContain('deckBuilder.deckList.colorFilter.colorless');
+  });
+
+  it('renders a generic mana symbol for a colorless commander identity', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Colorless Commander Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('colorIdentity', ['1']);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.deck-commander-colors .ms-1')).not.toBeNull();
+  });
+
   it('renders a crawlable deck link when a deck href is provided', () => {
     const fixture = TestBed.createComponent(DeckListCardComponent);
     fixture.componentRef.setInput('deck', {

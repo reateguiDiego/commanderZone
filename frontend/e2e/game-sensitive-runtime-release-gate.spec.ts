@@ -4,6 +4,9 @@ import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './suppo
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const REQUIRE_DEBUG_HEALTH = isTruthy(
+  process.env['E2E_REQUIRE_DEBUG_HEALTH'] ?? process.env['GAME_DEBUG_HEALTH_ENABLED'],
+);
 
 type JsonObject = Record<string, unknown>;
 type Setup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
@@ -89,6 +92,29 @@ test.describe('sensitive privacy runtime release gate', () => {
       expect(JSON.stringify(latestPatch(framesB))).not.toContain('cardKey');
       expect(snapshotRefetches).toBe(refetchBaseline);
 
+      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesB, {
+        gameId,
+        baseVersion: nextBaseVersion,
+        type: 'library.reveal',
+        payload: { playerId: playerA.user.id, to: playerB.user.id },
+        ownerPatch: (patch) => hasOp(patch, 'library.revealed.set') && JSON.stringify(patch).includes('cardKey'),
+      });
+      await expect(pageB.getByTestId('zone-modal')).toBeVisible({ timeout: 20_000 });
+      await expect(pageB.getByTestId('zone-modal')).toContainText('cards');
+      await pageB.getByTestId('zone-modal-close').click();
+
+      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesB, {
+        gameId,
+        baseVersion: nextBaseVersion,
+        type: 'library.reveal_top',
+        payload: { playerId: playerA.user.id, count: 3, to: playerB.user.id },
+        ownerPatch: (patch) => hasOp(patch, 'library.top.revealed') && JSON.stringify(patch).includes('cardKey'),
+      });
+      await expect(pageB.getByTestId('zone-modal')).toBeVisible({ timeout: 20_000 });
+      await expect(pageB.getByTestId('zone-modal')).toContainText('top 3 library cards');
+      await expect(pageB.getByTestId('zone-modal').getByRole('button', { name: /revealed/i })).toHaveCount(0);
+      await pageB.getByTestId('zone-modal-close').click();
+
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
@@ -132,12 +158,14 @@ test.describe('sensitive privacy runtime release gate', () => {
       });
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      for (const commandType of ['card.face_down.changed', 'card.revealed', 'card.controller.changed', 'library.reveal', 'library.play_top_revealed']) {
-        const health = await waitForActionHealth(debug.frames, commandType);
-        const phases = latestActionPhases(health, commandType);
-        expect(phases?.['gameplay.runtime_route']).toBe(1);
-        expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
-        expect(phases?.['gameplay.runtime_error_count']).toBe(0);
+      if (debug.enabled) {
+        for (const commandType of ['card.face_down.changed', 'card.revealed', 'card.controller.changed', 'library.reveal', 'library.play_top_revealed']) {
+          const health = await waitForActionHealth(debug.frames, commandType);
+          const phases = latestActionPhases(health, commandType);
+          expect(phases?.['gameplay.runtime_route']).toBe(1);
+          expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
+          expect(phases?.['gameplay.runtime_error_count']).toBe(0);
+        }
       }
       expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
       expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
@@ -145,7 +173,7 @@ test.describe('sensitive privacy runtime release gate', () => {
       expect(framesB.some((message) => message['kind'] === 'resync_required')).toBe(false);
 
       await commandPage.close();
-      await debug.page.close();
+      await debug.page?.close();
     } finally {
       await contextA.close();
       await contextB.close();
@@ -209,7 +237,16 @@ function collectWebSocketFrames(page: Page): JsonObject[] {
   return frames;
 }
 
-async function openDebugObserver(context: BrowserContext, request: APIRequestContext, gameId: string, token: string): Promise<{ page: Page; frames: JsonObject[] }> {
+async function openDebugObserver(
+  context: BrowserContext,
+  request: APIRequestContext,
+  gameId: string,
+  token: string,
+): Promise<{ page?: Page; frames: JsonObject[]; enabled: boolean }> {
+  if (!REQUIRE_DEBUG_HEALTH) {
+    return { frames: [], enabled: false };
+  }
+
   const ticket = await websocketTicket(request, gameId, token);
   const url = new URL(ticket.websocketUrl);
   const basePath = url.pathname.replace(/\/games\/[^/]+\/?$/, '');
@@ -223,7 +260,7 @@ async function openDebugObserver(context: BrowserContext, request: APIRequestCon
     (window as unknown as { __commanderZoneDebugSocket?: WebSocket }).__commanderZoneDebugSocket = socket;
   }, url.toString());
   await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
-  return { page: debugPage, frames };
+  return { page: debugPage, frames, enabled: true };
 }
 
 async function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
@@ -412,4 +449,8 @@ function parseFrame(payload: string | Buffer): JsonObject | null {
   } catch {
     return null;
   }
+}
+
+function isTruthy(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((value ?? '').trim().toLowerCase());
 }

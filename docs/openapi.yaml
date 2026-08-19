@@ -1176,6 +1176,33 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Card'
+  /cards/bulk:
+    get:
+      tags: [Cards]
+      security: []
+      summary: Get multiple cards by Scryfall id in one request.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated Scryfall ids (1 to 100).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved cards in the requested order. Unknown ids are omitted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cards]
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/Error'
   /cards/{scryfallId}:
     get:
       tags: [Cards]

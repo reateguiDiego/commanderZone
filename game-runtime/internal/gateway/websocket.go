@@ -1404,7 +1404,8 @@ func canReceive(claims TicketClaims, visibility protocol.Visibility) bool {
 		return playerID != "" && (claims.PlayerID == playerID || claims.UserID == playerID || hasRole(claims, "admin"))
 	}
 	if strings.HasPrefix(value, "group:") {
-		return hasRole(claims, value) || hasRole(claims, "admin")
+		mask, err := strconv.ParseUint(strings.TrimPrefix(value, "group:"), 10, 64)
+		return (err == nil && mask > 0 && (claims.ViewerMask&mask) != 0) || hasRole(claims, "admin")
 	}
 	return false
 }

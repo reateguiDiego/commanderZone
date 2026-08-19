@@ -3,6 +3,7 @@
 namespace App\Application\Game\Contract\V2;
 
 use App\Application\Game\GameControlPlaneProjection;
+use App\Application\Game\GameLibraryOps;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -115,7 +116,8 @@ final class GameplayV2ContractFactory
         $requiredStaticCards = [];
         $knownStaticCatalogKeys = $this->knownStaticCatalogKeySet($knownStaticCatalogKeys);
         $language = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
-        $compactRuntime = $this->compactRuntimeBootstrapData($game->snapshot());
+        $canonicalSnapshot = $game->snapshot();
+        $compactRuntime = $this->compactRuntimeBootstrapData($canonicalSnapshot);
         $cardCatalog = [
             ...$compactRuntime['cardCatalog'],
             ...(is_array($projectedSnapshot['cardCatalog'] ?? null) ? $projectedSnapshot['cardCatalog'] : []),
@@ -134,10 +136,22 @@ final class GameplayV2ContractFactory
 
                 $zoneId = sprintf('%s:%s', $playerId, $zoneName);
                 $instanceIds = [];
+                $topLibraryCard = $zoneName === 'library' ? ($cards[array_key_last($cards)] ?? null) : null;
+                $topLibraryInstanceId = is_array($topLibraryCard)
+                    ? trim((string) ($topLibraryCard['instanceId'] ?? ''))
+                    : '';
                 foreach ($cards as $card) {
                     if (!is_array($card)) {
                         continue;
                     }
+                    $card = $this->cardVisibleToViewer(
+                        $card,
+                        $playerId,
+                        $zoneName,
+                        $viewer->id(),
+                        $topLibraryInstanceId,
+                        ($player['playTopLibraryRevealed'] ?? false) === true,
+                    );
                     $card = $this->withCompactRuntimeIdentity(
                         $card,
                         $compactRuntime['instances'],
@@ -186,6 +200,11 @@ final class GameplayV2ContractFactory
                 'colorIdentity' => is_array($player['colorIdentity'] ?? null) ? array_values($player['colorIdentity']) : [],
                 'backgroundName' => is_string($player['backgroundName'] ?? null) ? $player['backgroundName'] : null,
                 'sleevesName' => is_string($player['sleevesName'] ?? null) ? $player['sleevesName'] : null,
+                'revealedHandIndexes' => $this->revealedHandIndexes($canonicalSnapshot, $playerId),
+                'topLibraryRevealMarker' => $this->topLibraryRevealMarker($canonicalSnapshot, $playerId),
+                'topLibraryRevealedTo' => $viewer->id() === $playerId
+                    ? $this->topLibraryRevealedTo($canonicalSnapshot, $playerId)
+                    : [],
                 'mulligan' => is_array($player['mulligan'] ?? null) ? $player['mulligan'] : null,
             ];
         }
@@ -238,6 +257,105 @@ final class GameplayV2ContractFactory
         $payload['payloadBytes'] = $this->jsonBytes($payload);
 
         return BootstrapV2::fromArray($payload);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return list<int>
+     */
+    private function revealedHandIndexes(array $snapshot, string $playerId): array
+    {
+        $hand = $snapshot['players'][$playerId]['zones']['hand'] ?? [];
+        if (!is_array($hand)) {
+            return [];
+        }
+
+        $indexes = [];
+        foreach ($hand as $index => $card) {
+            if (is_array($card) && is_array($card['revealedTo'] ?? null) && $card['revealedTo'] !== []) {
+                $indexes[] = $index;
+            }
+        }
+
+        return $indexes;
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function topLibraryRevealMarker(array $snapshot, string $playerId): bool
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
+            return false;
+        }
+
+        $library = $player['zones']['library'] ?? [];
+        if (!is_array($library) || $library === []) {
+            return false;
+        }
+
+        $topCard = $library[array_key_last($library)] ?? null;
+        $currentEpoch = (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 0);
+
+        return is_array($topCard)
+            && (
+                ($player['playTopLibraryRevealed'] ?? false) === true
+                || (
+                    is_array($topCard['revealedTo'] ?? null)
+                    && $topCard['revealedTo'] !== []
+                    && (int) ($topCard[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] ?? 0) === $currentEpoch
+                )
+            );
+    }
+
+    /** @param array<string,mixed> $snapshot
+     *  @return list<string>
+     */
+    private function topLibraryRevealedTo(array $snapshot, string $playerId): array
+    {
+        $library = $snapshot['players'][$playerId]['zones']['library'] ?? null;
+        if (!is_array($library) || $library === []) {
+            return [];
+        }
+
+        $topCard = $library[array_key_last($library)] ?? null;
+        $revealedTo = is_array($topCard) ? ($topCard['revealedTo'] ?? null) : null;
+
+        return is_array($revealedTo)
+            ? array_values(array_filter($revealedTo, static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''))
+            : [];
+    }
+
+    /** @param array<string,mixed> $card
+     *  @return array<string,mixed>
+     */
+    private function cardVisibleToViewer(
+        array $card,
+        string $playerId,
+        string $zoneName,
+        string $viewerId,
+        string $topLibraryInstanceId,
+        bool $playTopLibraryRevealed,
+    ): array {
+        if ($zoneName !== 'library') {
+            return $card;
+        }
+
+        $instanceId = trim((string) ($card['instanceId'] ?? ''));
+        $revealedTo = is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [];
+        $isRevealedToViewer = in_array($viewerId, $revealedTo, true);
+        $isPublicTop = $playTopLibraryRevealed && $instanceId !== '' && $instanceId === $topLibraryInstanceId;
+        if ($isRevealedToViewer || $isPublicTop) {
+            return $card;
+        }
+
+        return [
+            'instanceId' => $instanceId,
+            'ownerId' => $card['ownerId'] ?? $playerId,
+            'controllerId' => $card['controllerId'] ?? $playerId,
+            'hidden' => true,
+            'faceDown' => true,
+        ];
     }
 
     /**

@@ -82,6 +82,7 @@
                 [layerImage]="layerImage"
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
+                [showRevealIndicator]="zone === 'library' && isLibraryTopRevealMarked(currentPlayer)"
               />
             }
           }

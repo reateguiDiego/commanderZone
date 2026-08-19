@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../../core/api/cards.api';
-import type { Card } from '../../../../core/models/card.model';
-import type { GameCompactCardRef, GameSpecialEntity, GameSpecialEntityCardRef, GameZoneName } from '../../../../core/models/game.model';
+import type { Card, CardImageUris } from '../../../../core/models/card.model';
+import type { GameCardInstance, GameCompactCardRef, GameSpecialEntity, GameSpecialEntityCardRef, GameZoneName } from '../../../../core/models/game.model';
 import type {
   BootstrapInstanceV2,
   BootstrapStaticCardV2,
@@ -25,7 +25,10 @@ export class GameTableStaticCardResolverV2Service {
   private readonly cardsApi = inject(CardsApi);
   private readonly cardByPrintId = new Map<string, Promise<Card | null>>();
 
-  async hydratePatch(patch: PatchV2Message, state: GameTableNormalizedV2State | null): Promise<PatchV2Message> {
+  async hydratePatch(
+    patch: PatchV2Message,
+    state: GameTableNormalizedV2State | null,
+  ): Promise<PatchV2Message> {
     const staticCards = state?.staticCards ?? {};
     const hydratedOps = await Promise.all(
       patch.ops.map((operation) => this.hydrateOperation(operation, staticCards)),
@@ -41,11 +44,44 @@ export class GameTableStaticCardResolverV2Service {
     };
   }
 
+  async resolveOwnerFaceDownPreviewImage(card: GameCardInstance): Promise<string | null> {
+    const existingImage = previewImageUri(card.imageUris) ?? previewImageUri(card.cardFaces?.[card.activeFaceIndex ?? 0]?.imageUris);
+    if (existingImage) {
+      return existingImage;
+    }
+
+    const printId = this.catalogPrintId(this.trimmed(card.scryfallId));
+    if (!printId) {
+      return null;
+    }
+
+    const apiCard = await this.cardForPrintId(printId);
+    return apiCard ? previewImageUri(apiCard.imageUris) ?? previewImageUri(apiCard.cardFaces?.[0]?.imageUris) : null;
+  }
+
   private async hydrateOperation(
     operation: GameplayPatchV2Operation,
     stateStaticCards: Record<string, BootstrapStaticCardV2>,
   ): Promise<GameplayPatchV2Operation> {
     switch (operation.op) {
+      case 'card.field.set': {
+        if (operation.hidden === true || !operation.cardKey) {
+          return operation;
+        }
+        const card: RuntimeCardRef = {
+          instanceId: operation.instanceId,
+          cardKey: operation.cardKey,
+          cardRef: operation.cardKey,
+          printId: operation.printId ?? operation.cardKey.replace(/:card$/, ''),
+          cardVersion: operation.cardVersion,
+          language: operation.language,
+          viewerVisibility: operation.viewerVisibility,
+          hidden: operation.hidden,
+        };
+        const staticCard = await this.resolveStaticCardForCard(card, operation.zone, {}, stateStaticCards);
+        return staticCard ? { ...operation, staticCard } : operation;
+      }
+
       case 'zone.cards.add': {
         const resolved = await this.resolveStaticCardsForCards(
           operation.cards,
@@ -188,21 +224,47 @@ export class GameTableStaticCardResolverV2Service {
     stateStaticCards: Record<string, BootstrapStaticCardV2>,
   ): Promise<Record<string, BootstrapStaticCardV2>> {
     const resolved: Record<string, BootstrapStaticCardV2> = {};
-
-    for (const card of cards) {
-      const staticCard = await this.resolveStaticCardForCard(
+    if (zone !== 'library') {
+      const staticCards = await Promise.all(cards.map((card) => this.resolveStaticCardForCard(
         card,
         zone,
-        { ...operationStaticCards, ...resolved },
+        operationStaticCards,
         stateStaticCards,
-      );
-      if (staticCard) {
-        resolved[this.staticCardMapKey(staticCard, this.cardRef(card))] = staticCard;
+      )));
+      for (let index = 0; index < cards.length; index += 1) {
+        const card = cards[index];
+        const staticCard = staticCards[index];
+        if (staticCard) {
+          resolved[this.staticCardMapKey(staticCard, this.cardRef(card!))] = staticCard;
+        }
+      }
+
+      return resolved;
+    }
+
+    const unresolvedCards = cards.filter((card) => {
+      if (card.hidden === true || card.faceDown === true) {
+        return false;
+      }
+
+      const existing = this.staticCardForCard(card, operationStaticCards, stateStaticCards);
+      return !(existing && this.hasRenderableStaticContent(existing));
+    });
+    const apiCardsByPrintId = await this.cardsForPrintIds(unresolvedCards.map((card) => this.printId(card)));
+
+    for (const card of unresolvedCards) {
+      const printId = this.printId(card);
+      const cardRef = this.cardRef(card);
+      const apiCard = apiCardsByPrintId.get(printId);
+      if (apiCard && cardRef) {
+        const staticCard = this.staticCardFromApiCard(card, apiCard, zone);
+        resolved[this.staticCardMapKey(staticCard, cardRef)] = staticCard;
       }
     }
 
     return resolved;
   }
+
 
   private async resolveStaticCardForCard(
     card: RuntimeCardRef,
@@ -255,6 +317,45 @@ export class GameTableStaticCardResolverV2Service {
     }
 
     return card;
+  }
+
+  private async cardsForPrintIds(printIds: readonly string[]): Promise<Map<string, Card>> {
+    const ids = [...new Set(printIds.map((printId) => printId.trim()).filter(Boolean))];
+    const cardsByPrintId = new Map<string, Card>();
+    const missingIds: string[] = [];
+
+    await Promise.all(ids.map(async (printId) => {
+      const cached = this.cardByPrintId.get(printId);
+      if (!cached) {
+        missingIds.push(printId);
+        return;
+      }
+
+      const card = await cached;
+      if (card) {
+        cardsByPrintId.set(printId, card);
+      }
+    }));
+
+    if (missingIds.length === 0) {
+      return cardsByPrintId;
+    }
+
+    try {
+      const response = await firstValueFrom(this.cardsApi.getManySilently(missingIds));
+      const resolvedByPrintId = new Map(response.cards.map((card) => [card.scryfallId, card]));
+      for (const printId of missingIds) {
+        const card = resolvedByPrintId.get(printId) ?? null;
+        this.cardByPrintId.set(printId, Promise.resolve(card));
+        if (card) {
+          cardsByPrintId.set(printId, card);
+        }
+      }
+    } catch {
+      // Keep a failed lookup retryable instead of permanently caching a miss.
+    }
+
+    return cardsByPrintId;
   }
 
   private staticCardFromApiCard(card: RuntimeCardRef, apiCard: Card, zone: GameZoneName): BootstrapStaticCardV2 {
@@ -432,4 +533,19 @@ export class GameTableStaticCardResolverV2Service {
   private trimmed(value: string | null | undefined): string {
     return typeof value === 'string' ? value.trim() : '';
   }
+}
+
+function previewImageUri(imageUris: CardImageUris | Record<string, string> | undefined): string | null {
+  if (!imageUris) {
+    return null;
+  }
+
+  for (const size of ['normal', 'large', 'png', 'small'] as const) {
+    const uri = imageUris[size]?.trim();
+    if (uri) {
+      return uri;
+    }
+  }
+
+  return null;
 }

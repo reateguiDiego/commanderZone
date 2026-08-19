@@ -36,8 +36,8 @@
 
   <div class="deck-card-topline">
     <strong>{{ deck().name }}</strong>
-    @if (colorIdentity(); as colors) {
-      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="deckBuilder.deckList.colorFilter.colorless" size="small" />
+    @if (visibleColorIdentity(); as colors) {
+      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="" size="small" />
     }
   </div>
 
@@ -56,7 +56,7 @@
 
   <div class="deck-card-footer">
     <div class="deck-card-badges">
-      <app-bracket-label-pill [bracket]="bracket()" />
+      <app-bracket-label-pill [bracket]="visibleBracket()" />
       @if (showVisibility()) {
         <app-tooltip [text]="visibilityLabelKey(deck().visibility) | runtimeTranslate">
           <span

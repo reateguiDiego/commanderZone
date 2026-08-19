@@ -93,6 +93,43 @@ describe('GameTableUiState', () => {
     expect(state.activeHoveredSelection()).toEqual({ playerId: 'player-1', zone: 'battlefield', card });
   });
 
+  it('keeps the owner-only face-down inspection flag on a pinned preview', () => {
+    const state = new GameTableUiState();
+    const card = { ...gameCard(), faceDown: true };
+
+    state.showPinnedCardPreview(card, () => false, 'player-1', 'battlefield', true);
+
+    expect(state.hoveredPreview()).toEqual(expect.objectContaining({
+      card,
+      revealFaceDownCard: true,
+    }));
+  });
+
+  it('opens an owner-authorized preview for a hidden face-down card', () => {
+    const state = new GameTableUiState();
+    const card = { ...gameCard(), hidden: true, faceDown: true };
+
+    state.showPinnedCardPreview(card, () => false, 'player-1', 'battlefield', true);
+
+    expect(state.hoveredPreview()).toEqual(expect.objectContaining({
+      card,
+      revealFaceDownCard: true,
+    }));
+  });
+
+  it('does not show a face-down card from passive hover or a generic pinned preview', () => {
+    vi.useFakeTimers();
+    const state = new GameTableUiState();
+    const card = { ...gameCard(), faceDown: true };
+
+    state.showCardPreview(card, () => false, 'player-1', 'battlefield');
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    state.showImmediateCardPreview({ card, playerId: 'player-1', zone: 'battlefield', sourceRect: null }, () => false);
+    state.showPinnedCardPreview(card, () => false, 'player-1', 'battlefield');
+
+    expect(state.hoveredPreview()).toBeNull();
+  });
+
   it('clears a pinned preview explicitly', () => {
     const state = new GameTableUiState();
 

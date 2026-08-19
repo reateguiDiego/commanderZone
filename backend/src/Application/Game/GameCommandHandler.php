@@ -1718,6 +1718,11 @@ class GameCommandHandler
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        if (($payload['revealed'] ?? true) === false) {
+            $card['revealedTo'] = [];
+
+            return 'ha dejado de revelar una carta.';
+        }
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
         $card['revealedTo'] = $targets;
 
@@ -5192,6 +5197,14 @@ class GameCommandHandler
     public function v2LibraryRevealTopData(array &$snapshot, array $payload): array
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
+        if (($payload['stop'] ?? false) === true) {
+            $this->libraryOps->clearReveals($snapshot['players'][$playerId]);
+            return [
+                'log' => 'Stopped revealing the top library card.',
+                'eventPayload' => ['playerId' => $playerId, 'stop' => true],
+                'operations' => [['op' => 'library.top.reveal_marker.set', 'playerId' => $playerId, 'revealed' => false]],
+            ];
+        }
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
         $revealed = $this->libraryOps->revealTop($snapshot['players'][$playerId], $count, $targets);
@@ -5202,7 +5215,13 @@ class GameCommandHandler
             'count' => $revealed,
             'cards' => $cards,
         ];
+        $markerOperation = [
+            'op' => 'library.top.reveal_marker.set',
+            'playerId' => $playerId,
+            'revealed' => $revealed > 0,
+        ];
         $emitter = new CommandV2\PatchEmitterV2();
+        $emitter->emitPublic($markerOperation);
         if (in_array('all', $targets, true)) {
             $emitter->emitPublic($operation);
         } elseif (count($targets) === 1) {
@@ -5213,6 +5232,24 @@ class GameCommandHandler
                 $emitter->emitGroup($mask, $operation);
             }
         }
+        $replayEntries = [[
+            'visibility' => 'public',
+            'op' => $markerOperation,
+        ]];
+        $replayEntries[] = in_array('all', $targets, true)
+            ? [
+                'visibility' => 'public',
+                'op' => $operation,
+            ]
+            : (count($targets) === 1
+                ? [
+                    'visibility' => 'player:'.$targets[0],
+                    'op' => $operation,
+                ]
+                : [
+                    'visibility' => 'group:'.$this->v2VisibilityTargetsMask($snapshot, $targets),
+                    'op' => $operation,
+                ]);
 
         return [
             'log' => sprintf(
@@ -5231,20 +5268,7 @@ class GameCommandHandler
             'groupPayloads' => $emitter->groupPayloads(),
             'eventStorePayload' => [
                 'replay' => [
-                    'entries' => in_array('all', $targets, true)
-                        ? [[
-                            'visibility' => 'public',
-                            'op' => $operation,
-                        ]]
-                        : (count($targets) === 1
-                            ? [[
-                                'visibility' => 'player:'.$targets[0],
-                                'op' => $operation,
-                            ]]
-                            : [[
-                                'visibility' => 'group:'.$this->v2VisibilityTargetsMask($snapshot, $targets),
-                                'op' => $operation,
-                            ]]),
+                    'entries' => $replayEntries,
                 ],
             ],
         ];

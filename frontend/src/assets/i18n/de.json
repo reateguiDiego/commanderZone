@@ -547,6 +547,9 @@
       "current": "Aktuell",
       "counters": "Marken"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Verdeckt gespielt"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Andere Kartenseite ansehen",
       "loadingCards": "Karten laden"
@@ -598,8 +601,10 @@
         "flipCardFace": "Kartenvorderseite umdrehen",
         "playFaceDown": "Verdeckt spielen",
         "previewCard": "Vorschaukarte",
+        "lookAtFaceDownCard": "Karte ansehen",
         "moveTop": "Nach oben verschieben",
         "revealTopCard": "Decke die oberste Karte auf",
+        "revealXTopCards": "Decke die obersten X Karten auf",
         "revealLibrary": "Bibliothek aufdecken",
         "moveAllTo": "Alles verschieben nach",
         "counters": "Marken",
@@ -607,6 +612,9 @@
         "moveTo": "Verschieben nach",
         "giveTo": "Geben",
         "reveal": "EnthÃ¼llen",
+        "stopRevealing": "Nicht mehr aufdecken",
+        "playTopRevealed": "Mit oberster aufgedeckter Karte spielen",
+        "stopPlayingTopRevealed": "Nicht mehr mit oberster aufgedeckter Karte spielen",
         "viewAllLibrary": "Bibliothek ansehen",
         "viewXTopCards": "Oberste X Karten ansehen",
         "bottomOfLibrary": "Unter die Bibliothek",
@@ -837,6 +845,11 @@
         "description": "WÃ¤hle aus, wie viele Karten oben von deiner Bibliothek du ansehen mÃ¶chtest.",
         "confirm": "Ansicht"
       },
+      "revealTopCards": {
+        "title": "Oberste Karten aufdecken",
+        "description": "Wähle, wie viele Karten oben in deiner Bibliothek du dem ausgewählten Gegner zeigen möchtest.",
+        "confirm": "Aufdecken"
+      },
       "deckCardCount": "Dein Deck hat {{ count }} Karten."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Ziehe {{ drawCount }} Karte(n). WÃ¤hle {{ bottomCount }}, um sie in zufÃ¤lliger Reihenfolge unter die Bibliothek zu legen.",
         "generousRandomOrder": "Die endgÃ¼ltige Reihenfolge erfolgt zufÃ¤llig."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} hat sich eine verdeckte Karte angesehen.",
+      "playTopFaceDown": "{{ actor }} hat die oberste Karte seiner Bibliothek verdeckt ausgespielt."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "TypaufschlÃ¼sselung",
-      "utilityCounts": "Der Nutzen zÃ¤hlt"
+      "utilityCounts": "Der Nutzen zÃ¤hlt",
+      "reloadPageForData": "Lade die Seite neu, um Analysedaten zu erhalten."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Mana-Gleichgewicht",

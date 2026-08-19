@@ -68,6 +68,41 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(secondChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('(1)');
   });
 
+  it('does not render commander color identity when no commander identity exists', async () => {
+    const store = storeStub({ groupId: 'commander', groupTitle: 'Comandante', groupCards: 0 });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.commander-colors')).toBeNull();
+    expect(element.textContent).not.toContain('deckBuilder.deckList.colorFilter.colorless');
+  });
+
+  it('renders generic mana for a colorless commander identity', async () => {
+    const store = storeStub({ groupId: 'commander', groupTitle: 'Comandante', deckColorIdentitySymbols: ['1'] });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.commander-colors .ms-1')).not.toBeNull();
+  });
+
   it('flips card faces without opening the card menu preview flow', async () => {
     const store = storeStub({ hasAlternateFace: true });
     await TestBed.configureTestingModule({
@@ -316,7 +351,17 @@ describe('DeckCardSpoilerViewComponent', () => {
   });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number; cardName?: string; isGameChanger?: boolean } = {}) {
+function storeStub(options: {
+  hasAlternateFace?: boolean;
+  resetCardFace?: boolean;
+  cardTypeLine?: string;
+  groupCards?: number;
+  groupId?: string;
+  groupTitle?: string;
+  cardName?: string;
+  isGameChanger?: boolean;
+  deckColorIdentitySymbols?: readonly string[];
+} = {}) {
   const entries = Array.from({ length: options.groupCards ?? 1 }, (_, index) => ({
     id: `deck-card-${index + 1}`,
     quantity: 1,
@@ -324,11 +369,11 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
     card: card(options.cardTypeLine, index + 1, options.cardName, options.isGameChanger),
   })) satisfies DeckCard[];
   const collapsedGroups = signal<Set<string>>(new Set());
-  const visibleTypeLine = signal(options.cardTypeLine ?? entries[0].card.typeLine);
+  const visibleTypeLine = signal(options.cardTypeLine ?? entries[0]?.card.typeLine ?? 'Creature');
 
   return {
     visibleTypeLine,
-    cardGroups: signal([{ id: 'creature', title: 'Criaturas', quantity: entries.length, cards: entries }]),
+    cardGroups: signal([{ id: options.groupId ?? 'creature', title: options.groupTitle ?? 'Criaturas', quantity: entries.length, cards: entries }]),
     cardMenu: signal<CardMenuState | null>(null),
     toggleGroup: vi.fn((groupId: string) => {
       const next = new Set(collapsedGroups());
@@ -341,7 +386,7 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
     }),
     isGroupCollapsed: vi.fn((groupId: string) => collapsedGroups().has(groupId)),
     ensureCardImages: vi.fn(),
-    deckColorIdentitySymbols: () => [],
+    deckColorIdentitySymbols: () => options.deckColorIdentitySymbols ?? [],
     showCardPreview: vi.fn(),
     moveCardPreview: vi.fn(),
     hideCardPreview: vi.fn(),

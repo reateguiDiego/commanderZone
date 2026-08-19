@@ -71,7 +71,9 @@ export class DeckEditorComponent implements OnDestroy {
   ];
   readonly tabItems = computed<readonly TabListItem[]>(() => {
     const items: TabListItem[] = [
-      { id: 'analysis', label: 'deckBuilder.deckEditor.analysis', icon: 'bar-chart-3' },
+      ...(this.store.canShowAnalysisTab()
+        ? [{ id: 'analysis', label: 'deckBuilder.deckEditor.analysis', icon: 'bar-chart-3' } satisfies TabListItem]
+        : []),
       { id: 'considering', label: 'deckBuilder.deckEditor.considering', icon: 'layers-3' },
       { id: 'validation', label: 'deckBuilder.deckEditor.validation', icon: 'shield-check' },
     ];

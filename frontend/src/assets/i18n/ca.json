@@ -547,6 +547,9 @@
       "current": "Actual",
       "counters": "Comptadors"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jugata boca avall"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Mira una altra cara",
       "loadingCards": "Carregant cartes"
@@ -598,8 +601,10 @@
         "flipCardFace": "Capgirar la cara de la carta",
         "playFaceDown": "Jugar boca avall",
         "previewCard": "Carta de vista prÃ¨via",
+        "lookAtFaceDownCard": "Mirar carta",
         "moveTop": "Moure cap amunt",
         "revealTopCard": "Revela la carta superior",
+        "revealXTopCards": "Revela les X cartes superiors",
         "revealLibrary": "Revela la biblioteca",
         "moveAllTo": "Mou-ho tot a",
         "counters": "Comptadors",
@@ -607,6 +612,9 @@
         "moveTo": "Moure a",
         "giveTo": "Donar a",
         "reveal": "Revelar",
+        "stopRevealing": "Deixar de revelar",
+        "playTopRevealed": "Jugar amb la carta superior revelada",
+        "stopPlayingTopRevealed": "Deixar de jugar amb la carta superior revelada",
         "viewAllLibrary": "Veure la biblioteca",
         "viewXTopCards": "Mira les X cartes superiors",
         "bottomOfLibrary": "Fons de la biblioteca",
@@ -837,6 +845,11 @@
         "description": "Tria quantes cartes de la part superior de la biblioteca vols mirar.",
         "confirm": "Vista"
       },
+      "revealTopCards": {
+        "title": "Revela cartes superiors",
+        "description": "Tria quantes cartes de la part superior de la teva biblioteca vols revelar a l'oponent seleccionat.",
+        "confirm": "Revelar"
+      },
       "deckCardCount": "El teu deck té {{ count }} cartes."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Roba {{ drawCount }} carta(es). Tria {{ bottomCount }} per posar-les al fons en ordre aleatori.",
         "generousRandomOrder": "L'ordre final serÃ  aleatori."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} ha mirat una carta boca avall.",
+      "playTopFaceDown": "{{ actor }} ha jugat la carta superior de la seva biblioteca boca avall."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Desglossament de tipus",
-      "utilityCounts": "Compta d'utilitats"
+      "utilityCounts": "Compta d'utilitats",
+      "reloadPageForData": "Recarrega la pàgina per obtenir dades d'anàlisi."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Equilibri de mana",

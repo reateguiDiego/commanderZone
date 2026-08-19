@@ -109,6 +109,7 @@ export class FormatSelectComponent {
     }
 
     this.clearCloseAnimationTimeout();
+    this.restoreTriggerFocusBeforeHidingMenu();
     this.dropdownOpen.set(false);
     this.menuClosing.set(true);
     this.closeAnimationTimeout = setTimeout(() => {
@@ -145,5 +146,15 @@ export class FormatSelectComponent {
 
     clearTimeout(this.closeAnimationTimeout);
     this.closeAnimationTimeout = null;
+  }
+
+  private restoreTriggerFocusBeforeHidingMenu(): void {
+    const host = this.elementRef.nativeElement as HTMLElement;
+    const menu = host.querySelector<HTMLElement>('.format-select-menu');
+    if (!menu?.contains(this.document.activeElement)) {
+      return;
+    }
+
+    host.querySelector<HTMLButtonElement>('.format-select-trigger')?.focus({ preventScroll: true });
   }
 }

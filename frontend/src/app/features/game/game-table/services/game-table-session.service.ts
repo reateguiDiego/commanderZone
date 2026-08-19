@@ -32,6 +32,8 @@ export interface GameTableSessionContext {
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
+  onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
+  onLibraryTopRevealed?(playerId: string, count: number): void;
   onControlPlaneAccepted?(controlPlane: GameControlPlaneState): void;
   refreshViewerControlAccess?(): Promise<void>;
   navigateToRooms(): void;
@@ -83,6 +85,8 @@ export class GameTableSessionService {
         onMulliganError: (message) => context.onMulliganError?.(message),
         onMulliganCompleted: (message) => context.onMulliganCompleted?.(message),
         onMulliganPatchV2Applied: (patch, snapshot) => context.onMulliganPatchV2Applied?.(patch, snapshot),
+        onLibraryRevealed: (playerId, recipients) => context.onLibraryRevealed?.(playerId, recipients),
+        onLibraryTopRevealed: (playerId, count) => context.onLibraryTopRevealed?.(playerId, count),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
     } catch (error) {

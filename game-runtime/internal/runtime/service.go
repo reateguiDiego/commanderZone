@@ -610,6 +610,7 @@ func EmptyInitialState(gameID string) state.GameState {
 		Loc:       map[string]state.Location{},
 		Visibility: state.VisibilityIndex{
 			InstanceMasks:       map[string]uint64{},
+			HandRevealAudiences: map[string][]string{},
 			LibraryEpochByOwner: map[string]int64{},
 			TopRevealWindows:    map[string]state.TopRevealWindow{},
 		},

@@ -547,6 +547,9 @@
       "current": "Current",
       "counters": "Counters"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Played face down"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Look at other face",
       "loadingCards": "Loading cards"
@@ -598,8 +601,10 @@
         "flipCardFace": "Flip card face",
         "playFaceDown": "Play face down",
         "previewCard": "Preview card",
+        "lookAtFaceDownCard": "Look at card",
         "moveTop": "Move top",
         "revealTopCard": "Reveal top card",
+        "revealXTopCards": "Reveal X top cards",
         "revealLibrary": "Reveal library",
         "moveAllTo": "Move all to",
         "counters": "Counters",
@@ -607,6 +612,9 @@
         "moveTo": "Move to",
         "giveTo": "Give to",
         "reveal": "Reveal",
+        "stopRevealing": "Stop revealing",
+        "playTopRevealed": "Play with top card revealed",
+        "stopPlayingTopRevealed": "Stop playing with top card revealed",
         "viewAllLibrary": "View library",
         "viewXTopCards": "Look at top X cards",
         "bottomOfLibrary": "Bottom of library",
@@ -837,6 +845,11 @@
         "description": "Choose how many cards from the top of your library to look at.",
         "confirm": "View"
       },
+      "revealTopCards": {
+        "title": "Reveal top cards",
+        "description": "Choose how many cards from the top of your library to reveal to the selected opponent.",
+        "confirm": "Reveal"
+      },
       "deckCardCount": "Your deck has {{ count }} cards."
     },
     "playerCounters": {
@@ -967,10 +980,12 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
+      "playTopFaceDown": "{{ actor }} played the top card of their library face down.",
       "shuffle": "{{ actor }} shuffled their library."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
+      "faceDownInspected": "{{ actor }} looked at a face-down card.",
       "tapped": "{{ actor }} tapped a permanent.",
       "untapped": "{{ actor }} untapped a permanent."
     },
@@ -1190,7 +1205,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "utilityCounts": "Utility counts",
+      "reloadPageForData": "Reload the page to get analysis data."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Mana balance",

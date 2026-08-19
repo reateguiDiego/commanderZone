@@ -74,7 +74,13 @@
             class="hand-drop-slot hand-drop-slot-before"
             aria-hidden="true"
             [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'before')"
-          ></span>
+          >
+            <svg class="hand-drop-slot-indicator" viewBox="0 0 40 160" preserveAspectRatio="none" aria-hidden="true">
+              <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
+              <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
+              <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
+            </svg>
+          </span>
         }
         <app-game-card-view
           mode="hand"
@@ -89,6 +95,7 @@
           [motionActive]="motionActive()"
           [faceDown]="isHandCardFaceDown(card)"
           [hidden]="isHandCardFaceDown(card)"
+          [revealMarker]="card.revealMarker === true"
           [draggable]="false"
           [handDropPlacement]="dropPlacement"
           [handLayout]="handLayoutMode()"
@@ -107,7 +114,13 @@
             class="hand-drop-slot hand-drop-slot-after"
             aria-hidden="true"
             [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'after')"
-          ></span>
+          >
+            <svg class="hand-drop-slot-indicator" viewBox="0 0 40 160" preserveAspectRatio="none" aria-hidden="true">
+              <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
+              <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
+              <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
+            </svg>
+          </span>
         }
       }
       </div>

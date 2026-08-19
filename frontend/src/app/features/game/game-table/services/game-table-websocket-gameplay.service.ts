@@ -42,6 +42,8 @@ export interface GameTableWebsocketGameplayContext {
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
+  onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
+  onLibraryTopRevealed?(playerId: string, count: number): void;
   onCommandBlocked?(
     reason: Extract<GameDebugQueueDeadLetterReason, 'circuit_blocked' | 'queue_full'>,
     type: GameWebsocketCommandType,
@@ -131,12 +133,14 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'library.draw_many',
   'library.shuffle',
   'library.move_top',
+  'library.play_top_face_down',
   'library.reveal_top',
   'library.reveal',
   'library.view',
   'library.play_top_revealed',
   'library.reorder_top',
   'card.face_down.changed',
+  'card.face_down.inspected',
   'card.face.changed',
   'card.revealed',
   'card.counter.changed',
@@ -194,12 +198,14 @@ const RETRYABLE_COMMANDS = new Set<GameWebsocketCommandType>([
   'library.draw_many',
   'library.shuffle',
   'library.move_top',
+  'library.play_top_face_down',
   'library.reveal_top',
   'library.reveal',
   'library.view',
   'library.play_top_revealed',
   'library.reorder_top',
   'card.face_down.changed',
+  'card.face_down.inspected',
   'card.face.changed',
   'card.revealed',
   'card.counter.changed',
@@ -658,6 +664,8 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       this.gameplayDebugCounters.patchV2ApplyOk += 1;
       context.onMulliganPatchV2Applied?.(hydratedPatch, result.snapshot);
       context.setSnapshot(result.snapshot);
+      this.notifyLibraryRevealed(context, hydratedPatch);
+      this.notifyLibraryTopRevealed(context, hydratedPatch);
       this.publishSnapshotMetric(context.gameId(), hydratedPatch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
@@ -676,6 +684,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       if (snapshot) {
         context.onMulliganPatchV2Applied?.(hydratedPatch, snapshot);
       }
+      // Visibility identity patches may follow their public version carrier.
+      // They are deliberately mergeable at the same version, but can still be
+      // observed after a newer non-visibility patch. Opening a read-only
+      // revealed-library/top modal is idempotent, whereas skipping this signal
+      // leaves the authorized viewer without the UI that the patch represents.
+      this.notifyLibraryRevealed(context, hydratedPatch);
+      this.notifyLibraryTopRevealed(context, hydratedPatch);
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
         reason: result.reason,
@@ -707,6 +722,30 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     }
     this.resolveInFlightCommand(hydratedPatch.ackClientActionId ?? undefined);
     this.drainQueue();
+  }
+
+  private notifyLibraryTopRevealed(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): void {
+    for (const operation of patch.ops) {
+      if (operation.op !== 'library.top.revealed') {
+        continue;
+      }
+
+      const count = operation.count ?? operation.cards.length;
+      if (count > 1) {
+        context.onLibraryTopRevealed?.(operation.playerId, count);
+      }
+    }
+  }
+
+  private notifyLibraryRevealed(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): void {
+    for (const operation of patch.ops) {
+      if (operation.op === 'library.revealed.set') {
+        context.onLibraryRevealed?.(operation.playerId);
+      }
+      if (operation.op === 'player.library.visibility.set' && operation.revealedLibraryTo) {
+        context.onLibraryRevealed?.(operation.playerId, operation.revealedLibraryTo);
+      }
+    }
   }
 
   private isPatchForInFlightCommand(patch: GameplayGamePatchMessage): boolean {

@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { Circle, Crown, Eye, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { AppThemeService } from '../../../../../core/theme/app-theme.service';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
@@ -22,6 +22,27 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'command').dataset['motionZone']).toBe('player-1:command');
     expect(zoneElement(fixture, 'graveyard').dataset['motionZone']).toBe('player-1:graveyard');
     expect(zoneElement(fixture, 'exile').dataset['motionZone']).toBe('player-1:exile');
+  });
+
+  it('shows an icon-only eye on the top-left of library while its top card is revealed for play', async () => {
+    const fixture = await renderZonePilesPanel({
+      playTopLibraryRevealed: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    const indicator = fixture.nativeElement.querySelector('.library-top-revealed-indicator') as HTMLElement | null;
+    expect(indicator).not.toBeNull();
+    expect(indicator?.getAttribute('aria-label')).toBe('Revealed top library card');
+    expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
+  });
+
+  it('shows the same public eye for a targeted top-library reveal', async () => {
+    const fixture = await renderZonePilesPanel({
+      topLibraryRevealMarker: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
   });
 
   it('uses the theme-specific command zone logo asset', async () => {
@@ -705,6 +726,8 @@ describe('ZonePilesPanelComponent', () => {
 });
 
 interface RenderZonePilesPanelOptions {
+  playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
   isZoneDropSettling?: (playerId: string, zone: GameZoneName) => boolean;
   isZoneTransferPending?: (playerId: string, zone: GameZoneName) => boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
@@ -729,7 +752,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   await TestBed.configureTestingModule({
     imports: [ZonePilesPanelComponent],
     providers: [
-      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Flag, Library, Sparkles })),
+      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Eye, Flag, Library, Sparkles })),
       {
         provide: GameTableSpecialEntitiesState,
         useValue: {
@@ -751,6 +774,8 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
         roles: [],
       },
       life: 40,
+      playTopLibraryRevealed: options.playTopLibraryRevealed ?? false,
+      topLibraryRevealMarker: options.topLibraryRevealMarker ?? false,
       zones: {
         library: options.library ?? [],
         hand: [],

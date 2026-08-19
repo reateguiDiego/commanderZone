@@ -88,6 +88,9 @@ export interface BootstrapPlayerV2 {
   backgroundName?: string | null;
   sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
+  revealedHandIndexes?: number[];
   mulligan?: GamePlayerMulliganState | null;
 }
 
@@ -123,6 +126,7 @@ export interface BootstrapInstanceV2 {
   controllerId?: string | null;
   hidden?: boolean;
   faceDown?: boolean;
+  staticCardPending?: boolean;
   tapped?: boolean;
   position?: GameCardPosition | null;
   rotation?: number | null;
@@ -135,6 +139,7 @@ export interface BootstrapInstanceV2 {
   activeFaceIndex?: number | null;
   dungeonMarker?: { x: number; y: number } | null;
   revealedTo?: string[];
+  revealMarker?: boolean;
   isToken?: boolean;
   isTokenCopy?: boolean;
   isCommander?: boolean;
@@ -304,8 +309,14 @@ export type GameplayPatchV2Operation =
       faceDown?: boolean;
       hidden?: boolean;
       cardKey?: string | null;
+      printId?: string | null;
+      cardVersion?: string | null;
+      language?: string | null;
+      viewerVisibility?: string | null;
+      staticCard?: BootstrapStaticCardV2 | null;
       controllerId?: string;
       revealedTo?: string[];
+      revealMarker?: boolean;
       counters?: Record<string, number>;
       dungeonMarker?: { x: number; y: number } | null;
       activeFaceIndex?: number | null;
@@ -367,6 +378,27 @@ export type GameplayPatchV2Operation =
       cardKey?: string;
     }
   | {
+      op: 'hand.reveal_marker.set';
+      playerId: string;
+      index: number;
+      revealed: boolean;
+    }
+  | {
+      op: 'hand.reveal_marker.clear';
+      playerId: string;
+      indexes: number[];
+    }
+  | {
+      op: 'library.top.reveal_marker.set';
+      playerId: string;
+      revealed: boolean;
+    }
+  | {
+      op: 'library.top.reveal_audience.set';
+      playerId: string;
+      revealedTo: string[];
+    }
+  | {
       op: 'library.count.set';
       playerId: string;
       count: number;
@@ -386,11 +418,18 @@ export type GameplayPatchV2Operation =
       staticCards?: Record<string, BootstrapStaticCardV2>;
     }
   | {
+      op: 'player.library.visibility.set';
+      playerId: string;
+      playTopLibraryRevealed?: boolean;
+      revealedLibraryTo?: string[];
+    }
+  | {
       op: 'library.revealed.set';
       playerId: string;
       count?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
+      revealedTo?: string[];
     }
   | {
       op: 'library.play_top_revealed.set';

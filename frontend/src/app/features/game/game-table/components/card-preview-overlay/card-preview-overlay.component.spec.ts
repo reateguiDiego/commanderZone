@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { Link, LucideAngularModule } from 'lucide-angular';
+import { Eye, EyeOff, Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewOverlayComponent } from './card-preview-overlay.component';
 
@@ -58,6 +58,26 @@ describe('CardPreviewOverlayComponent', () => {
     expect(detailBox.textContent).toContain('charge');
     expect(detailBox.querySelector('app-loyalty-counter')).toBeNull();
     expect(detailBox.querySelector('app-card-marker-rail')).not.toBeNull();
+  });
+
+  it('shows the reveal recipients beneath the card preview', async () => {
+    const fixture = await renderPreview({ revealLabel: 'Revealed to JD' });
+
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+    expect(detailBox.textContent).toContain('Revealed');
+    expect(detailBox.textContent).toContain('Revealed to JD');
+    expect(detailBox.querySelector('.preview-reveal-counter')).not.toBeNull();
+  });
+
+  it('shows the face-down pill only while the card remains face down', async () => {
+    const fixture = await renderPreview({ showFaceDownPill: true });
+
+    expect(fixture.nativeElement.querySelector('.preview-face-down-pill')?.textContent).toContain('Played face down');
+
+    fixture.componentRef.setInput('showFaceDownPill', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.preview-face-down-pill')).toBeNull();
   });
 
   it('renders battle defense in the same premium detail box', async () => {
@@ -180,10 +200,12 @@ async function renderPreview(options: {
     loyalty: number | null;
     counters: readonly { key: string; value: number }[];
   } | null;
+  revealLabel?: string | null;
+  showFaceDownPill?: boolean;
 } = {}): Promise<ComponentFixture<CardPreviewOverlayComponent>> {
   await TestBed.configureTestingModule({
     imports: [CardPreviewOverlayComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ Link }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ Eye, EyeOff, Link }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(CardPreviewOverlayComponent);
@@ -202,6 +224,8 @@ async function renderPreview(options: {
   fixture.componentRef.setInput('avoidRect', options.avoidRect ?? null);
   fixture.componentRef.setInput('attachmentInfo', options.attachmentInfo ?? null);
   fixture.componentRef.setInput('cardStateInfo', options.cardStateInfo ?? null);
+  fixture.componentRef.setInput('revealLabel', options.revealLabel ?? null);
+  fixture.componentRef.setInput('showFaceDownPill', options.showFaceDownPill ?? false);
   fixture.detectChanges();
 
   return fixture;

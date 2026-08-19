@@ -44,6 +44,33 @@ class GameActivityStreamServiceTest extends TestCase
         self::assertSame('lost 2 life', $decorated['eventLog'][0]['message']);
     }
 
+    public function testLogBootstrapReturnsTheNewestSliceInChronologicalOrder(): void
+    {
+        [$game] = $this->gameWithPlayers();
+        $oldestOfLatestEntries = new GameLogEntry(
+            $game,
+            250,
+            'life.changed',
+            'first retained entry',
+            createdAt: new \DateTimeImmutable('2026-08-19T10:00:00+00:00'),
+        );
+        $newestEntry = new GameLogEntry(
+            $game,
+            251,
+            'life.changed',
+            'newest entry',
+            createdAt: new \DateTimeImmutable('2026-08-19T10:01:00+00:00'),
+        );
+
+        // The database query is DESC to retain the latest bounded slice.
+        $service = $this->service(logResults: [$newestEntry, $oldestOfLatestEntries]);
+
+        self::assertSame(
+            ['first retained entry', 'newest entry'],
+            array_column($service->logEntries($game), 'message'),
+        );
+    }
+
     public function testToggleReactionReplacesPreviousReactionAndCanClearIt(): void
     {
         [$game, $actor, $target] = $this->gameWithPlayers();

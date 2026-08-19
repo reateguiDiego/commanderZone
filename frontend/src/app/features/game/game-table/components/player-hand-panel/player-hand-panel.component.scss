@@ -36,6 +36,8 @@
   --hand-card-preview-height: 9.7rem;
   --hand-card-row-width: 7.2rem;
   --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
+  --hand-drop-indicator-width: clamp(1.6rem, calc(var(--hand-card-row-width) * 0.36), 2.55rem);
+  --hand-drop-indicator-overhang: clamp(1.2rem, calc(var(--hand-card-preview-height) * 0.16), 2.3rem);
   --hand-row-expanded-extra-height: 2.75rem;
   border: 0;
   background: transparent;
@@ -329,30 +331,43 @@
   transform: translateX(calc(-50% + (var(--hand-drop-slot-distance, 0) * var(--hand-card-row-step))));
 }
 
-.hand-drop-slot::before {
-  content: '';
+.hand-drop-slot-indicator {
   position: absolute;
-  top: -15px;
-  bottom: 0.05rem;
+  top: calc(-1 * var(--hand-drop-indicator-overhang));
+  bottom: auto;
   left: 50%;
-  width: 0.22rem;
-  border-radius: 999px;
-  background: var(--game-accent);
-  box-shadow:
-    0 0 0 3px rgb(var(--gold-rgb) / 20%),
-    0 0 1rem rgb(var(--gold-rgb) / 58%);
+  width: var(--hand-drop-indicator-width);
+  height: calc(100% + var(--hand-drop-indicator-overhang) + 5px);
+  color: var(--game-accent);
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 0.3rem rgb(var(--game-accent-rgb) / 64%))
+    drop-shadow(0 0 0.8rem rgb(var(--game-accent-rgb) / 34%));
   transform: translateX(-50%);
 }
 
-.hand-fan-row .hand-drop-slot::before {
-  top: -0.8rem;
-  bottom: -0.15rem;
-  width: 0.28rem;
-  background:
-    linear-gradient(180deg, rgb(var(--gold-rgb) / 96%), var(--game-accent));
-  box-shadow:
-    0 0 0 4px rgb(var(--gold-rgb) / 18%),
-    0 0 1.25rem rgb(var(--gold-rgb) / 68%);
+.hand-drop-slot-indicator-aura,
+.hand-drop-slot-indicator-rail,
+.hand-drop-slot-indicator-cap {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hand-drop-slot-indicator-aura {
+  stroke: rgb(var(--game-accent-rgb) / 22%);
+  stroke-width: 11px;
+}
+
+.hand-drop-slot-indicator-rail {
+  stroke: currentColor;
+  stroke-width: 6.8px;
+}
+
+.hand-drop-slot-indicator-cap {
+  stroke: currentColor;
+  stroke-width: 8px;
 }
 
 .hand-drop-slot-after {
@@ -750,10 +765,6 @@
     height: calc(var(--game-zone-row-height, 5.45rem) * 0.55);
   }
 
-  .hand-drop-slot::before {
-    top: -0.5rem;
-    bottom: 0.02rem;
-  }
 }
 
 @media (max-height: 768px) and (max-width: 1180px) {

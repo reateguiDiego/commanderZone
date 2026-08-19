@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.model';
@@ -32,6 +32,12 @@ export class DeckListCardComponent {
   readonly showVisibility = input(true);
 
   readonly openDeck = output<void>();
+  readonly visibleBracket = computed(() => this.deck().valid === false ? null : this.bracket());
+  readonly visibleColorIdentity = computed(() => {
+    const colors = this.colorIdentity();
+
+    return colors && colors.length > 0 ? colors : null;
+  });
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';

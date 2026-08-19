@@ -206,13 +206,19 @@ final readonly class GameActivityStreamService
      */
     private function logRecords(Game $game, int $limit, ?string $cursor): array
     {
+        $isIncrementalRequest = is_string($cursor) && trim($cursor) !== '';
         $queryBuilder = $this->logRepository()->createQueryBuilder('entry')
             ->where('entry.game = :game')
-            ->setParameter('game', $game)
-            ->orderBy('entry.createdAt', 'ASC')
+            ->setParameter('game', $game);
+
+        // Bootstrap needs the most recent bounded history, while cursor-based
+        // requests continue forward from the current entry. Querying newest
+        // first keeps the bootstrap index-backed and avoids loading old logs.
+        $queryBuilder
+            ->orderBy('entry.createdAt', $isIncrementalRequest ? 'ASC' : 'DESC')
             ->setMaxResults(max(1, min(500, $limit)));
 
-        if (is_string($cursor) && trim($cursor) !== '') {
+        if ($isIncrementalRequest) {
             $cursorRecord = $this->logRepository()->find($cursor);
             if ($cursorRecord instanceof GameLogEntry) {
                 $queryBuilder
@@ -221,10 +227,12 @@ final readonly class GameActivityStreamService
             }
         }
 
-        return array_values(array_filter(
+        $records = array_values(array_filter(
             $queryBuilder->getQuery()->getResult(),
             static fn (mixed $entry): bool => $entry instanceof GameLogEntry,
         ));
+
+        return $isIncrementalRequest ? $records : array_values(array_reverse($records));
     }
 
     private function chatMessageRecord(Game $game, string $messageId): ?GameChatMessage

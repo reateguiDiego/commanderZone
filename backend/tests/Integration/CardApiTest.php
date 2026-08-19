@@ -46,6 +46,20 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testBulkShowReturnsRequestedCardsInOneResponse(): void
+    {
+        $first = $this->seedCard('00000000-0000-0000-0000-000000000011', 'Arcane Signet');
+        $second = $this->seedCard('00000000-0000-0000-0000-000000000012', 'Command Tower');
+
+        $this->jsonRequest('GET', '/cards/bulk?ids='.$second->scryfallId().','.$first->scryfallId().',missing');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            $second->scryfallId(),
+            $first->scryfallId(),
+        ], array_column($this->jsonResponse()['cards'], 'scryfallId'));
+    }
+
     public function testCommanderCandidateSearchUsesCanonicalCardTextBeforeLocalization(): void
     {
         $commander = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Atraxa, Grand Unifier', [

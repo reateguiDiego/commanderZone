@@ -15,6 +15,22 @@
   user-select: none;
 }
 
+.zone-card-stack-reveal-indicator {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  z-index: 21;
+  display: grid;
+  width: 1.72rem;
+  height: 1.72rem;
+  place-items: center;
+  border: 1px solid rgb(var(--a) / 72%);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 92%);
+  color: var(--game-accent);
+  pointer-events: none;
+}
+
 .zone-card-stack-layer {
   border: 1px solid rgb(var(--shadow-rgb) / 42%);
   filter: brightness(0.64) saturate(0.82) contrast(1.04);

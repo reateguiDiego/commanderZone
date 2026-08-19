@@ -120,7 +120,9 @@ func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
 }
 
 type VisibilityIndex struct {
+	ViewerBits          map[string]uint64          `json:"viewerBits"`
 	InstanceMasks       map[string]uint64          `json:"instanceMasks"`
+	HandRevealAudiences map[string][]string        `json:"handRevealAudiences"`
 	LibraryEpochByOwner map[string]int64           `json:"libraryEpochByOwner"`
 	TopRevealWindows    map[string]TopRevealWindow `json:"topRevealWindows"`
 }
@@ -352,6 +354,9 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Visibility.InstanceMasks == nil {
 		game.Visibility.InstanceMasks = map[string]uint64{}
 	}
+	if game.Visibility.ViewerBits == nil {
+		game.Visibility.ViewerBits = map[string]uint64{}
+	}
 	if game.Visibility.LibraryEpochByOwner == nil {
 		game.Visibility.LibraryEpochByOwner = map[string]int64{}
 	}
@@ -475,12 +480,20 @@ func (m MulliganState) Clone() MulliganState {
 
 func (v VisibilityIndex) Clone() VisibilityIndex {
 	clone := VisibilityIndex{
+		ViewerBits:          map[string]uint64{},
 		InstanceMasks:       map[string]uint64{},
+		HandRevealAudiences: map[string][]string{},
 		LibraryEpochByOwner: map[string]int64{},
 		TopRevealWindows:    map[string]TopRevealWindow{},
 	}
+	for key, value := range v.ViewerBits {
+		clone.ViewerBits[key] = value
+	}
 	for key, value := range v.InstanceMasks {
 		clone.InstanceMasks[key] = value
+	}
+	for key, value := range v.HandRevealAudiences {
+		clone.HandRevealAudiences[key] = append([]string(nil), value...)
 	}
 	for key, value := range v.LibraryEpochByOwner {
 		clone.LibraryEpochByOwner[key] = value

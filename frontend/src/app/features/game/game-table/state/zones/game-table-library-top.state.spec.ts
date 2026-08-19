@@ -7,6 +7,7 @@ import { GameTableZoneActionsService } from '../../services/game-table-zone-acti
 import { GameTableContextStore } from '../core/game-table-context.store';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTablePlayersStore } from '../players/game-table-players.store';
+import { PlayerView } from '../core/game-table-snapshot-selectors';
 import { GameTableZoneModalState, ZoneModalState } from './game-table-zone-modal.state';
 import { GameTableZonePilesState } from './game-table-zone-piles.state';
 import { GameTableLibraryTopState } from './game-table-library-top.state';
@@ -20,6 +21,7 @@ describe('GameTableLibraryTopState', () => {
   const reorderTop = vi.fn();
   const openFixedZone = vi.fn();
   const replaceZoneModalCards = vi.fn();
+  const currentPlayer = signal<PlayerView | null>(null);
 
   beforeEach(() => {
     snapshotSignal.set(snapshot([card('card-1'), card('card-2', true), card('card-3')]));
@@ -29,6 +31,7 @@ describe('GameTableLibraryTopState', () => {
     reorderTop.mockResolvedValue(undefined);
     openFixedZone.mockClear();
     replaceZoneModalCards.mockClear();
+    currentPlayer.set({ id: 'player-2' } as PlayerView);
 
     TestBed.configureTestingModule({
       providers: [
@@ -47,7 +50,10 @@ describe('GameTableLibraryTopState', () => {
         },
         {
           provide: GameTablePlayersStore,
-          useValue: { playerName: (playerId: string) => playerId } satisfies Pick<GameTablePlayersStore, 'playerName'>,
+          useValue: {
+            currentPlayer,
+            playerName: (playerId: string) => playerId,
+          } satisfies Pick<GameTablePlayersStore, 'currentPlayer' | 'playerName'>,
         },
         {
           provide: GameTableZoneActionsService,
@@ -98,6 +104,32 @@ describe('GameTableLibraryTopState', () => {
 
   it('keeps the current draw order labels', () => {
     expect(state.drawOrderLabels(4)).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO', 'ROBO 4']);
+  });
+
+  it('opens a received top-library reveal as a read-only modal for an opponent', () => {
+    state.openRevealedTopLibrary('player-1', 2);
+
+    expect(openFixedZone).toHaveBeenCalledWith(
+      'player-1',
+      'library',
+      'player-1 top 2 library cards',
+      [card('card-1'), card('card-3')],
+      'card-1',
+      false,
+      {
+        readOnly: true,
+        drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+        viewTopCount: 2,
+      },
+    );
+  });
+
+  it('does not open a received top-library reveal for its owner', () => {
+    currentPlayer.set({ id: 'player-1' } as PlayerView);
+
+    state.openRevealedTopLibrary('player-1', 2);
+
+    expect(openFixedZone).not.toHaveBeenCalled();
   });
 });
 

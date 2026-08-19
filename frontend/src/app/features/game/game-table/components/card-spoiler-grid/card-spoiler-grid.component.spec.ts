@@ -106,6 +106,18 @@ describe('CardSpoilerGridComponent', () => {
     expect(emptySlot?.getAttribute('draggable')).toBeNull();
   });
 
+  it('shows draw-order labels in a read-only top-library view', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture([card('card-1', 'Top Card')]);
+    fixture.componentRef.setInput('orderLabels', ['PRIMER ROBO']);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.draw-order-label')?.textContent?.trim()).toBe('PRIMER ROBO');
+  });
+
   it('does not emit selection when left-click selection is disabled', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],

@@ -547,6 +547,9 @@
       "current": "Huidig",
       "counters": "Counters"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Gedekt gespeeld"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Kijk naar een ander gezicht",
       "loadingCards": "Kaarten laden"
@@ -598,8 +601,10 @@
         "flipCardFace": "Beurt de kaart om",
         "playFaceDown": "Speel met de voorkant naar beneden",
         "previewCard": "Voorbeeldkaart",
+        "lookAtFaceDownCard": "Kaart bekijken",
         "moveTop": "Ga naar boven",
         "revealTopCard": "Onthul de bovenste kaart",
+        "revealXTopCards": "Onthul de bovenste X kaarten",
         "revealLibrary": "Onthul library",
         "moveAllTo": "Verplaats alles naar",
         "counters": "Counters",
@@ -607,6 +612,9 @@
         "moveTo": "Verplaats naar",
         "giveTo": "Geef aan",
         "reveal": "Onthullen",
+        "stopRevealing": "Stop met onthullen",
+        "playTopRevealed": "Speel met de bovenste kaart onthuld",
+        "stopPlayingTopRevealed": "Stop met spelen met de bovenste kaart onthuld",
         "viewAllLibrary": "Bekijk library",
         "viewXTopCards": "Kijk naar de bovenste X-kaarten",
         "bottomOfLibrary": "Onderkant van library",
@@ -837,6 +845,11 @@
         "description": "Kies hoeveel kaarten je van de bovenkant van je library bekijkt.",
         "confirm": "Bekijk"
       },
+      "revealTopCards": {
+        "title": "Onthul de bovenste kaarten",
+        "description": "Kies hoeveel kaarten van de bovenkant van je library je aan de gekozen tegenstander onthult.",
+        "confirm": "Onthul"
+      },
       "deckCardCount": "Je deck heeft {{ count }} kaarten."
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "Trek {{ drawCount }} kaart(en). Kies {{ bottomCount }} om in willekeurige volgorde onderop te leggen.",
         "generousRandomOrder": "De uiteindelijke volgorde zal willekeurig zijn."
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} heeft een gedekte kaart bekeken.",
+      "playTopFaceDown": "{{ actor }} heeft de bovenste kaart van diens bibliotheek gedekt gespeeld."
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Type uitsplitsing",
-      "utilityCounts": "Nut telt"
+      "utilityCounts": "Nut telt",
+      "reloadPageForData": "Laad de pagina opnieuw om analysegegevens op te halen."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Mana-balans",

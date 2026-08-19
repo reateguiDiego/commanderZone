@@ -42,6 +42,8 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return nil
 	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "commander.damage.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
+	case "card.face_down.inspected":
+		return nil
 	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
 		return replayViaApplier(game, event, appliers)
 	case "library.reveal", "library.play_top_revealed":

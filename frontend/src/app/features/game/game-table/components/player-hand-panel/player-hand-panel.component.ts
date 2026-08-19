@@ -148,13 +148,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly activeHandHoverInstanceId = signal<string | null>(null);
   readonly displayHandCards = computed<readonly GameCardInstance[]>(() => {
     const handPlayer = this.player();
-    const visibleCards = this.visualHandCards(handPlayer.state.zones.hand, handPlayer.id);
+    const orderedCards = this.visualHandCards(handPlayer.state.zones.hand, handPlayer.id);
+    const containsRevealedIdentity = orderedCards.some((card) => this.isRevealedHandCard(card));
+    const visibleCards = orderedCards
+      .map((card, index) => this.withRevealMarker(card, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
     const expectedCount = this.zoneCount()(handPlayer, 'hand');
     if (!this.showCardsFaceDown() || visibleCards.length >= expectedCount) {
       return visibleCards;
     }
 
-    return Array.from({ length: expectedCount }, (_, index): GameCardInstance => visibleCards[index] ?? {
+    return Array.from({ length: expectedCount }, (_, index): GameCardInstance => visibleCards[index] ?? this.withRevealMarker({
       instanceId: `${handPlayer.id}-hidden-hand-${index}`,
       ownerId: handPlayer.id,
       controllerId: handPlayer.id,
@@ -162,7 +165,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       tapped: false,
       hidden: true,
       zone: 'hand',
-    });
+    }, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
   });
   readonly handLayoutMode = computed<'fan' | 'row'>(() => {
     if (this.externalDropRowLocked() && !this.readOnly() && !this.showCardsFaceDown()) {
@@ -709,6 +712,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   isHandCardFaceDown(card: GameCardInstance): boolean {
+    // A controlled hand is private to its owner. A stale visibility patch must
+    // never turn one of its cards face down locally.
+    if (!this.readOnly()) {
+      return false;
+    }
+
     return Boolean(card.hidden) || (this.showCardsFaceDown() && !this.isRevealedHandCard(card));
   }
 
@@ -729,6 +738,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   private isRevealedHandCard(card: GameCardInstance): boolean {
     return !card.hidden && (card.revealedTo?.length ?? 0) > 0;
+  }
+
+  private withRevealMarker(
+    card: GameCardInstance,
+    revealedHandIndexes: readonly number[] | undefined,
+    index: number,
+    showPublicMarker: boolean,
+  ): GameCardInstance {
+    const revealMarker = (showPublicMarker && revealedHandIndexes?.includes(index))
+      || (card.revealedTo?.length ?? 0) > 0;
+
+    return card.revealMarker === revealMarker ? card : { ...card, revealMarker };
   }
 
   private canInteractWithHandCard(card: GameCardInstance): boolean {
@@ -874,9 +895,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   openHandCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    // The card view sits inside the hand surface. Stop the native context-menu
+    // event here so the surface menu cannot replace the card-specific menu.
+    event.preventDefault();
+    event.stopPropagation();
     if (!this.canInteractWithHandCard(card)) {
-      event.preventDefault();
-      event.stopPropagation();
       return;
     }
 

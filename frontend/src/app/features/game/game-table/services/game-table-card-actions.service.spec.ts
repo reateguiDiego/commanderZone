@@ -22,6 +22,58 @@ describe('GameTableCardActionsService', () => {
     expect(service.isLandStacked(ctx, 'player-1', battlefield[2]!)).toBe(false);
   });
 
+  it('clears the runtime reveal audience when stopping a hand reveal', async () => {
+    const handCard: GameCardInstance = { ...card('hand-1', 'Creature', 0, 0), zone: 'hand' };
+    const command = vi.fn(async () => undefined);
+    const closeContextMenu = vi.fn();
+    const ctx = context([], { command, closeContextMenu });
+
+    await service.stopRevealCard(ctx, { ...menu(handCard), zone: 'hand' });
+
+    expect(command).toHaveBeenCalledWith('card.revealed', {
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'hand-1',
+      revealed: false,
+      clearAll: true,
+    });
+    expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('clears the reveal audience for every selected hand card', async () => {
+    const first = { ...card('hand-1', 'Creature', 0, 0), zone: 'hand' as const };
+    const second = { ...card('hand-2', 'Artifact', 0, 0), zone: 'hand' as const };
+    const command = vi.fn(async () => undefined);
+    const closeContextMenu = vi.fn();
+    const ctx = context([], {
+      command,
+      closeContextMenu,
+      selectedCards: () => [
+        { playerId: 'player-1', zone: 'hand', card: first },
+        { playerId: 'player-1', zone: 'hand', card: second },
+      ],
+    });
+
+    await service.stopRevealCard(ctx, { ...menu(first), zone: 'hand' });
+
+    expect(command).toHaveBeenCalledTimes(2);
+    expect(command).toHaveBeenNthCalledWith(1, 'card.revealed', {
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'hand-1',
+      revealed: false,
+      clearAll: true,
+    });
+    expect(command).toHaveBeenNthCalledWith(2, 'card.revealed', {
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'hand-2',
+      revealed: false,
+      clearAll: true,
+    });
+    expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
   it('removes a land stack by separating its cards near the top card', async () => {
     const battlefield = [land('top', 100, 200), land('under', 100, 180), land('bottom', 100, 160)];
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];

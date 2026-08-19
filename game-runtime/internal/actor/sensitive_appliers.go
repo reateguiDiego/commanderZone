@@ -34,6 +34,7 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 		instance.VisibleToMask = 0
 		game.EnsureVisibility()
 		delete(game.Visibility.InstanceMasks, instanceID)
+		delete(game.Visibility.HandRevealAudiences, instanceID)
 	}
 	game.Instances[instanceID] = instance
 
@@ -45,6 +46,10 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 	} else if !privateZone(location.Zone) {
 		publicData["hidden"] = false
 		publicData["cardKey"] = instance.CardKey
+		publicData["printId"] = printIDForViewer(instance, "")
+		publicData["cardVersion"] = cardVersionForViewer(instance, "")
+		publicData["language"] = languageForViewer(game, instance, "")
+		publicData["viewerVisibility"] = viewerVisibilityForZone(location.Zone)
 	}
 	if privateZone(location.Zone) {
 		emitZoneCount(emitter, game, location.PlayerID, location.Zone)
@@ -53,9 +58,13 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 	}
 
 	privateData := cardFieldData(instanceID, location, map[string]any{
-		"faceDown": faceDown,
-		"hidden":   false,
-		"cardKey":  instance.CardKey,
+		"faceDown":         faceDown,
+		"hidden":           false,
+		"cardKey":          instance.CardKey,
+		"printId":          printIDForViewer(instance, location.PlayerID),
+		"cardVersion":      cardVersionForViewer(instance, location.PlayerID),
+		"language":         languageForViewer(game, instance, location.PlayerID),
+		"viewerVisibility": viewerVisibilityForZone(location.Zone),
 	})
 	emitter.EmitPrivate(location.PlayerID, protocol.PatchOp{Op: "card.field.set", Data: privateData})
 
@@ -66,6 +75,35 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 		"faceDown":   faceDown,
 		"metrics":    sensitiveMetrics("sensitive.face_down_ms", start, emitter),
 	}, nil
+}
+
+// CardFaceDownInspectedApplier records a public audit event without changing
+// the card or exposing its identity. The client command is limited to the
+// owner inspecting a face-down battlefield card.
+type CardFaceDownInspectedApplier struct{}
+
+func (CardFaceDownInspectedApplier) Type() string { return "card.face_down.inspected" }
+
+func (CardFaceDownInspectedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, _ *PatchEmitter) (map[string]any, error) {
+	instanceID, err := stringField(command.Payload, "instanceId")
+	if err != nil {
+		return nil, err
+	}
+	playerID, err := stringField(command.Payload, "playerId")
+	if err != nil {
+		return nil, err
+	}
+	instance, location, err := instanceAt(game, instanceID, state.ZoneBattlefield)
+	if err != nil {
+		return nil, err
+	}
+	if instance.OwnerID != playerID || !instance.FaceDown {
+		return nil, fmt.Errorf("%w: face-down owner card", ErrInvalidPayloadField)
+	}
+
+	// Deliberately omit instanceId from the persisted event payload: the public
+	// activity log must not disclose which face-down card was inspected.
+	return map[string]any{"playerId": location.PlayerID}, nil
 }
 
 type CardRevealedApplier struct{}
@@ -89,8 +127,18 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	if value, ok := boolField(command.Payload, "hidden"); ok {
 		revealed = !value
 	}
-	viewers, mask := revealTargets(command.Payload)
+	viewers, mask := revealTargets(game, command.Payload)
 	targeted := hasTargetedVisibility(command.Payload, viewers)
+	if !revealed {
+		if clearAll, _ := boolField(command.Payload, "clearAll"); clearAll {
+			mask = instance.VisibleToMask
+			viewers = game.Visibility.HandRevealAudiences[instanceID]
+			if len(viewers) == 0 {
+				viewers = viewerIDsForMask(game, mask)
+			}
+			targeted = mask != 0 || len(viewers) > 0
+		}
+	}
 	if mask == 0 {
 		mask = 1
 	}
@@ -99,26 +147,81 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	if revealed {
 		instance.VisibleToMask |= mask
 		game.Visibility.InstanceMasks[instanceID] |= mask
+		if location.Zone == state.ZoneHand {
+			game.Visibility.HandRevealAudiences[instanceID] = mergeViewerIDs(game.Visibility.HandRevealAudiences[instanceID], viewers)
+		}
 	} else {
 		instance.VisibleToMask &^= mask
 		game.Visibility.InstanceMasks[instanceID] &^= mask
 		if game.Visibility.InstanceMasks[instanceID] == 0 {
 			delete(game.Visibility.InstanceMasks, instanceID)
 		}
+		if location.Zone == state.ZoneHand {
+			if clearAll, _ := boolField(command.Payload, "clearAll"); clearAll {
+				delete(game.Visibility.HandRevealAudiences, instanceID)
+			} else {
+				remaining := withoutViewerIDs(game.Visibility.HandRevealAudiences[instanceID], viewers)
+				if len(remaining) == 0 {
+					delete(game.Visibility.HandRevealAudiences, instanceID)
+				} else {
+					game.Visibility.HandRevealAudiences[instanceID] = remaining
+				}
+			}
+		}
 	}
 	game.Instances[instanceID] = instance
 
+	revealedTo := viewers
+	if !revealed {
+		revealedTo = []string{}
+	}
 	revealData := cardFieldData(instanceID, location, map[string]any{
 		"hidden":     !revealed,
-		"revealedTo": viewers,
+		"revealedTo": revealedTo,
 	})
 	if revealed {
 		revealData["cardKey"] = instance.CardKey
+		revealData["printId"] = printIDForViewer(instance, location.PlayerID)
 	}
 	if !revealed {
 		delete(revealData, "cardKey")
 	}
-	emitTargetedCardPatch(emitter, viewers, mask, targeted, protocol.PatchOp{Op: "card.field.set", Data: revealData})
+	patchViewers := viewers
+	patchMask := mask
+	if !revealed && location.Zone == state.ZoneHand {
+		// The owner already knows their hand. Sending a hidden patch to them makes
+		// their own card disappear when a reveal addressed to "all" is stopped.
+		patchViewers = withoutViewerIDs(viewers, []string{location.PlayerID})
+		if canonicalMask := viewerMaskForIDs(game, patchViewers); canonicalMask != 0 {
+			patchMask = canonicalMask
+		}
+	}
+	// A legacy mask can be unmappable after recovery. In that case we cannot
+	// safely identify a non-owner recipient, so do not fall back to a group
+	// patch that could hide the owner's own hand card.
+	shouldEmitAudiencePatch := revealed || location.Zone != state.ZoneHand || len(patchViewers) > 0
+	if shouldEmitAudiencePatch {
+		emitTargetedCardPatch(emitter, patchViewers, patchMask, targeted, protocol.PatchOp{Op: "card.field.set", Data: revealData})
+	}
+	// The owner must keep their own card visible, but their local reveal audience
+	// still has to be cleared. Without this patch the public marker can turn off
+	// while a stale revealedTo value keeps the eye visible until a refresh.
+	if !revealed && privateZone(location.Zone) {
+		emitter.EmitPrivate(location.PlayerID, protocol.PatchOp{Op: "card.field.set", Data: cardFieldData(instanceID, location, map[string]any{
+			"hidden":     false,
+			"revealedTo": []string{},
+		})})
+	}
+	if location.Zone == state.ZoneHand {
+		emitter.EmitPublic(protocol.PatchOp{
+			Op: "hand.reveal_marker.set",
+			Data: map[string]any{
+				"playerId": location.PlayerID,
+				"index":    location.Index,
+				"revealed": instance.VisibleToMask != 0,
+			},
+		})
+	}
 
 	if privateZone(location.Zone) {
 		emitZoneCount(emitter, game, location.PlayerID, location.Zone)
@@ -196,11 +299,17 @@ func (LibraryRevealApplier) Apply(_ context.Context, game *state.GameState, comm
 	if !ok {
 		return nil, state.ErrMissingZone
 	}
-	viewers, mask := revealTargets(command.Payload)
+	viewers, mask := revealTargets(game, command.Payload)
 	targeted := hasTargetedVisibility(command.Payload, viewers)
 	if mask == 0 {
 		mask = 1
 	}
+	player, ok := game.Players[playerID]
+	if !ok {
+		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
+	}
+	player["revealedLibraryTo"] = append([]string(nil), viewers...)
+	game.Players[playerID] = player
 	game.EnsureVisibility()
 	cards := make([]map[string]any, 0, len(zones.Library))
 	for _, instanceID := range zones.Library {
@@ -216,10 +325,11 @@ func (LibraryRevealApplier) Apply(_ context.Context, game *state.GameState, comm
 	op := protocol.PatchOp{
 		Op: "library.revealed.set",
 		Data: map[string]any{
-			"playerId": playerID,
-			"count":    len(cards),
-			"cards":    cards,
-			"epoch":    game.Visibility.LibraryEpochByOwner[playerID],
+			"playerId":   playerID,
+			"count":      len(cards),
+			"cards":      cards,
+			"epoch":      game.Visibility.LibraryEpochByOwner[playerID],
+			"revealedTo": viewers,
 		},
 	}
 	emitTargetedCardPatch(emitter, viewers, mask, targeted, op)
@@ -289,6 +399,9 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 			Data: map[string]any{"playerId": playerID},
 		})
 	}
+	// Keep the visual visibility marker in lockstep with the mode. This is also
+	// the authoritative clear for a stale eye after stopping the mode.
+	emitLibraryTopRevealMarker(emitter, game, playerID)
 	return map[string]any{
 		"playerId": playerID,
 		"enabled":  enabled,
@@ -296,11 +409,16 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 	}, nil
 }
 
-func revealTargets(payload map[string]any) ([]string, uint64) {
+func revealTargets(game *state.GameState, payload map[string]any) ([]string, uint64) {
+	game.EnsureVisibility()
 	viewers, err := stringSliceField(payload, "viewers")
 	if err != nil {
 		viewers = nil
-		if value, ok := payload["to"].(string); ok && value != "" && value != "all" {
+		if value, ok := payload["to"].(string); ok && value == "all" {
+			for playerID := range game.Players {
+				viewers = append(viewers, playerID)
+			}
+		} else if value, ok := payload["to"].(string); ok && value != "" {
 			viewers = []string{value}
 		} else if values, ok := payload["to"].([]any); ok {
 			for _, value := range values {
@@ -316,10 +434,9 @@ func revealTargets(payload map[string]any) ([]string, uint64) {
 	if value, ok := intField(payload, "visibleToMask"); ok && value > 0 {
 		mask = uint64(value)
 	}
-	if mask == 0 && len(viewers) > 0 {
-		mask = 1
-		for index := 1; index < len(viewers) && index < 63; index++ {
-			mask |= 1 << index
+	if mask == 0 {
+		for _, viewerID := range viewers {
+			mask |= game.Visibility.ViewerBits[viewerID]
 		}
 	}
 	return viewers, mask
@@ -333,6 +450,16 @@ func hasTargetedVisibility(payload map[string]any, viewers []string) bool {
 		return true
 	}
 	return false
+}
+
+func viewerIDsForMask(game *state.GameState, mask uint64) []string {
+	viewers := make([]string, 0)
+	for playerID, bit := range game.Visibility.ViewerBits {
+		if bit != 0 && mask&bit != 0 {
+			viewers = append(viewers, playerID)
+		}
+	}
+	return viewers
 }
 
 func emitTargetedCardPatch(emitter *PatchEmitter, viewers []string, mask uint64, targeted bool, op protocol.PatchOp) {

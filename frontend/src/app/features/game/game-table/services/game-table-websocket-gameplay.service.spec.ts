@@ -24,6 +24,7 @@ describe('GameTableWebsocketGameplayService', () => {
   let setErrorSpy: ReturnType<typeof vi.fn<(message: string | null) => void>>;
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let onMulliganPatchV2AppliedSpy: ReturnType<typeof vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>>;
+  let onLibraryRevealedSpy: ReturnType<typeof vi.fn<(playerId: string) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
   let consoleDebugSpy: ReturnType<typeof vi.spyOn>;
   let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
@@ -35,6 +36,7 @@ describe('GameTableWebsocketGameplayService', () => {
   };
   const cardsApi = {
     getSilently: vi.fn(),
+    getManySilently: vi.fn(),
   };
 
   beforeEach(() => {
@@ -51,6 +53,7 @@ describe('GameTableWebsocketGameplayService', () => {
 
     messages = new Subject<GameplayServerMessage>();
     cardsApi.getSilently.mockReset();
+    cardsApi.getManySilently.mockReset();
     gameplayV2Flags.enabled.mockReset();
     gameplayV2Flags.enabled.mockReturnValue(false);
     status = signal('connected');
@@ -64,6 +67,7 @@ describe('GameTableWebsocketGameplayService', () => {
     };
     onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
     onMulliganPatchV2AppliedSpy = vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>();
+    onLibraryRevealedSpy = vi.fn<(playerId: string) => void>();
     consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -1417,6 +1421,42 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('opens an authorized library reveal after one bulk catalog hydration', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+    cardsApi.getManySilently.mockReturnValue(of({ cards: [catalogCard('unresolved', 'Resolved library card')] }));
+
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 1,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.revealed.set',
+        playerId: 'player-1',
+        revealedTo: ['player-2'],
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:unresolved',
+          cardKey: 'card:unresolved',
+          printId: 'unresolved',
+          cardVersion: 'unresolved-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+      }],
+    });
+
+    await vi.waitFor(() => expect(onLibraryRevealedSpy).toHaveBeenCalledWith('player-1'));
+    expect(snapshotState.players['player-1'].zones.library[0]?.instanceId).toBe('library-1');
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['unresolved']);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
   it('applies pruned relation patches from movement without snapshot refetch', () => {
     snapshotState = {
       ...snapshotState,
@@ -2172,6 +2212,7 @@ describe('GameTableWebsocketGameplayService', () => {
       setError,
       onCommandBlocked: (reason, type, payload) => onCommandBlockedSpy(reason, type, payload),
       onMulliganPatchV2Applied: (patch, snapshot) => onMulliganPatchV2AppliedSpy(patch, snapshot),
+      onLibraryRevealed: (playerId) => onLibraryRevealedSpy(playerId),
     };
   }
 });

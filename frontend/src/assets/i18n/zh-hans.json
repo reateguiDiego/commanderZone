@@ -547,6 +547,9 @@
       "current": "å½“å‰çš„",
       "counters": "æŒ‡ç¤ºç‰©"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "已背面放置"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "æŸ¥çœ‹å¦ä¸€é¢",
       "loadingCards": "æ­£åœ¨åŠ è½½ç‰Œ"
@@ -598,8 +601,10 @@
         "flipCardFace": "ç¿»è½¬ç‰Œé¢",
         "playFaceDown": "é¢æœä¸‹ä½¿ç”¨",
         "previewCard": "é¢„è§ˆç‰Œ",
+        "lookAtFaceDownCard": "查看卡牌",
         "moveTop": "ç§»è‡³é¡¶éƒ¨",
         "revealTopCard": "å±•ç¤ºç‰Œåº“é¡¶ç‰Œ",
+        "revealXTopCards": "展示牌库顶X张牌",
         "revealLibrary": "å±•ç¤ºç‰Œåº“",
         "moveAllTo": "å…¨éƒ¨ç§»è‡³",
         "counters": "æŒ‡ç¤ºç‰©",
@@ -607,6 +612,9 @@
         "moveTo": "ç§»è‡³",
         "giveTo": "ç»™äºˆ",
         "reveal": "æ­ç¤º",
+        "stopRevealing": "停止展示",
+        "playTopRevealed": "展示牌库顶牌进行游戏",
+        "stopPlayingTopRevealed": "停止展示牌库顶牌进行游戏",
         "viewAllLibrary": "æŸ¥çœ‹ç‰Œåº“",
         "viewXTopCards": "æŸ¥çœ‹ç‰Œåº“é¡¶ X å¼ ç‰Œ",
         "bottomOfLibrary": "ç‰Œåº“åº•",
@@ -837,6 +845,11 @@
         "description": "é€‰æ‹©æŸ¥çœ‹å‡ å¼ ç‰Œåº“é¡¶ç‰Œã€‚",
         "confirm": "æŸ¥çœ‹"
       },
+      "revealTopCards": {
+        "title": "展示牌库顶牌",
+        "description": "选择要向所选对手展示的牌库顶牌数量。",
+        "confirm": "展示"
+      },
       "deckCardCount": "你的牌库有 {{ count }} 张牌。"
     },
     "playerCounters": {
@@ -961,6 +974,12 @@
         "generousChooseBottom": "æŠ“ {{ drawCount }} å¼ ç‰Œã€‚é€‰æ‹© {{ bottomCount }} å¼ ç‰Œä»¥éšæœºé¡ºåºç½®äºŽç‰Œåº“åº•ã€‚",
         "generousRandomOrder": "æœ€ç»ˆçš„é¡ºåºå°†æ˜¯éšæœºçš„ã€‚"
       }
+    }
+  },
+  "gameLog": {
+    "card": {
+      "faceDownInspected": "{{ actor }} 查看了一张背面朝上的牌。",
+      "playTopFaceDown": "{{ actor }} 以背面朝上的方式使用了其牌库顶的一张牌。"
     }
   },
   "deckBuilder": {
@@ -1141,7 +1160,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "ç±»åž‹ç»†åˆ†",
-      "utilityCounts": "åŠŸèƒ½ç»Ÿè®¡"
+      "utilityCounts": "åŠŸèƒ½ç»Ÿè®¡",
+      "reloadPageForData": "重新加载页面以获取分析数据。"
     },
     "deckManaBalancePanel": {
       "manaBalance": "æ³•æœ¯åŠ›å¹³è¡¡",

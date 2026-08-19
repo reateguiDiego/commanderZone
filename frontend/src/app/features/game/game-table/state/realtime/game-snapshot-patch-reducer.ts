@@ -617,7 +617,11 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
     : Math.min(operation.to.index, targetCardsAfterRemoval.length);
   const nextToCards = [
     ...targetCardsAfterRemoval.slice(0, insertIndex),
-    preserveCommanderIdentity({ ...movingCard, zone: operation.to.zone }, sourceCard),
+    preserveCommanderIdentity({
+      ...movingCard,
+      zone: operation.to.zone,
+      ...(operation.from.zone === 'hand' && operation.to.zone !== 'hand' ? { revealedTo: undefined } : {}),
+    }, sourceCard),
     ...targetCardsAfterRemoval.slice(insertIndex),
   ];
 
