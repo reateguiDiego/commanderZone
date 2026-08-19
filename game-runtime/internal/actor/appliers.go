@@ -126,6 +126,7 @@ func (TurnChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	if game.Turn == nil {
 		game.Turn = map[string]any{}
 	}
+	previousTurn := cloneMap(game.Turn)
 	for _, key := range []string{"activePlayerId", "phase", "step"} {
 		if value, ok := command.Payload[key]; ok {
 			game.Turn[key] = value
@@ -136,7 +137,7 @@ func (TurnChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	}
 	turn := cloneMap(game.Turn)
 	emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": turn}})
-	return map[string]any{"turn": turn, "metrics": simpleMetrics("simple.runtime_route", start, emitter)}, nil
+	return map[string]any{"turn": turn, "previousTurn": previousTurn, "metrics": simpleMetrics("simple.runtime_route", start, emitter)}, nil
 }
 
 type DiceRolledApplier struct{}

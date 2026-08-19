@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "メッセージを読み込んでいます…" },
+    "fragment": {
+      "life": { "self": "のライフを {{ previousLife }} から {{ life }} に変更した。", "other": "は {{ player }} のライフを {{ previousLife }} から {{ life }} に変更した。" },
+      "commanderDamage": { "self": "の統率者ダメージを {{ previousValue }} から {{ value }} に変更した。", "other": "は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更した。" },
+      "card": { "controllerChanged": { "self": "はカードのコントロールを得た。", "other": "はカードのコントローラーを {{ target }} に変更した。" } },
+      "turn": { "changed": "のターンを終了した。{{ player }} のターンが始まる。", "phaseChanged": "は {{ phase }} フェイズに進んだ。" },
+      "disconnect": { "expelled": "は切断投票の結果、退出させられた。" },
+      "game": { "concede": "は投了した。" }
+    },
+    "turn": { "changed": "{{ previousPlayer }} のターンが終了しました。{{ player }} のターンが始まります。", "phaseChanged": "{{ actor }} は {{ phase }}・フェイズに進みました。" },
+    "phase": { "untap": "アンタップ", "upkeep": "アップキープ", "draw": "ドロー", "main-1": "第1メイン", "combat": "戦闘", "main-2": "第2メイン", "end": "終了" },
+    "library": { "moveTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を {{ toZone }} に移動しました。", "reorderTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を並べ替えました。", "putTop": "{{ actor }} はカードをライブラリーの一番上に置きました。", "putBottom": "{{ actor }} はカードをライブラリーの一番下に置きました。" },
+    "commanderDamage": { "changed": "{{ actor }} は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更しました。" },
+    "stack": { "cardAdded": "{{ actor }} はカードをスタックに追加しました。", "itemRemoved": "{{ actor }} はスタックから項目を取り除きました。" },
+    "arrow": { "created": "{{ actor }} は矢印を作成しました。", "removed": "{{ actor }} は矢印を削除しました。" },
+    "attachment": { "created": "{{ actor }} はカードを付けました。", "removed": "{{ actor }} は付けられたカードを外しました。" },
+    "mulligan": { "taken": "{{ actor }} はマリガンしました。", "kept": "{{ actor }} は手札をキープしました。", "scryConfirmed": "{{ actor }} はマリガン後の占術を完了しました。" },
+    "disconnect": { "expelled": "{{ target }} は切断投票の結果、退出させられました。" },
+    "zone": { "randomSelected": "{{ actor }} は {{ fromZone }} から無作為にカードを選びました。", "movedAll": "{{ actor }} は {{ count }} 枚を {{ fromZone }} から {{ toZone }} に移動しました。", "battlefield": "戦場", "graveyard": "墓地", "exile": "追放領域", "hand": "手札", "library": "ライブラリー", "command": "統率領域", "zone": "領域" },
     "card": {
+      "faceChanged": "{{ actor }} は {{ cardName }} を {{ faceName }} の面にしました。",
       "faceDownInspected": "{{ actor }} は裏向きのカードを確認しました。",
-      "playTopFaceDown": "{{ actor }} はライブラリーの一番上のカードを裏向きでプレイしました。"
+      "playTopFaceDown": "{{ actor }} はライブラリーの一番上のカードを裏向きでプレイしました。",
+      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。", "turnedFaceUp": "{{ actor }} はカードを表向きにしました。", "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} は {{ cardName }} を {{ previousPower }}/{{ previousToughness }} から {{ power }}/{{ toughness }} に変更しました。",
+      "loyaltyChanged": "{{ actor }} は {{ cardName }} の忠誠度を {{ previousValue }} から {{ value }} に変更しました（{{ delta }}）。",
+      "sagaChanged": "{{ actor }} は {{ cardName }} の英雄譚の章を {{ previousChapter }} から {{ chapter }} に変更しました（{{ delta }}）。",
+      "defenseChanged": "{{ actor }} は {{ cardName }} の防御力を {{ previousDefense }} から {{ defense }} に変更しました（{{ delta }}）。"
     }
   },
   "deckBuilder": {

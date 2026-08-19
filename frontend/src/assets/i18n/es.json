@@ -977,17 +977,40 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Cargando mensajes…" },
+    "fragment": {
+      "life": { "self": "cambió su vida de {{ previousLife }} a {{ life }}.", "other": "cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}." },
+      "commanderDamage": { "self": "cambió el daño de comandante de {{ previousValue }} a {{ value }}.", "other": "cambió el daño de comandante infligido a {{ target }} de {{ previousValue }} a {{ value }}." },
+      "card": { "controllerChanged": { "self": "tomó el control de una carta.", "other": "cambió el controlador de una carta a {{ target }}." } },
+      "turn": { "changed": "terminó su turno. Empieza el turno de {{ player }}.", "phaseChanged": "avanzó a la fase de {{ phase }}." },
+      "disconnect": { "expelled": "fue expulsado tras una votación por desconexión." },
+      "game": { "concede": "concedió." }
+    },
     "library": {
       "draw": "{{ actor }} robó una carta.",
       "drawMany": "{{ actor }} robó {{ count }} cartas.",
       "playTopFaceDown": "{{ actor }} ha jugado la primera carta de su biblioteca boca abajo.",
+      "moveTop": "{{ actor }} movió las {{ count }} primeras cartas de su biblioteca a {{ toZone }}.",
+      "reorderTop": "{{ actor }} reordenó las {{ count }} primeras cartas de su biblioteca.",
+      "putTop": "{{ actor }} puso una carta en la parte superior de su biblioteca.",
+      "putBottom": "{{ actor }} puso una carta en la parte inferior de su biblioteca.",
       "shuffle": "{{ actor }} barajó su biblioteca."
     },
     "card": {
       "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
+      "faceChanged": "{{ actor }} cambió {{ cardName }} a {{ faceName }}.",
       "faceDownInspected": "{{ actor }} ha mirado una carta boca abajo.",
+      "turnedFaceDown": "{{ actor }} puso una carta boca abajo.",
+      "turnedFaceUp": "{{ actor }} puso una carta boca arriba.",
+      "controllerChanged": "{{ actor }} cambió el controlador de una carta a {{ target }}.",
       "tapped": "{{ actor }} giró un permanente.",
       "untapped": "{{ actor }} enderezó un permanente."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} cambió {{ cardName }} de {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} cambió la lealtad de {{ cardName }} de {{ previousValue }} a {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} cambió el capítulo de saga de {{ cardName }} de {{ previousChapter }} a {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} cambió la defensa de {{ cardName }} de {{ previousDefense }} a {{ defense }} ({{ delta }})."
     },
     "cardCounter": {
       "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
@@ -1014,10 +1037,20 @@
     "tokenCopy": {
       "created": "{{ actor }} creó una copia de ficha."
     },
+    "turn": { "changed": "{{ previousPlayer }} ha finalizado su turno. Empieza el turno de {{ player }}.", "phaseChanged": "{{ actor }} ha avanzado a la fase de {{ phase }}." },
+    "phase": { "untap": "enderezar", "upkeep": "mantenimiento", "draw": "robar", "main-1": "primera principal", "combat": "combate", "main-2": "segunda principal", "end": "final" },
+    "commanderDamage": { "changed": "{{ actor }} cambió el daño de comandante infligido a {{ target }} de {{ previousValue }} a {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} añadió una carta a la pila.", "itemRemoved": "{{ actor }} retiró un elemento de la pila." },
+    "arrow": { "created": "{{ actor }} creó una flecha.", "removed": "{{ actor }} eliminó una flecha." },
+    "attachment": { "created": "{{ actor }} anexó una carta.", "removed": "{{ actor }} eliminó un anexo." },
+    "mulligan": { "taken": "{{ actor }} hizo mulligan.", "kept": "{{ actor }} se quedó su mano.", "scryConfirmed": "{{ actor }} completó su escrutar del mulligan." },
+    "disconnect": { "expelled": "{{ target }} fue expulsado tras una votación por desconexión." },
     "game": {
       "concede": "{{ player }} concedió."
     },
     "zone": {
+      "randomSelected": "{{ actor }} seleccionó una carta al azar de {{ fromZone }}.",
+      "movedAll": "{{ actor }} movió {{ count }} cartas de {{ fromZone }} a {{ toZone }}.",
       "battlefield": "campo de batalla",
       "graveyard": "cementerio",
       "exile": "exilio",

@@ -180,6 +180,7 @@ func (CommanderDamageChangedApplier) Apply(_ context.Context, game *state.GameSt
 		damage = 0
 	}
 	commanderDamage := intMapFromAny(player["commanderDamage"])
+	previousDamage := commanderDamage[commanderInstanceID]
 	commanderDamage[commanderInstanceID] = damage
 	player["commanderDamage"] = anyMapFromIntMap(commanderDamage)
 	game.Players[targetPlayerID] = player
@@ -193,6 +194,7 @@ func (CommanderDamageChangedApplier) Apply(_ context.Context, game *state.GameSt
 	return map[string]any{
 		"targetPlayerId":      targetPlayerID,
 		"commanderInstanceId": commanderInstanceID,
+		"previousDamage":      previousDamage,
 		"damage":              damage,
 		"metrics":             countersMetrics(start, emitter),
 	}, nil
@@ -220,17 +222,23 @@ func (CardPowerToughnessChangedApplier) Apply(_ context.Context, game *state.Gam
 		"playerId":   location.PlayerID,
 		"zone":       location.Zone,
 	}
+	eventPayload := cloneMap(patch)
 	for _, key := range []string{"power", "toughness", "loyalty", "defense", "saga"} {
 		if !hasPayloadKey(command.Payload, key) {
 			continue
 		}
+		eventPayload["previous"+strings.ToUpper(key[:1])+key[1:]] = instance.MutableStats[key]
 		instance.MutableStats[key] = command.Payload[key]
 		patch[key] = command.Payload[key]
+		eventPayload[key] = command.Payload[key]
+	}
+	if cardName, ok := command.Payload["cardName"].(string); ok && strings.TrimSpace(cardName) != "" {
+		eventPayload["cardName"] = strings.TrimSpace(cardName)
 	}
 	game.Instances[instanceID] = instance
 	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
-	patch["metrics"] = battlefieldMetrics(start, emitter)
-	return patch, nil
+	eventPayload["metrics"] = battlefieldMetrics(start, emitter)
+	return eventPayload, nil
 }
 
 func intMapFromAny(value any) map[string]int {

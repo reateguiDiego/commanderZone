@@ -13,8 +13,17 @@ export function resolveCardPreviewCard(snapshot: GameSnapshot | null, preview: C
   const playerZoneCard = preview.playerId && preview.zone
     ? snapshot?.players[preview.playerId]?.zones[preview.zone]?.find((card) => card.instanceId === preview.card.instanceId)
     : null;
+  const currentCard = playerZoneCard ?? snapshotCard(snapshot, preview.card.instanceId) ?? preview.card;
+  const requestedFaceIndex = preview.card.activeFaceIndex;
 
-  return playerZoneCard ?? snapshotCard(snapshot, preview.card.instanceId) ?? preview.card;
+  if (requestedFaceIndex === undefined || requestedFaceIndex === currentCard.activeFaceIndex) {
+    return currentCard;
+  }
+
+  // Hover previews can temporarily show the alternate face without mutating
+  // shared battlefield state. Preserve that local intent while taking every
+  // other live value (counters, attachments, stats) from the snapshot.
+  return { ...currentCard, activeFaceIndex: requestedFaceIndex };
 }
 
 export function buildCardPreviewAttachmentInfo(

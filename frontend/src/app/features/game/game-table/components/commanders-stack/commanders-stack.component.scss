@@ -91,6 +91,22 @@
   transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.commander-face-toggle {
+  position: absolute;
+  z-index: 8;
+  top: 0.16rem;
+  right: 0.16rem;
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid var(--game-accent-line);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 84%);
+  color: var(--game-accent);
+  cursor: pointer;
+}
+
 .command-zone-card-name {
   display: grid;
   width: 100%;

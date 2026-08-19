@@ -1,5 +1,6 @@
 <div class="commanders-stack" data-testid="commanders-stack">
   @for (item of cards(); track item.card.instanceId; let index = $index) {
+    @let visibleCard = previewCard(item.card);
     <span
       class="command-zone-card commanders-stack-card"
       data-testid="command-zone-card"
@@ -15,18 +16,23 @@
       (pointerdown)="startPointerDrag($event, item.card)"
       (dragstart)="startNativeDrag($event, item.card)"
       (dragend)="finishNativeDrag($event)"
-      (mouseenter)="cardPreviewShown.emit({ event: $event, card: item.card })"
-      (mouseleave)="cardPreviewHidden.emit()"
+      (mouseenter)="cardPreviewShown.emit({ event: $event, card: visibleCard })"
+      (mouseleave)="resetFacePreview(item.card); cardPreviewHidden.emit()"
     >
-      @if (item.image) {
+      @if (cardImage()(visibleCard); as image) {
         <img
           class="zone-card-image"
-          [src]="item.image"
-          [alt]="item.card.name"
+          [src]="image"
+          [alt]="visibleCard.name"
           draggable="false"
         />
       } @else {
-        <span class="command-zone-card-name">{{ item.card.name }}</span>
+        <span class="command-zone-card-name">{{ visibleCard.name }}</span>
+      }
+      @if (canShowFaceToggle(item.card)) {
+        <span role="button" tabindex="-1" class="commander-face-toggle" (pointerdown)="$event.stopPropagation()" (click)="lookAtOtherFace($event, item.card)">
+          <lucide-icon name="rotate-cw" size="13" aria-hidden="true" />
+        </span>
       }
     </span>
   }

@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Berichten laden…" },
+    "fragment": {
+      "life": { "self": "veranderde zijn levenspunten van {{ previousLife }} naar {{ life }}.", "other": "veranderde de levenspunten van {{ player }} van {{ previousLife }} naar {{ life }}." },
+      "commanderDamage": { "self": "veranderde de commandoschade van {{ previousValue }} naar {{ value }}.", "other": "veranderde de commandoschade aan {{ target }} van {{ previousValue }} naar {{ value }}." },
+      "card": { "controllerChanged": { "self": "nam de controle over een kaart.", "other": "veranderde de beheerder van een kaart naar {{ target }}." } },
+      "turn": { "changed": "beëindigde zijn beurt. De beurt van {{ player }} begint.", "phaseChanged": "ging naar de fase {{ phase }}." },
+      "disconnect": { "expelled": "werd verwijderd na een stemming wegens verbreking van de verbinding." },
+      "game": { "concede": "gaf op." }
+    },
+    "turn": { "changed": "{{ previousPlayer }} heeft diens beurt beëindigd. De beurt van {{ player }} begint.", "phaseChanged": "{{ actor }} is naar de {{ phase }}fase gegaan." },
+    "phase": { "untap": "onttap", "upkeep": "onderhoud", "draw": "trek", "main-1": "eerste hoofd", "combat": "gevechts", "main-2": "tweede hoofd", "end": "eind" },
+    "library": { "moveTop": "{{ actor }} heeft de bovenste {{ count }} kaarten van de bibliotheek naar {{ toZone }} verplaatst.", "reorderTop": "{{ actor }} heeft de bovenste {{ count }} kaarten van de bibliotheek opnieuw geordend.", "putTop": "{{ actor }} heeft een kaart boven op de bibliotheek gelegd.", "putBottom": "{{ actor }} heeft een kaart onder in de bibliotheek gelegd." },
+    "commanderDamage": { "changed": "{{ actor }} heeft commandantschade aan {{ target }} gewijzigd van {{ previousValue }} naar {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} heeft een kaart aan de stapel toegevoegd.", "itemRemoved": "{{ actor }} heeft een element van de stapel verwijderd." },
+    "arrow": { "created": "{{ actor }} heeft een pijl gemaakt.", "removed": "{{ actor }} heeft een pijl verwijderd." },
+    "attachment": { "created": "{{ actor }} heeft een kaart gekoppeld.", "removed": "{{ actor }} heeft een koppeling verwijderd." },
+    "mulligan": { "taken": "{{ actor }} heeft een mulligan genomen.", "kept": "{{ actor }} heeft diens hand gehouden.", "scryConfirmed": "{{ actor }} heeft diens mulligan-scry voltooid." },
+    "disconnect": { "expelled": "{{ target }} is verwijderd na een stem over de verbinding." },
+    "zone": { "randomSelected": "{{ actor }} heeft een willekeurige kaart uit {{ fromZone }} geselecteerd.", "movedAll": "{{ actor }} heeft {{ count }} kaarten van {{ fromZone }} naar {{ toZone }} verplaatst.", "battlefield": "slagveld", "graveyard": "kerkhof", "exile": "ballingschap", "hand": "hand", "library": "bibliotheek", "command": "command zone", "zone": "zone" },
     "card": {
+      "faceChanged": "{{ actor }} heeft {{ cardName }} naar {{ faceName }} gedraaid.",
       "faceDownInspected": "{{ actor }} heeft een gedekte kaart bekeken.",
-      "playTopFaceDown": "{{ actor }} heeft de bovenste kaart van diens bibliotheek gedekt gespeeld."
+      "playTopFaceDown": "{{ actor }} heeft de bovenste kaart van diens bibliotheek gedekt gespeeld.",
+      "turnedFaceDown": "{{ actor }} heeft een kaart gedekt gedraaid.", "turnedFaceUp": "{{ actor }} heeft een kaart open gedraaid.", "controllerChanged": "{{ actor }} heeft de bestuurder van een kaart veranderd naar {{ target }}."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} heeft {{ cardName }} veranderd van {{ previousPower }}/{{ previousToughness }} naar {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} heeft de loyaliteit van {{ cardName }} veranderd van {{ previousValue }} naar {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} heeft het sagehoofdstuk van {{ cardName }} veranderd van {{ previousChapter }} naar {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} heeft de verdediging van {{ cardName }} veranderd van {{ previousDefense }} naar {{ defense }} ({{ delta }})."
     }
   },
   "deckBuilder": {

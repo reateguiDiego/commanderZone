@@ -1,4 +1,5 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, input, output, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, ViewChild, input, output, signal } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameLogEntryView } from '../../state/chat/game-table-chat-log.state';
@@ -9,43 +10,50 @@ interface CardListPopover {
   readonly top: number;
 }
 
+interface LogScrollAnchor {
+  readonly entryId: string;
+  readonly top: number;
+}
+
 @Component({
   selector: 'app-game-log-panel',
-  imports: [PrettyScrollDirective],
+  imports: [PrettyScrollDirective, RuntimeTranslatePipe],
   templateUrl: './game-log-panel.component.html',
   styleUrl: './game-log-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
+export class GameLogPanelComponent implements AfterViewChecked {
   readonly entries = input.required<ReadonlyArray<GameLogEntryView>>();
   readonly highlightedEntryIds = input<readonly string[]>([]);
   readonly fadingEntryIds = input<readonly string[]>([]);
+  readonly loadingOlder = input(false);
+  readonly loadingNewer = input(false);
+  readonly canLoadOlder = input(false);
+  readonly canLoadNewer = input(false);
   readonly playerColor = input<(playerId: string) => string>(() => '');
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly previewCard = output<GameCardInstance>();
   readonly hidePreview = output<void>();
+  readonly loadOlder = output<void>();
+  readonly loadNewer = output<void>();
   readonly activeCardListPopover = signal<CardListPopover | null>(null);
 
   @ViewChild('feed') private readonly feed?: ElementRef<HTMLElement>;
 
-  private lastAutoScrollKey = '';
-  private scrollFrame: number | null = null;
-  private scrollTimer: number | null = null;
+  private pendingHistoryAnchor: LogScrollAnchor | null = null;
 
   ngAfterViewChecked(): void {
-    const entries = this.entries();
-    const latest = entries.at(-1)?.id ?? '';
-    const key = `${entries.length}:${latest}`;
-    if (key === this.lastAutoScrollKey) {
+    if (this.pendingHistoryAnchor !== null) {
+      if (!this.loadingOlder() && !this.loadingNewer()) {
+        const element = this.feed?.nativeElement;
+        const anchor = element ? this.findLogEntry(element, this.pendingHistoryAnchor.entryId) : null;
+        if (element && anchor) {
+          element.scrollTop += anchor.getBoundingClientRect().top - this.pendingHistoryAnchor.top;
+        }
+        this.pendingHistoryAnchor = null;
+      }
       return;
     }
-
-    this.lastAutoScrollKey = key;
-    queueMicrotask(() => this.queueScrollToBottom());
-  }
-
-  ngOnDestroy(): void {
-    this.clearQueuedScroll();
   }
 
   showCardListPopover(event: MouseEvent | FocusEvent, names: readonly string[]): void {
@@ -76,28 +84,53 @@ export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
     }
   }
 
-  private queueScrollToBottom(): void {
-    this.clearQueuedScroll();
-    this.scrollToBottom();
-    this.scrollFrame = window.requestAnimationFrame(() => {
-      this.scrollFrame = null;
-      this.scrollToBottom();
-    });
-    this.scrollTimer = window.setTimeout(() => {
-      this.scrollTimer = null;
-      this.scrollToBottom();
-    }, 260);
-  }
-
-  private clearQueuedScroll(): void {
-    if (this.scrollFrame !== null) {
-      window.cancelAnimationFrame(this.scrollFrame);
-      this.scrollFrame = null;
+  onFeedScroll(): void {
+    const element = this.feed?.nativeElement;
+    if (!element || element.scrollTop > 72 || !this.canLoadOlder()) {
+      this.loadNewerWhenNearBottom(element);
+      return;
     }
 
-    if (this.scrollTimer !== null) {
-      window.clearTimeout(this.scrollTimer);
-      this.scrollTimer = null;
+    const anchor = this.firstVisibleLogEntry(element);
+    if (!anchor) {
+      return;
     }
+
+    this.captureHistoryAnchor(anchor);
+    this.loadOlder.emit();
   }
+
+  private loadNewerWhenNearBottom(feed: HTMLElement | undefined): void {
+    if (!feed || !this.canLoadNewer() || feed.scrollTop + feed.clientHeight < feed.scrollHeight - 72) {
+      return;
+    }
+
+    const anchor = this.firstVisibleLogEntry(feed);
+    if (!anchor) {
+      return;
+    }
+
+    this.captureHistoryAnchor(anchor);
+    this.loadNewer.emit();
+  }
+
+  private captureHistoryAnchor(anchor: HTMLElement): void {
+    this.pendingHistoryAnchor = {
+      entryId: anchor.dataset['logEntryId'] ?? '',
+      top: anchor.getBoundingClientRect().top,
+    };
+  }
+
+  private firstVisibleLogEntry(feed: HTMLElement): HTMLElement | null {
+    const feedTop = feed.getBoundingClientRect().top;
+
+    return Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]'))
+      .find((entry) => entry.getBoundingClientRect().bottom >= feedTop) ?? null;
+  }
+
+  private findLogEntry(feed: HTMLElement, entryId: string): HTMLElement | null {
+    return Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]'))
+      .find((entry) => entry.dataset['logEntryId'] === entryId) ?? null;
+  }
+
 }

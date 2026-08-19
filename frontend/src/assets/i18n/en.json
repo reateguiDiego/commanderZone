@@ -977,17 +977,40 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Loading messages…" },
+    "fragment": {
+      "life": { "self": "changed their life from {{ previousLife }} to {{ life }}.", "other": "changed {{ player }}'s life from {{ previousLife }} to {{ life }}." },
+      "commanderDamage": { "self": "changed commander damage from {{ previousValue }} to {{ value }}.", "other": "changed commander damage dealt to {{ target }} from {{ previousValue }} to {{ value }}." },
+      "card": { "controllerChanged": { "self": "took control of a card.", "other": "changed a card's controller to {{ target }}." } },
+      "turn": { "changed": "finished their turn. {{ player }}'s turn begins.", "phaseChanged": "advanced to the {{ phase }} phase." },
+      "disconnect": { "expelled": "was expelled after a disconnect vote." },
+      "game": { "concede": "conceded." }
+    },
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
       "playTopFaceDown": "{{ actor }} played the top card of their library face down.",
+      "moveTop": "{{ actor }} moved the top {{ count }} cards of their library to {{ toZone }}.",
+      "reorderTop": "{{ actor }} reordered the top {{ count }} cards of their library.",
+      "putTop": "{{ actor }} put a card on top of their library.",
+      "putBottom": "{{ actor }} put a card on the bottom of their library.",
       "shuffle": "{{ actor }} shuffled their library."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
+      "faceChanged": "{{ actor }} flipped {{ cardName }} to {{ faceName }}.",
       "faceDownInspected": "{{ actor }} looked at a face-down card.",
+      "turnedFaceDown": "{{ actor }} turned a card face down.",
+      "turnedFaceUp": "{{ actor }} turned a card face up.",
+      "controllerChanged": "{{ actor }} changed a card's controller to {{ target }}.",
       "tapped": "{{ actor }} tapped a permanent.",
       "untapped": "{{ actor }} untapped a permanent."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} changed {{ cardName }} from {{ previousPower }}/{{ previousToughness }} to {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} changed {{ cardName }}'s loyalty from {{ previousValue }} to {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} changed {{ cardName }}'s saga chapter from {{ previousChapter }} to {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} changed {{ cardName }}'s defense from {{ previousDefense }} to {{ defense }} ({{ delta }})."
     },
     "cardCounter": {
       "changed": "{{ actor }} set {{ counter }} counters to {{ value }}."
@@ -1014,10 +1037,20 @@
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
     },
+    "turn": { "changed": "{{ previousPlayer }} finished their turn. {{ player }}'s turn begins.", "phaseChanged": "{{ actor }} advanced to the {{ phase }} phase." },
+    "phase": { "untap": "untap", "upkeep": "upkeep", "draw": "draw", "main-1": "first main", "combat": "combat", "main-2": "second main", "end": "end" },
+    "commanderDamage": { "changed": "{{ actor }} changed commander damage dealt to {{ target }} from {{ previousValue }} to {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} added a card to the stack.", "itemRemoved": "{{ actor }} removed an item from the stack." },
+    "arrow": { "created": "{{ actor }} created an arrow.", "removed": "{{ actor }} removed an arrow." },
+    "attachment": { "created": "{{ actor }} attached a card.", "removed": "{{ actor }} removed an attachment." },
+    "mulligan": { "taken": "{{ actor }} took a mulligan.", "kept": "{{ actor }} kept their hand.", "scryConfirmed": "{{ actor }} completed their mulligan scry." },
+    "disconnect": { "expelled": "{{ target }} was expelled after a disconnect vote." },
     "game": {
       "concede": "{{ player }} conceded."
     },
     "zone": {
+      "randomSelected": "{{ actor }} selected a random card from {{ fromZone }}.",
+      "movedAll": "{{ actor }} moved {{ count }} cards from {{ fromZone }} to {{ toZone }}.",
       "battlefield": "battlefield",
       "graveyard": "graveyard",
       "exile": "exile",

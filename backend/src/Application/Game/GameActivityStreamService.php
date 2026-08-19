@@ -12,8 +12,8 @@ use Doctrine\Persistence\ManagerRegistry;
 
 final readonly class GameActivityStreamService
 {
-    private const CHAT_LIMIT = 150;
-    private const LOG_LIMIT = 250;
+    private const CHAT_LIMIT = 50;
+    private const LOG_LIMIT = 50;
     private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
 
     public function __construct(
@@ -49,7 +49,9 @@ final readonly class GameActivityStreamService
      */
     public function chatMessagesForViewer(Game $game, User $viewer, int $limit = self::CHAT_LIMIT, ?string $cursor = null): array
     {
-        $messages = $this->chatMessages($game, $limit, $cursor);
+        $messages = is_string($cursor) && trim($cursor) !== ''
+            ? $this->forwardChatRecordsForViewer($game, $viewer, $limit, trim($cursor))
+            : array_reverse($this->latestChatRecordsForViewer($game, $viewer, $limit));
 
         return array_values(array_map(
             static fn (GameChatMessage $message): array => $message->toArray(),
@@ -61,14 +63,95 @@ final readonly class GameActivityStreamService
     }
 
     /**
+     * @return array{entries:list<array<string,mixed>>,hasMore:bool,nextBefore:?string}
+     */
+    public function chatHistoryPage(Game $game, User $viewer, int $limit, string $before): array
+    {
+        $records = $this->latestChatRecordsForViewer($game, $viewer, $limit, $before, true);
+        $hasMore = count($records) > $limit;
+        if ($hasMore) {
+            array_pop($records);
+        }
+
+        $orderedRecords = array_values(array_reverse($records));
+
+        return [
+            'entries' => $this->chatMessageArraysForViewer($orderedRecords, $viewer),
+            'hasMore' => $hasMore,
+            'nextBefore' => ($orderedRecords[0] ?? null)?->messageId(),
+        ];
+    }
+
+    /**
+     * @return array{entries:list<array<string,mixed>>,hasMore:bool,nextAfter:?string}
+     */
+    public function chatForwardPage(Game $game, User $viewer, int $limit, string $after): array
+    {
+        $records = $this->forwardChatRecordsForViewer($game, $viewer, $limit, $after, true);
+        $hasMore = count($records) > $limit;
+        if ($hasMore) {
+            array_pop($records);
+        }
+
+        return [
+            'entries' => $this->chatMessageArraysForViewer($records, $viewer),
+            'hasMore' => $hasMore,
+            'nextAfter' => ($records !== [] ? $records[array_key_last($records)] : null)?->messageId(),
+        ];
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     public function logEntries(Game $game, int $limit = self::LOG_LIMIT, ?string $cursor = null): array
     {
+        $records = $this->logRecords($game, $limit, $cursor);
+        if (!is_string($cursor) || trim($cursor) === '') {
+            $records = array_values(array_reverse($records));
+        }
+
         return array_values(array_map(
             static fn (GameLogEntry $entry): array => $entry->toArray(),
-            $this->logRecords($game, $limit, $cursor),
+            $records,
         ));
+    }
+
+    /**
+     * @return array{entries:list<array<string,mixed>>,hasMore:bool,nextBefore:?string}
+     */
+    public function logHistoryPage(Game $game, int $limit, ?string $before): array
+    {
+        $records = $this->latestLogRecords($game, $limit, $before, true);
+        $hasMore = count($records) > $limit;
+        if ($hasMore) {
+            array_pop($records);
+        }
+
+        $orderedRecords = array_values(array_reverse($records));
+
+        return [
+            'entries' => array_values(array_map(static fn (GameLogEntry $entry): array => $entry->toArray(), $orderedRecords)),
+            'hasMore' => $hasMore,
+            'nextBefore' => ($orderedRecords[0] ?? null)?->id() ?? null,
+        ];
+    }
+
+    /**
+     * @return array{entries:list<array<string,mixed>>,hasMore:bool,nextAfter:?string}
+     */
+    public function logForwardPage(Game $game, int $limit, string $after): array
+    {
+        $records = $this->forwardLogRecords($game, $limit, $after, true);
+        $hasMore = count($records) > $limit;
+        if ($hasMore) {
+            array_pop($records);
+        }
+
+        return [
+            'entries' => array_values(array_map(static fn (GameLogEntry $entry): array => $entry->toArray(), $records)),
+            'hasMore' => $hasMore,
+            'nextAfter' => ($records !== [] ? $records[array_key_last($records)] : null)?->id() ?? null,
+        ];
     }
 
     public function appendChatMessage(
@@ -207,32 +290,163 @@ final readonly class GameActivityStreamService
     private function logRecords(Game $game, int $limit, ?string $cursor): array
     {
         $isIncrementalRequest = is_string($cursor) && trim($cursor) !== '';
+        if (!$isIncrementalRequest) {
+            return $this->latestLogRecords($game, $limit);
+        }
+
+        return $this->forwardLogRecords($game, $limit, $cursor);
+    }
+
+    /**
+     * @return list<GameChatMessage>
+     */
+    private function latestChatRecordsForViewer(Game $game, User $viewer, int $limit, ?string $before = null, bool $probeHasMore = false): array
+    {
+        $beforeRecord = is_string($before) && trim($before) !== ''
+            ? $this->visibleChatMessageRecord($game, $viewer, trim($before))
+            : null;
+        if (is_string($before) && trim($before) !== '' && !($beforeRecord instanceof GameChatMessage)) {
+            return [];
+        }
+
+        $queryBuilder = $this->visibleChatQuery($game, $viewer)
+            ->orderBy('message.createdAt', 'DESC')
+            ->addOrderBy('message.messageId', 'DESC')
+            ->setMaxResults(max(1, min(500, $limit)) + ($probeHasMore ? 1 : 0));
+
+        if ($beforeRecord instanceof GameChatMessage) {
+            $queryBuilder
+                ->andWhere('(message.createdAt < :beforeCreatedAt OR (message.createdAt = :beforeCreatedAt AND message.messageId < :beforeId))')
+                ->setParameter('beforeCreatedAt', $beforeRecord->createdAt())
+                ->setParameter('beforeId', $beforeRecord->messageId());
+        }
+
+        return $this->chatRecordsFromQuery($queryBuilder);
+    }
+
+    /**
+     * @return list<GameChatMessage>
+     */
+    private function forwardChatRecordsForViewer(Game $game, User $viewer, int $limit, string $after, bool $probeHasMore = false): array
+    {
+        $afterRecord = $this->visibleChatMessageRecord($game, $viewer, $after);
+        if (!($afterRecord instanceof GameChatMessage)) {
+            return [];
+        }
+
+        $queryBuilder = $this->visibleChatQuery($game, $viewer)
+            ->andWhere('(message.createdAt > :afterCreatedAt OR (message.createdAt = :afterCreatedAt AND message.messageId > :afterId))')
+            ->setParameter('afterCreatedAt', $afterRecord->createdAt())
+            ->setParameter('afterId', $afterRecord->messageId())
+            ->orderBy('message.createdAt', 'ASC')
+            ->addOrderBy('message.messageId', 'ASC')
+            ->setMaxResults(max(1, min(500, $limit)) + ($probeHasMore ? 1 : 0));
+
+        return $this->chatRecordsFromQuery($queryBuilder);
+    }
+
+    private function visibleChatQuery(Game $game, User $viewer): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->chatRepository()->createQueryBuilder('message')
+            ->where('message.game = :game')
+            ->andWhere('(message.targetPlayerId IS NULL OR message.targetPlayerId = :viewerId OR IDENTITY(message.actor) = :viewerId)')
+            ->setParameter('game', $game)
+            ->setParameter('viewerId', $viewer->id());
+    }
+
+    /**
+     * @return list<GameChatMessage>
+     */
+    private function chatRecordsFromQuery(\Doctrine\ORM\QueryBuilder $queryBuilder): array
+    {
+        return array_values(array_filter(
+            $queryBuilder->getQuery()->getResult(),
+            static fn (mixed $message): bool => $message instanceof GameChatMessage,
+        ));
+    }
+
+    /**
+     * @param list<GameChatMessage> $messages
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function chatMessageArraysForViewer(array $messages, User $viewer): array
+    {
+        return array_values(array_map(
+            static fn (GameChatMessage $message): array => $message->toArray(),
+            array_filter(
+                $messages,
+                fn (GameChatMessage $message): bool => $this->canViewChatMessage($message, $viewer->id()),
+            ),
+        ));
+    }
+
+    /**
+     * @return list<GameLogEntry>
+     */
+    private function forwardLogRecords(Game $game, int $limit, string $after, bool $probeHasMore = false): array
+    {
         $queryBuilder = $this->logRepository()->createQueryBuilder('entry')
             ->where('entry.game = :game')
             ->setParameter('game', $game);
 
-        // Bootstrap needs the most recent bounded history, while cursor-based
-        // requests continue forward from the current entry. Querying newest
-        // first keeps the bootstrap index-backed and avoids loading old logs.
         $queryBuilder
-            ->orderBy('entry.createdAt', $isIncrementalRequest ? 'ASC' : 'DESC')
-            ->setMaxResults(max(1, min(500, $limit)));
+            ->orderBy('entry.createdAt', 'ASC')
+            ->addOrderBy('entry.id', 'ASC')
+            ->setMaxResults(max(1, min(500, $limit)) + ($probeHasMore ? 1 : 0));
 
-        if ($isIncrementalRequest) {
-            $cursorRecord = $this->logRepository()->find($cursor);
-            if ($cursorRecord instanceof GameLogEntry) {
-                $queryBuilder
-                    ->andWhere('entry.createdAt > :after')
-                    ->setParameter('after', $cursorRecord->createdAt());
-            }
+        $cursorRecord = $this->logRecordForGame($game, $after);
+        if ($cursorRecord instanceof GameLogEntry) {
+            $queryBuilder
+                ->andWhere('entry.createdAt >= :afterCreatedAt')
+                ->andWhere('(entry.createdAt > :afterCreatedAt OR (entry.createdAt = :afterCreatedAt AND entry.id > :afterId))')
+                ->setParameter('afterCreatedAt', $cursorRecord->createdAt())
+                ->setParameter('afterId', $cursorRecord->id());
         }
 
-        $records = array_values(array_filter(
+        return array_values(array_filter(
             $queryBuilder->getQuery()->getResult(),
             static fn (mixed $entry): bool => $entry instanceof GameLogEntry,
         ));
+    }
 
-        return $isIncrementalRequest ? $records : array_values(array_reverse($records));
+    /**
+     * @return list<GameLogEntry>
+     */
+    private function latestLogRecords(Game $game, int $limit, ?string $before = null, bool $probeHasMore = false): array
+    {
+        $queryBuilder = $this->logRepository()->createQueryBuilder('entry')
+            ->where('entry.game = :game')
+            ->setParameter('game', $game)
+            ->orderBy('entry.createdAt', 'DESC')
+            ->addOrderBy('entry.id', 'DESC')
+            ->setMaxResults(max(1, min(500, $limit)) + ($probeHasMore ? 1 : 0));
+
+        $beforeRecord = is_string($before) && trim($before) !== ''
+            ? $this->logRecordForGame($game, trim($before))
+            : null;
+        if ($beforeRecord instanceof GameLogEntry) {
+            $queryBuilder
+                ->andWhere('entry.createdAt <= :beforeCreatedAt')
+                ->andWhere('(entry.createdAt < :beforeCreatedAt OR (entry.createdAt = :beforeCreatedAt AND entry.id < :beforeId))')
+                ->setParameter('beforeCreatedAt', $beforeRecord->createdAt())
+                ->setParameter('beforeId', $beforeRecord->id());
+        }
+
+        return array_values(array_filter(
+            $queryBuilder->getQuery()->getResult(),
+            static fn (mixed $entry): bool => $entry instanceof GameLogEntry,
+        ));
+    }
+
+    private function logRecordForGame(Game $game, string $id): ?GameLogEntry
+    {
+        $record = $this->logRepository()->findOneBy([
+            'game' => $game,
+            'id' => $id,
+        ]);
+
+        return $record instanceof GameLogEntry ? $record : null;
     }
 
     private function chatMessageRecord(Game $game, string $messageId): ?GameChatMessage
@@ -243,6 +457,13 @@ final readonly class GameActivityStreamService
         ]);
 
         return $message instanceof GameChatMessage ? $message : null;
+    }
+
+    private function visibleChatMessageRecord(Game $game, User $viewer, string $messageId): ?GameChatMessage
+    {
+        $message = $this->chatMessageRecord($game, $messageId);
+
+        return $message instanceof GameChatMessage && $this->canViewChatMessage($message, $viewer->id()) ? $message : null;
     }
 
     /**

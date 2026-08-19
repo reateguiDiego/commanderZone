@@ -94,6 +94,7 @@
                 [playerId]="currentPlayer.id"
                 [cards]="commanderStackCards(currentPlayer, commanders)"
                 [canDrag]="canDragCommandZoneCards()"
+                [cardImage]="cardImage()"
                 (pointerDragStarted)="startZonePointerDrag($event.event, zone, $event.card, true)"
                 (nativeDragStarted)="startZoneDrag($event.event, currentPlayer, zone, $event.card)"
                 (nativeDragEnded)="clearZoneDrag($event); zoneDragEnd.emit()"
@@ -102,7 +103,8 @@
               />
             } @else {
               @for (commander of commanders; track commander.instanceId) {
-                @let commanderImage = cardImage()(commander);
+                @let visibleCommander = visibleCommanderCard(commander);
+                @let commanderImage = cardImage()(visibleCommander);
                 <span
                   class="command-zone-card"
                   data-testid="command-zone-card"
@@ -115,18 +117,23 @@
                   (pointerdown)="canDragCommandZoneCards() ? startZonePointerDrag($event, zone, commander, true) : undefined"
                   (dragstart)="blockZoneNativeDrag($event)"
                   (dragend)="$event.stopPropagation(); clearZoneDrag($event); zoneDragEnd.emit()"
-                  (mouseenter)="previewCommandZoneCard($event, commander)"
-                  (mouseleave)="hideZoneCardPreview(zone)"
+                  (mouseenter)="previewCommandZoneCard($event, visibleCommander)"
+                  (mouseleave)="resetCommanderFacePreview(commander); hideZoneCardPreview(zone)"
                 >
                   @if (commanderImage) {
                     <img
                       class="zone-card-image"
                       [src]="commanderImage"
-                      [alt]="commander.name"
+                      [alt]="visibleCommander.name"
                       draggable="false"
                     />
                   } @else {
-                    <span class="command-zone-card-name">{{ commander.name }}</span>
+                    <span class="command-zone-card-name">{{ visibleCommander.name }}</span>
+                  }
+                  @if (canShowCommanderFaceToggle(commander)) {
+                    <span role="button" tabindex="-1" class="commander-face-toggle" (pointerdown)="$event.stopPropagation()" (click)="lookAtOtherCommanderFace($event, commander)">
+                      <lucide-icon name="rotate-cw" size="13" aria-hidden="true" />
+                    </span>
                   }
                 </span>
               }

@@ -460,11 +460,14 @@ export class GameTableCardActionsService {
       }
 
       const currentIndex = Number.isInteger(item.card.activeFaceIndex) ? Number(item.card.activeFaceIndex) : 0;
+      const faceIndex = (currentIndex + 1) % faceCount;
       await context.command('card.face.changed', {
         playerId: item.playerId,
         zone: item.zone,
         instanceId: item.card.instanceId,
-        faceIndex: (currentIndex + 1) % faceCount,
+        cardName: item.card.name,
+        faceName: item.card.cardFaces?.[faceIndex]?.name ?? undefined,
+        faceIndex,
       });
     }
     context.closeContextMenu();
@@ -628,6 +631,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
+      cardName: menu.card.name,
       power,
       toughness,
     });

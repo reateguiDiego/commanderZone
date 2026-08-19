@@ -94,7 +94,7 @@
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
-            (mouseleave)="queueFloatingContentScrollToBottom()"
+            (mouseleave)="handleFloatingPanelLeave()"
             (focusin)="queueFloatingContentScrollToBottom()"
             (focusout)="handleFloatingPanelFocusOut($event)"
             (transitionend)="handleFloatingPanelTransitionEnd($event)"
@@ -116,6 +116,7 @@
                   <p
                     class="collapsed-log-entry"
                     [class.phase-entry]="entry.appearance === 'phase'"
+                    [class.turn-entry]="entry.appearance === 'turn'"
                     [class.death-entry]="entry.appearance === 'death'"
                   >
                     <small>{{ logTime(entry.createdAt) }}</small>
@@ -157,14 +158,23 @@
                 [entries]="store.eventLog()"
                 [highlightedEntryIds]="highlightedLogEntryIds()"
                 [fadingEntryIds]="fadingLogEntryIds()"
+                [loadingOlder]="logHistory.loadingOlder()"
+                [loadingNewer]="logHistory.loadingNewer()"
+                [canLoadOlder]="logHistory.canLoadOlder()"
+                [canLoadNewer]="logHistory.canLoadNewer()"
                 [playerColor]="chatAuthorColor"
                 [logTime]="logTime"
+                (loadOlder)="loadOlderLogHistory()"
+                (loadNewer)="loadNewerLogHistory()"
                 (previewCard)="store.showCardPreview($event)"
                 (hidePreview)="store.hideCardPreview()"
               />
             } @else {
               <div class="chat-panel-content floating-expanded-content" data-testid="chat-panel">
-                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
+                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed" (scroll)="handleChatHistoryScroll($event)">
+                  @if (chatHistory.loadingOlder()) {
+                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+                  }
                   @for (message of snapshot.chat; track message.id ?? message.createdAt + message.userId) {
                     <p
                       class="chat-entry"
@@ -219,6 +229,9 @@
                         }
                       </span>
                     </p>
+                  }
+                  @if (chatHistory.loadingNewer()) {
+                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
                   }
                 </div>
                 <form class="chat-form" (ngSubmit)="store.sendChat()">

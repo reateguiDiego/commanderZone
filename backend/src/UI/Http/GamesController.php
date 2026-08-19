@@ -1235,11 +1235,38 @@ class GamesController extends ApiController
             return $this->fail('Chat stream is not enabled.', 404);
         }
 
-        $limit = max(1, min(500, (int) $request->query->get('limit', 150)));
+        $limit = max(1, min(500, (int) $request->query->get('limit', 50)));
         $cursor = trim((string) $request->query->get('cursor', ''));
+        $before = trim((string) $request->query->get('before', ''));
+
+        if ($cursor !== '' && $before !== '') {
+            return $this->fail('cursor and before cannot be used together.');
+        }
+
+        if ($before !== '') {
+            $page = $activityStreams->chatHistoryPage($game, $user, $limit, $before);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextBefore' => $page['nextBefore'],
+            ]);
+        }
+
+        if ($cursor !== '') {
+            $page = $activityStreams->chatForwardPage($game, $user, $limit, $cursor);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextAfter' => $page['nextAfter'],
+            ]);
+        }
 
         return $this->json([
-            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit, $cursor !== '' ? $cursor : null),
+            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit),
             'limit' => $limit,
         ]);
     }
@@ -1268,11 +1295,38 @@ class GamesController extends ApiController
             return $this->fail('Log stream is not enabled.', 404);
         }
 
-        $limit = max(1, min(500, (int) $request->query->get('limit', 250)));
+        $limit = max(1, min(500, (int) $request->query->get('limit', 50)));
         $cursor = trim((string) $request->query->get('cursor', ''));
+        $before = trim((string) $request->query->get('before', ''));
+
+        if ($cursor !== '' && $before !== '') {
+            return $this->fail('cursor and before cannot be used together.');
+        }
+
+        if ($before !== '') {
+            $page = $activityStreams->logHistoryPage($game, $limit, $before);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextBefore' => $page['nextBefore'],
+            ]);
+        }
+
+        if ($cursor !== '') {
+            $page = $activityStreams->logForwardPage($game, $limit, $cursor);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextAfter' => $page['nextAfter'],
+            ]);
+        }
 
         return $this->json([
-            'data' => $activityStreams->logEntries($game, $limit, $cursor !== '' ? $cursor : null),
+            'data' => $activityStreams->logEntries($game, $limit),
             'limit' => $limit,
         ]);
     }

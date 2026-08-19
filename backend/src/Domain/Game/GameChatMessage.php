@@ -8,7 +8,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'game_chat_message')]
-#[ORM\Index(name: 'idx_game_chat_game_created_at', columns: ['game_id', 'created_at'])]
+#[ORM\Index(name: 'idx_game_chat_game_created_at_message_id', columns: ['game_id', 'created_at', 'message_id'])]
 #[ORM\Index(name: 'idx_game_chat_game_message', columns: ['game_id', 'message_id'])]
 class GameChatMessage
 {

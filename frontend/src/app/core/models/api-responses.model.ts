@@ -1,7 +1,7 @@
 import { Card } from './card.model';
 import { CommunityDeckDetail, CommunityDeckSummary, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityUser } from './community.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
-import { Game, GameControlPlaneState, GameDisconnectVoteChoice, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
+import { ChatMessage, Game, GameControlPlaneState, GameDisconnectVoteChoice, GameEvent, GameLogEntry, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
 import { RoomInvite } from './room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from './room.model';
@@ -52,6 +52,22 @@ export interface EmailVerificationConfirmResponse {
 
 export interface CardResponse {
   card: Card;
+}
+
+export interface GameLogHistoryPageResponse {
+  data: GameLogEntry[];
+  limit: number;
+  hasMore: boolean;
+  nextBefore?: string | null;
+  nextAfter?: string | null;
+}
+
+export interface GameChatHistoryPageResponse {
+  data: ChatMessage[];
+  limit: number;
+  hasMore: boolean;
+  nextBefore?: string | null;
+  nextAfter?: string | null;
 }
 
 export interface CardsResponse {

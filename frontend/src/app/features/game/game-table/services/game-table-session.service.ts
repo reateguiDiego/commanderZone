@@ -15,6 +15,8 @@ import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 import { GameTableStaticCardCacheV2Service } from './game-table-static-card-cache-v2.service';
+import { GameTableLogHistoryService } from './game-table-log-history.service';
+import { GameTableChatHistoryService } from './game-table-chat-history.service';
 
 export interface GameTableSessionContext {
   gameId(): string;
@@ -53,6 +55,8 @@ export class GameTableSessionService {
   private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly staticCardCacheV2 = inject(GameTableStaticCardCacheV2Service);
+  private readonly logHistory = inject(GameTableLogHistoryService);
+  private readonly chatHistory = inject(GameTableChatHistoryService);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
   private controlPlaneRecoveryInFlight: Promise<void> | null = null;
   private realtimeSubscriptionGeneration = 0;
@@ -306,6 +310,8 @@ export class GameTableSessionService {
 
     const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId, this.staticCardCacheV2.knownCatalogKeys()));
     let nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
+    this.logHistory.reset(nextSnapshot);
+    this.chatHistory.reset(nextSnapshot);
     const currentControlPlane = this.controlPlaneFromSnapshot(context.snapshot());
     const incomingControlPlaneRevision = bootstrap.game.controlPlane?.controlPlaneRevision
       ?? bootstrap.game.controlPlaneRevision;

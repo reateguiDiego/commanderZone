@@ -2964,12 +2964,17 @@ paths:
             type: integer
             minimum: 1
             maximum: 500
-            default: 150
+            default: 50
         - name: cursor
           in: query
           schema:
             type: string
           description: Stable message id returned as `chatCursor` by V2 bootstrap.
+        - name: before
+          in: query
+          schema:
+            type: string
+          description: Fetch messages older than this visible message id. Cannot be combined with cursor.
       responses:
         '200':
           description: Ordered chat messages.
@@ -2985,6 +2990,16 @@ paths:
                       $ref: '#/components/schemas/ChatMessage'
                   limit:
                     type: integer
+                  hasMore:
+                    type: boolean
+                  nextBefore:
+                    type: string
+                    nullable: true
+                    description: Oldest visible message id in this page; pass as before to load the next older page.
+                  nextAfter:
+                    type: string
+                    nullable: true
+                    description: Newest visible message id in this page; pass as cursor to load the next newer page.
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -3004,12 +3019,17 @@ paths:
             type: integer
             minimum: 1
             maximum: 500
-            default: 250
+            default: 50
         - name: cursor
           in: query
           schema:
             type: string
-          description: Stable log entry id returned as `logCursor` by V2 bootstrap.
+          description: Stable log entry id. Loads entries newer than this cursor and cannot be combined with before.
+        - name: before
+          in: query
+          schema:
+            type: string
+          description: Load entries older than this stable log entry id. Cannot be combined with cursor.
       responses:
         '200':
           description: Ordered gameplay log entries.
@@ -3025,6 +3045,16 @@ paths:
                       $ref: '#/components/schemas/GameLogEntry'
                   limit:
                     type: integer
+                  hasMore:
+                    type: boolean
+                  nextBefore:
+                    type: string
+                    nullable: true
+                    description: Oldest entry id in this page; pass as before to load the next older page.
+                  nextAfter:
+                    type: string
+                    nullable: true
+                    description: Newest entry id in this page; pass as cursor to load the next newer page.
         '401':
           $ref: '#/components/responses/Error'
         '403':

@@ -10,6 +10,8 @@ import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
+import { GameTableLogHistoryService } from './game-table-log-history.service';
+import { GameTableChatHistoryService } from './game-table-chat-history.service';
 
 const gameRealtime = {
   subscribe: vi.fn(),
@@ -29,6 +31,12 @@ describe('GameTableSessionService', () => {
   const gameplayV2Flags = {
     enabled: vi.fn(() => false),
   };
+  const logHistory = {
+    reset: vi.fn(),
+  };
+  const chatHistory = {
+    reset: vi.fn(),
+  };
   let websocketStatus: ReturnType<typeof signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>>;
   const websocket = {
     status: signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped'),
@@ -46,6 +54,8 @@ describe('GameTableSessionService', () => {
     gamesApi.controlPlane.mockReset();
     gameplayV2Flags.enabled.mockReset();
     gameplayV2Flags.enabled.mockReturnValue(false);
+    logHistory.reset.mockReset();
+    chatHistory.reset.mockReset();
     gameRealtime.subscribe.mockReset();
     gameRealtime.stop.mockReset();
     gameRealtime.seedControlPlaneRevision.mockReset();
@@ -60,6 +70,8 @@ describe('GameTableSessionService', () => {
         { provide: GameTableWebsocketGameplayService, useValue: websocket },
         GameTableNormalizedV2Store,
         { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
+        { provide: GameTableLogHistoryService, useValue: logHistory },
+        { provide: GameTableChatHistoryService, useValue: chatHistory },
       ],
     });
     service = TestBed.inject(GameTableSessionService);

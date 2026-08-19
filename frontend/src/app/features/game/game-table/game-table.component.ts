@@ -37,6 +37,8 @@ import { GameTableZonePointerMoveActionsService } from './services/game-table-zo
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatReadStateService, type GameTableChatReadContext } from './services/game-table-chat-read-state.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
+import { GameTableLogHistoryService } from './services/game-table-log-history.service';
+import { GameTableChatHistoryService } from './services/game-table-chat-history.service';
 import { GameTableManaCometService } from './services/game-table-mana-comet.service';
 import {
   GameTableRealtimeAnimationBusService,
@@ -528,6 +530,8 @@ interface MotionSourceRect {
     GameTableMotionService,
     GameTableChatReadStateService,
     GameTableNotificationSoundService,
+    GameTableLogHistoryService,
+    GameTableChatHistoryService,
     GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
     GameTableE2eStaticCardCacheToolsService,
@@ -547,6 +551,8 @@ interface MotionSourceRect {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+  readonly logHistory = inject(GameTableLogHistoryService);
+  readonly chatHistory = inject(GameTableChatHistoryService);
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
@@ -1058,11 +1064,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.syncFollowActiveTurnPlayer(snapshot.turn.activePlayerId);
 
+    const activeTab = this.store.activeFloatingTab();
+    if ((activeTab === 'log' && this.logHistory.viewingOlderHistory())
+      || (activeTab === 'chat' && this.chatHistory.viewingOlderHistory())) {
+      return;
+    }
+
     const log = this.store.eventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
     const latestLog = log.at(-1)?.id ?? '';
     const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
-    const key = `${this.store.activeFloatingTab()}:${snapshot.chat.length}:${latestChat}:${snapshot.eventLog.length}:${rawLatestLog}:${log.length}:${latestLog}`;
+    const key = `${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
     if (key === this.lastAutoScrollKey) {
       return;
     }
@@ -1070,6 +1082,37 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.lastAutoScrollKey = key;
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
     this.queueBattlefieldReflow();
+  }
+
+  loadOlderLogHistory(): void {
+    this.clearQueuedFloatingContentScroll();
+    void this.logHistory.loadOlder();
+  }
+
+  loadNewerLogHistory(): void {
+    void this.logHistory.loadNewer();
+  }
+
+  async handleChatHistoryScroll(event: Event): Promise<void> {
+    const feed = event.currentTarget;
+    if (!(feed instanceof HTMLElement)) {
+      return;
+    }
+
+    const threshold = 96;
+    if (feed.scrollTop <= threshold) {
+      const previousHeight = feed.scrollHeight;
+      const previousTop = feed.scrollTop;
+      await this.chatHistory.loadOlder();
+      requestAnimationFrame(() => {
+        feed.scrollTop = previousTop + feed.scrollHeight - previousHeight;
+      });
+    } else if (feed.scrollTop + feed.clientHeight >= feed.scrollHeight - threshold) {
+      await this.chatHistory.loadNewer();
+      requestAnimationFrame(() => {
+        feed.scrollTop = Math.max(0, feed.scrollHeight - feed.clientHeight);
+      });
+    }
   }
 
   ngOnDestroy(): void {
@@ -1298,6 +1341,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     this.queueFloatingContentScrollToBottom();
+  }
+
+  handleFloatingPanelLeave(): void {
+    this.queueFloatingContentScrollToBottom();
+    if (this.store.activeFloatingTab() === 'log') {
+      void this.logHistory.restoreLatest();
+    } else {
+      void this.chatHistory.restoreLatest();
+    }
   }
 
   handleFloatingPanelTransitionEnd(event: TransitionEvent): void {

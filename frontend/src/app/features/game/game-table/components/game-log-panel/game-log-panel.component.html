@@ -1,14 +1,22 @@
-<div #feed appPrettyScroll class="panel-feed" data-testid="game-log">
+<div #feed appPrettyScroll class="panel-feed" data-testid="game-log" (scroll)="onFeedScroll()">
+  @if (loadingOlder()) {
+    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+  }
   @for (entry of entries(); track entry.id) {
     <p
       data-testid="game-log-entry"
+      [attr.data-log-entry-id]="entry.id"
       [class.phase-entry]="entry.appearance === 'phase'"
+      [class.turn-entry]="entry.appearance === 'turn'"
       [class.death-entry]="entry.appearance === 'death'"
+      [class.with-subject]="entry.subject !== null"
       [class.new-message-highlight]="highlightedEntryIds().includes(entry.id)"
       [class.new-message-evaporating]="fadingEntryIds().includes(entry.id)"
     >
       <small>{{ logTime()(entry.createdAt) }}</small>
-      <strong [style.--log-author-color]="entry.actorId ? playerColor()(entry.actorId) : null">{{ entry.displayName ?? 'System' }}</strong>
+      @if (entry.subject; as subject) {
+        <strong [style.--log-author-color]="subject.playerId ? playerColor()(subject.playerId) : null">{{ subject.displayName }}</strong>
+      }
       <span>
         @if (entry.cardList.length > 0) {
           {{ entry.cardListPrefix }}

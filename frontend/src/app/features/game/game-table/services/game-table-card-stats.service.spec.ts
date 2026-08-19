@@ -39,6 +39,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       power: 4,
       toughness: 3,
     }, true);
@@ -65,6 +66,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       loyalty: 4,
     }, true);
   });
@@ -90,6 +92,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       defense: 5,
     }, true);
   });
@@ -113,6 +116,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       defense: 7,
     }, true);
   });
@@ -138,6 +142,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       saga: 2,
     }, true);
   });
@@ -161,6 +166,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       defense: 99,
     }, true);
 
@@ -182,6 +188,7 @@ describe('GameTableCardStatsService', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      cardName: 'Ajani Test Card',
       defense: -1,
     }, true);
   });

@@ -8,7 +8,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity]
 #[ORM\Table(name: 'game_log_entry')]
 #[ORM\Index(name: 'idx_game_log_game_version', columns: ['game_id', 'version'])]
-#[ORM\Index(name: 'idx_game_log_game_created_at', columns: ['game_id', 'created_at'])]
+#[ORM\Index(name: 'idx_game_log_game_created_at_id', columns: ['game_id', 'created_at', 'id'])]
 class GameLogEntry
 {
     #[ORM\Id]

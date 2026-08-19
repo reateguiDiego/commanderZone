@@ -5643,6 +5643,8 @@ describe('GameTableComponent', () => {
         playerId: 'user-1',
         zone: 'hand',
         instanceId: 'dfc-1',
+        cardName: 'Front // Back',
+        faceName: 'Back',
         faceIndex: 1,
       },
     }), 'game-1'));

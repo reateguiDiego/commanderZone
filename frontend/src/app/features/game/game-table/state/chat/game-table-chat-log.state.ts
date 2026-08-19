@@ -34,6 +34,7 @@ interface PlayerCounterChange {
 }
 
 export interface GameLogEntryView extends GameLogEntry {
+  subject: { playerId: string | null; displayName: string } | null;
   card: GameCardInstance | null;
   cardList: readonly string[];
   cardListPrefix: string;
@@ -41,7 +42,7 @@ export interface GameLogEntryView extends GameLogEntry {
   cardListLabel: string;
   messagePrefix: string;
   messageSuffix: string;
-  appearance: 'default' | 'phase' | 'death';
+  appearance: 'default' | 'phase' | 'turn' | 'death';
 }
 
 @Injectable()
@@ -89,63 +90,164 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
-    if (this.isPrivateLibraryDestinationLog(entry)) {
+    const presentation = this.logPresentation(snapshot, entry);
+    const renderedEntry = { ...entry, message: presentation.message };
+
+    if (this.isPrivateLibraryDestinationLog(renderedEntry)) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: [],
         cardListPrefix: '',
         cardListSuffix: '',
         cardListLabel: '',
-        messagePrefix: this.privateLibraryDestinationMessage(entry.message),
+        messagePrefix: this.privateLibraryDestinationMessage(renderedEntry.message),
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const cardListView = this.cardListView(entry);
+    const cardListView = this.cardListView(renderedEntry);
     if (cardListView) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: cardListView.cardList,
         cardListPrefix: cardListView.messagePrefix,
         cardListSuffix: cardListView.messageSuffix,
         cardListLabel: cardListView.label,
-        messagePrefix: entry.message,
+        messagePrefix: renderedEntry.message,
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const card = this.cardFromLogEntry(snapshot, zones, entry);
+    const card = this.cardFromLogEntry(snapshot, zones, renderedEntry);
     if (!card) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: [],
         cardListPrefix: '',
         cardListSuffix: '',
         cardListLabel: '',
-        messagePrefix: entry.message,
+        messagePrefix: renderedEntry.message,
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const index = entry.message.indexOf(card.name);
+    const index = renderedEntry.message.indexOf(card.name);
 
     return {
-      ...entry,
+      ...renderedEntry,
+      subject: presentation.subject,
       card,
       cardList: [],
       cardListPrefix: '',
       cardListSuffix: '',
       cardListLabel: '',
-      messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
-      messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
-      appearance: this.logAppearance(entry),
+      messagePrefix: index >= 0 ? renderedEntry.message.slice(0, index) : renderedEntry.message,
+      messageSuffix: index >= 0 ? renderedEntry.message.slice(index + card.name.length) : '',
+      appearance: this.logAppearance(renderedEntry),
     };
+  }
+
+  private logPresentation(
+    snapshot: GameSnapshot | null,
+    entry: GameLogEntry,
+  ): { message: string; subject: GameLogEntryView['subject'] } {
+    if (!entry.i18nKey) {
+      return { message: entry.message, subject: null };
+    }
+
+    const params = this.logTranslationParams(snapshot, entry);
+    const subject = this.logSubject(snapshot, entry, params);
+    if (!subject) {
+      return { message: this.logMessage(snapshot, entry), subject: null };
+    }
+
+    const fragmentKey = this.fragmentTranslationKey(entry.i18nKey, subject.playerId, params);
+    if (fragmentKey) {
+      const fragment = this.translateRuntime(fragmentKey, params);
+      if (fragment !== fragmentKey) {
+        return { message: fragment, subject };
+      }
+      return { message: this.logMessage(snapshot, entry), subject: null };
+    }
+
+    const fullMessage = this.logMessage(snapshot, entry);
+    const fragment = this.removeSubjectPrefix(fullMessage, subject.displayName);
+
+    return fragment === null
+      ? { message: fullMessage, subject: null }
+      : { message: fragment, subject };
+  }
+
+  private logSubject(
+    snapshot: GameSnapshot | null,
+    entry: GameLogEntry,
+    params: Record<string, unknown>,
+  ): GameLogEntryView['subject'] {
+    const actorPlayerId = this.stringParam(params, 'actorPlayerId') ?? entry.actorId ?? null;
+    const playerId = this.stringParam(params, 'playerId');
+    const targetPlayerId = this.stringParam(params, 'targetPlayerId');
+    const previousPlayerId = this.stringParam(params, 'previousPlayerId');
+    const subjectPlayerId = entry.i18nKey === 'gameLog.turn.changed'
+      ? previousPlayerId
+      : entry.i18nKey === 'gameLog.disconnect.expelled'
+        ? targetPlayerId
+        : entry.i18nKey === 'gameLog.game.concede'
+          ? playerId
+          : actorPlayerId;
+    const displayName = subjectPlayerId
+      ? this.playerDisplayName(snapshot, entry, subjectPlayerId)
+      : entry.displayName?.trim() ?? '';
+
+    return displayName === '' ? null : { playerId: subjectPlayerId, displayName };
+  }
+
+  private fragmentTranslationKey(
+    i18nKey: string,
+    subjectPlayerId: string | null,
+    params: Record<string, unknown>,
+  ): string | null {
+    const playerId = this.stringParam(params, 'playerId');
+    const targetPlayerId = this.stringParam(params, 'targetPlayerId');
+    const participantId = i18nKey === 'gameLog.life.changed' ? playerId : targetPlayerId;
+    const suffix = participantId && participantId === subjectPlayerId ? 'self' : 'other';
+
+    switch (i18nKey) {
+      case 'gameLog.life.changed':
+        return `gameLog.fragment.life.${suffix}`;
+      case 'gameLog.commanderDamage.changed':
+        return `gameLog.fragment.commanderDamage.${suffix}`;
+      case 'gameLog.card.controllerChanged':
+        return `gameLog.fragment.card.controllerChanged.${suffix}`;
+      case 'gameLog.turn.changed':
+        return 'gameLog.fragment.turn.changed';
+      case 'gameLog.turn.phaseChanged':
+        return 'gameLog.fragment.turn.phaseChanged';
+      case 'gameLog.disconnect.expelled':
+        return 'gameLog.fragment.disconnect.expelled';
+      case 'gameLog.game.concede':
+        return 'gameLog.fragment.game.concede';
+      default:
+        return null;
+    }
+  }
+
+  private removeSubjectPrefix(message: string, subject: string): string | null {
+    const trimmedSubject = subject.trim();
+    if (!trimmedSubject || !message.startsWith(trimmedSubject)) {
+      return null;
+    }
+
+    const fragment = message.slice(trimmedSubject.length).trimStart();
+    return fragment === '' ? null : fragment;
   }
 
   private renderableLogEntry(snapshot: GameSnapshot | null, entry: RawGameLogEntry): GameLogEntry {
@@ -177,14 +279,33 @@ export class GameTableChatLogState {
     const playerId = this.stringParam(params, 'playerId') ?? actorPlayerId;
 
     return {
+      actorPlayerId,
+      playerId,
+      targetPlayerId: this.stringParam(params, 'targetPlayerId'),
+      previousPlayerId: this.stringParam(params, 'previousPlayerId'),
       actor: actorPlayerId ? this.playerDisplayName(snapshot, entry, actorPlayerId) : entry.displayName ?? 'System',
       player: playerId ? this.playerDisplayName(snapshot, entry, playerId) : entry.displayName ?? 'System',
+      previousPlayer: this.playerLabelParam(snapshot, entry, params, 'previousPlayerId'),
+      phase: this.phaseLabel(this.stringParam(params, 'phase')),
       target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
       count: params['count'] ?? '',
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
       toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
       counter: params['counter'] ?? '',
       value: params['value'] ?? '',
+      cardName: params['cardName'] ?? '',
+      faceName: params['faceName'] ?? '',
+      previousPower: params['previousPower'] ?? '',
+      previousToughness: params['previousToughness'] ?? '',
+      power: params['power'] ?? '',
+      toughness: params['toughness'] ?? '',
+      previousValue: params['previousValue'] ?? '',
+      previousChapter: params['previousChapter'] ?? '',
+      chapter: params['chapter'] ?? '',
+      previousDefense: params['previousDefense'] ?? '',
+      defense: params['defense'] ?? '',
+      delta: params['delta'] ?? '',
+      choice: params['choice'] ?? '',
       previousLife: params['previousLife'] ?? '',
       life: params['life'] ?? '',
       kind: this.diceKindLabel(this.stringParam(params, 'kind')),
@@ -273,11 +394,36 @@ export class GameTableChatLogState {
       return 'death';
     }
 
-    return entry.type === 'turn.changed' ? 'phase' : 'default';
+    if (entry.i18nKey === 'gameLog.turn.phaseChanged') {
+      return 'phase';
+    }
+
+    if (entry.i18nKey === 'gameLog.turn.changed') {
+      return 'turn';
+    }
+
+    if (entry.type !== 'turn.changed') {
+      return 'default';
+    }
+
+    return this.stringParam(this.recordParam(entry.params), 'previousPlayerId')
+      ? 'turn'
+      : 'phase';
   }
 
   private isConcedeLog(entry: GameLogEntry): boolean {
     return entry.type === 'game.concede';
+  }
+
+  private phaseLabel(phase: string | null): string {
+    if (!phase) {
+      return '';
+    }
+
+    const key = `gameLog.phase.${phase}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? phase : translated;
   }
 
   private suppressConcededPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {

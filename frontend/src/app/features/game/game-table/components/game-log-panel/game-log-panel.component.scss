@@ -15,13 +15,14 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 0.6rem;
   scrollbar-gutter: stable;
 }
 
 .panel-feed p {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.35rem;
   min-width: 0;
   margin: 0;
@@ -35,11 +36,23 @@
 }
 
 .panel-feed p.phase-entry {
+  border: 1px solid rgb(var(--game-info-rgb) / 46%);
+  background:
+    radial-gradient(circle at 0% 50%, rgb(var(--game-info-rgb) / 20%), transparent 10rem),
+    linear-gradient(90deg, rgb(var(--game-info-rgb) / 13%), rgb(var(--game-surface-rgb) / 72%));
+  box-shadow: inset 0 0 18px rgb(var(--game-info-rgb) / 9%);
+}
+
+.panel-feed p.with-subject {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.panel-feed p.turn-entry {
   border: 1px solid var(--game-accent-line);
   background:
-    radial-gradient(circle at 0% 50%, rgb(var(--gold-rgb) / 24%), transparent 10rem),
-    linear-gradient(90deg, rgb(67 50 24 / 55%), rgb(var(--game-surface-rgb) / 72%));
-  box-shadow: inset 0 0 18px rgb(var(--gold-rgb) / 8%);
+    radial-gradient(circle at 0% 50%, rgb(var(--game-accent-rgb) / 24%), transparent 10rem),
+    linear-gradient(90deg, rgb(var(--game-accent-rgb) / 16%), rgb(var(--game-surface-rgb) / 72%));
+  box-shadow: inset 0 0 18px rgb(var(--game-accent-rgb) / 10%);
 }
 
 .panel-feed p.death-entry {
@@ -52,6 +65,11 @@
 
 .panel-feed p.phase-entry strong,
 .panel-feed p.phase-entry span {
+  color: var(--game-info);
+}
+
+.panel-feed p.turn-entry strong,
+.panel-feed p.turn-entry span {
   color: var(--game-accent);
 }
 
@@ -105,6 +123,16 @@
 .panel-feed strong {
   color: color-mix(in srgb, var(--log-author-color, var(--game-accent)) 78%, var(--game-text));
   font-size: 0.72rem;
+}
+
+.panel-feed .history-loading {
+  display: block;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  background: transparent;
+  color: var(--game-info);
+  font-size: 0.72rem;
+  text-align: center;
 }
 
 .panel-feed small {

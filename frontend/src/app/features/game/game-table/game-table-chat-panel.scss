@@ -146,7 +146,9 @@
   gap: 0.12rem;
   padding: 0.05rem 0.3rem;
   border-radius: 999px;
-  background: rgb(var(--highlight-rgb) / 7%);
+  border: 1px solid rgb(var(--gold-rgb) / 34%);
+  background: rgb(var(--gold-rgb) / 18%);
+  box-shadow: inset 0 1px 0 rgb(var(--highlight-rgb) / 18%);
 }
 
 .chat-reaction-users {
@@ -290,4 +292,10 @@
 
 .chat-form button:hover {
   border-color: var(--game-accent-strong);
+}
+.panel-feed .history-loading {
+  margin: 0 0 0.5rem;
+  color: var(--cz-theme-text-muted, var(--cz-text-muted));
+  font-size: 0.75rem;
+  text-align: center;
 }

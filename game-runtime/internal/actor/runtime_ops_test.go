@@ -85,6 +85,53 @@ func TestRuntimeCommandEmitsIdempotentGameLogEntry(t *testing.T) {
 	}
 }
 
+func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
+	game := testState()
+	game.Turn = map[string]any{"activePlayerId": "p2", "phase": "untap", "number": 2}
+	cases := []struct {
+		commandType string
+		payload     map[string]any
+	}{
+		{"turn.changed", map[string]any{"turn": game.Turn, "previousTurn": map[string]any{"activePlayerId": "p1"}}},
+		{"card.face_down.changed", map[string]any{"faceDown": true}},
+		{"card.controller.changed", map[string]any{"controllerId": "p2"}},
+		{"commander.damage.changed", map[string]any{"targetPlayerId": "p2", "previousDamage": 3, "damage": 7}},
+		{"library.move_top", map[string]any{"count": 2, "destination": "graveyard"}},
+		{"library.reorder_top", map[string]any{"instanceIds": []string{"a", "b"}}},
+		{"library.put_top", map[string]any{}},
+		{"library.put_bottom", map[string]any{}},
+		{"zone.random_card.selected", map[string]any{"zone": "hand"}},
+		{"zone.move_all", map[string]any{"count": 2, "fromZone": "graveyard", "toZone": "exile"}},
+		{"stack.card_added", map[string]any{}}, {"stack.item_removed", map[string]any{}},
+		{"arrow.created", map[string]any{}}, {"arrow.removed", map[string]any{}},
+		{"attachment.created", map[string]any{}}, {"attachment.removed", map[string]any{}},
+		{"mulligan.take", map[string]any{}}, {"mulligan.keep", map[string]any{}}, {"mulligan.scry.confirm", map[string]any{}},
+		{"disconnect.vote", map[string]any{"status": "resolved_expel", "targetPlayerId": "p2"}},
+	}
+	for _, testCase := range cases {
+		command := protocol.CommandEnvelopeV2{Type: testCase.commandType, Payload: testCase.payload}
+		if message := runtimeLogMessage(&game, command, testCase.payload, "Player one"); message == "" {
+			t.Fatalf("%s did not produce a game log message", testCase.commandType)
+		}
+		if semantic := runtimeLogSemantic(&game, command, testCase.payload, "p1"); semantic == nil {
+			t.Fatalf("%s did not produce semantic log metadata", testCase.commandType)
+		}
+	}
+	phasePayload := map[string]any{
+		"turn":         map[string]any{"activePlayerId": "p1", "phase": "combat"},
+		"previousTurn": map[string]any{"activePlayerId": "p1", "phase": "main-1"},
+	}
+	phaseSemantic := runtimeLogSemantic(&game, protocol.CommandEnvelopeV2{Type: "turn.changed", Payload: phasePayload}, phasePayload, "p1")
+	phaseParams := phaseSemantic["params"].(map[string]any)
+	if _, isTurnChange := phaseParams["previousPlayerId"]; isTurnChange || phaseParams["phase"] != "combat" {
+		t.Fatalf("phase change semantic parameters = %#v", phaseParams)
+	}
+	quietPayload := map[string]any{"status": "open", "targetPlayerId": "p2"}
+	if message := runtimeLogMessage(&game, protocol.CommandEnvelopeV2{Type: "disconnect.vote", Payload: quietPayload}, quietPayload, "Player one"); message != "" {
+		t.Fatalf("open disconnect vote must not produce a game log message: %q", message)
+	}
+}
+
 func TestDiceRolledEmitsServerResultPatchAndGameLog(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dice-d20", "dice.rolled", map[string]any{
@@ -1235,6 +1282,14 @@ func TestCardFaceDownRuntimeHidesPublicIdentityAndSendsPrivateOwnerPatch(t *test
 	if encoded := fmt.Sprintf("%#v", result.Patches); contains(encoded, "imageUris") || contains(encoded, "oracleText") || contains(encoded, "cardFaces") {
 		t.Fatalf("static payload leaked in faceDown patch: %s", encoded)
 	}
+	faceDownLog := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if faceDownLog == nil {
+		t.Fatalf("missing faceDown eventLog.append patch: %#v", result.Patches)
+	}
+	faceDownEntries := faceDownLog.Data["entries"].([]map[string]any)
+	if len(faceDownEntries) != 1 || faceDownEntries[0]["type"] != "card.face_down.changed" || faceDownEntries[0]["i18nKey"] != "gameLog.card.turnedFaceDown" {
+		t.Fatalf("unexpected faceDown log entry: %#v", faceDownEntries)
+	}
 
 	faceUp := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "face-up", "card.face_down.changed", map[string]any{
 		"instanceId": "i1",
@@ -1251,6 +1306,14 @@ func TestCardFaceDownRuntimeHidesPublicIdentityAndSendsPrivateOwnerPatch(t *test
 		if publicFaceUp.Data[key] == nil || publicFaceUp.Data[key] == "" {
 			t.Fatalf("public faceUp patch is missing %s: %#v", key, publicFaceUp.Data)
 		}
+	}
+	faceUpLog := patchForVisibility(faceUp.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if faceUpLog == nil {
+		t.Fatalf("missing faceUp eventLog.append patch: %#v", faceUp.Patches)
+	}
+	faceUpEntries := faceUpLog.Data["entries"].([]map[string]any)
+	if len(faceUpEntries) != 1 || faceUpEntries[0]["i18nKey"] != "gameLog.card.turnedFaceUp" {
+		t.Fatalf("unexpected faceUp log entry: %#v", faceUpEntries)
 	}
 }
 
@@ -1774,6 +1837,8 @@ func TestDungeonMarkerAndFaceChangeRuntimePatches(t *testing.T) {
 	}
 	face := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "face", "card.face.changed", map[string]any{
 		"instanceId": "i1",
+		"cardName":   "Front",
+		"faceName":   "Back",
 		"faceIndex":  1,
 	}), "p1")
 	if face.Err != nil {
@@ -1782,6 +1847,14 @@ func TestDungeonMarkerAndFaceChangeRuntimePatches(t *testing.T) {
 	facePatch := patchForVisibility(face.Patches, protocol.VisibilityPublic, "card.field.set")
 	if facePatch == nil || facePatch.Data["activeFaceIndex"] != 1 {
 		t.Fatalf("missing face patch: %#v", face.Patches)
+	}
+	logPatch := patchForVisibility(face.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing face-change eventLog.append patch: %#v", face.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["message"] != "p1 flipped Front to Back." || entries[0]["i18nKey"] != "gameLog.card.faceChanged" {
+		t.Fatalf("unexpected face-change log entry: %#v", entries)
 	}
 }
 
@@ -3299,6 +3372,61 @@ func TestCardPowerToughnessPatchUsesTopLevelFields(t *testing.T) {
 	op := result.Patches[0].Ops[0]
 	if op.Op != "card.field.set" || op.Data["power"] != 7 || op.Data["toughness"] != 8 || op.Data["loyalty"] != 4 {
 		t.Fatalf("unexpected stats patch: %#v", op)
+	}
+}
+
+func TestCardStatChangesEmitGameLogEntries(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload map[string]any
+		message string
+		i18nKey string
+	}{
+		{
+			name:    "power and toughness",
+			payload: map[string]any{"instanceId": "i1", "cardName": "Adept", "power": 3, "toughness": 4},
+			message: "Changed Adept from 2/3 to 3/4.",
+			i18nKey: "gameLog.cardStats.powerToughnessChanged",
+		},
+		{
+			name:    "loyalty",
+			payload: map[string]any{"instanceId": "i1", "cardName": "Adept", "loyalty": 5},
+			message: "Adept loyalty increased from 4 to 5 (+1).",
+			i18nKey: "gameLog.cardStats.loyaltyChanged",
+		},
+		{
+			name:    "saga",
+			payload: map[string]any{"instanceId": "i1", "cardName": "Binding the Old Gods", "saga": 2},
+			message: "Binding the Old Gods saga increased from I to II (+1).",
+			i18nKey: "gameLog.cardStats.sagaChanged",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			initial := testState()
+			instance := initial.Instances["i1"]
+			instance.MutableStats = map[string]any{"power": 2, "toughness": 3, "loyalty": 4, "saga": 1}
+			initial.Instances["i1"] = instance
+			gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+			result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "stats-log-"+test.name, "card.power_toughness.changed", test.payload), "p1")
+			if result.Err != nil {
+				t.Fatalf("stat change failed: %v", result.Err)
+			}
+			logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+			if logPatch == nil {
+				t.Fatalf("missing eventLog.append patch: %#v", result.Patches)
+			}
+			entries := logPatch.Data["entries"].([]map[string]any)
+			if len(entries) != 1 || entries[0]["type"] != "card.power_toughness.changed" || entries[0]["message"] != test.message || entries[0]["i18nKey"] != test.i18nKey {
+				t.Fatalf("unexpected stat log entry: %#v", entries)
+			}
+			eventEntries := result.Event.Payload["eventLogEntries"].([]map[string]any)
+			if len(eventEntries) != 1 || eventEntries[0]["id"] != entries[0]["id"] {
+				t.Fatalf("event payload did not carry matching stat log entry: patch=%#v event=%#v", entries, eventEntries)
+			}
+		})
 	}
 }
 

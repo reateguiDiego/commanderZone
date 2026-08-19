@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Carregant missatges…" },
+    "fragment": {
+      "life": { "self": "va canviar la seva vida de {{ previousLife }} a {{ life }}.", "other": "va canviar la vida de {{ player }} de {{ previousLife }} a {{ life }}." },
+      "commanderDamage": { "self": "va canviar el dany de comandant de {{ previousValue }} a {{ value }}.", "other": "va canviar el dany de comandant infligit a {{ target }} de {{ previousValue }} a {{ value }}." },
+      "card": { "controllerChanged": { "self": "va prendre el control d'una carta.", "other": "va canviar el controlador d'una carta a {{ target }}." } },
+      "turn": { "changed": "va acabar el seu torn. Comença el torn de {{ player }}.", "phaseChanged": "va avançar a la fase de {{ phase }}." },
+      "disconnect": { "expelled": "va ser expulsat després d'una votació per desconnexió." },
+      "game": { "concede": "va concedir." }
+    },
+    "turn": { "changed": "{{ previousPlayer }} ha acabat el seu torn. Comença el torn de {{ player }}.", "phaseChanged": "{{ actor }} ha avançat a la fase de {{ phase }}." },
+    "phase": { "untap": "redreçar", "upkeep": "manteniment", "draw": "robar", "main-1": "primera principal", "combat": "combat", "main-2": "segona principal", "end": "final" },
+    "library": { "moveTop": "{{ actor }} ha mogut les {{ count }} cartes superiors de la seva biblioteca a {{ toZone }}.", "reorderTop": "{{ actor }} ha reordenat les {{ count }} cartes superiors de la seva biblioteca.", "putTop": "{{ actor }} ha posat una carta a sobre de la seva biblioteca.", "putBottom": "{{ actor }} ha posat una carta al fons de la seva biblioteca." },
+    "commanderDamage": { "changed": "{{ actor }} ha canviat el dany de comandant a {{ target }} de {{ previousValue }} a {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} ha afegit una carta a la pila.", "itemRemoved": "{{ actor }} ha retirat un element de la pila." },
+    "arrow": { "created": "{{ actor }} ha creat una fletxa.", "removed": "{{ actor }} ha eliminat una fletxa." },
+    "attachment": { "created": "{{ actor }} ha annexat una carta.", "removed": "{{ actor }} ha eliminat un annex." },
+    "mulligan": { "taken": "{{ actor }} ha fet mulligan.", "kept": "{{ actor }} s'ha quedat la mà.", "scryConfirmed": "{{ actor }} ha completat l'escrutini del mulligan." },
+    "disconnect": { "expelled": "{{ target }} ha estat expulsat després d'una votació per desconnexió." },
+    "zone": { "randomSelected": "{{ actor }} ha seleccionat una carta a l'atzar de {{ fromZone }}.", "movedAll": "{{ actor }} ha mogut {{ count }} cartes de {{ fromZone }} a {{ toZone }}.", "battlefield": "camp de batalla", "graveyard": "cementiri", "exile": "exili", "hand": "mà", "library": "biblioteca", "command": "zona de comandament", "zone": "zona" },
     "card": {
+      "faceChanged": "{{ actor }} ha girat {{ cardName }} a {{ faceName }}.",
       "faceDownInspected": "{{ actor }} ha mirat una carta boca avall.",
-      "playTopFaceDown": "{{ actor }} ha jugat la carta superior de la seva biblioteca boca avall."
+      "playTopFaceDown": "{{ actor }} ha jugat la carta superior de la seva biblioteca boca avall.",
+      "turnedFaceDown": "{{ actor }} ha posat una carta boca avall.", "turnedFaceUp": "{{ actor }} ha posat una carta boca amunt.", "controllerChanged": "{{ actor }} ha canviat el controlador d'una carta a {{ target }}."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} ha canviat {{ cardName }} de {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} ha canviat la lleialtat de {{ cardName }} de {{ previousValue }} a {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} ha canviat el capítol de saga de {{ cardName }} de {{ previousChapter }} a {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} ha canviat la defensa de {{ cardName }} de {{ previousDefense }} a {{ defense }} ({{ delta }})."
     }
   },
   "deckBuilder": {

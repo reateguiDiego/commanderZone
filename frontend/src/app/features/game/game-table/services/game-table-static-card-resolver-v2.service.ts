@@ -278,7 +278,24 @@ export class GameTableStaticCardResolverV2Service {
 
     const existing = this.staticCardForCard(card, operationStaticCards, stateStaticCards);
     if (existing && this.hasRenderableStaticContent(existing)) {
-      return null;
+      const cardRef = this.cardRef(card);
+      const cardKey = this.cardKey(card);
+      if (existing.cardRef === cardRef && existing.cardKey === cardKey) {
+        return null;
+      }
+
+      // A face-up runtime patch may carry a different revision key for the
+      // same Scryfall print. Keep the already known static payload under the
+      // active instance key so the renderer can resolve it without a refetch.
+      return {
+        ...existing,
+        cardRef,
+        cardKey,
+        printId: this.printId(card) || existing.printId,
+        cardVersion: this.trimmed(card.cardVersion) || existing.cardVersion,
+        language: this.trimmed(card.language) || existing.language,
+        viewerVisibility: this.trimmed(card.viewerVisibility) || existing.viewerVisibility,
+      };
     }
 
     const printId = this.printId(card);

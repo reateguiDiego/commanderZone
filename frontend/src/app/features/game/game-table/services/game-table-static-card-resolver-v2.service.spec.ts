@@ -152,6 +152,41 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
   });
 
+  it('rekeys cached static identity when a face-up patch uses another runtime revision key', async () => {
+    const scryfallId = '0007fa33-ccc3-4e33-8d83-909c5c8d408c';
+    const cachedKey = `scryfall:${scryfallId}:cached-revision`;
+    const faceUpKey = `scryfall:${scryfallId}:face-up-revision`;
+    const patch = patchV2([{
+      op: 'card.field.set',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      faceDown: false,
+      hidden: false,
+      cardKey: faceUpKey,
+      printId: faceUpKey,
+      cardVersion: 'runtime-identity-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({
+      [cachedKey]: {
+        ...staticCard(cachedKey, scryfallId, 'Plains'),
+        viewerVisibility: 'public',
+      },
+    }));
+    const faceUp = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'card.field.set' }>;
+
+    expect(cardsApi.getSilently).not.toHaveBeenCalled();
+    expect(faceUp.staticCard).toMatchObject({
+      cardRef: faceUpKey,
+      cardKey: faceUpKey,
+      name: 'Plains',
+      imageUris: { normal: `https://cards.test/${scryfallId}.jpg` },
+    });
+  });
+
   it('hydrates a revealed library through one bulk catalog request', async () => {
     cardsApi.getManySilently.mockReturnValue(of({
       cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],

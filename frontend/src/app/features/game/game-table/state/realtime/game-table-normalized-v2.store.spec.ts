@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BootstrapV2, PatchEnvelopeV2 } from '../../../../../core/models/game-v2.model';
+import type { ChatMessage, GameLogEntry } from '../../../../../core/models/game.model';
 import {
   applyPatchEnvelopeV2,
   createGameTableNormalizedV2State,
@@ -586,6 +587,57 @@ describe('game table normalized v2 store', () => {
     expect(hydrateGameSnapshotFromV2State(publicResult.state).eventLog.map((entry) => entry.id)).toEqual(['draw-log-entry']);
   });
 
+  it('merges the public face-down game log after the owner card patch at the same version', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const ownerCardPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        faceDown: true,
+        hidden: false,
+        cardKey: 'sol-ring',
+      }]),
+      visibility: 'player:player-1',
+      ackClientActionId: 'face-down-action',
+    };
+    const publicCardAndLogPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        faceDown: true,
+        hidden: true,
+      }, {
+        op: 'eventLog.append',
+        entries: [{
+          id: 'face-down-log-entry',
+          type: 'card.face_down.changed',
+          message: 'Player One turned a card face down.',
+          actorId: 'player-1',
+          displayName: 'Player One',
+          createdAt: '2026-08-19T00:00:00.000Z',
+          i18nKey: 'gameLog.card.turnedFaceDown',
+        }],
+      }]),
+      ackClientActionId: 'face-down-action',
+    };
+
+    const ownerResult = applyPatchEnvelopeV2(initial, ownerCardPatch);
+    const publicResult = applyPatchEnvelopeV2(ownerResult.state, publicCardAndLogPatch);
+
+    expect(ownerResult.status).toBe('applied');
+    expect(publicResult.status).toBe('applied');
+    expect(hydrateGameSnapshotFromV2State(publicResult.state).eventLog).toEqual([
+      expect.objectContaining({
+        id: 'face-down-log-entry',
+        i18nKey: 'gameLog.card.turnedFaceDown',
+      }),
+    ]);
+  });
+
   it('merges same-version runtime library visibility patches without losing public counts', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const privateDrawPatch: PatchEnvelopeV2 = {
@@ -649,6 +701,78 @@ describe('game table normalized v2 store', () => {
       expect(snapshot.players['player-1'].handCount).toBe(2);
       expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
     }
+  });
+
+  it('keeps only the latest 50 bootstrap chat and log entries', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.chat = Array.from({ length: 75 }, (_, index) => chatEntry(index + 1));
+    bootstrap.eventLog = Array.from({ length: 75 }, (_, index) => logEntry(index + 1));
+
+    const state = createGameTableNormalizedV2State(bootstrap);
+
+    expect(state.chat.order).toEqual(Array.from({ length: 50 }, (_, index) => `chat-${index + 26}`));
+    expect(state.log.order).toEqual(Array.from({ length: 50 }, (_, index) => `log-${index + 26}`));
+    expect(Object.keys(state.chat.byId)).toHaveLength(50);
+    expect(Object.keys(state.log.byId)).toHaveLength(50);
+  });
+
+  it('keeps only the newest 250 entries when history is prepended and realtime logs continue', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap({
+      ...bootstrapV2(),
+      eventLog: Array.from({ length: 50 }, (_, index) => logEntry(index + 650)),
+    });
+
+    const historySnapshot = store.prependLogEntries(
+      Array.from({ length: 50 }, (_, index) => logEntry(index + 600)),
+      250,
+    );
+    expect(historySnapshot?.eventLog).toHaveLength(100);
+    expect(historySnapshot?.eventLog[0]?.id).toBe('log-600');
+
+    const oldestWindow = store.prependLogEntries(
+      Array.from({ length: 50 }, (_, index) => logEntry(index + 550)),
+      100,
+    );
+    expect(oldestWindow?.eventLog).toHaveLength(100);
+    expect(oldestWindow?.eventLog[0]?.id).toBe('log-550');
+    expect(oldestWindow?.eventLog.at(-1)?.id).toBe('log-649');
+
+    const result = store.applyPatch(patch(6, [{
+      op: 'eventLog.append',
+      entries: Array.from({ length: 200 }, (_, index) => logEntry(index + 700)),
+    }]));
+
+    expect(result.status).toBe('applied');
+    if (result.status === 'applied') {
+      expect(result.snapshot.eventLog).toHaveLength(250);
+      expect(result.snapshot.eventLog[0]?.id).toBe('log-600');
+      expect(result.snapshot.eventLog.at(-1)?.id).toBe('log-899');
+    }
+  });
+
+  it('keeps chat history ordered and bounded to 250 messages while paging in both directions', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap({
+      ...bootstrapV2(),
+      chat: Array.from({ length: 50 }, (_, index) => chatEntry(index + 650)),
+    });
+
+    const oldestWindow = store.prependChatMessages(
+      Array.from({ length: 250 }, (_, index) => chatEntry(index + 400)),
+      250,
+    );
+    expect(oldestWindow?.chat).toHaveLength(250);
+    expect(oldestWindow?.chat[0]?.id).toBe('chat-400');
+    expect(oldestWindow?.chat.at(-1)?.id).toBe('chat-649');
+
+    const newestWindow = store.appendChatMessages(
+      Array.from({ length: 50 }, (_, index) => chatEntry(index + 650)),
+      250,
+    );
+    expect(newestWindow?.chat).toHaveLength(250);
+    expect(newestWindow?.chat[0]?.id).toBe('chat-450');
+    expect(newestWindow?.chat.at(-1)?.id).toBe('chat-699');
   });
 
   it('keeps a face-up transition renderable while its static-card cache is pending', () => {
@@ -2923,5 +3047,24 @@ function bootstrapV2(): BootstrapV2 {
     },
     chatCursor: null,
     logCursor: null,
+  };
+}
+
+function logEntry(index: number): GameLogEntry {
+  return {
+    id: `log-${index}`,
+    type: 'performance.test',
+    message: `Performance log entry ${index}`,
+    createdAt: new Date(Date.UTC(2026, 7, 19, 0, 0, index)).toISOString(),
+  };
+}
+
+function chatEntry(index: number): ChatMessage {
+  return {
+    id: `chat-${index}`,
+    userId: 'player-1',
+    displayName: 'Player One',
+    message: `Performance chat message ${index}`,
+    createdAt: new Date(Date.UTC(2026, 7, 19, 0, 0, index)).toISOString(),
   };
 }

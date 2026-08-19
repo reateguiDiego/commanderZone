@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Carregando mensagens…" },
+    "fragment": {
+      "life": { "self": "alterou seus pontos de vida de {{ previousLife }} para {{ life }}.", "other": "alterou os pontos de vida de {{ player }} de {{ previousLife }} para {{ life }}." },
+      "commanderDamage": { "self": "alterou o dano de comandante de {{ previousValue }} para {{ value }}.", "other": "alterou o dano de comandante causado a {{ target }} de {{ previousValue }} para {{ value }}." },
+      "card": { "controllerChanged": { "self": "assumiu o controle de uma carta.", "other": "alterou o controlador de uma carta para {{ target }}." } },
+      "turn": { "changed": "terminou seu turno. O turno de {{ player }} começa.", "phaseChanged": "avançou para a fase {{ phase }}." },
+      "disconnect": { "expelled": "foi expulso após uma votação por desconexão." },
+      "game": { "concede": "concedeu." }
+    },
+    "turn": { "changed": "{{ previousPlayer }} terminou o turno. O turno de {{ player }} começa.", "phaseChanged": "{{ actor }} avançou para a fase de {{ phase }}." },
+    "phase": { "untap": "desvirar", "upkeep": "manutenção", "draw": "compra", "main-1": "primeira principal", "combat": "combate", "main-2": "segunda principal", "end": "final" },
+    "library": { "moveTop": "{{ actor }} moveu as {{ count }} cartas do topo do grimório para {{ toZone }}.", "reorderTop": "{{ actor }} reordenou as {{ count }} cartas do topo do grimório.", "putTop": "{{ actor }} colocou uma carta no topo do grimório.", "putBottom": "{{ actor }} colocou uma carta no fundo do grimório." },
+    "commanderDamage": { "changed": "{{ actor }} alterou o dano de comandante em {{ target }} de {{ previousValue }} para {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} adicionou uma carta à pilha.", "itemRemoved": "{{ actor }} removeu um item da pilha." },
+    "arrow": { "created": "{{ actor }} criou uma seta.", "removed": "{{ actor }} removeu uma seta." },
+    "attachment": { "created": "{{ actor }} anexou uma carta.", "removed": "{{ actor }} removeu um anexo." },
+    "mulligan": { "taken": "{{ actor }} fez mulligan.", "kept": "{{ actor }} manteve a mão.", "scryConfirmed": "{{ actor }} concluiu o scry do mulligan." },
+    "disconnect": { "expelled": "{{ target }} foi expulso após uma votação de desconexão." },
+    "zone": { "randomSelected": "{{ actor }} selecionou uma carta aleatória de {{ fromZone }}.", "movedAll": "{{ actor }} moveu {{ count }} cartas de {{ fromZone }} para {{ toZone }}.", "battlefield": "campo de batalha", "graveyard": "cemitério", "exile": "exílio", "hand": "mão", "library": "grimório", "command": "zona de comando", "zone": "zona" },
     "card": {
+      "faceChanged": "{{ actor }} virou {{ cardName }} para {{ faceName }}.",
       "faceDownInspected": "{{ actor }} olhou uma carta virada para baixo.",
-      "playTopFaceDown": "{{ actor }} jogou virada para baixo a carta do topo do próprio grimório."
+      "playTopFaceDown": "{{ actor }} jogou virada para baixo a carta do topo do próprio grimório.",
+      "turnedFaceDown": "{{ actor }} virou uma carta para baixo.", "turnedFaceUp": "{{ actor }} virou uma carta para cima.", "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} mudou {{ cardName }} de {{ previousPower }}/{{ previousToughness }} para {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} mudou a lealdade de {{ cardName }} de {{ previousValue }} para {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} mudou o capítulo da saga de {{ cardName }} de {{ previousChapter }} para {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} mudou a defesa de {{ cardName }} de {{ previousDefense }} para {{ defense }} ({{ delta }})."
     }
   },
   "deckBuilder": {

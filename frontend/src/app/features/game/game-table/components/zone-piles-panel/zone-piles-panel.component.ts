@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
@@ -13,6 +14,7 @@ import { CommandersStackCard, CommandersStackComponent } from '../commanders-sta
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
+import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -76,6 +78,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
     CommandersStackComponent,
     GameTableLongPressDirective,
     MTGIconComponent,
+    LucideAngularModule,
   ],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
@@ -109,6 +112,7 @@ export class ZonePilesPanelComponent {
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly currentDraggingCardInstanceId = input<string | null>(null);
   readonly draggingVisualZone = signal<GameZoneName | null>(null);
+  private readonly commanderFacePreviewIndexes = signal<Record<string, number>>({});
 
   readonly zoneDragStart = output<ZoneDragStartEvent>();
   readonly zoneDragEnd = output<void>();
@@ -226,6 +230,40 @@ export class ZonePilesPanelComponent {
         sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
       });
     }
+  }
+
+  visibleCommanderCard(card: GameCardInstance): GameCardInstance {
+    const faceIndex = this.commanderFacePreviewIndexes()[card.instanceId];
+
+    return faceIndex === undefined ? card : { ...card, activeFaceIndex: faceIndex };
+  }
+
+  canShowCommanderFaceToggle(card: GameCardInstance): boolean {
+    return card.hidden !== true && card.faceDown !== true && canShowAlternateFaceToggle(card);
+  }
+
+  lookAtOtherCommanderFace(event: MouseEvent, card: GameCardInstance): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentFaceIndex = this.commanderFacePreviewIndexes()[card.instanceId] ?? activeCardFaceIndex(card);
+    const nextFaceIndex = nextCardFaceIndex(card, currentFaceIndex);
+    if (nextFaceIndex === null) {
+      return;
+    }
+
+    this.commanderFacePreviewIndexes.update((indexes) => ({ ...indexes, [card.instanceId]: nextFaceIndex }));
+    this.previewCommandZoneCard(event, { ...card, activeFaceIndex: nextFaceIndex });
+  }
+
+  resetCommanderFacePreview(card: GameCardInstance): void {
+    if (this.commanderFacePreviewIndexes()[card.instanceId] === undefined) {
+      return;
+    }
+
+    this.commanderFacePreviewIndexes.update((indexes) => {
+      const { [card.instanceId]: _removed, ...rest } = indexes;
+      return rest;
+    });
   }
 
   hideZoneCardPreview(zone: GameZoneName): void {

@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "正在加载消息…" },
+    "fragment": {
+      "life": { "self": "将自己的生命从 {{ previousLife }} 调整为 {{ life }}。", "other": "将 {{ player }} 的生命从 {{ previousLife }} 调整为 {{ life }}。" },
+      "commanderDamage": { "self": "将统帅伤害从 {{ previousValue }} 调整为 {{ value }}。", "other": "将对 {{ target }} 造成的统帅伤害从 {{ previousValue }} 调整为 {{ value }}。" },
+      "card": { "controllerChanged": { "self": "获得了一张牌的操控权。", "other": "将一张牌的操控者改为 {{ target }}。" } },
+      "turn": { "changed": "结束了自己的回合。{{ player }} 的回合开始。", "phaseChanged": "进入了 {{ phase }} 阶段。" },
+      "disconnect": { "expelled": "在断线投票后被移出游戏。" },
+      "game": { "concede": "认输了。" }
+    },
+    "turn": { "changed": "{{ previousPlayer }} 的回合结束。{{ player }} 的回合开始。", "phaseChanged": "{{ actor }} 进入了{{ phase }}阶段。" },
+    "phase": { "untap": "重置", "upkeep": "维持", "draw": "抓牌", "main-1": "第一个主", "combat": "战斗", "main-2": "第二个主", "end": "结束" },
+    "library": { "moveTop": "{{ actor }} 将牌库顶的 {{ count }} 张牌移至 {{ toZone }}。", "reorderTop": "{{ actor }} 重新排列了牌库顶的 {{ count }} 张牌。", "putTop": "{{ actor }} 将一张牌放到了牌库顶。", "putBottom": "{{ actor }} 将一张牌放到了牌库底。" },
+    "commanderDamage": { "changed": "{{ actor }} 将对 {{ target }} 的指挥官伤害从 {{ previousValue }} 改为 {{ value }}。" },
+    "stack": { "cardAdded": "{{ actor }} 将一张牌加入堆叠。", "itemRemoved": "{{ actor }} 从堆叠移除了一个项目。" },
+    "arrow": { "created": "{{ actor }} 创建了一条箭头。", "removed": "{{ actor }} 删除了一条箭头。" },
+    "attachment": { "created": "{{ actor }} 附着了一张牌。", "removed": "{{ actor }} 移除了一个附着。" },
+    "mulligan": { "taken": "{{ actor }} 进行了调度。", "kept": "{{ actor }} 保留了手牌。", "scryConfirmed": "{{ actor }} 完成了调度后的占卜。" },
+    "disconnect": { "expelled": "{{ target }} 在断线投票后被移出游戏。" },
+    "zone": { "randomSelected": "{{ actor }} 从 {{ fromZone }} 随机选择了一张牌。", "movedAll": "{{ actor }} 将 {{ count }} 张牌从 {{ fromZone }} 移至 {{ toZone }}。", "battlefield": "战场", "graveyard": "坟场", "exile": "放逐区", "hand": "手牌", "library": "牌库", "command": "统帅区", "zone": "区域" },
     "card": {
+      "faceChanged": "{{ actor }} 将 {{ cardName }} 翻转为 {{ faceName }} 一面。",
       "faceDownInspected": "{{ actor }} 查看了一张背面朝上的牌。",
-      "playTopFaceDown": "{{ actor }} 以背面朝上的方式使用了其牌库顶的一张牌。"
+      "playTopFaceDown": "{{ actor }} 以背面朝上的方式使用了其牌库顶的一张牌。",
+      "turnedFaceDown": "{{ actor }} 将一张牌变为背面朝上。", "turnedFaceUp": "{{ actor }} 将一张牌变为正面朝上。", "controllerChanged": "{{ actor }} 将一张牌的操控者改为 {{ target }}。"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} 将 {{ cardName }} 从 {{ previousPower }}/{{ previousToughness }} 改为 {{ power }}/{{ toughness }}。",
+      "loyaltyChanged": "{{ actor }} 将 {{ cardName }} 的忠诚度从 {{ previousValue }} 改为 {{ value }}（{{ delta }}）。",
+      "sagaChanged": "{{ actor }} 将 {{ cardName }} 的传奇章节从 {{ previousChapter }} 改为 {{ chapter }}（{{ delta }}）。",
+      "defenseChanged": "{{ actor }} 将 {{ cardName }} 的防御力从 {{ previousDefense }} 改为 {{ defense }}（{{ delta }}）。"
     }
   },
   "deckBuilder": {

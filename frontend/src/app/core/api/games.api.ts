@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { withoutGlobalLoading } from '../loading/loading-context';
-import { CommandResponse, DisconnectVoteResponse, GameControlPlaneResponse, GameDebugHealthResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteRequest, RematchVoteResponse } from '../models/api-responses.model';
+import { CommandResponse, DisconnectVoteResponse, GameChatHistoryPageResponse, GameControlPlaneResponse, GameDebugHealthResponse, GameLogHistoryPageResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteRequest, RematchVoteResponse } from '../models/api-responses.model';
 import { GameCommand, GameDisconnectVoteChoice, GameZoneName, GameZoneResponse } from '../models/game.model';
 import { BootstrapV2 } from '../models/game-v2.model';
 
@@ -75,6 +75,54 @@ export class GamesApi {
 
     return this.http.get<GameZoneResponse>(`${API_BASE_URL}/games/${gameId}/zones/${playerId}/${zone}`, {
       params: query,
+    });
+  }
+
+  logHistoryPage(gameId: string, before: string, limit = 50): Observable<GameLogHistoryPageResponse> {
+    return this.http.get<GameLogHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/log`, {
+      context: withoutGlobalLoading(),
+      params: {
+        before,
+        limit: String(limit),
+      },
+    });
+  }
+
+  logForwardPage(gameId: string, after: string, limit = 50): Observable<GameLogHistoryPageResponse> {
+    return this.http.get<GameLogHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/log`, {
+      context: withoutGlobalLoading(),
+      params: {
+        cursor: after,
+        limit: String(limit),
+      },
+    });
+  }
+
+  logLatestPage(gameId: string, limit = 50): Observable<GameLogHistoryPageResponse> {
+    return this.http.get<GameLogHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/log`, {
+      context: withoutGlobalLoading(),
+      params: { limit: String(limit) },
+    });
+  }
+
+  chatHistoryPage(gameId: string, before: string, limit = 50): Observable<GameChatHistoryPageResponse> {
+    return this.http.get<GameChatHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/chat`, {
+      context: withoutGlobalLoading(),
+      params: { before, limit: String(limit) },
+    });
+  }
+
+  chatForwardPage(gameId: string, after: string, limit = 50): Observable<GameChatHistoryPageResponse> {
+    return this.http.get<GameChatHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/chat`, {
+      context: withoutGlobalLoading(),
+      params: { cursor: after, limit: String(limit) },
+    });
+  }
+
+  chatLatestPage(gameId: string, limit = 50): Observable<GameChatHistoryPageResponse> {
+    return this.http.get<GameChatHistoryPageResponse>(`${API_BASE_URL}/games/${gameId}/chat`, {
+      context: withoutGlobalLoading(),
+      params: { limit: String(limit) },
     });
   }
 }

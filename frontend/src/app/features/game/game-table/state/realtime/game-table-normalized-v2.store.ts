@@ -208,6 +208,80 @@ export class GameTableNormalizedV2Store {
     return hydrateGameSnapshotFromV2State(nextState);
   }
 
+  prependLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const log = mergeLogEntries(currentState.log, entries, maximumEntries, 'oldest');
+    const nextState = { ...currentState, log };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
+  appendLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const log = mergeLogEntries(currentState.log, entries, maximumEntries, 'newest');
+    const nextState = { ...currentState, log };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
+  replaceLogEntries(entries: readonly GameLogEntry[]): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState = { ...currentState, log: createLogState(entries, null) };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
+  prependChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'oldest') };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
+  appendChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'newest') };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
+  replaceChatMessages(entries: readonly ChatMessage[]): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: createChatState(entries, null) };
+    this.state.set(nextState);
+
+    return hydrateGameSnapshotFromV2State(nextState);
+  }
+
   /** Applies Symfony control-plane state without advancing a Go gameplay version. */
   applyControlPlane(controlPlane: GameControlPlaneState): GameSnapshot | null {
     const currentState = this.state();
@@ -502,7 +576,12 @@ function restoreZoneCountsForTargets(
 
 function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
   return patch.ops.length > 0 && patch.ops.every((operation) =>
-    operation.op === 'chat.message.add' || operation.op === 'chat.reaction.set',
+    operation.op === 'chat.message.add'
+    || operation.op === 'chat.reaction.set'
+    // Runtime emits the public card patch first and the durable activity-log
+    // patch immediately after it at the same gameplay version. Log entries
+    // are keyed and merged idempotently, so this must not be discarded.
+    || operation.op === 'eventLog.append',
   );
 }
 
@@ -540,6 +619,7 @@ function isIdempotentVisibilityOperation(operation: GameplayPatchV2Operation): b
 function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
   switch (operation.op) {
     case 'version.advance':
+    case 'card.field.set':
     case 'zone.cards.add':
     case 'zone.cards.remove':
     case 'zone.cards.move':
@@ -1752,14 +1832,13 @@ function upsertChatMessage(state: GameTableNormalizedV2State, message: ChatMessa
     status: 'applied',
     state: {
       ...state,
-      chat: {
-        byId: {
-          ...state.chat.byId,
-          [messageId]: { ...message },
-        },
-        order: exists || !appendIfMissing ? state.chat.order : [...state.chat.order, messageId],
-        cursor: message.id ?? message.createdAt,
-      },
+      chat: exists || !appendIfMissing
+        ? {
+            ...state.chat,
+            byId: { ...state.chat.byId, [messageId]: { ...message } },
+            cursor: message.id ?? message.createdAt,
+          }
+        : mergeChatMessages(state.chat, [message], 250, 'newest'),
     },
   };
 }
@@ -1789,44 +1868,90 @@ function setChatReactions(state: GameTableNormalizedV2State, messageId: string, 
 }
 
 function appendEventLogEntries(state: GameTableNormalizedV2State, entries: GameLogEntry[]): OperationApplyResult {
-  let byId = { ...state.log.byId };
-  let order = [...state.log.order];
-  let cursor = state.log.cursor;
-  for (const entry of entries) {
-    byId[entry.id] = { ...entry };
-    if (!order.includes(entry.id)) {
-      order.push(entry.id);
-    }
-    cursor = entry.id;
-  }
-
   return {
     status: 'applied',
     state: {
       ...state,
-      log: {
-        byId,
-        order,
-        cursor,
-      },
+      log: mergeLogEntries(state.log, entries, 250, 'newest'),
     },
   };
 }
 
-function createChatState(entries: readonly ChatMessage[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2ChatState {
-  const byId: Record<string, ChatMessage> = {};
-  const order: string[] = [];
-  let cursor = fallbackCursor;
-  for (const entry of entries ?? []) {
-    const id = chatMessageId(entry);
-    byId[id] = { ...entry, id };
-    if (!order.includes(id)) {
-      order.push(id);
-    }
-    cursor = entry.id ?? entry.createdAt ?? cursor;
+function mergeChatMessages(
+  current: GameTableNormalizedV2ChatState,
+  incoming: readonly ChatMessage[],
+  maximumEntries: number,
+  retention: 'oldest' | 'newest',
+): GameTableNormalizedV2ChatState {
+  const byId = { ...current.byId };
+  for (const message of incoming) {
+    const id = chatMessageId(message);
+    byId[id] = { ...message, id };
   }
 
-  return { byId, order, cursor };
+  const order = Object.keys(byId).sort((leftId, rightId) => compareChatMessages(byId[leftId], byId[rightId]));
+  const limit = Math.max(1, maximumEntries);
+  const retainedOrder = retention === 'oldest' ? order.slice(0, limit) : order.slice(-limit);
+  const retainedById = Object.fromEntries(retainedOrder.map((id) => [id, byId[id]])) as Record<string, ChatMessage>;
+
+  return {
+    byId: retainedById,
+    order: retainedOrder,
+    cursor: retainedById[retainedOrder.at(-1) ?? '']?.id ?? current.cursor,
+  };
+}
+
+function compareChatMessages(left: ChatMessage | undefined, right: ChatMessage | undefined): number {
+  return (left?.createdAt ?? '').localeCompare(right?.createdAt ?? '')
+    || chatMessageId(left ?? emptyChatMessage).localeCompare(chatMessageId(right ?? emptyChatMessage));
+}
+
+const emptyChatMessage: ChatMessage = {
+  userId: '',
+  displayName: '',
+  message: '',
+  createdAt: '',
+};
+
+function mergeLogEntries(
+  current: GameTableNormalizedV2LogState,
+  incoming: readonly GameLogEntry[],
+  maximumEntries: number,
+  retention: 'oldest' | 'newest',
+): GameTableNormalizedV2LogState {
+  const byId = { ...current.byId };
+  for (const entry of incoming) {
+    byId[entry.id] = { ...entry };
+  }
+
+  const order = Object.keys(byId)
+    .sort((leftId, rightId) => compareLogEntries(byId[leftId], byId[rightId]));
+  const limit = Math.max(1, maximumEntries);
+  const retainedOrder = retention === 'oldest'
+    ? order.slice(0, limit)
+    : order.slice(-limit);
+  const retainedById = Object.fromEntries(
+    retainedOrder.map((id) => [id, byId[id]]),
+  ) as Record<string, GameLogEntry>;
+
+  return {
+    byId: retainedById,
+    order: retainedOrder,
+    cursor: retainedOrder.at(-1) ?? null,
+  };
+}
+
+function compareLogEntries(left: GameLogEntry | undefined, right: GameLogEntry | undefined): number {
+  const leftCreatedAt = left?.createdAt ?? '';
+  const rightCreatedAt = right?.createdAt ?? '';
+
+  return leftCreatedAt.localeCompare(rightCreatedAt) || (left?.id ?? '').localeCompare(right?.id ?? '');
+}
+
+const ACTIVITY_BOOTSTRAP_LIMIT = 50;
+
+function createChatState(entries: readonly ChatMessage[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2ChatState {
+  return mergeChatMessages({ byId: {}, order: [], cursor: fallbackCursor }, entries ?? [], ACTIVITY_BOOTSTRAP_LIMIT, 'newest');
 }
 
 function createLogState(entries: readonly GameLogEntry[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2LogState {
@@ -1841,7 +1966,18 @@ function createLogState(entries: readonly GameLogEntry[] | undefined, fallbackCu
     cursor = entry.id;
   }
 
-  return { byId, order, cursor };
+  const retainedOrder = order
+    .sort((left, right) => compareLogEntries(byId[left], byId[right]))
+    .slice(-ACTIVITY_BOOTSTRAP_LIMIT);
+  const retainedIds = new Set(retainedOrder);
+
+  for (const id of Object.keys(byId)) {
+    if (!retainedIds.has(id)) {
+      delete byId[id];
+    }
+  }
+
+  return { byId, order: retainedOrder, cursor };
 }
 
 function replacePrivateMulliganHand(

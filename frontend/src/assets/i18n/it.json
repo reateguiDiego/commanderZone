@@ -977,9 +977,36 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Caricamento dei messaggi…" },
+    "fragment": {
+      "life": { "self": "ha cambiato i propri punti vita da {{ previousLife }} a {{ life }}.", "other": "ha cambiato i punti vita di {{ player }} da {{ previousLife }} a {{ life }}." },
+      "commanderDamage": { "self": "ha cambiato il danno da comandante da {{ previousValue }} a {{ value }}.", "other": "ha cambiato il danno da comandante inflitto a {{ target }} da {{ previousValue }} a {{ value }}." },
+      "card": { "controllerChanged": { "self": "ha preso il controllo di una carta.", "other": "ha cambiato il controllore di una carta in {{ target }}." } },
+      "turn": { "changed": "ha terminato il proprio turno. Inizia il turno di {{ player }}.", "phaseChanged": "è passato alla fase {{ phase }}." },
+      "disconnect": { "expelled": "è stato espulso dopo una votazione per disconnessione." },
+      "game": { "concede": "ha concesso." }
+    },
+    "turn": { "changed": "{{ previousPlayer }} ha terminato il turno. Inizia il turno di {{ player }}.", "phaseChanged": "{{ actor }} è passato alla fase di {{ phase }}." },
+    "phase": { "untap": "STAP", "upkeep": "mantenimento", "draw": "acquisizione", "main-1": "prima principale", "combat": "combattimento", "main-2": "seconda principale", "end": "finale" },
+    "library": { "moveTop": "{{ actor }} ha spostato le prime {{ count }} carte del grimorio in {{ toZone }}.", "reorderTop": "{{ actor }} ha riordinato le prime {{ count }} carte del grimorio.", "putTop": "{{ actor }} ha messo una carta in cima al grimorio.", "putBottom": "{{ actor }} ha messo una carta in fondo al grimorio." },
+    "commanderDamage": { "changed": "{{ actor }} ha cambiato il danno da comandante a {{ target }} da {{ previousValue }} a {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} ha aggiunto una carta alla pila.", "itemRemoved": "{{ actor }} ha rimosso un elemento dalla pila." },
+    "arrow": { "created": "{{ actor }} ha creato una freccia.", "removed": "{{ actor }} ha rimosso una freccia." },
+    "attachment": { "created": "{{ actor }} ha assegnato una carta.", "removed": "{{ actor }} ha rimosso un assegnamento." },
+    "mulligan": { "taken": "{{ actor }} ha effettuato un mulligan.", "kept": "{{ actor }} ha tenuto la propria mano.", "scryConfirmed": "{{ actor }} ha completato lo scry del mulligan." },
+    "disconnect": { "expelled": "{{ target }} è stato espulso dopo un voto di disconnessione." },
+    "zone": { "randomSelected": "{{ actor }} ha selezionato una carta a caso da {{ fromZone }}.", "movedAll": "{{ actor }} ha spostato {{ count }} carte da {{ fromZone }} a {{ toZone }}.", "battlefield": "campo di battaglia", "graveyard": "cimitero", "exile": "esilio", "hand": "mano", "library": "grimorio", "command": "zona di comando", "zone": "zona" },
     "card": {
+      "faceChanged": "{{ actor }} ha girato {{ cardName }} su {{ faceName }}.",
       "faceDownInspected": "{{ actor }} ha guardato una carta a faccia in giù.",
-      "playTopFaceDown": "{{ actor }} ha giocato a faccia in giù la prima carta del suo grimorio."
+      "playTopFaceDown": "{{ actor }} ha giocato a faccia in giù la prima carta del suo grimorio.",
+      "turnedFaceDown": "{{ actor }} ha girato una carta a faccia in giù.", "turnedFaceUp": "{{ actor }} ha girato una carta a faccia in su.", "controllerChanged": "{{ actor }} ha cambiato il controllore di una carta in {{ target }}."
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} ha cambiato {{ cardName }} da {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} ha cambiato la lealtà di {{ cardName }} da {{ previousValue }} a {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} ha cambiato il capitolo della saga di {{ cardName }} da {{ previousChapter }} a {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} ha cambiato la difesa di {{ cardName }} da {{ previousDefense }} a {{ defense }} ({{ delta }})."
     }
   },
   "deckBuilder": {

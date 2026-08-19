@@ -1532,6 +1532,7 @@ export class GameTableStore implements OnDestroy {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
+      cardName: menu.card.name,
       power: null,
       toughness: null,
     });
