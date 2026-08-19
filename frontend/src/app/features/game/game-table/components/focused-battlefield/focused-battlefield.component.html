@@ -77,7 +77,7 @@
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (battleChanged)="cardBattleChanged.emit({ playerId: focusedPlayer.id, zone: 'battlefield', card: $event.card, delta: $event.delta })"
-      (sagaChanged)="cardSagaChanged.emit({ playerId: focusedPlayer.id, zone: 'battlefield', card: $event.card, delta: $event.delta })"
+      (sagaChanged)="changeSaga($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (loyaltyChanged)="changeLoyalty($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
       (counterDeleteRequested)="requestCounterDelete($event.event, focusedPlayer.id, $event.card, $event.key)"

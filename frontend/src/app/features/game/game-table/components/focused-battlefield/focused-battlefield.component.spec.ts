@@ -102,6 +102,39 @@ describe('FocusedBattlefieldComponent', () => {
     }));
   });
 
+  it('does not emit loyalty or saga changes for an opponent battlefield', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      isCurrentPlayer: (_playerId) => false,
+    });
+    const sagaChanged = vi.fn();
+    const loyaltyChanged = vi.fn();
+    const card = { instanceId: 'opponent-card', name: 'Opponent permanent', tapped: false };
+    fixture.componentInstance.cardSagaChanged.subscribe(sagaChanged);
+    fixture.componentInstance.cardLoyaltyChanged.subscribe(loyaltyChanged);
+
+    fixture.componentInstance.changeSaga(new MouseEvent('pointerup'), 'player-2', card, 1);
+    fixture.componentInstance.changeLoyalty(new MouseEvent('pointerup'), 'player-2', card, 1);
+
+    expect(sagaChanged).not.toHaveBeenCalled();
+    expect(loyaltyChanged).not.toHaveBeenCalled();
+  });
+
+  it('does not use the card origin owner to authorize a saga change', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'saga-1', ownerId: 'player-2', controllerId: 'player-1', name: 'Binding the Old Gods', typeLine: 'Enchantment - Saga', tapped: false },
+      ],
+      isCurrentPlayer: (_playerId) => false,
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.cardSagaChanged.subscribe(changed);
+
+    const sagaCounter = cardElement(fixture, 'saga-1').querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(changed).not.toHaveBeenCalled();
+  });
+
   it('allows selecting an opponent card while choosing an arrow target', async () => {
     const { fixture } = await renderFocusedBattlefield({
       isCurrentPlayer: (_playerId) => false,

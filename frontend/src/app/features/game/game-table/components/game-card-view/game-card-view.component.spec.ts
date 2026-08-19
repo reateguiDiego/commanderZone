@@ -1301,6 +1301,35 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
   });
 
+  it('does not change loyalty or saga counters when the card is readonly', async () => {
+    const { fixture } = await renderHandCard();
+    const loyaltyChanged = vi.fn();
+    const sagaChanged = vi.fn();
+    fixture.componentInstance.loyaltyChanged.subscribe(loyaltyChanged);
+    fixture.componentInstance.sagaChanged.subscribe(sagaChanged);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('countersEditable', false);
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    fixture.componentInstance.changeLoyalty(new MouseEvent('pointerup'), 1);
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
+    expect(sagaChanged).not.toHaveBeenCalled();
+    expect(loyaltyChanged).not.toHaveBeenCalled();
+  });
+
   it('closes the active preview when a saga counter is clicked', async () => {
     const { fixture } = await renderHandCard();
     const previewRequested = vi.fn();

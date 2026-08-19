@@ -461,6 +461,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   changeLoyalty(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.countersEditable()) {
+      return;
+    }
     this.dismissPreviewAfterCounterChange();
     this.loyaltyChanged.emit({ event, card: this.card(), delta });
   }
@@ -468,7 +471,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   changeSaga(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.sagaVisible()) {
+    if (!this.countersEditable() || !this.sagaVisible()) {
       return;
     }
 

@@ -428,7 +428,19 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   changeLoyalty(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.isCurrentPlayer()(playerId)) {
+      return;
+    }
     this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });
+  }
+
+  changeSaga(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isCurrentPlayer()(playerId)) {
+      return;
+    }
+    this.cardSagaChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
   changeCounter(event: MouseEvent, playerId: string, card: GameCardInstance, key: string, delta: number): void {
