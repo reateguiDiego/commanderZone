@@ -141,7 +141,7 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.mulligan-card').length).toBe(10);
-    expect(fixture.nativeElement.textContent).toContain('Choose 3');
+    expect(fixture.nativeElement.textContent).toContain('0 / 3 selected');
     expect(acceptButton().disabled).toBe(true);
 
     selectCard('card-1');

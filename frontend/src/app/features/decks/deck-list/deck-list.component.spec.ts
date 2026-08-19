@@ -189,6 +189,54 @@ describe('DeckListComponent', () => {
     });
   });
 
+  it('saves changed playmat and sleeve names with the edited deck', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const updateDeck = vi.spyOn(decksApi, 'update').mockReturnValue(of({
+      deck: savedDeck({
+        id: 'deck-1',
+        backgroundName: 'free_g_2',
+        sleevesName: 'azorius_1',
+      }),
+    }));
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const deck = savedDeck({ id: 'deck-1', name: 'Original Deck' });
+
+    fixture.componentInstance.store.openDeckEditModal(deck);
+    fixture.componentInstance.store.editDeckBackgroundName = 'free_g_2';
+    fixture.componentInstance.store.editDeckSleevesName = 'azorius_1';
+    await fixture.componentInstance.store.saveDeckEdit();
+
+    expect(updateDeck).toHaveBeenCalledWith('deck-1', {
+      name: 'Original Deck',
+      visibility: 'private',
+      folderId: null,
+      backgroundName: 'free_g_2',
+      sleevesName: 'azorius_1',
+    });
+  });
+
+  it('creates a deck with the selected playmat and sleeves', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const createDeck = vi.spyOn(decksApi, 'create');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.newDeckName = 'Cosmetic Deck';
+    fixture.componentInstance.store.createdDecklist = '1 Sol Ring';
+    fixture.componentInstance.store.newDeckBackgroundName.set('free_g_2');
+    fixture.componentInstance.store.newDeckSleevesName.set('azorius_1');
+    await fixture.componentInstance.store.create();
+
+    expect(createDeck).toHaveBeenCalledWith('Cosmetic Deck', null, 'public', 'commander', {
+      backgroundName: 'free_g_2',
+      sleevesName: 'azorius_1',
+    });
+  });
+
   it('disables edit deck save until the form has valid changes', async () => {
     const decksApi = TestBed.inject(DecksApi);
     const updateDeck = vi.spyOn(decksApi, 'update');
@@ -310,6 +358,70 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('input[name="editDeckFolder"]')).toBeNull();
+  });
+
+  it('navigates from edit deck cosmetics to each selector and returns with Back', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openDeckEditModal(savedDeck({ id: 'deck-1', name: 'Original Deck' }));
+    fixture.detectChanges();
+
+    const previewButtons = fixture.nativeElement.querySelectorAll('.create-cosmetics-preview') as NodeListOf<HTMLButtonElement>;
+    previewButtons[0].click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-create-playmat-spoiler')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name="editDeckName"]')).toBeNull();
+
+    (fixture.nativeElement.querySelector('.modal-back-button button') as HTMLButtonElement | null)?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-create-playmat-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name="editDeckName"]')).not.toBeNull();
+
+    (fixture.nativeElement.querySelectorAll('.create-cosmetics-preview') as NodeListOf<HTMLButtonElement>)[1].click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).not.toBeNull();
+
+    (fixture.nativeElement.querySelector('.modal-back-button button') as HTMLButtonElement | null)?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[name="editDeckName"]')).not.toBeNull();
+  });
+
+  it('updates edit deck cosmetic previews when each selection is applied', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.openDeckEditModal(savedDeck({
+      id: 'deck-1',
+      backgroundName: 'free_g_2',
+      sleevesName: 'azorius_1',
+    }));
+    fixture.detectChanges();
+
+    let playmatPreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--playmat') as HTMLImageElement;
+    let sleevePreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--sleeve') as HTMLImageElement;
+    expect(playmatPreview.getAttribute('src')).toBe('/assets/images/playmat/free_g_2.webp');
+    expect(sleevePreview.getAttribute('src')).toBe('/assets/images/sleeves/azorius_1.webp');
+
+    fixture.componentInstance.openPlaymatEditor('edit');
+    fixture.componentInstance.selectDraftPlaymat(PLAYMAT_OPTIONS[1].path);
+    fixture.componentInstance.savePlaymatSelection();
+    fixture.componentInstance.openSleeveEditor('edit');
+    fixture.componentInstance.selectDraftSleeve(SLEEVE_OPTIONS[1].path);
+    fixture.componentInstance.saveSleeveSelection();
+    fixture.detectChanges();
+
+    playmatPreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--playmat') as HTMLImageElement;
+    sleevePreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--sleeve') as HTMLImageElement;
+    expect(playmatPreview.getAttribute('src')).toBe(PLAYMAT_OPTIONS[1].path);
+    expect(sleevePreview.getAttribute('src')).toBe(SLEEVE_OPTIONS[1].path);
   });
 
   it('does not open the deck article when clicking a deck action', async () => {
@@ -561,7 +673,7 @@ describe('DeckListComponent', () => {
     expect(fixture.nativeElement.querySelector('.app-disclaimer-callout')).toBeNull();
   });
 
-  it('replaces the create form with the sleeve selector and saves the selected sleeve locally', async () => {
+  it('replaces the create form with the sleeve selector and applies the selected sleeve to the deck draft', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -587,17 +699,24 @@ describe('DeckListComponent', () => {
 
     expect(spoiler).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.create-deck-form')).toBeNull();
-    expect(sleeveButtons.length).toBe(SLEEVE_OPTIONS.length);
+    expect(sleeveButtons.length).toBe(1);
     expect(fixture.nativeElement.querySelectorAll('.modal-panel').length).toBe(panelsBefore);
     expect(nextSleeve).toBeDefined();
+    expect(fixture.nativeElement.querySelector('.create-sleeve-tier-tabs')).not.toBeNull();
 
     const initialActionButtons = Array.from(
       fixture.nativeElement.querySelectorAll('.create-sleeve-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
     );
-    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Select']);
     expect(initialActionButtons[0].disabled).toBe(true);
 
-    Array.from(sleeveButtons)
+    const sleeveTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-tier-tabs [role="tab"]') as NodeListOf<HTMLButtonElement>,
+    );
+    sleeveTabs[1].click();
+    fixture.detectChanges();
+
+    Array.from(fixture.nativeElement.querySelectorAll('.create-sleeve-option') as NodeListOf<HTMLButtonElement>)
       .find((button) => button.querySelector('img')?.getAttribute('src') === nextSleeve?.path)
       ?.click();
     fixture.detectChanges();
@@ -611,7 +730,7 @@ describe('DeckListComponent', () => {
 
     expect(selectedButton?.classList.contains('is-selected')).toBe(true);
     expect(fixture.nativeElement.querySelector('.modal-back-button app-back-button, app-back-button.modal-back-button')).not.toBeNull();
-    expect(actionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(actionButtons.map((button) => button.textContent?.trim())).toEqual(['Select']);
     expect(actionButtons[0].disabled).toBe(false);
 
     actionButtons[0].click();
@@ -643,6 +762,12 @@ describe('DeckListComponent', () => {
     previewButtons[1].click();
     fixture.detectChanges();
 
+    const sleeveTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-tier-tabs [role="tab"]') as NodeListOf<HTMLButtonElement>,
+    );
+    sleeveTabs[1].click();
+    fixture.detectChanges();
+
     Array.from(
       fixture.nativeElement.querySelectorAll('.create-sleeve-option') as NodeListOf<HTMLButtonElement>,
     )
@@ -660,7 +785,7 @@ describe('DeckListComponent', () => {
     expect(sleevePreview?.getAttribute('src')).toBe('/assets/images/sleeves/facedown_card.jpg');
   });
 
-  it('replaces the create form with the playmat selector and saves the selected playmat locally', async () => {
+  it('replaces the create form with the playmat selector and applies the selected playmat to the deck draft', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -694,7 +819,7 @@ describe('DeckListComponent', () => {
     const initialActionButtons = Array.from(
       fixture.nativeElement.querySelectorAll('.create-playmat-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
     );
-    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Select']);
     expect(initialActionButtons[0].disabled).toBe(true);
 
     Array.from(playmatButtons)

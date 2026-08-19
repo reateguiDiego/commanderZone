@@ -75,6 +75,43 @@ final class GameLifecycleProjectorTest extends TestCase
         self::assertEquals($newer->occurredAt->modify('+120 seconds'), $game->nextLifecycleAt());
     }
 
+    public function testHigherGameplayVersionSurvivesSingleNodeFencingReset(): void
+    {
+        $game = $this->game();
+        $projector = new GameLifecycleProjector();
+        $projector->apply($game, new GameLifecycleHandoff(
+            'presence-before-runtime-restart',
+            $game->id(),
+            GameLifecycleHandoff::ALL_PLAYERS_DISCONNECTED,
+            197,
+            1,
+            30,
+            new \DateTimeImmutable('2026-08-10T12:00:00+00:00'),
+        ));
+
+        $finishedAt = new \DateTimeImmutable('2026-08-10T12:01:00+00:00');
+        $result = $projector->apply($game, new GameLifecycleHandoff(
+            'finish-after-runtime-restart',
+            $game->id(),
+            GameLifecycleHandoff::GAME_FINISHED,
+            1528,
+            1,
+            4,
+            $finishedAt,
+            'concede-player-2',
+            'player-2',
+            'conceded',
+            'player-1',
+            'last_player_standing',
+        ));
+
+        self::assertSame(GameLifecycleProjector::APPLIED, $result);
+        self::assertSame(Game::STATUS_FINISHED, $game->status());
+        self::assertEquals($finishedAt, $game->finishedAt());
+        self::assertSame(1528, $game->lifecycleCursor()['version']);
+        self::assertSame(4, $game->lifecycleCursor()['fencing']);
+    }
+
     public function testLaterReconnectAtSameGameplayVersionCancelsGraceDeadline(): void
     {
         $game = $this->game();

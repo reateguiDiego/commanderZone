@@ -197,6 +197,16 @@ export const PLAYMAT_OPTIONS: readonly PlaymatOption[] = PLAYMAT_FILES.map((file
   premium: !isFreePlaymatFile(fileName),
 }));
 
+export function playmatNameFromPath(path: string): string {
+  return PLAYMAT_OPTIONS.find((playmat) => playmat.path === path)?.fileName.replace(/\.[^.]+$/, '') ?? DEFAULT_PLAYMAT_FILE.replace(/\.[^.]+$/, '');
+}
+
+export function playmatPathFromName(name: string | null | undefined): string {
+  const normalizedName = name?.trim().replace(/\.[^.]+$/, '');
+
+  return PLAYMAT_OPTIONS.find((playmat) => playmat.fileName.replace(/\.[^.]+$/, '') === normalizedName)?.path ?? DEFAULT_PLAYMAT_PATH;
+}
+
 @Component({
   selector: 'app-create-playmat-spoiler',
   imports: [CzButtonDirective, PrettyScrollDirective, RuntimeTranslatePipe, TabListComponent],

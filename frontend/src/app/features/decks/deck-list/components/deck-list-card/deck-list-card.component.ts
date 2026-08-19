@@ -56,7 +56,10 @@ export class DeckListCardComponent {
   }
 
   showMetrics(): boolean {
-    return this.metricsMode() !== 'none';
+    const deck = this.deck();
+
+    return this.metricsMode() !== 'none'
+      && (deck.visibility === 'public' || this.likes() > 0 || this.copies() > 0);
   }
 
   likes(): number {

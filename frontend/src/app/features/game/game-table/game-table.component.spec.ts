@@ -576,7 +576,7 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
     expect(headerLife.dataset['playerId']).toBe('user-1');
-    expect(ownerSummary.textContent).toContain('Estas viendo a:');
+    expect(ownerSummary.textContent).toContain('Viewing:');
     expect(ownerSummary.textContent).toContain('Opponent');
     expect(ownerSummary.querySelector('[data-testid="player-helper-create"]')).toBeNull();
     expect(ownerLife.dataset['playerId']).toBe('user-2');
@@ -1970,7 +1970,7 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.tableExitAction()).toBe('concede');
-    expect(fixture.componentInstance.tableExitMessage()).toContain('This cannot be undone.');
+    expect(fixture.componentInstance.tableExitMessage()).toBe('game.gameTable.concedeGameConfirmationMessage');
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await fixture.componentInstance.confirmTableExitAction();
@@ -5558,13 +5558,13 @@ describe('GameTableComponent', () => {
 
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.power_toughness.changed',
-      payload: {
+      payload: expect.objectContaining({
         playerId: 'user-1',
         zone: 'battlefield',
         instanceId: 'card-1',
         power: null,
         toughness: null,
-      },
+      }),
     }), 'game-1'));
   });
 

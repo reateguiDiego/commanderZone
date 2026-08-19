@@ -26,21 +26,29 @@ export function gameBackgroundImageUrl(backgroundName: string | null | undefined
     return playMatUrl;
   }
 
-  return assetUrl(GAME_BACKGROUNDS, backgroundName, DEFAULT_GAME_BACKGROUND_NAME);
+  const normalizedName = normalizeAssetName(backgroundName);
+  if (GAME_BACKGROUNDS[normalizedName]) {
+    return GAME_BACKGROUNDS[normalizedName];
+  }
+
+  return customVisualImageUrl('/assets/images/playmat/', normalizedName) ?? GAME_BACKGROUNDS[DEFAULT_GAME_BACKGROUND_NAME];
 }
 
 export function gameSleevesImageUrl(sleevesName: string | null | undefined): string {
-  return assetUrl(GAME_SLEEVES, sleevesName, DEFAULT_GAME_SLEEVES_NAME);
-}
+  const normalizedName = normalizeAssetName(sleevesName);
+  if (GAME_SLEEVES[normalizedName]) {
+    return GAME_SLEEVES[normalizedName];
+  }
 
-function assetUrl(registry: Record<string, string>, assetName: string | null | undefined, fallbackName: string): string {
-  const normalizedName = normalizeAssetName(assetName);
-
-  return registry[normalizedName] ?? registry[fallbackName] ?? '';
+  return customVisualImageUrl('/assets/images/sleeves/', normalizedName) ?? GAME_SLEEVES[DEFAULT_GAME_SLEEVES_NAME];
 }
 
 function normalizeAssetName(assetName: string | null | undefined): string {
   return (assetName ?? '').trim().replace(/\.(png|jpg|jpeg|webp)$/i, '');
+}
+
+function customVisualImageUrl(basePath: string, assetName: string): string | null {
+  return /^[a-z]+(?:_[a-z]+)?_\d+$/.test(assetName) ? `${basePath}${assetName}.webp` : null;
 }
 
 function playMatImageUrl(backgroundName: string | null | undefined): string | null {

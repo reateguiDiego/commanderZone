@@ -132,4 +132,22 @@ describe('DeckListCardComponent', () => {
     expect(metrics?.querySelector('.deck-card-metric-likes')?.getAttribute('aria-label')).toBe('Likes: 17');
     expect(metrics?.querySelector('.deck-card-metric-copies')?.getAttribute('aria-label')).toBe('Copies: 4');
   });
+
+  it('hides owner metrics for private decks without likes or copies', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Private Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      likes: 0,
+      copies: 0,
+      cards: [],
+    });
+    fixture.componentRef.setInput('metricsMode', 'owner');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.deck-card-metrics.owner-metrics')).toBeNull();
+  });
 });

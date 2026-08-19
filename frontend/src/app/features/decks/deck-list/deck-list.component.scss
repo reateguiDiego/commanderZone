@@ -882,6 +882,20 @@
 }
 
 @media (max-width: 520px) {
+  .import-decklist-heading .field-label {
+    align-items: flex-start;
+  }
+
+  .import-decklist-heading .required-mark {
+    flex: 0 0 auto;
+    margin-top: 0.1rem;
+  }
+
+  .create-cosmetics-previews {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
   .deck-table-list {
     grid-template-columns: 1fr;
   }

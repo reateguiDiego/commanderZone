@@ -39,6 +39,47 @@ class DeckbuildingApiTest extends ApiTestCase
         self::assertSame($slug, $this->jsonResponse()['deck']['slug']);
     }
 
+    public function testDeckVisualsCanBeCreatedAndUpdatedWithSupportedAssets(): void
+    {
+        $token = $this->registerAndLogin('deck-visuals@example.test', 'Deck Visuals');
+
+        $this->jsonRequest('POST', '/decks', [
+            'name' => 'Visual Deck',
+            'backgroundName' => 'free_g_2',
+            'sleevesName' => 'azorius_1',
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+        self::assertSame('free_g_2', $this->jsonResponse()['deck']['backgroundName']);
+        self::assertSame('azorius_1', $this->jsonResponse()['deck']['sleevesName']);
+
+        $storedDeck = $this->storedDeck($deckId);
+        self::assertSame('free_g_2', $storedDeck->backgroundName());
+        self::assertSame('azorius_1', $storedDeck->sleevesName());
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId, [
+            'backgroundName' => 'free_w_2',
+            'sleevesName' => 'dimir_1',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('free_w_2', $this->jsonResponse()['deck']['backgroundName']);
+        self::assertSame('dimir_1', $this->jsonResponse()['deck']['sleevesName']);
+
+        $updatedDeck = $this->storedDeck($deckId);
+        self::assertSame('free_w_2', $updatedDeck->backgroundName());
+        self::assertSame('dimir_1', $updatedDeck->sleevesName());
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId, ['backgroundName' => '../invalid'], $token);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('Deck background is invalid.', $this->jsonResponse()['error']);
+        self::assertSame('free_w_2', $this->storedDeck($deckId)->backgroundName());
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId, ['sleevesName' => 'o_12'], $token);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('Deck sleeves are invalid.', $this->jsonResponse()['error']);
+        self::assertSame('dimir_1', $this->storedDeck($deckId)->sleevesName());
+    }
+
     public function testQuickBuildGeneratesSlugFromCommanderAndDeckName(): void
     {
         $token = $this->registerAndLogin('quick-build-slug@example.test', 'Quick Build Slug');
@@ -48,6 +89,8 @@ class DeckbuildingApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/decks/quick-build', [
             'name' => 'Superfriends Control',
+            'backgroundName' => 'free_u_2',
+            'sleevesName' => 'grixis_1',
             'cards' => [
                 ['scryfallId' => $commander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
             ],
@@ -58,6 +101,8 @@ class DeckbuildingApiTest extends ApiTestCase
         self::assertSame($this->currentUserId($token), $deck['creatorUserId']);
         self::assertSame(0, $deck['likes']);
         self::assertSame(0, $deck['copies']);
+        self::assertSame('free_u_2', $deck['backgroundName']);
+        self::assertSame('grixis_1', $deck['sleevesName']);
         self::assertMatchesRegularExpression(
             '/^atraxa-grand-unifier-superfriends-control-commander-[a-z0-9]{8}$/',
             (string) $deck['slug'],

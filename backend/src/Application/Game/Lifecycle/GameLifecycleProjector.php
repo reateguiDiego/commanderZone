@@ -65,14 +65,20 @@ final class GameLifecycleProjector
         if ($handoff->generation < $cursor['generation']) {
             return true;
         }
-        if ($handoff->generation === $cursor['generation'] && $handoff->fencing < $cursor['fencing']) {
-            return true;
-        }
-        if ($handoff->generation === $cursor['generation'] && $handoff->version < $cursor['version']) {
-            return true;
-        }
-        if ($handoff->generation !== $cursor['generation'] || $handoff->fencing !== $cursor['fencing'] || $handoff->version !== $cursor['version']) {
+        if ($handoff->generation !== $cursor['generation']) {
             return false;
+        }
+
+        // Gameplay version is the durable ordering key. In single-node local
+        // runtime mode, an in-memory fencing token starts again after a
+        // process restart, so rejecting a higher persisted gameplay version
+        // on its lower replacement token would permanently strand a finished
+        // game in the active control plane.
+        if ($handoff->version !== $cursor['version']) {
+            return $handoff->version < $cursor['version'];
+        }
+        if ($handoff->fencing !== $cursor['fencing']) {
+            return $handoff->fencing < $cursor['fencing'];
         }
 
         return $cursor['occurredAt'] instanceof \DateTimeImmutable && $handoff->occurredAt <= $cursor['occurredAt'];

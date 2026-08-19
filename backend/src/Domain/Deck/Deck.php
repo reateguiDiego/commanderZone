@@ -177,6 +177,18 @@ class Deck
         return $this->sleevesName;
     }
 
+    public function setBackgroundName(string $backgroundName): void
+    {
+        $this->backgroundName = $backgroundName;
+        $this->touch();
+    }
+
+    public function setSleevesName(string $sleevesName): void
+    {
+        $this->sleevesName = $sleevesName;
+        $this->touch();
+    }
+
     public function likes(): int
     {
         return $this->likes;

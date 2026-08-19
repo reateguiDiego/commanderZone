@@ -1938,9 +1938,19 @@ paths:
                   maxLength: 20
                 format:
                   $ref: '#/components/schemas/DeckFormatId'
+                visibility:
+                  $ref: '#/components/schemas/DeckVisibility'
                 folderId:
                   type: [string, 'null']
                   format: uuid
+                backgroundName:
+                  type: string
+                  description: Selected playmat asset name without an extension.
+                  example: free_g_2
+                sleevesName:
+                  type: string
+                  description: Selected sleeve asset name without an extension.
+                  example: azorius_1
       responses:
         '200':
           description: Updated deck.
@@ -7126,6 +7136,14 @@ components:
           format: uuid
         visibility:
           $ref: '#/components/schemas/DeckVisibility'
+        backgroundName:
+          type: string
+          description: Selected playmat asset name without an extension.
+          example: free_g_2
+        sleevesName:
+          type: string
+          description: Selected sleeve asset name without an extension.
+          example: azorius_1
     DeckQuickBuildRequest:
       allOf:
         - $ref: '#/components/schemas/CreateDeckRequest'
