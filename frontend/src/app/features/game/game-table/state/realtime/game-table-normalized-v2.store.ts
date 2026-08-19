@@ -81,6 +81,7 @@ export interface GameTableNormalizedV2PlayerState {
   topLibraryRevealMarker?: boolean;
   topLibraryRevealedTo?: string[];
   revealedLibraryTo?: string[];
+  libraryShuffleRevision?: number;
   revealedHandIndexes?: number[];
 }
 
@@ -445,6 +446,8 @@ export function applyPatchEnvelopeV2(
     nextState = result.state;
   }
 
+  nextState = recordLibraryShuffleRevisions(nextState, patch.ops, patch.version);
+
   nextState = {
     ...nextState,
     game: {
@@ -473,6 +476,8 @@ function applySameVersionPatch(
 
     nextState = result.state;
   }
+
+  nextState = recordLibraryShuffleRevisions(nextState, patch.ops, patch.version);
 
   return {
     status: 'applied',
@@ -672,6 +677,37 @@ function normalizePatchOperation(operation: GameplayPatchV2Operation): GameplayP
     ...data,
     op: operation.op,
   } as GameplayPatchV2Operation;
+}
+
+function recordLibraryShuffleRevisions(
+  state: GameTableNormalizedV2State,
+  operations: readonly GameplayPatchV2Operation[],
+  revision: number,
+): GameTableNormalizedV2State {
+  const shuffledPlayerIds = new Set(
+    operations
+      .map(normalizePatchOperation)
+      .filter((operation): operation is Extract<GameplayPatchV2Operation, { op: 'library.shuffled' }> => operation.op === 'library.shuffled')
+      .map((operation) => operation.playerId),
+  );
+
+  let players = state.players;
+  for (const playerId of shuffledPlayerIds) {
+    const player = players[playerId];
+    if (!player || player.libraryShuffleRevision === revision) {
+      continue;
+    }
+
+    players = {
+      ...players,
+      [playerId]: {
+        ...player,
+        libraryShuffleRevision: revision,
+      },
+    };
+  }
+
+  return players === state.players ? state : { ...state, players };
 }
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
@@ -2304,6 +2340,7 @@ function hydratePlayerState(
     playTopLibraryRevealed: player.playTopLibraryRevealed,
     topLibraryRevealMarker: player.topLibraryRevealMarker,
     topLibraryRevealedTo: player.topLibraryRevealedTo ? [...player.topLibraryRevealedTo] : undefined,
+    libraryShuffleRevision: player.libraryShuffleRevision,
     revealedHandIndexes: player.revealedHandIndexes ? [...player.revealedHandIndexes] : undefined,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },

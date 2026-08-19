@@ -236,6 +236,13 @@ export class GameTableSnapshotSelectors {
     const knownCommanderIds = this.knownCommanderIds(player);
     const secondCard = zone === 'library' ? cards[1] ?? null : this.publicPileLayerCard(cards, zone, knownCommanderIds);
     if (!secondCard) {
+      // Realtime keeps library identities private after a shuffle but retains
+      // its authoritative count. Keep rendering card-back layers from that
+      // count so the pile and its shuffle animation remain visually tangible.
+      if (zone === 'library' && this.zoneCount(player, zone) > 1) {
+        return this.cardBackImage(player.state.sleevesName);
+      }
+
       return null;
     }
 

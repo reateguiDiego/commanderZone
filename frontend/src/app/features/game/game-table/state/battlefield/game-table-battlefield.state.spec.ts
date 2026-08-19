@@ -219,6 +219,9 @@ describe('GameTableBattlefieldState', () => {
       setSnapshot: (next) => {
         currentSnapshot = next;
       },
+      setViewportReflowSnapshot: (next) => {
+        currentSnapshot = next;
+      },
       setError: vi.fn(),
       errorMessage: () => 'error',
       battlefieldDragContext: () => ({

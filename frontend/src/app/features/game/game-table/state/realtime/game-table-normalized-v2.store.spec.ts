@@ -2179,6 +2179,8 @@ describe('game table normalized v2 store', () => {
     expect(shuffled.status).toBe('applied');
     expect(shuffled.state.zones['player-1'].library).toEqual([]);
     expect(shuffled.state.zoneCounts['player-1'].library).toBe(98);
+    expect(shuffled.state.players['player-1'].libraryShuffleRevision).toBe(8);
+    expect(hydrateGameSnapshotFromV2State(shuffled.state).players['player-1'].libraryShuffleRevision).toBe(8);
   });
 
   it('applies private library view patch without mutating counts', () => {

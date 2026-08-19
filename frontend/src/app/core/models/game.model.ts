@@ -169,6 +169,8 @@ export interface GamePlayerState {
   topLibraryRevealMarker?: boolean;
   topLibraryRevealedTo?: string[];
   revealedLibraryTo?: string[];
+  /** Local render revision, advanced by a confirmed realtime library shuffle. */
+  libraryShuffleRevision?: number;
   revealedHandIndexes?: number[];
   life: number;
   zones: GameZones;

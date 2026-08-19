@@ -22,12 +22,18 @@ export class GameTableSnapshotCoordinatorState {
     private readonly pendingTransferState: GameTablePendingTransferState,
   ) {}
 
-  setSnapshot(context: GameTableSnapshotCoordinatorContext, snapshot: GameSnapshot | null): void {
+  setSnapshot(
+    context: GameTableSnapshotCoordinatorContext,
+    snapshot: GameSnapshot | null,
+    options: { trackDropFeedback?: boolean } = {},
+  ): void {
     const viewportSnapshot = this.battlefieldState.applyViewportClampedBattlefieldPositions(snapshot);
     const positionSnapshot = this.battlefieldState.applyOptimisticBattlefieldPositions(viewportSnapshot);
     const counterSnapshot = this.debouncedValueCommands.applyOptimisticValues(positionSnapshot);
     const nextSnapshot = this.cardsState.applyOptimisticCardCounters(counterSnapshot);
-    this.dropFeedbackState.trackSnapshot(nextSnapshot);
+    if (options.trackDropFeedback !== false) {
+      this.dropFeedbackState.trackSnapshot(nextSnapshot);
+    }
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.core.snapshot.set(nextSnapshot);
     context.openRevealedLibraryFromSnapshot(nextSnapshot);

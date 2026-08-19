@@ -343,7 +343,8 @@ final class GameplayV2ContractFactory
 
         $instanceId = trim((string) ($card['instanceId'] ?? ''));
         $revealedTo = is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [];
-        $isRevealedToViewer = in_array($viewerId, $revealedTo, true);
+        $isRevealedToViewer = in_array('all', $revealedTo, true)
+            || in_array($viewerId, $revealedTo, true);
         $isPublicTop = $playTopLibraryRevealed && $instanceId !== '' && $instanceId === $topLibraryInstanceId;
         if ($isRevealedToViewer || $isPublicTop) {
             return $card;

@@ -1158,6 +1158,27 @@ class GameEventStoreV2Test extends TestCase
         (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
     }
 
+    public function testReplayKeepsAnAllAudienceRuntimeTopLibraryRevealVisibleAfterReconnect(): void
+    {
+        $actor = new User('runtime-reveal-all@example.test', 'Runtime Reveal All');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-top', 'Revealed Top', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $reveal = new GameEvent($game, 'library.reveal_top', [
+            'playerId' => $actor->id(),
+            'instanceIds' => ['library-top'],
+            'to' => 'all',
+        ], $actor, 'runtime-reveal-all', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$reveal]);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt);
+
+        self::assertSame([$actor->id()], $this->cardById($rebuilt, $actor->id(), 'library', 'library-top')['revealedTo'] ?? []);
+        self::assertFalse($bootstrap->instances['library-top']['hidden'] ?? true);
+    }
+
     public function testReplayRebuildsRuntimeGoCommanderCastCountersForReconnect(): void
     {
         $actor = new User('runtime-go-commander@example.test', 'Runtime Go Commander');

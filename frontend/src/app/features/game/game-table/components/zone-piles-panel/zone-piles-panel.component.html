@@ -83,6 +83,7 @@
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
                 [showRevealIndicator]="zone === 'library' && isLibraryTopRevealMarked(currentPlayer)"
+                [shuffleRevision]="zone === 'library' ? currentPlayer.state.libraryShuffleRevision ?? null : null"
               />
             }
           }

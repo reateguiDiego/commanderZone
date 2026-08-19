@@ -241,6 +241,7 @@ export class GameTableStore implements OnDestroy {
   constructor() {
     this.contexts.bind({
       setSnapshot: (snapshot) => this.setSnapshot(snapshot),
+      setViewportReflowSnapshot: (snapshot) => this.setSnapshot(snapshot, { trackDropFeedback: false }),
       refetch: (force, source) => this.refetch(force, source),
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
@@ -1919,7 +1920,7 @@ export class GameTableStore implements OnDestroy {
     };
   }
 
-  private setSnapshot(snapshot: GameSnapshot | null): void {
+  private setSnapshot(snapshot: GameSnapshot | null, options: { trackDropFeedback?: boolean } = {}): void {
     this.mulliganState.syncSnapshot(snapshot);
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;
@@ -1943,7 +1944,7 @@ export class GameTableStore implements OnDestroy {
 
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
-    }, snapshot);
+    }, snapshot, options);
     this.pruneTransientCardUiState(snapshot);
   }
 

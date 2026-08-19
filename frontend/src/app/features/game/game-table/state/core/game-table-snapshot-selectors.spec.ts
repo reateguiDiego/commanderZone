@@ -561,6 +561,31 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.zoneStackLayerImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
   });
 
+  it('keeps card-back layers when realtime only provides a library count', () => {
+    const player = playerView({
+      sleevesName: 'facedown_card',
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+      zoneCounts: {
+        library: 98,
+        hand: 7,
+        battlefield: 0,
+        graveyard: 0,
+        exile: 0,
+        command: 1,
+      },
+    });
+
+    expect(selectors.zonePreviewImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
+  });
+
   it('uses the second-from-top public card image for graveyard and exile stack layers', () => {
     const player = playerView({
       zones: {

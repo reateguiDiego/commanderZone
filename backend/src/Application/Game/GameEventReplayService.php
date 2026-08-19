@@ -1789,6 +1789,13 @@ final class GameEventReplayService
      */
     private function targetsFromVisibility(array $snapshot, ?string $visibility): array
     {
+        if ($visibility === 'all') {
+            return array_values(array_filter(
+                array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []),
+                static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== '',
+            ));
+        }
+
         if ($visibility === null || $visibility === 'public') {
             return ['all'];
         }

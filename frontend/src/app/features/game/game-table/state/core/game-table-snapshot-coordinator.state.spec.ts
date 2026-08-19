@@ -70,6 +70,15 @@ describe('GameTableSnapshotCoordinatorState', () => {
     expect(reconcileSnapshot).toHaveBeenCalledWith(snapshotSignal());
     expect(openRevealedLibraryFromSnapshot).toHaveBeenCalledWith(snapshotSignal());
   });
+
+  it('does not feed viewport-only reflows into drop feedback', () => {
+    state.setSnapshot({ openRevealedLibraryFromSnapshot }, snapshot(1), { trackDropFeedback: false });
+
+    expect(snapshotSignal()?.version).toBe(5);
+    expect(trackSnapshot).not.toHaveBeenCalled();
+    expect(reconcileSnapshot).toHaveBeenCalledWith(snapshotSignal());
+    expect(openRevealedLibraryFromSnapshot).toHaveBeenCalledWith(snapshotSignal());
+  });
 });
 
 function snapshotWithVersion(snapshot: GameSnapshot | null, version: number): GameSnapshot | null {

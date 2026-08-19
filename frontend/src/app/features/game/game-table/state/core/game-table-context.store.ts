@@ -38,6 +38,7 @@ import { GameTableToastState } from './game-table-toast.state';
 
 export interface GameTableContextSource {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly refetch: (force?: boolean, source?: string) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
@@ -222,6 +223,7 @@ export class GameTableContextStore {
     return {
       snapshot: () => this.core.snapshot(),
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       setError: (message) => this.core.error.set(message),
       errorMessage: (error) => this.errorMessage(error),
       battlefieldDragContext: () => this.battlefieldDrag(),

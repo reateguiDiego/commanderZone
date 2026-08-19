@@ -21,6 +21,7 @@ import { buildLandStackGroups } from '../../utils/land-stack';
 export interface GameTableBattlefieldContext {
   readonly snapshot: () => GameSnapshot | null;
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly setError: (message: string) => void;
   readonly errorMessage: (error: unknown) => string;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
@@ -147,7 +148,7 @@ export class GameTableBattlefieldState {
     }
 
     if (nextSnapshot) {
-      context.setSnapshot(nextSnapshot);
+      context.setViewportReflowSnapshot(nextSnapshot);
     }
   }
 
