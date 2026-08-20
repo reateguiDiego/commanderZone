@@ -483,14 +483,13 @@ export class GameTableCardActionsService {
       return;
     }
 
-    for (const item of this.actionTargets(context, menu)) {
-      await context.command('card.revealed', {
-        playerId: item.playerId,
-        zone: item.zone,
-        instanceId: item.card.instanceId,
-        to: target,
-      });
-    }
+    const targets = this.actionTargets(context, menu);
+    await context.command('card.revealed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceIds: targets.map((item) => item.card.instanceId),
+      to: target,
+    });
     context.closeContextMenu();
   }
 
@@ -499,15 +498,14 @@ export class GameTableCardActionsService {
       return;
     }
 
-    for (const item of this.actionTargets(context, menu)) {
-      await context.command('card.revealed', {
-        playerId: item.playerId,
-        zone: item.zone,
-        instanceId: item.card.instanceId,
-        revealed: false,
-        clearAll: true,
-      });
-    }
+    const targets = this.actionTargets(context, menu);
+    await context.command('card.revealed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceIds: targets.map((item) => item.card.instanceId),
+      revealed: false,
+      clearAll: true,
+    });
     context.closeContextMenu();
   }
 

@@ -72,6 +72,11 @@ test('player can move a hand card to battlefield with manual fallback and sync t
       hand: handBefore - 1,
       library: sidebarBefore.library,
     });
+    await expect.poll(async () =>
+      pageB
+        .locator(`[data-testid="hand-zone"][data-player-id="${setup.playerA.user.id}"] [data-testid="game-card"][data-zone="hand"]`)
+        .count(),
+    ).toBe(handBefore - 1);
 
     await expect.poll(async () =>
       pageA

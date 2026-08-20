@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} 将 {{ cardName }} 翻转为 {{ faceName }} 一面。",
       "faceDownInspected": "{{ actor }} 查看了一张背面朝上的牌。",
       "playTopFaceDown": "{{ actor }} 以背面朝上的方式使用了其牌库顶的一张牌。",
-      "turnedFaceDown": "{{ actor }} 将一张牌变为背面朝上。", "turnedFaceUp": "{{ actor }} 将一张牌变为正面朝上。", "controllerChanged": "{{ actor }} 将一张牌的操控者改为 {{ target }}。"
+      "turnedFaceDown": "{{ actor }} 将一张牌变为背面朝上。", "turnedFaceUp": "{{ actor }} 将一张牌变为正面朝上。", "controllerChanged": "{{ actor }} 将一张牌的操控者改为 {{ target }}。", "revealed": "{{ actor }} 向 {{ recipients }} 展示了 1 张牌。", "revealedMany": "{{ actor }} 向 {{ recipients }} 展示了 {{ count }} 张牌。"
     },
+    "audience": { "all": "所有玩家" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} 将 {{ cardName }} 从 {{ previousPower }}/{{ previousToughness }} 改为 {{ power }}/{{ toughness }}。",
       "loyaltyChanged": "{{ actor }} 将 {{ cardName }} 的忠诚度从 {{ previousValue }} 改为 {{ value }}（{{ delta }}）。",

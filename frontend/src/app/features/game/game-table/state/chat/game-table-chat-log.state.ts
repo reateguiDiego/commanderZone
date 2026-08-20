@@ -288,6 +288,7 @@ export class GameTableChatLogState {
       previousPlayer: this.playerLabelParam(snapshot, entry, params, 'previousPlayerId'),
       phase: this.phaseLabel(this.stringParam(params, 'phase')),
       target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
+      recipients: this.revealRecipientsLabel(snapshot, entry, params),
       count: params['count'] ?? '',
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
       toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
@@ -324,6 +325,26 @@ export class GameTableChatLogState {
     const playerId = this.stringParam(params, key);
 
     return playerId ? this.playerDisplayName(snapshot, entry, playerId) : '';
+  }
+
+  private revealRecipientsLabel(
+    snapshot: GameSnapshot | null,
+    entry: RawGameLogEntry,
+    params: Record<string, unknown>,
+  ): string {
+    if (this.stringParam(params, 'revealAudience') === 'all') {
+      return this.translateRuntime('gameLog.audience.all');
+    }
+
+    const recipientPlayerIds = Array.isArray(params['recipientPlayerIds'])
+      ? params['recipientPlayerIds'].filter((playerId): playerId is string => typeof playerId === 'string' && playerId.trim() !== '')
+      : [];
+
+    if (recipientPlayerIds.length === 0) {
+      return this.translateRuntime('gameLog.audience.all');
+    }
+
+    return recipientPlayerIds.map((playerId) => this.playerDisplayName(snapshot, entry, playerId)).join(', ');
   }
 
   private playerDisplayName(snapshot: GameSnapshot | null, entry: RawGameLogEntry, playerId: string): string {

@@ -10,7 +10,8 @@ import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.compon
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
-import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
+import { GameSnapshotPatchOperation, GameplayPatchV2Message } from '../../../core/models/game-realtime.model';
+import type { GameplayPatchV2Operation } from '../../../core/models/game-v2.model';
 import { Card } from '../../../core/models/card.model';
 import { CardsApi } from '../../../core/api/cards.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
@@ -1675,7 +1676,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
     const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
 
-    if (!event.isLocalPatch) {
+    if (!event.isLocalPatch && event.patch.kind === 'game_patch') {
       this.playRealtimeMoveGhosts(event);
     }
 
@@ -1697,7 +1698,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private realtimePatchRotationAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
-    if (event.isLocalPatch) {
+    if (event.isLocalPatch || event.patch.kind !== 'game_patch') {
       return [];
     }
 
@@ -1760,6 +1761,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
+    if (event.patch.kind !== 'game_patch') {
+      return;
+    }
+
     for (const operation of event.patch.operations) {
       if (operation.op === 'card.move') {
         this.playRealtimeCardMoveGhost(operation);
@@ -1806,6 +1811,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private playRealtimePatchArrivalAnimations(event: GameTableRealtimePatchAnimationEvent): void {
+    if (event.patch.kind === 'patch.v2') {
+      this.playRealtimeV2PatchArrivalAnimations(event.patch);
+      return;
+    }
+
     const punchCardIds = new Set<string>();
 
     for (const operation of event.patch.operations) {
@@ -1834,6 +1844,79 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       }
     }
 
+    this.playRealtimeCardPunches(punchCardIds);
+  }
+
+  private playRealtimeV2PatchArrivalAnimations(patch: GameplayPatchV2Message): void {
+    const punchCardIds = new Set<string>();
+
+    for (const rawOperation of patch.ops) {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      switch (operation.op) {
+        case 'zone.cards.move':
+          this.addV2BattlefieldArrivalCard(punchCardIds, operation.to.playerId, operation.to.zone, operation.instanceId);
+          break;
+        case 'zone.cards.batchMove':
+          for (const move of operation.moves) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, move.to.playerId, move.to.zone, move.instanceId);
+          }
+          break;
+        case 'zone.cards.add':
+          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+            operation.cards.forEach((card) => punchCardIds.add(card.instanceId));
+          }
+          break;
+        case 'card.field.set':
+          if (this.hasV2PermanentVisualChange(operation)) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          }
+          break;
+        case 'card.counters.patch':
+        case 'card.stats.set':
+        case 'card.counters.set':
+          this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          break;
+        case 'card.state.set':
+          if (operation.counters !== undefined) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          }
+          break;
+      }
+    }
+
+    this.playRealtimeCardPunches(punchCardIds);
+  }
+
+  private normalizedRealtimeV2Operation(operation: GameplayPatchV2Operation): GameplayPatchV2Operation {
+    const wireOperation = operation as GameplayPatchV2Operation & { data?: Record<string, unknown> };
+    if (!wireOperation.data || Array.isArray(wireOperation.data)) {
+      return operation;
+    }
+
+    return { ...wireOperation.data, op: operation.op } as GameplayPatchV2Operation;
+  }
+
+  private addV2BattlefieldArrivalCard(
+    instanceIds: Set<string>,
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+  ): void {
+    if (this.shouldAnimateFocusedBattlefield(playerId, zone)) {
+      instanceIds.add(instanceId);
+    }
+  }
+
+  private hasV2PermanentVisualChange(operation: Extract<GameplayPatchV2Operation, { op: 'card.field.set' }>): boolean {
+    return operation.counters !== undefined
+      || operation.power !== undefined
+      || operation.toughness !== undefined
+      || operation.loyalty !== undefined
+      || operation.defense !== undefined
+      || operation.saga !== undefined;
+  }
+
+  private playRealtimeCardPunches(punchCardIds: ReadonlySet<string>): void {
     if (punchCardIds.size === 0) {
       return;
     }

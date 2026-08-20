@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} a retourné {{ cardName }} sur {{ faceName }}.",
       "faceDownInspected": "{{ actor }} a regardé une carte face cachée.",
       "playTopFaceDown": "{{ actor }} a joué face cachée la carte du dessus de sa bibliothèque.",
-      "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.", "turnedFaceUp": "{{ actor }} a retourné une carte face visible.", "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}."
+      "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.", "turnedFaceUp": "{{ actor }} a retourné une carte face visible.", "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}.", "revealed": "{{ actor }} a révélé 1 carte à {{ recipients }}.", "revealedMany": "{{ actor }} a révélé {{ count }} cartes à {{ recipients }}."
     },
+    "audience": { "all": "tous les joueurs" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} a changé {{ cardName }} de {{ previousPower }}/{{ previousToughness }} à {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} a changé la loyauté de {{ cardName }} de {{ previousValue }} à {{ value }} ({{ delta }}).",

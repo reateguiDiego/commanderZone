@@ -59,10 +59,11 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   readonly keep = output<readonly string[]>();
   readonly scryConfirmed = output<ScryDestination>();
 
+  readonly dismissed = signal(false);
   readonly selectedBottomIds = signal<readonly string[]>([]);
   readonly facePreviewIndexes = signal<Readonly<Record<string, number>>>({});
   readonly selectedBottomIdSet = computed(() => new Set(this.selectedBottomIds()));
-  readonly isOpen = computed(() => this.gamePhase() === 'MULLIGAN');
+  readonly isOpen = computed(() => this.gamePhase() === 'MULLIGAN' && !this.dismissed());
   readonly rule = computed<MulliganRule>(() => this.config()?.rule ?? this.currentMulligan()?.rule ?? 'LONDON');
   readonly bottomOrderMode = computed<BottomOrderMode>(() => this.currentMulligan()?.bottomOrderMode ?? 'NONE');
   readonly status = computed<MulliganPlayerStatus>(() => this.normalizeStatus(this.currentMulligan()?.status));
@@ -125,6 +126,10 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   constructor() {
     effect(() => {
+      if (this.gamePhase() !== 'MULLIGAN' && this.dismissed()) {
+        this.dismissed.set(false);
+      }
+
       const validHandIds = new Set(this.hand().map((card) => card.instanceId));
       const scryCard = this.scryCard();
       if (scryCard) {
@@ -253,6 +258,14 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     this.scryConfirmed.emit(destination);
   }
 
+  dismiss(): void {
+    if (this.canKeepInitialHandOnDismiss()) {
+      this.keep.emit([]);
+    }
+
+    this.dismissed.set(true);
+  }
+
   stopCardClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -314,6 +327,13 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   private canSubmitBottomSelection(): boolean {
     return this.status() === 'DECIDING';
+  }
+
+  private canKeepInitialHandOnDismiss(): boolean {
+    return !this.pending()
+      && this.status() === 'DECIDING'
+      && this.bottomSelectionCount() === 0
+      && this.currentMulligan()?.mulligansTaken === 0;
   }
 
   private toggleBottomCard(card: GameCardInstance): void {

@@ -50,12 +50,26 @@
 }
 
 .mulligan-header {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1.25rem;
   min-width: 0;
   padding: 1rem 1.1rem 0.85rem;
+}
+
+.mulligan-close-button {
+  flex: 0 0 auto;
+  width: 2.4rem;
+  min-width: 2.4rem;
+  padding: 0;
+}
+
+.mulligan-close-button:hover:not(:disabled),
+.mulligan-close-button:focus-visible:not(:disabled) {
+  border-color: rgb(var(--cz-danger-rgb) / 72%);
+  background: rgb(var(--cz-danger-rgb) / 12%);
 }
 
 .mulligan-title-group {
@@ -627,6 +641,16 @@ h2 {
   .mulligan-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .mulligan-title-group {
+    padding-right: 3rem;
+  }
+
+  .mulligan-close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1.1rem;
   }
 
   .mulligan-meta {

@@ -108,6 +108,33 @@ describe('PlayerHandPanelComponent', () => {
     expect(cardElement.classList).not.toContain('hover-lifted');
   });
 
+  it('removes stale opponent card backs when the authoritative hand count decreases', async () => {
+    const staleHiddenHand = [0, 1, 2, 3].map((index): GameCardInstance => ({
+      instanceId: `player-1-hidden-hand-${index}`,
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      name: 'Hidden card',
+      tapped: false,
+      hidden: true,
+      faceDown: true,
+      zone: 'hand',
+    }));
+    const { fixture } = await renderHandPanel({
+      readOnly: true,
+      showCardsFaceDown: true,
+      handZoneCount: 4,
+      hand: staleHiddenHand,
+    });
+
+    expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(4);
+
+    fixture.componentRef.setInput('zoneCount', (_player: PlayerView, zone: GameZoneName) => zone === 'hand' ? 2 : 0);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(2);
+    expect(fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent).toContain('2 cards');
+  });
+
   it('shows the public reveal eye on every marked hidden opponent hand card without enabling previews', async () => {
     const { fixture } = await renderHandPanel({
       readOnly: true,

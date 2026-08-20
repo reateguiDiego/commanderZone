@@ -165,6 +165,30 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		return semantic("gameLog.card.faceChanged", params, []string{actorPlayerID}, []string{instanceID})
 	case "card.face_down.inspected":
 		return semantic("gameLog.card.faceDownInspected", baseParams(), []string{actorPlayerID}, nil)
+	case "card.revealed":
+		viewers := stringsFromAny(payload["viewers"])
+		count := len(stringsFromAny(payload["instanceIds"]))
+		if count == 0 {
+			count = len(stringsFromAny(command.Payload["instanceIds"]))
+		}
+		if count == 0 {
+			count = 1
+		}
+		params := baseParams()
+		params["playerId"] = firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		params["count"] = count
+		isAll := firstString(command.Payload["to"]) == "all" || len(viewers) == len(game.Players)
+		if isAll {
+			params["revealAudience"] = "all"
+		} else {
+			params["revealAudience"] = "players"
+			params["recipientPlayerIds"] = viewers
+		}
+		key := "gameLog.card.revealed"
+		if count != 1 {
+			key = "gameLog.card.revealedMany"
+		}
+		return semantic(key, params, append([]string{actorPlayerID}, viewers...), nil)
 	case "library.play_top_face_down":
 		return semantic("gameLog.library.playTopFaceDown", baseParams(), []string{actorPlayerID}, nil)
 	case "library.draw", "library.draw_many":
@@ -552,7 +576,14 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		count := intFromPayload(payload, "count", 1)
 		return fmt.Sprintf("%s revealed the top %d cards of their library.", displayName, count)
 	case "card.revealed":
-		return fmt.Sprintf("%s revealed a card.", displayName)
+		count := len(stringsFromAny(payload["instanceIds"]))
+		if count == 0 {
+			count = 1
+		}
+		if count == 1 {
+			return fmt.Sprintf("%s revealed 1 card.", displayName)
+		}
+		return fmt.Sprintf("%s revealed %d cards.", displayName, count)
 	case "library.play_top_revealed":
 		if firstBool(payload["enabled"], command.Payload["enabled"]) {
 			return fmt.Sprintf("%s is playing with the top card of their library revealed.", displayName)

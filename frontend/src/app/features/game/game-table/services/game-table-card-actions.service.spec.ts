@@ -33,7 +33,7 @@ describe('GameTableCardActionsService', () => {
     expect(command).toHaveBeenCalledWith('card.revealed', {
       playerId: 'player-1',
       zone: 'hand',
-      instanceId: 'hand-1',
+      instanceIds: ['hand-1'],
       revealed: false,
       clearAll: true,
     });
@@ -56,22 +56,37 @@ describe('GameTableCardActionsService', () => {
 
     await service.stopRevealCard(ctx, { ...menu(first), zone: 'hand' });
 
-    expect(command).toHaveBeenCalledTimes(2);
-    expect(command).toHaveBeenNthCalledWith(1, 'card.revealed', {
+    expect(command).toHaveBeenCalledOnce();
+    expect(command).toHaveBeenCalledWith('card.revealed', {
       playerId: 'player-1',
       zone: 'hand',
-      instanceId: 'hand-1',
-      revealed: false,
-      clearAll: true,
-    });
-    expect(command).toHaveBeenNthCalledWith(2, 'card.revealed', {
-      playerId: 'player-1',
-      zone: 'hand',
-      instanceId: 'hand-2',
+      instanceIds: ['hand-1', 'hand-2'],
       revealed: false,
       clearAll: true,
     });
     expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('reveals every selected card with one command', async () => {
+    const first = { ...card('hand-1', 'Creature', 0, 0), zone: 'hand' as const };
+    const second = { ...card('hand-2', 'Artifact', 0, 0), zone: 'hand' as const };
+    const command = vi.fn(async () => undefined);
+    const ctx = context([], {
+      command,
+      selectedCards: () => [
+        { playerId: 'player-1', zone: 'hand', card: first },
+        { playerId: 'player-1', zone: 'hand', card: second },
+      ],
+    });
+
+    await service.revealCard(ctx, { ...menu(first), zone: 'hand' }, 'player-2');
+
+    expect(command).toHaveBeenCalledWith('card.revealed', {
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceIds: ['hand-1', 'hand-2'],
+      to: 'player-2',
+    });
   });
 
   it('removes a land stack by separating its cards near the top card', async () => {

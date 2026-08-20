@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} heeft {{ cardName }} naar {{ faceName }} gedraaid.",
       "faceDownInspected": "{{ actor }} heeft een gedekte kaart bekeken.",
       "playTopFaceDown": "{{ actor }} heeft de bovenste kaart van diens bibliotheek gedekt gespeeld.",
-      "turnedFaceDown": "{{ actor }} heeft een kaart gedekt gedraaid.", "turnedFaceUp": "{{ actor }} heeft een kaart open gedraaid.", "controllerChanged": "{{ actor }} heeft de bestuurder van een kaart veranderd naar {{ target }}."
+      "turnedFaceDown": "{{ actor }} heeft een kaart gedekt gedraaid.", "turnedFaceUp": "{{ actor }} heeft een kaart open gedraaid.", "controllerChanged": "{{ actor }} heeft de bestuurder van een kaart veranderd naar {{ target }}.", "revealed": "{{ actor }} onthulde 1 kaart aan {{ recipients }}.", "revealedMany": "{{ actor }} onthulde {{ count }} kaarten aan {{ recipients }}."
     },
+    "audience": { "all": "alle spelers" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} heeft {{ cardName }} veranderd van {{ previousPower }}/{{ previousToughness }} naar {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} heeft de loyaliteit van {{ cardName }} veranderd van {{ previousValue }} naar {{ value }} ({{ delta }}).",

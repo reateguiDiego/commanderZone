@@ -659,11 +659,6 @@ final class GameEventReplayService
      */
     private function applyRuntimeCardRevealed(array &$snapshot, array $payload): void
     {
-        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
-        if (!is_array($card)) {
-            return;
-        }
-
         $revealed = true;
         if (array_key_exists('revealed', $payload)) {
             $revealed = ($payload['revealed'] ?? false) === true;
@@ -672,17 +667,23 @@ final class GameEventReplayService
             $revealed = ($payload['hidden'] ?? false) !== true;
         }
 
-        if (!$revealed) {
-            $card['revealedTo'] = [];
-
-            return;
-        }
-
         $viewers = $this->stringList($payload['viewers'] ?? []);
         if ($viewers === [] && is_string($payload['to'] ?? null)) {
             $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
         }
-        $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($instanceIds === []) {
+            $instanceIds = $this->stringList([$payload['instanceId'] ?? null]);
+        }
+
+        foreach ($instanceIds as $instanceId) {
+            $card =& $this->locateCard($snapshot, $instanceId);
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $card['revealedTo'] = !$revealed ? [] : ($viewers !== [] ? $viewers : ['all']);
+        }
     }
 
     /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */

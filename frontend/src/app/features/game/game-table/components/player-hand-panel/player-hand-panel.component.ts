@@ -152,12 +152,17 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const containsRevealedIdentity = orderedCards.some((card) => this.isRevealedHandCard(card));
     const visibleCards = orderedCards
       .map((card, index) => this.withRevealMarker(card, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
-    const expectedCount = this.zoneCount()(handPlayer, 'hand');
-    if (!this.showCardsFaceDown() || visibleCards.length >= expectedCount) {
+    const expectedCount = Math.max(0, this.zoneCount()(handPlayer, 'hand'));
+    if (!this.showCardsFaceDown()) {
       return visibleCards;
     }
 
-    return Array.from({ length: expectedCount }, (_, index): GameCardInstance => visibleCards[index] ?? this.withRevealMarker({
+    // Opponent hand entries can arrive independently from their public count.
+    // The count is authoritative: stale hidden placeholders must never leave
+    // extra card backs on screen after a card leaves that hand.
+    const authoritativeCards = visibleCards.slice(0, expectedCount);
+
+    return Array.from({ length: expectedCount }, (_, index): GameCardInstance => authoritativeCards[index] ?? this.withRevealMarker({
       instanceId: `${handPlayer.id}-hidden-hand-${index}`,
       ownerId: handPlayer.id,
       controllerId: handPlayer.id,

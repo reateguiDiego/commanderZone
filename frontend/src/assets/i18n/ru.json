@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} перевернул(а) {{ cardName }} на сторону {{ faceName }}.",
       "faceDownInspected": "{{ actor }} посмотрел(а) карту рубашкой вверх.",
       "playTopFaceDown": "{{ actor }} разыграл(а) верхнюю карту своей библиотеки рубашкой вверх.",
-      "turnedFaceDown": "{{ actor }} перевернул(а) карту рубашкой вверх.", "turnedFaceUp": "{{ actor }} перевернул(а) карту лицом вверх.", "controllerChanged": "{{ actor }} изменил(а) контролирующего карту на {{ target }}."
+      "turnedFaceDown": "{{ actor }} перевернул(а) карту рубашкой вверх.", "turnedFaceUp": "{{ actor }} перевернул(а) карту лицом вверх.", "controllerChanged": "{{ actor }} изменил(а) контролирующего карту на {{ target }}.", "revealed": "{{ actor }} показал(а) 1 карту {{ recipients }}.", "revealedMany": "{{ actor }} показал(а) {{ count }} карт {{ recipients }}."
     },
+    "audience": { "all": "всем игрокам" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} изменил(а) {{ cardName }} с {{ previousPower }}/{{ previousToughness }} на {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} изменил(а) верность {{ cardName }} с {{ previousValue }} на {{ value }} ({{ delta }}).",

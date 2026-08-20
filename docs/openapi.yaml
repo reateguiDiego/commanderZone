@@ -8378,6 +8378,9 @@ components:
             card.power_toughness.changed, power/toughness/loyalty may be numbers
             or null to clear manually assigned stats. For card.moved into
             battlefield, faceDown=true places the moved card face down. For
+            card.revealed, send instanceId for one card or instanceIds for
+            multiple cards from the same player zone; the command applies one
+            shared reveal audience and produces one aggregate game-log entry.
             cards.moved into library, randomOrder=true randomizes only the moved
             cards before placing them at the requested top/bottom position.
             zone.random_card.selected logs one random card name from library,

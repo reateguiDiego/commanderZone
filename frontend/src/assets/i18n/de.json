@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} hat {{ cardName }} auf {{ faceName }} gedreht.",
       "faceDownInspected": "{{ actor }} hat sich eine verdeckte Karte angesehen.",
       "playTopFaceDown": "{{ actor }} hat die oberste Karte seiner Bibliothek verdeckt ausgespielt.",
-      "turnedFaceDown": "{{ actor }} hat eine Karte verdeckt.", "turnedFaceUp": "{{ actor }} hat eine Karte aufgedeckt.", "controllerChanged": "{{ actor }} hat den Kontrolleur einer Karte zu {{ target }} geändert."
+      "turnedFaceDown": "{{ actor }} hat eine Karte verdeckt.", "turnedFaceUp": "{{ actor }} hat eine Karte aufgedeckt.", "controllerChanged": "{{ actor }} hat den Kontrolleur einer Karte zu {{ target }} geändert.", "revealed": "{{ actor }} hat {{ recipients }} 1 Karte gezeigt.", "revealedMany": "{{ actor }} hat {{ recipients }} {{ count }} Karten gezeigt."
     },
+    "audience": { "all": "allen Spielern" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} hat {{ cardName }} von {{ previousPower }}/{{ previousToughness }} auf {{ power }}/{{ toughness }} geändert.",
       "loyaltyChanged": "{{ actor }} hat die Loyalität von {{ cardName }} von {{ previousValue }} auf {{ value }} geändert ({{ delta }}).",

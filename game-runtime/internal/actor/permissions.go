@@ -153,6 +153,19 @@ func (a *GameActor) requireCounterOwner(payload map[string]any, actorID string) 
 }
 
 func (a *GameActor) requireOwnInstances(command protocol.CommandEnvelopeV2, actorID string) error {
+	if command.Type == "card.revealed" {
+		instanceIDs, err := cardRevealedInstanceIDs(command.Payload)
+		if err != nil {
+			return err
+		}
+		for _, instanceID := range instanceIDs {
+			if !a.actorControlsInstance(instanceID, actorID) {
+				return ErrActorPermission
+			}
+		}
+		return nil
+	}
+
 	for _, key := range ownInstanceSubjectCommands[command.Type] {
 		instanceID, _ := command.Payload[key].(string)
 		if instanceID == "" {

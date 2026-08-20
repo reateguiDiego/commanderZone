@@ -94,6 +94,7 @@ import { GameTableComponent } from './game-table.component';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { GameTableMotionService } from './services/game-table-motion.service';
+import { GameTableRealtimeAnimationBusService } from './services/game-table-realtime-animation-bus.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
@@ -1318,6 +1319,53 @@ describe('GameTableComponent', () => {
       scaleToTarget: true,
       rotate: -6,
     })));
+  });
+
+  it('plays remote V2 arrival animations for creatures, planeswalkers, and sagas', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.componentInstance.store.focusPlayer('user-2');
+    fixture.detectChanges();
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const punchCard = vi.spyOn(motion, 'punchCard').mockImplementation(() => undefined);
+    const animationBus = fixture.debugElement.injector.get(GameTableRealtimeAnimationBusService);
+
+    animationBus.emitPatchAnimation({
+      previousSnapshot: snapshot,
+      nextSnapshot: { ...snapshot, version: 2 },
+      patch: {
+        kind: 'patch.v2', gameId: 'game-1', version: 2, visibility: 'public',
+        ops: [
+          {
+            op: 'zone.cards.move', instanceId: 'opponent-creature',
+            from: { playerId: 'user-2', zone: 'hand' },
+            to: { playerId: 'user-2', zone: 'battlefield' },
+          },
+          {
+            op: 'card.field.set', playerId: 'user-2', zone: 'battlefield',
+            instanceId: 'opponent-planeswalker', loyalty: 4,
+          },
+          {
+            op: 'card.field.set', playerId: 'user-2', zone: 'battlefield',
+            instanceId: 'opponent-saga', saga: 2,
+          },
+        ],
+      },
+      isLocalPatch: false,
+    });
+
+    await vi.waitFor(() => expect(punchCard).toHaveBeenCalledWith('opponent-creature', 'damage'));
+    expect(punchCard).toHaveBeenCalledWith('opponent-planeswalker', 'damage');
+    expect(punchCard).toHaveBeenCalledWith('opponent-saga', 'damage');
   });
 
   it('plays remote ghosts when a visible opponent battlefield card moves over websocket', async () => {

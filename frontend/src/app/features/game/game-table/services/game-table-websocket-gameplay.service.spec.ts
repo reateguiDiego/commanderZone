@@ -189,6 +189,38 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('emits remote V2 patches for battlefield arrival animations', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    TestBed.inject(GameTableNormalizedV2Store).applyBootstrap(bootstrapV2());
+    const animationBus = TestBed.inject(GameTableRealtimeAnimationBusService);
+    const patchAnimation = vi.fn();
+    const subscription = animationBus.patchAnimation$.subscribe(patchAnimation);
+
+    try {
+      messages.next({
+        kind: 'patch.v2',
+        gameId: 'game-1',
+        version: 2,
+        visibility: 'public',
+        ops: [{
+          op: 'card.field.set',
+          playerId: 'player-1',
+          zone: 'battlefield',
+          instanceId: 'battlefield-1',
+          loyalty: 4,
+        }],
+      });
+
+      await vi.waitFor(() => expect(patchAnimation).toHaveBeenCalledTimes(1));
+      expect(patchAnimation).toHaveBeenCalledWith(expect.objectContaining({
+        patch: expect.objectContaining({ kind: 'patch.v2' }),
+        isLocalPatch: false,
+      }));
+    } finally {
+      subscription.unsubscribe();
+    }
+  });
+
   it('resolves visible private runtime card cache misses without snapshot refetch', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('runtime-print-forest', 'Runtime Forest') }));

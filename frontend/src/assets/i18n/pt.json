@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} virou {{ cardName }} para {{ faceName }}.",
       "faceDownInspected": "{{ actor }} olhou uma carta virada para baixo.",
       "playTopFaceDown": "{{ actor }} jogou virada para baixo a carta do topo do próprio grimório.",
-      "turnedFaceDown": "{{ actor }} virou uma carta para baixo.", "turnedFaceUp": "{{ actor }} virou uma carta para cima.", "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}."
+      "turnedFaceDown": "{{ actor }} virou uma carta para baixo.", "turnedFaceUp": "{{ actor }} virou uma carta para cima.", "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}.", "revealed": "{{ actor }} revelou 1 carta para {{ recipients }}.", "revealedMany": "{{ actor }} revelou {{ count }} cartas para {{ recipients }}."
     },
+    "audience": { "all": "todos os jogadores" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} mudou {{ cardName }} de {{ previousPower }}/{{ previousToughness }} para {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} mudou a lealdade de {{ cardName }} de {{ previousValue }} para {{ value }} ({{ delta }}).",

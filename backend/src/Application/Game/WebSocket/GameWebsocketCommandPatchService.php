@@ -2458,6 +2458,17 @@ final readonly class GameWebsocketCommandPatchService
             return $op;
         }
 
+        if ($opName === 'card.field.set' && ($op['hidden'] ?? false) !== true) {
+            $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['zone'] ?? 'battlefield'));
+            $op = $this->cardWithRuntimeIdentity($op, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            $staticCard = $this->staticCardForCard($op, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            if ($staticCard !== null) {
+                $op['staticCard'] = $staticCard;
+            }
+
+            return $op;
+        }
+
         return $op;
     }
 

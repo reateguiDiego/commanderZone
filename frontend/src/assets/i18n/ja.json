@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} は {{ cardName }} を {{ faceName }} の面にしました。",
       "faceDownInspected": "{{ actor }} は裏向きのカードを確認しました。",
       "playTopFaceDown": "{{ actor }} はライブラリーの一番上のカードを裏向きでプレイしました。",
-      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。", "turnedFaceUp": "{{ actor }} はカードを表向きにしました。", "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。"
+      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。", "turnedFaceUp": "{{ actor }} はカードを表向きにしました。", "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。", "revealed": "{{ actor }} は {{ recipients }} にカードを1枚公開しました。", "revealedMany": "{{ actor }} は {{ recipients }} にカードを{{ count }}枚公開しました。"
     },
+    "audience": { "all": "すべてのプレイヤー" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} は {{ cardName }} を {{ previousPower }}/{{ previousToughness }} から {{ power }}/{{ toughness }} に変更しました。",
       "loyaltyChanged": "{{ actor }} は {{ cardName }} の忠誠度を {{ previousValue }} から {{ value }} に変更しました（{{ delta }}）。",

@@ -1044,8 +1044,44 @@ class GameCommandHandlerTest extends TestCase
 
         $snapshot = $game->snapshot();
         self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][0]['revealedTo']);
-        self::assertSame('ha revelado una carta a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('ha revelado 1 carta a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('gameLog.card.revealed', $snapshot['eventLog'][0]['i18nKey']);
+        self::assertSame(1, $snapshot['eventLog'][0]['params']['count']);
+        self::assertSame([$opponent->id()], $snapshot['eventLog'][0]['params']['recipientPlayerIds']);
         self::assertStringNotContainsString('Secret Tutor', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testRevealedCardsStoresOneSemanticLogWithTheTotalCount(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'hand' => [
+                $this->card('card-1', 'Secret Tutor', 'hand', 0, 0, 0, 0),
+                $this->card('card-2', 'Hidden Threat', 'hand', 0, 0, 0, 0),
+            ],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['user']['displayName'] = 'Opponent';
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.revealed', [
+            'playerId' => $actor->id(),
+            'zone' => 'hand',
+            'instanceIds' => ['card-1', 'card-2'],
+            'to' => $opponent->id(),
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][0]['revealedTo']);
+        self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][1]['revealedTo']);
+        self::assertCount(1, $snapshot['eventLog']);
+        self::assertSame('ha revelado 2 cartas a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('gameLog.card.revealedMany', $snapshot['eventLog'][0]['i18nKey']);
+        self::assertSame(2, $snapshot['eventLog'][0]['params']['count']);
+        self::assertSame([$opponent->id()], $snapshot['eventLog'][0]['params']['recipientPlayerIds']);
+        self::assertSame('Opponent', $snapshot['eventLog'][0]['refs']['players'][$opponent->id()]['displayName']);
+        self::assertStringNotContainsString('Secret Tutor', $snapshot['eventLog'][0]['message']);
+        self::assertStringNotContainsString('Hidden Threat', $snapshot['eventLog'][0]['message']);
     }
 
     public function testTokenCopyPreservesRatioPositionSystem(): void

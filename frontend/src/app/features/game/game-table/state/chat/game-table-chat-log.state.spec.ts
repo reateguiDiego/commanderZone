@@ -37,6 +37,44 @@ describe('GameTableChatLogState', () => {
     expect(entry?.messagePrefix).toBe('drew 2 cards.');
   });
 
+  it('renders a multiple-card reveal with an external subject and recipient', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-reveal-many',
+        type: 'card.revealed',
+        message: 'Legacy reveal message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.card.revealedMany',
+        params: {
+          actorPlayerId: 'player-1',
+          playerId: 'player-1',
+          recipientPlayerIds: ['player-2'],
+          revealAudience: 'players',
+          count: 10,
+        },
+        refs: {
+          players: {
+            'player-1': { id: 'player-1', displayName: 'Alice' },
+            'player-2': { id: 'player-2', displayName: 'Bruno' },
+          },
+        },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('revealed 10 cards to Bruno.');
+  });
+
   it('renders face-down inspection logs without resolving a card reference', () => {
     const state = new GameTableChatLogState();
 

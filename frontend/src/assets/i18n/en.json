@@ -1003,9 +1003,12 @@
       "turnedFaceDown": "{{ actor }} turned a card face down.",
       "turnedFaceUp": "{{ actor }} turned a card face up.",
       "controllerChanged": "{{ actor }} changed a card's controller to {{ target }}.",
+      "revealed": "{{ actor }} revealed 1 card to {{ recipients }}.",
+      "revealedMany": "{{ actor }} revealed {{ count }} cards to {{ recipients }}.",
       "tapped": "{{ actor }} tapped a permanent.",
       "untapped": "{{ actor }} untapped a permanent."
     },
+    "audience": { "all": "all players" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} changed {{ cardName }} from {{ previousPower }}/{{ previousToughness }} to {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} changed {{ cardName }}'s loyalty from {{ previousValue }} to {{ value }} ({{ delta }}).",

@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} ha girato {{ cardName }} su {{ faceName }}.",
       "faceDownInspected": "{{ actor }} ha guardato una carta a faccia in giù.",
       "playTopFaceDown": "{{ actor }} ha giocato a faccia in giù la prima carta del suo grimorio.",
-      "turnedFaceDown": "{{ actor }} ha girato una carta a faccia in giù.", "turnedFaceUp": "{{ actor }} ha girato una carta a faccia in su.", "controllerChanged": "{{ actor }} ha cambiato il controllore di una carta in {{ target }}."
+      "turnedFaceDown": "{{ actor }} ha girato una carta a faccia in giù.", "turnedFaceUp": "{{ actor }} ha girato una carta a faccia in su.", "controllerChanged": "{{ actor }} ha cambiato il controllore di una carta in {{ target }}.", "revealed": "{{ actor }} ha rivelato 1 carta a {{ recipients }}.", "revealedMany": "{{ actor }} ha rivelato {{ count }} carte a {{ recipients }}."
     },
+    "audience": { "all": "tutti i giocatori" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} ha cambiato {{ cardName }} da {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} ha cambiato la lealtà di {{ cardName }} da {{ previousValue }} a {{ value }} ({{ delta }}).",

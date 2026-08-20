@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -112,11 +113,7 @@ func (CardRevealedApplier) Type() string { return "card.revealed" }
 
 func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := time.Now()
-	instanceID, err := stringField(command.Payload, "instanceId")
-	if err != nil {
-		return nil, err
-	}
-	instance, location, err := instanceAt(game, instanceID, "")
+	instanceIDs, err := cardRevealedInstanceIDs(command.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +125,98 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 		revealed = !value
 	}
 	viewers, mask := revealTargets(game, command.Payload)
-	targeted := hasTargetedVisibility(command.Payload, viewers)
+	game.EnsureVisibility()
+	targets, err := cardRevealTargets(game, instanceIDs, command.Payload)
+	if err != nil {
+		return nil, err
+	}
+	for _, target := range targets {
+		applyCardReveal(game, emitter, target, revealed, viewers, mask, command.Payload)
+	}
+
+	location := targets[0].location
+	return map[string]any{
+		"instanceIds":   instanceIDs,
+		"playerId":      location.PlayerID,
+		"zone":          location.Zone,
+		"revealed":      revealed,
+		"visibleToMask": mask,
+		"viewers":       viewers,
+		"metrics":       sensitiveMetrics("sensitive.revealed_ms", start, emitter),
+	}, nil
+}
+
+type cardRevealTarget struct {
+	instanceID string
+	instance   state.CardInstanceRuntime
+	location   state.Location
+}
+
+func cardRevealedInstanceIDs(payload map[string]any) ([]string, error) {
+	if rawIDs, exists := payload["instanceIds"]; exists {
+		instanceIDs, err := stringSliceField(map[string]any{"instanceIds": rawIDs}, "instanceIds")
+		if err != nil || len(instanceIDs) == 0 {
+			return nil, fmt.Errorf("%w: instanceIds", ErrMissingPayloadField)
+		}
+		return uniqueNonEmptyIDs(instanceIDs)
+	}
+
+	instanceID, err := stringField(payload, "instanceId")
+	if err != nil {
+		return nil, err
+	}
+	return []string{instanceID}, nil
+}
+
+func uniqueNonEmptyIDs(instanceIDs []string) ([]string, error) {
+	unique := make([]string, 0, len(instanceIDs))
+	seen := make(map[string]struct{}, len(instanceIDs))
+	for _, instanceID := range instanceIDs {
+		instanceID = strings.TrimSpace(instanceID)
+		if instanceID == "" {
+			return nil, fmt.Errorf("%w: instanceIds", ErrInvalidPayloadField)
+		}
+		if _, exists := seen[instanceID]; exists {
+			continue
+		}
+		seen[instanceID] = struct{}{}
+		unique = append(unique, instanceID)
+	}
+	if len(unique) == 0 {
+		return nil, fmt.Errorf("%w: instanceIds", ErrMissingPayloadField)
+	}
+	return unique, nil
+}
+
+func cardRevealTargets(game *state.GameState, instanceIDs []string, payload map[string]any) ([]cardRevealTarget, error) {
+	targets := make([]cardRevealTarget, 0, len(instanceIDs))
+	requestedPlayerID := strings.TrimSpace(firstString(payload["playerId"]))
+	requestedZone := strings.TrimSpace(firstString(payload["zone"]))
+	for _, instanceID := range instanceIDs {
+		instance, location, err := instanceAt(game, instanceID, "")
+		if err != nil {
+			return nil, err
+		}
+		if (requestedPlayerID != "" && location.PlayerID != requestedPlayerID) || (requestedZone != "" && string(location.Zone) != requestedZone) {
+			return nil, fmt.Errorf("%w: reveal cards must belong to the requested player and zone", ErrInvalidPayloadField)
+		}
+		if len(targets) > 0 && (location.PlayerID != targets[0].location.PlayerID || location.Zone != targets[0].location.Zone) {
+			return nil, fmt.Errorf("%w: reveal cards must share a player and zone", ErrInvalidPayloadField)
+		}
+		targets = append(targets, cardRevealTarget{instanceID: instanceID, instance: instance, location: location})
+	}
+	return targets, nil
+}
+
+func applyCardReveal(game *state.GameState, emitter *PatchEmitter, target cardRevealTarget, revealed bool, defaultViewers []string, defaultMask uint64, payload map[string]any) {
+	instance := target.instance
+	location := target.location
+	viewers, mask := append([]string(nil), defaultViewers...), defaultMask
+	targeted := hasTargetedVisibility(payload, viewers)
 	if !revealed {
-		if clearAll, _ := boolField(command.Payload, "clearAll"); clearAll {
+		if clearAll, _ := boolField(payload, "clearAll"); clearAll {
 			mask = instance.VisibleToMask
-			viewers = game.Visibility.HandRevealAudiences[instanceID]
+			viewers = game.Visibility.HandRevealAudiences[target.instanceID]
 			if len(viewers) == 0 {
 				viewers = viewerIDsForMask(game, mask)
 			}
@@ -143,98 +227,62 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 		mask = 1
 	}
 
-	game.EnsureVisibility()
 	if revealed {
 		instance.VisibleToMask |= mask
-		game.Visibility.InstanceMasks[instanceID] |= mask
+		game.Visibility.InstanceMasks[target.instanceID] |= mask
 		if location.Zone == state.ZoneHand {
-			game.Visibility.HandRevealAudiences[instanceID] = mergeViewerIDs(game.Visibility.HandRevealAudiences[instanceID], viewers)
+			game.Visibility.HandRevealAudiences[target.instanceID] = mergeViewerIDs(game.Visibility.HandRevealAudiences[target.instanceID], viewers)
 		}
 	} else {
 		instance.VisibleToMask &^= mask
-		game.Visibility.InstanceMasks[instanceID] &^= mask
-		if game.Visibility.InstanceMasks[instanceID] == 0 {
-			delete(game.Visibility.InstanceMasks, instanceID)
+		game.Visibility.InstanceMasks[target.instanceID] &^= mask
+		if game.Visibility.InstanceMasks[target.instanceID] == 0 {
+			delete(game.Visibility.InstanceMasks, target.instanceID)
 		}
 		if location.Zone == state.ZoneHand {
-			if clearAll, _ := boolField(command.Payload, "clearAll"); clearAll {
-				delete(game.Visibility.HandRevealAudiences, instanceID)
+			if clearAll, _ := boolField(payload, "clearAll"); clearAll {
+				delete(game.Visibility.HandRevealAudiences, target.instanceID)
 			} else {
-				remaining := withoutViewerIDs(game.Visibility.HandRevealAudiences[instanceID], viewers)
+				remaining := withoutViewerIDs(game.Visibility.HandRevealAudiences[target.instanceID], viewers)
 				if len(remaining) == 0 {
-					delete(game.Visibility.HandRevealAudiences, instanceID)
+					delete(game.Visibility.HandRevealAudiences, target.instanceID)
 				} else {
-					game.Visibility.HandRevealAudiences[instanceID] = remaining
+					game.Visibility.HandRevealAudiences[target.instanceID] = remaining
 				}
 			}
 		}
 	}
-	game.Instances[instanceID] = instance
+	game.Instances[target.instanceID] = instance
 
 	revealedTo := viewers
 	if !revealed {
 		revealedTo = []string{}
 	}
-	revealData := cardFieldData(instanceID, location, map[string]any{
-		"hidden":     !revealed,
-		"revealedTo": revealedTo,
-	})
+	revealData := cardFieldData(target.instanceID, location, map[string]any{"hidden": !revealed, "revealedTo": revealedTo})
 	if revealed {
 		revealData["cardKey"] = instance.CardKey
 		revealData["printId"] = printIDForViewer(instance, location.PlayerID)
 	}
-	if !revealed {
-		delete(revealData, "cardKey")
-	}
 	patchViewers := viewers
 	patchMask := mask
 	if !revealed && location.Zone == state.ZoneHand {
-		// The owner already knows their hand. Sending a hidden patch to them makes
-		// their own card disappear when a reveal addressed to "all" is stopped.
 		patchViewers = withoutViewerIDs(viewers, []string{location.PlayerID})
 		if canonicalMask := viewerMaskForIDs(game, patchViewers); canonicalMask != 0 {
 			patchMask = canonicalMask
 		}
 	}
-	// A legacy mask can be unmappable after recovery. In that case we cannot
-	// safely identify a non-owner recipient, so do not fall back to a group
-	// patch that could hide the owner's own hand card.
-	shouldEmitAudiencePatch := revealed || location.Zone != state.ZoneHand || len(patchViewers) > 0
-	if shouldEmitAudiencePatch {
+	if revealed || location.Zone != state.ZoneHand || len(patchViewers) > 0 {
 		emitTargetedCardPatch(emitter, patchViewers, patchMask, targeted, protocol.PatchOp{Op: "card.field.set", Data: revealData})
 	}
-	// The owner must keep their own card visible, but their local reveal audience
-	// still has to be cleared. Without this patch the public marker can turn off
-	// while a stale revealedTo value keeps the eye visible until a refresh.
 	if !revealed && privateZone(location.Zone) {
-		emitter.EmitPrivate(location.PlayerID, protocol.PatchOp{Op: "card.field.set", Data: cardFieldData(instanceID, location, map[string]any{
-			"hidden":     false,
-			"revealedTo": []string{},
-		})})
+		emitter.EmitPrivate(location.PlayerID, protocol.PatchOp{Op: "card.field.set", Data: cardFieldData(target.instanceID, location, map[string]any{"hidden": false, "revealedTo": []string{}})})
 	}
 	if location.Zone == state.ZoneHand {
-		emitter.EmitPublic(protocol.PatchOp{
-			Op: "hand.reveal_marker.set",
-			Data: map[string]any{
-				"playerId": location.PlayerID,
-				"index":    location.Index,
-				"revealed": instance.VisibleToMask != 0,
-			},
-		})
+		emitter.EmitPublic(protocol.PatchOp{Op: "hand.reveal_marker.set", Data: map[string]any{"playerId": location.PlayerID, "index": location.Index, "revealed": instance.VisibleToMask != 0}})
 	}
-
 	if privateZone(location.Zone) {
 		emitZoneCount(emitter, game, location.PlayerID, location.Zone)
 	}
-	return map[string]any{
-		"instanceId":    instanceID,
-		"playerId":      location.PlayerID,
-		"zone":          location.Zone,
-		"revealed":      revealed,
-		"visibleToMask": mask,
-		"viewers":       viewers,
-		"metrics":       sensitiveMetrics("sensitive.revealed_ms", start, emitter),
-	}, nil
 }
 
 type CardControllerChangedApplier struct{}

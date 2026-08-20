@@ -26,6 +26,20 @@
             <p class="empty-players">{{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}</p>
           }
         </section>
+
+        <button
+          type="button"
+          czButton="icon"
+          czButtonSize="sm"
+          czButtonTone="danger"
+          class="mulligan-close-button"
+          data-testid="mulligan-close"
+          [attr.aria-label]="'common.modal.close' | runtimeTranslate"
+          [title]="'common.modal.close' | runtimeTranslate"
+          (click)="dismiss()"
+        >
+          <lucide-icon name="x" size="18" aria-hidden="true" />
+        </button>
       </header>
 
       <div class="mulligan-content" [attr.data-status]="status()">

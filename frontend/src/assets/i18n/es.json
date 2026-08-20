@@ -1003,9 +1003,12 @@
       "turnedFaceDown": "{{ actor }} puso una carta boca abajo.",
       "turnedFaceUp": "{{ actor }} puso una carta boca arriba.",
       "controllerChanged": "{{ actor }} cambió el controlador de una carta a {{ target }}.",
+      "revealed": "{{ actor }} reveló 1 carta a {{ recipients }}.",
+      "revealedMany": "{{ actor }} reveló {{ count }} cartas a {{ recipients }}.",
       "tapped": "{{ actor }} giró un permanente.",
       "untapped": "{{ actor }} enderezó un permanente."
     },
+    "audience": { "all": "todos los jugadores" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} cambió {{ cardName }} de {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} cambió la lealtad de {{ cardName }} de {{ previousValue }} a {{ value }} ({{ delta }}).",

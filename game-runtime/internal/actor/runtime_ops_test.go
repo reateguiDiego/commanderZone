@@ -1404,6 +1404,42 @@ func TestCardRevealedRuntimeTargetsAuthorizedGroupOnly(t *testing.T) {
 	}
 }
 
+func TestCardRevealedRuntimeRevealsMultipleCardsWithOneAggregateLog(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand-cards", "card.revealed", map[string]any{
+		"playerId":    "p1",
+		"zone":        "hand",
+		"instanceIds": []any{"h1", "h2"},
+		"to":          "p2",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("multiple reveal failed: %v", result.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	for _, instanceID := range []string{"h1", "h2"} {
+		if snapshot.Instances[instanceID].VisibleToMask == 0 {
+			t.Fatalf("%s was not revealed: %#v", instanceID, snapshot.Instances[instanceID])
+		}
+		if audience := snapshot.Visibility.HandRevealAudiences[instanceID]; fmt.Sprintf("%#v", audience) != "[]string{\"p2\"}" {
+			t.Fatalf("%s has the wrong reveal audience: %#v", instanceID, audience)
+		}
+	}
+
+	entry := requireRuntimeLogEntry(t, result)
+	if entry["i18nKey"] != "gameLog.card.revealedMany" {
+		t.Fatalf("multiple reveal must use the plural semantic log: %#v", entry)
+	}
+	params := requireMap(t, entry["params"])
+	if params["count"] != 2 || params["revealAudience"] != "players" || fmt.Sprintf("%#v", params["recipientPlayerIds"]) != "[]string{\"p2\"}" {
+		t.Fatalf("multiple reveal log has incorrect recipient or count: %#v", params)
+	}
+	assertNoPrivateCardIdentity(t, entry)
+	if eventIDs := stringsFromAny(result.Event.Payload["instanceIds"]); fmt.Sprintf("%#v", eventIDs) != "[]string{\"h1\", \"h2\"}" {
+		t.Fatalf("runtime event must preserve all revealed instance ids: %#v", result.Event.Payload)
+	}
+}
+
 func TestStopRevealingHandCardClearsItsAuthoritativeAudience(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand-card", "card.revealed", map[string]any{

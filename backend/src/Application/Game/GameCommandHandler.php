@@ -1716,17 +1716,42 @@ class GameCommandHandler
 
     private function applyCardRevealed(array &$snapshot, array $payload): string
     {
-        $location = $this->requiredCardLocation($snapshot, $payload);
-        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
-        if (($payload['revealed'] ?? true) === false) {
-            $card['revealedTo'] = [];
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        $instanceIds = $this->revealedCardInstanceIds($payload);
+        $locations = [];
 
-            return 'ha dejado de revelar una carta.';
+        foreach ($instanceIds as $instanceId) {
+            $location = $this->assertLocation($snapshot, $instanceId, $zone);
+            if ($location['playerId'] !== $playerId) {
+                throw new \InvalidArgumentException('Card not found.');
+            }
+            $locations[] = $location;
         }
-        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
-        $card['revealedTo'] = $targets;
 
-        return sprintf('ha revelado una carta a %s.', $this->visibilityTargetLabel($snapshot, $targets));
+        if (($payload['revealed'] ?? true) === false) {
+            foreach ($locations as $location) {
+                $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']]['revealedTo'] = [];
+            }
+
+            return count($locations) === 1
+                ? 'ha dejado de revelar una carta.'
+                : sprintf('ha dejado de revelar %d cartas.', count($locations));
+        }
+
+        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
+        foreach ($locations as $location) {
+            $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']]['revealedTo'] = $targets;
+        }
+        $count = count($locations);
+        $this->pendingLogContext = $this->revealedCardLogContext($snapshot, $playerId, $targets, $count);
+
+        return sprintf(
+            'ha revelado %d carta%s a %s.',
+            $count,
+            $count === 1 ? '' : 's',
+            $this->visibilityTargetLabel($snapshot, $targets),
+        );
     }
 
     private function applyTokenCopyCreated(array &$snapshot, array $payload, User $actor): string
@@ -3888,6 +3913,26 @@ class GameCommandHandler
         return $location;
     }
 
+    /**
+     * @return list<string>
+     */
+    private function revealedCardInstanceIds(array $payload): array
+    {
+        $instanceIds = is_array($payload['instanceIds'] ?? null)
+            ? $payload['instanceIds']
+            : [$payload['instanceId'] ?? null];
+        $normalizedIds = array_values(array_unique(array_filter(
+            $instanceIds,
+            static fn (mixed $instanceId): bool => is_string($instanceId) && trim($instanceId) !== '',
+        )));
+
+        if ($normalizedIds === []) {
+            throw new \InvalidArgumentException('instanceId or instanceIds is required.');
+        }
+
+        return array_map(static fn (string $instanceId): string => trim($instanceId), $normalizedIds);
+    }
+
     private function requiredPlayerId(array $snapshot, array $payload, string $key = 'playerId'): string
     {
         $playerId = $this->resolveSnapshotPlayerId($snapshot, $payload[$key] ?? null);
@@ -4191,6 +4236,36 @@ class GameCommandHandler
         $names = array_values(array_map(fn (string $playerId): string => $this->playerName($snapshot, $playerId), $targets));
 
         return $names === [] ? 'todos' : implode(', ', $names);
+    }
+
+    /**
+     * @param list<string> $targets
+     *
+     * @return array<string,mixed>
+     */
+    private function revealedCardLogContext(array $snapshot, string $playerId, array $targets, int $count): array
+    {
+        $recipientPlayerIds = array_values(array_filter($targets, static fn (string $target): bool => $target !== 'all'));
+        $referencedPlayerIds = array_values(array_unique([$playerId, ...$recipientPlayerIds]));
+        $players = [];
+        foreach ($referencedPlayerIds as $referencedPlayerId) {
+            $players[$referencedPlayerId] = [
+                'id' => $referencedPlayerId,
+                'displayName' => $this->playerName($snapshot, $referencedPlayerId),
+            ];
+        }
+
+        return [
+            'i18nKey' => $count === 1 ? 'gameLog.card.revealed' : 'gameLog.card.revealedMany',
+            'params' => [
+                'actorPlayerId' => $playerId,
+                'playerId' => $playerId,
+                'recipientPlayerIds' => $recipientPlayerIds,
+                'revealAudience' => in_array('all', $targets, true) ? 'all' : 'players',
+                'count' => $count,
+            ],
+            'refs' => ['players' => $players],
+        ];
     }
 
     private function playerName(array $snapshot, string $playerId): string

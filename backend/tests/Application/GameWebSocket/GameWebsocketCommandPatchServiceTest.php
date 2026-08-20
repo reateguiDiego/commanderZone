@@ -1954,6 +1954,62 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['battlefield.full_scan_count'] ?? 1);
     }
 
+    public function testRuntimeRevealProvidesRenderableIdentityOnlyToTheRecipient(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardKey'] = 'private-hand-one';
+        $game->replaceSnapshot($snapshot);
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => sprintf('player:%s', $opponent->id()),
+            'ops' => [[
+                'op' => 'card.field.set',
+                'data' => [
+                    'playerId' => $actor->id(),
+                    'zone' => 'hand',
+                    'instanceId' => 'hand-1',
+                    'hidden' => false,
+                    'revealedTo' => [$opponent->id()],
+                    'cardKey' => 'private-hand-one',
+                ],
+            ]],
+        ]]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            flagsV2: $this->runtimeFlags('card.revealed', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'card.revealed', runtime: true, shadow: false),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.revealed',
+            [
+                'playerId' => $actor->id(),
+                'zone' => 'hand',
+                'instanceIds' => ['hand-1'],
+                'to' => $opponent->id(),
+            ],
+            'action-runtime-reveal',
+            1,
+            'message-runtime-reveal',
+            'v2',
+        );
+
+        $opponentOperation = $result->messageForUserId($opponent->id())['ops'][0];
+        self::assertSame('card.field.set', $opponentOperation['op']);
+        self::assertSame('private-hand-one', $opponentOperation['cardKey']);
+        self::assertSame('Private Hand One', $opponentOperation['staticCard']['name']);
+        self::assertArrayNotHasKey('oracleText', $opponentOperation['staticCard']);
+        self::assertSame([], $result->messageForUserId($actor->id())['ops']);
+    }
+
     public function testCardCounterRuntimePayloadNormalizesLegacyKeyToCounter(): void
     {
         [$game, $actor] = $this->gameWithBattlefieldCards();

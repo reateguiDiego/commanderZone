@@ -1000,8 +1000,9 @@
       "faceChanged": "{{ actor }} ha girat {{ cardName }} a {{ faceName }}.",
       "faceDownInspected": "{{ actor }} ha mirat una carta boca avall.",
       "playTopFaceDown": "{{ actor }} ha jugat la carta superior de la seva biblioteca boca avall.",
-      "turnedFaceDown": "{{ actor }} ha posat una carta boca avall.", "turnedFaceUp": "{{ actor }} ha posat una carta boca amunt.", "controllerChanged": "{{ actor }} ha canviat el controlador d'una carta a {{ target }}."
+      "turnedFaceDown": "{{ actor }} ha posat una carta boca avall.", "turnedFaceUp": "{{ actor }} ha posat una carta boca amunt.", "controllerChanged": "{{ actor }} ha canviat el controlador d'una carta a {{ target }}.", "revealed": "{{ actor }} ha revelat 1 carta a {{ recipients }}.", "revealedMany": "{{ actor }} ha revelat {{ count }} cartes a {{ recipients }}."
     },
+    "audience": { "all": "tots els jugadors" },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} ha canviat {{ cardName }} de {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} ha canviat la lleialtat de {{ cardName }} de {{ previousValue }} a {{ value }} ({{ delta }}).",

@@ -825,19 +825,35 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function cardProjectionChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
-        $location = $this->payloadCardLocation($payload);
-        if ($location === null) {
+        $locations = $this->payloadCardLocations($payload);
+        if ($locations === []) {
             return null;
         }
 
-        $operations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
-        if ($operations === null) {
-            return null;
+        $operations = [];
+        $touchesSensitiveProjection = false;
+        $refreshedTargets = [];
+        foreach ($locations as $location) {
+            $refreshTarget = $this->isHiddenZone($location['zone'])
+                ? sprintf('%s:%s', $location['playerId'], $location['zone'])
+                : sprintf('%s:%s:%s', $location['playerId'], $location['zone'], $location['instanceId']);
+            if (!isset($refreshedTargets[$refreshTarget])) {
+                $refreshOperations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
+                if ($refreshOperations === null) {
+                    return null;
+                }
+
+                $operations = [...$operations, ...$refreshOperations];
+                $refreshedTargets[$refreshTarget] = true;
+            }
+
+            $touchesSensitiveProjection = $touchesSensitiveProjection
+                || $this->operationTouchesSensitiveProjection($nextSnapshot, $location);
         }
 
         return [
             ...$operations,
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $this->operationTouchesSensitiveProjection($nextSnapshot, $location)),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $touchesSensitiveProjection),
         ];
     }
 
@@ -1589,6 +1605,37 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return ['playerId' => $playerId, 'zone' => $zone, 'instanceId' => $instanceId];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return list<array{playerId:string,zone:string,instanceId:string}>
+     */
+    private function payloadCardLocations(array $payload): array
+    {
+        $playerId = $this->payloadString($payload, 'playerId');
+        $zone = $this->payloadString($payload, 'zone');
+        if ($playerId === null || $zone === null) {
+            return [];
+        }
+
+        $instanceIds = is_array($payload['instanceIds'] ?? null)
+            ? $payload['instanceIds']
+            : [$payload['instanceId'] ?? null];
+        $normalizedIds = array_values(array_unique(array_filter(
+            $instanceIds,
+            static fn (mixed $instanceId): bool => is_string($instanceId) && trim($instanceId) !== '',
+        )));
+
+        return array_map(
+            static fn (string $instanceId): array => [
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'instanceId' => trim($instanceId),
+            ],
+            $normalizedIds,
+        );
     }
 
     /**

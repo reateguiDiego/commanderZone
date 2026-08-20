@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CheckCircle2, LucideAngularModule } from 'lucide-angular';
+import { CheckCircle2, LucideAngularModule, X } from 'lucide-angular';
 import { GameCardInstance, GamePlayerMulliganState, MulliganRule } from '../../../../../core/models/game.model';
 import { MulliganOverlayComponent } from './mulligan-overlay.component';
 
@@ -11,7 +11,7 @@ describe('MulliganOverlayComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MulliganOverlayComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ CheckCircle2 })),
+        importProvidersFrom(LucideAngularModule.pick({ CheckCircle2, X })),
       ],
     }).compileComponents();
 
@@ -51,6 +51,46 @@ describe('MulliganOverlayComponent', () => {
     fixture.componentRef.setInput('gamePhase', 'PLAYING');
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-overlay"]')).toBeNull();
+  });
+
+  it('keeps the initial hand and dismisses the overlay until the mulligan phase changes', () => {
+    const keepSpy = vi.fn();
+    fixture.componentInstance.keep.subscribe(keepSpy);
+    setMulligan('LONDON', { bottomSelectionCount: 0 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    const closeButton = fixture.nativeElement.querySelector('[data-testid="mulligan-close"]') as HTMLButtonElement;
+    expect(closeButton).not.toBeNull();
+    expect(closeButton.classList).toContain('cz-button--tone-danger');
+
+    closeButton.click();
+    fixture.detectChanges();
+
+    expect(keepSpy).toHaveBeenCalledOnce();
+    expect(keepSpy).toHaveBeenCalledWith([]);
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-overlay"]')).toBeNull();
+
+    fixture.componentRef.setInput('gamePhase', 'PLAYING');
+    fixture.detectChanges();
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-overlay"]')).not.toBeNull();
+  });
+
+  it('does not submit a keep when dismissing after a mulligan', () => {
+    const keepSpy = vi.fn();
+    fixture.componentInstance.keep.subscribe(keepSpy);
+    setMulligan('LONDON', { bottomSelectionCount: 1, mulligansTaken: 1, effectiveMulligans: 1 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="mulligan-close"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(keepSpy).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-overlay"]')).toBeNull();
   });
 
