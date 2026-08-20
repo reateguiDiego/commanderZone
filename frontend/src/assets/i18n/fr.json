@@ -856,7 +856,7 @@
       "poison": "Poison",
       "energy": "Ã‰nergie",
       "experience": "ExpÃ©rience",
-      "rad": "Rad",
+      "rad": "Radiation",
       "tickets": "Tickets"
     },
     "zones": {
@@ -977,37 +977,164 @@
     }
   },
   "gameLog": {
-    "history": { "loading": "Chargement des messages…" },
-    "fragment": {
-      "life": { "self": "a fait passer ses points de vie de {{ previousLife }} à {{ life }}.", "other": "a fait passer les points de vie de {{ player }} de {{ previousLife }} à {{ life }}." },
-      "commanderDamage": { "self": "a modifié les blessures de commandant de {{ previousValue }} à {{ value }}.", "other": "a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}." },
-      "card": { "controllerChanged": { "self": "a pris le contrôle d'une carte.", "other": "a changé le contrôleur d'une carte pour {{ target }}." } },
-      "turn": { "changed": "a terminé son tour. Le tour de {{ player }} commence.", "phaseChanged": "est passé à la phase {{ phase }}." },
-      "disconnect": { "expelled": "a été expulsé après un vote pour déconnexion." },
-      "game": { "concede": "a concédé." }
+    "history": {
+      "loading": "Chargement des messages…"
     },
-    "turn": { "changed": "{{ previousPlayer }} a terminé son tour. Le tour de {{ player }} commence.", "phaseChanged": "{{ actor }} est passé à la phase de {{ phase }}." },
-    "phase": { "untap": "dégagement", "upkeep": "entretien", "draw": "pioche", "main-1": "première phase principale", "combat": "combat", "main-2": "seconde phase principale", "end": "fin" },
-    "library": { "moveTop": "{{ actor }} a déplacé les {{ count }} cartes du dessus de sa bibliothèque vers {{ toZone }}.", "reorderTop": "{{ actor }} a réordonné les {{ count }} cartes du dessus de sa bibliothèque.", "putTop": "{{ actor }} a mis une carte au-dessus de sa bibliothèque.", "putBottom": "{{ actor }} a mis une carte au-dessous de sa bibliothèque." },
-    "commanderDamage": { "changed": "{{ actor }} a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}." },
-    "stack": { "cardAdded": "{{ actor }} a ajouté une carte à la pile.", "itemRemoved": "{{ actor }} a retiré un élément de la pile." },
-    "arrow": { "created": "{{ actor }} a créé une flèche.", "removed": "{{ actor }} a supprimé une flèche." },
-    "attachment": { "created": "{{ actor }} a attaché une carte.", "removed": "{{ actor }} a retiré une attache." },
-    "mulligan": { "taken": "{{ actor }} a pris un mulligan.", "kept": "{{ actor }} a gardé sa main.", "scryConfirmed": "{{ actor }} a terminé son regard du mulligan." },
-    "disconnect": { "expelled": "{{ target }} a été expulsé après un vote de déconnexion." },
-    "zone": { "randomSelected": "{{ actor }} a sélectionné une carte au hasard dans {{ fromZone }}.", "movedAll": "{{ actor }} a déplacé {{ count }} cartes de {{ fromZone }} vers {{ toZone }}.", "battlefield": "champ de bataille", "graveyard": "cimetière", "exile": "exil", "hand": "main", "library": "bibliothèque", "command": "zone de commandement", "zone": "zone" },
+    "fragment": {
+      "life": {
+        "self": "a fait passer ses points de vie de {{ previousLife }} à {{ life }}.",
+        "other": "a fait passer les points de vie de {{ player }} de {{ previousLife }} à {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "a modifié les blessures de commandant de {{ previousValue }} à {{ value }}.",
+        "other": "a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "a pris le contrôle d'une carte.",
+          "other": "a changé le contrôleur d'une carte pour {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "a mis {{ counter }} à {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "a mis les marqueurs {{ counter }} à {{ value }}."
+      },
+      "turn": {
+        "changed": "a terminé son tour. Le tour de {{ player }} commence.",
+        "phaseChanged": "est passé à la phase {{ phase }}."
+      },
+      "disconnect": {
+        "expelled": "a été expulsé après un vote pour déconnexion."
+      },
+      "game": {
+        "concede": "a concédé."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} a terminé son tour. Le tour de {{ player }} commence.",
+      "phaseChanged": "{{ actor }} est passé à la phase de {{ phase }}."
+    },
+    "phase": {
+      "untap": "dégagement",
+      "upkeep": "entretien",
+      "draw": "pioche",
+      "main-1": "première phase principale",
+      "combat": "combat",
+      "main-2": "seconde phase principale",
+      "end": "fin"
+    },
+    "library": {
+      "moveTop": "{{ actor }} a déplacé les {{ count }} cartes du dessus de sa bibliothèque vers {{ toZone }}.",
+      "reorderTop": "{{ actor }} a réordonné les {{ count }} cartes du dessus de sa bibliothèque.",
+      "putTop": "{{ actor }} a mis une carte au-dessus de sa bibliothèque.",
+      "putBottom": "{{ actor }} a mis une carte au-dessous de sa bibliothèque.",
+      "draw": "{{ actor }} a pioché une carte.",
+      "drawMany": "{{ actor }} a volé les cartes {{ count }}.",
+      "playTopFaceDown": "{{ actor }} a joué la première carte de sa bibliothèque face cachée.",
+      "shuffle": "{{ actor }} a mélangé sa bibliothèque.",
+      "view": "{{ actor }} a examiné les meilleures cartes {{ count }} de sa bibliothèque.",
+      "reveal": "{{ actor }} a dévoilé sa bibliothèque.",
+      "revealTop": "{{ actor }} a dévoilé les premières cartes {{ count }} de sa bibliothèque.",
+      "playTopRevealed": "{{ actor }} joue avec la première carte de sa bibliothèque révélée.",
+      "stoppedPlayingTopRevealed": "{{ actor }} a arrêté de jouer avec la première carte de sa bibliothèque révélée."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} a ajouté une carte à la pile.",
+      "itemRemoved": "{{ actor }} a retiré un élément de la pile."
+    },
+    "arrow": {
+      "created": "{{ actor }} a créé une flèche.",
+      "removed": "{{ actor }} a supprimé une flèche."
+    },
+    "attachment": {
+      "created": "{{ actor }} a attaché une carte.",
+      "removed": "{{ actor }} a retiré une attache."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} a pris un mulligan.",
+      "kept": "{{ actor }} a gardé sa main.",
+      "scryConfirmed": "{{ actor }} a terminé son regard du mulligan."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} a été expulsé après un vote de déconnexion.",
+      "noVotersWait": "Il n'y a aucun joueur connecté pour voter. La table attendra {{ target }}.",
+      "voteOpened": "{{ target }} s'est déconnecté. Un vote par table est ouvert.",
+      "tableExpelled": "Le conseil d'administration a décidé d'expulser {{ target }} pour déconnexion.",
+      "tableWait": "Le conseil d'administration a décidé d'attendre {{ target }}.",
+      "voteCancelled": "{{ target }} reconnecté. Le vote par table a été annulé.",
+      "voteExpiredWait": "Le vote de déconnexion a expiré. La table attendra."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} a sélectionné une carte au hasard dans {{ fromZone }}.",
+      "movedAll": "{{ actor }} a déplacé {{ count }} cartes de {{ fromZone }} vers {{ toZone }}.",
+      "battlefield": "champ de bataille",
+      "graveyard": "cimetière",
+      "exile": "exil",
+      "hand": "main",
+      "library": "bibliothèque",
+      "command": "zone de commandement",
+      "zone": "zone"
+    },
     "card": {
       "faceChanged": "{{ actor }} a retourné {{ cardName }} sur {{ faceName }}.",
       "faceDownInspected": "{{ actor }} a regardé une carte face cachée.",
-      "playTopFaceDown": "{{ actor }} a joué face cachée la carte du dessus de sa bibliothèque.",
-      "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.", "turnedFaceUp": "{{ actor }} a retourné une carte face visible.", "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}.", "revealed": "{{ actor }} a révélé 1 carte à {{ recipients }}.", "revealedMany": "{{ actor }} a révélé {{ count }} cartes à {{ recipients }}."
+      "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.",
+      "turnedFaceUp": "{{ actor }} a retourné une carte face visible.",
+      "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}.",
+      "revealed": "{{ actor }} a révélé 1 carte à {{ recipients }}.",
+      "revealedMany": "{{ actor }} a révélé {{ count }} cartes à {{ recipients }}.",
+      "moved": "{{ actor }} a déplacé une carte de {{ fromZone }} vers {{ toZone }}.",
+      "tapped": "{{ actor }} a engagé un permanent.",
+      "untapped": "{{ actor }} a dégagé un permanent.",
+      "movedMany": "{{ actor }} a déplacé les cartes {{ count }} de {{ fromZone }} vers {{ toZone }}."
     },
-    "audience": { "all": "tous les joueurs" },
+    "audience": {
+      "all": "tous les joueurs"
+    },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} a changé {{ cardName }} de {{ previousPower }}/{{ previousToughness }} à {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} a changé la loyauté de {{ cardName }} de {{ previousValue }} à {{ value }} ({{ delta }}).",
       "sagaChanged": "{{ actor }} a changé le chapitre de saga de {{ cardName }} de {{ previousChapter }} à {{ chapter }} ({{ delta }}).",
       "defenseChanged": "{{ actor }} a changé la défense de {{ cardName }} de {{ previousDefense }} à {{ defense }} ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} a mis les compteurs {{ counter }} dans {{ value }}."
+    },
+    "counter": {
+      "changed": "{{ actor }} a mis {{ counter }} dans {{ value }}."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} {{ count }} permanent inexploité."
+    },
+    "life": {
+      "changed": "{{ actor }} a changé la vie de {{ player }} de {{ previousLife }} à {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} a lancé {{ kind }} et a retiré {{ result }}.",
+      "coin": "une pièce de monnaie",
+      "dice": "dés",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} a lancé son commandant depuis la zone de commandement. Le compteur de lancement du commandant est {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} a créé un token : {{ tokenName }}.",
+      "createdMany": "{{ actor }} a créé les jetons {{ count }} : {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} a créé une copie du jeton."
+    },
+    "game": {
+      "concede": "{{ player }} accordé."
     }
   },
   "deckBuilder": {

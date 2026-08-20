@@ -856,7 +856,7 @@
       "poison": "Veneno",
       "energy": "Energia",
       "experience": "ExperiÃªncia",
-      "rad": "Rad",
+      "rad": "Radiação",
       "tickets": "TÃ­quetes"
     },
     "zones": {
@@ -977,37 +977,164 @@
     }
   },
   "gameLog": {
-    "history": { "loading": "Carregando mensagens…" },
-    "fragment": {
-      "life": { "self": "alterou seus pontos de vida de {{ previousLife }} para {{ life }}.", "other": "alterou os pontos de vida de {{ player }} de {{ previousLife }} para {{ life }}." },
-      "commanderDamage": { "self": "alterou o dano de comandante de {{ previousValue }} para {{ value }}.", "other": "alterou o dano de comandante causado a {{ target }} de {{ previousValue }} para {{ value }}." },
-      "card": { "controllerChanged": { "self": "assumiu o controle de uma carta.", "other": "alterou o controlador de uma carta para {{ target }}." } },
-      "turn": { "changed": "terminou seu turno. O turno de {{ player }} começa.", "phaseChanged": "avançou para a fase {{ phase }}." },
-      "disconnect": { "expelled": "foi expulso após uma votação por desconexão." },
-      "game": { "concede": "concedeu." }
+    "history": {
+      "loading": "Carregando mensagens…"
     },
-    "turn": { "changed": "{{ previousPlayer }} terminou o turno. O turno de {{ player }} começa.", "phaseChanged": "{{ actor }} avançou para a fase de {{ phase }}." },
-    "phase": { "untap": "desvirar", "upkeep": "manutenção", "draw": "compra", "main-1": "primeira principal", "combat": "combate", "main-2": "segunda principal", "end": "final" },
-    "library": { "moveTop": "{{ actor }} moveu as {{ count }} cartas do topo do grimório para {{ toZone }}.", "reorderTop": "{{ actor }} reordenou as {{ count }} cartas do topo do grimório.", "putTop": "{{ actor }} colocou uma carta no topo do grimório.", "putBottom": "{{ actor }} colocou uma carta no fundo do grimório." },
-    "commanderDamage": { "changed": "{{ actor }} alterou o dano de comandante em {{ target }} de {{ previousValue }} para {{ value }}." },
-    "stack": { "cardAdded": "{{ actor }} adicionou uma carta à pilha.", "itemRemoved": "{{ actor }} removeu um item da pilha." },
-    "arrow": { "created": "{{ actor }} criou uma seta.", "removed": "{{ actor }} removeu uma seta." },
-    "attachment": { "created": "{{ actor }} anexou uma carta.", "removed": "{{ actor }} removeu um anexo." },
-    "mulligan": { "taken": "{{ actor }} fez mulligan.", "kept": "{{ actor }} manteve a mão.", "scryConfirmed": "{{ actor }} concluiu o scry do mulligan." },
-    "disconnect": { "expelled": "{{ target }} foi expulso após uma votação de desconexão." },
-    "zone": { "randomSelected": "{{ actor }} selecionou uma carta aleatória de {{ fromZone }}.", "movedAll": "{{ actor }} moveu {{ count }} cartas de {{ fromZone }} para {{ toZone }}.", "battlefield": "campo de batalha", "graveyard": "cemitério", "exile": "exílio", "hand": "mão", "library": "grimório", "command": "zona de comando", "zone": "zona" },
+    "fragment": {
+      "life": {
+        "self": "alterou seus pontos de vida de {{ previousLife }} para {{ life }}.",
+        "other": "alterou os pontos de vida de {{ player }} de {{ previousLife }} para {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "alterou o dano de comandante de {{ previousValue }} para {{ value }}.",
+        "other": "alterou o dano de comandante causado a {{ target }} de {{ previousValue }} para {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "assumiu o controle de uma carta.",
+          "other": "alterou o controlador de uma carta para {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "definiu {{ counter }} como {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "definiu os marcadores {{ counter }} como {{ value }}."
+      },
+      "turn": {
+        "changed": "terminou seu turno. O turno de {{ player }} começa.",
+        "phaseChanged": "avançou para a fase {{ phase }}."
+      },
+      "disconnect": {
+        "expelled": "foi expulso após uma votação por desconexão."
+      },
+      "game": {
+        "concede": "concedeu."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} terminou o turno. O turno de {{ player }} começa.",
+      "phaseChanged": "{{ actor }} avançou para a fase de {{ phase }}."
+    },
+    "phase": {
+      "untap": "desvirar",
+      "upkeep": "manutenção",
+      "draw": "compra",
+      "main-1": "primeira principal",
+      "combat": "combate",
+      "main-2": "segundo principal",
+      "end": "fim"
+    },
+    "library": {
+      "moveTop": "{{ actor }} moveu as {{ count }} cartas do topo do grimório para {{ toZone }}.",
+      "reorderTop": "{{ actor }} reordenou as {{ count }} cartas do topo do grimório.",
+      "putTop": "{{ actor }} colocou uma carta no topo do grimório.",
+      "putBottom": "{{ actor }} colocou uma carta no fundo do grimório.",
+      "draw": "{{ actor }} comprou uma carta.",
+      "drawMany": "{{ actor }} roubou cartões {{ count }}.",
+      "playTopFaceDown": "{{ actor }} jogou a primeira carta de seu grimório virada para baixo.",
+      "shuffle": "{{ actor }} embaralhou seu grimório.",
+      "view": "{{ actor }} olhou os principais cards {{ count }} em seu grimório.",
+      "reveal": "{{ actor }} revelou sua biblioteca.",
+      "revealTop": "{{ actor }} revelou os primeiros cards {{ count }} em seu grimório.",
+      "playTopRevealed": "{{ actor }} joga com o primeiro card de seu grimório revelado.",
+      "stoppedPlayingTopRevealed": "{{ actor }} parou de jogar com a primeira carta de seu grimório revelada."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} alterou o dano de comandante em {{ target }} de {{ previousValue }} para {{ value }}."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} adicionou uma carta à pilha.",
+      "itemRemoved": "{{ actor }} removeu um item da pilha."
+    },
+    "arrow": {
+      "created": "{{ actor }} criou uma seta.",
+      "removed": "{{ actor }} removeu uma seta."
+    },
+    "attachment": {
+      "created": "{{ actor }} anexou uma carta.",
+      "removed": "{{ actor }} removeu um anexo."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} fez mulligan.",
+      "kept": "{{ actor }} manteve a mão.",
+      "scryConfirmed": "{{ actor }} concluiu o scry do mulligan."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} foi expulso após uma votação de desconexão.",
+      "noVotersWait": "Não há jogadores logados para votar. A mesa aguardará {{ target }}.",
+      "voteOpened": "{{ target }} ficou offline. Foi aberta uma votação de mesa.",
+      "tableExpelled": "A diretoria decidiu expulsar {{ target }} por desconexão.",
+      "tableWait": "A diretoria decidiu esperar por {{ target }}.",
+      "voteCancelled": "{{ target }} reconectado. A votação da mesa foi cancelada.",
+      "voteExpiredWait": "O voto de desconexão expirou. A mesa vai esperar."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} selecionou uma carta aleatória de {{ fromZone }}.",
+      "movedAll": "{{ actor }} moveu {{ count }} cartas de {{ fromZone }} para {{ toZone }}.",
+      "battlefield": "campo de batalha",
+      "graveyard": "cemitério",
+      "exile": "exílio",
+      "hand": "mão",
+      "library": "grimório",
+      "command": "zona de comando",
+      "zone": "área"
+    },
     "card": {
       "faceChanged": "{{ actor }} virou {{ cardName }} para {{ faceName }}.",
       "faceDownInspected": "{{ actor }} olhou uma carta virada para baixo.",
-      "playTopFaceDown": "{{ actor }} jogou virada para baixo a carta do topo do próprio grimório.",
-      "turnedFaceDown": "{{ actor }} virou uma carta para baixo.", "turnedFaceUp": "{{ actor }} virou uma carta para cima.", "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}.", "revealed": "{{ actor }} revelou 1 carta para {{ recipients }}.", "revealedMany": "{{ actor }} revelou {{ count }} cartas para {{ recipients }}."
+      "turnedFaceDown": "{{ actor }} virou uma carta para baixo.",
+      "turnedFaceUp": "{{ actor }} virou uma carta para cima.",
+      "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}.",
+      "revealed": "{{ actor }} revelou 1 carta para {{ recipients }}.",
+      "revealedMany": "{{ actor }} revelou {{ count }} cartas para {{ recipients }}.",
+      "moved": "{{ actor }} moveu uma carta de {{ fromZone }} para {{ toZone }}.",
+      "tapped": "{{ actor }} virou uma permanente.",
+      "untapped": "{{ actor }} desvirou uma permanente.",
+      "movedMany": "{{ actor }} moveu cartões {{ count }} de {{ fromZone }} para {{ toZone }}."
     },
-    "audience": { "all": "todos os jogadores" },
+    "audience": {
+      "all": "todos os jogadores"
+    },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} mudou {{ cardName }} de {{ previousPower }}/{{ previousToughness }} para {{ power }}/{{ toughness }}.",
       "loyaltyChanged": "{{ actor }} mudou a lealdade de {{ cardName }} de {{ previousValue }} para {{ value }} ({{ delta }}).",
       "sagaChanged": "{{ actor }} mudou o capítulo da saga de {{ cardName }} de {{ previousChapter }} para {{ chapter }} ({{ delta }}).",
       "defenseChanged": "{{ actor }} mudou a defesa de {{ cardName }} de {{ previousDefense }} para {{ defense }} ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} coloca os contadores {{ counter }} em {{ value }}."
+    },
+    "counter": {
+      "changed": "{{ actor }} colocou {{ counter }} em {{ value }}."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} {{ count }} permanente desvirado."
+    },
+    "life": {
+      "changed": "{{ actor }} mudou a vida de {{ player }} de {{ previousLife }} para {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} rolou {{ kind }} e tirou {{ result }}.",
+      "coin": "uma moeda",
+      "dice": "dados",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} lançou seu comandante da área de comando. O contador de elenco do comandante é {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} criou um token: {{ tokenName }}.",
+      "createdMany": "{{ actor }} criou tokens {{ count }}: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} criou uma cópia de token."
+    },
+    "game": {
+      "concede": "{{ player }} concedido."
     }
   },
   "deckBuilder": {

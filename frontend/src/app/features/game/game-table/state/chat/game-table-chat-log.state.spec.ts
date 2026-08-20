@@ -33,7 +33,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe('drew 2 cards.');
   });
 
@@ -71,7 +71,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe('revealed 10 cards to Bruno.');
   });
 
@@ -94,7 +94,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe('looked at a face-down card.');
     expect(entry?.card).toBeNull();
   });
@@ -118,7 +118,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe('played the top card of their library face down.');
     expect(entry?.card).toBeNull();
   });
@@ -159,7 +159,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alicia' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alicia' });
     expect(entry?.messagePrefix).toBe('cambi\u00f3 la vida de Bruno de 40 a 37.');
   });
 
@@ -181,7 +181,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe('changed their life from 40 to 37.');
   });
 
@@ -206,7 +206,7 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
     expect(entry?.messagePrefix).toBe("finished their turn. Bruno's turn begins.");
   });
 
@@ -247,13 +247,78 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(expelled?.subject).toEqual({ playerId: 'player-2', displayName: 'Bruno' });
+    expect(expelled?.subject).toEqual({ kind: 'player', playerId: 'player-2', displayName: 'Bruno' });
     expect(expelled?.messagePrefix).toBe('was expelled after a disconnect vote.');
-    expect(conceded?.subject).toEqual({ playerId: 'player-2', displayName: 'Bruno' });
+    expect(conceded?.subject).toEqual({ kind: 'player', playerId: 'player-2', displayName: 'Bruno' });
     expect(conceded?.messagePrefix).toBe('conceded.');
   });
 
-  it('falls back to the legacy message when a semantic key is unknown', () => {
+  it('localizes player counter names and keeps the subject out of the action fragment', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'game.playerCounters.rad') {
+          return 'Radiación';
+        }
+        if (key === 'gameLog.fragment.counter.changed') {
+          return `puso ${params?.['counter']} en ${params?.['value']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('JD') },
+      eventLog: [{
+        id: 'event-player-counter',
+        type: 'counter.changed',
+        message: 'JD set rad to 3.',
+        actorId: 'player-1',
+        displayName: 'JD',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.counter.changed',
+        params: { actorPlayerId: 'player-1', playerId: 'player-1', counter: 'rad', value: 3 },
+        subject: { kind: 'player', playerId: 'player-1' },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
+    expect(entry?.messagePrefix).toBe('puso Radiación en 3.');
+  });
+
+  it('translates historical player counter messages without semantic metadata', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'game.playerCounters.poison') {
+          return 'Veneno';
+        }
+        if (key === 'gameLog.fragment.counter.changed') {
+          return `puso ${params?.['counter']} en ${params?.['value']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('JD') },
+      eventLog: [{
+        id: 'event-legacy-player-counter',
+        type: 'counter.changed',
+        message: 'JD set poison to 3.',
+        actorId: 'player-1',
+        displayName: 'JD',
+        createdAt: '2026-05-14T00:00:00Z',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
+    expect(entry?.messagePrefix).toBe('puso Veneno en 3.');
+  });
+
+  it('keeps the player as the subject for legacy messages without semantic metadata', () => {
     const state = new GameTableChatLogState();
 
     const [entry] = state.eventLogView({
@@ -273,7 +338,7 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.messagePrefix).toBe('Legacy draw message.');
-    expect(entry?.subject).toBeNull();
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
   });
 
   it('passes card-stat and face parameters to semantic game log translations', () => {
@@ -503,7 +568,8 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.appearance).toBe('default');
-    expect(entry?.messagePrefix).toBe('Player ha muerto.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
+    expect(entry?.messagePrefix).toBe('ha muerto.');
   });
 
   it('marks concede entries for red log styling', () => {
@@ -516,7 +582,8 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.appearance).toBe('death');
-    expect(entry?.messagePrefix).toBe('Player conceded.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
+    expect(entry?.messagePrefix).toBe('conceded.');
   });
 
   it('does not hide later game log entries after a legacy automatic death entry', () => {

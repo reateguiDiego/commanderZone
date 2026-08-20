@@ -856,7 +856,7 @@
       "poison": "Veneno",
       "energy": "Energía",
       "experience": "Experiencia",
-      "rad": "Rad",
+      "rad": "Radiación",
       "tickets": "Entradas"
     },
     "zones": {
@@ -982,6 +982,8 @@
       "life": { "self": "cambió su vida de {{ previousLife }} a {{ life }}.", "other": "cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}." },
       "commanderDamage": { "self": "cambió el daño de comandante de {{ previousValue }} a {{ value }}.", "other": "cambió el daño de comandante infligido a {{ target }} de {{ previousValue }} a {{ value }}." },
       "card": { "controllerChanged": { "self": "tomó el control de una carta.", "other": "cambió el controlador de una carta a {{ target }}." } },
+      "counter": { "changed": "puso {{ counter }} en {{ value }}." },
+      "cardCounter": { "changed": "puso los contadores {{ counter }} en {{ value }}." },
       "turn": { "changed": "terminó su turno. Empieza el turno de {{ player }}.", "phaseChanged": "avanzó a la fase de {{ phase }}." },
       "disconnect": { "expelled": "fue expulsado tras una votación por desconexión." },
       "game": { "concede": "concedió." }
@@ -994,7 +996,12 @@
       "reorderTop": "{{ actor }} reordenó las {{ count }} primeras cartas de su biblioteca.",
       "putTop": "{{ actor }} puso una carta en la parte superior de su biblioteca.",
       "putBottom": "{{ actor }} puso una carta en la parte inferior de su biblioteca.",
-      "shuffle": "{{ actor }} barajó su biblioteca."
+      "shuffle": "{{ actor }} barajó su biblioteca.",
+      "view": "{{ actor }} miró las {{ count }} primeras cartas de su biblioteca.",
+      "reveal": "{{ actor }} reveló su biblioteca.",
+      "revealTop": "{{ actor }} reveló las {{ count }} primeras cartas de su biblioteca.",
+      "playTopRevealed": "{{ actor }} juega con la primera carta de su biblioteca revelada.",
+      "stoppedPlayingTopRevealed": "{{ actor }} dejó de jugar con la primera carta de su biblioteca revelada."
     },
     "card": {
       "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
@@ -1006,7 +1013,8 @@
       "revealed": "{{ actor }} reveló 1 carta a {{ recipients }}.",
       "revealedMany": "{{ actor }} reveló {{ count }} cartas a {{ recipients }}.",
       "tapped": "{{ actor }} giró un permanente.",
-      "untapped": "{{ actor }} enderezó un permanente."
+      "untapped": "{{ actor }} enderezó un permanente.",
+      "movedMany": "{{ actor }} movió {{ count }} cartas de {{ fromZone }} a {{ toZone }}."
     },
     "audience": { "all": "todos los jugadores" },
     "cardStats": {
@@ -1018,6 +1026,8 @@
     "cardCounter": {
       "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
     },
+    "counter": { "changed": "{{ actor }} puso {{ counter }} en {{ value }}." },
+    "battlefield": { "untappedAll": "{{ actor }} enderezó {{ count }} permanentes." },
     "life": {
       "changed": "{{ actor }} cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}."
     },
@@ -1047,7 +1057,7 @@
     "arrow": { "created": "{{ actor }} creó una flecha.", "removed": "{{ actor }} eliminó una flecha." },
     "attachment": { "created": "{{ actor }} anexó una carta.", "removed": "{{ actor }} eliminó un anexo." },
     "mulligan": { "taken": "{{ actor }} hizo mulligan.", "kept": "{{ actor }} se quedó su mano.", "scryConfirmed": "{{ actor }} completó su escrutar del mulligan." },
-    "disconnect": { "expelled": "{{ target }} fue expulsado tras una votación por desconexión." },
+    "disconnect": { "expelled": "{{ target }} fue expulsado tras una votación por desconexión.", "noVotersWait": "No hay jugadores conectados para votar. La mesa esperará a {{ target }}.", "voteOpened": "{{ target }} se desconectó. Se abrió una votación de mesa.", "tableExpelled": "La mesa decidió expulsar a {{ target }} por desconexión.", "tableWait": "La mesa decidió esperar a {{ target }}.", "voteCancelled": "{{ target }} se reconectó. La votación de mesa se canceló.", "voteExpiredWait": "La votación por desconexión expiró. La mesa esperará." },
     "game": {
       "concede": "{{ player }} concedió."
     },
