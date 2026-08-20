@@ -301,21 +301,34 @@ describe('GameTableChatLogState', () => {
       },
     } as never);
 
-    const [entry] = state.eventLogView({
+    const entries = state.eventLogView({
       ...snapshot(),
       players: { 'player-1': playerState('JD') },
-      eventLog: [{
-        id: 'event-legacy-player-counter',
-        type: 'counter.changed',
-        message: 'JD set poison to 3.',
-        actorId: 'player-1',
-        displayName: 'JD',
-        createdAt: '2026-05-14T00:00:00Z',
-      }],
+      eventLog: [
+        {
+          id: 'event-legacy-player-counter-direct',
+          type: 'counter.changed',
+          message: 'JD set poison to 3.',
+          actorId: 'player-1',
+          displayName: 'JD',
+          createdAt: '2026-05-14T00:00:00Z',
+        },
+        {
+          id: 'event-legacy-player-counter-change',
+          type: 'counter.changed',
+          message: 'JD poison counter increased from 0 to 3.',
+          actorId: 'player-1',
+          displayName: 'JD',
+          createdAt: '2026-05-14T00:00:01Z',
+        },
+      ],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
-    expect(entry?.messagePrefix).toBe('puso Veneno en 3.');
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
+      expect(entry.messagePrefix).toBe('puso Veneno en 3.');
+    }
   });
 
   it('keeps the player as the subject for legacy messages without semantic metadata', () => {
