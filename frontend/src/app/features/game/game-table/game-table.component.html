@@ -411,6 +411,7 @@
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 [motionActive]="handMotionActive()"
+                [motionLayoutMode]="handMotionLayoutMode()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="handleHandDropped($event)"
                 (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"

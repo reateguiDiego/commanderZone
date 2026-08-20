@@ -127,6 +127,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly hasActiveCardDrag = input(false);
   readonly externalRevealAllowed = input(true);
   readonly motionActive = input(false);
+  readonly motionLayoutMode = input<'fan' | 'row' | null>(null);
 
   readonly handDragOver = output<HandZoneDropEvent>();
   readonly handDropped = output<HandZoneDropEvent>();
@@ -182,7 +183,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     if (this.motionActive()) {
-      return this.previousHandLayoutMode ?? 'fan';
+      return this.motionLayoutMode() ?? this.previousHandLayoutMode ?? 'fan';
     }
 
     if (this.readOnly() || this.showCardsFaceDown()) {
@@ -992,6 +993,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   private keepVisibleHandLockedForMotion(): void {
     if (this.readOnly() || this.showCardsFaceDown()) {
+      return;
+    }
+
+    if (this.motionLayoutMode() === 'fan') {
+      this.previousHandLayoutMode = 'fan';
+      this.handHovered.set(false);
       return;
     }
 

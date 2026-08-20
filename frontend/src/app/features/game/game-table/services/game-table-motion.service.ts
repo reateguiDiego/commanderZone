@@ -23,6 +23,7 @@ interface CardFlipOptions {
 
 interface HandDropHandoffOptions {
   readonly freezeHand?: boolean;
+  readonly layoutMode?: 'fan' | 'row';
 }
 
 interface MotionRect {
@@ -40,7 +41,9 @@ interface HandElementSnapshot extends MotionRect {
 export class GameTableMotionService {
   private readonly ngZone = inject(NgZone);
   private readonly handMotionActiveState = signal(false);
+  private readonly handMotionLayoutModeState = signal<'fan' | 'row' | null>(null);
   readonly handMotionActive = this.handMotionActiveState.asReadonly();
+  readonly handMotionLayoutMode = this.handMotionLayoutModeState.asReadonly();
   private handMotionActiveCount = 0;
   private context: gsap.Context | null = null;
   private host: HTMLElement | null = null;
@@ -65,6 +68,7 @@ export class GameTableMotionService {
     this.context?.revert();
     this.handMotionActiveCount = 0;
     this.handMotionActiveState.set(false);
+    this.handMotionLayoutModeState.set(null);
     this.context = null;
     this.host = null;
     this.reducedMotionQuery = null;
@@ -265,7 +269,7 @@ export class GameTableMotionService {
     const beforeSnapshots = this.handElementSnapshots(beforeElements);
     const clearPreparedHandMotion = options.freezeHand === false
       ? () => undefined
-      : this.markHandMotionActive();
+      : this.markHandMotionActive(options.layoutMode);
     let cleared = false;
     let animationStarted = false;
     let clearFallbackTimer: number | null = null;
@@ -549,7 +553,7 @@ export class GameTableMotionService {
     );
   }
 
-  private markHandMotionActive(): () => void {
+  private markHandMotionActive(layoutMode?: 'fan' | 'row'): () => void {
     const host = this.host;
     if (!host) {
       return () => undefined;
@@ -558,6 +562,9 @@ export class GameTableMotionService {
     let cleared = false;
     this.handMotionActiveCount += 1;
     this.handMotionActiveState.set(true);
+    if (layoutMode) {
+      this.handMotionLayoutModeState.set(layoutMode);
+    }
 
     return () => {
       if (cleared) {
@@ -568,6 +575,7 @@ export class GameTableMotionService {
       this.handMotionActiveCount = Math.max(0, this.handMotionActiveCount - 1);
       if (this.handMotionActiveCount === 0) {
         this.handMotionActiveState.set(false);
+        this.handMotionLayoutModeState.set(null);
       }
     };
   }

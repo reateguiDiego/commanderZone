@@ -428,6 +428,18 @@ interface ZoneGhostOptions {
   readonly dropEvent?: DragEvent;
 }
 
+interface RealtimeCardMove {
+  readonly instanceId: string;
+  readonly from: {
+    readonly playerId: string;
+    readonly zone: GameZoneName;
+  };
+  readonly to: {
+    readonly playerId: string;
+    readonly zone: GameZoneName;
+  };
+}
+
 interface PendingCardMotion {
   readonly sourceInstanceId: string;
   readonly sourceRect?: MotionSourceRect | null;
@@ -585,6 +597,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.authStore.user()?.preferences?.game?.autoApplyCommanderDamageToLife ?? true,
   );
   readonly handMotionActive = this.motion.handMotionActive;
+  readonly handMotionLayoutMode = this.motion.handMotionLayoutMode;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
   readonly topDraggableCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.topDraggableCard(player, zone);
@@ -1676,7 +1689,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
     const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
 
-    if (!event.isLocalPatch && event.patch.kind === 'game_patch') {
+    if (!event.isLocalPatch) {
+      this.prepareRemoteHandLayoutMotion(event);
       this.playRealtimeMoveGhosts(event);
     }
 
@@ -1761,46 +1775,93 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
-    if (event.patch.kind !== 'game_patch') {
-      return;
-    }
-
-    for (const operation of event.patch.operations) {
-      if (operation.op === 'card.move') {
-        this.playRealtimeCardMoveGhost(operation);
-      }
+    for (const move of this.realtimeCardMoves(event.patch)) {
+      this.playRealtimeCardMoveGhost(event.previousSnapshot, move);
     }
   }
 
-  private playRealtimeCardMoveGhost(operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): void {
-    if (!this.shouldAnimateVisibleRemoteMoveSource(operation.from.playerId, operation.from.zone)) {
+  private realtimeCardMoves(eventPatch: GameTableRealtimePatchAnimationEvent['patch']): readonly RealtimeCardMove[] {
+    if (eventPatch.kind === 'game_patch') {
+      return eventPatch.operations
+        .filter((operation): operation is Extract<GameSnapshotPatchOperation, { op: 'card.move' }> => operation.op === 'card.move')
+        .map((operation) => ({
+          instanceId: operation.instanceId,
+          from: operation.from,
+          to: operation.to,
+        }));
+    }
+
+    return eventPatch.ops.flatMap((rawOperation) => {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      switch (operation.op) {
+        case 'zone.cards.move':
+          return [{
+            instanceId: operation.instanceId,
+            from: operation.from,
+            to: operation.to,
+          }];
+        case 'zone.cards.batchMove':
+          return operation.moves.map((move) => ({
+            instanceId: move.instanceId,
+            from: move.from,
+            to: move.to,
+          }));
+        default:
+          return [];
+      }
+    });
+  }
+
+  private prepareRemoteHandLayoutMotion(event: GameTableRealtimePatchAnimationEvent): void {
+    const handPlayerId = this.store.handPlayer()?.id;
+    if (!handPlayerId || !this.realtimeCardMoves(event.patch).some((move) =>
+      move.from.playerId === handPlayerId && move.from.zone === 'hand'
+      || move.to.playerId === handPlayerId && move.to.zone === 'hand')) {
       return;
     }
 
-    if (!this.cardFromSnapshot(operation.from.playerId, operation.from.zone, operation.instanceId)) {
+    const playHandoff = this.motion.prepareHandDropHandoff('[data-zone="hand"][data-card-instance-id]');
+    window.requestAnimationFrame(() => {
+      if (!this.destroyed) {
+        playHandoff();
+      }
+    });
+  }
+
+  private playRealtimeCardMoveGhost(snapshot: GameSnapshot, move: RealtimeCardMove): void {
+    if (!this.shouldAnimateVisibleRemoteMoveSource(move.from.playerId, move.from.zone)) {
       return;
     }
 
-    if (operation.to.playerId !== operation.from.playerId) {
+    if (!this.cardFromSnapshotFrom(snapshot, move.from.playerId, move.from.zone, move.instanceId)) {
+      return;
+    }
+
+    const sourceElement = this.realtimeMoveSourceElement(move.from.playerId, move.from.zone, move.instanceId);
+
+    if (move.to.playerId !== move.from.playerId) {
       this.animateGhostToPlayer({
-        sourceInstanceId: operation.instanceId,
-        targetPlayerId: operation.to.playerId,
+        sourceElement,
+        sourceInstanceId: move.instanceId,
+        targetPlayerId: move.to.playerId,
       });
       return;
     }
 
-    if (operation.to.zone === 'hand') {
+    if (move.to.zone === 'hand') {
       this.animateGhostToHand({
-        sourceInstanceId: operation.instanceId,
-        targetPlayerId: operation.to.playerId,
+        sourceElement,
+        sourceInstanceId: move.instanceId,
+        targetPlayerId: move.to.playerId,
       });
       return;
     }
 
     this.animateGhostToDropZone({
-      sourceInstanceId: operation.instanceId,
-      targetPlayerId: operation.to.playerId,
-      targetZone: operation.to.zone,
+      sourceElement,
+      sourceInstanceId: move.instanceId,
+      targetPlayerId: move.to.playerId,
+      targetZone: move.to.zone,
     });
   }
 
@@ -1950,10 +2011,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async animateHandLayoutAfterAction(
     action: () => Promise<void>,
-    options: { readonly freezeHand?: boolean } = {},
+    options: { readonly freezeHand?: boolean; readonly layoutMode?: 'fan' | 'row' } = {},
   ): Promise<void> {
     const handCardSelector = '[data-zone="hand"][data-card-instance-id]';
-    const playFlip = options.freezeHand === undefined
+    const playFlip = options.freezeHand === undefined && options.layoutMode === undefined
       ? this.motion.prepareHandDropHandoff(handCardSelector)
       : this.motion.prepareHandDropHandoff(handCardSelector, options);
 
@@ -2065,6 +2126,43 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private cardFromSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
     return this.store.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private cardFromSnapshotFrom(snapshot: GameSnapshot, playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
+    return snapshot.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private realtimeMoveSourceElement(playerId: string, zone: GameZoneName, instanceId: string): HTMLElement | null {
+    const host = this.gameScreen?.nativeElement;
+    if (!host) {
+      return null;
+    }
+
+    const matchingCards = Array.from(host.querySelectorAll<HTMLElement>('[data-card-instance-id], [data-motion-origin-card-id]'))
+      .filter((element) =>
+        (element.dataset['cardInstanceId'] === instanceId || element.dataset['motionOriginCardId'] === instanceId)
+        && this.isRealtimeMoveSourceElement(element, playerId, zone)
+        && this.isDropTargetVisible(element));
+
+    return matchingCards.reduce<HTMLElement | null>((largest, candidate) => {
+      if (!largest) {
+        return candidate;
+      }
+
+      const largestRect = largest.getBoundingClientRect();
+      const candidateRect = candidate.getBoundingClientRect();
+      return candidateRect.width * candidateRect.height > largestRect.width * largestRect.height ? candidate : largest;
+    }, null);
+  }
+
+  private isRealtimeMoveSourceElement(element: HTMLElement, playerId: string, zone: GameZoneName): boolean {
+    const zoneElement = element.closest<HTMLElement>('[data-zone]');
+    const playerElement = element.closest<HTMLElement>('[data-player-id]');
+    const isOpponentMiniBattlefield = zone === 'battlefield'
+      && element.closest<HTMLElement>('[data-testid="opponent-mini-board"]')?.dataset['playerId'] === playerId;
+
+    return isOpponentMiniBattlefield
+      || zoneElement?.dataset['zone'] === zone && playerElement?.dataset['playerId'] === playerId;
   }
 
   private cardEvaporatesOutsideBattlefield(card: GameCardInstance | null, targetZone: DropZoneTarget): boolean {
@@ -3105,13 +3203,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       });
     }
 
-    await this.store.moveHandCardByPointer(
-      event.playerId,
-      event.targetPlayerId,
-      event.movedInstanceId,
-      event.toZone,
-      event.position,
-      event.rawZone,
+    await this.animateHandLayoutAfterAction(
+      () => this.store.moveHandCardByPointer(
+        event.playerId,
+        event.targetPlayerId,
+        event.movedInstanceId,
+        event.toZone,
+        event.position,
+        event.rawZone,
+      ),
+      { layoutMode: 'fan' },
     );
   }
 

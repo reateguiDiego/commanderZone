@@ -1368,6 +1368,120 @@ describe('GameTableComponent', () => {
     expect(punchCard).toHaveBeenCalledWith('opponent-saga', 'damage');
   });
 
+  it('animates every visible remote move from battlefield, library, graveyard, exile, and command into the focused hand', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    const opponent = snapshot.players['user-2']!;
+    const sourceZones = ['battlefield', 'library', 'graveyard', 'exile', 'command'] as const;
+    const sourceCards = sourceZones.map((zone) => ({
+      ...opponent.zones.battlefield[0]!,
+      instanceId: `opponent-${zone}-card`,
+      zone,
+    }));
+    opponent.zones.battlefield = [sourceCards[0]!];
+    opponent.zones.library = [sourceCards[1]!];
+    opponent.zones.graveyard = [sourceCards[2]!];
+    opponent.zones.exile = [sourceCards[3]!];
+    opponent.zones.command = [sourceCards[4]!];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.componentInstance.store.focusPlayer('user-2');
+    fixture.detectChanges();
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const handTarget = appendDropZone(fixture.nativeElement, 'user-2', 'hand');
+    const sourceElements = sourceCards.map((card) => appendMotionCard(fixture.nativeElement, 'user-2', card.zone!, card.instanceId));
+    const animationBus = fixture.debugElement.injector.get(GameTableRealtimeAnimationBusService);
+
+    animationBus.emitPatchAnimation({
+      previousSnapshot: snapshot,
+      nextSnapshot: { ...snapshot, version: 2 },
+      patch: {
+        kind: 'patch.v2', gameId: 'game-1', version: 2, visibility: 'public',
+        ops: [{
+          op: 'zone.cards.batchMove',
+          moves: sourceCards.map((card) => ({
+            instanceId: card.instanceId,
+            from: { playerId: 'user-2', zone: card.zone! },
+            to: { playerId: 'user-2', zone: 'hand' },
+          })),
+        }],
+      },
+      isLocalPatch: false,
+    });
+
+    await vi.waitFor(() => expect(throwElementGhost).toHaveBeenCalledTimes(sourceCards.length));
+    sourceElements.forEach((sourceElement) => {
+      expect(throwElementGhost).toHaveBeenCalledWith(sourceElement, handTarget, expect.objectContaining({
+        scaleToTarget: true,
+        rotate: -6,
+      }));
+    });
+  });
+
+  it('animates every selected remote hand card to its actual battlefield and zone destination', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    const opponent = snapshot.players['user-2']!;
+    const destinations = ['battlefield', 'library', 'graveyard', 'exile', 'command'] as const;
+    const handCards = destinations.map((zone) => ({
+      ...opponent.zones.battlefield[0]!,
+      instanceId: `opponent-hand-to-${zone}`,
+      zone: 'hand' as const,
+    }));
+    opponent.zones.hand = handCards;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.componentInstance.store.focusPlayer('user-2');
+    fixture.detectChanges();
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const targets = new Map(destinations.map((zone) => [zone, appendDropZone(fixture.nativeElement, 'user-2', zone)]));
+    const sourceElements = handCards.map((card) => appendMotionCard(fixture.nativeElement, 'user-2', 'hand', card.instanceId));
+    const animationBus = fixture.debugElement.injector.get(GameTableRealtimeAnimationBusService);
+
+    animationBus.emitPatchAnimation({
+      previousSnapshot: snapshot,
+      nextSnapshot: { ...snapshot, version: 2 },
+      patch: {
+        kind: 'patch.v2', gameId: 'game-1', version: 2, visibility: 'public',
+        ops: [{
+          op: 'zone.cards.batchMove',
+          moves: handCards.map((card, index) => ({
+            instanceId: card.instanceId,
+            from: { playerId: 'user-2', zone: 'hand' as const },
+            to: { playerId: 'user-2', zone: destinations[index]! },
+          })),
+        }],
+      },
+      isLocalPatch: false,
+    });
+
+    await vi.waitFor(() => expect(throwElementGhost).toHaveBeenCalledTimes(handCards.length));
+    handCards.forEach((card, index) => {
+      expect(throwElementGhost).toHaveBeenCalledWith(sourceElements[index], targets.get(destinations[index]!)!, expect.objectContaining({
+        scaleToTarget: destinations[index] !== 'battlefield',
+        rotate: -6,
+      }));
+    });
+  });
+
   it('plays remote ghosts when a visible opponent battlefield card moves over websocket', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -1411,6 +1525,8 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
     const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    const playHandHandoff = vi.fn();
+    const prepareHandDropHandoff = vi.spyOn(motion, 'prepareHandDropHandoff').mockReturnValue(playHandHandoff);
     const moveHandCardByPointer = vi.spyOn(fixture.componentInstance.store, 'moveHandCardByPointer').mockResolvedValue(undefined);
     const target = appendDropZone(fixture.nativeElement, 'user-2', 'battlefield');
     const floatingCard = document.createElement('div');
@@ -1429,6 +1545,8 @@ describe('GameTableComponent', () => {
       scaleToTarget: false,
       rotate: -6,
     }));
+    expect(prepareHandDropHandoff).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]', { layoutMode: 'fan' });
+    expect(playHandHandoff).toHaveBeenCalledOnce();
     expect(moveHandCardByPointer).toHaveBeenCalledWith('user-1', 'user-2', 'hand-1', 'battlefield', { x: 12, y: 34 }, undefined);
   });
 
@@ -6973,6 +7091,29 @@ function appendPlayerDropTarget(host: HTMLElement, playerId: string): HTMLElemen
   host.querySelector('[data-testid="game-screen"]')?.appendChild(target);
 
   return target;
+}
+
+function appendMotionCard(host: HTMLElement, playerId: string, zone: string, instanceId: string): HTMLElement {
+  const playerSurface = document.createElement('section');
+  playerSurface.dataset['playerId'] = playerId;
+  const card = document.createElement('div');
+  card.dataset['cardInstanceId'] = instanceId;
+  card.dataset['zone'] = zone;
+  card.getBoundingClientRect = () => ({
+    x: 32,
+    y: 48,
+    width: 92,
+    height: 128,
+    top: 48,
+    left: 32,
+    bottom: 176,
+    right: 124,
+    toJSON: () => ({}),
+  }) as DOMRect;
+  playerSurface.appendChild(card);
+  host.querySelector('[data-testid="game-screen"]')?.appendChild(playerSurface);
+
+  return card;
 }
 
 function dragDataTransfer(): DataTransfer {
