@@ -856,7 +856,7 @@
       "poison": "æ¯’",
       "energy": "ã‚¨ãƒãƒ«ã‚®ãƒ¼",
       "experience": "çµŒé¨“",
-      "rad": "ãƒ©ãƒƒãƒ‰",
+      "rad": "放射能",
       "tickets": "ãƒã‚±ãƒƒãƒˆ"
     },
     "zones": {
@@ -977,37 +977,164 @@
     }
   },
   "gameLog": {
-    "history": { "loading": "メッセージを読み込んでいます…" },
-    "fragment": {
-      "life": { "self": "のライフを {{ previousLife }} から {{ life }} に変更した。", "other": "は {{ player }} のライフを {{ previousLife }} から {{ life }} に変更した。" },
-      "commanderDamage": { "self": "の統率者ダメージを {{ previousValue }} から {{ value }} に変更した。", "other": "は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更した。" },
-      "card": { "controllerChanged": { "self": "はカードのコントロールを得た。", "other": "はカードのコントローラーを {{ target }} に変更した。" } },
-      "turn": { "changed": "のターンを終了した。{{ player }} のターンが始まる。", "phaseChanged": "は {{ phase }} フェイズに進んだ。" },
-      "disconnect": { "expelled": "は切断投票の結果、退出させられた。" },
-      "game": { "concede": "は投了した。" }
+    "history": {
+      "loading": "メッセージを読み込んでいます…"
     },
-    "turn": { "changed": "{{ previousPlayer }} のターンが終了しました。{{ player }} のターンが始まります。", "phaseChanged": "{{ actor }} は {{ phase }}・フェイズに進みました。" },
-    "phase": { "untap": "アンタップ", "upkeep": "アップキープ", "draw": "ドロー", "main-1": "第1メイン", "combat": "戦闘", "main-2": "第2メイン", "end": "終了" },
-    "library": { "moveTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を {{ toZone }} に移動しました。", "reorderTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を並べ替えました。", "putTop": "{{ actor }} はカードをライブラリーの一番上に置きました。", "putBottom": "{{ actor }} はカードをライブラリーの一番下に置きました。" },
-    "commanderDamage": { "changed": "{{ actor }} は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更しました。" },
-    "stack": { "cardAdded": "{{ actor }} はカードをスタックに追加しました。", "itemRemoved": "{{ actor }} はスタックから項目を取り除きました。" },
-    "arrow": { "created": "{{ actor }} は矢印を作成しました。", "removed": "{{ actor }} は矢印を削除しました。" },
-    "attachment": { "created": "{{ actor }} はカードを付けました。", "removed": "{{ actor }} は付けられたカードを外しました。" },
-    "mulligan": { "taken": "{{ actor }} はマリガンしました。", "kept": "{{ actor }} は手札をキープしました。", "scryConfirmed": "{{ actor }} はマリガン後の占術を完了しました。" },
-    "disconnect": { "expelled": "{{ target }} は切断投票の結果、退出させられました。" },
-    "zone": { "randomSelected": "{{ actor }} は {{ fromZone }} から無作為にカードを選びました。", "movedAll": "{{ actor }} は {{ count }} 枚を {{ fromZone }} から {{ toZone }} に移動しました。", "battlefield": "戦場", "graveyard": "墓地", "exile": "追放領域", "hand": "手札", "library": "ライブラリー", "command": "統率領域", "zone": "領域" },
+    "fragment": {
+      "life": {
+        "self": "のライフを {{ previousLife }} から {{ life }} に変更した。",
+        "other": "は {{ player }} のライフを {{ previousLife }} から {{ life }} に変更した。"
+      },
+      "commanderDamage": {
+        "self": "の統率者ダメージを {{ previousValue }} から {{ value }} に変更した。",
+        "other": "は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更した。"
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "はカードのコントロールを得た。",
+          "other": "はカードのコントローラーを {{ target }} に変更した。"
+        }
+      },
+      "counter": {
+        "changed": "は {{ counter }} を {{ value }} に設定した。"
+      },
+      "cardCounter": {
+        "changed": "は {{ counter }} カウンターを {{ value }} 個に設定した。"
+      },
+      "turn": {
+        "changed": "のターンを終了した。{{ player }} のターンが始まる。",
+        "phaseChanged": "は {{ phase }} フェイズに進んだ。"
+      },
+      "disconnect": {
+        "expelled": "は切断投票の結果、退出させられた。"
+      },
+      "game": {
+        "concede": "は投了した。"
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} のターンが終了しました。{{ player }} のターンが始まります。",
+      "phaseChanged": "{{ actor }} は {{ phase }}・フェイズに進みました。"
+    },
+    "phase": {
+      "untap": "アンタップ",
+      "upkeep": "アップキープ",
+      "draw": "ドロー",
+      "main-1": "第1メイン",
+      "combat": "戦闘",
+      "main-2": "第2メイン",
+      "end": "終了"
+    },
+    "library": {
+      "moveTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を {{ toZone }} に移動しました。",
+      "reorderTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を並べ替えました。",
+      "putTop": "{{ actor }} はカードをライブラリーの一番上に置きました。",
+      "putBottom": "{{ actor }} はカードをライブラリーの一番下に置きました。",
+      "draw": "{{ actor }}はカードを引きました。",
+      "drawMany": "{{ actor }} が {{ count }} カードを盗みました。",
+      "playTopFaceDown": "{{ actor }} はライブラリーの最初のカードを裏向きでプレイしました。",
+      "shuffle": "{{ actor }}は自分のライブラリを切り直す。",
+      "view": "{{ actor }} は、ライブラリーの上位の {{ count }} カードを調べました。",
+      "reveal": "{{ actor }} がそのライブラリを公開しました。",
+      "revealTop": "{{ actor }} は、ライブラリーに最初の {{ count }} カードを公開しました。",
+      "playTopRevealed": "{{ actor }} はライブラリーの最初のカードを公開してプレイします。",
+      "stoppedPlayingTopRevealed": "{{ actor }} はライブラリーの最初のカードが公開された状態でプレイを停止しました。"
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更しました。"
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} はカードをスタックに追加しました。",
+      "itemRemoved": "{{ actor }} はスタックから項目を取り除きました。"
+    },
+    "arrow": {
+      "created": "{{ actor }} は矢印を作成しました。",
+      "removed": "{{ actor }} は矢印を削除しました。"
+    },
+    "attachment": {
+      "created": "{{ actor }} はカードを付けました。",
+      "removed": "{{ actor }} は付けられたカードを外しました。"
+    },
+    "mulligan": {
+      "taken": "{{ actor }} はマリガンしました。",
+      "kept": "{{ actor }} は手札をキープしました。",
+      "scryConfirmed": "{{ actor }} はマリガン後の占術を完了しました。"
+    },
+    "disconnect": {
+      "expelled": "{{ target }} は切断投票の結果、退出させられました。",
+      "noVotersWait": "投票するためにログインしているプレイヤーはいません。テーブルは {{ target }} を待ちます。",
+      "voteOpened": "{{ target }} がオフラインになりました。卓上投票が開始されました。",
+      "tableExpelled": "理事会は切断を理由に {{ target }} を追放することを決定しました。",
+      "tableWait": "理事会は {{ target }} を待つことを決定しました。",
+      "voteCancelled": "{{ target }} が再接続されました。テーブル投票は中止されました。",
+      "voteExpiredWait": "切断投票の有効期限が切れました。テーブルは待機します。"
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} は {{ fromZone }} から無作為にカードを選びました。",
+      "movedAll": "{{ actor }} は {{ count }} 枚を {{ fromZone }} から {{ toZone }} に移動しました。",
+      "battlefield": "戦場",
+      "graveyard": "墓地",
+      "exile": "追放領域",
+      "hand": "手札",
+      "library": "ライブラリー",
+      "command": "統率領域",
+      "zone": "領域"
+    },
     "card": {
       "faceChanged": "{{ actor }} は {{ cardName }} を {{ faceName }} の面にしました。",
       "faceDownInspected": "{{ actor }} は裏向きのカードを確認しました。",
-      "playTopFaceDown": "{{ actor }} はライブラリーの一番上のカードを裏向きでプレイしました。",
-      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。", "turnedFaceUp": "{{ actor }} はカードを表向きにしました。", "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。", "revealed": "{{ actor }} は {{ recipients }} にカードを1枚公開しました。", "revealedMany": "{{ actor }} は {{ recipients }} にカードを{{ count }}枚公開しました。"
+      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。",
+      "turnedFaceUp": "{{ actor }} はカードを表向きにしました。",
+      "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。",
+      "revealed": "{{ actor }} は {{ recipients }} にカードを1枚公開しました。",
+      "revealedMany": "{{ actor }} は {{ recipients }} にカードを{{ count }}枚公開しました。",
+      "moved": "{{ actor }} はカードを {{ fromZone }} から {{ toZone }} に移動しました。",
+      "tapped": "{{ actor }} がパーマネントをタップしました。",
+      "untapped": "{{ actor }} はパーマネントをアンタップしました。",
+      "movedMany": "{{ actor }} は、{{ count }} カードを {{ fromZone }} から {{ toZone }} に移動しました。"
     },
-    "audience": { "all": "すべてのプレイヤー" },
+    "audience": {
+      "all": "すべてのプレイヤー"
+    },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} は {{ cardName }} を {{ previousPower }}/{{ previousToughness }} から {{ power }}/{{ toughness }} に変更しました。",
       "loyaltyChanged": "{{ actor }} は {{ cardName }} の忠誠度を {{ previousValue }} から {{ value }} に変更しました（{{ delta }}）。",
       "sagaChanged": "{{ actor }} は {{ cardName }} の英雄譚の章を {{ previousChapter }} から {{ chapter }} に変更しました（{{ delta }}）。",
       "defenseChanged": "{{ actor }} は {{ cardName }} の防御力を {{ previousDefense }} から {{ defense }} に変更しました（{{ delta }}）。"
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} は、{{ counter }} カウンターを {{ value }} に置きました。"
+    },
+    "counter": {
+      "changed": "{{ actor }} は、{{ counter }} を {{ value }} に置きます。"
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} アンタップ状態の永久 {{ count }}。"
+    },
+    "life": {
+      "changed": "{{ actor }} は、{{ player }} の有効期間を {{ previousLife }} から {{ life }} に変更しました。"
+    },
+    "dice": {
+      "rolled": "{{ actor }} は {{ kind }} をロールし、{{ result }} を取り出しました。",
+      "coin": "コイン",
+      "dice": "サイコロ",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} は指揮エリアから指揮官を発進させました。コマンダーのキャストカウンターは{{ commanderCastCount }}です。"
+    },
+    "token": {
+      "created": "{{ actor }} はトークン {{ tokenName }} を作成しました。",
+      "createdMany": "{{ actor }} は {{ count }} トークン: {{ tokenName }} を作成しました。"
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} がトークンのコピーを作成しました。"
+    },
+    "game": {
+      "concede": "{{ player }} が付与されました。"
     }
   },
   "deckBuilder": {

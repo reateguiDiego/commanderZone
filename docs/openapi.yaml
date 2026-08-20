@@ -8023,6 +8023,18 @@ components:
         params:
           type: object
           additionalProperties: true
+        subject:
+          type: object
+          description: Player rendered separately from the localized action text.
+          required: [kind, playerId]
+          properties:
+            kind:
+              type: string
+              enum: [player]
+            playerId:
+              type: string
+              format: uuid
+              description: Player id for the subject.
         refs:
           type: object
           properties:

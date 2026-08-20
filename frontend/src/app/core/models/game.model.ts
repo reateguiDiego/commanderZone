@@ -208,6 +208,11 @@ export interface ChatMessage {
   reactions?: ChatReactions;
 }
 
+export interface GameLogSubject {
+  kind: 'player';
+  playerId: string;
+}
+
 export interface GameLogEntry {
   id: string;
   type: string;
@@ -218,6 +223,7 @@ export interface GameLogEntry {
   displayName?: string | null;
   i18nKey?: string;
   params?: Record<string, unknown>;
+  subject?: GameLogSubject;
   refs?: {
     players?: Record<string, {
       id: string;

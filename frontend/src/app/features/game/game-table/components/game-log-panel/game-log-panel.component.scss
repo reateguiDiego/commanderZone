@@ -43,10 +43,6 @@
   box-shadow: inset 0 0 18px rgb(var(--game-info-rgb) / 9%);
 }
 
-.panel-feed p.with-subject {
-  grid-template-columns: auto auto minmax(0, 1fr);
-}
-
 .panel-feed p.turn-entry {
   border: 1px solid var(--game-accent-line);
   background:
@@ -121,8 +117,10 @@
 }
 
 .panel-feed strong {
+  display: inline;
   color: color-mix(in srgb, var(--log-author-color, var(--game-accent)) 78%, var(--game-text));
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
 }
 
 .panel-feed .history-loading {

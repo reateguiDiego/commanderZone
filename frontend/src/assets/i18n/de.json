@@ -856,7 +856,7 @@
       "poison": "Gift",
       "energy": "Energie",
       "experience": "Erfahrung",
-      "rad": "Rad",
+      "rad": "Strahlung",
       "tickets": "Tickets"
     },
     "zones": {
@@ -977,37 +977,164 @@
     }
   },
   "gameLog": {
-    "history": { "loading": "Nachrichten werden geladen…" },
-    "fragment": {
-      "life": { "self": "änderte seine Lebenspunkte von {{ previousLife }} auf {{ life }}.", "other": "änderte die Lebenspunkte von {{ player }} von {{ previousLife }} auf {{ life }}." },
-      "commanderDamage": { "self": "änderte den Kommandeursschaden von {{ previousValue }} auf {{ value }}.", "other": "änderte den {{ target }} zugefügten Kommandeursschaden von {{ previousValue }} auf {{ value }}." },
-      "card": { "controllerChanged": { "self": "übernahm die Kontrolle über eine Karte.", "other": "änderte den Beherrscher einer Karte zu {{ target }}." } },
-      "turn": { "changed": "beendete seinen Zug. {{ player }} ist am Zug.", "phaseChanged": "ging in die Phase {{ phase }} über." },
-      "disconnect": { "expelled": "wurde nach einer Abstimmung wegen Verbindungsabbruch ausgeschlossen." },
-      "game": { "concede": "gab auf." }
+    "history": {
+      "loading": "Nachrichten werden geladen…"
     },
-    "turn": { "changed": "{{ previousPlayer }} hat seinen Zug beendet. {{ player }} beginnt den Zug.", "phaseChanged": "{{ actor }} ist in die {{ phase }}-Phase weitergegangen." },
-    "phase": { "untap": "Enttapp", "upkeep": "Versorgung", "draw": "Zieh", "main-1": "erste Haupt", "combat": "Kampf", "main-2": "zweite Haupt", "end": "End" },
-    "library": { "moveTop": "{{ actor }} hat die obersten {{ count }} Karten der Bibliothek nach {{ toZone }} bewegt.", "reorderTop": "{{ actor }} hat die obersten {{ count }} Karten der Bibliothek neu angeordnet.", "putTop": "{{ actor }} hat eine Karte oben auf die Bibliothek gelegt.", "putBottom": "{{ actor }} hat eine Karte unten in die Bibliothek gelegt." },
-    "commanderDamage": { "changed": "{{ actor }} hat den Kommandeurschaden an {{ target }} von {{ previousValue }} auf {{ value }} geändert." },
-    "stack": { "cardAdded": "{{ actor }} hat eine Karte dem Stapel hinzugefügt.", "itemRemoved": "{{ actor }} hat ein Element vom Stapel entfernt." },
-    "arrow": { "created": "{{ actor }} hat einen Pfeil erstellt.", "removed": "{{ actor }} hat einen Pfeil entfernt." },
-    "attachment": { "created": "{{ actor }} hat eine Karte angelegt.", "removed": "{{ actor }} hat eine Anlegung entfernt." },
-    "mulligan": { "taken": "{{ actor }} hat einen Mulligan genommen.", "kept": "{{ actor }} hat seine Hand behalten.", "scryConfirmed": "{{ actor }} hat sein Mulligan-Scry abgeschlossen." },
-    "disconnect": { "expelled": "{{ target }} wurde nach einer Trennungsabstimmung ausgeschlossen." },
-    "zone": { "randomSelected": "{{ actor }} hat eine zufällige Karte aus {{ fromZone }} ausgewählt.", "movedAll": "{{ actor }} hat {{ count }} Karten von {{ fromZone }} nach {{ toZone }} bewegt.", "battlefield": "Schlachtfeld", "graveyard": "Friedhof", "exile": "Exil", "hand": "Hand", "library": "Bibliothek", "command": "Kommandozone", "zone": "Zone" },
+    "fragment": {
+      "life": {
+        "self": "änderte seine Lebenspunkte von {{ previousLife }} auf {{ life }}.",
+        "other": "änderte die Lebenspunkte von {{ player }} von {{ previousLife }} auf {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "änderte den Kommandeursschaden von {{ previousValue }} auf {{ value }}.",
+        "other": "änderte den {{ target }} zugefügten Kommandeursschaden von {{ previousValue }} auf {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "übernahm die Kontrolle über eine Karte.",
+          "other": "änderte den Beherrscher einer Karte zu {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "setzte {{ counter }} auf {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "setzte {{ counter }}-Marken auf {{ value }}."
+      },
+      "turn": {
+        "changed": "beendete seinen Zug. {{ player }} ist am Zug.",
+        "phaseChanged": "ging in die Phase {{ phase }} über."
+      },
+      "disconnect": {
+        "expelled": "wurde nach einer Abstimmung wegen Verbindungsabbruch ausgeschlossen."
+      },
+      "game": {
+        "concede": "gab auf."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} hat seinen Zug beendet. {{ player }} beginnt den Zug.",
+      "phaseChanged": "{{ actor }} ist in die {{ phase }}-Phase weitergegangen."
+    },
+    "phase": {
+      "untap": "Enttapp",
+      "upkeep": "Versorgung",
+      "draw": "Zieh",
+      "main-1": "erste Haupt",
+      "combat": "Kampf",
+      "main-2": "zweite Haupt",
+      "end": "End"
+    },
+    "library": {
+      "moveTop": "{{ actor }} hat die obersten {{ count }} Karten der Bibliothek nach {{ toZone }} bewegt.",
+      "reorderTop": "{{ actor }} hat die obersten {{ count }} Karten der Bibliothek neu angeordnet.",
+      "putTop": "{{ actor }} hat eine Karte oben auf die Bibliothek gelegt.",
+      "putBottom": "{{ actor }} hat eine Karte unten in die Bibliothek gelegt.",
+      "draw": "{{ actor }} hat eine Karte gezogen.",
+      "drawMany": "{{ actor }} hat {{ count }}-Karten gestohlen.",
+      "playTopFaceDown": "{{ actor }} hat die erste Karte seiner Bibliothek verdeckt gespielt.",
+      "shuffle": "{{ actor }} hat seine Bibliothek gemischt.",
+      "view": "{{ actor }} hat sich die besten {{ count }}-Karten in seiner Bibliothek angesehen.",
+      "reveal": "{{ actor }} hat seine Bibliothek enthüllt.",
+      "revealTop": "{{ actor }} hat die ersten {{ count }}-Karten in seiner Bibliothek enthüllt.",
+      "playTopRevealed": "{{ actor }} spielt mit der ersten aufgedeckten Karte seiner Bibliothek.",
+      "stoppedPlayingTopRevealed": "{{ actor }} hörte mit der ersten aufgedeckten Karte seiner Bibliothek auf zu spielen."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} hat den Kommandeurschaden an {{ target }} von {{ previousValue }} auf {{ value }} geändert."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} hat eine Karte dem Stapel hinzugefügt.",
+      "itemRemoved": "{{ actor }} hat ein Element vom Stapel entfernt."
+    },
+    "arrow": {
+      "created": "{{ actor }} hat einen Pfeil erstellt.",
+      "removed": "{{ actor }} hat einen Pfeil entfernt."
+    },
+    "attachment": {
+      "created": "{{ actor }} hat eine Karte angelegt.",
+      "removed": "{{ actor }} hat eine Anlegung entfernt."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} hat einen Mulligan genommen.",
+      "kept": "{{ actor }} hat seine Hand behalten.",
+      "scryConfirmed": "{{ actor }} hat sein Mulligan-Scry abgeschlossen."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} wurde nach einer Trennungsabstimmung ausgeschlossen.",
+      "noVotersWait": "Es sind keine Spieler zum Abstimmen angemeldet. Die Tabelle wartet auf {{ target }}.",
+      "voteOpened": "{{ target }} ist offline gegangen. Es wurde eine Tischabstimmung eröffnet.",
+      "tableExpelled": "Der Vorstand hat beschlossen, {{ target }} wegen Verbindungsunterbrechung auszuschließen.",
+      "tableWait": "Der Vorstand beschloss, auf {{ target }} zu warten.",
+      "voteCancelled": "{{ target }} erneut verbunden. Die Tischabstimmung wurde abgesagt.",
+      "voteExpiredWait": "Abstimmung über die Trennung ist abgelaufen. Der Tisch wird warten."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} hat eine zufällige Karte aus {{ fromZone }} ausgewählt.",
+      "movedAll": "{{ actor }} hat {{ count }} Karten von {{ fromZone }} nach {{ toZone }} bewegt.",
+      "battlefield": "Schlachtfeld",
+      "graveyard": "Friedhof",
+      "exile": "Exil",
+      "hand": "Hand",
+      "library": "Bibliothek",
+      "command": "Kommandozone",
+      "zone": "Zone"
+    },
     "card": {
       "faceChanged": "{{ actor }} hat {{ cardName }} auf {{ faceName }} gedreht.",
       "faceDownInspected": "{{ actor }} hat sich eine verdeckte Karte angesehen.",
-      "playTopFaceDown": "{{ actor }} hat die oberste Karte seiner Bibliothek verdeckt ausgespielt.",
-      "turnedFaceDown": "{{ actor }} hat eine Karte verdeckt.", "turnedFaceUp": "{{ actor }} hat eine Karte aufgedeckt.", "controllerChanged": "{{ actor }} hat den Kontrolleur einer Karte zu {{ target }} geändert.", "revealed": "{{ actor }} hat {{ recipients }} 1 Karte gezeigt.", "revealedMany": "{{ actor }} hat {{ recipients }} {{ count }} Karten gezeigt."
+      "turnedFaceDown": "{{ actor }} hat eine Karte verdeckt.",
+      "turnedFaceUp": "{{ actor }} hat eine Karte aufgedeckt.",
+      "controllerChanged": "{{ actor }} hat den Kontrolleur einer Karte zu {{ target }} geändert.",
+      "revealed": "{{ actor }} hat {{ recipients }} 1 Karte gezeigt.",
+      "revealedMany": "{{ actor }} hat {{ recipients }} {{ count }} Karten gezeigt.",
+      "moved": "{{ actor }} hat eine Karte von {{ fromZone }} nach {{ toZone }} verschoben.",
+      "tapped": "{{ actor }} hat eine dauerhafte Karte angetippt.",
+      "untapped": "{{ actor }} hat eine bleibende Karte enttappt.",
+      "movedMany": "{{ actor }} hat {{ count }}-Karten von {{ fromZone }} zu {{ toZone }} verschoben."
     },
-    "audience": { "all": "allen Spielern" },
+    "audience": {
+      "all": "allen Spielern"
+    },
     "cardStats": {
       "powerToughnessChanged": "{{ actor }} hat {{ cardName }} von {{ previousPower }}/{{ previousToughness }} auf {{ power }}/{{ toughness }} geändert.",
       "loyaltyChanged": "{{ actor }} hat die Loyalität von {{ cardName }} von {{ previousValue }} auf {{ value }} geändert ({{ delta }}).",
       "sagaChanged": "{{ actor }} hat das Sagenkapitel von {{ cardName }} von {{ previousChapter }} auf {{ chapter }} geändert ({{ delta }}).",
       "defenseChanged": "{{ actor }} hat die Verteidigung von {{ cardName }} von {{ previousDefense }} auf {{ defense }} geändert ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} hat die {{ counter }}-Zähler in {{ value }} eingefügt."
+    },
+    "counter": {
+      "changed": "{{ actor }} hat {{ counter }} in {{ value }} eingefügt."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} ungenutztes permanentes {{ count }}."
+    },
+    "life": {
+      "changed": "{{ actor }} hat das Leben von {{ player }} von {{ previousLife }} zu {{ life }} verändert."
+    },
+    "dice": {
+      "rolled": "{{ actor }} hat {{ kind }} gewürfelt und {{ result }} herausgenommen.",
+      "coin": "eine Münze",
+      "dice": "Würfel",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} startete seinen Kommandanten aus dem Kommandobereich. Der Commander-Cast-Zähler ist {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} hat ein Token erstellt: {{ tokenName }}.",
+      "createdMany": "{{ actor }} hat {{ count }}-Token erstellt: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} hat eine Token-Kopie erstellt."
+    },
+    "game": {
+      "concede": "{{ player }} gewährt."
     }
   },
   "deckBuilder": {

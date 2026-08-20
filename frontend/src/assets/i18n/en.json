@@ -982,6 +982,8 @@
       "life": { "self": "changed their life from {{ previousLife }} to {{ life }}.", "other": "changed {{ player }}'s life from {{ previousLife }} to {{ life }}." },
       "commanderDamage": { "self": "changed commander damage from {{ previousValue }} to {{ value }}.", "other": "changed commander damage dealt to {{ target }} from {{ previousValue }} to {{ value }}." },
       "card": { "controllerChanged": { "self": "took control of a card.", "other": "changed a card's controller to {{ target }}." } },
+      "counter": { "changed": "set {{ counter }} to {{ value }}." },
+      "cardCounter": { "changed": "set {{ counter }} counters to {{ value }}." },
       "turn": { "changed": "finished their turn. {{ player }}'s turn begins.", "phaseChanged": "advanced to the {{ phase }} phase." },
       "disconnect": { "expelled": "was expelled after a disconnect vote." },
       "game": { "concede": "conceded." }
@@ -994,7 +996,12 @@
       "reorderTop": "{{ actor }} reordered the top {{ count }} cards of their library.",
       "putTop": "{{ actor }} put a card on top of their library.",
       "putBottom": "{{ actor }} put a card on the bottom of their library.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "view": "{{ actor }} looked at the top {{ count }} cards of their library.",
+      "reveal": "{{ actor }} revealed their library.",
+      "revealTop": "{{ actor }} revealed the top {{ count }} cards of their library.",
+      "playTopRevealed": "{{ actor }} is playing with the top card of their library revealed.",
+      "stoppedPlayingTopRevealed": "{{ actor }} stopped playing with the top card of their library revealed."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -1006,7 +1013,8 @@
       "revealed": "{{ actor }} revealed 1 card to {{ recipients }}.",
       "revealedMany": "{{ actor }} revealed {{ count }} cards to {{ recipients }}.",
       "tapped": "{{ actor }} tapped a permanent.",
-      "untapped": "{{ actor }} untapped a permanent."
+      "untapped": "{{ actor }} untapped a permanent.",
+      "movedMany": "{{ actor }} moved {{ count }} cards from {{ fromZone }} to {{ toZone }}."
     },
     "audience": { "all": "all players" },
     "cardStats": {
@@ -1018,6 +1026,8 @@
     "cardCounter": {
       "changed": "{{ actor }} set {{ counter }} counters to {{ value }}."
     },
+    "counter": { "changed": "{{ actor }} set {{ counter }} to {{ value }}." },
+    "battlefield": { "untappedAll": "{{ actor }} untapped {{ count }} permanents." },
     "life": {
       "changed": "{{ actor }} changed {{ player }}'s life from {{ previousLife }} to {{ life }}."
     },
@@ -1047,7 +1057,7 @@
     "arrow": { "created": "{{ actor }} created an arrow.", "removed": "{{ actor }} removed an arrow." },
     "attachment": { "created": "{{ actor }} attached a card.", "removed": "{{ actor }} removed an attachment." },
     "mulligan": { "taken": "{{ actor }} took a mulligan.", "kept": "{{ actor }} kept their hand.", "scryConfirmed": "{{ actor }} completed their mulligan scry." },
-    "disconnect": { "expelled": "{{ target }} was expelled after a disconnect vote." },
+    "disconnect": { "expelled": "{{ target }} was expelled after a disconnect vote.", "noVotersWait": "No connected players can vote. The table will wait for {{ target }}.", "voteOpened": "{{ target }} disconnected. A table vote has started.", "tableExpelled": "The table voted to expel {{ target }} after a disconnect.", "tableWait": "The table voted to wait for {{ target }}.", "voteCancelled": "{{ target }} reconnected. The table vote was cancelled.", "voteExpiredWait": "The disconnect vote expired. The table will wait." },
     "game": {
       "concede": "{{ player }} conceded."
     },

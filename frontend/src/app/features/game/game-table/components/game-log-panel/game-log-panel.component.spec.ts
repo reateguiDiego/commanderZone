@@ -16,30 +16,27 @@ describe('GameLogPanelComponent', () => {
 
   it('renders the semantic subject separately from its fragment', () => {
     fixture.componentRef.setInput('entries', [entry({
-      subject: { playerId: 'player-1', displayName: 'Alice' },
+      subject: { kind: 'player', playerId: 'player-1', displayName: 'Alice' },
       messagePrefix: 'changed Bruno\'s life from 40 to 37.',
     })]);
     fixture.detectChanges();
 
     const logEntry = fixture.nativeElement.querySelector('[data-testid="game-log-entry"]') as HTMLElement;
 
-    expect(logEntry.classList).toContain('with-subject');
     expect(logEntry.querySelector('strong')?.textContent).toBe('Alice');
     expect(logEntry.querySelector('strong')?.style.getPropertyValue('--log-author-color')).toBe('#123456');
     expect(logEntry.querySelector(':scope > span')?.textContent).toContain("changed Bruno's life from 40 to 37.");
   });
 
-  it('does not reserve a subject column for a legacy full message', () => {
+  it('renders a full legacy message with its resolved player subject', () => {
     fixture.componentRef.setInput('entries', [entry({
-      subject: null,
       messagePrefix: 'Legacy draw message.',
     })]);
     fixture.detectChanges();
 
     const logEntry = fixture.nativeElement.querySelector('[data-testid="game-log-entry"]') as HTMLElement;
 
-    expect(logEntry.classList).not.toContain('with-subject');
-    expect(logEntry.querySelector('strong')).toBeNull();
+    expect(logEntry.querySelector('strong')?.textContent).toBe('Alice');
     expect(logEntry.textContent).toContain('Legacy draw message.');
   });
 });
@@ -52,7 +49,7 @@ function entry(overrides: Partial<GameLogEntryView>): GameLogEntryView {
     createdAt: '2026-08-19T12:00:00Z',
     actorId: 'player-1',
     displayName: 'Alice',
-    subject: { playerId: 'player-1', displayName: 'Alice' },
+    subject: { kind: 'player', playerId: 'player-1', displayName: 'Alice' },
     card: null,
     cardList: [],
     cardListPrefix: '',

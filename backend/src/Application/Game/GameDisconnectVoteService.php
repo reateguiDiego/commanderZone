@@ -67,7 +67,7 @@ class GameDisconnectVoteService
         if ($voterIds === []) {
             $state = $this->resolvedState($state, self::STATUS_RESOLVED_WAIT, $now);
             $snapshot['disconnectVote'] = $state;
-            $this->appendSystemLog($snapshot, sprintf('No hay jugadores conectados para votar sobre %s. Se espera reconexion.', $this->playerName($snapshot, $targetPlayerId)), $now);
+            $this->appendSystemLog($snapshot, sprintf('No hay jugadores conectados para votar sobre %s. Se espera reconexion.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.noVotersWait', $targetPlayerId);
             $game->replaceRuntimeSnapshot($snapshot);
 
             return $this->createTechnicalEvent($game, $snapshot, 'open.skipped_wait', null);
@@ -84,7 +84,7 @@ class GameDisconnectVoteService
             'eligible' => $voterIds,
         ];
         $snapshot['disconnectVote'] = $state;
-        $this->appendSystemLog($snapshot, sprintf('%s se ha desconectado. Se abre votacion de mesa.', $this->playerName($snapshot, $targetPlayerId)), $now);
+        $this->appendSystemLog($snapshot, sprintf('%s se ha desconectado. Se abre votacion de mesa.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.voteOpened', $targetPlayerId);
         $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, 'opened', null);
@@ -156,10 +156,10 @@ class GameDisconnectVoteService
         if ($expelVotes >= $majority) {
             $resolution = self::STATUS_RESOLVED_EXPEL;
             $this->applyExpelResolution($game, $snapshot, $targetPlayerId, $now);
-            $this->appendSystemLog($snapshot, sprintf('La mesa decide expulsar a %s por desconexion.', $this->playerName($snapshot, $targetPlayerId)), $now);
+            $this->appendSystemLog($snapshot, sprintf('La mesa decide expulsar a %s por desconexion.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.tableExpelled', $targetPlayerId);
         } elseif ($waitVotes >= $majority) {
             $resolution = self::STATUS_RESOLVED_WAIT;
-            $this->appendSystemLog($snapshot, sprintf('La mesa decide esperar a %s.', $this->playerName($snapshot, $targetPlayerId)), $now);
+            $this->appendSystemLog($snapshot, sprintf('La mesa decide esperar a %s.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.tableWait', $targetPlayerId);
         }
 
         if ($resolution !== null) {
@@ -208,7 +208,7 @@ class GameDisconnectVoteService
         $state['cooldownUntil'] = null;
         $state['votes'] = [];
         $snapshot['disconnectVote'] = $state;
-        $this->appendSystemLog($snapshot, sprintf('%s se ha reconectado. Votacion cancelada.', $this->playerName($snapshot, $targetPlayerId)), $now);
+        $this->appendSystemLog($snapshot, sprintf('%s se ha reconectado. Votacion cancelada.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.voteCancelled', $targetPlayerId);
         $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, 'cancelled.reconnect', null);
@@ -229,11 +229,11 @@ class GameDisconnectVoteService
         $targetPlayerId = (string) ($state['targetPlayerId'] ?? '');
         $state = $this->resolvedState($state, self::STATUS_RESOLVED_WAIT, $now);
         $snapshot['disconnectVote'] = $state;
-        if ($targetPlayerId !== '') {
-            $this->appendSystemLog($snapshot, sprintf('Votacion de desconexion de %s expirada. Se decide esperar.', $this->playerName($snapshot, $targetPlayerId)), $now);
-        } else {
-            $this->appendSystemLog($snapshot, 'Votacion de desconexion expirada. Se decide esperar.', $now);
+        if ($targetPlayerId === '') {
+            return true;
         }
+
+        $this->appendSystemLog($snapshot, sprintf('Votacion de desconexion de %s expirada. Se decide esperar.', $this->playerName($snapshot, $targetPlayerId)), $now, 'gameLog.disconnect.voteExpiredWait', $targetPlayerId);
 
         return true;
     }
@@ -508,16 +508,24 @@ class GameDisconnectVoteService
         return $version + 1;
     }
 
-    private function appendSystemLog(array &$snapshot, string $message, \DateTimeImmutable $now): void
+    private function appendSystemLog(array &$snapshot, string $message, \DateTimeImmutable $now, string $i18nKey, string $targetPlayerId): void
     {
-        $snapshot['eventLog'][] = [
+        $entry = [
             'id' => Uuid::v7()->toRfc4122(),
             'type' => self::EVENT_TYPE,
             'message' => $message,
             'actorId' => null,
             'displayName' => 'System',
             'createdAt' => $now->format(DATE_ATOM),
+            'i18nKey' => $i18nKey,
+            'params' => ['targetPlayerId' => $targetPlayerId],
         ];
+        $entry['subject'] = ['kind' => 'player', 'playerId' => $targetPlayerId];
+        $entry['refs'] = ['players' => [
+            $targetPlayerId => ['id' => $targetPlayerId, 'displayName' => $this->playerName($snapshot, $targetPlayerId)],
+        ]];
+
+        $snapshot['eventLog'][] = $entry;
         $snapshot['eventLog'] = array_slice($snapshot['eventLog'], -250);
     }
 

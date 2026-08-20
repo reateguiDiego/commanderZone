@@ -61,6 +61,7 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		fields := map[string]any{
 			"i18nKey":    i18nKey,
 			"params":     params,
+			"subject":    runtimeLogSubject(i18nKey, params, actorPlayerID),
 			"visibility": "public",
 		}
 		if refs := runtimeLogRefs(game, playerIDs, cardIDs); len(refs) > 0 {
@@ -207,14 +208,20 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		params := baseParams()
 		params["playerId"] = playerID
 		return semantic("gameLog.library.shuffle", params, []string{actorPlayerID, playerID}, nil)
-	case "card.moved":
+	case "card.moved", "cards.moved":
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
 		fromZone := firstString(payload["fromZone"], command.Payload["fromZone"])
 		toZone := firstString(payload["toZone"], command.Payload["toZone"], payload["destination"], command.Payload["destination"])
 		params := baseParams()
 		params["fromZone"] = fromZone
 		params["toZone"] = toZone
-		params["count"] = 1
+		params["count"] = len(stringsFromAny(payload["instanceIds"]))
+		if params["count"] == 0 {
+			params["count"] = len(stringsFromAny(command.Payload["instanceIds"]))
+		}
+		if params["count"] == 0 {
+			params["count"] = 1
+		}
 		if instanceID != "" {
 			params["cardInstanceId"] = instanceID
 		}
@@ -223,6 +230,9 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 				params["commanderCastCount"] = casts
 				return semantic("gameLog.commander.cast", params, []string{actorPlayerID}, []string{instanceID})
 			}
+		}
+		if command.Type == "cards.moved" {
+			return semantic("gameLog.card.movedMany", params, []string{actorPlayerID}, nil)
 		}
 		return semantic("gameLog.card.moved", params, []string{actorPlayerID}, []string{instanceID})
 	case "card.tapped":
@@ -247,6 +257,15 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			params["cardInstanceId"] = instanceID
 		}
 		return semantic("gameLog.cardCounter.changed", params, []string{actorPlayerID}, []string{instanceID})
+	case "counter.changed":
+		params := baseParams()
+		params["counter"] = counterLabel(firstString(payload["key"], command.Payload["key"]))
+		params["value"] = intFromPayload(payload, "value", 0)
+		return semantic("gameLog.counter.changed", params, []string{actorPlayerID}, nil)
+	case "battlefield.untap_all":
+		params := baseParams()
+		params["count"] = len(stringsFromAny(payload["instanceIds"]))
+		return semantic("gameLog.battlefield.untappedAll", params, []string{actorPlayerID}, nil)
 	case "card.power_toughness.changed":
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
 		params := baseParams()
@@ -319,6 +338,22 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			params["sourceCardInstanceId"] = sourceID
 		}
 		return semantic("gameLog.tokenCopy.created", params, []string{actorPlayerID, playerID}, []string{instanceID, sourceID})
+	case "library.view":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", 1)
+		return semantic("gameLog.library.view", params, []string{actorPlayerID}, nil)
+	case "library.reveal":
+		return semantic("gameLog.library.reveal", baseParams(), []string{actorPlayerID}, nil)
+	case "library.reveal_top":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", 1)
+		return semantic("gameLog.library.revealTop", params, []string{actorPlayerID}, nil)
+	case "library.play_top_revealed":
+		key := "gameLog.library.stoppedPlayingTopRevealed"
+		if firstBool(payload["enabled"], command.Payload["enabled"]) {
+			key = "gameLog.library.playTopRevealed"
+		}
+		return semantic(key, baseParams(), []string{actorPlayerID}, nil)
 	case "game.concede":
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorIDFromPayload(command.Payload), actorPlayerID)
 		params := baseParams()
@@ -327,6 +362,22 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	return nil
+}
+
+func runtimeLogSubject(i18nKey string, params map[string]any, actorPlayerID string) map[string]any {
+	playerID := actorPlayerID
+	switch i18nKey {
+	case "gameLog.turn.changed":
+		playerID = firstString(params["previousPlayerId"])
+	case "gameLog.disconnect.expelled", "gameLog.game.concede":
+		playerID = firstString(params["targetPlayerId"], params["playerId"])
+	}
+
+	if playerID == "" {
+		playerID = actorPlayerID
+	}
+
+	return map[string]any{"kind": "player", "playerId": playerID}
 }
 
 func runtimeLogIncludesCardReference(commandType string) bool {

@@ -33,8 +33,19 @@ interface PlayerCounterChange {
   to: number;
 }
 
-export interface GameLogEntryView extends GameLogEntry {
-  subject: { playerId: string | null; displayName: string } | null;
+type GameLogSubjectView =
+  { kind: 'player'; playerId: string; displayName: string };
+
+const PLAYER_COUNTER_TRANSLATION_KEYS = new Set([
+  'poison',
+  'energy',
+  'experience',
+  'rad',
+  'tickets',
+]);
+
+export interface GameLogEntryView extends Omit<GameLogEntry, 'subject'> {
+  subject: GameLogSubjectView | null;
   card: GameCardInstance | null;
   cardList: readonly string[];
   cardListPrefix: string;
@@ -161,7 +172,16 @@ export class GameTableChatLogState {
     entry: GameLogEntry,
   ): { message: string; subject: GameLogEntryView['subject'] } {
     if (!entry.i18nKey) {
-      return { message: entry.message, subject: null };
+      const params = this.logTranslationParams(snapshot, entry);
+      const subject = this.logSubject(snapshot, entry, params);
+      const message = entry.message;
+      const legacyCounterFragment = this.legacyPlayerCounterFragment(message);
+
+      return {
+        message: legacyCounterFragment
+          ?? (subject ? this.removeSubjectPrefix(message, subject.displayName) ?? message : message),
+        subject,
+      };
     }
 
     const params = this.logTranslationParams(snapshot, entry);
@@ -182,16 +202,22 @@ export class GameTableChatLogState {
     const fullMessage = this.logMessage(snapshot, entry);
     const fragment = this.removeSubjectPrefix(fullMessage, subject.displayName);
 
-    return fragment === null
-      ? { message: fullMessage, subject: null }
-      : { message: fragment, subject };
+    return { message: fragment ?? fullMessage, subject };
   }
 
   private logSubject(
     snapshot: GameSnapshot | null,
     entry: GameLogEntry,
     params: Record<string, unknown>,
-  ): GameLogEntryView['subject'] {
+  ): GameLogSubjectView | null {
+    if (entry.subject?.kind === 'player') {
+      return {
+        kind: 'player',
+        playerId: entry.subject.playerId,
+        displayName: this.playerDisplayName(snapshot, entry, entry.subject.playerId),
+      };
+    }
+
     const actorPlayerId = this.stringParam(params, 'actorPlayerId') ?? entry.actorId ?? null;
     const playerId = this.stringParam(params, 'playerId');
     const targetPlayerId = this.stringParam(params, 'targetPlayerId');
@@ -207,8 +233,11 @@ export class GameTableChatLogState {
       ? this.playerDisplayName(snapshot, entry, subjectPlayerId)
       : entry.displayName?.trim() ?? '';
 
-    return displayName === '' ? null : { playerId: subjectPlayerId, displayName };
+    return displayName === '' || subjectPlayerId === null
+      ? null
+      : { kind: 'player', playerId: subjectPlayerId, displayName };
   }
+
 
   private fragmentTranslationKey(
     i18nKey: string,
@@ -227,6 +256,10 @@ export class GameTableChatLogState {
         return `gameLog.fragment.commanderDamage.${suffix}`;
       case 'gameLog.card.controllerChanged':
         return `gameLog.fragment.card.controllerChanged.${suffix}`;
+      case 'gameLog.counter.changed':
+        return 'gameLog.fragment.counter.changed';
+      case 'gameLog.cardCounter.changed':
+        return 'gameLog.fragment.cardCounter.changed';
       case 'gameLog.turn.changed':
         return 'gameLog.fragment.turn.changed';
       case 'gameLog.turn.phaseChanged':
@@ -292,7 +325,7 @@ export class GameTableChatLogState {
       count: params['count'] ?? '',
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
       toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
-      counter: params['counter'] ?? '',
+      counter: this.counterLabel(params['counter']),
       value: params['value'] ?? '',
       cardName: params['cardName'] ?? '',
       faceName: params['faceName'] ?? '',
@@ -434,6 +467,37 @@ export class GameTableChatLogState {
 
   private isConcedeLog(entry: GameLogEntry): boolean {
     return entry.type === 'game.concede';
+  }
+
+  private counterLabel(counter: unknown): string {
+    const rawCounter = typeof counter === 'string' ? counter.trim() : '';
+    const normalizedCounter = rawCounter.toLowerCase();
+    if (!PLAYER_COUNTER_TRANSLATION_KEYS.has(normalizedCounter)) {
+      return rawCounter;
+    }
+
+    const key = `game.playerCounters.${normalizedCounter}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? rawCounter : translated;
+  }
+
+  private legacyPlayerCounterFragment(message: string): string | null {
+    const match = /^.+?\s+set\s+(poison|energy|experience|rad|tickets)\s+to\s+(-?\d+)\.$/i.exec(message)
+      ?? /^.+?\s+(poison|energy|experience|rad|tickets)\s+counter\s+(?:increased|decreased)\s+from\s+-?\d+\s+to\s+(-?\d+)\.$/i.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    const counter = match[1].toLowerCase();
+    if (!PLAYER_COUNTER_TRANSLATION_KEYS.has(counter)) {
+      return null;
+    }
+
+    return this.translateRuntime('gameLog.fragment.counter.changed', {
+      counter: this.counterLabel(counter),
+      value: match[2],
+    });
   }
 
   private phaseLabel(phase: string | null): string {

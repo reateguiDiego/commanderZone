@@ -102,6 +102,13 @@ func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
 		{"library.put_bottom", map[string]any{}},
 		{"zone.random_card.selected", map[string]any{"zone": "hand"}},
 		{"zone.move_all", map[string]any{"count": 2, "fromZone": "graveyard", "toZone": "exile"}},
+		{"cards.moved", map[string]any{"instanceIds": []string{"i1", "i2"}, "fromZone": "hand", "toZone": "graveyard"}},
+		{"battlefield.untap_all", map[string]any{"instanceIds": []string{"i1", "i2"}}},
+		{"counter.changed", map[string]any{"key": "poison", "value": 2}},
+		{"library.view", map[string]any{"count": 3}},
+		{"library.reveal", map[string]any{}},
+		{"library.reveal_top", map[string]any{"count": 2}},
+		{"library.play_top_revealed", map[string]any{"enabled": true}},
 		{"stack.card_added", map[string]any{}}, {"stack.item_removed", map[string]any{}},
 		{"arrow.created", map[string]any{}}, {"arrow.removed", map[string]any{}},
 		{"attachment.created", map[string]any{}}, {"attachment.removed", map[string]any{}},
@@ -115,6 +122,8 @@ func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
 		}
 		if semantic := runtimeLogSemantic(&game, command, testCase.payload, "p1"); semantic == nil {
 			t.Fatalf("%s did not produce semantic log metadata", testCase.commandType)
+		} else if subject, ok := semantic["subject"].(map[string]any); !ok || subject["kind"] != "player" || subject["playerId"] != "p1" {
+			t.Fatalf("%s subject = %#v, want player p1", testCase.commandType, semantic["subject"])
 		}
 	}
 	phasePayload := map[string]any{
