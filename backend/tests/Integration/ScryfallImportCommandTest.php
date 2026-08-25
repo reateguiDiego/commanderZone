@@ -10,10 +10,44 @@ use App\Infrastructure\Scryfall\ScryfallCardMetadataBackfillCommand;
 use App\Infrastructure\Scryfall\ScryfallSyncCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class ScryfallImportCommandTest extends ApiTestCase
 {
+    public function testScryfallSyncContinuesWhenRulingsBulkDataIsUnavailable(): void
+    {
+        $scryfallId = '40000000-0000-0000-0000-000000000099';
+        $this->seedCard($scryfallId, 'Existing Ruling Card', ['has_rulings' => true]);
+        $cards = [$this->scryfallCardData($scryfallId, 'Existing Ruling Card')];
+        $httpClient = new MockHttpClient([
+            new MockResponse(json_encode(['data' => []], JSON_THROW_ON_ERROR)),
+            new MockResponse(json_encode(['data' => [[
+                'type' => 'all_cards',
+                'download_uri' => 'https://data.scryfall.test/all-cards.json',
+            ]]], JSON_THROW_ON_ERROR)),
+            new MockResponse(json_encode($cards, JSON_THROW_ON_ERROR)),
+        ]);
+        $command = new ScryfallSyncCommand(
+            new ScryfallBulkDataClient($httpClient, 'test-agent'),
+            $this->entityManager->getConnection(),
+            new CardSearchOptionsRebuilder($this->entityManager->getConnection()),
+            new CardSearchEntryRebuilder($this->entityManager->getConnection()),
+            '512M',
+        );
+
+        $tester = new CommandTester($command);
+        $status = $tester->execute(['--bulk-type' => 'all_cards']);
+
+        self::assertSame(Command::SUCCESS, $status);
+        self::assertTrue((bool) $this->entityManager->getConnection()->fetchOne(
+            'SELECT has_rulings FROM card WHERE scryfall_id = :scryfallId',
+            ['scryfallId' => $scryfallId],
+        ));
+        self::assertStringContainsString('Continuing without changing existing has_rulings values.', $tester->getDisplay());
+    }
+
     public function testScryfallSyncSkipsUnavailablePrintRows(): void
     {
         $cardsFile = $this->writeTempJson([
