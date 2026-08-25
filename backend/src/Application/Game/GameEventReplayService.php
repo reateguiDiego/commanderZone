@@ -305,7 +305,13 @@ final class GameEventReplayService
             case 'library.play_top_revealed':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
                 if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
-                    $snapshot['players'][$playerId]['playTopLibraryRevealed'] = ($payload['enabled'] ?? true) === true;
+                    $enabled = ($payload['enabled'] ?? true) === true;
+                    $snapshot['players'][$playerId]['playTopLibraryRevealed'] = $enabled;
+                    if ($enabled && is_array($payload['viewers'] ?? null)) {
+                        $snapshot['players'][$playerId]['playTopLibraryRevealedTo'] = $this->stringList($payload['viewers']);
+                    } elseif (!$enabled) {
+                        unset($snapshot['players'][$playerId]['playTopLibraryRevealedTo']);
+                    }
                 }
 
                 return true;
@@ -1620,6 +1626,10 @@ final class GameEventReplayService
         $targetPlayerId = (string) ($to['playerId'] ?? '');
         $targetZone = (string) ($to['zone'] ?? '');
         $targetIndex = array_key_exists('index', $to) ? max(0, (int) $to['index']) : null;
+        if ($sourceZone === 'library' && $targetZone !== 'library') {
+            $card['revealedTo'] = [];
+            unset($card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY]);
+        }
         if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
             $this->resetBattlefieldExitCard($card, $targetPlayerId);
             $this->pruneBattlefieldRelationsForMovedInstance($snapshot, $instanceId);

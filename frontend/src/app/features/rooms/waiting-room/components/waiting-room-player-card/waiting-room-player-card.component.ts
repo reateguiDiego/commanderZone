@@ -1,7 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { DeckBracketEstimate } from '../../../../../core/models/deck-analysis.model';
+import { DeckBracketLabel } from '../../../../../core/models/deck-analysis.model';
 import { RoomPlayer } from '../../../../../core/models/room.model';
 import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
 import { BracketLabelPillComponent } from '../../../../../shared/ui/bracket-label-pill/bracket-label-pill.component';
@@ -26,7 +26,7 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');
-  readonly deckBracket = input<DeckBracketEstimate | null>(null);
+  readonly deckBracket = input<DeckBracketLabel | null>(null);
   readonly turnPosition = input<number | null>(null);
   readonly updatingDeck = input(false);
   readonly deckLocked = input(false);

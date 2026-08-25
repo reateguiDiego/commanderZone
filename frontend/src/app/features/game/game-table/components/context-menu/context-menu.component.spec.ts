@@ -1161,7 +1161,7 @@ describe('ContextMenuComponent', () => {
       'Reveal top card›',
       'Reveal X top cards›',
       'Reveal library›',
-      'Play with top card revealed',
+      'Play with top card revealed›',
       'Shuffle S',
       'Select random card',
       'View›',
@@ -1202,9 +1202,15 @@ describe('ContextMenuComponent', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.libraryRevealMenuItems().map((item) => item.value)).toEqual(['user-2', 'user-3']);
     fixture.componentInstance.selectLibraryRevealTarget('user-2');
-    const playTopButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Play with top card revealed'));
-    playTopButton?.click();
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryPlayTopRevealed');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryPlayTopRevealedMenuItems().map((item) => item.value)).toEqual([
+      'play:all',
+      'play:user-1',
+      'play:user-2',
+      'play:user-3',
+    ]);
+    fixture.componentInstance.selectLibraryPlayTopRevealedTarget('play:user-2');
     fixture.componentInstance.selectLibraryView('top');
     fixture.componentInstance.selectLibraryView('all');
 
@@ -1215,7 +1221,7 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'revealTop', target: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'revealTopPrompt', targetPlayerId: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'revealLibrary', targetPlayerId: 'user-2' });
-    expect(selected).toHaveBeenCalledWith({ type: 'playTopRevealed', enabled: true });
+    expect(selected).toHaveBeenCalledWith({ type: 'playTopRevealed', enabled: true, target: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'top' });
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'all' });
   });

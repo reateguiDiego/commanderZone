@@ -10,7 +10,6 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { DeckBracketEstimate } from '../../../core/models/deck-analysis.model';
 import { Deck } from '../../../core/models/deck.model';
 import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
@@ -87,8 +86,6 @@ export class WaitingRoomComponent implements OnDestroy {
   private copiedFeedbackHandle?: number;
   private playerOrderAnimationFrame?: number;
   private lastAutoTiePromptKey = '';
-  private readonly deckBrackets = new Map<string, DeckBracketEstimate>();
-  private readonly loadingDeckBracketIds = new Set<string>();
 
   readonly roomId = computed(() => this.route.snapshot.paramMap.get('id')?.trim() ?? '');
   readonly decks = signal<Deck[]>([]);
@@ -133,7 +130,6 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly updatingMulligan = signal(false);
   readonly inviteModalOpen = signal(false);
   readonly deckSelectorOpen = signal(false);
-  readonly selectedDeckBracket = signal<DeckBracketEstimate | null>(null);
   readonly copiedTarget = signal<'code' | 'link' | null>(null);
   readonly currentTieBreakPrompt = computed<TurnOrderTiePrompt | null>(() => {
     const room = this.currentRoom();
@@ -1059,36 +1055,10 @@ export class WaitingRoomComponent implements OnDestroy {
     const deckId = currentPlayer?.deckId;
 
     if (!deckId) {
-      this.selectedDeckBracket.set(null);
       return;
     }
 
     this.selectedDeckId = deckId;
-    this.loadSelectedDeckBracket(deckId);
-  }
-
-  private loadSelectedDeckBracket(deckId: string): void {
-    const cachedBracket = this.deckBrackets.get(deckId);
-    if (cachedBracket) {
-      this.selectedDeckBracket.set(cachedBracket);
-      return;
-    }
-
-    this.selectedDeckBracket.set(null);
-    if (this.loadingDeckBracketIds.has(deckId)) {
-      return;
-    }
-
-    this.loadingDeckBracketIds.add(deckId);
-    void firstValueFrom(this.decksApi.bracketAnalysis(deckId))
-      .then(({ bracket }) => {
-        this.deckBrackets.set(deckId, bracket);
-        if (!this.destroyed && this.selectedDeckId === deckId) {
-          this.selectedDeckBracket.set(bracket);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => this.loadingDeckBracketIds.delete(deckId));
   }
 
   private currentUserId(): string | null {

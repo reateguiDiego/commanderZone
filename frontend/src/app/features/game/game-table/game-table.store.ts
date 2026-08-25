@@ -1036,8 +1036,8 @@ export class GameTableStore implements OnDestroy {
     await this.libraryActions.stopRevealTop(this.contexts.libraryAction(), playerId, target);
   }
 
-  async setPlayTopRevealed(playerId: string, enabled: boolean): Promise<void> {
-    await this.libraryActions.setPlayTopRevealed(this.contexts.libraryAction(), playerId, enabled);
+  async setPlayTopRevealed(playerId: string, enabled: boolean, target?: string): Promise<void> {
+    await this.libraryActions.setPlayTopRevealed(this.contexts.libraryAction(), playerId, enabled, target);
   }
 
   async revealLibrary(playerId: string, targetPlayerId: string): Promise<void> {

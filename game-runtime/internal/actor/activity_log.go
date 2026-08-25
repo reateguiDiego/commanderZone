@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -167,7 +168,6 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	case "card.face_down.inspected":
 		return semantic("gameLog.card.faceDownInspected", baseParams(), []string{actorPlayerID}, nil)
 	case "card.revealed":
-		viewers := stringsFromAny(payload["viewers"])
 		count := len(stringsFromAny(payload["instanceIds"]))
 		if count == 0 {
 			count = len(stringsFromAny(command.Payload["instanceIds"]))
@@ -178,16 +178,18 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		params := baseParams()
 		params["playerId"] = firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
 		params["count"] = count
-		isAll := firstString(command.Payload["to"]) == "all" || len(viewers) == len(game.Players)
-		if isAll {
-			params["revealAudience"] = "all"
-		} else {
-			params["revealAudience"] = "players"
-			params["recipientPlayerIds"] = viewers
-		}
+		params["zone"] = runtimeLogRevealZone(game, command, payload)
+		viewers := runtimeLogRevealAudience(game, command, payload, params)
 		key := "gameLog.card.revealed"
+		if !firstBool(payload["revealed"], command.Payload["revealed"]) {
+			key = "gameLog.card.stoppedRevealing"
+		}
 		if count != 1 {
-			key = "gameLog.card.revealedMany"
+			if key == "gameLog.card.revealed" {
+				key = "gameLog.card.revealedMany"
+			} else {
+				key = "gameLog.card.stoppedRevealingMany"
+			}
 		}
 		return semantic(key, params, append([]string{actorPlayerID}, viewers...), nil)
 	case "library.play_top_face_down":
@@ -347,13 +349,20 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	case "library.reveal_top":
 		params := baseParams()
 		params["count"] = intFromPayload(payload, "count", 1)
-		return semantic("gameLog.library.revealTop", params, []string{actorPlayerID}, nil)
+		viewers := runtimeLogRevealAudience(game, command, payload, params)
+		key := "gameLog.library.revealTop"
+		if firstBool(payload["stop"], command.Payload["stop"]) {
+			key = "gameLog.library.stoppedRevealingTop"
+		}
+		return semantic(key, params, append([]string{actorPlayerID}, viewers...), nil)
 	case "library.play_top_revealed":
 		key := "gameLog.library.stoppedPlayingTopRevealed"
 		if firstBool(payload["enabled"], command.Payload["enabled"]) {
 			key = "gameLog.library.playTopRevealed"
 		}
-		return semantic(key, baseParams(), []string{actorPlayerID}, nil)
+		params := baseParams()
+		viewers := runtimeLogRevealAudience(game, command, payload, params)
+		return semantic(key, params, append([]string{actorPlayerID}, viewers...), nil)
 	case "game.concede":
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorIDFromPayload(command.Payload), actorPlayerID)
 		params := baseParams()
@@ -362,6 +371,157 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	return nil
+}
+
+func runtimeLogRevealAudience(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, params map[string]any) []string {
+	viewers := stringsFromAny(payload["viewers"])
+	if len(viewers) == 0 {
+		viewers = stringsFromAny(command.Payload["viewers"])
+	}
+	if len(viewers) == 0 {
+		viewers = runtimeLogRevealViewersFromTarget(game, command.Payload["to"])
+	}
+	if len(viewers) == 0 {
+		mask := intFromPayload(payload, "visibleToMask", intFromPayload(command.Payload, "visibleToMask", 0))
+		if mask > 0 {
+			viewers = viewerIDsForMask(game, uint64(mask))
+		}
+	}
+	viewers = uniqueSortedPlayerIDs(viewers)
+	if firstString(command.Payload["to"]) == "all" || samePlayers(viewers, game) {
+		params["revealAudience"] = "all"
+		return viewers
+	}
+	params["revealAudience"] = "players"
+	params["recipientPlayerIds"] = viewers
+	return viewers
+}
+
+func runtimeLogRevealZone(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any) string {
+	if zone := firstString(payload["zone"], command.Payload["zone"]); zone != "" {
+		return zone
+	}
+	instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+	if instanceID == "" {
+		instanceIDs := stringsFromAny(payload["instanceIds"])
+		if len(instanceIDs) > 0 {
+			instanceID = instanceIDs[0]
+		}
+	}
+	if location, exists := game.Loc[instanceID]; exists {
+		return string(location.Zone)
+	}
+	return string(state.ZoneHand)
+}
+
+func runtimePrivateRevealLogEntries(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, publicEntries []map[string]any) map[string][]map[string]any {
+	if len(publicEntries) != 1 || firstBool(payload["stop"], command.Payload["stop"]) {
+		return nil
+	}
+
+	var i18nKey string
+	var instanceID string
+	var playerID string
+	var zone string
+	switch command.Type {
+	case "card.revealed":
+		if !firstBool(payload["revealed"], command.Payload["revealed"]) {
+			return nil
+		}
+		instanceIDs := stringsFromAny(payload["instanceIds"])
+		if len(instanceIDs) != 1 {
+			return nil
+		}
+		i18nKey = "gameLog.card.revealedNamed"
+		instanceID = instanceIDs[0]
+		playerID = firstString(payload["playerId"], command.Payload["playerId"])
+		zone = runtimeLogRevealZone(game, command, payload)
+	case "library.reveal_top":
+		instanceIDs := stringsFromAny(payload["instanceIds"])
+		if len(instanceIDs) != 1 {
+			return nil
+		}
+		i18nKey = "gameLog.library.revealTopNamed"
+		instanceID = instanceIDs[0]
+		playerID = firstString(payload["playerId"], command.Payload["playerId"])
+		zone = string(state.ZoneLibrary)
+	default:
+		return nil
+	}
+
+	cardName := firstString(command.Payload["revealedCardName"])
+	if cardName == "" || instanceID == "" {
+		return nil
+	}
+	viewers := runtimeLogRevealAudience(game, command, payload, map[string]any{})
+	if len(viewers) == 0 {
+		return nil
+	}
+
+	privateEntries := make(map[string][]map[string]any, len(viewers))
+	for _, viewerID := range viewers {
+		entry := cloneRuntimeLogEntry(publicEntries[0])
+		entry["i18nKey"] = i18nKey
+		entry["visibility"] = "private"
+		entry["cardInstanceId"] = instanceID
+		entry["cardPlayerId"] = playerID
+		entry["cardZone"] = zone
+		params, _ := entry["params"].(map[string]any)
+		params = cloneMap(params)
+		params["cardName"] = cardName
+		entry["params"] = params
+		privateEntries[viewerID] = []map[string]any{entry}
+	}
+	return privateEntries
+}
+
+func cloneRuntimeLogEntry(entry map[string]any) map[string]any {
+	cloned := make(map[string]any, len(entry))
+	for key, value := range entry {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func runtimeLogRevealViewersFromTarget(game *state.GameState, target any) []string {
+	if firstString(target) == "all" {
+		viewers := make([]string, 0, len(game.Players))
+		for playerID := range game.Players {
+			viewers = append(viewers, playerID)
+		}
+		return viewers
+	}
+	return stringsFromAny(target)
+}
+
+func uniqueSortedPlayerIDs(playerIDs []string) []string {
+	seen := make(map[string]struct{}, len(playerIDs))
+	unique := make([]string, 0, len(playerIDs))
+	for _, playerID := range playerIDs {
+		playerID = strings.TrimSpace(playerID)
+		if playerID == "" {
+			continue
+		}
+		if _, exists := seen[playerID]; exists {
+			continue
+		}
+		seen[playerID] = struct{}{}
+		unique = append(unique, playerID)
+	}
+	sort.Strings(unique)
+	return unique
+}
+
+func samePlayers(viewers []string, game *state.GameState) bool {
+	if len(viewers) != len(game.Players) || len(viewers) == 0 {
+		return false
+	}
+	for _, viewerID := range viewers {
+		if _, exists := game.Players[viewerID]; !exists {
+			return false
+		}
+	}
+	return true
 }
 
 func runtimeLogSubject(i18nKey string, params map[string]any, actorPlayerID string) map[string]any {
@@ -382,7 +542,7 @@ func runtimeLogSubject(i18nKey string, params map[string]any, actorPlayerID stri
 
 func runtimeLogIncludesCardReference(commandType string) bool {
 	switch commandType {
-	case "card.face_down.inspected", "library.play_top_face_down", "card.face_down.changed", "library.put_top", "library.put_bottom", "zone.random_card.selected":
+	case "card.face_down.inspected", "card.revealed", "library.reveal_top", "library.play_top_face_down", "card.face_down.changed", "library.put_top", "library.put_bottom", "zone.random_card.selected":
 		return false
 	default:
 		return true
@@ -625,21 +785,34 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		return fmt.Sprintf("%s revealed their library.", displayName)
 	case "library.reveal_top":
 		count := intFromPayload(payload, "count", 1)
-		return fmt.Sprintf("%s revealed the top %d cards of their library.", displayName, count)
+		recipients := runtimeLogRecipientText(game, command, payload)
+		if firstBool(payload["stop"], command.Payload["stop"]) {
+			return fmt.Sprintf("%s stopped revealing the top card of their library to %s.", displayName, recipients)
+		}
+		return fmt.Sprintf("%s revealed the top %d cards of their library to %s.", displayName, count, recipients)
 	case "card.revealed":
 		count := len(stringsFromAny(payload["instanceIds"]))
 		if count == 0 {
 			count = 1
 		}
+		recipients := runtimeLogRecipientText(game, command, payload)
+		zone := readableZone(runtimeLogRevealZone(game, command, payload))
+		if !firstBool(payload["revealed"], command.Payload["revealed"]) {
+			if count == 1 {
+				return fmt.Sprintf("%s stopped revealing 1 card from their %s to %s.", displayName, zone, recipients)
+			}
+			return fmt.Sprintf("%s stopped revealing %d cards from their %s to %s.", displayName, count, zone, recipients)
+		}
 		if count == 1 {
-			return fmt.Sprintf("%s revealed 1 card.", displayName)
+			return fmt.Sprintf("%s revealed 1 card from their %s to %s.", displayName, zone, recipients)
 		}
-		return fmt.Sprintf("%s revealed %d cards.", displayName, count)
+		return fmt.Sprintf("%s revealed %d cards from their %s to %s.", displayName, count, zone, recipients)
 	case "library.play_top_revealed":
+		recipients := runtimeLogRecipientText(game, command, payload)
 		if firstBool(payload["enabled"], command.Payload["enabled"]) {
-			return fmt.Sprintf("%s is playing with the top card of their library revealed.", displayName)
+			return fmt.Sprintf("%s is playing with the top card of their library revealed to %s.", displayName, recipients)
 		}
-		return fmt.Sprintf("%s stopped playing with the top card of their library revealed.", displayName)
+		return fmt.Sprintf("%s stopped playing with the top card of their library revealed to %s.", displayName, recipients)
 	case "library.shuffle":
 		return fmt.Sprintf("%s shuffled their library.", displayName)
 	case "game.concede":
@@ -648,6 +821,19 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		return fmt.Sprintf("%s conceded.", name)
 	}
 	return ""
+}
+
+func runtimeLogRecipientText(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any) string {
+	params := map[string]any{}
+	viewers := runtimeLogRevealAudience(game, command, payload, params)
+	if params["revealAudience"] == "all" || len(viewers) == 0 {
+		return "all players"
+	}
+	names := make([]string, 0, len(viewers))
+	for _, viewerID := range viewers {
+		names = append(names, playerDisplayName(game, viewerID))
+	}
+	return strings.Join(names, ", ")
 }
 
 func runtimeLogCardNames(payload map[string]any) []string {

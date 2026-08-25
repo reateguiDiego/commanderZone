@@ -54,6 +54,8 @@ final class CompactGameCardStateMapper
         $instances = is_array($snapshot['instances'] ?? null) ? $snapshot['instances'] : [];
         $loc = is_array($snapshot['loc'] ?? null) ? $snapshot['loc'] : [];
         $relations = is_array($snapshot['relations'] ?? null) ? $snapshot['relations'] : [];
+        $visibility = is_array($snapshot['visibility'] ?? null) ? $snapshot['visibility'] : [];
+        $instances = $this->restoreRuntimeVisibilityAudiences($instances, $players, $zones, $visibility);
 
         $legacy = $snapshot;
         unset(
@@ -67,7 +69,7 @@ final class CompactGameCardStateMapper
             $legacy['visibility'],
             $legacy['relations']
         );
-        $legacy['visibility'] = is_array($snapshot['visibility'] ?? null) ? $snapshot['visibility'] : [];
+        $legacy['visibility'] = $visibility;
 
         $legacy['players'] = [];
         foreach ($players as $playerId => $player) {
@@ -394,8 +396,112 @@ final class CompactGameCardStateMapper
         if (is_array($card['dungeonMarker'] ?? null)) {
             $hydrated['dungeonMarker'] = $card['dungeonMarker'];
         }
+        if (array_key_exists('libraryVisibilityEpoch', $card)) {
+            $hydrated['libraryVisibilityEpoch'] = max(1, (int) $card['libraryVisibilityEpoch']);
+        }
 
         return $hydrated;
+    }
+
+    /**
+     * The Go runtime keeps hidden-zone visibility in a compact index rather
+     * than duplicating audiences on every card instance. Restore that audience
+     * before converting back to the legacy projection shape, otherwise a
+     * directed top-library reveal is lost when its recipient reconnects.
+     *
+     * @param array<string,array<string,mixed>> $instances
+     * @param array<string,array<string,mixed>> $players
+     * @param array<string,array<string,list<string>>> $zones
+     * @param array<string,mixed> $visibility
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function restoreRuntimeVisibilityAudiences(array $instances, array &$players, array $zones, array $visibility): array
+    {
+        $viewerBits = is_array($visibility['viewerBits'] ?? null) ? $visibility['viewerBits'] : [];
+        $instanceMasks = is_array($visibility['instanceMasks'] ?? null) ? $visibility['instanceMasks'] : [];
+        $libraryInstanceIds = [];
+        foreach ($zones as $playerZones) {
+            if (!is_array($playerZones) || !is_array($playerZones['library'] ?? null)) {
+                continue;
+            }
+            foreach ($playerZones['library'] as $instanceId) {
+                if (is_string($instanceId) && $instanceId !== '') {
+                    $libraryInstanceIds[$instanceId] = true;
+                }
+            }
+        }
+
+        foreach ($instanceMasks as $instanceId => $rawMask) {
+            if (!is_string($instanceId) || !is_array($instances[$instanceId] ?? null)) {
+                continue;
+            }
+
+            $mask = max(0, (int) $rawMask);
+            $viewers = $this->viewerIdsForMask($viewerBits, $mask);
+            $instances[$instanceId]['visibleToMask'] = $mask;
+            $instances[$instanceId]['visibleTo'] = $viewers;
+            $instances[$instanceId]['revealedTo'] = $viewers;
+            if (isset($libraryInstanceIds[$instanceId])) {
+                $instances[$instanceId]['libraryVisibilityEpoch'] = 1;
+            }
+        }
+
+        $topRevealWindows = is_array($visibility['topRevealWindows'] ?? null) ? $visibility['topRevealWindows'] : [];
+        foreach ($topRevealWindows as $ownerId => $window) {
+            if (!is_string($ownerId) || !is_array($window)) {
+                continue;
+            }
+
+            $library = is_array($zones[$ownerId]['library'] ?? null) ? $zones[$ownerId]['library'] : [];
+            $count = max(0, (int) ($window['count'] ?? 0));
+            $mask = max(0, (int) ($window['mask'] ?? 0));
+            $viewers = is_array($window['to'] ?? null)
+                ? array_values(array_filter($window['to'], static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''))
+                : $this->viewerIdsForMask($viewerBits, $mask);
+            $epoch = max(1, (int) ($window['epoch'] ?? 1));
+
+            // The Go runtime begins its visibility generation at zero, while
+            // the PHP projection normalizes epochs to one or greater. Keep
+            // the player and its restored top cards on that same generation.
+            if (is_array($players[$ownerId] ?? null)) {
+                $players[$ownerId]['libraryVisibilityEpoch'] = $epoch;
+            }
+
+            foreach (array_slice(array_reverse($library), 0, $count) as $instanceId) {
+                if (!is_string($instanceId) || !is_array($instances[$instanceId] ?? null)) {
+                    continue;
+                }
+
+                $instances[$instanceId]['visibleToMask'] = $mask;
+                $instances[$instanceId]['visibleTo'] = $viewers;
+                $instances[$instanceId]['revealedTo'] = $viewers;
+                $instances[$instanceId]['libraryVisibilityEpoch'] = $epoch;
+            }
+        }
+
+        return $instances;
+    }
+
+    /**
+     * @param array<string,mixed> $viewerBits
+     *
+     * @return list<string>
+     */
+    private function viewerIdsForMask(array $viewerBits, int $mask): array
+    {
+        if ($mask <= 0) {
+            return [];
+        }
+
+        $viewerIds = [];
+        foreach ($viewerBits as $viewerId => $rawBit) {
+            if (is_string($viewerId) && (((int) $rawBit & $mask) !== 0)) {
+                $viewerIds[] = $viewerId;
+            }
+        }
+
+        return $viewerIds;
     }
 
     private function zoneCarriesPublicIdentity(string $zone): bool

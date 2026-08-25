@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }}は自分のライブラリを切り直す。",
       "view": "{{ actor }} は、ライブラリーの上位の {{ count }} カードを調べました。",
       "reveal": "{{ actor }} がそのライブラリを公開しました。",
-      "revealTop": "{{ actor }} は、ライブラリーに最初の {{ count }} カードを公開しました。",
-      "playTopRevealed": "{{ actor }} はライブラリーの最初のカードを公開してプレイします。",
-      "stoppedPlayingTopRevealed": "{{ actor }} はライブラリーの最初のカードが公開された状態でプレイを停止しました。"
+      "revealTop": "{{ actor }} はライブラリーの上から {{ count }} 枚のカードを {{ recipients }} に公開しました。",
+      "revealTopNamed": "{{ actor }} はライブラリーの一番上のカード、{{ cardName }} を {{ recipients }} に公開しました。",
+      "stoppedRevealingTop": "{{ actor }} はライブラリーの一番上のカードを {{ recipients }} に公開するのをやめました。",
+      "playTopRevealed": "{{ actor }} はライブラリーの一番上のカードを {{ recipients }} に公開してプレイします。",
+      "stoppedPlayingTopRevealed": "{{ actor }} はライブラリーの一番上のカードを {{ recipients }} に公開してプレイするのをやめました。"
     },
     "commanderDamage": {
       "changed": "{{ actor }} は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更しました。"
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。",
       "turnedFaceUp": "{{ actor }} はカードを表向きにしました。",
       "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。",
-      "revealed": "{{ actor }} は {{ recipients }} にカードを1枚公開しました。",
-      "revealedMany": "{{ actor }} は {{ recipients }} にカードを{{ count }}枚公開しました。",
+      "revealed": "{{ actor }} は自分の{{ zone }}からカードを1枚 {{ recipients }} に公開しました。",
+      "revealedNamed": "{{ actor }} は自分の{{ zone }}から {{ cardName }} を {{ recipients }} に公開しました。",
+      "revealedMany": "{{ actor }} は自分の{{ zone }}からカードを{{ count }}枚 {{ recipients }} に公開しました。",
+      "stoppedRevealing": "{{ actor }} は自分の{{ zone }}からカードを1枚 {{ recipients }} に公開するのをやめました。",
+      "stoppedRevealingMany": "{{ actor }} は自分の{{ zone }}からカードを{{ count }}枚 {{ recipients }} に公開するのをやめました。",
       "moved": "{{ actor }} はカードを {{ fromZone }} から {{ toZone }} に移動しました。",
       "tapped": "{{ actor }} がパーマネントをタップしました。",
       "untapped": "{{ actor }} はパーマネントをアンタップしました。",

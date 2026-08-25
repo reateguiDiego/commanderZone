@@ -999,9 +999,11 @@
       "shuffle": "{{ actor }} barajó su biblioteca.",
       "view": "{{ actor }} miró las {{ count }} primeras cartas de su biblioteca.",
       "reveal": "{{ actor }} reveló su biblioteca.",
-      "revealTop": "{{ actor }} reveló las {{ count }} primeras cartas de su biblioteca.",
-      "playTopRevealed": "{{ actor }} juega con la primera carta de su biblioteca revelada.",
-      "stoppedPlayingTopRevealed": "{{ actor }} dejó de jugar con la primera carta de su biblioteca revelada."
+      "revealTop": "{{ actor }} reveló las {{ count }} primeras cartas de su biblioteca a {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} reveló {{ cardName }}, la primera carta de su biblioteca, a {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} dejó de revelar la primera carta de su biblioteca a {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} juega con la primera carta de su biblioteca revelada para {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} dejó de jugar con la primera carta de su biblioteca revelada para {{ recipients }}."
     },
     "card": {
       "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
@@ -1010,8 +1012,11 @@
       "turnedFaceDown": "{{ actor }} puso una carta boca abajo.",
       "turnedFaceUp": "{{ actor }} puso una carta boca arriba.",
       "controllerChanged": "{{ actor }} cambió el controlador de una carta a {{ target }}.",
-      "revealed": "{{ actor }} reveló 1 carta a {{ recipients }}.",
-      "revealedMany": "{{ actor }} reveló {{ count }} cartas a {{ recipients }}.",
+      "revealed": "{{ actor }} reveló 1 carta de su {{ zone }} a {{ recipients }}.",
+      "revealedNamed": "{{ actor }} reveló {{ cardName }} de su {{ zone }} a {{ recipients }}.",
+      "revealedMany": "{{ actor }} reveló {{ count }} cartas de su {{ zone }} a {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} dejó de revelar 1 carta de su {{ zone }} a {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} dejó de revelar {{ count }} cartas de su {{ zone }} a {{ recipients }}.",
       "tapped": "{{ actor }} giró un permanente.",
       "untapped": "{{ actor }} enderezó un permanente.",
       "movedMany": "{{ actor }} movió {{ count }} cartas de {{ fromZone }} a {{ toZone }}."

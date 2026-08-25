@@ -306,15 +306,17 @@ function appendUniqueEventLogEntries(
   existing: GameSnapshot['eventLog'],
   incoming: GameSnapshot['eventLog'],
 ): GameSnapshot['eventLog'] {
-  const seenIds = new Set<string>();
-  const entries = [...existing, ...incoming].filter((entry) => {
-    if (seenIds.has(entry.id)) {
-      return false;
-    }
+  const entriesById = new Map<string, GameSnapshot['eventLog'][number]>();
+  const order: string[] = [];
 
-    seenIds.add(entry.id);
-    return true;
-  });
+  for (const entry of [...existing, ...incoming]) {
+    if (!entriesById.has(entry.id)) {
+      order.push(entry.id);
+    }
+    entriesById.set(entry.id, entry);
+  }
+
+  const entries = order.map((id) => entriesById.get(id)!);
 
   return entries.slice(-MAX_EVENT_LOG_ENTRIES);
 }
@@ -620,7 +622,7 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
     preserveCommanderIdentity({
       ...movingCard,
       zone: operation.to.zone,
-      ...(operation.from.zone === 'hand' && operation.to.zone !== 'hand' ? { revealedTo: undefined } : {}),
+      ...(shouldClearRevealRecipientsAfterMove(operation) ? { revealedTo: undefined } : {}),
     }, sourceCard),
     ...targetCardsAfterRemoval.slice(insertIndex),
   ];
@@ -637,6 +639,16 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
 
     return zoneCounts ? { ...player, zoneCounts } : null;
   });
+}
+
+function shouldClearRevealRecipientsAfterMove(operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): boolean {
+  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand') {
+    return true;
+  }
+
+  return operation.from.zone === 'library'
+    && operation.to.zone !== 'library'
+    && operation.card?.revealedTo === undefined;
 }
 
 function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOperation, { op: 'card.remove' }>): OperationResult {

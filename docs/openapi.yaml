@@ -8417,8 +8417,10 @@ components:
             the authoritative finalResult and returns it in the resulting event
             payload. battlefield.untap_all
             untaps all tapped cards in the actor's own battlefield.
-            library.play_top_revealed toggles a persistent public top-library
-            reveal flag and does not move cards.
+            library.play_top_revealed toggles a persistent top-library reveal
+            and does not move cards. Send to=all or to=<playerId> to select its
+            audience; the current top remains revealed to that audience until
+            the command is disabled.
             card.token.created creates the selected token payload on the actor
             player's battlefield, or a generic 1/1 token when no card payload is
             provided. It may include quantity from 1 to 20 to create multiple

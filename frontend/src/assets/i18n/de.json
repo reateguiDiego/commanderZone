@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} hat seine Bibliothek gemischt.",
       "view": "{{ actor }} hat sich die besten {{ count }}-Karten in seiner Bibliothek angesehen.",
       "reveal": "{{ actor }} hat seine Bibliothek enthüllt.",
-      "revealTop": "{{ actor }} hat die ersten {{ count }}-Karten in seiner Bibliothek enthüllt.",
-      "playTopRevealed": "{{ actor }} spielt mit der ersten aufgedeckten Karte seiner Bibliothek.",
-      "stoppedPlayingTopRevealed": "{{ actor }} hörte mit der ersten aufgedeckten Karte seiner Bibliothek auf zu spielen."
+      "revealTop": "{{ actor }} hat {{ recipients }} die obersten {{ count }} Karten der Bibliothek gezeigt.",
+      "revealTopNamed": "{{ actor }} hat {{ recipients }} {{ cardName }}, die oberste Karte der Bibliothek, gezeigt.",
+      "stoppedRevealingTop": "{{ actor }} zeigt {{ recipients }} die oberste Karte der Bibliothek nicht mehr.",
+      "playTopRevealed": "{{ actor }} spielt mit der obersten Karte der Bibliothek, die {{ recipients }} gezeigt wird.",
+      "stoppedPlayingTopRevealed": "{{ actor }} spielt nicht mehr mit der obersten Karte der Bibliothek, die {{ recipients }} gezeigt wird."
     },
     "commanderDamage": {
       "changed": "{{ actor }} hat den Kommandeurschaden an {{ target }} von {{ previousValue }} auf {{ value }} geändert."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} hat eine Karte verdeckt.",
       "turnedFaceUp": "{{ actor }} hat eine Karte aufgedeckt.",
       "controllerChanged": "{{ actor }} hat den Kontrolleur einer Karte zu {{ target }} geändert.",
-      "revealed": "{{ actor }} hat {{ recipients }} 1 Karte gezeigt.",
-      "revealedMany": "{{ actor }} hat {{ recipients }} {{ count }} Karten gezeigt.",
+      "revealed": "{{ actor }} hat {{ recipients }} 1 Karte aus der {{ zone }} gezeigt.",
+      "revealedNamed": "{{ actor }} hat {{ recipients }} {{ cardName }} aus der {{ zone }} gezeigt.",
+      "revealedMany": "{{ actor }} hat {{ recipients }} {{ count }} Karten aus der {{ zone }} gezeigt.",
+      "stoppedRevealing": "{{ actor }} zeigt {{ recipients }} 1 Karte aus der {{ zone }} nicht mehr.",
+      "stoppedRevealingMany": "{{ actor }} zeigt {{ recipients }} {{ count }} Karten aus der {{ zone }} nicht mehr.",
       "moved": "{{ actor }} hat eine Karte von {{ fromZone }} nach {{ toZone }} verschoben.",
       "tapped": "{{ actor }} hat eine dauerhafte Karte angetippt.",
       "untapped": "{{ actor }} hat eine bleibende Karte enttappt.",

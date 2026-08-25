@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { gsap } from 'gsap';
 
 interface ZoneCardStackLayer {
@@ -35,13 +35,16 @@ export class ZoneCardStackComponent implements OnDestroy {
   readonly label = input.required<string>();
   readonly count = input.required<number>();
   readonly showRevealIndicator = input(false);
+  readonly shufflePlayerId = input<string | null>(null);
   readonly shuffleRevision = input<number | null>(null);
 
   private readonly topCard = viewChild<ElementRef<HTMLImageElement>>('topCard');
+  private readonly shuffleTopCardImage = signal<string | null>(null);
   private revealAnimation: gsap.core.Tween | null = null;
   private shuffleAnimation: gsap.core.Timeline | null = null;
   private restoreShuffleStacking: (() => void) | null = null;
   private visibilitySignature: string | null = null;
+  private lastShufflePlayerId: string | null = null;
   private lastShuffleRevision: number | null = null;
   private shuffleRevisionInitialized = false;
   private readonly animateVisibilityChange = effect(() => {
@@ -61,10 +64,12 @@ export class ZoneCardStackComponent implements OnDestroy {
     untracked(() => this.playRevealAnimation(topCard));
   });
   private readonly animateShuffle = effect(() => {
+    const playerId = this.shufflePlayerId();
     const revision = this.shuffleRevision();
 
-    if (!this.shuffleRevisionInitialized) {
+    if (!this.shuffleRevisionInitialized || playerId !== this.lastShufflePlayerId) {
       this.shuffleRevisionInitialized = true;
+      this.lastShufflePlayerId = playerId;
       this.lastShuffleRevision = revision;
       return;
     }
@@ -94,9 +99,10 @@ export class ZoneCardStackComponent implements OnDestroy {
       };
     });
   });
+  readonly renderedTopCardImage = computed(() => this.shuffleTopCardImage() ?? this.image());
 
   ngOnDestroy(): void {
-    this.revealAnimation?.kill();
+    this.stopRevealAnimation();
     this.stopShuffleAnimation();
   }
 
@@ -105,7 +111,7 @@ export class ZoneCardStackComponent implements OnDestroy {
       return;
     }
 
-    this.revealAnimation?.kill();
+    this.stopRevealAnimation();
     gsap.killTweensOf(topCard);
     this.revealAnimation = gsap.fromTo(topCard, {
       autoAlpha: 0,
@@ -130,10 +136,11 @@ export class ZoneCardStackComponent implements OnDestroy {
       return;
     }
 
-    this.revealAnimation?.kill();
+    this.stopRevealAnimation();
     this.stopShuffleAnimation();
     gsap.killTweensOf(cards);
     this.host.nativeElement.classList.add('is-shuffling');
+    this.maskRevealedTopCardDuringShuffle();
 
     const variations = cards.map(() => this.shuffleCardVariation());
     const spread = cards.map((_card, index) => this.shuffleSpreadMotion(index, cards.length, variations[index]!));
@@ -162,12 +169,14 @@ export class ZoneCardStackComponent implements OnDestroy {
       defaults: { overwrite: 'auto' },
       onComplete: () => {
         this.restoreShuffleStacking?.();
+        this.clearShuffleTopCardMask();
         this.host.nativeElement.classList.remove('is-shuffling');
         this.shuffleAnimation = null;
       },
     })
       .set(cards, {
         transformOrigin: '50% 50%',
+        autoAlpha: 1,
         willChange: 'transform',
         zIndex: (index) => initialZIndexes[index] ?? 1,
       })
@@ -198,14 +207,38 @@ export class ZoneCardStackComponent implements OnDestroy {
         ease: 'power2.inOut',
         stagger: { each: 0.014, from: 'end' },
       })
-      .set(cards, { clearProps: 'transform,willChange' });
+      .set(cards, { clearProps: 'transform,willChange,opacity,visibility' });
+  }
+
+  private stopRevealAnimation(): void {
+    this.revealAnimation?.kill();
+    this.revealAnimation = null;
+
+    const topCard = this.topCard()?.nativeElement;
+    if (topCard) {
+      gsap.set(topCard, { clearProps: 'transform,opacity,visibility' });
+    }
   }
 
   private stopShuffleAnimation(): void {
     this.shuffleAnimation?.kill();
     this.shuffleAnimation = null;
     this.restoreShuffleStacking?.();
+    this.clearShuffleTopCardMask();
     this.host.nativeElement.classList.remove('is-shuffling');
+  }
+
+  private maskRevealedTopCardDuringShuffle(): void {
+    const cardBackImage = this.layerImage();
+    if (!this.showRevealIndicator() || !cardBackImage) {
+      return;
+    }
+
+    this.shuffleTopCardImage.set(cardBackImage);
+  }
+
+  private clearShuffleTopCardMask(): void {
+    this.shuffleTopCardImage.set(null);
   }
 
   private promotedCardIndex(cardCount: number): number | null {

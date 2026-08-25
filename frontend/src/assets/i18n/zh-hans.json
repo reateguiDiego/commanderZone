@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} 洗牌了他的牌库。",
       "view": "{{ actor }} 查看了他牌库中最上面的 {{ count }} 卡。",
       "reveal": "{{ actor }} 公布了它的库。",
-      "revealTop": "{{ actor }} 展示了他的牌库中的第一张 {{ count }} 卡。",
-      "playTopRevealed": "{{ actor }} 使用其牌库中的第一张牌进行游戏。",
-      "stoppedPlayingTopRevealed": "{{ actor }} 停止玩牌并展示了他牌库中的第一张牌。"
+      "revealTop": "{{ actor }} 向 {{ recipients }} 展示了其牌库顶的 {{ count }} 张牌。",
+      "revealTopNamed": "{{ actor }} 向 {{ recipients }} 展示了其牌库顶的 {{ cardName }}。",
+      "stoppedRevealingTop": "{{ actor }} 停止向 {{ recipients }} 展示其牌库顶的牌。",
+      "playTopRevealed": "{{ actor }} 使用其牌库顶、向 {{ recipients }} 展示的牌进行游戏。",
+      "stoppedPlayingTopRevealed": "{{ actor }} 停止使用其牌库顶、向 {{ recipients }} 展示的牌进行游戏。"
     },
     "commanderDamage": {
       "changed": "{{ actor }} 将对 {{ target }} 的指挥官伤害从 {{ previousValue }} 改为 {{ value }}。"
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} 将一张牌变为背面朝上。",
       "turnedFaceUp": "{{ actor }} 将一张牌变为正面朝上。",
       "controllerChanged": "{{ actor }} 将一张牌的操控者改为 {{ target }}。",
-      "revealed": "{{ actor }} 向 {{ recipients }} 展示了 1 张牌。",
-      "revealedMany": "{{ actor }} 向 {{ recipients }} 展示了 {{ count }} 张牌。",
+      "revealed": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 1 张牌。",
+      "revealedNamed": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 {{ cardName }}。",
+      "revealedMany": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 {{ count }} 张牌。",
+      "stoppedRevealing": "{{ actor }} 停止向 {{ recipients }} 展示其{{ zone }}中的 1 张牌。",
+      "stoppedRevealingMany": "{{ actor }} 停止向 {{ recipients }} 展示其{{ zone }}中的 {{ count }} 张牌。",
       "moved": "{{ actor }} 将一张卡从 {{ fromZone }} 移至 {{ toZone }}。",
       "tapped": "{{ actor }} 横置了一个永久物。",
       "untapped": "{{ actor }} 永久未开发。",

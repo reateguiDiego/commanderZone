@@ -843,25 +843,21 @@ func TestGameConcedePayloadIncludesTurnWhenActivePlayerLeaves(t *testing.T) {
 	}
 }
 
-func TestRevealTopEmitsGroupPatchWithCardKey(t *testing.T) {
+func TestRevealTopEmitsPrivatePatchForEachAudienceMember(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal", "library.reveal_top", map[string]any{"playerId": "p1", "count": 2, "visibleToMask": 3}), "p1")
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal", "library.reveal_top", map[string]any{"playerId": "p1", "count": 2, "to": "all"}), "p1")
 	if result.Err != nil {
 		t.Fatalf("reveal failed: %v", result.Err)
 	}
-	found := false
-	for _, envelope := range result.Patches {
-		if envelope.Visibility != "group:3" {
-			continue
+	for _, viewerID := range []string{"p1", "p2"} {
+		patch := patchForVisibility(result.Patches, protocol.PlayerVisibility(viewerID), "library.top.revealed")
+		if patch == nil {
+			t.Fatalf("missing private reveal patch for %s: %#v", viewerID, result.Patches)
 		}
-		found = true
-		cards := envelope.Ops[0].Data["cards"].([]map[string]any)
-		if len(cards) != 2 || cards[0]["cardKey"] == nil {
-			t.Fatalf("bad reveal cards: %#v", cards)
+		cards := patch.Data["cards"].([]map[string]any)
+		if len(cards) != 2 || cards[0]["cardKey"] == nil || cards[0]["printId"] == nil || cards[0]["hidden"] != false {
+			t.Fatalf("bad reveal cards for %s: %#v", viewerID, cards)
 		}
-	}
-	if !found {
-		t.Fatal("missing group reveal patch")
 	}
 }
 
@@ -881,6 +877,9 @@ func TestRevealTopAcceptsToAliasForPrivateViewerPatch(t *testing.T) {
 	}
 	if viewers, ok := cards[0]["revealedTo"].([]string); !ok || len(viewers) != 1 || viewers[0] != "p1" {
 		t.Fatalf("private reveal is missing its tooltip audience: %#v", cards)
+	}
+	if viewers, ok := result.Event.Payload["viewers"].([]string); !ok || len(viewers) != 1 || viewers[0] != "p1" {
+		t.Fatalf("runtime event is missing the persisted reveal audience: %#v", result.Event.Payload)
 	}
 	marker := patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.top.reveal_marker.set")
 	if marker == nil || marker.Data["playerId"] != "p1" || marker.Data["revealed"] != true {
@@ -973,9 +972,19 @@ func TestOneOffTopRevealDoesNotContinueAfterTheTopCardLeaves(t *testing.T) {
 	if drawn.Err != nil {
 		t.Fatalf("draw failed: %v", drawn.Err)
 	}
+	if removed := patchForVisibility(drawn.Patches, protocol.PlayerVisibility("p2"), "zone.cards.remove"); removed == nil {
+		t.Fatalf("revealed viewer kept the drawn top identity: %#v", drawn.Patches)
+	}
 	marker := patchForVisibility(drawn.Patches, protocol.VisibilityPublic, "library.top.reveal_marker.set")
 	if marker == nil || marker.Data["revealed"] != false {
 		t.Fatalf("one-off top reveal continued after the card left: %#v", drawn.Patches)
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Instances["l3"].VisibleToMask != 0 {
+		t.Fatalf("drawn card retained library visibility: %#v", snapshot.Instances["l3"])
+	}
+	if snapshot.CanViewerSeeCardKey("p2", "l2") {
+		t.Fatalf("one-off reveal exposed the next top card: %#v", snapshot.Visibility.TopRevealWindows)
 	}
 }
 
@@ -1440,12 +1449,154 @@ func TestCardRevealedRuntimeRevealsMultipleCardsWithOneAggregateLog(t *testing.T
 		t.Fatalf("multiple reveal must use the plural semantic log: %#v", entry)
 	}
 	params := requireMap(t, entry["params"])
-	if params["count"] != 2 || params["revealAudience"] != "players" || fmt.Sprintf("%#v", params["recipientPlayerIds"]) != "[]string{\"p2\"}" {
+	if params["count"] != 2 || params["zone"] != "hand" || params["revealAudience"] != "players" || fmt.Sprintf("%#v", params["recipientPlayerIds"]) != "[]string{\"p2\"}" {
 		t.Fatalf("multiple reveal log has incorrect recipient or count: %#v", params)
 	}
 	assertNoPrivateCardIdentity(t, entry)
 	if eventIDs := stringsFromAny(result.Event.Payload["instanceIds"]); fmt.Sprintf("%#v", eventIDs) != "[]string{\"h1\", \"h2\"}" {
 		t.Fatalf("runtime event must preserve all revealed instance ids: %#v", result.Event.Payload)
+	}
+}
+
+func TestRevealVisibilityGameLogsDescribeTheAudienceAndSourceZone(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+
+	handReveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand-to-p2", "card.revealed", map[string]any{
+		"instanceId": "h1",
+		"to":         "p2",
+	}), "p1")
+	if handReveal.Err != nil {
+		t.Fatalf("hand reveal failed: %v", handReveal.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, handReveal), "gameLog.card.revealed", "hand", "players", []string{"p2"})
+
+	handStop := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "stop-reveal-hand-to-p2", "card.revealed", map[string]any{
+		"instanceId": "h1",
+		"revealed":   false,
+		"clearAll":   true,
+	}), "p1")
+	if handStop.Err != nil {
+		t.Fatalf("stop hand reveal failed: %v", handStop.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, handStop), "gameLog.card.stoppedRevealing", "hand", "players", []string{"p2"})
+
+	topReveal := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "reveal-top-to-all", "library.reveal_top", map[string]any{
+		"playerId": "p1",
+		"count":    1,
+		"to":       "all",
+	}), "p1")
+	if topReveal.Err != nil {
+		t.Fatalf("top reveal failed: %v", topReveal.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, topReveal), "gameLog.library.revealTop", "", "all", nil)
+
+	topStop := gameActor.ApplyDirect(context.Background(), command("game-1", 4, "stop-reveal-top-to-all", "library.reveal_top", map[string]any{
+		"playerId": "p1",
+		"stop":     true,
+	}), "p1")
+	if topStop.Err != nil {
+		t.Fatalf("stop top reveal failed: %v", topStop.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, topStop), "gameLog.library.stoppedRevealingTop", "", "all", nil)
+
+	playTop := gameActor.ApplyDirect(context.Background(), command("game-1", 5, "play-top-to-p2", "library.play_top_revealed", map[string]any{
+		"playerId": "p1",
+		"enabled":  true,
+		"to":       "p2",
+	}), "p1")
+	if playTop.Err != nil {
+		t.Fatalf("play top revealed failed: %v", playTop.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, playTop), "gameLog.library.playTopRevealed", "", "players", []string{"p2"})
+
+	stopPlayTop := gameActor.ApplyDirect(context.Background(), command("game-1", 6, "stop-play-top-to-p2", "library.play_top_revealed", map[string]any{
+		"playerId": "p1",
+		"enabled":  false,
+	}), "p1")
+	if stopPlayTop.Err != nil {
+		t.Fatalf("stop play top revealed failed: %v", stopPlayTop.Err)
+	}
+	assertRevealLog(t, requireRuntimeLogEntry(t, stopPlayTop), "gameLog.library.stoppedPlayingTopRevealed", "", "players", []string{"p2"})
+}
+
+func TestRevealedCardNameIsOnlyAddedToTheSelectedViewerLog(t *testing.T) {
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40, "status": "active"}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand-to-p2", "card.revealed", map[string]any{
+		"instanceId":       "h1",
+		"to":               "p2",
+		"revealedCardName": "Private Card",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("hand reveal failed: %v", result.Err)
+	}
+
+	publicEntry := requireRuntimeLogEntry(t, result)
+	if publicEntry["i18nKey"] != "gameLog.card.revealed" || publicEntry["cardInstanceId"] != nil {
+		t.Fatalf("public reveal log leaked card identity: %#v", publicEntry)
+	}
+	if privateForOwner := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "eventLog.append"); privateForOwner != nil {
+		t.Fatalf("reveal owner was not selected but received a private card log: %#v", privateForOwner)
+	}
+	if privateForOther := patchForVisibility(result.Patches, protocol.PlayerVisibility("p3"), "eventLog.append"); privateForOther != nil {
+		t.Fatalf("unselected player received a private card log: %#v", privateForOther)
+	}
+
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "eventLog.append")
+	if privatePatch == nil {
+		t.Fatalf("selected viewer did not receive a private reveal log: %#v", result.Patches)
+	}
+	privateEntries := privatePatch.Data["entries"].([]map[string]any)
+	if len(privateEntries) != 1 {
+		t.Fatalf("unexpected private entries: %#v", privateEntries)
+	}
+	privateEntry := privateEntries[0]
+	if privateEntry["id"] != publicEntry["id"] || privateEntry["i18nKey"] != "gameLog.card.revealedNamed" || privateEntry["cardInstanceId"] != "h1" {
+		t.Fatalf("private reveal log does not enrich the public event: public=%#v private=%#v", publicEntry, privateEntry)
+	}
+	if params := requireMap(t, privateEntry["params"]); params["cardName"] != "Private Card" {
+		t.Fatalf("private reveal log is missing the card name: %#v", params)
+	}
+
+	topResult := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "reveal-top-to-p2", "library.reveal_top", map[string]any{
+		"playerId":         "p1",
+		"count":            1,
+		"to":               "p2",
+		"revealedCardName": "Private Top Card",
+	}), "p1")
+	if topResult.Err != nil {
+		t.Fatalf("top reveal failed: %v", topResult.Err)
+	}
+	publicTopEntry := requireRuntimeLogEntry(t, topResult)
+	if publicTopEntry["i18nKey"] != "gameLog.library.revealTop" || publicTopEntry["cardInstanceId"] != nil {
+		t.Fatalf("public top reveal log leaked card identity: %#v", publicTopEntry)
+	}
+	privateTopPatch := patchForVisibility(topResult.Patches, protocol.PlayerVisibility("p2"), "eventLog.append")
+	if privateTopPatch == nil {
+		t.Fatalf("selected viewer did not receive a private top reveal log: %#v", topResult.Patches)
+	}
+	privateTopEntry := privateTopPatch.Data["entries"].([]map[string]any)[0]
+	if privateTopEntry["i18nKey"] != "gameLog.library.revealTopNamed" || privateTopEntry["cardInstanceId"] != "l3" {
+		t.Fatalf("private top reveal log is missing its card reference: %#v", privateTopEntry)
+	}
+}
+
+func assertRevealLog(t *testing.T, entry map[string]any, i18nKey string, zone string, audience string, recipients []string) {
+	t.Helper()
+	if entry["i18nKey"] != i18nKey {
+		t.Fatalf("i18n key = %#v, want %s: %#v", entry["i18nKey"], i18nKey, entry)
+	}
+	params := requireMap(t, entry["params"])
+	if params["revealAudience"] != audience {
+		t.Fatalf("reveal audience = %#v, want %s: %#v", params["revealAudience"], audience, params)
+	}
+	if zone != "" && params["zone"] != zone {
+		t.Fatalf("reveal zone = %#v, want %s: %#v", params["zone"], zone, params)
+	}
+	if audience == "players" && fmt.Sprintf("%#v", params["recipientPlayerIds"]) != fmt.Sprintf("%#v", recipients) {
+		t.Fatalf("reveal recipients = %#v, want %#v", params["recipientPlayerIds"], recipients)
 	}
 }
 
@@ -1623,23 +1774,30 @@ func TestLibraryRevealRuntimeTargetsAuthorizedGroupAndNoStaticPayload(t *testing
 	}
 }
 
-func TestPlayTopRevealedRuntimeEmitsPublicTopWhenEnabled(t *testing.T) {
+func TestPlayTopRevealedRuntimeEmitsTopOnlyToTheSelectedViewer(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "play-top", "library.play_top_revealed", map[string]any{
 		"playerId": "p1",
 		"enabled":  true,
+		"to":       "p2",
 	}), "p1")
 	if result.Err != nil {
 		t.Fatalf("play top reveal failed: %v", result.Err)
 	}
 	set := patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.play_top_revealed.set")
-	reveal := patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.top.revealed")
+	reveal := patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "library.top.revealed")
 	if set == nil || set.Data["enabled"] != true || reveal == nil {
-		t.Fatalf("missing play top public patches: %#v", result.Patches)
+		t.Fatalf("missing targeted play top patches: %#v", result.Patches)
+	}
+	if publicReveal := patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.top.revealed"); publicReveal != nil {
+		t.Fatalf("play top revealed the card publicly instead of to its selected viewer: %#v", result.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
 	if len(cards) != 1 || cards[0]["instanceId"] != "l3" || cards[0]["cardKey"] != "library-3@1" {
-		t.Fatalf("bad public top reveal: %#v", cards)
+		t.Fatalf("bad targeted top reveal: %#v", cards)
+	}
+	if viewers := gameActor.Snapshot().Players["p1"]["playTopLibraryRevealedTo"]; fmt.Sprintf("%v", viewers) != "[p2]" {
+		t.Fatalf("persistent reveal audience was not saved: %#v", gameActor.Snapshot().Players["p1"])
 	}
 	marker := patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.top.reveal_marker.set")
 	if marker == nil || marker.Data["revealed"] != true {
@@ -1681,13 +1839,42 @@ func TestPlayTopRevealedPublishesTheNextTopCardAfterDrawing(t *testing.T) {
 	if drawn.Err != nil {
 		t.Fatalf("draw failed: %v", drawn.Err)
 	}
-	reveal := patchForVisibility(drawn.Patches, protocol.VisibilityPublic, "library.top.revealed")
+	reveal := patchForVisibility(drawn.Patches, protocol.PlayerVisibility("p2"), "library.top.revealed")
 	if reveal == nil {
 		t.Fatalf("missing next top reveal: %#v", drawn.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
 	if len(cards) != 1 || cards[0]["instanceId"] != "l2" || cards[0]["cardKey"] != "library-2@1" {
 		t.Fatalf("wrong next top reveal: %#v", cards)
+	}
+}
+
+func TestPlayTopRevealedPublishesTheCurrentTopCardAfterShuffle(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	enabled := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "play-top", "library.play_top_revealed", map[string]any{
+		"playerId": "p1",
+		"enabled":  true,
+		"to":       "p2",
+	}), "p1")
+	if enabled.Err != nil {
+		t.Fatalf("enable play top failed: %v", enabled.Err)
+	}
+
+	shuffled := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "shuffle-with-play-top", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
+	if shuffled.Err != nil {
+		t.Fatalf("shuffle failed: %v", shuffled.Err)
+	}
+	if publicReveal := patchForVisibility(shuffled.Patches, protocol.VisibilityPublic, "library.top.revealed"); publicReveal != nil {
+		t.Fatalf("shuffle leaked the new top card publicly: %#v", shuffled.Patches)
+	}
+	reveal := patchForVisibility(shuffled.Patches, protocol.PlayerVisibility("p2"), "library.top.revealed")
+	if reveal == nil {
+		t.Fatalf("missing refreshed top reveal after shuffle: %#v", shuffled.Patches)
+	}
+	cards := reveal.Data["cards"].([]map[string]any)
+	wantTop := gameActor.Snapshot().Zones["p1"].Library[len(gameActor.Snapshot().Zones["p1"].Library)-1]
+	if len(cards) != 1 || cards[0]["instanceId"] != wantTop {
+		t.Fatalf("shuffle revealed stale top card: cards=%#v want=%s", cards, wantTop)
 	}
 }
 

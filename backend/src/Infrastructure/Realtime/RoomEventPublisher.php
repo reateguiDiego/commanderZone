@@ -2,13 +2,17 @@
 
 namespace App\Infrastructure\Realtime;
 
+use App\Application\Room\RoomDeckBracketPayloadEnricher;
 use App\Domain\Room\Room;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 
 class RoomEventPublisher
 {
-    public function __construct(private readonly HubInterface $hub)
+    public function __construct(
+        private readonly HubInterface $hub,
+        private readonly RoomDeckBracketPayloadEnricher $roomDeckBracketPayloadEnricher,
+    )
     {
     }
 
@@ -19,7 +23,7 @@ class RoomEventPublisher
             json_encode([
                 'type' => $type,
                 'roomId' => $room->id(),
-                'room' => $room->toArray(),
+                'room' => $this->roomDeckBracketPayloadEnricher->enrich($room->toArray()),
             ], JSON_THROW_ON_ERROR),
         ));
     }

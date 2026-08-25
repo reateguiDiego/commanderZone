@@ -9,6 +9,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameEventReplayService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganEventTypes;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -745,6 +746,8 @@ class GameEventStoreV2Test extends TestCase
             'hand' => [],
             'battlefield' => [],
         ]));
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0]['revealedTo'] = ['viewer-1'];
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
         $game = new Game(new Room($actor), $baseSnapshot);
 
         $draw = new GameEvent($game, 'library.draw', [
@@ -770,6 +773,8 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'], $battlefieldCard['position'] ?? null);
         self::assertSame('battlefield', $rebuilt['loc']['library-1']['zone'] ?? null);
         self::assertSame($actor->id(), $rebuilt['loc']['library-1']['playerId'] ?? null);
+        self::assertSame([], $battlefieldCard['revealedTo'] ?? null);
+        self::assertArrayNotHasKey(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $battlefieldCard);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 

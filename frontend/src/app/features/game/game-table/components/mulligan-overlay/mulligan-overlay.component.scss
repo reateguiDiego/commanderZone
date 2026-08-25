@@ -212,7 +212,7 @@ h2 {
 .mulligan-hand {
   --mulligan-card-view-width: clamp(13rem, 18vw, 20rem);
   --game-card-view-width: var(--mulligan-card-view-width);
-  --mulligan-card-slot-width: calc(var(--mulligan-card-view-width) / 0.716);
+  --mulligan-card-slot-width: var(--mulligan-card-view-width);
 
   position: relative;
   display: grid;
@@ -230,8 +230,9 @@ h2 {
 .mulligan-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--mulligan-card-slot-width)), var(--mulligan-card-slot-width)));
-  align-content: center;
-  align-items: center;
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
   justify-content: center;
   justify-items: center;
   gap: clamp(0.8rem, 1.35vw, 1.2rem);

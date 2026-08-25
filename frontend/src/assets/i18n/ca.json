@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} va estudiar la seva biblioteca.",
       "view": "{{ actor }} va mirar les {{ count }} primeres cartes de la seva biblioteca.",
       "reveal": "{{ actor }} va revelar la biblioteca.",
-      "revealTop": "{{ actor }} va revelar les {{ count }} primeres cartes de la seva biblioteca.",
-      "playTopRevealed": "{{ actor }} juga amb la primera carta de la biblioteca revelada.",
-      "stoppedPlayingTopRevealed": "{{ actor }} va deixar de jugar amb la primera carta de la biblioteca revelada."
+      "revealTop": "{{ actor }} va revelar les {{ count }} primeres cartes de la seva biblioteca a {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} va revelar {{ cardName }}, la primera carta de la seva biblioteca, a {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} va deixar de revelar la primera carta de la seva biblioteca a {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} juga amb la primera carta de la seva biblioteca revelada per a {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} va deixar de jugar amb la primera carta de la seva biblioteca revelada per a {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} ha canviat el dany de comandant a {{ target }} de {{ previousValue }} a {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} ha posat una carta boca avall.",
       "turnedFaceUp": "{{ actor }} ha posat una carta boca amunt.",
       "controllerChanged": "{{ actor }} ha canviat el controlador d'una carta a {{ target }}.",
-      "revealed": "{{ actor }} ha revelat 1 carta a {{ recipients }}.",
-      "revealedMany": "{{ actor }} ha revelat {{ count }} cartes a {{ recipients }}.",
+      "revealed": "{{ actor }} ha revelat 1 carta de la seva {{ zone }} a {{ recipients }}.",
+      "revealedNamed": "{{ actor }} ha revelat {{ cardName }} de la seva {{ zone }} a {{ recipients }}.",
+      "revealedMany": "{{ actor }} ha revelat {{ count }} cartes de la seva {{ zone }} a {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} ha deixat de revelar 1 carta de la seva {{ zone }} a {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} ha deixat de revelar {{ count }} cartes de la seva {{ zone }} a {{ recipients }}.",
       "moved": "{{ actor }} va moure una carta de {{ fromZone }} a {{ toZone }}.",
       "tapped": "{{ actor }} va girar un permanent.",
       "untapped": "{{ actor }} va redreçar un permanent.",

@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} schudde zijn bibliotheek door elkaar.",
       "view": "{{ actor }} bekeek de beste {{ count }}-kaarten in zijn bibliotheek.",
       "reveal": "{{ actor }} heeft zijn bibliotheek onthuld.",
-      "revealTop": "{{ actor }} onthulde de eerste {{ count }}-kaarten in zijn bibliotheek.",
-      "playTopRevealed": "{{ actor }} speelt met de eerste kaart van zijn bibliotheek onthuld.",
-      "stoppedPlayingTopRevealed": "{{ actor }} stopte met spelen toen de eerste kaart van zijn bibliotheek werd onthuld."
+      "revealTop": "{{ actor }} onthulde de bovenste {{ count }} kaarten van zijn bibliotheek aan {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} onthulde {{ cardName }}, de bovenste kaart van zijn bibliotheek, aan {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} stopte met het onthullen van de bovenste kaart van zijn bibliotheek aan {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} speelt met de bovenste kaart van zijn bibliotheek onthuld aan {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} stopte met spelen met de bovenste kaart van zijn bibliotheek onthuld aan {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} heeft commandantschade aan {{ target }} gewijzigd van {{ previousValue }} naar {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} heeft een kaart gedekt gedraaid.",
       "turnedFaceUp": "{{ actor }} heeft een kaart open gedraaid.",
       "controllerChanged": "{{ actor }} heeft de bestuurder van een kaart veranderd naar {{ target }}.",
-      "revealed": "{{ actor }} onthulde 1 kaart aan {{ recipients }}.",
-      "revealedMany": "{{ actor }} onthulde {{ count }} kaarten aan {{ recipients }}.",
+      "revealed": "{{ actor }} onthulde 1 kaart uit zijn {{ zone }} aan {{ recipients }}.",
+      "revealedNamed": "{{ actor }} onthulde {{ cardName }} uit zijn {{ zone }} aan {{ recipients }}.",
+      "revealedMany": "{{ actor }} onthulde {{ count }} kaarten uit zijn {{ zone }} aan {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} stopte met het onthullen van 1 kaart uit zijn {{ zone }} aan {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} stopte met het onthullen van {{ count }} kaarten uit zijn {{ zone }} aan {{ recipients }}.",
       "moved": "{{ actor }} heeft een kaart verplaatst van {{ fromZone }} naar {{ toZone }}.",
       "tapped": "{{ actor }} tikte op een permanent.",
       "untapped": "{{ actor }} ongebruikt een permanent.",

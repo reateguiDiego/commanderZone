@@ -301,6 +301,8 @@ func applyMovementZoneState(game *state.GameState, moves []state.ZoneMove, reque
 				resetBattlefieldExitState(game, move.InstanceID)
 			} else if move.From.Zone == state.ZoneHand && move.To.Zone != state.ZoneHand {
 				resetHandRevealState(game, move.InstanceID)
+			} else if move.From.Zone == state.ZoneLibrary && move.To.Zone != state.ZoneLibrary {
+				resetLibraryRevealState(game, move.InstanceID)
 			} else {
 				instance.Position = nil
 				game.Instances[move.InstanceID] = instance
@@ -369,7 +371,7 @@ func emitLibraryTopRevealMarkersForMoves(emitter *PatchEmitter, game *state.Game
 		}
 	}
 	for playerID := range playerIDs {
-		delete(game.Visibility.TopRevealWindows, playerID)
+		clearLibraryTopRevealUnlessPersistent(game, playerID)
 		emitCurrentTopWhenPlayTopRevealed(emitter, game, playerID)
 		emitLibraryTopRevealMarker(emitter, game, playerID)
 	}

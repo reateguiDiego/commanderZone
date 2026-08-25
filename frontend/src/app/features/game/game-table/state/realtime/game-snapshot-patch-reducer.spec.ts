@@ -121,6 +121,24 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1'].zones.hand.map((entry) => entry.instanceId)).toEqual(['hand-1', 'library-hidden']);
   });
 
+  it('clears a one-off library reveal when the card leaves the library', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].zones.library = [card('library-revealed', {
+      zone: 'library',
+      revealedTo: ['player-2'],
+    })];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.move',
+      instanceId: 'library-revealed',
+      from: { playerId: 'player-1', zone: 'library' },
+      to: { playerId: 'player-1', zone: 'hand' },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.hand.at(-1)?.revealedTo).toBeUndefined();
+  });
+
   it('uses card.move card payload as the destination representation even when the source card is visible', () => {
     const snapshot = snapshotFixture();
     const hiddenPlaceholder = card('player-1-hidden-hand-new', {
@@ -528,6 +546,40 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.eventLog.map((entry) => entry.id)).toEqual(['log-1', 'log-2']);
+  });
+
+  it('replaces a public reveal log entry with its private recipient version', () => {
+    const snapshot = snapshotFixture();
+    snapshot.eventLog = [{
+      id: 'reveal-1',
+      type: 'card.revealed',
+      message: 'Player 1 revealed 1 card from their hand to Player 2.',
+      i18nKey: 'gameLog.card.revealed',
+      actorId: 'player-1',
+      displayName: 'Player 1',
+      createdAt: '2026-01-01T00:00:01.000Z',
+    }];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'eventLog.append',
+      entries: [{
+        id: 'reveal-1',
+        type: 'card.revealed',
+        message: 'Player 1 revealed Sol Ring from their hand to Player 2.',
+        i18nKey: 'gameLog.card.revealedNamed',
+        cardInstanceId: 'hand-1',
+        cardPlayerId: 'player-1',
+        cardZone: 'hand',
+        actorId: 'player-1',
+        displayName: 'Player 1',
+        createdAt: '2026-01-01T00:00:01.000Z',
+      }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.eventLog).toHaveLength(1);
+    expect(result.snapshot.eventLog[0]?.i18nKey).toBe('gameLog.card.revealedNamed');
+    expect(result.snapshot.eventLog[0]?.cardInstanceId).toBe('hand-1');
   });
 
   it('applies small stack and relation add/remove operations', () => {

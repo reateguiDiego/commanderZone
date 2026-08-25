@@ -308,7 +308,9 @@ export class GameTableSnapshotSelectors {
   }
 
   private isLibraryTopCardVisible(player: PlayerView, card: GameCardInstance): boolean {
-    return player.state.playTopLibraryRevealed === true || (card.revealedTo?.length ?? 0) > 0;
+    return player.state.playTopLibraryRevealed === true
+      || player.state.topLibraryRevealMarker === true
+      || (card.revealedTo?.length ?? 0) > 0;
   }
 
   private activeFaceImageUris(card: GameCardInstance): CardImageUris | null {

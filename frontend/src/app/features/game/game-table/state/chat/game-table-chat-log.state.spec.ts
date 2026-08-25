@@ -1,4 +1,4 @@
-import { GameSnapshot } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableChatLogState } from './game-table-chat-log.state';
 
 describe('GameTableChatLogState', () => {
@@ -59,6 +59,7 @@ describe('GameTableChatLogState', () => {
           playerId: 'player-1',
           recipientPlayerIds: ['player-2'],
           revealAudience: 'players',
+          zone: 'hand',
           count: 10,
         },
         refs: {
@@ -72,7 +73,88 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
-    expect(entry?.messagePrefix).toBe('revealed 10 cards to Bruno.');
+    expect(entry?.messagePrefix).toBe('revealed 10 cards from their hand to Bruno.');
+  });
+
+  it('renders reveal visibility logs with the localized audience and source zone', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-stop-playing-top',
+        type: 'library.play_top_revealed',
+        message: 'Legacy message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.library.stoppedPlayingTopRevealed',
+        params: {
+          actorPlayerId: 'player-1',
+          recipientPlayerIds: ['player-2'],
+          revealAudience: 'players',
+        },
+        refs: {
+          players: {
+            'player-1': { id: 'player-1', displayName: 'Alice' },
+            'player-2': { id: 'player-2', displayName: 'Bruno' },
+          },
+        },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('stopped playing with the top card of their library revealed to Bruno.');
+  });
+
+  it('renders a private reveal log with the card name and hover-preview card', () => {
+    const state = new GameTableChatLogState();
+    const base = snapshot();
+    const revealedCard: GameCardInstance = {
+      instanceId: 'hand-1',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      name: 'Sol Ring',
+      zone: 'hand',
+      tapped: false,
+    };
+    base.players = {
+      'player-1': {
+        ...playerState('Alice'),
+        zones: { ...playerState('Alice').zones, hand: [revealedCard] },
+      },
+      'player-2': playerState('Bruno'),
+    };
+    base.eventLog = [{
+      id: 'event-private-reveal',
+      type: 'card.revealed',
+      message: 'Legacy reveal message.',
+      actorId: 'player-1',
+      displayName: 'Alice',
+      createdAt: '2026-05-14T00:00:00Z',
+      i18nKey: 'gameLog.card.revealedNamed',
+      params: {
+        actorPlayerId: 'player-1',
+        recipientPlayerIds: ['player-2'],
+        revealAudience: 'players',
+        zone: 'hand',
+        cardName: 'Sol Ring',
+      },
+      cardInstanceId: 'hand-1',
+      cardPlayerId: 'player-1',
+      cardZone: 'hand',
+      visibility: 'private',
+    }];
+
+    const [entry] = state.eventLogView(base, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('revealed ');
+    expect(entry?.messageSuffix).toBe(' from their hand to Bruno.');
+    expect(entry?.card).toEqual(revealedCard);
   });
 
   it('renders face-down inspection logs without resolving a card reference', () => {

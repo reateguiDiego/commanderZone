@@ -162,12 +162,26 @@
         (toggled)="toggleSubmenu($event, 'libraryReveal')"
         (itemSelected)="selectLibraryRevealTarget($event)"
       />
-      <button type="button" (click)="actionSelected.emit({ type: 'playTopRevealed', enabled: !isPlayTopLibraryRevealed() })">
+      @if (isPlayTopLibraryRevealed()) {
+      <button type="button" (click)="actionSelected.emit({ type: 'playTopRevealed', enabled: false })">
         <span class="menu-item-label">
-          <lucide-icon [name]="isPlayTopLibraryRevealed() ? 'eye-off' : 'eye'" size="17" aria-hidden="true" />
-          <span>{{ displayLabel(isPlayTopLibraryRevealed() ? 'game.contextMenu.labels.stopPlayingTopRevealed' : 'game.contextMenu.labels.playTopRevealed') }}</span>
+          <lucide-icon name="eye-off" size="17" aria-hidden="true" />
+          <span>{{ displayLabel('game.contextMenu.labels.stopPlayingTopRevealed') }}</span>
         </span>
       </button>
+      } @else {
+      <app-context-submenu
+        label="game.contextMenu.labels.playTopRevealed"
+        icon="eye"
+        [items]="libraryPlayTopRevealedMenuItems()"
+        [expanded]="isSubmenuExpanded('libraryPlayTopRevealed')"
+        direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
+        (toggled)="toggleSubmenu($event, 'libraryPlayTopRevealed')"
+        (itemSelected)="selectLibraryPlayTopRevealedTarget($event)"
+      />
+      }
       <button type="button" (click)="actionSelected.emit({ type: 'shuffle' })">
         <span class="menu-item-label">
           <lucide-icon name="refresh-ccw" size="17" aria-hidden="true" />

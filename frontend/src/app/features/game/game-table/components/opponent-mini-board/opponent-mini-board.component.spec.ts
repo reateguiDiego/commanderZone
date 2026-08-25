@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { Ban, Circle, Crown, Eye, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { OpponentMiniBoardComponent } from './opponent-mini-board.component';
 import { PlayerView } from '../../game-table.store';
@@ -12,7 +12,7 @@ describe('OpponentMiniBoardComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OpponentMiniBoardComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Flag, Library, Sparkles })),
+        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Eye, Flag, Library, Sparkles })),
       ],
     }).compileComponents();
 
@@ -107,7 +107,47 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).not.toBeNull();
     expect(fixture.nativeElement.querySelectorAll('[data-testid="opponent-cards-target-card"]').length).toBe(1);
   });
+
+  it('shows revealed hand and library counts without including hidden placeholders', () => {
+    fixture.detectChanges();
+
+    expect(revealedCount(fixture, 'hand')).toBeNull();
+    expect(revealedCount(fixture, 'library')).toBeNull();
+
+    const handRevealed = { ...cardInstance('hand-revealed', 'Revealed Hand'), zone: 'hand' as const, revealedTo: ['all'] };
+    const handHidden = { ...cardInstance('hand-hidden', 'Hidden Hand'), zone: 'hand' as const, hidden: true, faceDown: true };
+    const libraryRevealed = { ...cardInstance('library-revealed', 'Revealed Library'), zone: 'library' as const, revealedTo: ['all'] };
+    const libraryHidden = { ...cardInstance('library-hidden', 'Hidden Library'), zone: 'library' as const, hidden: true, faceDown: true };
+    const currentPlayer = playerView();
+
+    fixture.componentRef.setInput('player', playerView({
+      zones: {
+        ...currentPlayer.state.zones,
+        hand: [handRevealed, handHidden],
+        library: [libraryRevealed, libraryHidden],
+      },
+    }));
+    fixture.detectChanges();
+
+    expect(revealedCount(fixture, 'hand')?.textContent?.replace(/\s+/g, '')).toBe('(1)');
+    expect(revealedCount(fixture, 'library')?.textContent?.replace(/\s+/g, '')).toBe('(1)');
+    expect(revealedCount(fixture, 'graveyard')).toBeNull();
+  });
+
+  it('uses translated zone names in every zone-count tooltip', () => {
+    fixture.detectChanges();
+
+    const zoneCounts = fixture.nativeElement.querySelectorAll('.opponent-zone-count') as NodeListOf<HTMLElement>;
+    const tooltips = Array.from(zoneCounts)
+      .map((element) => element.getAttribute('title'));
+
+    expect(tooltips).toEqual(['Hand: 0', 'Library: 0', 'Graveyard: 0', 'Exile: 0']);
+  });
 });
+
+function revealedCount(fixture: ComponentFixture<OpponentMiniBoardComponent>, zone: string): HTMLElement | null {
+  return fixture.nativeElement.querySelector(`[data-testid="opponent-zone-reveal-count-${zone}"]`);
+}
 
 function playerView(overrides: Partial<PlayerView['state']> = {}): PlayerView {
   return {

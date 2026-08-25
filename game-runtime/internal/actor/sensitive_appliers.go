@@ -130,6 +130,11 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	if err != nil {
 		return nil, err
 	}
+	if !revealed {
+		if clearAll, _ := boolField(command.Payload, "clearAll"); clearAll {
+			viewers = revealedCardAudience(game, targets)
+		}
+	}
 	for _, target := range targets {
 		applyCardReveal(game, emitter, target, revealed, viewers, mask, command.Payload)
 	}
@@ -138,12 +143,24 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	return map[string]any{
 		"instanceIds":   instanceIDs,
 		"playerId":      location.PlayerID,
-		"zone":          location.Zone,
+		"zone":          string(location.Zone),
 		"revealed":      revealed,
 		"visibleToMask": mask,
 		"viewers":       viewers,
 		"metrics":       sensitiveMetrics("sensitive.revealed_ms", start, emitter),
 	}, nil
+}
+
+func revealedCardAudience(game *state.GameState, targets []cardRevealTarget) []string {
+	viewers := make([]string, 0)
+	for _, target := range targets {
+		audience := game.Visibility.HandRevealAudiences[target.instanceID]
+		viewers = mergeViewerIDs(viewers, audience)
+		if len(audience) == 0 {
+			viewers = mergeViewerIDs(viewers, viewerIDsForMask(game, target.instance.VisibleToMask))
+		}
+	}
+	return viewers
 }
 
 type cardRevealTarget struct {
@@ -410,7 +427,26 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 	if !ok {
 		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
 	}
+	var viewers []string
+	var mask uint64
+	if enabled {
+		viewers, mask = revealTargets(game, command.Payload)
+		if len(viewers) == 0 {
+			viewers, mask = allRevealTargets(game)
+		}
+		if mask == 0 {
+			return nil, fmt.Errorf("%w: to", ErrInvalidPayloadField)
+		}
+	} else if window, revealed := game.Visibility.TopRevealWindows[playerID]; revealed {
+		viewers, mask = window.To, window.Mask
+	}
 	player["playTopLibraryRevealed"] = enabled
+	if enabled {
+		player["playTopLibraryRevealedTo"] = viewers
+	} else {
+		delete(player, "playTopLibraryRevealedTo")
+		clearLibraryTopReveal(game, playerID)
+	}
 	game.Players[playerID] = player
 
 	emitter.EmitPublic(protocol.PatchOp{
@@ -421,31 +457,9 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 		},
 	})
 	if enabled {
-		ops := state.NewLibraryOps()
-		top, err := ops.PeekTop(game, playerID, 1)
-		if err == nil && len(top) == 1 {
-			instance := game.Instances[top[0]]
-			game.EnsureVisibility()
-			instance.VisibleToMask |= 1
-			game.Instances[top[0]] = instance
-			game.Visibility.InstanceMasks[top[0]] |= 1
-			emitter.EmitPublic(protocol.PatchOp{
-				Op: "library.top.revealed",
-				Data: map[string]any{
-					"playerId": playerID,
-					"count":    1,
-					"cards": []map[string]any{{
-						"instanceId": top[0],
-						"cardKey":    instance.CardKey,
-					}},
-				},
-			})
-		}
+		emitCurrentTopWhenPlayTopRevealed(emitter, game, playerID)
 	} else {
-		emitter.EmitPublic(protocol.PatchOp{
-			Op:   "library.top.hidden",
-			Data: map[string]any{"playerId": playerID},
-		})
+		emitTopRevealHidden(emitter, playerID, viewers, mask)
 	}
 	// Keep the visual visibility marker in lockstep with the mode. This is also
 	// the authoritative clear for a stale eye after stopping the mode.
@@ -453,8 +467,18 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 	return map[string]any{
 		"playerId": playerID,
 		"enabled":  enabled,
+		"viewers":  viewers,
 		"metrics":  sensitiveMetrics("sensitive.play_top_revealed_ms", start, emitter),
 	}, nil
+}
+
+func allRevealTargets(game *state.GameState) ([]string, uint64) {
+	game.EnsureVisibility()
+	viewers := make([]string, 0, len(game.Players))
+	for playerID := range game.Players {
+		viewers = append(viewers, playerID)
+	}
+	return viewers, viewerMaskForIDs(game, viewers)
 }
 
 func revealTargets(game *state.GameState, payload map[string]any) ([]string, uint64) {

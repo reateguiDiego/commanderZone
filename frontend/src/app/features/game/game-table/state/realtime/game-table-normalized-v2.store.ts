@@ -82,6 +82,7 @@ export interface GameTableNormalizedV2PlayerState {
   topLibraryRevealedTo?: string[];
   revealedLibraryTo?: string[];
   libraryShuffleRevision?: number;
+  libraryTopRevealEpoch?: number;
   revealedHandIndexes?: number[];
 }
 
@@ -324,7 +325,12 @@ export function createGameTableNormalizedV2State(
 
   for (const zone of Object.values(bootstrap.zones)) {
     zones[zone.playerId] ??= emptyZones();
-    zones[zone.playerId][zone.name] = [...zone.instanceIds];
+    // Runtime snapshots store libraries with the top card at the tail. The
+    // normalized client state keeps its known library top at index zero so
+    // bootstrap and realtime reveal/reorder patches share one invariant.
+    zones[zone.playerId][zone.name] = zone.name === 'library'
+      ? [...zone.instanceIds].reverse()
+      : [...zone.instanceIds];
     zoneCounts[zone.playerId] ??= emptyZoneCounts();
     zoneCounts[zone.playerId][zone.name] = Math.max(0, bootstrap.zoneCounts[zone.zoneId] ?? zone.instanceIds.length);
   }
@@ -608,7 +614,11 @@ function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
 }
 
 function isIdempotentVisibilityOperation(operation: GameplayPatchV2Operation): boolean {
-  return operation.op === 'hand.reveal_marker.set'
+  return (operation.op === 'zone.cards.remove' && operation.zone === 'library')
+    // A selected viewer can receive this removal after the public version
+    // carrier for a one-off top reveal. It is idempotent and must be merged
+    // even though the acknowledgement belongs only to the acting player.
+    || operation.op === 'hand.reveal_marker.set'
     || operation.op === 'hand.reveal_marker.clear'
     || operation.op === 'library.top.reveal_marker.set'
     // The selected opponent can receive this private identity patch after the
@@ -884,7 +894,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       }));
 
     case 'library.top.revealed':
-      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {}, operation.epoch);
 
     case 'library.top.viewed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
@@ -923,7 +933,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return clearKnownLibraryOrder(state, operation.playerId);
 
     case 'library.shuffled':
-      return clearKnownLibraryOrder(state, operation.playerId);
+      return clearKnownLibraryOrder(state, operation.playerId, operation.visibilityEpoch);
 
     case 'stack.add':
     case 'stack.item.add':
@@ -1434,7 +1444,7 @@ function moveOneCard(
       );
     }
     nextInstance = completeInstanceIdentity(nextInstance, nextStaticCards[nextInstance.cardRef]);
-    if (operation.from.zone === 'hand' && operation.to.zone !== 'hand') {
+    if (shouldClearRevealRecipientsAfterMove(operation)) {
       nextInstance = { ...nextInstance, revealedTo: undefined };
     }
     nextInstances[operation.instanceId] = nextInstance;
@@ -1447,7 +1457,7 @@ function moveOneCard(
       ...existing,
       zoneId: zoneId(operation.to.playerId, operation.to.zone),
       position: battlefieldPositionForZone(operation.to.zone, existing.position, existing.position),
-      ...(operation.from.zone === 'hand' && operation.to.zone !== 'hand' ? { revealedTo: undefined } : {}),
+      ...(shouldClearRevealRecipientsAfterMove(operation) ? { revealedTo: undefined } : {}),
     };
   }
 
@@ -1515,6 +1525,20 @@ function moveOneCard(
   };
 }
 
+function shouldClearRevealRecipientsAfterMove(operation: {
+  from: { zone: GameZoneName };
+  to: { zone: GameZoneName };
+  card?: Pick<BootstrapInstanceV2, 'revealedTo'> | LegacyCardPatchPayload;
+}): boolean {
+  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand') {
+    return true;
+  }
+
+  return operation.from.zone === 'library'
+    && operation.to.zone !== 'library'
+    && operation.card?.revealedTo === undefined;
+}
+
 function reorderZoneByIds(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -1576,6 +1600,7 @@ function revealLibraryTop(
   playerId: string,
   cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>,
   staticCards: Record<string, BootstrapStaticCardV2>,
+  revealEpoch?: number,
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   if (!playerZones) {
@@ -1619,6 +1644,15 @@ function revealLibraryTop(
           library: nextLibrary,
         },
       },
+      ...(revealEpoch === undefined ? {} : {
+        players: {
+          ...state.players,
+          [playerId]: {
+            ...state.players[playerId],
+            libraryTopRevealEpoch: revealEpoch,
+          },
+        },
+      }),
     },
   };
 }
@@ -1657,11 +1691,16 @@ function reorderLibraryTop(
 function clearKnownLibraryOrder(
   state: GameTableNormalizedV2State,
   playerId: string,
+  preserveTopRevealEpoch?: number,
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   if (!playerZones) {
     return { status: 'failed', reason: 'target_not_found' };
   }
+
+  const player = state.players[playerId];
+  const preservesCurrentTop = preserveTopRevealEpoch !== undefined
+    && player?.libraryTopRevealEpoch === preserveTopRevealEpoch;
 
   return {
     status: 'applied',
@@ -1671,9 +1710,18 @@ function clearKnownLibraryOrder(
         ...state.zones,
         [playerId]: {
           ...playerZones,
-          library: [],
+          library: preservesCurrentTop ? playerZones.library.slice(0, 1) : [],
         },
       },
+      ...(player ? {
+        players: {
+          ...state.players,
+          [playerId]: {
+            ...player,
+            libraryTopRevealEpoch: preservesCurrentTop ? player.libraryTopRevealEpoch : undefined,
+          },
+        },
+      } : {}),
     },
   };
 }

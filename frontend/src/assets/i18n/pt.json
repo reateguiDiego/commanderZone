@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} embaralhou seu grimório.",
       "view": "{{ actor }} olhou os principais cards {{ count }} em seu grimório.",
       "reveal": "{{ actor }} revelou sua biblioteca.",
-      "revealTop": "{{ actor }} revelou os primeiros cards {{ count }} em seu grimório.",
-      "playTopRevealed": "{{ actor }} joga com o primeiro card de seu grimório revelado.",
-      "stoppedPlayingTopRevealed": "{{ actor }} parou de jogar com a primeira carta de seu grimório revelada."
+      "revealTop": "{{ actor }} revelou os {{ count }} cards do topo de seu grimório para {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} revelou {{ cardName }}, o card do topo de seu grimório, para {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} parou de revelar o card do topo de seu grimório para {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} joga com o card do topo de seu grimório revelado para {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} parou de jogar com o card do topo de seu grimório revelado para {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} alterou o dano de comandante em {{ target }} de {{ previousValue }} para {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} virou uma carta para baixo.",
       "turnedFaceUp": "{{ actor }} virou uma carta para cima.",
       "controllerChanged": "{{ actor }} mudou o controlador de uma carta para {{ target }}.",
-      "revealed": "{{ actor }} revelou 1 carta para {{ recipients }}.",
-      "revealedMany": "{{ actor }} revelou {{ count }} cartas para {{ recipients }}.",
+      "revealed": "{{ actor }} revelou 1 carta de sua {{ zone }} para {{ recipients }}.",
+      "revealedNamed": "{{ actor }} revelou {{ cardName }} de sua {{ zone }} para {{ recipients }}.",
+      "revealedMany": "{{ actor }} revelou {{ count }} cartas de sua {{ zone }} para {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} parou de revelar 1 carta de sua {{ zone }} para {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} parou de revelar {{ count }} cartas de sua {{ zone }} para {{ recipients }}.",
       "moved": "{{ actor }} moveu uma carta de {{ fromZone }} para {{ toZone }}.",
       "tapped": "{{ actor }} virou uma permanente.",
       "untapped": "{{ actor }} desvirou uma permanente.",

@@ -20,6 +20,7 @@ use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Application\Room\Lifecycle\WaitingRoomLifecycleScheduler;
+use App\Application\Room\RoomDeckBracketPayloadEnricher;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Game\Game;
@@ -42,7 +43,10 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class RoomsController extends ApiController
 {
-    public function __construct(private readonly ?ImpersonationContext $impersonation = null)
+    public function __construct(
+        private readonly ?ImpersonationContext $impersonation = null,
+        private readonly ?RoomDeckBracketPayloadEnricher $roomDeckBracketPayloadEnricher = null,
+    )
     {
     }
 
@@ -1038,7 +1042,9 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
 
     private function roomArray(Room $room, User $viewer, CardLocalizationService $localization): array
     {
-        return $this->localizeRoomArrays([$room->toArray()], $viewer, $localization)[0] ?? $room->toArray();
+        $payload = $this->localizeRoomArrays([$room->toArray()], $viewer, $localization)[0] ?? $room->toArray();
+
+        return $this->roomDeckBracketPayloadEnricher?->enrich($payload) ?? $payload;
     }
 
     /**

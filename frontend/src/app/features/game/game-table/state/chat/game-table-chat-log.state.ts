@@ -323,6 +323,7 @@ export class GameTableChatLogState {
       target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
       recipients: this.revealRecipientsLabel(snapshot, entry, params),
       count: params['count'] ?? '',
+      zone: this.zoneLabel(this.stringParam(params, 'zone')),
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
       toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
       counter: this.counterLabel(params['counter']),

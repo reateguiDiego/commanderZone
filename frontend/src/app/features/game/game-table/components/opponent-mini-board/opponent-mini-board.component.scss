@@ -533,6 +533,20 @@
   transform: translateY(-0.04rem);
 }
 
+.rc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.08rem;
+  color: var(--game-accent, rgb(var(--a)));
+  animation: rp 1.35s ease-in-out infinite;
+}
+
+@keyframes rp {
+  50% {
+    text-shadow: 0 0 0.45rem var(--game-accent, var(--gold));
+  }
+}
+
 @media (max-width: 760px) and (min-height: 769px) {
   .player-thumb {
     gap: 0.42rem;

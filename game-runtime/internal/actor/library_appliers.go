@@ -40,9 +40,13 @@ func (LibraryDrawManyApplier) Apply(_ context.Context, game *state.GameState, co
 	if err != nil {
 		return nil, err
 	}
-	delete(game.Visibility.TopRevealWindows, playerID)
+	revealWindow, hadRevealWindow := game.Visibility.TopRevealWindows[playerID]
+	if !isPlayingTopLibraryRevealed(game, playerID) {
+		delete(game.Visibility.TopRevealWindows, playerID)
+	}
 	cards := make([]map[string]any, 0, len(drawn))
 	for _, instanceID := range drawn {
+		resetLibraryRevealState(game, instanceID)
 		cards = append(cards, cardPatchData(game, playerID, instanceID))
 	}
 	emitter.EmitPrivate(playerID, protocol.PatchOp{
@@ -53,6 +57,21 @@ func (LibraryDrawManyApplier) Apply(_ context.Context, game *state.GameState, co
 			"instanceIds": drawn,
 		},
 	})
+	if hadRevealWindow {
+		for _, viewerID := range revealWindow.To {
+			if viewerID == "" || viewerID == playerID {
+				continue
+			}
+			emitter.EmitPrivate(viewerID, protocol.PatchOp{
+				Op: "zone.cards.remove",
+				Data: map[string]any{
+					"playerId":    playerID,
+					"zone":        state.ZoneLibrary,
+					"instanceIds": drawn,
+				},
+			})
+		}
+	}
 	emitter.EmitPrivate(playerID, protocol.PatchOp{
 		Op: "zone.cards.add",
 		Data: map[string]any{
@@ -111,9 +130,14 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 		game.Instances[instanceID] = instance
 		game.Visibility.InstanceMasks[instanceID] |= mask
 		cards = append(cards, map[string]any{
-			"instanceId": instanceID,
-			"cardKey":    instance.CardKey,
-			"revealedTo": viewers,
+			"instanceId":       instanceID,
+			"cardKey":          instance.CardKey,
+			"printId":          printIDFromCardKey(instance.CardKey),
+			"cardVersion":      "runtime-identity-v1",
+			"viewerVisibility": "public",
+			"faceDown":         false,
+			"hidden":           false,
+			"revealedTo":       viewers,
 		})
 	}
 	revealOp := protocol.PatchOp{
@@ -125,17 +149,30 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 			"cards":    cards,
 		},
 	}
-	if len(viewers) == 1 {
-		emitter.EmitPrivate(viewers[0], revealOp)
-	} else {
+	if len(viewers) == 0 {
+		// Keep the explicit-mask compatibility path for internal callers that
+		// predate recipient ids. UI reveal actions always carry recipients.
 		emitter.EmitGroup(strconv.FormatUint(mask, 10), revealOp)
+	} else {
+		// A reveal addressed to several players must not depend on a bitmask
+		// frozen into each WebSocket ticket. Tickets can be issued before the
+		// runtime persists its visibility index, in which case a group patch is
+		// silently filtered by the gateway even though the reveal succeeded.
+		for _, viewerID := range viewers {
+			emitter.EmitPrivate(viewerID, revealOp)
+		}
 	}
 	emitLibraryTopRevealMarker(emitter, game, playerID)
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{
-		"playerId":        playerID,
-		"count":           count,
-		"instanceIds":     top,
+		"playerId":    playerID,
+		"count":       count,
+		"instanceIds": top,
+		// Persist the audience with the runtime event. The PHP bootstrap
+		// projection reconstructs hidden-zone visibility from this payload after
+		// a receiver reconnects; omitting it made a directed top reveal revert to
+		// a card back on reload even though its realtime patch was correct.
+		"viewers":         viewers,
 		"visibilityEpoch": window.Epoch,
 		"metrics":         libraryMetrics(command.Type, start, ops),
 	}, nil
@@ -159,7 +196,7 @@ func (LibraryReorderTopApplier) Apply(_ context.Context, game *state.GameState, 
 	if err := ops.ReorderTop(game, playerID, orderedTopIDs); err != nil {
 		return nil, err
 	}
-	delete(game.Visibility.TopRevealWindows, playerID)
+	clearLibraryTopRevealUnlessPersistent(game, playerID)
 	emitter.EmitPrivate(playerID, protocol.PatchOp{
 		Op: "library.top.reordered",
 		Data: map[string]any{
@@ -237,7 +274,10 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 	if err != nil {
 		return nil, err
 	}
-	delete(game.Visibility.TopRevealWindows, playerID)
+	clearLibraryTopRevealUnlessPersistent(game, playerID)
+	for _, instanceID := range moved {
+		resetLibraryRevealState(game, instanceID)
+	}
 	if destination == state.ZoneLibrary && toPlayerID == playerID {
 		emitter.EmitPrivate(playerID, protocol.PatchOp{
 			Op: "library.top.moved",
@@ -363,7 +403,7 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 		return nil, err
 	}
 	if top {
-		delete(game.Visibility.TopRevealWindows, playerID)
+		clearLibraryTopRevealUnlessPersistent(game, playerID)
 	}
 	instanceID, err := stringField(command.Payload, "instanceId")
 	if err != nil {
@@ -408,15 +448,15 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 
 // emitCurrentTopWhenPlayTopRevealed is deliberately O(1): it reads only the
 // first library entry after a mutation, preserving the runtime's compact patch
-// path while keeping the public top card current.
+// path while keeping the selected audience's top card current.
 func emitCurrentTopWhenPlayTopRevealed(emitter *PatchEmitter, game *state.GameState, playerID string) {
-	player := game.Players[playerID]
-	if player == nil || player["playTopLibraryRevealed"] != true {
+	window, enabled := ensurePlayTopRevealWindow(game, playerID)
+	if !enabled {
 		return
 	}
 	zones, ok := game.Zones[playerID]
 	if !ok || len(zones.Library) == 0 {
-		emitter.EmitPublic(protocol.PatchOp{Op: "library.top.hidden", Data: map[string]any{"playerId": playerID}})
+		emitTopRevealHidden(emitter, playerID, window.To, window.Mask)
 		return
 	}
 	instanceID := zones.Library[len(zones.Library)-1]
@@ -424,17 +464,29 @@ func emitCurrentTopWhenPlayTopRevealed(emitter *PatchEmitter, game *state.GameSt
 	if !ok {
 		return
 	}
-	emitter.EmitPublic(protocol.PatchOp{
+	instance.VisibleToMask |= window.Mask
+	game.Instances[instanceID] = instance
+	game.EnsureVisibility()
+	game.Visibility.InstanceMasks[instanceID] |= window.Mask
+	revealOp := protocol.PatchOp{
 		Op: "library.top.revealed",
 		Data: map[string]any{
 			"playerId": playerID,
 			"count":    1,
+			"epoch":    window.Epoch,
 			"cards": []map[string]any{{
-				"instanceId": instanceID,
-				"cardKey":    instance.CardKey,
+				"instanceId":       instanceID,
+				"cardKey":          instance.CardKey,
+				"printId":          printIDFromCardKey(instance.CardKey),
+				"cardVersion":      "runtime-identity-v1",
+				"viewerVisibility": "public",
+				"faceDown":         false,
+				"hidden":           false,
+				"revealedTo":       window.To,
 			}},
 		},
-	})
+	}
+	emitTopRevealToViewers(emitter, window.To, window.Mask, revealOp)
 }
 
 func emitLibraryTopRevealMarker(emitter *PatchEmitter, game *state.GameState, playerID string) {
@@ -445,9 +497,8 @@ func emitLibraryTopRevealMarker(emitter *PatchEmitter, game *state.GameState, pl
 		return
 	}
 
-	player := game.Players[playerID]
-	if player != nil && player["playTopLibraryRevealed"] == true {
-		emitLibraryTopRevealAudience(emitter, playerID, nil)
+	if window, playing := ensurePlayTopRevealWindow(game, playerID); playing {
+		emitLibraryTopRevealAudience(emitter, playerID, window.To)
 		emitter.EmitPublic(protocol.PatchOp{Op: "library.top.reveal_marker.set", Data: map[string]any{"playerId": playerID, "revealed": true}})
 		return
 	}
@@ -467,6 +518,75 @@ func emitLibraryTopRevealMarker(emitter *PatchEmitter, game *state.GameState, pl
 	})
 }
 
+func isPlayingTopLibraryRevealed(game *state.GameState, playerID string) bool {
+	player := game.Players[playerID]
+	return player != nil && player["playTopLibraryRevealed"] == true
+}
+
+func ensurePlayTopRevealWindow(game *state.GameState, playerID string) (state.TopRevealWindow, bool) {
+	if !isPlayingTopLibraryRevealed(game, playerID) {
+		return state.TopRevealWindow{}, false
+	}
+	player := game.Players[playerID]
+	viewers, mask := revealTargets(game, map[string]any{"viewers": player["playTopLibraryRevealedTo"]})
+	if len(viewers) == 0 {
+		viewers, mask = allRevealTargets(game)
+		player["playTopLibraryRevealedTo"] = viewers
+		game.Players[playerID] = player
+	}
+	return game.RevealTopWindow(playerID, 1, viewers, mask), true
+}
+
+func clearLibraryTopRevealUnlessPersistent(game *state.GameState, playerID string) {
+	if !isPlayingTopLibraryRevealed(game, playerID) {
+		clearLibraryTopReveal(game, playerID)
+	}
+}
+
+func clearLibraryTopReveal(game *state.GameState, playerID string) {
+	window, exists := game.Visibility.TopRevealWindows[playerID]
+	delete(game.Visibility.TopRevealWindows, playerID)
+	if !exists {
+		return
+	}
+	zones, ok := game.Zones[playerID]
+	if !ok {
+		return
+	}
+	for _, instanceID := range zones.Library {
+		instance := game.Instances[instanceID]
+		instance.VisibleToMask &^= window.Mask
+		game.Instances[instanceID] = instance
+		game.Visibility.InstanceMasks[instanceID] &^= window.Mask
+		if game.Visibility.InstanceMasks[instanceID] == 0 {
+			delete(game.Visibility.InstanceMasks, instanceID)
+		}
+	}
+}
+
+func resetLibraryRevealState(game *state.GameState, instanceID string) {
+	instance := game.Instances[instanceID]
+	instance.VisibleToMask = 0
+	instance.Position = nil
+	game.Instances[instanceID] = instance
+	game.EnsureVisibility()
+	delete(game.Visibility.InstanceMasks, instanceID)
+}
+
+func emitTopRevealToViewers(emitter *PatchEmitter, viewers []string, mask uint64, op protocol.PatchOp) {
+	if len(viewers) == 0 {
+		emitter.EmitGroup(strconv.FormatUint(mask, 10), op)
+		return
+	}
+	for _, viewerID := range viewers {
+		emitter.EmitPrivate(viewerID, op)
+	}
+}
+
+func emitTopRevealHidden(emitter *PatchEmitter, playerID string, viewers []string, mask uint64) {
+	emitTopRevealToViewers(emitter, viewers, mask, protocol.PatchOp{Op: "library.top.hidden", Data: map[string]any{"playerId": playerID}})
+}
+
 func emitLibraryTopRevealAudience(emitter *PatchEmitter, playerID string, viewers []string) {
 	normalizedViewers := append([]string{}, viewers...)
 	emitter.EmitPrivate(playerID, protocol.PatchOp{
@@ -478,7 +598,9 @@ func emitLibraryTopRevealAudience(emitter *PatchEmitter, playerID string, viewer
 func stopRevealingTopLibraryCard(game *state.GameState, playerID string, payload map[string]any, emitter *PatchEmitter, start time.Time) (map[string]any, error) {
 	game.EnsureVisibility()
 	window, hasWindow := game.Visibility.TopRevealWindows[playerID]
+	viewers := stringsFromAny(payload["viewers"])
 	if hasWindow {
+		viewers = append([]string(nil), window.To...)
 		removeMask := window.Mask
 		_, hasTo := payload["to"]
 		_, hasViewers := payload["viewers"]
@@ -486,6 +608,7 @@ func stopRevealingTopLibraryCard(game *state.GameState, playerID string, payload
 		targetedStop := hasTo || hasViewers || hasVisibleMask
 		if targetedStop {
 			targetViewers, targetMask := revealTargets(game, payload)
+			viewers = targetViewers
 			removeMask &= targetMask
 			// A legacy window can contain a fallback bit with no corresponding
 			// audience entry. Remove that stale remainder together with the
@@ -541,6 +664,7 @@ func stopRevealingTopLibraryCard(game *state.GameState, playerID string, payload
 	return map[string]any{
 		"playerId": playerID,
 		"stop":     true,
+		"viewers":  viewers,
 		"metrics":  libraryMetrics("library.reveal_top", start, state.NewLibraryOps()),
 	}, nil
 }

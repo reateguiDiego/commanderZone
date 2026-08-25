@@ -197,6 +197,47 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertNull($roundTrip['players'][$owner->id()]['zones']['battlefield'][0]['position'] ?? null);
     }
 
+    public function testCompactRuntimeRestoresDirectedTopRevealForRecipientBootstrap(): void
+    {
+        $owner = $this->user('reveal-owner@example.test', 'Reveal Owner', 'reveal-owner');
+        $recipient = $this->user('reveal-recipient@example.test', 'Reveal Recipient', 'reveal-recipient');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $recipient));
+        $snapshot = $this->snapshot($owner, [
+            'library' => [$this->richCard('directed-top', 'Directed Top Card', 'library')],
+        ], $recipient);
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($snapshot, 'directed-reveal-game', Game::STATUS_ACTIVE);
+        $compact['instances']['directed-top']['visibleTo'] = [];
+        $compact['instances']['directed-top']['visibleToMask'] = 0;
+        $compact['visibility'] = [
+            'viewerBits' => [$owner->id() => 1, $recipient->id() => 2],
+            'instanceMasks' => ['directed-top' => 2],
+            'topRevealWindows' => [$owner->id() => [
+                'ownerId' => $owner->id(),
+                'count' => 1,
+                'epoch' => 0,
+                'to' => [$recipient->id()],
+                'mask' => 2,
+            ]],
+        ];
+
+        $game = new Game($room, $compact);
+        $projected = (new GameProjectionService(new GameCommandHandler()))->project($game, $recipient);
+        $topCard = $projected['players'][$owner->id()]['zones']['library'][0] ?? [];
+
+        self::assertSame('Directed Top Card', $topCard['name'] ?? null);
+        self::assertSame([$recipient->id()], $topCard['revealedTo'] ?? null);
+
+        $identityDeferredCompact = $compact;
+        $identityDeferredCompact['cardCatalog'] = [];
+        $identityDeferred = $mapper->hydrateSnapshot($identityDeferredCompact);
+        $identityDeferredTop = $identityDeferred['players'][$owner->id()]['zones']['library'][0] ?? [];
+
+        self::assertSame([$recipient->id()], $identityDeferredTop['revealedTo'] ?? null);
+    }
+
     public function testCommandHandlerCompactsTokenCopiesAndStackEntriesWithoutStaticPayloadDuplication(): void
     {
         $actor = $this->user('actor@example.test', 'Actor', 'actor-id');

@@ -566,6 +566,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			Op:   "eventLog.append",
 			Data: map[string]any{"entries": logEntries},
 		})
+		for viewerID, privateEntries := range runtimePrivateRevealLogEntries(a.state, command, eventPayload, logEntries) {
+			emitter.EmitPrivate(viewerID, protocol.PatchOp{
+				Op:   "eventLog.append",
+				Data: map[string]any{"entries": privateEntries},
+			})
+		}
 	}
 
 	event := protocol.EventPayloadV2{

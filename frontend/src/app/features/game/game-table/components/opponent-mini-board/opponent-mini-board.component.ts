@@ -119,6 +119,17 @@ export class OpponentMiniBoardComponent {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
   }
 
+  revealedZoneCardCount(player: PlayerView, zone: OpponentCountZone): number {
+    if (zone !== 'hand' && zone !== 'library') {
+      return 0;
+    }
+
+    return player.state.zones[zone].filter((card) =>
+      card.hidden !== true
+      && (card.revealMarker === true || (card.revealedTo?.length ?? 0) > 0),
+    ).length;
+  }
+
   defeatedBackgroundImageCss(player: PlayerView): string | null {
     const image = this.backgroundImage()(player).trim();
 

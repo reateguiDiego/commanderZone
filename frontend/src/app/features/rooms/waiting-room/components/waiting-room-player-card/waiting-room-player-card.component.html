@@ -63,7 +63,7 @@
       />
     </div>
 
-    @if (current() && player.deckId && deckBracket(); as bracket) {
+    @if (player.deckId && deckBracket(); as bracket) {
       <app-bracket-label-pill [bracket]="bracket" />
     }
 

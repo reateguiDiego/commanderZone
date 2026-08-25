@@ -999,9 +999,11 @@
       "shuffle": "{{ actor }} shuffled their library.",
       "view": "{{ actor }} looked at the top {{ count }} cards of their library.",
       "reveal": "{{ actor }} revealed their library.",
-      "revealTop": "{{ actor }} revealed the top {{ count }} cards of their library.",
-      "playTopRevealed": "{{ actor }} is playing with the top card of their library revealed.",
-      "stoppedPlayingTopRevealed": "{{ actor }} stopped playing with the top card of their library revealed."
+      "revealTop": "{{ actor }} revealed the top {{ count }} cards of their library to {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} revealed {{ cardName }}, the top card of their library, to {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} stopped revealing the top card of their library to {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} is playing with the top card of their library revealed to {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} stopped playing with the top card of their library revealed to {{ recipients }}."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -1010,8 +1012,11 @@
       "turnedFaceDown": "{{ actor }} turned a card face down.",
       "turnedFaceUp": "{{ actor }} turned a card face up.",
       "controllerChanged": "{{ actor }} changed a card's controller to {{ target }}.",
-      "revealed": "{{ actor }} revealed 1 card to {{ recipients }}.",
-      "revealedMany": "{{ actor }} revealed {{ count }} cards to {{ recipients }}.",
+      "revealed": "{{ actor }} revealed 1 card from their {{ zone }} to {{ recipients }}.",
+      "revealedNamed": "{{ actor }} revealed {{ cardName }} from their {{ zone }} to {{ recipients }}.",
+      "revealedMany": "{{ actor }} revealed {{ count }} cards from their {{ zone }} to {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} stopped revealing 1 card from their {{ zone }} to {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} stopped revealing {{ count }} cards from their {{ zone }} to {{ recipients }}.",
       "tapped": "{{ actor }} tapped a permanent.",
       "untapped": "{{ actor }} untapped a permanent.",
       "movedMany": "{{ actor }} moved {{ count }} cards from {{ fromZone }} to {{ toZone }}."

@@ -83,7 +83,7 @@
                       [deckOptions]="deckOptions()"
                       [selectedDeck]="selectedDeckOption()"
                       [selectedDeckId]="selectedDeckId"
-                      [deckBracket]="isCurrentUser(player.user.id) ? selectedDeckBracket() : null"
+                      [deckBracket]="player.deck?.bracket ?? null"
                       [turnPosition]="hasCompletedTurnOrder(room) ? seatIndex + 1 : null"
                       [updatingDeck]="updatingDeck()"
                       [deckLocked]="isCurrentUser(player.user.id) && currentPlayerDeckLocked()"

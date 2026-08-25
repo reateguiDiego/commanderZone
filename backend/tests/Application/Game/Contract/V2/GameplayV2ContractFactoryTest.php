@@ -153,12 +153,15 @@ class GameplayV2ContractFactoryTest extends TestCase
         $topLibraryIndex = array_key_last($canonicalSnapshot['players'][$viewer->id()]['zones']['library']);
         $canonicalSnapshot['players'][$viewer->id()]['zones']['library'][$topLibraryIndex]['revealedTo'] = ['another-player'];
         $canonicalSnapshot['players'][$viewer->id()]['zones']['library'][$topLibraryIndex]['libraryVisibilityEpoch'] = 2;
+        $canonicalSnapshot['players'][$viewer->id()]['playTopLibraryRevealed'] = true;
+        $canonicalSnapshot['players'][$viewer->id()]['playTopLibraryRevealedTo'] = ['another-player'];
         $game = new Game($room, $canonicalSnapshot);
 
         $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $this->projectedSnapshot($viewer));
 
         self::assertSame([0], $bootstrap->players[$viewer->id()]['revealedHandIndexes']);
         self::assertTrue($bootstrap->players[$viewer->id()]['topLibraryRevealMarker']);
+        self::assertTrue($bootstrap->players[$viewer->id()]['playTopLibraryRevealed']);
         self::assertArrayNotHasKey('revealedTo', $bootstrap->players[$viewer->id()]);
     }
 

@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} a mélangé sa bibliothèque.",
       "view": "{{ actor }} a examiné les meilleures cartes {{ count }} de sa bibliothèque.",
       "reveal": "{{ actor }} a dévoilé sa bibliothèque.",
-      "revealTop": "{{ actor }} a dévoilé les premières cartes {{ count }} de sa bibliothèque.",
-      "playTopRevealed": "{{ actor }} joue avec la première carte de sa bibliothèque révélée.",
-      "stoppedPlayingTopRevealed": "{{ actor }} a arrêté de jouer avec la première carte de sa bibliothèque révélée."
+      "revealTop": "{{ actor }} a révélé les {{ count }} cartes du dessus de sa bibliothèque à {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} a révélé {{ cardName }}, la carte du dessus de sa bibliothèque, à {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} a arrêté de révéler la carte du dessus de sa bibliothèque à {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} joue avec la carte du dessus de sa bibliothèque révélée à {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} a arrêté de jouer avec la carte du dessus de sa bibliothèque révélée à {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.",
       "turnedFaceUp": "{{ actor }} a retourné une carte face visible.",
       "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}.",
-      "revealed": "{{ actor }} a révélé 1 carte à {{ recipients }}.",
-      "revealedMany": "{{ actor }} a révélé {{ count }} cartes à {{ recipients }}.",
+      "revealed": "{{ actor }} a révélé 1 carte de sa {{ zone }} à {{ recipients }}.",
+      "revealedNamed": "{{ actor }} a révélé {{ cardName }} de sa {{ zone }} à {{ recipients }}.",
+      "revealedMany": "{{ actor }} a révélé {{ count }} cartes de sa {{ zone }} à {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} a arrêté de révéler 1 carte de sa {{ zone }} à {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} a arrêté de révéler {{ count }} cartes de sa {{ zone }} à {{ recipients }}.",
       "moved": "{{ actor }} a déplacé une carte de {{ fromZone }} vers {{ toZone }}.",
       "tapped": "{{ actor }} a engagé un permanent.",
       "untapped": "{{ actor }} a dégagé un permanent.",

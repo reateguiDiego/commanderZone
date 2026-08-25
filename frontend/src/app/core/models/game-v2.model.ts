@@ -407,6 +407,7 @@ export type GameplayPatchV2Operation =
       op: 'library.top.revealed';
       playerId: string;
       count?: number;
+      epoch?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
     }

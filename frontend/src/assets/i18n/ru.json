@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} перетасовал свою библиотеку.",
       "view": "{{ actor }} просмотрел лучшие карты {{ count }} в своей библиотеке.",
       "reveal": "{{ actor }} раскрыл свою библиотеку.",
-      "revealTop": "{{ actor }} представил первые карты {{ count }} в своей библиотеке.",
-      "playTopRevealed": "{{ actor }} играет первой открытой картой своей библиотеки.",
-      "stoppedPlayingTopRevealed": "{{ actor }} прекратил игру, когда была раскрыта первая карта из его библиотеки."
+      "revealTop": "{{ actor }} показал(а) {{ recipients }} верхние {{ count }} карт(ы) своей библиотеки.",
+      "revealTopNamed": "{{ actor }} показал(а) {{ recipients }} {{ cardName }}, верхнюю карту своей библиотеки.",
+      "stoppedRevealingTop": "{{ actor }} перестал(а) показывать {{ recipients }} верхнюю карту своей библиотеки.",
+      "playTopRevealed": "{{ actor }} играет с верхней картой своей библиотеки, открытой для {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} перестал(а) играть с верхней картой своей библиотеки, открытой для {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} изменил(а) урон командира {{ target }} с {{ previousValue }} на {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} перевернул(а) карту рубашкой вверх.",
       "turnedFaceUp": "{{ actor }} перевернул(а) карту лицом вверх.",
       "controllerChanged": "{{ actor }} изменил(а) контролирующего карту на {{ target }}.",
-      "revealed": "{{ actor }} показал(а) 1 карту {{ recipients }}.",
-      "revealedMany": "{{ actor }} показал(а) {{ count }} карт {{ recipients }}.",
+      "revealed": "{{ actor }} показал(а) 1 карту из своей {{ zone }} {{ recipients }}.",
+      "revealedNamed": "{{ actor }} показал(а) {{ cardName }} из своей {{ zone }} {{ recipients }}.",
+      "revealedMany": "{{ actor }} показал(а) {{ count }} карт из своей {{ zone }} {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} перестал(а) показывать 1 карту из своей {{ zone }} {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} перестал(а) показывать {{ count }} карт из своей {{ zone }} {{ recipients }}.",
       "moved": "{{ actor }} переместил карту из {{ fromZone }} в {{ toZone }}.",
       "tapped": "{{ actor }} нажал на перманент.",
       "untapped": "{{ actor }} разблокировал перманент.",

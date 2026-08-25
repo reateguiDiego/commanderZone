@@ -2,6 +2,8 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Game\Game;
+
 class GameWebsocketTicketApiTest extends ApiTestCase
 {
     public function testWebsocketTicketEndpointRequiresAuthentication(): void
@@ -49,6 +51,31 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertIsString($playerResponse['ticket']);
         self::assertSame('runtime_ws', $playerResponse['route']);
         self::assertSame(['view', 'command'], $playerResponse['claims']['permissions']);
+    }
+
+    public function testWebsocketTicketAssignsRuntimeViewerMaskForLegacySnapshots(): void
+    {
+        $fixture = $this->startedGameFixture('ws-ticket-legacy-mask');
+        $game = $this->entityManager->getRepository(Game::class)->find($fixture['gameId']);
+        self::assertInstanceOf(Game::class, $game);
+
+        $legacySnapshot = $game->snapshot();
+        unset($legacySnapshot['visibility']);
+        $game->replaceSnapshot($legacySnapshot);
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+
+        $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket', token: $fixture['ownerToken']);
+        self::assertResponseIsSuccessful();
+        $ownerMask = $this->ticketViewerMask((string) $this->jsonResponse()['ticket']);
+
+        $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket', token: $fixture['playerToken']);
+        self::assertResponseIsSuccessful();
+        $playerMask = $this->ticketViewerMask((string) $this->jsonResponse()['ticket']);
+
+        self::assertGreaterThan(0, $ownerMask);
+        self::assertGreaterThan(0, $playerMask);
+        self::assertSame(0, $ownerMask & $playerMask);
     }
 
     /**
@@ -119,6 +146,23 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $secret, true)), '+/', '-_'), '=');
 
         return hash_equals($expected, $signature);
+    }
+
+    private function ticketViewerMask(string $ticket): int
+    {
+        [$encodedPayload] = explode('.', $ticket, 2);
+        $payloadJson = base64_decode(str_pad(
+            strtr($encodedPayload, '-_', '+/'),
+            (int) ceil(strlen($encodedPayload) / 4) * 4,
+            '=',
+            STR_PAD_RIGHT,
+        ), true);
+        self::assertIsString($payloadJson);
+
+        $payload = json_decode($payloadJson, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+
+        return max(0, (int) ($payload['viewerMask'] ?? 0));
     }
 
 }

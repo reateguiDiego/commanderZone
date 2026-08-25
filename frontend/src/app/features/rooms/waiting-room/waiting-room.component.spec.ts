@@ -26,7 +26,6 @@ class DummyRoomsPageComponent {}
 describe('WaitingRoomComponent', () => {
   const decksApi = {
     list: vi.fn(),
-    bracketAnalysis: vi.fn(),
   };
   const roomsApi = {
     list: vi.fn(),
@@ -49,7 +48,6 @@ describe('WaitingRoomComponent', () => {
 
   beforeEach(async () => {
     decksApi.list.mockReset().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] }));
-    decksApi.bracketAnalysis.mockReset().mockReturnValue(of({ bracket: null }));
     roomsApi.list.mockReset().mockReturnValue(of({ data: [room()] }));
     roomsApi.show.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
@@ -209,6 +207,35 @@ describe('WaitingRoomComponent', () => {
     expect(playerCard?.style.getPropertyValue('--player-deck-art')).toContain('atraxa-art.jpg');
     expect(playerCard?.style.getPropertyValue('--player-deck-secondary-art')).toContain('silas-art.jpg');
     expect(playerCard?.querySelectorAll('.player-dual-deck-art-pane')).toHaveLength(2);
+  });
+
+  it('renders the selected deck bracket for every player in the waiting room', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.currentRoom.set(room({
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: 'deck-owner',
+          deck: deck('deck-owner', 'Owner deck', { bracket: { bracket: 2, label: 'Core' } }),
+          turnRoll: null,
+        },
+        {
+          id: 'player-2',
+          user: { id: 'user-2', email: 'guest@test', displayName: 'Guest', roles: [] },
+          deckId: 'deck-guest',
+          deck: deck('deck-guest', 'Guest deck', { bracket: { bracket: 4, label: 'Optimized' } }),
+          turnRoll: null,
+        },
+      ],
+    }));
+    fixture.detectChanges();
+
+    expect(renderedPlayerCards(fixture)[0]?.querySelector('app-bracket-label-pill')).not.toBeNull();
+    expect(renderedPlayerCards(fixture)[1]?.querySelector('app-bracket-label-pill')).not.toBeNull();
   });
 
   it('shows a single-action modal instead of selecting an invalid deck', async () => {

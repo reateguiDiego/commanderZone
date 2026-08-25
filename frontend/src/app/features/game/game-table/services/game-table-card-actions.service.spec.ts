@@ -89,6 +89,22 @@ describe('GameTableCardActionsService', () => {
     });
   });
 
+  it('includes the revealed card name only for the runtime private log entry', async () => {
+    const handCard = { ...card('hand-1', 'Sol Ring', 0, 0), name: 'Sol Ring', zone: 'hand' as const };
+    const command = vi.fn(async () => undefined);
+    const ctx = context([], { command });
+
+    await service.revealCard(ctx, { ...menu(handCard), zone: 'hand' }, 'player-2');
+
+    expect(command).toHaveBeenCalledWith('card.revealed', {
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceIds: ['hand-1'],
+      to: 'player-2',
+      revealedCardName: 'Sol Ring',
+    });
+  });
+
   it('removes a land stack by separating its cards near the top card', async () => {
     const battlefield = [land('top', 100, 200), land('under', 100, 180), land('bottom', 100, 160)];
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];

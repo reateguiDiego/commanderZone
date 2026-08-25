@@ -25,6 +25,48 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-2'].zones.hand[0]?.name).toBe('Card');
   });
 
+  it('normalizes a runtime library tail-top bootstrap before rendering a directed top reveal', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-2'] = {
+      instanceId: 'library-2',
+      cardRef: 'card:revealed-top',
+      cardKey: 'card:revealed-top',
+      printId: 's-revealed-top',
+      cardVersion: 'revealed-top-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      zoneId: 'player-1:library',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      hidden: false,
+      faceDown: false,
+      revealedTo: ['player-2'],
+      tapped: false,
+    };
+    bootstrap.staticCards['card:revealed-top'] = {
+      cardRef: 'card:revealed-top',
+      cardKey: 'card:revealed-top',
+      printId: 's-revealed-top',
+      cardVersion: 'revealed-top-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      scryfallId: 's-revealed-top',
+      name: 'Directed Top Card',
+      imageUris: { normal: 'https://cards.test/directed-top.jpg' },
+      cardFaces: [],
+    };
+
+    const state = createGameTableNormalizedV2State(bootstrap);
+    const snapshot = hydrateGameSnapshotFromV2State(state);
+
+    expect(state.zones['player-1'].library).toEqual(['library-2', 'library-1']);
+    expect(snapshot.players['player-1'].zones.library[0]).toMatchObject({
+      name: 'Directed Top Card',
+      imageUris: { normal: 'https://cards.test/directed-top.jpg' },
+      revealedTo: ['player-2'],
+    });
+  });
+
   it('applies ordered patches and keeps version idempotent', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const first = applyPatchEnvelopeV2(initial, patch(6, [{ op: 'player.life.set', playerId: 'player-1', value: 37 }]));
@@ -912,6 +954,68 @@ describe('game table normalized v2 store', () => {
     expect(revealed.status).toBe('applied');
     expect(hidden.status).toBe('applied');
     expect(hidden.state.players['player-1'].topLibraryRevealMarker).toBe(false);
+  });
+
+  it('removes a one-off revealed top card for its viewer after the public draw patch', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const revealed = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.top.revealed',
+        playerId: 'player-1',
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:forest': {
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            name: 'Forest',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }],
+    });
+    const publicDraw = applyPatchEnvelopeV2(revealed.state, patch(7, [{
+      op: 'library.top.reveal_marker.set',
+      playerId: 'player-1',
+      revealed: false,
+    }]));
+    const viewerRemoval: PatchEnvelopeV2 = {
+      gameId: 'game-1',
+      version: 7,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'zone.cards.remove',
+        playerId: 'player-1',
+        zone: 'library',
+        instanceIds: ['library-1'],
+      }],
+    };
+
+    const removed = applyPatchEnvelopeV2(publicDraw.state, viewerRemoval);
+    const snapshot = hydrateGameSnapshotFromV2State(removed.state);
+
+    expect(removed.status).toBe('applied');
+    expect(removed.state.zones['player-1'].library).toEqual(['library-2']);
+    expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Card');
+    expect(removed.state.players['player-1'].topLibraryRevealMarker).toBe(false);
   });
 
   it('applies a targeted full-library reveal after its public version carrier without an acknowledgement', () => {
@@ -2183,6 +2287,54 @@ describe('game table normalized v2 store', () => {
     expect(hydrateGameSnapshotFromV2State(shuffled.state).players['player-1'].libraryShuffleRevision).toBe(8);
   });
 
+  it('keeps only the new revealed top card after a shuffle while play-top-revealed is active', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const privateTopReveal = applyPatchEnvelopeV2(initial, {
+      ...patch(6, [{
+        op: 'library.top.revealed',
+        playerId: 'player-1',
+        epoch: 2,
+        cards: [{
+          instanceId: 'new-top-card',
+          cardRef: 'card:new-top',
+          cardKey: 'card:new-top',
+          printId: 'new-top-print',
+          cardVersion: 'new-top-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:new-top': {
+            cardRef: 'card:new-top',
+            cardKey: 'card:new-top',
+            printId: 'new-top-print',
+            cardVersion: 'new-top-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            name: 'New Top Card',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }]),
+      visibility: 'player:player-2',
+      ackClientActionId: 'shuffle-with-revealed-top',
+    });
+    const publicShuffle = applyPatchEnvelopeV2(privateTopReveal.state, {
+      ...patch(6, [{ op: 'library.shuffled', playerId: 'player-1', visibilityEpoch: 2 }]),
+      visibility: 'public',
+      ackClientActionId: 'shuffle-with-revealed-top',
+    });
+
+    expect(privateTopReveal.status).toBe('applied');
+    expect(publicShuffle.status).toBe('applied');
+    expect(publicShuffle.state.zones['player-1'].library).toEqual(['new-top-card']);
+    expect(hydrateGameSnapshotFromV2State(publicShuffle.state).players['player-1'].zones.library[0]?.name).toBe('New Top Card');
+  });
+
   it('applies private library view patch without mutating counts', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -2231,6 +2383,25 @@ describe('game table normalized v2 store', () => {
     expect(Object.values(moved.state.instances).filter((instance) =>
       instance.zoneId === 'player-1:library' && instance.cardKey,
     ).map((instance) => instance.instanceId)).toEqual(['library-2']);
+  });
+
+  it('clears a one-off library reveal when the card leaves the library', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-1'] = {
+      ...bootstrap.instances['library-1'],
+      hidden: false,
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'library-1',
+      from: { playerId: 'player-1', zone: 'library' },
+      to: { playerId: 'player-1', zone: 'hand', index: 1 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1'].revealedTo).toBeUndefined();
   });
 
   it('keeps a rival face-down hand-to-battlefield move hidden', () => {

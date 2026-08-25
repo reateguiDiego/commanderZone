@@ -484,11 +484,13 @@ export class GameTableCardActionsService {
     }
 
     const targets = this.actionTargets(context, menu);
+    const revealedCardName = targets.length === 1 ? targets[0]?.card.name.trim() : '';
     await context.command('card.revealed', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceIds: targets.map((item) => item.card.instanceId),
       to: target,
+      ...(revealedCardName ? { revealedCardName } : {}),
     });
     context.closeContextMenu();
   }

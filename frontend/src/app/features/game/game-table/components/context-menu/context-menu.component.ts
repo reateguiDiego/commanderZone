@@ -36,7 +36,7 @@ export type ContextMenuAction =
   | { type: 'revealTop'; target?: string }
   | { type: 'stopRevealTop'; target?: string }
   | { type: 'revealLibrary'; targetPlayerId: string }
-  | { type: 'playTopRevealed'; enabled: boolean }
+  | { type: 'playTopRevealed'; enabled: boolean; target?: string }
   | { type: 'openLibraryView'; mode: 'all' | 'top' }
   | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
   | { type: 'selectRandomCard' }
@@ -97,6 +97,7 @@ type ContextSubmenu =
   | 'revealTo'
   | 'libraryMoveTop'
   | 'libraryRevealTop'
+  | 'libraryPlayTopRevealed'
   | 'libraryRevealTopCount'
   | 'libraryReveal'
   | 'libraryView'
@@ -172,6 +173,7 @@ export class ContextMenuComponent {
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
   readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
   readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryRevealTopMenuItems());
+  readonly libraryPlayTopRevealedMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryPlayTopRevealedMenuItems());
   readonly libraryRevealTopCountMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
     this.sortedItems(this.libraryRevealTargets().map((player) => ({
       value: player.id,
@@ -791,6 +793,11 @@ export class ContextMenuComponent {
     this.actionSelected.emit({ type: 'revealTop', target: target.startsWith('reveal:') ? target.slice('reveal:'.length) : target });
   }
 
+  selectLibraryPlayTopRevealedTarget(target: string): void {
+    const selectedTarget = target.startsWith('play:') ? target.slice('play:'.length) : target;
+    this.actionSelected.emit({ type: 'playTopRevealed', enabled: true, target: selectedTarget });
+  }
+
   selectLibraryRevealTopCountTarget(targetPlayerId: string): void {
     this.actionSelected.emit({ type: 'revealTopPrompt', targetPlayerId });
   }
@@ -993,6 +1000,28 @@ export class ContextMenuComponent {
           }
         : { value: 'reveal:all', label: 'game.contextMenu.labels.all', icon: 'users' },
       ...targetPlayers.map(itemFor),
+    ];
+  }
+
+  private buildLibraryPlayTopRevealedMenuItems(): readonly ContextSubmenuItem[] {
+    const sourcePlayer = this.players().find((player) => player.id === this.menu().playerId);
+    if (!sourcePlayer) {
+      return [];
+    }
+
+    const otherPlayers = this.players()
+      .filter((player) => player.id !== sourcePlayer.id && !playerIsDefeated(player))
+      .sort((left, right) => this.playerLabel(left).localeCompare(this.playerLabel(right)));
+    const targetPlayers = [sourcePlayer, ...otherPlayers];
+
+    return [
+      { value: 'play:all', label: 'game.contextMenu.labels.all', icon: 'users' },
+      ...targetPlayers.map((player) => ({
+        value: `play:${player.id}`,
+        label: this.playerLabel(player),
+        icon: 'users',
+        preserveCase: true,
+      })),
     ];
   }
 

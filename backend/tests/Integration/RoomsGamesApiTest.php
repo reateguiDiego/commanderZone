@@ -2462,6 +2462,13 @@ SQL));
         self::assertContains('room.player.joined', $types);
         self::assertContains('room.player.rolled', $types);
 
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        foreach ($this->jsonResponse()['room']['players'] as $player) {
+            self::assertContains($player['deck']['bracket']['bracket'] ?? null, [1, 2, 3, 4, 5]);
+            self::assertNotSame('', $player['deck']['bracket']['label'] ?? '');
+        }
+
         $lastPayload = json_decode($updates[array_key_last($updates)]['data'], true, flags: JSON_THROW_ON_ERROR);
         self::assertSame($roomId, $lastPayload['roomId']);
         self::assertSame($roomId, $lastPayload['room']['id']);
@@ -2475,6 +2482,8 @@ SQL));
         }
         self::assertArrayHasKey('Waiting RT Owner', $playersByDeckName);
         self::assertArrayHasKey('Waiting RT Guest', $playersByDeckName);
+        self::assertContains($playersByDeckName['Waiting RT Owner']['deck']['bracket']['bracket'] ?? null, [1, 2, 3, 4, 5]);
+        self::assertContains($playersByDeckName['Waiting RT Guest']['deck']['bracket']['bracket'] ?? null, [1, 2, 3, 4, 5]);
         self::assertSame(
             'https://cards.scryfall.io/art_crop/front/waiting-realtime.jpg',
             $playersByDeckName['Waiting RT Guest']['deck']['commanders'][0]['imageUris']['art_crop'] ?? null,

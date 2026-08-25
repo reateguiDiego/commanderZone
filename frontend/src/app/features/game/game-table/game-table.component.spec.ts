@@ -6486,6 +6486,22 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.revealLabelForCard(revealedCard, 'hand')).toContain('Revealed to');
   });
 
+  it('shows the persistent top-library reveal audience in its hover preview', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-1'].topLibraryRevealedTo = ['user-2'];
+    const revealedTop = { ...snapshot.players['user-1'].zones.library[0]!, revealedTo: undefined };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.revealLabelForCard(revealedTop, 'library')).toBe('Revealed to Opponent');
+  });
+
   it('does not open context menus for command zone cards or the command zone', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

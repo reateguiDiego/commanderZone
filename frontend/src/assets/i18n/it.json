@@ -1036,9 +1036,11 @@
       "shuffle": "{{ actor }} ha rimescolato il suo grimorio.",
       "view": "{{ actor }} ha guardato le prime carte {{ count }} nel suo grimorio.",
       "reveal": "{{ actor }} ha rivelato la sua libreria.",
-      "revealTop": "{{ actor }} ha rivelato le prime carte {{ count }} nel suo grimorio.",
-      "playTopRevealed": "{{ actor }} gioca con la prima carta rivelata del suo grimorio.",
-      "stoppedPlayingTopRevealed": "{{ actor }} ha smesso di giocare con la prima carta del suo grimorio rivelata."
+      "revealTop": "{{ actor }} ha rivelato le prime {{ count }} carte del suo grimorio a {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} ha rivelato {{ cardName }}, la prima carta del suo grimorio, a {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} ha smesso di rivelare la prima carta del suo grimorio a {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} gioca con la prima carta del suo grimorio rivelata a {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} ha smesso di giocare con la prima carta del suo grimorio rivelata a {{ recipients }}."
     },
     "commanderDamage": {
       "changed": "{{ actor }} ha cambiato il danno da comandante a {{ target }} da {{ previousValue }} a {{ value }}."
@@ -1086,8 +1088,11 @@
       "turnedFaceDown": "{{ actor }} ha girato una carta a faccia in giù.",
       "turnedFaceUp": "{{ actor }} ha girato una carta a faccia in su.",
       "controllerChanged": "{{ actor }} ha cambiato il controllore di una carta in {{ target }}.",
-      "revealed": "{{ actor }} ha rivelato 1 carta a {{ recipients }}.",
-      "revealedMany": "{{ actor }} ha rivelato {{ count }} carte a {{ recipients }}.",
+      "revealed": "{{ actor }} ha rivelato 1 carta dal suo {{ zone }} a {{ recipients }}.",
+      "revealedNamed": "{{ actor }} ha rivelato {{ cardName }} dal suo {{ zone }} a {{ recipients }}.",
+      "revealedMany": "{{ actor }} ha rivelato {{ count }} carte dal suo {{ zone }} a {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} ha smesso di rivelare 1 carta dal suo {{ zone }} a {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} ha smesso di rivelare {{ count }} carte dal suo {{ zone }} a {{ recipients }}.",
       "moved": "{{ actor }} ha spostato una carta da {{ fromZone }} a {{ toZone }}.",
       "tapped": "{{ actor }} TAPpato un permanente.",
       "untapped": "{{ actor }} ha STAPpato un permanente.",

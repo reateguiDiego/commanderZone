@@ -150,7 +150,7 @@ final class GameplayV2ContractFactory
                         $zoneName,
                         $viewer->id(),
                         $topLibraryInstanceId,
-                        ($player['playTopLibraryRevealed'] ?? false) === true,
+                        $this->isPlayTopLibraryRevealedToViewer($player, $viewer->id()),
                     );
                     $card = $this->withCompactRuntimeIdentity(
                         $card,
@@ -205,6 +205,11 @@ final class GameplayV2ContractFactory
                 'topLibraryRevealedTo' => $viewer->id() === $playerId
                     ? $this->topLibraryRevealedTo($canonicalSnapshot, $playerId)
                     : [],
+                // This is control state, so only the owner needs it in the bootstrap.
+                // Without it a reconnect keeps the public eye marker but hides the
+                // corresponding "stop revealing" action.
+                'playTopLibraryRevealed' => $viewer->id() === $playerId
+                    && (($canonicalSnapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true),
                 'mulligan' => is_array($player['mulligan'] ?? null) ? $player['mulligan'] : null,
             ];
         }
@@ -313,6 +318,10 @@ final class GameplayV2ContractFactory
      */
     private function topLibraryRevealedTo(array $snapshot, string $playerId): array
     {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (is_array($player) && ($player['playTopLibraryRevealed'] ?? false) === true && is_array($player['playTopLibraryRevealedTo'] ?? null)) {
+            return array_values(array_filter($player['playTopLibraryRevealedTo'], static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''));
+        }
         $library = $snapshot['players'][$playerId]['zones']['library'] ?? null;
         if (!is_array($library) || $library === []) {
             return [];
@@ -357,6 +366,21 @@ final class GameplayV2ContractFactory
             'hidden' => true,
             'faceDown' => true,
         ];
+    }
+
+    /** @param array<string,mixed> $player */
+    private function isPlayTopLibraryRevealedToViewer(array $player, string $viewerId): bool
+    {
+        if (($player['playTopLibraryRevealed'] ?? false) !== true) {
+            return false;
+        }
+
+        $viewers = $player['playTopLibraryRevealedTo'] ?? null;
+        if (!is_array($viewers)) {
+            return true;
+        }
+
+        return in_array('all', $viewers, true) || in_array($viewerId, $viewers, true);
     }
 
     /**

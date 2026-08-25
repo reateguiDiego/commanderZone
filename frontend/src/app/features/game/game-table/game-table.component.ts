@@ -2661,7 +2661,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'playTopRevealed':
         this.store.closeContextMenu();
-        void this.store.setPlayTopRevealed(menu.playerId, action.enabled);
+        void this.store.setPlayTopRevealed(menu.playerId, action.enabled, action.target);
         return;
       case 'openLibraryView':
         if (action.mode === 'all') {
@@ -4111,17 +4111,30 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   revealLabelForCard(card: GameCardInstance, zone: GameZoneName | null): string | null {
-    const recipients = card.revealedTo ?? [];
+    const recipients = this.revealRecipientsForCard(card, zone);
     if ((zone !== 'hand' && zone !== 'library') || card.hidden || card.faceDown || recipients.length === 0) {
       return null;
     }
 
     const players = this.store.players();
-    const recipientsLabel = recipients.length === players.length
+    const recipientsLabel = recipients.includes('all') || recipients.length === players.length
       ? 'everyone'
       : recipients.map((playerId) => this.playerName(playerId)).join(', ');
 
     return `Revealed to ${recipientsLabel}`;
+  }
+
+  private revealRecipientsForCard(card: GameCardInstance, zone: GameZoneName | null): readonly string[] {
+    if ((card.revealedTo?.length ?? 0) > 0 || zone !== 'library') {
+      return card.revealedTo ?? [];
+    }
+
+    const snapshot = this.store.snapshot();
+    const owner = Object.values(snapshot?.players ?? {}).find((player) =>
+      player.zones.library.some((libraryCard) => libraryCard.instanceId === card.instanceId),
+    );
+
+    return owner?.topLibraryRevealedTo ?? [];
   }
 
   private canInspectOwnFaceDownCard(card: GameCardInstance): boolean {

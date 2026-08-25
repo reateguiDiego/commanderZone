@@ -503,6 +503,30 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.zonePreviewImage(player, 'library')).toBe('/top.jpg');
   });
 
+  it('uses the top reveal marker from bootstrap as the library preview image', () => {
+    const topCard = {
+      instanceId: 'top-card',
+      name: 'Public Top',
+      tapped: false,
+      zone: 'library' as const,
+      imageUris: { normal: '/top.jpg' },
+    };
+    const player = playerView({
+      topLibraryRevealMarker: true,
+      zones: {
+        library: [topCard],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'library')).toBe(topCard);
+    expect(selectors.zonePreviewImage(player, 'library')).toBe('/top.jpg');
+  });
+
   it('uses the card back for library stack layers when only the top card is revealed', () => {
     const player = playerView({
       playTopLibraryRevealed: true,

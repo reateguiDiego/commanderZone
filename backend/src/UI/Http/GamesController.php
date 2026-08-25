@@ -165,7 +165,7 @@ class GamesController extends ApiController
             playerId: $user->id(),
             role: $role,
             permissions: $permissions,
-            viewerMask: max(0, (int) ($game->snapshot()['visibility']['viewerBits'][$user->id()] ?? 0)),
+            viewerMask: $this->viewerMaskForSnapshot($game->snapshot(), $user->id()),
         );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {
@@ -197,6 +197,68 @@ class GamesController extends ApiController
                 'expiry' => $ticket->expiresAt->getTimestamp(),
             ],
         ]);
+    }
+
+    /**
+     * Legacy snapshots can predate the persisted visibility index. The runtime
+     * assigns missing viewer bits in lexical player-id order, so tickets must
+     * use the same deterministic fallback or group visibility patches (such as
+     * library.reveal_top) cannot reach their intended recipients.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    private function viewerMaskForSnapshot(array $snapshot, string $viewerId): int
+    {
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+        $knownMask = max(0, (int) ($viewerBits[$viewerId] ?? 0));
+        if ($knownMask > 0) {
+            return $knownMask;
+        }
+
+        $missingPlayerIds = [];
+        foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $playerId) {
+            if (!is_string($playerId) || $playerId === '') {
+                continue;
+            }
+            if (max(0, (int) ($viewerBits[$playerId] ?? 0)) === 0) {
+                $missingPlayerIds[] = $playerId;
+            }
+        }
+        sort($missingPlayerIds, SORT_STRING);
+
+        foreach ($missingPlayerIds as $playerId) {
+            $assignedMask = $this->nextViewerMask($viewerBits);
+            if ($assignedMask === 0) {
+                return 0;
+            }
+            $viewerBits[$playerId] = $assignedMask;
+            if ($playerId === $viewerId) {
+                return $assignedMask;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param array<string,mixed> $viewerBits
+     */
+    private function nextViewerMask(array $viewerBits): int
+    {
+        $usedMask = 0;
+        foreach ($viewerBits as $viewerMask) {
+            $usedMask |= max(0, (int) $viewerMask);
+        }
+
+        for ($mask = 1; $mask > 0; $mask <<= 1) {
+            if (($usedMask & $mask) === 0) {
+                return $mask;
+            }
+        }
+
+        return 0;
     }
 
     #[Route('/games/{id}/debug/health', methods: ['GET'])]
@@ -1361,7 +1423,12 @@ class GamesController extends ApiController
                 $playerId,
                 $zone,
                 $user,
-                ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+                ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true
+                    && (
+                        !is_array($snapshot['players'][$playerId]['playTopLibraryRevealedTo'] ?? null)
+                        || in_array('all', $snapshot['players'][$playerId]['playTopLibraryRevealedTo'], true)
+                        || in_array($user->id(), $snapshot['players'][$playerId]['playTopLibraryRevealedTo'], true)
+                    ),
                 playerState: is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : null,
             );
         }

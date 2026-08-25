@@ -431,6 +431,11 @@ class GameCommandHandler
             $player['backgroundName'] = $this->visualName($player['backgroundName'] ?? null, Deck::DEFAULT_BACKGROUND_NAME);
             $player['sleevesName'] = $this->visualName($player['sleevesName'] ?? null, Deck::DEFAULT_SLEEVES_NAME);
             $player['playTopLibraryRevealed'] = (bool) ($player['playTopLibraryRevealed'] ?? false);
+			if (is_array($player['playTopLibraryRevealedTo'] ?? null)) {
+				$player['playTopLibraryRevealedTo'] = array_values(array_filter($player['playTopLibraryRevealedTo'], static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''));
+			} else {
+				unset($player['playTopLibraryRevealedTo']);
+			}
             $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null) ? array_values($player['revealedLibraryTo']) : [];
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
@@ -2433,6 +2438,15 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $enabled = (bool) ($payload['enabled'] ?? true);
         $snapshot['players'][$playerId]['playTopLibraryRevealed'] = $enabled;
+		if ($enabled) {
+			$to = $payload['to'] ?? 'all';
+			$viewers = $to === 'all'
+				? array_keys($snapshot['players'])
+				: (is_string($to) && isset($snapshot['players'][$to]) ? [$to] : []);
+			$snapshot['players'][$playerId]['playTopLibraryRevealedTo'] = array_values($viewers);
+		} else {
+			unset($snapshot['players'][$playerId]['playTopLibraryRevealedTo']);
+		}
 
         return $enabled
             ? 'juega con la top card de su library revelada.'
