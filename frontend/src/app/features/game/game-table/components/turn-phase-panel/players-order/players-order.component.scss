@@ -12,12 +12,9 @@
 }
 
 .player-order-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  container-type: inline-size;
+  display: flex;
   align-items: center;
-  justify-items: start;
-  gap: 0.08rem;
   align-self: stretch;
   min-width: 0;
   min-height: clamp(1.86rem, 3.1vw, 2.2rem);
@@ -28,6 +25,17 @@
   background: rgb(var(--highlight-rgb) / 3%);
   color: var(--game-text-muted, #c8c0ad);
   line-height: 1;
+}
+
+.player-order-card-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: start;
+  gap: 0.08rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .player-order-card.active {
@@ -55,7 +63,7 @@
   width: 100%;
   overflow: visible;
   color: var(--game-text);
-  font-size: clamp(0.42rem, 0.66vw, 0.62rem);
+  font-size: clamp(0.54rem, 0.66vw, 0.62rem);
   font-weight: 900;
   line-height: 1.18;
   text-overflow: clip;
@@ -64,7 +72,7 @@
 
 .player-order-step {
   color: var(--game-info);
-  font-size: clamp(0.32rem, 0.48vw, 0.44rem);
+  font-size: clamp(0.44rem, 0.48vw, 0.5rem);
   font-weight: 1000;
   text-transform: uppercase;
   white-space: nowrap;
@@ -76,6 +84,23 @@
 
 .player-order-card.active .player-order-name {
   color: currentColor;
+}
+
+@container (max-width: 8rem) {
+  .player-order-card-content {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 0.18rem;
+  }
+
+  .player-order-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .player-order-step {
+    justify-self: end;
+  }
 }
 
 @media (max-height: 768px) and (max-width: 1180px) {
@@ -90,7 +115,6 @@
 
   .player-order-card {
     flex: 0 1 5.6rem;
-    grid-template-rows: minmax(0, 1fr);
     min-height: 0.72rem;
     padding: 0.08rem 0.26rem;
     border-radius: 999px;
@@ -109,7 +133,7 @@
 
   .player-order-name {
     overflow: hidden;
-    font-size: 0.48rem;
+    font-size: 0.54rem;
     line-height: 1;
     text-overflow: ellipsis;
   }

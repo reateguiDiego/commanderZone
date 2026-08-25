@@ -4759,6 +4759,40 @@ describe('GameTableComponent', () => {
       .toBe('Donde quieres poner esta carta?');
   });
 
+  it('hides card previews while the library top-or-bottom confirmation is open', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.pendingLibraryMove.set({
+      cardName: card.name,
+      commandType: 'card.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceId: card.instanceId,
+      },
+    });
+    fixture.componentInstance.store.handleBattlefieldCardClick({
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+    } as unknown as MouseEvent, 'user-1', card);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.hoveredPreview()).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-card-preview-overlay')).toBeNull();
+  });
+
   it('asks for one library position when selected cards move to the library', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

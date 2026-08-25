@@ -316,11 +316,12 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'library.play_top_face_down':
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
                 $moves = array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
-                if ($event->type() === 'card.moved' && count($moves) === 1 && array_key_exists('faceDown', $payload)) {
+                if (count($moves) === 1 && array_key_exists('faceDown', $payload)) {
                     $moves[0]['faceDown'] = ($payload['faceDown'] ?? false) === true;
                 }
                 foreach ($moves as $move) {

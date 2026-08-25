@@ -1382,6 +1382,25 @@ func TestPlayTopFaceDownEmitsPublicLogWithoutCardIdentity(t *testing.T) {
 	if !gameActor.Snapshot().Instances["l3"].FaceDown {
 		t.Fatal("top library card was not moved face down")
 	}
+	publicMove := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if publicMove == nil {
+		t.Fatalf("missing public play-top-face-down patch: %#v", result.Patches)
+	}
+	publicCards := publicMove.Data["cards"].([]map[string]any)
+	if len(publicCards) != 1 || publicCards[0]["hidden"] != true {
+		t.Fatalf("public play-top-face-down patch must keep the identity hidden: %#v", publicCards)
+	}
+	if _, leaked := publicCards[0]["cardKey"]; leaked {
+		t.Fatalf("public play-top-face-down patch leaked cardKey: %#v", publicCards)
+	}
+	ownerMove := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "zone.cards.move")
+	if ownerMove == nil {
+		t.Fatalf("missing private owner play-top-face-down patch: %#v", result.Patches)
+	}
+	ownerCard := requireMap(t, ownerMove.Data["card"])
+	if ownerCard["cardKey"] != "library-3@1" || ownerCard["hidden"] == true {
+		t.Fatalf("owner did not receive the played face-down card identity: %#v", ownerCard)
+	}
 	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
 	if logPatch == nil {
 		t.Fatalf("missing public play-top-face-down log patch: %#v", result.Patches)

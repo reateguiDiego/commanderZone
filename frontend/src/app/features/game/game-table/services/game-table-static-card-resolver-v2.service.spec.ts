@@ -128,6 +128,27 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(image).toBe('https://cards.test/print-forest.jpg');
   });
 
+  it('uses the active face image when looking at a face-down double-faced card', async () => {
+    const doubleFacedCard = card('print-fable', 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki');
+    doubleFacedCard.imageUris = { normal: 'https://cards.test/fable-front.jpg' };
+    doubleFacedCard.cardFaces = [
+      cardFace('Fable of the Mirror-Breaker', 'https://cards.test/fable-front.jpg'),
+      cardFace('Reflection of Kiki-Jiki', 'https://cards.test/fable-back.jpg'),
+    ];
+    cardsApi.getSilently.mockReturnValue(of({ card: doubleFacedCard }));
+
+    const image = await service.resolveOwnerFaceDownPreviewImage({
+      instanceId: 'face-down-fable',
+      scryfallId: 'print-fable',
+      name: 'Card',
+      tapped: false,
+      faceDown: true,
+      activeFaceIndex: 1,
+    });
+
+    expect(image).toBe('https://cards.test/fable-back.jpg');
+  });
+
   it('does not call the catalog when static identity is already cached', async () => {
     const cached = staticCard('runtime-card-forest', 'print-forest', 'Forest');
     const patch = patchV2([{
@@ -459,5 +480,19 @@ function card(scryfallId: string, name: string): Card {
     set: 'tst',
     collectorNumber: '1',
     lang: 'en',
+  };
+}
+
+function cardFace(name: string, image: string): NonNullable<Card['cardFaces']>[number] {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: image },
   };
 }

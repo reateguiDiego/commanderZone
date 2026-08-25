@@ -825,20 +825,22 @@
       />
     }
 
-    @if (store.hoveredPreview(); as preview) {
-      @let previewCard = hoveredPreviewCard();
-      <app-card-preview-overlay
-        [card]="previewCard ?? preview.card"
-        [image]="preview.revealFaceDownCard ? store.faceDownPreviewImage(previewCard ?? preview.card) : store.cardImage(previewCard ?? preview.card)"
-        [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
-        [sourceRect]="preview.sourceRect"
-        [avoidRect]="contextMenuAvoidRect()"
-        [battlefieldRect]="battlefieldLayoutSize()"
-        [attachmentInfo]="hoveredPreviewAttachmentInfo()"
-        [cardStateInfo]="hoveredPreviewCardStateInfo()"
-        [revealLabel]="revealLabelForCard(previewCard ?? preview.card, hoveredPreviewZone())"
-        [showFaceDownPill]="preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true"
-      />
+    @if (store.pendingLibraryMove() === null) {
+      @if (store.hoveredPreview(); as preview) {
+        @let previewCard = hoveredPreviewCard();
+        <app-card-preview-overlay
+          [card]="previewCard ?? preview.card"
+          [image]="preview.revealFaceDownCard ? store.faceDownPreviewImage(previewCard ?? preview.card) : store.cardImage(previewCard ?? preview.card)"
+          [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
+          [sourceRect]="preview.sourceRect"
+          [avoidRect]="contextMenuAvoidRect()"
+          [battlefieldRect]="battlefieldLayoutSize()"
+          [attachmentInfo]="hoveredPreviewAttachmentInfo()"
+          [cardStateInfo]="hoveredPreviewCardStateInfo()"
+          [revealLabel]="revealLabelForCard(previewCard ?? preview.card, hoveredPreviewZone())"
+          [showFaceDownPill]="preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true"
+        />
+      }
     }
 
     @if (arrowTargetDialog(); as dialog) {

@@ -45,7 +45,7 @@ export class GameTableStaticCardResolverV2Service {
   }
 
   async resolveOwnerFaceDownPreviewImage(card: GameCardInstance): Promise<string | null> {
-    const existingImage = previewImageUri(card.imageUris) ?? previewImageUri(card.cardFaces?.[card.activeFaceIndex ?? 0]?.imageUris);
+    const existingImage = previewImageForCard(card, card.activeFaceIndex);
     if (existingImage) {
       return existingImage;
     }
@@ -56,7 +56,7 @@ export class GameTableStaticCardResolverV2Service {
     }
 
     const apiCard = await this.cardForPrintId(printId);
-    return apiCard ? previewImageUri(apiCard.imageUris) ?? previewImageUri(apiCard.cardFaces?.[0]?.imageUris) : null;
+    return apiCard ? previewImageForCard(apiCard, card.activeFaceIndex) : null;
   }
 
   private async hydrateOperation(
@@ -565,4 +565,17 @@ function previewImageUri(imageUris: CardImageUris | Record<string, string> | und
   }
 
   return null;
+}
+
+function previewImageForCard(
+  card: Pick<GameCardInstance, 'imageUris' | 'cardFaces'> | Pick<Card, 'imageUris' | 'cardFaces'>,
+  activeFaceIndex?: number,
+): string | null {
+  const faceIndex = Number.isInteger(activeFaceIndex) && activeFaceIndex !== undefined && activeFaceIndex >= 0
+    ? activeFaceIndex
+    : 0;
+
+  return previewImageUri(card.cardFaces?.[faceIndex]?.imageUris)
+    ?? previewImageUri(card.imageUris)
+    ?? previewImageUri(card.cardFaces?.[0]?.imageUris);
 }

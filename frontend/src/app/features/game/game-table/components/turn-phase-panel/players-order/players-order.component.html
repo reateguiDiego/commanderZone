@@ -15,8 +15,10 @@
       [class.defeated]="entry.isDefeated"
       [title]="entry.titleKey | runtimeTranslate: entry.titleParams"
     >
-      <span class="player-order-name">{{ entry.name }}</span>
-      <span class="player-order-step">{{ entry.turnLabelKey | runtimeTranslate: entry.turnLabelParams }}</span>
+      <div class="player-order-card-content">
+        <span class="player-order-name">{{ entry.name }}</span>
+        <span class="player-order-step">{{ entry.turnLabelKey | runtimeTranslate: entry.turnLabelParams }}</span>
+      </div>
     </article>
   }
 </div>

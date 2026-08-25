@@ -931,6 +931,46 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(35, $rebuilt['players'][$controller->id()]['life']);
     }
 
+    public function testReplayPersistsRuntimePlayTopFaceDownForReconnect(): void
+    {
+        $actor = new User('runtime-play-top-face-down@example.test', 'Runtime Play Top Face Down');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.play_top_face_down');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-top-face-down-1', 'Library Hidden Card', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $playTopFaceDown = new GameEvent($game, 'library.play_top_face_down', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'library',
+            'toZone' => 'battlefield',
+            'instanceId' => 'library-top-face-down-1',
+            'instanceIds' => ['library-top-face-down-1'],
+            'faceDown' => true,
+            'moves' => [[
+                'instanceId' => 'library-top-face-down-1',
+                'from' => ['playerId' => $actor->id(), 'zone' => 'library', 'index' => 0],
+                'to' => ['playerId' => $actor->id(), 'zone' => 'battlefield', 'index' => 0],
+                'position' => ['x' => 0.44, 'y' => 0.52, 'unit' => 'ratio'],
+            ]],
+        ], $actor, 'runtime-play-top-face-down', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(
+            new Game(new Room($actor), $baseSnapshot),
+            null,
+            [$playTopFaceDown],
+        );
+
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-top-face-down-1'], $this->zoneIds($rebuilt, $actor->id(), 'battlefield'));
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'library-top-face-down-1');
+        self::assertSame('Library Hidden Card', $card['name'] ?? null);
+        self::assertSame('https://example.test/card.jpg', $card['imageUris']['normal'] ?? null);
+        self::assertTrue($card['faceDown'] ?? false);
+        self::assertSame([$actor->id()], $card['revealedTo'] ?? null);
+        self::assertSame(['x' => 0.44, 'y' => 0.52, 'unit' => 'ratio'], $card['position'] ?? null);
+    }
+
     public function testRuntimeGoReplayPreservesBattlefieldStateAcrossCounterForRefresh(): void
     {
         $actor = new User('runtime-integrity-owner@example.test', 'Runtime Integrity Owner');

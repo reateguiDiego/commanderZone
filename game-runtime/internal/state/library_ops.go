@@ -354,7 +354,7 @@ func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool
 		return false
 	}
 	if instance.FaceDown {
-		return false
+		return viewerID != "" && viewerID == instance.OwnerID
 	}
 	location, ok := s.Loc[instanceID]
 	if !ok {
