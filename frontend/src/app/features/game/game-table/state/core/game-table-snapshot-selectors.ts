@@ -15,11 +15,56 @@ export interface PlayerView {
 
 @Injectable()
 export class GameTableSnapshotSelectors {
+  private readonly playerViewsByState = new WeakMap<GameSnapshot['players'][string], {
+    readonly knownCommanderInstanceIds: ReadonlySet<string>;
+    readonly view: PlayerView;
+  }>();
+  private cachedKnownCommanderIds: ReadonlySet<string> = new Set<string>();
+  private knownCommanderIdsSignature = '';
+  private playersView: PlayerView[] = [];
+
   players(snapshot: GameSnapshot | null): PlayerView[] {
     const players = snapshot?.players ?? {};
-    const commanderIds = knownCommanderInstanceIds(snapshot);
+    const commanderIds = this.knownCommanderIdsFor(snapshot);
+    const nextPlayers = Object.entries(players).map(([id, state]) => this.playerView(id, state, commanderIds));
+    if (this.samePlayerViews(nextPlayers, this.playersView)) {
+      return this.playersView;
+    }
 
-    return Object.entries(players).map(([id, state]) => ({ id, state, knownCommanderInstanceIds: commanderIds }));
+    this.playersView = nextPlayers;
+    return this.playersView;
+  }
+
+  private knownCommanderIdsFor(snapshot: GameSnapshot | null): ReadonlySet<string> {
+    const nextCommanderIds = knownCommanderInstanceIds(snapshot);
+    const signature = [...nextCommanderIds].sort().join('|');
+    if (signature === this.knownCommanderIdsSignature) {
+      return this.cachedKnownCommanderIds;
+    }
+
+    this.knownCommanderIdsSignature = signature;
+    this.cachedKnownCommanderIds = nextCommanderIds;
+    return this.cachedKnownCommanderIds;
+  }
+
+  private playerView(
+    id: string,
+    state: GameSnapshot['players'][string],
+    knownCommanderInstanceIds: ReadonlySet<string>,
+  ): PlayerView {
+    const cached = this.playerViewsByState.get(state);
+    if (cached && cached.knownCommanderInstanceIds === knownCommanderInstanceIds) {
+      return cached.view;
+    }
+
+    const view = { id, state, knownCommanderInstanceIds };
+    this.playerViewsByState.set(state, { knownCommanderInstanceIds, view });
+    return view;
+  }
+
+  private samePlayerViews(nextPlayers: readonly PlayerView[], previousPlayers: readonly PlayerView[]): boolean {
+    return nextPlayers.length === previousPlayers.length
+      && nextPlayers.every((player, index) => player === previousPlayers[index]);
   }
 
   focusedPlayer(snapshot: GameSnapshot | null, players: PlayerView[], focusedPlayerId: string | null): PlayerView | null {

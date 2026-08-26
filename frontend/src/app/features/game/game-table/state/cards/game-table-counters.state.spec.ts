@@ -258,7 +258,7 @@ function debouncedValueCommandContext(): GameTableDebouncedValueCommandContext {
 
 function cardCounterContext(): GameTableCardCounterContext {
   return {
-    setSnapshot: (next) => snapshotSignal.set(next),
+    setViewportReflowSnapshot: (next) => snapshotSignal.set(next),
     errorMessage: () => 'Action failed.',
     refetch: vi.fn().mockResolvedValue(undefined),
     command: vi.fn().mockResolvedValue(true),

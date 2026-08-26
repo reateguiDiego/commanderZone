@@ -154,16 +154,19 @@ const ZONE_NAMES: readonly GameZoneName[] = ['library', 'hand', 'battlefield', '
 @Injectable()
 export class GameTableNormalizedV2Store {
   readonly state = signal<GameTableNormalizedV2State | null>(null);
+  private readonly snapshotProjector = new GameTableSnapshotProjector();
 
   clear(): void {
     this.state.set(null);
+    this.snapshotProjector.clear();
   }
 
   applyBootstrap(bootstrap: BootstrapV2): GameSnapshot {
+    this.snapshotProjector.clear();
     const nextState = createGameTableNormalizedV2State(bootstrap, this.state()?.pendingOptimisticActions ?? {});
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   applyPatch(patch: PatchEnvelopeV2): GameTableNormalizedV2ApplyResult {
@@ -179,7 +182,7 @@ export class GameTableNormalizedV2Store {
 
     let snapshot: GameSnapshot;
     try {
-      snapshot = hydrateGameSnapshotFromV2State(result.state);
+      snapshot = this.snapshotProjector.hydrate(result.state);
     } catch (error) {
       console.warn('[CommanderZone normalized v2] snapshot hydration failed after patch.v2', error);
       return { status: 'resync_required', state: currentState, snapshot: null, reason: 'invalid_operation' };
@@ -207,7 +210,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, staticCards: nextStaticCards };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   prependLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
@@ -220,7 +223,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, log };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   appendLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
@@ -233,7 +236,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, log };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   replaceLogEntries(entries: readonly GameLogEntry[]): GameSnapshot | null {
@@ -245,7 +248,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, log: createLogState(entries, null) };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   prependChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
@@ -257,7 +260,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'oldest') };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   appendChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
@@ -269,7 +272,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'newest') };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   replaceChatMessages(entries: readonly ChatMessage[]): GameSnapshot | null {
@@ -281,7 +284,7 @@ export class GameTableNormalizedV2Store {
     const nextState = { ...currentState, chat: createChatState(entries, null) };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   /** Applies Symfony control-plane state without advancing a Go gameplay version. */
@@ -308,7 +311,7 @@ export class GameTableNormalizedV2Store {
     };
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 }
 
@@ -386,41 +389,386 @@ export function createGameTableNormalizedV2State(
   };
 }
 
-export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State): GameSnapshot {
-  const players = Object.fromEntries(
-    Object.entries(state.players).map(([playerId, player]) => [playerId, hydratePlayerState(state, playerId, player)]),
-  ) as Record<string, GamePlayerState>;
+interface HydratedCardProjection {
+  readonly instance: BootstrapInstanceV2;
+  readonly staticCard: BootstrapStaticCardV2 | undefined;
+  readonly zone: GameZoneName;
+  readonly card: GameCardInstance | null;
+}
 
-  return {
-    version: state.lastAppliedVersion,
-    controlPlaneRevision: state.game.controlPlaneRevision,
-    ownerId: state.game.ownerId ?? undefined,
-    status: state.game.status,
-    winnerPlayerId: state.game.winnerPlayerId,
-    finishedAt: state.game.finishedAt,
-    finishReason: state.game.finishReason,
-    allDisconnectedSince: state.game.allDisconnectedSince,
-    nextLifecycleAt: state.game.nextLifecycleAt,
-    gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
-    mulligan: state.game.mulligan ?? undefined,
-    players,
-    counters: Object.fromEntries(
-      Object.entries(state.sharedCounters).map(([scope, counters]) => [scope, { ...counters }]),
-    ),
-    turn: { ...state.turn },
-    stack: state.stack.order
+interface HydratedZoneProjection {
+  readonly instanceIds: readonly string[];
+  readonly cards: GameCardInstance[];
+}
+
+interface HydratedPlayerProjection {
+  readonly source: GameTableNormalizedV2PlayerState;
+  readonly zoneCounts: ZoneCountMap;
+  readonly zones: GamePlayerState['zones'];
+  readonly player: GamePlayerState;
+}
+
+/**
+ * Projects the normalized runtime state into the legacy snapshot shape while
+ * preserving references for unchanged players, zones and card instances.
+ * The view still receives a fresh root snapshot for the new version, but
+ * OnPush card components no longer receive new inputs for unrelated patches.
+ */
+export class GameTableSnapshotProjector {
+  private readonly cardProjections = new Map<string, HydratedCardProjection>();
+  private readonly zoneProjections = new Map<string, HydratedZoneProjection>();
+  private readonly playerProjections = new Map<string, HydratedPlayerProjection>();
+  private playersSource: GameTableNormalizedV2State['players'] | null = null;
+  private playerZonesSource: GameTableNormalizedV2State['zones'] | null = null;
+  private playerZoneCountsSource: GameTableNormalizedV2State['zoneCounts'] | null = null;
+  private playerInstancesSource: GameTableNormalizedV2State['instances'] | null = null;
+  private playerStaticCardsSource: GameTableNormalizedV2State['staticCards'] | null = null;
+  private players: Record<string, GamePlayerState> | null = null;
+  private sharedCountersSource: GameTableNormalizedV2State['sharedCounters'] | null = null;
+  private sharedCounters: Record<string, Record<string, number>> | null = null;
+  private turnSource: GameTurn | null = null;
+  private turn: GameTurn | null = null;
+  private stackSource: GameTableNormalizedV2State['stack'] | null = null;
+  private stackInstancesSource: GameTableNormalizedV2State['instances'] | null = null;
+  private stackStaticCardsSource: GameTableNormalizedV2State['staticCards'] | null = null;
+  private stack: GameSnapshot['stack'] | null = null;
+  private arrowsSource: GameTableNormalizedV2State['relations']['arrows'] | null = null;
+  private arrows: GameArrow[] | null = null;
+  private attachmentsSource: GameTableNormalizedV2State['relations']['attachments'] | null = null;
+  private attachments: GameAttachment[] | null = null;
+  private specialEntitiesSource: GameTableNormalizedV2State['relations']['specialEntities'] | null = null;
+  private specialEntities: GameSpecialEntity[] | null = null;
+  private chatSource: GameTableNormalizedV2State['chat'] | null = null;
+  private chat: ChatMessage[] | null = null;
+  private logSource: GameTableNormalizedV2State['log'] | null = null;
+  private log: GameLogEntry[] | null = null;
+  private disconnectVotesSource: GameDisconnectVotes | null = null;
+  private disconnectVotes: GameDisconnectVotes | null = null;
+  private rematchSource: GameRematchState | null = null;
+  private rematch: GameRematchState | null = null;
+
+  clear(): void {
+    this.cardProjections.clear();
+    this.zoneProjections.clear();
+    this.playerProjections.clear();
+    this.playersSource = null;
+    this.playerZonesSource = null;
+    this.playerZoneCountsSource = null;
+    this.playerInstancesSource = null;
+    this.playerStaticCardsSource = null;
+    this.players = null;
+    this.sharedCountersSource = null;
+    this.sharedCounters = null;
+    this.turnSource = null;
+    this.turn = null;
+    this.stackSource = null;
+    this.stackInstancesSource = null;
+    this.stackStaticCardsSource = null;
+    this.stack = null;
+    this.arrowsSource = null;
+    this.arrows = null;
+    this.attachmentsSource = null;
+    this.attachments = null;
+    this.specialEntitiesSource = null;
+    this.specialEntities = null;
+    this.chatSource = null;
+    this.chat = null;
+    this.logSource = null;
+    this.log = null;
+    this.disconnectVotesSource = null;
+    this.disconnectVotes = null;
+    this.rematchSource = null;
+    this.rematch = null;
+  }
+
+  hydrate(state: GameTableNormalizedV2State): GameSnapshot {
+    return {
+      version: state.lastAppliedVersion,
+      controlPlaneRevision: state.game.controlPlaneRevision,
+      ownerId: state.game.ownerId ?? undefined,
+      status: state.game.status,
+      winnerPlayerId: state.game.winnerPlayerId,
+      finishedAt: state.game.finishedAt,
+      finishReason: state.game.finishReason,
+      allDisconnectedSince: state.game.allDisconnectedSince,
+      nextLifecycleAt: state.game.nextLifecycleAt,
+      gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
+      mulligan: state.game.mulligan ?? undefined,
+      players: this.hydratePlayers(state),
+      counters: this.hydrateSharedCounters(state.sharedCounters),
+      turn: this.hydrateTurn(state.turn),
+      stack: this.hydrateStack(state),
+      arrows: this.hydrateArrows(state.relations.arrows),
+      attachments: this.hydrateAttachments(state.relations.attachments),
+      specialEntities: this.hydrateSpecialEntities(state.relations.specialEntities),
+      chat: this.hydrateChat(state.chat),
+      eventLog: this.hydrateLog(state.log),
+      rematch: this.hydrateRematch(state.game.rematch),
+      disconnectVotes: this.hydrateDisconnectVotes(state.game.disconnectVotes),
+      createdAt: state.game.createdAt ?? new Date(0).toISOString(),
+      updatedAt: state.game.updatedAt ?? undefined,
+    };
+  }
+
+  private hydratePlayers(state: GameTableNormalizedV2State): Record<string, GamePlayerState> {
+    if (
+      this.playersSource === state.players
+      && this.playerZonesSource === state.zones
+      && this.playerZoneCountsSource === state.zoneCounts
+      && this.playerInstancesSource === state.instances
+      && this.playerStaticCardsSource === state.staticCards
+      && this.players
+    ) {
+      return this.players;
+    }
+
+    const entries = Object.entries(state.players).map(([playerId, player]) => [
+      playerId,
+      this.hydratePlayer(state, playerId, player),
+    ] as const);
+    if (this.players && this.samePlayerEntries(entries, this.players)) {
+      this.recordPlayerSources(state);
+      return this.players;
+    }
+
+    this.recordPlayerSources(state);
+    this.players = Object.fromEntries(entries);
+    return this.players;
+  }
+
+  private recordPlayerSources(state: GameTableNormalizedV2State): void {
+    this.playersSource = state.players;
+    this.playerZonesSource = state.zones;
+    this.playerZoneCountsSource = state.zoneCounts;
+    this.playerInstancesSource = state.instances;
+    this.playerStaticCardsSource = state.staticCards;
+  }
+
+  private hydratePlayer(
+    state: GameTableNormalizedV2State,
+    playerId: string,
+    player: GameTableNormalizedV2PlayerState,
+  ): GamePlayerState {
+    const cached = this.playerProjections.get(playerId);
+    const zones = cached && this.canReusePlayerZones(state)
+      ? cached.zones
+      : this.hydratePlayerZones(state, playerId);
+    const zoneCounts = state.zoneCounts[playerId] ?? emptyZoneCounts();
+    if (cached && cached.source === player && cached.zoneCounts === zoneCounts && cached.zones === zones) {
+      return cached.player;
+    }
+
+    const hydratedPlayer = hydratePlayerState(state, playerId, player, zones);
+    this.playerProjections.set(playerId, { source: player, zoneCounts, zones, player: hydratedPlayer });
+    return hydratedPlayer;
+  }
+
+  private canReusePlayerZones(state: GameTableNormalizedV2State): boolean {
+    return this.playerZonesSource === state.zones
+      && this.playerInstancesSource === state.instances
+      && this.playerStaticCardsSource === state.staticCards;
+  }
+
+  private hydratePlayerZones(state: GameTableNormalizedV2State, playerId: string): GamePlayerState['zones'] {
+    const library = this.hydrateZone(state, playerId, 'library');
+    const hand = this.hydrateZone(state, playerId, 'hand');
+    const battlefield = this.hydrateZone(state, playerId, 'battlefield');
+    const graveyard = this.hydrateZone(state, playerId, 'graveyard');
+    const exile = this.hydrateZone(state, playerId, 'exile');
+    const command = this.hydrateZone(state, playerId, 'command');
+    const cached = this.playerProjections.get(playerId)?.zones;
+    if (
+      cached
+      && cached.library === library
+      && cached.hand === hand
+      && cached.battlefield === battlefield
+      && cached.graveyard === graveyard
+      && cached.exile === exile
+      && cached.command === command
+    ) {
+      return cached;
+    }
+
+    return { library, hand, battlefield, graveyard, exile, command };
+  }
+
+  private hydrateZone(
+    state: GameTableNormalizedV2State,
+    playerId: string,
+    zone: GameZoneName,
+  ): GameCardInstance[] {
+    const instanceIds = state.zones[playerId]?.[zone] ?? [];
+    const cacheKey = `${playerId}:${zone}`;
+    const cached = this.zoneProjections.get(cacheKey);
+    if (cached && cached.instanceIds === instanceIds && this.zoneCardsMatch(state, instanceIds, zone, cached.cards)) {
+      return cached.cards;
+    }
+
+    const cards = instanceIds
+      .map((instanceId) => this.hydrateCard(state, instanceId, zone))
+      .filter(isCardInstance);
+    this.zoneProjections.set(cacheKey, { instanceIds, cards });
+    return cards;
+  }
+
+  private zoneCardsMatch(
+    state: GameTableNormalizedV2State,
+    instanceIds: readonly string[],
+    zone: GameZoneName,
+    cards: GameCardInstance[],
+  ): boolean {
+    let cardIndex = 0;
+    for (const instanceId of instanceIds) {
+      const card = this.hydrateCard(state, instanceId, zone);
+      if (!card) {
+        continue;
+      }
+      if (cards[cardIndex] !== card) {
+        return false;
+      }
+      cardIndex += 1;
+    }
+
+    return cardIndex === cards.length;
+  }
+
+  private hydrateCard(
+    state: GameTableNormalizedV2State,
+    instanceId: string,
+    zone: GameZoneName,
+  ): GameCardInstance | null {
+    const instance = state.instances[instanceId];
+    if (!instance) {
+      return null;
+    }
+
+    const staticCard = state.staticCards[instance.cardRef];
+    const cached = this.cardProjections.get(instanceId);
+    if (cached && cached.instance === instance && cached.staticCard === staticCard && cached.zone === zone) {
+      return cached.card;
+    }
+
+    const card = hydrateCardInstance(state, instanceId, zone);
+    this.cardProjections.set(instanceId, { instance, staticCard, zone, card });
+    return card;
+  }
+
+  private hydrateSharedCounters(source: GameTableNormalizedV2State['sharedCounters']): Record<string, Record<string, number>> {
+    if (this.sharedCountersSource === source && this.sharedCounters) {
+      return this.sharedCounters;
+    }
+
+    this.sharedCountersSource = source;
+    this.sharedCounters = Object.fromEntries(Object.entries(source).map(([scope, counters]) => [scope, { ...counters }]));
+    return this.sharedCounters;
+  }
+
+  private hydrateTurn(source: GameTurn): GameTurn {
+    if (this.turnSource === source && this.turn) {
+      return this.turn;
+    }
+
+    this.turnSource = source;
+    this.turn = { ...source };
+    return this.turn;
+  }
+
+  private hydrateStack(state: GameTableNormalizedV2State): GameSnapshot['stack'] {
+    if (
+      this.stackSource === state.stack
+      && this.stackInstancesSource === state.instances
+      && this.stackStaticCardsSource === state.staticCards
+      && this.stack
+    ) {
+      return this.stack;
+    }
+
+    this.stackSource = state.stack;
+    this.stackInstancesSource = state.instances;
+    this.stackStaticCardsSource = state.staticCards;
+    this.stack = state.stack.order
       .map((stackId) => hydrateStackItem(state, state.stack.byId[stackId]))
-      .filter((item): item is NonNullable<typeof item> => item !== null),
-    arrows: Object.values(state.relations.arrows),
-    attachments: Object.values(state.relations.attachments),
-    specialEntities: Object.values(state.relations.specialEntities),
-    chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
-    eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
-    rematch: state.game.rematch ?? undefined,
-    disconnectVotes: cloneDisconnectVotes(state.game.disconnectVotes),
-    createdAt: state.game.createdAt ?? new Date(0).toISOString(),
-    updatedAt: state.game.updatedAt ?? undefined,
-  };
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+    return this.stack;
+  }
+
+  private hydrateArrows(source: GameTableNormalizedV2State['relations']['arrows']): GameArrow[] {
+    if (this.arrowsSource === source && this.arrows) {
+      return this.arrows;
+    }
+    this.arrowsSource = source;
+    this.arrows = Object.values(source);
+    return this.arrows;
+  }
+
+  private hydrateAttachments(source: GameTableNormalizedV2State['relations']['attachments']): GameAttachment[] {
+    if (this.attachmentsSource === source && this.attachments) {
+      return this.attachments;
+    }
+    this.attachmentsSource = source;
+    this.attachments = Object.values(source);
+    return this.attachments;
+  }
+
+  private hydrateSpecialEntities(source: GameTableNormalizedV2State['relations']['specialEntities']): GameSpecialEntity[] {
+    if (this.specialEntitiesSource === source && this.specialEntities) {
+      return this.specialEntities;
+    }
+    this.specialEntitiesSource = source;
+    this.specialEntities = Object.values(source);
+    return this.specialEntities;
+  }
+
+  private hydrateChat(source: GameTableNormalizedV2State['chat']): ChatMessage[] {
+    if (this.chatSource === source && this.chat) {
+      return this.chat;
+    }
+    this.chatSource = source;
+    this.chat = source.order.map((id) => source.byId[id]).filter((message): message is ChatMessage => Boolean(message));
+    return this.chat;
+  }
+
+  private hydrateLog(source: GameTableNormalizedV2State['log']): GameLogEntry[] {
+    if (this.logSource === source && this.log) {
+      return this.log;
+    }
+    this.logSource = source;
+    this.log = source.order.map((id) => source.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry));
+    return this.log;
+  }
+
+  private hydrateDisconnectVotes(source: GameDisconnectVotes): GameDisconnectVotes {
+    if (this.disconnectVotesSource === source && this.disconnectVotes) {
+      return this.disconnectVotes;
+    }
+    this.disconnectVotesSource = source;
+    this.disconnectVotes = cloneDisconnectVotes(source);
+    return this.disconnectVotes;
+  }
+
+  private hydrateRematch(source: GameRematchState | null | undefined): GameRematchState | undefined {
+    if (!source) {
+      return undefined;
+    }
+    if (this.rematchSource === source && this.rematch) {
+      return this.rematch;
+    }
+    this.rematchSource = source;
+    this.rematch = cloneRematchState(source);
+    return this.rematch;
+  }
+
+  private samePlayerEntries(
+    entries: ReadonlyArray<readonly [string, GamePlayerState]>,
+    players: Record<string, GamePlayerState>,
+  ): boolean {
+    const playerIds = Object.keys(players);
+    return entries.length === playerIds.length && entries.every(([playerId, player]) => players[playerId] === player);
+  }
+}
+
+export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State): GameSnapshot {
+  return new GameTableSnapshotProjector().hydrate(state);
 }
 
 export function applyPatchEnvelopeV2(
@@ -2386,9 +2734,18 @@ function hydratePlayerState(
   state: GameTableNormalizedV2State,
   playerId: string,
   player: GameTableNormalizedV2PlayerState,
+  hydratedZones?: GamePlayerState['zones'],
 ): GamePlayerState {
-  const zones = state.zones[playerId] ?? emptyZones();
+  const zoneIds = state.zones[playerId] ?? emptyZones();
   const zoneCounts = state.zoneCounts[playerId] ?? emptyZoneCounts();
+  const zones = hydratedZones ?? {
+    library: zoneIds.library.map((id) => hydrateCardInstance(state, id, 'library')).filter(isCardInstance),
+    hand: zoneIds.hand.map((id) => hydrateCardInstance(state, id, 'hand')).filter(isCardInstance),
+    battlefield: zoneIds.battlefield.map((id) => hydrateCardInstance(state, id, 'battlefield')).filter(isCardInstance),
+    graveyard: zoneIds.graveyard.map((id) => hydrateCardInstance(state, id, 'graveyard')).filter(isCardInstance),
+    exile: zoneIds.exile.map((id) => hydrateCardInstance(state, id, 'exile')).filter(isCardInstance),
+    command: zoneIds.command.map((id) => hydrateCardInstance(state, id, 'command')).filter(isCardInstance),
+  };
 
   return {
     user: player.user ?? {
@@ -2405,14 +2762,7 @@ function hydratePlayerState(
     backgroundName: player.backgroundName ?? undefined,
     sleevesName: player.sleevesName ?? undefined,
     life: player.life,
-    zones: {
-      library: zones.library.map((id) => hydrateCardInstance(state, id, 'library')).filter(isCardInstance),
-      hand: zones.hand.map((id) => hydrateCardInstance(state, id, 'hand')).filter(isCardInstance),
-      battlefield: zones.battlefield.map((id) => hydrateCardInstance(state, id, 'battlefield')).filter(isCardInstance),
-      graveyard: zones.graveyard.map((id) => hydrateCardInstance(state, id, 'graveyard')).filter(isCardInstance),
-      exile: zones.exile.map((id) => hydrateCardInstance(state, id, 'exile')).filter(isCardInstance),
-      command: zones.command.map((id) => hydrateCardInstance(state, id, 'command')).filter(isCardInstance),
-    },
+    zones,
     zoneCounts,
     handCount: zoneCounts.hand ?? player.handCount,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,

@@ -175,6 +175,58 @@ describe('ZonePilesPanelComponent', () => {
     expect(castSpy).toHaveBeenCalledWith({ playerId: 'player-1', commanderInstanceId: 'commander-2', delta: 1 });
   });
 
+  it('previews the corresponding commander when hovering its dual-command cast counter', async () => {
+    const firstCommander = { ...card('commander-1', 'Rograkh', 'command'), isCommander: true };
+    const secondCommander = { ...card('commander-2', 'Silas Renn', 'command'), isCommander: true };
+    const fixture = await renderZonePilesPanel({
+      command: [firstCommander, secondCommander],
+      cardImage: (card) => `/assets/${card.instanceId}.jpg`,
+    });
+    const previewSpy = vi.fn();
+    const hiddenSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+    fixture.componentInstance.cardPreviewHidden.subscribe(hiddenSpy);
+
+    const commandCards = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="command-zone-card"]'));
+    const castCounter = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="commander-cast-count"]'))[1]!;
+    expect(castCounter.classList).toContain('dual-commander-cast-count');
+    stubElementRect(castCounter);
+    castCounter.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(commandCards[0]!.classList).not.toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.classList).toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.querySelector('img')?.classList).toContain('commanders-stack-card-image-hovered');
+
+    castCounter.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(previewSpy).toHaveBeenCalledWith({
+      card: secondCommander,
+      playerId: 'player-1',
+      zone: 'command',
+      sourceRect: { left: 0, top: 0, right: 100, bottom: 140, width: 100, height: 140 },
+    });
+    expect(hiddenSpy).toHaveBeenCalledOnce();
+    expect(commandCards[1]!.classList).not.toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.querySelector('img')?.classList).not.toContain('commanders-stack-card-image-hovered');
+  });
+
+  it('does not add a hover interaction to a single commander cast counter', async () => {
+    const commander = card('commander-1', 'Rograkh', 'command');
+    const fixture = await renderZonePilesPanel({
+      command: [commander],
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const castCounter = zoneElement(fixture, 'command').querySelector<HTMLElement>('[data-testid="commander-cast-count"]')!;
+    castCounter.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+    expect(castCounter.classList).not.toContain('dual-commander-cast-count');
+    expect(previewSpy).not.toHaveBeenCalled();
+  });
+
   it('keeps command stack cast counters visible when a commander is pending transfer', async () => {
     const firstCommander = card('commander-1', 'Rograkh', 'command');
     const secondCommander = card('commander-2', 'Silas Renn', 'command');

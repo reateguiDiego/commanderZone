@@ -48,9 +48,10 @@ describe('GameTableCardsState', () => {
   it('updates the local snapshot optimistically when a counter is queued', () => {
     vi.useFakeTimers();
     core.snapshot.set(snapshot([cardWithCounters({ '+1/+1': 1 })]));
+    const setViewportReflowSnapshot = vi.fn((next: GameSnapshot | null) => core.snapshot.set(next));
 
     state.queueCardCounter({
-      setSnapshot: (next) => core.snapshot.set(next),
+      setViewportReflowSnapshot,
       errorMessage: () => 'error',
       refetch: vi.fn(),
       command: vi.fn(),
@@ -67,6 +68,7 @@ describe('GameTableCardsState', () => {
     expect(updated?.counters?.['+1/+1']).toBe(2);
     expect(updated?.power).toBe(3);
     expect(updated?.toughness).toBe(3);
+    expect(setViewportReflowSnapshot).toHaveBeenCalledOnce();
   });
 
   it('keeps a zero-value card counter marker when initialized from the context menu', () => {
@@ -74,7 +76,7 @@ describe('GameTableCardsState', () => {
     core.snapshot.set(snapshot([cardWithCounters({})]));
 
     state.queueCardCounter({
-      setSnapshot: (next) => core.snapshot.set(next),
+      setViewportReflowSnapshot: (next) => core.snapshot.set(next),
       errorMessage: () => 'error',
       refetch: vi.fn(),
       command: vi.fn(),
@@ -98,7 +100,7 @@ describe('GameTableCardsState', () => {
     core.snapshot.set(snapshot([{ ...cardWithCounters({ '+1/+1': 2 }), power: 4, toughness: 4 }]));
 
     state.queueCardCounter({
-      setSnapshot: (next) => core.snapshot.set(next),
+      setViewportReflowSnapshot: (next) => core.snapshot.set(next),
       errorMessage: () => 'error',
       refetch: vi.fn(),
       command: vi.fn(),
@@ -123,7 +125,7 @@ describe('GameTableCardsState', () => {
     core.snapshot.set(snapshot([cardWithCounters({ '+1/+1': 2 })]));
 
     state.queueCardCounter({
-      setSnapshot: (next) => core.snapshot.set(next),
+      setViewportReflowSnapshot: (next) => core.snapshot.set(next),
       errorMessage: () => 'error',
       refetch: vi.fn(),
       command,
@@ -190,7 +192,7 @@ describe('GameTableCardsState', () => {
 
 function cardCounterContext() {
   return {
-    setSnapshot: (next: GameSnapshot | null) => TestBed.inject(GameTableCoreState).snapshot.set(next),
+    setViewportReflowSnapshot: (next: GameSnapshot | null) => TestBed.inject(GameTableCoreState).snapshot.set(next),
     errorMessage: () => 'error',
     refetch: vi.fn(),
     command: vi.fn(),

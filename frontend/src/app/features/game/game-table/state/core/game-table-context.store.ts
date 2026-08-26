@@ -213,7 +213,10 @@ export class GameTableContextStore {
     const source = this.boundSource();
 
     return {
-      setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      // Card counters are optimistic presentation updates. Publishing them as
+      // authoritative input can replace the feedback baseline with viewport
+      // clamped positions before the WebSocket patch arrives.
+      setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       errorMessage: (error) => this.errorMessage(error),
       refetch: (force) => source.refetch(force, 'card_counter.error'),
       command: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
@@ -517,7 +520,9 @@ export class GameTableContextStore {
 
     const next = updateGameSnapshotCards(snapshot, [{ playerId, zone, instanceId, update }]);
     if (next !== snapshot) {
-      this.boundSource().setSnapshot(next);
+      // Card stats are optimistic presentation updates; their WebSocket patch
+      // remains the authoritative source for entry and move feedback.
+      this.boundSource().setViewportReflowSnapshot(next);
     }
   }
 

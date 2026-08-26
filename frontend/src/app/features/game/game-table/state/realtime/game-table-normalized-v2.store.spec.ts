@@ -87,6 +87,40 @@ describe('game table normalized v2 store', () => {
     expect(duplicate.state.players['player-1'].life).toBe(37);
   });
 
+  it('retains untouched snapshot branches when scalar v2 patches are projected', () => {
+    const store = new GameTableNormalizedV2Store();
+    const initial = store.applyBootstrap(bootstrapV2());
+    const lifePatch = store.applyPatch(patch(6, [{ op: 'player.life.set', playerId: 'player-1', value: 37 }]));
+
+    expect(lifePatch.status).toBe('applied');
+    if (lifePatch.status !== 'applied') {
+      return;
+    }
+
+    expect(lifePatch.snapshot.players['player-2']).toBe(initial.players['player-2']);
+    expect(lifePatch.snapshot.players['player-1'].zones).toBe(initial.players['player-1'].zones);
+    expect(lifePatch.snapshot.players['player-1'].zones.battlefield[0]).toBe(initial.players['player-1'].zones.battlefield[0]);
+
+    const cardPatch = store.applyPatch(patch(7, [{
+      op: 'card.field.set',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    }]));
+
+    expect(cardPatch.status).toBe('applied');
+    if (cardPatch.status !== 'applied') {
+      return;
+    }
+
+    expect(cardPatch.state.instances['battlefield-1']?.tapped).toBe(true);
+    expect(cardPatch.snapshot.players['player-2']).toBe(lifePatch.snapshot.players['player-2']);
+    expect(cardPatch.snapshot.players['player-1'].zones.hand).toBe(lifePatch.snapshot.players['player-1'].zones.hand);
+    expect(cardPatch.snapshot.players['player-1'].zones.battlefield).not.toBe(lifePatch.snapshot.players['player-1'].zones.battlefield);
+    expect(cardPatch.snapshot.players['player-1'].zones.battlefield[0]).not.toBe(lifePatch.snapshot.players['player-1'].zones.battlefield[0]);
+  });
+
   it('applies version carrier patches as no-op version advances', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, {

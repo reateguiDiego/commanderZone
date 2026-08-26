@@ -1,4 +1,4 @@
-import { GamePlayerState } from '../../../../../core/models/game.model';
+import { GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableSnapshotSelectors, PlayerView } from './game-table-snapshot-selectors';
 
 describe('GameTableSnapshotSelectors', () => {
@@ -26,6 +26,25 @@ describe('GameTableSnapshotSelectors', () => {
 
   it('does not invent a deck label when no deck name is available', () => {
     expect(selectors.deckLabel(playerView({ deckName: null }))).toBe('');
+  });
+
+  it('retains the view model for an untouched player after another player changes', () => {
+    const firstPlayer = playerView().state;
+    const secondPlayer = {
+      ...playerView().state,
+      user: { id: 'user-2', email: 'player-2@test', displayName: 'Player 2', roles: [] },
+    };
+    const initial = snapshotWithPlayers({ 'player-1': firstPlayer, 'player-2': secondPlayer });
+    const updated = snapshotWithPlayers({
+      'player-1': { ...firstPlayer, life: 39 },
+      'player-2': secondPlayer,
+    });
+
+    const initialViews = selectors.players(initial);
+    const updatedViews = selectors.players(updated);
+
+    expect(updatedViews[0]).not.toBe(initialViews[0]);
+    expect(updatedViews[1]).toBe(initialViews[1]);
   });
 
   it('does not invent white color identity when deck metadata is missing', () => {
@@ -807,5 +826,20 @@ function playerView(overrides: Partial<GamePlayerState> = {}): PlayerView {
       counters: {},
       ...overrides,
     },
+  };
+}
+
+function snapshotWithPlayers(players: GameSnapshot['players']): GameSnapshot {
+  return {
+    version: 1,
+    players,
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    stack: [],
+    arrows: [],
+    attachments: [],
+    specialEntities: [],
+    chat: [],
+    eventLog: [],
+    createdAt: '2026-08-26T00:00:00.000Z',
   };
 }

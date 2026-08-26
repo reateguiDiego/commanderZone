@@ -60,7 +60,8 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.message).toBe('Alice set the commander cast counter for Aminatou, tisseuse de destins to 3.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.message).toBe('set the commander cast counter for Aminatou, tisseuse de destins to 3.');
     expect(entry?.card?.name).toBe('Aminatou, tisseuse de destins');
   });
 

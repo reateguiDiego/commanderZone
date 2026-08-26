@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../core/models/game.model';
+import { updateGameSnapshotPlayer } from '../state/core/game-snapshot-mutation';
 
 export const GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS = 450;
 
@@ -233,9 +234,12 @@ export class GameTableDebouncedValueCommandsService {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    next.players[command.playerId]!.life = command.life;
-    context.setSnapshot(next);
+    const next = updateGameSnapshotPlayer(snapshot, command.playerId, (player) =>
+      player.life === command.life ? player : { ...player, life: command.life },
+    );
+    if (next !== snapshot) {
+      context.setSnapshot(next);
+    }
   }
 
   private updateLocalCommanderDamage(context: GameTableDebouncedValueCommandContext, command: PendingCommanderDamageCommand): void {
@@ -244,10 +248,17 @@ export class GameTableDebouncedValueCommandsService {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    const player = next.players[command.targetPlayerId]!;
-    player.commanderDamage = { ...player.commanderDamage, [command.commanderInstanceId]: command.damage };
-    context.setSnapshot(next);
+    const next = updateGameSnapshotPlayer(snapshot, command.targetPlayerId, (player) =>
+      player.commanderDamage?.[command.commanderInstanceId] === command.damage
+        ? player
+        : {
+            ...player,
+            commanderDamage: { ...player.commanderDamage, [command.commanderInstanceId]: command.damage },
+          },
+    );
+    if (next !== snapshot) {
+      context.setSnapshot(next);
+    }
   }
 
   private updateLocalCounter(context: GameTableDebouncedValueCommandContext, command: PendingCounterCommand): void {
@@ -256,8 +267,8 @@ export class GameTableDebouncedValueCommandsService {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    if (this.applyCounterCommand(next, command)) {
+    const next = this.applyCounterCommand(snapshot, command);
+    if (next !== snapshot) {
       context.setSnapshot(next);
     }
   }
@@ -267,19 +278,14 @@ export class GameTableDebouncedValueCommandsService {
       return snapshot;
     }
 
-    const next = structuredClone(snapshot);
-    let applied = false;
+    let next = snapshot;
     for (const command of this.optimisticLifeCommands.values()) {
-      const player = next.players[command.playerId];
-      if (!player) {
-        continue;
-      }
-
-      player.life = command.life;
-      applied = true;
+      next = updateGameSnapshotPlayer(next, command.playerId, (player) =>
+        player.life === command.life ? player : { ...player, life: command.life },
+      );
     }
 
-    return applied ? next : snapshot;
+    return next;
   }
 
   private applyOptimisticCommanderDamageCommands(snapshot: GameSnapshot | null): GameSnapshot | null {
@@ -287,19 +293,19 @@ export class GameTableDebouncedValueCommandsService {
       return snapshot;
     }
 
-    const next = structuredClone(snapshot);
-    let applied = false;
+    let next = snapshot;
     for (const command of this.optimisticCommanderDamageCommands.values()) {
-      const player = next.players[command.targetPlayerId];
-      if (!player) {
-        continue;
-      }
-
-      player.commanderDamage = { ...player.commanderDamage, [command.commanderInstanceId]: command.damage };
-      applied = true;
+      next = updateGameSnapshotPlayer(next, command.targetPlayerId, (player) =>
+        player.commanderDamage?.[command.commanderInstanceId] === command.damage
+          ? player
+          : {
+              ...player,
+              commanderDamage: { ...player.commanderDamage, [command.commanderInstanceId]: command.damage },
+            },
+      );
     }
 
-    return applied ? next : snapshot;
+    return next;
   }
 
   private applyOptimisticCounterCommands(snapshot: GameSnapshot | null): GameSnapshot | null {
@@ -307,34 +313,40 @@ export class GameTableDebouncedValueCommandsService {
       return snapshot;
     }
 
-    const next = structuredClone(snapshot);
-    let applied = false;
+    let next = snapshot;
     for (const command of this.optimisticCounterCommands.values()) {
-      applied = this.applyCounterCommand(next, command) || applied;
+      next = this.applyCounterCommand(next, command);
     }
 
-    return applied ? next : snapshot;
+    return next;
   }
 
-  private applyCounterCommand(snapshot: GameSnapshot, command: PendingCounterCommand): boolean {
+  private applyCounterCommand(snapshot: GameSnapshot, command: PendingCounterCommand): GameSnapshot {
     const playerScopePrefix = 'player:';
     if (command.scope.startsWith(playerScopePrefix)) {
       const playerId = command.scope.slice(playerScopePrefix.length);
-      const player = snapshot.players[playerId];
-      if (!player) {
-        return false;
-      }
-
-      player.counters = { ...player.counters, [command.key]: command.value };
-      return true;
+      return updateGameSnapshotPlayer(snapshot, playerId, (player) =>
+        player.counters?.[command.key] === command.value
+          ? player
+          : { ...player, counters: { ...player.counters, [command.key]: command.value } },
+      );
     }
 
-    snapshot.counters = { ...(snapshot.counters ?? {}) };
-    snapshot.counters[command.scope] = {
-      ...(snapshot.counters[command.scope] ?? {}),
-      [command.key]: command.value,
+    const scopeCounters = snapshot.counters?.[command.scope];
+    if (scopeCounters?.[command.key] === command.value) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      counters: {
+        ...snapshot.counters,
+        [command.scope]: {
+          ...scopeCounters,
+          [command.key]: command.value,
+        },
+      },
     };
-    return true;
   }
 
   private scheduleFlush(key: string, delayMs: number, flush: () => Promise<void>): void {

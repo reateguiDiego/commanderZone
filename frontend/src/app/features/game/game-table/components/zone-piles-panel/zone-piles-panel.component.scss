@@ -418,18 +418,21 @@
   position: static;
   cursor: pointer;
   user-select: none;
+}
+
+.command-zone-cast-counts .dual-commander-cast-count {
   transition:
     filter 140ms ease,
     transform 140ms ease;
 }
 
-.command-zone-cast-counts .commander-cast-count:hover,
-.command-zone-cast-counts .commander-cast-count:focus-visible {
+.command-zone-cast-counts .dual-commander-cast-count:hover,
+.command-zone-cast-counts .dual-commander-cast-count:focus-visible {
   filter: brightness(1.12);
   transform: translateY(-1px);
 }
 
-.command-zone-cast-counts .commander-cast-count:focus-visible {
+.command-zone-cast-counts .dual-commander-cast-count:focus-visible {
   outline: 1px solid color-mix(in srgb, var(--commander-accent, var(--game-accent)) 78%, #fff7da);
   outline-offset: 2px;
 }

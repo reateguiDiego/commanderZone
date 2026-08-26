@@ -99,6 +99,7 @@
                 [cards]="commanderStackCards(currentPlayer, commanders)"
                 [canDrag]="canDragCommandZoneCards()"
                 [cardImage]="cardImage()"
+                [hoveredCardInstanceId]="hoveredCommanderInstanceId()"
                 (pointerDragStarted)="startZonePointerDrag($event.event, zone, $event.card, true)"
                 (nativeDragStarted)="startZoneDrag($event.event, currentPlayer, zone, $event.card)"
                 (nativeDragEnded)="clearZoneDrag($event); zoneDragEnd.emit()"
@@ -153,6 +154,9 @@
                     [attr.data-card-id]="pill.commander.instanceId"
                     [attr.title]="pill.commander.name"
                     [attr.aria-label]="'Commander casts for ' + pill.commander.name"
+                    [class.dual-commander-cast-count]="commanders.length === 2"
+                    (mouseenter)="commanders.length === 2 ? previewCommanderCastPill($event, pill.commander) : undefined"
+                    (mouseleave)="commanders.length === 2 ? hideCommanderCastPillPreview() : undefined"
                     (click)="changeCommanderCastCount($event, pill.commander, 1)"
                     (contextmenu)="changeCommanderCastCount($event, pill.commander, -1)"
                   >

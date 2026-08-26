@@ -112,6 +112,7 @@ export class ZonePilesPanelComponent {
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly currentDraggingCardInstanceId = input<string | null>(null);
   readonly draggingVisualZone = signal<GameZoneName | null>(null);
+  readonly hoveredCommanderInstanceId = signal<string | null>(null);
   private readonly commanderFacePreviewIndexes = signal<Record<string, number>>({});
 
   readonly zoneDragStart = output<ZoneDragStartEvent>();
@@ -261,6 +262,16 @@ export class ZonePilesPanelComponent {
         sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
       });
     }
+  }
+
+  previewCommanderCastPill(event: MouseEvent, commander: GameCardInstance): void {
+    this.hoveredCommanderInstanceId.set(commander.instanceId);
+    this.previewCommandZoneCard(event, commander);
+  }
+
+  hideCommanderCastPillPreview(): void {
+    this.hoveredCommanderInstanceId.set(null);
+    this.hideZoneCardPreview('command');
   }
 
   visibleCommanderCard(card: GameCardInstance): GameCardInstance {

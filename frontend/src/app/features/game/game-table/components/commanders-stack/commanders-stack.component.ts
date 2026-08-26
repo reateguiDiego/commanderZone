@@ -38,6 +38,7 @@ export class CommandersStackComponent {
   readonly cards = input.required<readonly CommandersStackCard[]>();
   readonly canDrag = input(true);
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
+  readonly hoveredCardInstanceId = input<string | null>(null);
 
   readonly pointerDragStarted = output<CommandersStackCardPointerEvent>();
   readonly nativeDragStarted = output<CommandersStackCardDragEvent>();

@@ -54,20 +54,24 @@
   opacity: 0;
 }
 
-.commanders-stack-card-primary:hover {
+.commanders-stack-card-primary:hover,
+.commanders-stack-card-primary.commanders-stack-card-hovered {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
   transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
-.commanders-stack-card-secondary:hover {
+.commanders-stack-card-secondary:hover,
+.commanders-stack-card-secondary.commanders-stack-card-hovered {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
   transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
 .commanders-stack-card:hover .zone-card-image,
-.commanders-stack-card:hover .command-zone-card-name {
+.commanders-stack-card:hover .command-zone-card-name,
+.commanders-stack-card.commanders-stack-card-hovered .zone-card-image,
+.commanders-stack-card.commanders-stack-card-hovered .command-zone-card-name {
   border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent)) 76%, #fff7da);
   box-shadow:
     0 0 0 1px rgb(var(--shadow-rgb) / 48%),
@@ -88,7 +92,22 @@
   box-shadow:
     0 0 0 1px rgb(var(--shadow-rgb) / 48%),
     0 0.5rem 0.9rem rgb(var(--shadow-rgb) / 36%);
-  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zone-card-image.commanders-stack-card-image-hovered {
+  border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent)) 88%, #fff7da);
+  filter: brightness(1.12) saturate(1.08);
+  outline: 2px solid color-mix(in srgb, var(--commander-accent, var(--game-accent)) 72%, #fff7da);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--commander-accent, var(--game-accent)) 80%, #fff7da),
+    0 0.82rem 1.28rem rgb(var(--shadow-rgb) / 52%),
+    0 0 1rem color-mix(in srgb, var(--commander-accent, var(--game-accent)) 52%, transparent);
+  transform: scale(1.035);
 }
 
 .commander-face-toggle {
@@ -149,12 +168,16 @@
   }
 
   .commanders-stack-card-primary:hover,
-  .commanders-stack-card-secondary:hover {
+  .commanders-stack-card-primary.commanders-stack-card-hovered,
+  .commanders-stack-card-secondary:hover,
+  .commanders-stack-card-secondary.commanders-stack-card-hovered {
     transform: translateY(-0.18rem) rotate(0deg) scale(1.015);
   }
 
   .commanders-stack-card:hover .zone-card-image,
-  .commanders-stack-card:hover .command-zone-card-name {
+  .commanders-stack-card:hover .command-zone-card-name,
+  .commanders-stack-card.commanders-stack-card-hovered .zone-card-image,
+  .commanders-stack-card.commanders-stack-card-hovered .command-zone-card-name {
     box-shadow:
       0 0 0 1px rgb(var(--shadow-rgb) / 42%),
       0 0.44rem 0.72rem rgb(var(--shadow-rgb) / 34%),

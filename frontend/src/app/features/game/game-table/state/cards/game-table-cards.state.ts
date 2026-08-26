@@ -2,11 +2,12 @@ import { inject, Injectable } from '@angular/core';
 import { GameCardInstance, GameCardStatValue, GameCommandType, GamePowerToughnessValue, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { PendingCardCounterCommand } from '../../models/game-table-card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
+import { updateGameSnapshotCards } from '../core/game-snapshot-mutation';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
 import { isTheRingCard } from '../../utils/gameplay-card-kind';
 
 export interface GameTableCardCounterContext {
-  readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly errorMessage: (error: unknown) => string;
   readonly refetch: (force: boolean) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>) => Promise<boolean>;
@@ -103,19 +104,12 @@ export class GameTableCardsState {
       return snapshot;
     }
 
-    const next = structuredClone(snapshot);
-    let applied = false;
-    for (const command of this.optimisticCardCounters.values()) {
-      const card = next.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
-      if (!card) {
-        continue;
-      }
-
-      this.applyCardCounterValue(card, command.key, command.value);
-      applied = true;
-    }
-
-    return applied ? next : snapshot;
+    return updateGameSnapshotCards(snapshot, [...this.optimisticCardCounters.values()].map((command) => ({
+      playerId: command.playerId,
+      zone: command.zone,
+      instanceId: command.instanceId,
+      update: (card: GameCardInstance) => this.cardWithCounterValue(card, command.key, command.value),
+    })));
   }
 
   clearCardCounterFlushTimers(): void {
@@ -196,14 +190,15 @@ export class GameTableCardsState {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    const card = next.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
-    if (!card) {
-      return;
+    const next = updateGameSnapshotCards(snapshot, [{
+      playerId: command.playerId,
+      zone: command.zone,
+      instanceId: command.instanceId,
+      update: (card) => this.cardWithCounterValue(card, command.key, command.value),
+    }]);
+    if (next !== snapshot) {
+      context.setViewportReflowSnapshot(next);
     }
-
-    this.applyCardCounterValue(card, command.key, command.value);
-    context.setSnapshot(next);
   }
 
   private cardCounterCommandKey(playerId: string, zone: GameZoneName, instanceId: string, key: string): string {
@@ -222,30 +217,40 @@ export class GameTableCardsState {
     };
   }
 
-  private applyCardCounterValue(card: GameCardInstance, key: string, value: number | null): void {
+  private cardWithCounterValue(card: GameCardInstance, key: string, value: number | null): GameCardInstance {
     const nextValue = this.normalizedCardCounterValue(card, key, value);
-    const counters = { ...(card.counters ?? {}) };
+    const existingCounters = card.counters ?? {};
+    const hasCounter = Object.prototype.hasOwnProperty.call(existingCounters, key);
+    const counters = { ...existingCounters };
     const previousValue = Number(counters[key] ?? 0);
     if (value === null && !this.isTheRingLevelCounter(card, key)) {
+      if (!hasCounter) {
+        return card;
+      }
       delete counters[key];
     } else {
+      if (hasCounter && previousValue === nextValue) {
+        return card;
+      }
       counters[key] = nextValue;
     }
 
-    card.counters = counters;
-    this.applyStatCounterDelta(card, key, nextValue - previousValue);
+    return this.cardWithStatCounterDelta({ ...card, counters }, key, nextValue - previousValue);
   }
 
-  private applyStatCounterDelta(card: GameCardInstance, key: string, delta: number): void {
+  private cardWithStatCounterDelta(card: GameCardInstance, key: string, delta: number): GameCardInstance {
     if (delta === 0 || key !== '+1/+1' && key !== '-1/-1') {
-      return;
+      return card;
     }
 
     const modifier = key === '+1/+1' ? 1 : -1;
     const powerBase = Number.isFinite(Number(card.power)) ? Number(card.power) : Number(card.defaultPower ?? 0);
     const toughnessBase = Number.isFinite(Number(card.toughness)) ? Number(card.toughness) : Number(card.defaultToughness ?? 0);
-    card.power = powerBase + (delta * modifier);
-    card.toughness = toughnessBase + (delta * modifier);
+    return {
+      ...card,
+      power: powerBase + (delta * modifier),
+      toughness: toughnessBase + (delta * modifier),
+    };
   }
 
   private normalizedCardCounterValue(card: GameCardInstance, key: string, value: number | null): number {
