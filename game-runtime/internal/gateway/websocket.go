@@ -273,10 +273,6 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		done:    make(chan struct{}),
 	}
 	registered := s.register(client)
-	if registered.PresenceRestored {
-		s.broadcastPresence(client.claims.GameID, client.playerID(), "online")
-		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.PresenceGeneration, registered.ConnectedPlayerIDs)
-	}
 	defer releaseConnection()
 	defer func() {
 		left := s.unregister(client)
@@ -303,7 +299,13 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	s.sendJSON(client, ServerMessage{
+	go client.writeLoop()
+
+	// Keep the initial connection state and replay atomic with respect to live
+	// broadcasts. A command that commits while this client is catching up must
+	// be queued after every replayed patch, never ahead of a missing version.
+	client.sendMu.Lock()
+	s.sendJSONLocked(client, ServerMessage{
 		Kind:         "connection_state",
 		GameID:       claims.GameID,
 		ConnectionID: fmt.Sprintf("%p", client),
@@ -312,9 +314,16 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	lastApplied := parseLastAppliedVersion(r)
-	s.replayOrRequestResync(r.Context(), client, lastApplied)
+	s.replayOrRequestResyncLocked(r.Context(), client, lastApplied)
+	client.sendMu.Unlock()
+	// Replay must be queued before the reconnect's own presence transition.
+	// Otherwise the asynchronous presence command can publish version N+2 before
+	// this client receives its missing version N+1 patch.
+	if registered.PresenceRestored {
+		s.broadcastPresence(client.claims.GameID, client.playerID(), "online")
+		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.PresenceGeneration, registered.ConnectedPlayerIDs)
+	}
 
-	go client.writeLoop()
 	client.readLoop()
 }
 
@@ -662,7 +671,9 @@ func (s *WebSocketServer) countConnectionsForPlayerInGameLocked(gameID string, p
 	return count
 }
 
-func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsClient, lastAppliedVersion int64) {
+// replayOrRequestResyncLocked writes the initial replay while client.sendMu is
+// held by ServeHTTP, keeping it ordered ahead of every live broadcast.
+func (s *WebSocketServer) replayOrRequestResyncLocked(ctx context.Context, client *wsClient, lastAppliedVersion int64) {
 	if lastAppliedVersion <= 0 {
 		return
 	}
@@ -679,7 +690,7 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 	}
 
 	if patches, err := s.history(gameID).Since(lastAppliedVersion); err == nil {
-		s.sendReplayPatches(client, patches)
+		s.sendReplayPatchesLocked(client, patches)
 		s.incMetric(func(metrics *GatewayMetrics) {
 			metrics.ReconnectsWithoutGap++
 			metrics.PatchReplayMemoryCount++
@@ -694,7 +705,7 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 	}
 	if err != nil {
 		reason := replayResyncReason(err)
-		s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, reason))
+		s.sendJSONLocked(client, resyncRequiredMessage(gameID, currentVersion, reason))
 		s.incMetric(func(metrics *GatewayMetrics) {
 			metrics.ReconnectsRequiringSync++
 			metrics.PatchReplayResyncCount++
@@ -704,7 +715,7 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 	}
 	if len(patches) == 0 {
 		if currentVersion > 0 && lastAppliedVersion < currentVersion {
-			s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, "version_gap"))
+			s.sendJSONLocked(client, resyncRequiredMessage(gameID, currentVersion, "version_gap"))
 			s.incMetric(func(metrics *GatewayMetrics) {
 				metrics.ReconnectsRequiringSync++
 				metrics.PatchReplayResyncCount++
@@ -716,7 +727,7 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 		slog.Debug("runtime websocket reconnect found no missing patches", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion)
 		return
 	}
-	s.sendReplayPatches(client, patches)
+	s.sendReplayPatchesLocked(client, patches)
 	s.incMetric(func(metrics *GatewayMetrics) {
 		metrics.ReconnectsWithoutGap++
 		metrics.PatchReplayDurableCount++
@@ -724,9 +735,9 @@ func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsC
 	slog.Debug("runtime websocket reconnect replayed patches", "gameId", gameID, "source", "durable", "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "patches", len(patches))
 }
 
-func (s *WebSocketServer) sendReplayPatches(client *wsClient, patches []protocol.PatchEnvelopeV2) {
+func (s *WebSocketServer) sendReplayPatchesLocked(client *wsClient, patches []protocol.PatchEnvelopeV2) {
 	for _, patch := range patches {
-		s.sendPatchIfVisible(client, patch)
+		s.sendPatchIfVisibleLocked(client, patch)
 	}
 }
 
@@ -986,7 +997,20 @@ func (s *WebSocketServer) sendPatchIfVisible(client *wsClient, patch protocol.Pa
 	s.sendJSON(client, patchMessage(patch))
 }
 
+func (s *WebSocketServer) sendPatchIfVisibleLocked(client *wsClient, patch protocol.PatchEnvelopeV2) {
+	if !canReceive(client.claims, patch.Visibility) {
+		return
+	}
+	s.sendJSONLocked(client, patchMessage(patch))
+}
+
 func (s *WebSocketServer) sendJSON(client *wsClient, message ServerMessage) {
+	client.sendMu.Lock()
+	defer client.sendMu.Unlock()
+	s.sendJSONLocked(client, message)
+}
+
+func (s *WebSocketServer) sendJSONLocked(client *wsClient, message ServerMessage) {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return
@@ -1024,6 +1048,7 @@ type wsClient struct {
 	server    *WebSocketServer
 	conn      *websocket.Conn
 	claims    TicketClaims
+	sendMu    sync.Mutex
 	send      chan []byte
 	limiter   *commandRateLimiter
 	done      chan struct{}
