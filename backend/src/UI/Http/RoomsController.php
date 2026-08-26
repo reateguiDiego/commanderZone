@@ -15,7 +15,7 @@ use App\Application\Game\GameRematchService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Game\Runtime\GameRuntimeGatewayException;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
-use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Room\ActiveRoomMembershipService;
@@ -492,7 +492,7 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         GameEventPublisher $gameEventPublisher,
         GameRematchService $gameRematch,
         GameRuntimeLifecycleCommandService $runtimeLifecycle,
-        ?GameRuntimeLifecycleControlClient $runtimeControl = null,
+        ?GameRuntimeLifecycleControlInterface $runtimeControl = null,
         ?GameRuntimeClosingFence $closingFence = null,
         ?WaitingRoomLifecycleScheduler $waitingRoomLifecycle = null,
     ): JsonResponse
@@ -612,7 +612,7 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
 
         if ($roomDeleted) {
             if ($runtimeStopRequired && $game instanceof Game) {
-                $runtimeControl?->stop($game);
+                $runtimeControl?->stopByGameId($game->id());
                 $gameEventPublisher->publishRoomDeleted($game->id(), $id);
             }
             $roomEventPublisher->publishDeleted($id);

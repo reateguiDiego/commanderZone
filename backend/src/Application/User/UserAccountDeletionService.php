@@ -6,7 +6,7 @@ use App\Application\Game\GameRematchService;
 use App\Application\Game\Runtime\GameRuntimeGatewayException;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
-use App\Application\Game\Runtime\GameRuntimeLifecycleControlClient;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Game\Game;
@@ -23,7 +23,7 @@ class UserAccountDeletionService
     public function __construct(
         private readonly GameRematchService $gameRematch,
         private readonly GameRuntimeLifecycleCommandService $runtimeLifecycle,
-        private readonly ?GameRuntimeLifecycleControlClient $runtimeControl = null,
+        private readonly ?GameRuntimeLifecycleControlInterface $runtimeControl = null,
         private readonly ?GameRuntimeClosingFence $closingFence = null,
     ) {
     }
@@ -154,14 +154,14 @@ class UserAccountDeletionService
             }
 
             if (!$this->roomHasOtherPlayers($room, $user, $entityManager)) {
-                if (!$this->runtimeControl instanceof GameRuntimeLifecycleControlClient || !$this->closingFence instanceof GameRuntimeClosingFence) {
+                if (!$this->runtimeControl instanceof GameRuntimeLifecycleControlInterface || !$this->closingFence instanceof GameRuntimeClosingFence) {
                     throw new GameRuntimeGatewayException('Runtime lifecycle disposal is required before deleting the final active room member.');
                 }
                 // The game is still present and no Doctrine lock is held. The
                 // durable claim blocks every runtime writer before shutdown;
                 // only then may the account transaction delete its game.
                 $this->closingFence->claim($game->id());
-                $this->runtimeControl->stop($game);
+                $this->runtimeControl->stopByGameId($game->id());
             }
         }
     }

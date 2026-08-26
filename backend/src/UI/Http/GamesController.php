@@ -931,7 +931,7 @@ class GamesController extends ApiController
         GameControlPlaneProjection $controlPlane,
         GameEventPublisher $gamePublisher,
         RoomEventPublisher $roomPublisher,
-        \App\Application\Game\Runtime\GameRuntimeLifecycleControlClient $runtimeControl,
+        \App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface $runtimeControl,
         GameRuntimeLifecycleCommandService $runtimeLifecycle,
         ?GameRuntimeClosingFence $closingFence = null,
         ?WaitingRoomInactivityPolicy $waitingRoomInactivity = null,
@@ -1097,7 +1097,7 @@ class GamesController extends ApiController
             // Remote runtime disposal never runs while Doctrine owns a game
             // row lock. The durable closing fence committed above prevents a
             // remote owner from appending during this post-commit handoff.
-            $runtimeControl->stop($game);
+            $runtimeControl->stopByGameId($game->id());
         }
 
         $state = $controlPlane->project($game);
