@@ -72,7 +72,7 @@ final class ScryfallBulkDataClient
             }
         }
 
-        throw new \RuntimeException(sprintf('Scryfall %s bulk download URI was not found.', $bulkType));
+        throw new ScryfallBulkDataTypeNotFound($bulkType);
     }
 
     /**
