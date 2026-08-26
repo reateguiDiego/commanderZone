@@ -2404,6 +2404,102 @@ describe('game table normalized v2 store', () => {
     expect(result.state.instances['library-1'].revealedTo).toBeUndefined();
   });
 
+  it('keeps a revealed hand card visible when it moves to the library and clears its hand marker', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    bootstrap.instances['hand-1'] = {
+      ...bootstrap.instances['hand-1'],
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'library', index: 0 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].revealedTo).toEqual(['player-2']);
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('clears a revealed hand card and its marker when it moves to a public zone', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    bootstrap.instances['hand-1'] = {
+      ...bootstrap.instances['hand-1'],
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'graveyard', index: 0 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].revealedTo).toBeUndefined();
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes a hand reveal marker as soon as the revealed card is removed', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.remove',
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceIds: ['hand-1'],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes the real hand slot when a compact opponent projection cannot map the revealed instance id', () => {
+    const bootstrap = bootstrapV2();
+    const hiddenHandIds = ['player-2-hidden-hand-0', 'player-2-hidden-hand-1', 'player-2-hidden-hand-2', 'player-2-hidden-hand-3'];
+    bootstrap.players['player-2'].handCount = hiddenHandIds.length;
+    bootstrap.players['player-2'].zoneCounts.hand = hiddenHandIds.length;
+    bootstrap.players['player-2'].revealedHandIndexes = [1];
+    bootstrap.zones['player-2:hand'].instanceIds = hiddenHandIds;
+    bootstrap.zoneCounts['player-2:hand'] = hiddenHandIds.length;
+    for (const instanceId of hiddenHandIds) {
+      bootstrap.instances[instanceId] = {
+        instanceId,
+        cardRef: `instance:${instanceId}`,
+        zoneId: 'player-2:hand',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        hidden: true,
+        tapped: false,
+      };
+    }
+
+    const result = applyPatchEnvelopeV2(createGameTableNormalizedV2State(bootstrap), patch(6, [{
+      op: 'zone.cards.remove',
+      playerId: 'player-2',
+      zone: 'hand',
+      instanceIds: ['revealed-hand-instance'],
+      sourceIndexes: [1],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual([
+      'player-2-hidden-hand-0',
+      'player-2-hidden-hand-2',
+      'player-2-hidden-hand-3',
+    ]);
+    expect(result.state.zoneCounts['player-2'].hand).toBe(3);
+    expect(result.state.players['player-2'].revealedHandIndexes).toEqual([]);
+  });
+
   it('keeps a rival face-down hand-to-battlefield move hidden', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{

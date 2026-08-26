@@ -62,9 +62,11 @@
         class="hand-fan"
         [style.--hand-count]="handCards.length"
         [style.--hand-row-width]="handRowWidth(handCards.length)"
+        [style.--opponent-hand-card-width]="opponentHandCardWidth(handCards.length)"
         [attr.data-player-id]="handPlayer.id"
         [class.hand-fan-compact-drop-target]="hasCompactHandDropTarget()"
         [class.hand-fan-row]="handLayoutMode() === 'row'"
+        [class.hand-fan-countable]="showCardsFaceDown()"
         [class.drop-target-active]="isHandDropReceiverVisuallyHighlighted()"
       >
       @for (card of handCards; track card.instanceId) {
@@ -96,6 +98,7 @@
           [faceDown]="isHandCardFaceDown(card)"
           [hidden]="isHandCardFaceDown(card)"
           [revealMarker]="card.revealMarker === true"
+          [faceToggleEnabled]="card.revealMarker === true && !isHandCardFaceDown(card)"
           [draggable]="false"
           [handDropPlacement]="dropPlacement"
           [handLayout]="handLayoutMode()"
@@ -107,6 +110,7 @@
           (cardDoubleClicked)="stopDoubleClick($event.event)"
           (cardMenuOpened)="openHandCardMenu($event.event, handPlayer.id, $event.card)"
           (cardPointerEntered)="enterHandCard($event.event, $event.card)"
+          (cardFaceLookRequested)="showHandCardPreview($event)"
           (cardMouseLeft)="leaveHandCard(card)"
         />
         @if (dropPlacement === 'after') {

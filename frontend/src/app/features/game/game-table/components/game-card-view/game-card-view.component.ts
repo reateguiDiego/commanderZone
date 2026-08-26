@@ -123,7 +123,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private statOverlayArrivalTimer: number | null = null;
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;
-  private previousFaceDown: boolean | null = null;
   private previewFaceIndexOverride: number | null = null;
   private faceFlipTimer: number | null = null;
   private pointerInside = false;
@@ -1057,22 +1056,17 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private syncFaceFlipAnimation(): void {
     const currentCard = this.card();
     const activeFaceIndex = currentCard.activeFaceIndex ?? 0;
-    const faceDown = Boolean(this.faceDown() || this.hidden() || currentCard.faceDown || currentCard.hidden);
     const isSameCard = this.previousFaceInstanceId === currentCard.instanceId;
     const faceChanged = isSameCard
       && this.previousActiveFaceIndex !== null
       && this.previousActiveFaceIndex !== activeFaceIndex;
-    const faceDownChanged = isSameCard
-      && this.previousFaceDown !== null
-      && this.previousFaceDown !== faceDown;
 
-    if ((faceChanged || faceDownChanged) && this.canPlayFaceFlipAnimation()) {
+    if (faceChanged && this.canPlayFaceFlipAnimation()) {
       this.startFaceFlipAnimation();
     }
 
     this.previousFaceInstanceId = currentCard.instanceId;
     this.previousActiveFaceIndex = activeFaceIndex;
-    this.previousFaceDown = faceDown;
   }
 
   private canPlayFaceFlipAnimation(): boolean {

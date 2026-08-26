@@ -214,6 +214,13 @@
   --hand-row-card-step: var(--hand-card-row-step);
 }
 
+// Opponent hands must remain visually countable. Keep one rendered card per
+// public hand slot and reduce their width as the hand grows, rather than
+// collapsing the extra cards into an indistinguishable pile.
+.hand-fan-countable app-game-card-view {
+  --game-card-view-width: var(--opponent-hand-card-width);
+}
+
 .hand-fan-compact-drop-target {
   padding-inline: 120px;
 }

@@ -824,6 +824,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return previewCard ? buildCardPreviewCardStateInfo(previewCard) : null;
   });
+  readonly hoveredPreviewRevealLabel = computed(() => {
+    const previewCard = this.hoveredPreviewCard();
+
+    return previewCard ? this.revealLabelForCard(previewCard, this.hoveredPreviewZone()) : null;
+  });
 
   private battlefieldEmblemsForPlayer(playerId: string): readonly GameCardInstance[] {
     const player = this.store.players().find((candidate) => candidate.id === playerId);
@@ -1687,20 +1692,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
-    const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
+    const stateAnimations = [
+      ...this.realtimePatchRotationAnimationsFor(event),
+      ...this.realtimePatchFaceDownAnimationsFor(event),
+    ];
 
     if (!event.isLocalPatch) {
       this.prepareRemoteHandLayoutMotion(event);
       this.playRealtimeMoveGhosts(event);
     }
 
-    if (rotationAnimations.length > 0 || !event.isLocalPatch) {
+    if (stateAnimations.length > 0 || !event.isLocalPatch) {
       window.requestAnimationFrame(() => {
         if (this.destroyed) {
           return;
         }
 
-        for (const playAnimation of rotationAnimations) {
+        for (const playAnimation of stateAnimations) {
           playAnimation();
         }
 
@@ -1726,6 +1734,40 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         case 'cards.state.set':
           this.collectRealtimeCardsStateAnimations(event.previousSnapshot, operation, animations);
           break;
+      }
+    }
+
+    return animations;
+  }
+
+  private realtimePatchFaceDownAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
+    const animations: Array<() => void> = [];
+
+    if (event.patch.kind === 'game_patch') {
+      for (const operation of event.patch.operations) {
+        switch (operation.op) {
+          case 'card.state.set':
+            this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, operation, animations);
+            break;
+          case 'cards.state.set':
+            for (const state of operation.cards) {
+              this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, {
+                ...state,
+                playerId: operation.playerId,
+                zone: operation.zone,
+              }, animations);
+            }
+            break;
+        }
+      }
+
+      return animations;
+    }
+
+    for (const rawOperation of event.patch.ops) {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      if (operation.op === 'card.field.set') {
+        this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, operation, animations);
       }
     }
 
@@ -1766,12 +1808,36 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
   }
 
+  private collectRealtimeCardFaceDownAnimation(
+    snapshot: GameSnapshot,
+    state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'playerId' | 'zone' | 'instanceId' | 'faceDown'>,
+    animations: Array<() => void>,
+  ): void {
+    if (!this.shouldAnimateFocusedBattlefield(state.playerId, state.zone)) {
+      return;
+    }
+
+    const card = snapshot.players[state.playerId]?.zones[state.zone]?.find((candidate) => candidate.instanceId === state.instanceId) ?? null;
+    if (!card || !this.hasRealtimeFaceDownStateChange(card, state)) {
+      return;
+    }
+
+    animations.push(this.motion.prepareCardFaceDownFlip(state.instanceId, { faceDown: state.faceDown }));
+  }
+
   private hasRealtimeRotationStateChange(
     card: GameCardInstance,
     state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'tapped' | 'rotation'>,
   ): boolean {
     return state.tapped !== undefined && card.tapped !== state.tapped
       || state.rotation !== undefined && card.rotation !== state.rotation;
+  }
+
+  private hasRealtimeFaceDownStateChange(
+    card: GameCardInstance,
+    state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'faceDown'>,
+  ): state is { faceDown: boolean } {
+    return state.faceDown !== undefined && card.faceDown !== state.faceDown;
   }
 
   private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {

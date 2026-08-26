@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Circle, Crown, Eye, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { Circle, Crown, Eye, Flag, Library, LucideAngularModule, RotateCw, Sparkles } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { AppThemeService } from '../../../../../core/theme/app-theme.service';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
@@ -358,6 +358,37 @@ describe('ZonePilesPanelComponent', () => {
 
     expect(previewSpy).toHaveBeenCalledWith({ card: topCard, playerId: 'player-1', zone: 'library', sourceRect: null });
     expect(hiddenSpy).toHaveBeenCalled();
+  });
+
+  it('puts the alternate-face toggle on a revealed library card and previews that face locally', async () => {
+    const topCard: GameCardInstance = {
+      ...card('library-dfc', 'Front // Back', 'library'),
+      activeFaceIndex: 0,
+      cardFaces: [
+        { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+        { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+      ],
+    };
+    const fixture = await renderZonePilesPanel({
+      library: [topCard],
+      topLibraryRevealMarker: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => zone === 'library' ? topCard : null,
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const toggle = zoneElement(fixture, 'library').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    expect(toggle).not.toBeNull();
+
+    toggle.click();
+
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'library-dfc', activeFaceIndex: 1 }),
+      playerId: 'player-1',
+      zone: 'library',
+    }));
+    expect(topCard.activeFaceIndex).toBe(0);
   });
 
   it('emits a large-card preview when hovering the visible graveyard and exile cards', async () => {
@@ -752,7 +783,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   await TestBed.configureTestingModule({
     imports: [ZonePilesPanelComponent],
     providers: [
-      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Eye, Flag, Library, Sparkles })),
+      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Eye, Flag, Library, RotateCw, Sparkles })),
       {
         provide: GameTableSpecialEntitiesState,
         useValue: {

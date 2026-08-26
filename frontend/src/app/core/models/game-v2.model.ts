@@ -349,6 +349,7 @@ export type GameplayPatchV2Operation =
       playerId: string;
       zone: GameZoneName;
       instanceIds: string[];
+      sourceIndexes?: number[];
     }
   | ({
       op: 'zone.cards.move';

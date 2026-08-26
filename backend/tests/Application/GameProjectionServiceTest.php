@@ -26,7 +26,7 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('loc', $projected);
     }
 
-    public function testOpponentHandProjectionCentersRevealedCardsWithoutLeakingOriginalPosition(): void
+    public function testOpponentHandProjectionKeepsRevealedCardsAtTheirActualPosition(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $viewer = new User('viewer@example.test', 'Viewer');
@@ -36,13 +36,13 @@ class GameProjectionServiceTest extends TestCase
         $hand = $projected['players'][$owner->id()]['zones']['hand'];
 
         self::assertCount(5, $hand);
-        self::assertSame('Hidden card', $hand[0]['name']);
-        self::assertTrue($hand[0]['hidden']);
+        self::assertSame('Revealed Tutor', $hand[0]['name']);
+        self::assertSame([$viewer->id()], $hand[0]['revealedTo']);
+        self::assertArrayNotHasKey('hidden', $hand[0]);
         self::assertSame('Hidden card', $hand[1]['name']);
         self::assertTrue($hand[1]['hidden']);
-        self::assertSame('Revealed Tutor', $hand[2]['name']);
-        self::assertSame([$viewer->id()], $hand[2]['revealedTo']);
-        self::assertArrayNotHasKey('hidden', $hand[2]);
+        self::assertSame('Hidden card', $hand[2]['name']);
+        self::assertTrue($hand[2]['hidden']);
         self::assertSame('Hidden card', $hand[3]['name']);
         self::assertTrue($hand[3]['hidden']);
         self::assertSame('Hidden card', $hand[4]['name']);

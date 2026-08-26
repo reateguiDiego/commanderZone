@@ -137,6 +137,37 @@ export class ZonePilesPanelComponent {
     return player.state.playTopLibraryRevealed === true || player.state.topLibraryRevealMarker === true;
   }
 
+  canToggleLibraryTopFace(player: PlayerView): boolean {
+    if (!this.isLibraryTopRevealMarked(player)) {
+      return false;
+    }
+
+    const topCard = this.zonePreviewCard()(player, 'library');
+    return topCard !== null
+      && !topCard.hidden
+      && canShowAlternateFaceToggle(topCard);
+  }
+
+  previewLibraryTopFace(event: { event: MouseEvent; showingAlternateFace: boolean }): void {
+    const player = this.player();
+    const topCard = this.zonePreviewCard()(player, 'library');
+    if (!topCard || topCard.hidden) {
+      return;
+    }
+
+    const alternateFaceIndex = nextCardFaceIndex(topCard, activeCardFaceIndex(topCard));
+    const card = event.showingAlternateFace && alternateFaceIndex !== null
+      ? { ...topCard, activeFaceIndex: alternateFaceIndex }
+      : topCard;
+
+    this.cardPreviewShown.emit({
+      card,
+      playerId: player.id,
+      zone: 'library',
+      sourceRect: previewRectFromElement(event.event.currentTarget instanceof Element ? event.event.currentTarget : null),
+    });
+  }
+
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
     if (!this.canControlPlayer()(player.id)) {
       event.preventDefault();

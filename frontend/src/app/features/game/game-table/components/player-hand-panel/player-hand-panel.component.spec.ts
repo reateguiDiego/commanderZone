@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Eye, LucideAngularModule } from 'lucide-angular';
+import { Eye, RotateCw, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
@@ -106,6 +106,39 @@ describe('PlayerHandPanelComponent', () => {
 
     expect(previewShown).not.toHaveBeenCalled();
     expect(cardElement.classList).not.toContain('hover-lifted');
+  });
+
+  it.each([
+    { handCount: 10, revealedIndex: null },
+    { handCount: 20, revealedIndex: 10 },
+  ])('renders every public opponent hand slot when the hand has $handCount cards', async ({ handCount, revealedIndex }) => {
+    const hand = Array.from({ length: handCount }, (_, index): GameCardInstance => ({
+      instanceId: `player-1-hand-${index}`,
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      name: index === revealedIndex ? 'Revealed Tutor' : 'Hidden card',
+      tapped: false,
+      hidden: index !== revealedIndex,
+      faceDown: index !== revealedIndex,
+      ...(index === revealedIndex ? { revealedTo: ['viewer-1'] } : {}),
+      zone: 'hand',
+    }));
+    const { fixture } = await renderHandPanel({
+      readOnly: true,
+      showCardsFaceDown: true,
+      handZoneCount: handCount,
+      hand,
+    });
+
+    expect(fixture.nativeElement.querySelectorAll('[data-zone="hand"][data-card-instance-id]')).toHaveLength(handCount);
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-countable');
+    expect(fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent).toContain(`${handCount} cards`);
+    if (revealedIndex === null) {
+      expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount);
+    } else {
+      expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount - 1);
+      expect(fixture.nativeElement.querySelector('[data-card-instance-id="player-1-hand-10"]')?.classList).not.toContain('face-down');
+    }
   });
 
   it('removes stale opponent card backs when the authoritative hand count decreases', async () => {
@@ -253,6 +286,44 @@ describe('PlayerHandPanelComponent', () => {
       playerId: 'player-1',
       zone: 'hand',
     }));
+  });
+
+  it('puts the alternate-face toggle on a revealed hand card, not in its preview', async () => {
+    const revealedDoubleFacedCard: GameCardInstance = {
+      instanceId: 'revealed-double-faced-card',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      name: 'Front // Back',
+      tapped: false,
+      revealedTo: ['viewer-1'],
+      zone: 'hand',
+      activeFaceIndex: 0,
+      cardFaces: [
+        { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+        { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+      ],
+    };
+    const { fixture } = await renderHandPanel({
+      readOnly: true,
+      showCardsFaceDown: true,
+      hand: [revealedDoubleFacedCard],
+      cardImage: () => '/front.jpg',
+    });
+    const previewShown = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewShown);
+
+    const toggle = fixture.nativeElement.querySelector('[data-card-instance-id="revealed-double-faced-card"] .double-face-toggle') as HTMLElement;
+    expect(toggle).not.toBeNull();
+
+    toggle.click();
+
+    expect(previewShown).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({
+        instanceId: 'revealed-double-faced-card',
+        activeFaceIndex: 1,
+      }),
+    }));
+    expect(revealedDoubleFacedCard.activeFaceIndex).toBe(0);
   });
 
   it('keeps opponent hands in fan layout even when they are highlighted as a drop target', async () => {
@@ -1383,7 +1454,7 @@ async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ 
   await TestBed.configureTestingModule({
     imports: [PlayerHandPanelComponent],
     providers: [
-      importProvidersFrom(LucideAngularModule.pick({ Eye })),
+      importProvidersFrom(LucideAngularModule.pick({ Eye, RotateCw })),
       GameTablePointerDragService,
       ...(options.prepareHandLayoutFlip
         ? [{

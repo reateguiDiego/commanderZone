@@ -824,7 +824,7 @@ describe('GameCardViewComponent', () => {
     open.mockRestore();
   });
 
-  it('plays face flip animation for active face and face-down changes', async () => {
+  it('plays face flip animation when the active face changes', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
 
@@ -839,21 +839,6 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
     expectFlipThenClear();
 
-    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: true });
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: false });
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('faceDown', true);
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('faceDown', false);
-    fixture.detectChanges();
-    expect(cardElement.classList).toContain('face-flipping');
   });
 
   it('shows a centered face look affordance for double-faced cards and previews the other face', async () => {

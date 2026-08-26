@@ -61,6 +61,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 	}
 
 	emitHandRevealMarkerClears(emitter, game, moves)
+	emitRevealedHandRemovalsForViewers(emitter, game, moves)
 	applyMovementZoneState(game, moves, visualPosition, hasRequestedFaceDown, requestedFaceDown)
 	evaporated := evaporatingMoveSet(game, moves)
 	removedRelations := pruneRelationsForMoves(game, moves)
@@ -159,6 +160,7 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 		return nil, err
 	}
 	emitHandRevealMarkerClears(emitter, game, moves)
+	emitRevealedHandRemovalsForViewers(emitter, game, moves)
 	applyMovementZoneState(game, moves, nil, false, false)
 	evaporated := evaporatingMoveSet(game, moves)
 	removedRelations := pruneRelationsForMoves(game, moves)
@@ -357,6 +359,37 @@ func emitHandRevealMarkerClears(emitter *PatchEmitter, game *state.GameState, mo
 				"indexes":  indexes,
 			},
 		})
+	}
+}
+
+// emitRevealedHandRemovalsForViewers keeps a recipient's projected hand in
+// sync when a card they could see leaves that hand. The targeted removal is
+// intentional even for public destinations: it lets a recipient reconcile a
+// compact/legacy hand projection whose placeholder id is not the real card id.
+func emitRevealedHandRemovalsForViewers(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
+	for _, move := range moves {
+		if move.From.Zone != state.ZoneHand || move.To.Zone == state.ZoneHand {
+			continue
+		}
+
+		viewers := append([]string(nil), game.Visibility.HandRevealAudiences[move.InstanceID]...)
+		if len(viewers) == 0 {
+			viewers = viewerIDsForMask(game, game.Instances[move.InstanceID].VisibleToMask)
+		}
+		for _, viewerID := range viewers {
+			if viewerID == "" || viewerID == move.From.PlayerID || viewerID == move.To.PlayerID {
+				continue
+			}
+			emitter.EmitPrivate(viewerID, protocol.PatchOp{
+				Op: "zone.cards.remove",
+				Data: map[string]any{
+					"playerId":      move.From.PlayerID,
+					"zone":          move.From.Zone,
+					"instanceIds":   []string{move.InstanceID},
+					"sourceIndexes": []int{move.From.Index},
+				},
+			})
+		}
 	}
 }
 

@@ -1368,6 +1368,38 @@ describe('GameTableComponent', () => {
     expect(punchCard).toHaveBeenCalledWith('opponent-saga', 'damage');
   });
 
+  it('uses the GSAP face-down animation for local V2 face changes', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const playFaceDownFlip = vi.fn();
+    const prepareFaceDownFlip = vi.spyOn(motion, 'prepareCardFaceDownFlip').mockReturnValue(playFaceDownFlip);
+    const animationBus = fixture.debugElement.injector.get(GameTableRealtimeAnimationBusService);
+
+    animationBus.emitPatchAnimation({
+      previousSnapshot: snapshot,
+      nextSnapshot: { ...snapshot, version: 2 },
+      patch: {
+        kind: 'patch.v2', gameId: 'game-1', version: 2, visibility: 'player:user-1',
+        ops: [{
+          op: 'card.field.set', playerId: 'user-1', zone: 'battlefield', instanceId: 'card-1', faceDown: true,
+        }],
+      },
+      isLocalPatch: true,
+    });
+
+    expect(prepareFaceDownFlip).toHaveBeenCalledWith('card-1', { faceDown: true });
+    await vi.waitFor(() => expect(playFaceDownFlip).toHaveBeenCalledOnce());
+  });
+
   it('animates every visible remote move from battlefield, library, graveyard, exile, and command into the focused hand', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -4791,6 +4823,45 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.hoveredPreview()).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('app-card-preview-overlay')).toBeNull();
+  });
+
+  it('maps each library-position label to its matching destination', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.pendingLibraryMove.set({
+      cardName: 'Sol Ring',
+      commandType: 'card.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceId: 'card-1',
+      },
+    });
+    const confirmPosition = vi.spyOn(fixture.componentInstance, 'confirmPendingLibraryMove').mockImplementation(() => undefined);
+    fixture.detectChanges();
+
+    const modalButtons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('app-modal button'))
+      .filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
+    const topButton = modalButtons.find((button) => button.textContent?.trim() === 'Top');
+    const bottomButton = modalButtons.find((button) => button.textContent?.trim() === 'Bottom');
+
+    expect(topButton).toBeTruthy();
+    expect(bottomButton).toBeTruthy();
+    expect(modalButtons.indexOf(bottomButton!)).toBeLessThan(modalButtons.indexOf(topButton!));
+
+    topButton?.click();
+    bottomButton?.click();
+
+    expect(confirmPosition).toHaveBeenNthCalledWith(1, 'top');
+    expect(confirmPosition).toHaveBeenNthCalledWith(2, 'bottom');
   });
 
   it('asks for one library position when selected cards move to the library', async () => {

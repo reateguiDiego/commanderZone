@@ -4311,6 +4311,41 @@ func TestHandRevealVisibilityExpiresWhenCardLeavesHand(t *testing.T) {
 	}
 }
 
+func TestRevealedHandCardLeavingRemovesItForItsRecipient(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand-card", "card.revealed", map[string]any{
+		"instanceId": "h1",
+		"to":         "p2",
+	}), "p1")
+	if reveal.Err != nil {
+		t.Fatalf("reveal failed: %v", reveal.Err)
+	}
+
+	move := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "move-revealed-hand-card-to-graveyard", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "hand",
+		"toZone":     "graveyard",
+		"instanceId": "h1",
+	}), "p1")
+	if move.Err != nil {
+		t.Fatalf("move failed: %v", move.Err)
+	}
+
+	removal := patchForVisibility(move.Patches, protocol.PlayerVisibility("p2"), "zone.cards.remove")
+	if removal == nil {
+		t.Fatalf("revealed hand recipient did not receive a removal patch: %#v", move.Patches)
+	}
+	if removal.Data["playerId"] != "p1" || removal.Data["zone"] != state.ZoneHand {
+		t.Fatalf("removal targeted the wrong source hand: %#v", removal.Data)
+	}
+	if ids, ok := removal.Data["instanceIds"].([]string); !ok || len(ids) != 1 || ids[0] != "h1" {
+		t.Fatalf("removal targeted the wrong card: %#v", removal.Data)
+	}
+	if indexes, ok := removal.Data["sourceIndexes"].([]int); !ok || len(indexes) != 1 || indexes[0] != 0 {
+		t.Fatalf("removal did not retain the source hand index: %#v", removal.Data)
+	}
+}
+
 func TestLibraryViewAndTargetedRevealDoNotLeakFullLibraryOnMove(t *testing.T) {
 	game := testState()
 	game.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}

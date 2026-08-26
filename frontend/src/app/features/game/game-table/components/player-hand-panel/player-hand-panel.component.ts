@@ -600,6 +600,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
   }
 
+  showHandCardPreview(preview: CardPreviewEvent): void {
+    this.cardPreviewShown.emit(preview);
+  }
+
   leaveHandCard(card?: GameCardInstance): void {
     if (card && this.activeHandHoverInstanceId() !== card.instanceId) {
       return;
@@ -624,6 +628,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     return `calc(var(--hand-card-row-width) + (var(--hand-card-row-step) * ${normalizedCount - 1}))`;
+  }
+
+  opponentHandCardWidth(count: number): string {
+    const normalizedCount = Math.max(1, count);
+
+    return normalizedCount <= 5
+      ? 'var(--hand-card-row-width)'
+      : `min(var(--hand-card-row-width), calc((100% - 0.5rem) / ${normalizedCount}))`;
   }
 
   isHandVisuallyRevealed(): boolean {

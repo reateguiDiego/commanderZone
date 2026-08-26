@@ -31,6 +31,29 @@
   pointer-events: none;
 }
 
+.zone-card-stack-face-toggle {
+  position: absolute;
+  z-index: 22;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  display: grid;
+  width: 1.72rem;
+  height: 1.72rem;
+  cursor: pointer;
+  place-items: center;
+  border: 1px solid rgb(var(--gold-rgb) / 58%);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 92%);
+  box-shadow: 0 0.3rem 0.8rem rgb(var(--shadow-rgb) / 48%);
+  color: var(--gold);
+}
+
+.zone-card-stack-face-toggle:hover,
+.zone-card-stack-face-toggle:focus-visible {
+  background: rgb(var(--gold-rgb) / 18%);
+  color: var(--highlight);
+}
+
 .zone-card-stack-layer {
   border: 1px solid rgb(var(--shadow-rgb) / 42%);
   filter: brightness(0.64) saturate(0.82) contrast(1.04);

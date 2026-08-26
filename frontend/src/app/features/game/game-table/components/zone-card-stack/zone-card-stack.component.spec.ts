@@ -1,5 +1,7 @@
+import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { gsap } from 'gsap';
+import { RotateCw, LucideAngularModule } from 'lucide-angular';
 import { ZoneCardStackComponent } from './zone-card-stack.component';
 
 describe('ZoneCardStackComponent', () => {
@@ -34,6 +36,24 @@ describe('ZoneCardStackComponent', () => {
 
     const eye = fixture.nativeElement.querySelector('.zone-card-stack-reveal-indicator svg.lucide-eye') as SVGElement | null;
     expect(eye?.getAttribute('viewBox')).toBe('0 0 24 24');
+  });
+
+  it('puts the alternate-face toggle on the revealed library card and emits its local face state', async () => {
+    const fixture = await renderZoneCardStack(4, '/assets/second-card.jpg');
+    const toggled = vi.fn();
+    fixture.componentInstance.alternateFaceToggled.subscribe(toggled);
+
+    fixture.componentRef.setInput('faceToggleEnabled', true);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    expect(toggle).not.toBeNull();
+
+    toggle.click();
+    expect(toggled).toHaveBeenLastCalledWith(expect.objectContaining({ showingAlternateFace: true }));
+
+    toggle.click();
+    expect(toggled).toHaveBeenLastCalledWith(expect.objectContaining({ showingAlternateFace: false }));
   });
 
   it('does not replay a previous shuffle when the viewed player changes', async () => {
@@ -96,6 +116,7 @@ async function renderZoneCardStack(
 ): Promise<ComponentFixture<ZoneCardStackComponent>> {
   await TestBed.configureTestingModule({
     imports: [ZoneCardStackComponent],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(ZoneCardStackComponent);

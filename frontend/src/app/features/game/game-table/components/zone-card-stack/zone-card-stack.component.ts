@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { gsap } from 'gsap';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 
 interface ZoneCardStackLayer {
   key: number;
@@ -22,6 +24,7 @@ interface ShuffleCardVariation {
 
 @Component({
   selector: 'app-zone-card-stack',
+  imports: [LucideAngularModule, RuntimeTranslatePipe],
   templateUrl: './zone-card-stack.component.html',
   styleUrl: './zone-card-stack.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +35,7 @@ export class ZoneCardStackComponent implements OnDestroy {
 
   readonly image = input.required<string>();
   readonly layerImage = input<string | null>(null);
+  readonly faceToggleEnabled = input(false);
   readonly label = input.required<string>();
   readonly count = input.required<number>();
   readonly showRevealIndicator = input(false);
@@ -40,6 +44,7 @@ export class ZoneCardStackComponent implements OnDestroy {
 
   private readonly topCard = viewChild<ElementRef<HTMLImageElement>>('topCard');
   private readonly shuffleTopCardImage = signal<string | null>(null);
+  private readonly alternateFaceVisible = signal(false);
   private revealAnimation: gsap.core.Tween | null = null;
   private shuffleAnimation: gsap.core.Timeline | null = null;
   private restoreShuffleStacking: (() => void) | null = null;
@@ -47,6 +52,7 @@ export class ZoneCardStackComponent implements OnDestroy {
   private lastShufflePlayerId: string | null = null;
   private lastShuffleRevision: number | null = null;
   private shuffleRevisionInitialized = false;
+  readonly alternateFaceToggled = output<{ event: MouseEvent; showingAlternateFace: boolean }>();
   private readonly animateVisibilityChange = effect(() => {
     const signature = `${this.image()}|${this.showRevealIndicator()}`;
     const topCard = this.topCard()?.nativeElement;
@@ -99,11 +105,29 @@ export class ZoneCardStackComponent implements OnDestroy {
       };
     });
   });
+  readonly canShowFaceToggle = computed(() => this.faceToggleEnabled());
   readonly renderedTopCardImage = computed(() => this.shuffleTopCardImage() ?? this.image());
 
   ngOnDestroy(): void {
     this.stopRevealAnimation();
     this.stopShuffleAnimation();
+  }
+
+  toggleAlternateFace(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.alternateFaceVisible.update((visible) => {
+      const showingAlternateFace = !visible;
+      this.alternateFaceToggled.emit({ event, showingAlternateFace });
+      return showingAlternateFace;
+    });
+  }
+
+  stopFaceTogglePointer(event: PointerEvent): void {
+    event.stopPropagation();
+    if (event.button === 0) {
+      event.preventDefault();
+    }
   }
 
   private playRevealAnimation(topCard: HTMLImageElement): void {

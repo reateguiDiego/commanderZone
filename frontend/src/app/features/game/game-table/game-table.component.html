@@ -837,7 +837,7 @@
           [battlefieldRect]="battlefieldLayoutSize()"
           [attachmentInfo]="hoveredPreviewAttachmentInfo()"
           [cardStateInfo]="hoveredPreviewCardStateInfo()"
-          [revealLabel]="revealLabelForCard(previewCard ?? preview.card, hoveredPreviewZone())"
+          [revealLabel]="hoveredPreviewRevealLabel()"
           [showFaceDownPill]="preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true"
         />
       }

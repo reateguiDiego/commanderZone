@@ -83,8 +83,10 @@
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
                 [showRevealIndicator]="zone === 'library' && isLibraryTopRevealMarked(currentPlayer)"
+                [faceToggleEnabled]="zone === 'library' && canToggleLibraryTopFace(currentPlayer)"
                 [shufflePlayerId]="zone === 'library' ? currentPlayer.id : null"
                 [shuffleRevision]="zone === 'library' ? currentPlayer.state.libraryShuffleRevision ?? null : null"
+                (alternateFaceToggled)="previewLibraryTopFace($event)"
               />
             }
           }

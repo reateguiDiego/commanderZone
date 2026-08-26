@@ -10,6 +10,7 @@ describe('GameTableMotionService', () => {
   let flipFromSpy: ReturnType<typeof vi.spyOn>;
   let gsapFromToSpy: ReturnType<typeof vi.spyOn>;
   let gsapToSpy: ReturnType<typeof vi.spyOn>;
+  let gsapTimelineSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     stubMatchMedia(() => false);
@@ -33,6 +34,7 @@ describe('GameTableMotionService', () => {
 
       return null as unknown as gsap.core.Tween;
     });
+    gsapTimelineSpy = vi.spyOn(gsap, 'timeline');
     TestBed.configureTestingModule({
       providers: [GameTableMotionService],
     });
@@ -49,6 +51,7 @@ describe('GameTableMotionService', () => {
     flipFromSpy.mockRestore();
     gsapFromToSpy.mockRestore();
     gsapToSpy.mockRestore();
+    gsapTimelineSpy.mockRestore();
   });
 
   it('prepares a FLIP animation for hand card reorder', () => {
@@ -68,6 +71,24 @@ describe('GameTableMotionService', () => {
       targets: [card],
     });
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('uses GSAP to flip the previous face out before showing the next face', () => {
+    const card = addHandCard(host, 'card-1');
+    const visual = card.querySelector<HTMLElement>('.card-visual')!;
+    visual.textContent = 'Previous face';
+
+    const playFaceDownFlip = service.prepareCardFaceDownFlip('card-1', { faceDown: true });
+    visual.textContent = 'Next face';
+
+    playFaceDownFlip();
+
+    const ghost = document.body.querySelector<HTMLElement>('.cz-motion-ghost');
+    expect(gsapTimelineSpy).toHaveBeenCalledOnce();
+    expect(ghost).not.toBeNull();
+    expect(ghost?.textContent).toContain('Previous face');
+
+    ghost?.remove();
   });
 
   it('prepares hand growth feedback for hand layout changes', () => {

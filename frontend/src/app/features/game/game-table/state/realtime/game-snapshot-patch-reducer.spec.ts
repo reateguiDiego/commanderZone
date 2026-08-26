@@ -139,6 +139,41 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1'].zones.hand.at(-1)?.revealedTo).toBeUndefined();
   });
 
+  it('keeps a revealed hand card visible when it moves to the library and clears its hand marker', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].revealedHandIndexes = [0];
+    snapshot.players['player-1'].zones.hand[0] = card('hand-1', {
+      zone: 'hand',
+      revealedTo: ['player-2'],
+    });
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'library' },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.library[0]?.revealedTo).toEqual(['player-2']);
+    expect(result.snapshot.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes a hand reveal marker as soon as the revealed card is removed', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].revealedHandIndexes = [0];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.remove',
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'hand-1',
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
   it('uses card.move card payload as the destination representation even when the source card is visible', () => {
     const snapshot = snapshotFixture();
     const hiddenPlaceholder = card('player-1-hidden-hand-new', {

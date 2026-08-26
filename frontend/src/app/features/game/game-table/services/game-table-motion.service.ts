@@ -17,6 +17,10 @@ interface CardRotationFlipOptions {
   readonly onComplete?: () => void;
 }
 
+interface CardFaceDownFlipOptions {
+  readonly faceDown: boolean;
+}
+
 interface CardFlipOptions {
   readonly freezeHand?: boolean;
 }
@@ -638,6 +642,109 @@ export class GameTableMotionService {
     };
   }
 
+  prepareCardFaceDownFlip(instanceId: string, options: CardFaceDownFlipOptions): () => void {
+    const source = this.findCard(instanceId);
+    if (!source) {
+      return () => undefined;
+    }
+
+    // The patch updates Angular's card markup before this callback runs. Keep a
+    // detached copy now so the first half still shows the previous face.
+    const sourceGhostTemplate = source.cloneNode(true) as HTMLElement;
+    const sourceRect: MotionRect = source.getBoundingClientRect();
+
+    return () => {
+      this.runInContext(() => {
+        const target = this.findCard(instanceId);
+        if (!target) {
+          return;
+        }
+
+        const targetVisual = target.querySelector<HTMLElement>('.card-visual') ?? target;
+        gsap.killTweensOf(targetVisual);
+
+        if (this.prefersReducedMotion()) {
+          gsap.fromTo(targetVisual, { filter: 'brightness(1.1)' }, { clearProps: 'filter', duration: 0.14, ease: 'power1.out' });
+          return;
+        }
+
+        const ghost = this.createGhostFromTemplate(sourceGhostTemplate, sourceRect);
+        if (!ghost) {
+          this.animateFaceDownFlipFallback(targetVisual, options.faceDown);
+          return;
+        }
+
+        const direction = options.faceDown ? -1 : 1;
+        gsap.killTweensOf(ghost);
+        gsap.set(targetVisual, {
+          opacity: 0,
+          rotateY: -90 * direction,
+          scale: 0.985,
+          transformOrigin: '50% 50%',
+          transformPerspective: 1000,
+          willChange: 'transform, filter, opacity',
+        });
+
+        gsap.timeline({
+          onComplete: () => {
+            ghost.remove();
+            gsap.set(targetVisual, {
+              clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+            });
+          },
+          onInterrupt: () => {
+            ghost.remove();
+            gsap.set(targetVisual, {
+              clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+            });
+          },
+        })
+          .to(ghost, {
+            duration: 0.22,
+            ease: 'power2.in',
+            filter: 'brightness(1.12) saturate(1.08)',
+            opacity: 0.16,
+            rotateY: 90 * direction,
+            scale: 0.985,
+            transformOrigin: '50% 50%',
+            transformPerspective: 1000,
+          })
+          .to(targetVisual, {
+            duration: 0.24,
+            ease: 'power3.out',
+            filter: 'brightness(1.14) saturate(1.08)',
+            opacity: 1,
+            rotateY: 0,
+            scale: 1,
+          });
+      });
+    };
+  }
+
+  private animateFaceDownFlipFallback(target: HTMLElement, faceDown: boolean): void {
+    gsap.fromTo(
+      target,
+      {
+        filter: 'brightness(1.22) saturate(1.12)',
+        opacity: 0.58,
+        rotateY: faceDown ? -90 : 90,
+        scale: 0.96,
+        transformOrigin: '50% 50%',
+        transformPerspective: 900,
+        willChange: 'transform, filter, opacity',
+      },
+      {
+        clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+        duration: 0.36,
+        ease: 'power3.out',
+        filter: 'brightness(1)',
+        opacity: 1,
+        rotateY: 0,
+        scale: 1,
+      },
+    );
+  }
+
   pulseLandStack(instanceIds: readonly string[], variant: 'stack' | 'detach' = 'stack'): void {
     const cards = instanceIds
       .map((instanceId) => this.findCard(instanceId))
@@ -874,12 +981,15 @@ export class GameTableMotionService {
   }
 
   private createGhost(source: HTMLElement, sourceRect: MotionRect): HTMLElement | null {
-    const host = this.host;
-    if (!host || sourceRect.width <= 0 || sourceRect.height <= 0) {
+    return this.createGhostFromTemplate(source.cloneNode(true) as HTMLElement, sourceRect);
+  }
+
+  private createGhostFromTemplate(template: HTMLElement, sourceRect: MotionRect): HTMLElement | null {
+    if (!this.host || sourceRect.width <= 0 || sourceRect.height <= 0) {
       return null;
     }
 
-    const ghost = source.cloneNode(true) as HTMLElement;
+    const ghost = template.cloneNode(true) as HTMLElement;
     this.prepareGhostClone(ghost);
     ghost.setAttribute('aria-hidden', 'true');
     ghost.classList.add('cz-motion-ghost');

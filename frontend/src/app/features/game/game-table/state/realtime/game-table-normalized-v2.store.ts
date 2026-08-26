@@ -855,7 +855,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return addCardsToZone(state, operation.playerId, operation.zone, operation.cards, operation.index, operation.staticCards ?? {});
 
     case 'zone.cards.remove':
-      return removeCardsFromZone(state, operation.playerId, operation.zone, operation.instanceIds);
+      return removeCardsFromZone(state, operation.playerId, operation.zone, operation.instanceIds, operation.sourceIndexes);
 
     case 'zone.cards.move':
       return moveOneCard(state, operation);
@@ -1346,6 +1346,7 @@ function removeCardsFromZone(
   playerId: string,
   zone: GameZoneName,
   instanceIds: string[],
+  sourceIndexes?: number[],
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   const playerZoneCounts = state.zoneCounts[playerId];
@@ -1355,13 +1356,38 @@ function removeCardsFromZone(
 
   const currentZone = playerZones[zone] ?? [];
   const removalIds = new Set(instanceIds);
+  for (const [removalOffset, instanceId] of instanceIds.entries()) {
+    if (currentZone.includes(instanceId)) {
+      continue;
+    }
+
+    const sourceIndex = sourceIndexes?.[removalOffset];
+    if (typeof sourceIndex !== 'number' || !Number.isInteger(sourceIndex) || sourceIndex < 0) {
+      continue;
+    }
+
+    const fallbackInstanceId = currentZone[sourceIndex];
+    if (fallbackInstanceId) {
+      removalIds.add(fallbackInstanceId);
+    }
+  }
   const knownRemovalCount = currentZone.filter((instanceId) => removalIds.has(instanceId)).length;
-  const nextZone = removeIds(currentZone, instanceIds);
+  const removedHandIndexes = zone === 'hand'
+    ? currentZone.reduce<number[]>((indexes, instanceId, index) => {
+        if (removalIds.has(instanceId)) {
+          indexes.push(index);
+        }
+        return indexes;
+      }, [])
+    : [];
+  const nextZone = removeIds(currentZone, [...removalIds]);
+  const nextPlayers = rebaseHandRevealIndexes(state.players, playerId, removedHandIndexes);
 
   return {
     status: 'applied',
     state: {
       ...state,
+      players: nextPlayers,
       zones: {
         ...state.zones,
         [playerId]: {
@@ -1463,6 +1489,7 @@ function moveOneCard(
 
   const samePlayer = operation.from.playerId === operation.to.playerId;
   const sameZone = samePlayer && operation.from.zone === operation.to.zone;
+  const sourceRemovalIndex = sourceZone.indexOf(operation.instanceId);
   const baseTargetZone = sameZone ? sourceZone : targetZone;
   const nextSourceZone = sourceContainsInstance
     ? sourceZone.filter((id) => id !== operation.instanceId)
@@ -1504,6 +1531,9 @@ function moveOneCard(
         ...toCounts,
         [operation.to.zone]: nextTargetZone.length,
       };
+  const nextPlayers = operation.from.zone === 'hand' && sourceRemovalIndex >= 0 && !sameZone
+    ? rebaseHandRevealIndexes(state.players, operation.from.playerId, [sourceRemovalIndex])
+    : state.players;
 
   return {
     status: 'applied',
@@ -1511,6 +1541,7 @@ function moveOneCard(
       ...state,
       instances: nextInstances,
       staticCards: nextStaticCards,
+      players: nextPlayers,
       zones: {
         ...state.zones,
         [operation.from.playerId]: nextPlayerZones,
@@ -1530,7 +1561,7 @@ function shouldClearRevealRecipientsAfterMove(operation: {
   to: { zone: GameZoneName };
   card?: Pick<BootstrapInstanceV2, 'revealedTo'> | LegacyCardPatchPayload;
 }): boolean {
-  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand') {
+  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand' && operation.to.zone !== 'library') {
     return true;
   }
 
@@ -2524,13 +2555,53 @@ function setRevealedHandIndex(indexes: readonly number[] | undefined, index: num
 
 function clearRevealedHandIndexes(indexes: readonly number[] | undefined, removedIndexes: readonly number[]): number[] {
   const removed = [...new Set(removedIndexes)].sort((left, right) => left - right);
-  if (removed.length === 0) {
-    return [...(indexes ?? [])];
+  const current = indexes ?? [];
+  if (removed.length === 0 || current.length === 0) {
+    return [...current];
   }
 
-  return (indexes ?? [])
-    .filter((index) => !removed.includes(index))
-    .map((index) => index - removed.filter((removedIndex) => removedIndex < index).length);
+  const rebased: number[] = [];
+  let removedCursor = 0;
+  for (const index of current) {
+    while (removedCursor < removed.length && removed[removedCursor] < index) {
+      removedCursor += 1;
+    }
+    if (removed[removedCursor] === index) {
+      continue;
+    }
+    rebased.push(index - removedCursor);
+  }
+
+  return rebased;
+}
+
+function rebaseHandRevealIndexes(
+  players: GameTableNormalizedV2State['players'],
+  playerId: string,
+  removedIndexes: readonly number[],
+): GameTableNormalizedV2State['players'] {
+  if (removedIndexes.length === 0) {
+    return players;
+  }
+
+  const player = players[playerId];
+  if (!player) {
+    return players;
+  }
+
+  const nextIndexes = clearRevealedHandIndexes(player.revealedHandIndexes, removedIndexes);
+  const currentIndexes = player.revealedHandIndexes ?? [];
+  if (nextIndexes.length === currentIndexes.length && nextIndexes.every((index, position) => index === currentIndexes[position])) {
+    return players;
+  }
+
+  return {
+    ...players,
+    [playerId]: {
+      ...player,
+      revealedHandIndexes: nextIndexes,
+    },
+  };
 }
 
 function normalizeInstance(instance: BootstrapInstanceV2): BootstrapInstanceV2 {

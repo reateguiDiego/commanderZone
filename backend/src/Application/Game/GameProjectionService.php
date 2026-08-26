@@ -368,25 +368,13 @@ class GameProjectionService
             return [];
         }
 
-        $visibleCards = array_values(array_filter(
+        return array_values(array_map(
+            fn (array $card, int $index): array => $this->isVisibleCard($card, $viewerId)
+                ? $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)
+                : $this->hiddenOpponentHandCard($ownerId, $index),
             $cards,
-            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+            array_keys($cards),
         ));
-        $projected = array_map(
-            fn (int $index): array => $this->hiddenOpponentHandCard($ownerId, $index),
-            range(0, $handSize - 1),
-        );
-
-        if ($visibleCards === []) {
-            return $projected;
-        }
-
-        $startIndex = max(0, (int) floor(($handSize - count($visibleCards)) / 2));
-        foreach ($visibleCards as $offset => $card) {
-            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
-        }
-
-        return array_values($projected);
     }
 
     /**
