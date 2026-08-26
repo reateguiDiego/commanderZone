@@ -37,8 +37,19 @@ php bin/console app:scryfall:sync --limit=100
 php bin/console app:scryfall:sync --memory-limit=1024M
 php -d memory_limit=1536M bin/console app:scryfall:sync --env=prod --no-debug --skip-existing --memory-limit=1536M
 docker compose exec api php -d memory_limit=1536M bin/console app:scryfall:sync --env=prod --no-debug --skip-existing --memory-limit=1536M
+php bin/console app:scryfall:prices-update --env=prod --no-debug
 php bin/phpunit
 ```
+
+### Scheduled Scryfall price refresh
+
+`app:scryfall:prices-update` streams Scryfall's `all_cards` bulk file and updates only changed `card.prices` JSON values for local print ids. Run it once per day from cron, adapting paths for the server:
+
+```cron
+0 4 * * * cd /srv/commanderzone/backend && /usr/bin/php bin/console app:scryfall:prices-update --env=prod --no-debug >> var/log/scryfall-prices.log 2>&1
+```
+
+For a local fixture or a manually downloaded Scryfall file, pass `--cards-file=/path/to/all-cards.json`. `--batch-size` (default `2000`) and `--limit` are available for controlled runs.
 
 ## Backend test environment (reproducible)
 
@@ -191,7 +202,7 @@ Both are also reusable workflows (`workflow_call`) so the release pipeline can i
 
 Deploy order is backend first, then frontend. If frontend deploy fails after backend deploy succeeded, the release workflow fails and remains visible for follow-up (no automatic rollback).
 
-### Backend deploy guardrail
+### Backend deploy guardrail 
 
 `backend-deploy.yml` now runs via `workflow_call` (from the main release workflow) or manual dispatch.
 
