@@ -149,6 +149,7 @@ class GameSnapshotFactoryTest extends TestCase
         $owner = new User('owner@example.test', 'Owner');
         $this->setPrivateProperty($owner, 'id', 'player-1');
         $room = new Room($owner);
+        $room->setMaxPlayers(6);
 
         for ($index = 1; $index <= 6; ++$index) {
             $player = $index === 1 ? $owner : new User(sprintf('player-%d@example.test', $index), sprintf('Player %d', $index));
