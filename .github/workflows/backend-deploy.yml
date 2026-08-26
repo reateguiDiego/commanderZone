@@ -115,6 +115,11 @@ jobs:
             exit 1
           fi
 
+          # The runtime validates lifecycle tables during startup, while the
+          # normal API service depends on a healthy runtime. Run migrations in
+          # a one-off API container first to avoid that circular dependency.
+          docker compose "${COMPOSE_ARGS[@]}" run --rm --no-deps --build -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
+
           docker compose "${COMPOSE_ARGS[@]}" up -d --build --no-deps game-runtime
           RUNTIME_CONTAINER_ID="$(docker compose "${COMPOSE_ARGS[@]}" ps -q game-runtime)"
           if [ -z "$RUNTIME_CONTAINER_ID" ]; then
@@ -153,7 +158,6 @@ jobs:
             exit 1
           fi
 
-          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
           docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
           docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup
 
