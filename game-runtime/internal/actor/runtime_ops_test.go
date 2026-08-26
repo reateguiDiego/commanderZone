@@ -116,14 +116,18 @@ func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
 		{"disconnect.vote", map[string]any{"status": "resolved_expel", "targetPlayerId": "p2"}},
 	}
 	for _, testCase := range cases {
+		expectedSubjectPlayerID := "p1"
+		if testCase.commandType == "disconnect.vote" {
+			expectedSubjectPlayerID = testCase.payload["targetPlayerId"].(string)
+		}
 		command := protocol.CommandEnvelopeV2{Type: testCase.commandType, Payload: testCase.payload}
 		if message := runtimeLogMessage(&game, command, testCase.payload, "Player one"); message == "" {
 			t.Fatalf("%s did not produce a game log message", testCase.commandType)
 		}
 		if semantic := runtimeLogSemantic(&game, command, testCase.payload, "p1"); semantic == nil {
 			t.Fatalf("%s did not produce semantic log metadata", testCase.commandType)
-		} else if subject, ok := semantic["subject"].(map[string]any); !ok || subject["kind"] != "player" || subject["playerId"] != "p1" {
-			t.Fatalf("%s subject = %#v, want player p1", testCase.commandType, semantic["subject"])
+		} else if subject, ok := semantic["subject"].(map[string]any); !ok || subject["kind"] != "player" || subject["playerId"] != expectedSubjectPlayerID {
+			t.Fatalf("%s subject = %#v, want player %s", testCase.commandType, semantic["subject"], expectedSubjectPlayerID)
 		}
 	}
 	phasePayload := map[string]any{

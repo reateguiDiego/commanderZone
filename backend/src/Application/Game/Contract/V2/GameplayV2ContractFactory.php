@@ -151,6 +151,7 @@ final class GameplayV2ContractFactory
                         $viewer->id(),
                         $topLibraryInstanceId,
                         $this->isPlayTopLibraryRevealedToViewer($player, $viewer->id()),
+                        isset($compactRuntime['instances'][trim((string) ($card['instanceId'] ?? ''))]),
                     );
                     $card = $this->withCompactRuntimeIdentity(
                         $card,
@@ -345,8 +346,9 @@ final class GameplayV2ContractFactory
         string $viewerId,
         string $topLibraryInstanceId,
         bool $playTopLibraryRevealed,
+        bool $preservesOwnerLibraryIdentity,
     ): array {
-        if ($zoneName !== 'library') {
+        if ($zoneName !== 'library' || ($preservesOwnerLibraryIdentity && $playerId === $viewerId)) {
             return $card;
         }
 
