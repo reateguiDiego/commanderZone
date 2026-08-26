@@ -9,7 +9,7 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { AlignmentGuide } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-feedback.state';
-import { GameTablePendingTransferState, type PendingTransferExpiration } from './state/core/game-table-pending-transfer.state';
+import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/core/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { CardPreviewEvent, previewRectFromElement } from './models/card-preview.model';
@@ -143,6 +143,7 @@ export class GameTableStore implements OnDestroy {
   readonly chatTargetPlayerId = this.chatStore.chatTargetPlayerId;
   readonly loading = this.coreState.loading;
   readonly error = this.coreState.error;
+  readonly reloadReason = this.coreState.reloadReason;
   readonly targetToast = this.coreState.targetToast;
   readonly tableToast = this.coreState.tableToast;
   readonly pending = this.coreState.pending;
@@ -262,7 +263,6 @@ export class GameTableStore implements OnDestroy {
         controlPlane,
       ),
     });
-    this.pendingTransferState.setExpirationHandler((expiration) => this.handlePendingTransferExpired(expiration));
     effect(() => {
       this.toastState.scheduleErrorDismiss(this.error(), this.snapshot() !== null);
     });
@@ -276,7 +276,6 @@ export class GameTableStore implements OnDestroy {
     this.uiState.destroy();
     this.cardStats.clear();
     this.dropFeedbackState.destroy();
-    this.pendingTransferState.setExpirationHandler(null);
     this.pendingTransferState.clear();
     this.session.stop();
   }
@@ -2058,14 +2057,6 @@ export class GameTableStore implements OnDestroy {
       closeContextMenu: () => this.closeContextMenu(),
       command: (type: GameCommandType, payload: Record<string, unknown>) => this.command(type, payload),
     };
-  }
-
-  private handlePendingTransferExpired(_expiration: PendingTransferExpiration): void {
-    this.pendingBattlefieldMove.set(null);
-    this.pendingLibraryMove.set(null);
-    this.selectedCards.set([]);
-    this.error.set('Card move did not complete. No changes were applied; try again.');
-    void this.refetch(true, 'pending_transfer.timeout');
   }
 
   private logForcedRefetch(source: string): void {

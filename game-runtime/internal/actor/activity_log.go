@@ -40,8 +40,18 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 	if cardNames := runtimeLogCardNames(payload); len(cardNames) > 0 {
 		entry["cardNames"] = cardNames
 	}
-	for key, value := range runtimeLogSemantic(game, command, payload, actorID) {
+	semanticFields := runtimeLogSemantic(game, command, payload, actorID)
+	for key, value := range semanticFields {
 		entry[key] = value
+	}
+	if params, ok := semanticFields["params"].(map[string]any); ok {
+		if commanderInstanceID := firstString(params["commanderInstanceId"]); commanderInstanceID != "" {
+			entry["cardInstanceId"] = commanderInstanceID
+			if location, ok := game.Loc[commanderInstanceID]; ok {
+				entry["cardPlayerId"] = location.PlayerID
+				entry["cardZone"] = string(location.Zone)
+			}
+		}
 	}
 	return []map[string]any{entry}
 }
@@ -260,9 +270,17 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		}
 		return semantic("gameLog.cardCounter.changed", params, []string{actorPlayerID}, []string{instanceID})
 	case "counter.changed":
+		scope := firstString(payload["scope"], command.Payload["scope"])
+		counterKey := firstString(payload["key"], command.Payload["key"])
 		params := baseParams()
-		params["counter"] = counterLabel(firstString(payload["key"], command.Payload["key"]))
+		params["counter"] = counterLabel(counterKey)
 		params["value"] = intFromPayload(payload, "value", 0)
+		if strings.HasPrefix(scope, "commander:") && counterKey == "casts" {
+			commanderInstanceID := strings.TrimPrefix(scope, "commander:")
+			params["commanderInstanceId"] = commanderInstanceID
+			params["commanderCastCount"] = params["value"]
+			return semantic("gameLog.commander.castCounterChanged", params, []string{actorPlayerID}, []string{commanderInstanceID})
+		}
 		return semantic("gameLog.counter.changed", params, []string{actorPlayerID}, nil)
 	case "battlefield.untap_all":
 		params := baseParams()

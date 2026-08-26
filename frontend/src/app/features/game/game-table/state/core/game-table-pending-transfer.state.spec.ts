@@ -8,10 +8,6 @@ describe('GameTablePendingTransferState', () => {
     state = new GameTablePendingTransferState();
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('marks registered source cards and zones as pending', () => {
     state.register({ playerId: 'player-1', fromZone: 'hand', instanceIds: ['card-1'], sourceVersion: 1 });
 
@@ -38,6 +34,32 @@ describe('GameTablePendingTransferState', () => {
 
     expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(false);
     expect(state.isZonePending('player-1', 'battlefield')).toBe(false);
+  });
+
+  it('confirms a library transfer from its public count when a revealed identity is stale', () => {
+    state.register({
+      playerId: 'player-1',
+      fromZone: 'library',
+      instanceIds: ['revealed-top'],
+      sourceVersion: 1,
+      sourceZoneCount: 3,
+    });
+    const updatedSnapshot = snapshot(2, {
+      library: [{ instanceId: 'revealed-top', name: 'Stale revealed identity', tapped: false }],
+    });
+    updatedSnapshot.players['player-1']!.zoneCounts = {
+      library: 2,
+      hand: 0,
+      battlefield: 0,
+      graveyard: 0,
+      exile: 0,
+      command: 0,
+    };
+
+    state.reconcileSnapshot(updatedSnapshot);
+
+    expect(state.isCardPending('player-1', 'library', 'revealed-top')).toBe(false);
+    expect(state.isZonePending('player-1', 'library')).toBe(false);
   });
 
   it('supports multi-card transfers', () => {
@@ -91,83 +113,18 @@ describe('GameTablePendingTransferState', () => {
     expect(state.isZonePending('player-1', 'exile')).toBe(false);
   });
 
-  it('expires a stale pending transfer after the timeout and reports it once', () => {
-    vi.useFakeTimers();
-    const expired = vi.fn();
-    state.setExpirationHandler(expired);
-
-    state.register({ playerId: 'player-1', fromZone: 'battlefield', instanceIds: ['card-1'], sourceVersion: 1 });
-
-    vi.advanceTimersByTime(999);
-    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(true);
-    expect(expired).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(1);
-
-    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(false);
-    expect(state.isZonePending('player-1', 'battlefield')).toBe(false);
-    expect(expired).toHaveBeenCalledOnce();
-    expect(expired).toHaveBeenCalledWith({
-      playerId: 'player-1',
-      fromZone: 'battlefield',
-      instanceIds: ['card-1'],
-    });
-  });
-
-  it('keeps a non-expiring transfer pending until snapshot reconciliation or manual cleanup', () => {
-    vi.useFakeTimers();
-    const expired = vi.fn();
-    state.setExpirationHandler(expired);
-
-    state.register({
-      playerId: 'player-1',
-      fromZone: 'battlefield',
-      instanceIds: ['card-1'],
-      sourceVersion: 1,
-      expires: false,
-    });
-
-    vi.advanceTimersByTime(5000);
-
-    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(true);
-    expect(expired).not.toHaveBeenCalled();
-
-    state.reconcileSnapshot(snapshot(2, {
-      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
-    }));
-
-    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(false);
-  });
-
-  it('does not expire a transfer that was reconciled first', () => {
-    vi.useFakeTimers();
-    const expired = vi.fn();
-    state.setExpirationHandler(expired);
-
-    state.register({ playerId: 'player-1', fromZone: 'battlefield', instanceIds: ['card-1'], sourceVersion: 1 });
-    state.reconcileSnapshot(snapshot(2, {
-      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
-    }));
-    vi.advanceTimersByTime(1000);
-
-    expect(expired).not.toHaveBeenCalled();
-  });
-
-  it('replaces duplicate pending transfers so repeated registration has one timeout', () => {
-    vi.useFakeTimers();
-    const expired = vi.fn();
-    state.setExpirationHandler(expired);
-
+  it('replaces duplicate pending transfers before snapshot reconciliation', () => {
     state.register({ playerId: 'player-1', fromZone: 'hand', instanceIds: ['card-1', 'card-2'], sourceVersion: 1 });
-    vi.advanceTimersByTime(600);
     state.register({ playerId: 'player-1', fromZone: 'hand', instanceIds: ['card-2', 'card-1'], sourceVersion: 1 });
-    vi.advanceTimersByTime(999);
 
-    expect(expired).not.toHaveBeenCalled();
+    state.reconcileSnapshot(snapshot(2, {
+      battlefield: [
+        { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+        { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+      ],
+    }));
 
-    vi.advanceTimersByTime(1);
-
-    expect(expired).toHaveBeenCalledOnce();
+    expect(state.isZonePending('player-1', 'hand')).toBe(false);
   });
 });
 

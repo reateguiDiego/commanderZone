@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "テーブルから離れますか？",
       "leaveTableConfirmationMessage": "このゲームを投了してルームを離れます。この操作は元に戻せません。",
       "concedeGameConfirmationTitle": "ゲームを投了しますか？",
-      "concedeGameConfirmationMessage": "このゲームは直ちに敗北になります。この操作は元に戻せません。"
+      "concedeGameConfirmationMessage": "このゲームは直ちに敗北になります。この操作は元に戻せません。",
+      "reloadRequiredTitle": "再読み込みが必要です",
+      "reloadRequiredMessage": "テーブルを同期できませんでした。続行する前にページを再読み込みしてください。",
+      "reloadRequiredAction": "ページを再読み込み"
     },
     "reactions": {
       "like": "ã„ã„ã­",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} は指揮エリアから指揮官を発進させました。コマンダーのキャストカウンターは{{ commanderCastCount }}です。"
+      "cast": "{{ actor }} は指揮エリアから指揮官を発進させました。コマンダーのキャストカウンターは{{ commanderCastCount }}です。",
+      "castCounterChanged": "{{ actor }} は統率者 {{ commanderName }} のキャスト回数カウンターを {{ commanderCastCount }} に設定しました。",
+      "unknown": "統率者"
     },
     "token": {
       "created": "{{ actor }} はトークン {{ tokenName }} を作成しました。",

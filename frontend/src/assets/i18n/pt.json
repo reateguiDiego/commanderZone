@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Sair da mesa?",
       "leaveTableConfirmationMessage": "Você concederá esta partida e sairá da sala. Esta ação não pode ser desfeita.",
       "concedeGameConfirmationTitle": "Conceder a partida?",
-      "concedeGameConfirmationMessage": "Você perderá esta partida imediatamente. Esta ação não pode ser desfeita."
+      "concedeGameConfirmationMessage": "Você perderá esta partida imediatamente. Esta ação não pode ser desfeita.",
+      "reloadRequiredTitle": "É necessário recarregar",
+      "reloadRequiredMessage": "Não foi possível sincronizar a mesa. Recarregue a página antes de continuar.",
+      "reloadRequiredAction": "Recarregar página"
     },
     "reactions": {
       "like": "Gosto",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lançou seu comandante da área de comando. O contador de elenco do comandante é {{ commanderCastCount }}."
+      "cast": "{{ actor }} lançou seu comandante da área de comando. O contador de elenco do comandante é {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} definiu o contador de conjurações do comandante {{ commanderName }} como {{ commanderCastCount }}.",
+      "unknown": "Comandante"
     },
     "token": {
       "created": "{{ actor }} criou um token: {{ tokenName }}.",

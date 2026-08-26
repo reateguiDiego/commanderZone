@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Tafel verlaten?",
       "leaveTableConfirmationMessage": "Je geeft dit spel op en verlaat de kamer. Deze actie kan niet ongedaan worden gemaakt.",
       "concedeGameConfirmationTitle": "Spel opgeven?",
-      "concedeGameConfirmationMessage": "Je verliest dit spel onmiddellijk. Deze actie kan niet ongedaan worden gemaakt."
+      "concedeGameConfirmationMessage": "Je verliest dit spel onmiddellijk. Deze actie kan niet ongedaan worden gemaakt.",
+      "reloadRequiredTitle": "Pagina opnieuw laden vereist",
+      "reloadRequiredMessage": "De tafel kon niet worden gesynchroniseerd. Laad de pagina opnieuw voordat je verdergaat.",
+      "reloadRequiredAction": "Pagina opnieuw laden"
     },
     "reactions": {
       "like": "Zoals",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lanceerde zijn commandant vanuit het commandogebied. Commander cast-teller is {{ commanderCastCount }}."
+      "cast": "{{ actor }} lanceerde zijn commandant vanuit het commandogebied. Commander cast-teller is {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} heeft de castteller van commandant {{ commanderName }} op {{ commanderCastCount }} gezet.",
+      "unknown": "Commandant"
     },
     "token": {
       "created": "{{ actor }} heeft een token gemaakt: {{ tokenName }}.",

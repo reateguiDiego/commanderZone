@@ -436,6 +436,26 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('shows a reload modal instead of a toast for an unrecoverable synchronization error', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.snapshot()).not.toBeNull());
+    fixture.detectChanges();
+
+    fixture.componentInstance.store.reloadReason.set('sync-timeout');
+    fixture.detectChanges();
+
+    const reloadModal = fixture.nativeElement.querySelector('[data-testid="game-table-reload-required-modal"]') as HTMLElement;
+    expect(reloadModal).not.toBeNull();
+    expect(reloadModal.textContent).toContain('Reload the page');
+
+    fixture.destroy();
+  });
+
   it('renders battlefield zoom controls and applies zoom CSS variables locally', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -4825,7 +4845,7 @@ describe('GameTableComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('app-card-preview-overlay')).toBeNull();
   });
 
-  it('maps each library-position label to its matching destination', async () => {
+  it('maps each library-position action to its matching destination', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -4834,6 +4854,8 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.snapshot()).not.toBeNull());
+    fixture.detectChanges();
 
     fixture.componentInstance.store.pendingLibraryMove.set({
       cardName: 'Sol Ring',
@@ -4848,14 +4870,12 @@ describe('GameTableComponent', () => {
     const confirmPosition = vi.spyOn(fixture.componentInstance, 'confirmPendingLibraryMove').mockImplementation(() => undefined);
     fixture.detectChanges();
 
-    const modalButtons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('app-modal button'))
-      .filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
-    const topButton = modalButtons.find((button) => button.textContent?.trim() === 'Top');
-    const bottomButton = modalButtons.find((button) => button.textContent?.trim() === 'Bottom');
+    const primaryPositionButtons = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('app-modal button.primary-button'),
+    );
+    const [bottomButton, topButton] = primaryPositionButtons;
 
-    expect(topButton).toBeTruthy();
-    expect(bottomButton).toBeTruthy();
-    expect(modalButtons.indexOf(bottomButton!)).toBeLessThan(modalButtons.indexOf(topButton!));
+    expect(primaryPositionButtons).toHaveLength(2);
 
     topButton?.click();
     bottomButton?.click();

@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Abandonar la taula?",
       "leaveTableConfirmationMessage": "Concediràs aquesta partida i abandonaràs la sala. Aquesta acció no es pot desfer.",
       "concedeGameConfirmationTitle": "Concedir la partida?",
-      "concedeGameConfirmationMessage": "Perdràs aquesta partida immediatament. Aquesta acció no es pot desfer."
+      "concedeGameConfirmationMessage": "Perdràs aquesta partida immediatament. Aquesta acció no es pot desfer.",
+      "reloadRequiredTitle": "Cal recarregar",
+      "reloadRequiredMessage": "No s'ha pogut sincronitzar la taula. Torna a carregar la pàgina abans de continuar.",
+      "reloadRequiredAction": "Torna a carregar la pàgina"
     },
     "reactions": {
       "like": "Com",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} va llançar el comandant des de la zona de comandament. El comptador de llançaments de comandant és {{ commanderCastCount }}."
+      "cast": "{{ actor }} va llançar el comandant des de la zona de comandament. El comptador de llançaments de comandant és {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} va establir el comptador de llançaments del comandant {{ commanderName }} a {{ commanderCastCount }}.",
+      "unknown": "Comandant"
     },
     "token": {
       "created": "{{ actor }} va crear una fitxa: {{ tokenName }}.",

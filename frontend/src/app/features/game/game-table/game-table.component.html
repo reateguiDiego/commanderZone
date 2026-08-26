@@ -39,6 +39,20 @@
   @if (store.loading()) {
     <app-global-loader />
   } @else if (store.snapshot(); as snapshot) {
+    @if (store.reloadReason()) {
+      <app-modal
+        data-testid="game-table-reload-required-modal"
+        [open]="true"
+        title="game.gameTable.reloadRequiredTitle"
+        message="game.gameTable.reloadRequiredMessage"
+        primaryLabel="game.gameTable.reloadRequiredAction"
+        [showSecondary]="false"
+        [showCloseButton]="false"
+        [closeOnBackdrop]="false"
+        size="compact"
+        (primary)="reloadPage()"
+      />
+    }
     <app-game-arrow-layer
       [snapshot]="snapshot"
       [focusedPlayerId]="store.focusedPlayer()?.id ?? null"

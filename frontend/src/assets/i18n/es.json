@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "¿Abandonar la mesa?",
       "leaveTableConfirmationMessage": "Concederás esta partida y abandonarás la sala. Esta acción no se puede deshacer.",
       "concedeGameConfirmationTitle": "¿Conceder la partida?",
-      "concedeGameConfirmationMessage": "Perderás esta partida de inmediato. Esta acción no se puede deshacer."
+      "concedeGameConfirmationMessage": "Perderás esta partida de inmediato. Esta acción no se puede deshacer.",
+      "reloadRequiredTitle": "Es necesario recargar",
+      "reloadRequiredMessage": "No se ha podido sincronizar la mesa. Recarga la página antes de continuar.",
+      "reloadRequiredAction": "Recargar página"
     },
     "reactions": {
       "like": "Me gusta",
@@ -1046,7 +1049,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lanzó su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+      "cast": "{{ actor }} lanzó su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} puso el contador de casteos del comandante {{ commanderName }} en {{ commanderCastCount }}.",
+      "unknown": "Comandante"
     },
     "token": {
       "created": "{{ actor }} creó una ficha: {{ tokenName }}.",

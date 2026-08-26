@@ -2629,6 +2629,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.battlefieldZoomReflowFrame = null;
   }
 
+  reloadPage(): void {
+    window.location.reload();
+  }
+
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
     return !menu.card && menu.zone !== 'library';
   }
@@ -2659,7 +2663,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'refreshSnapshot':
         this.store.closeContextMenu();
-        window.location.reload();
+        this.reloadPage();
         return;
       case 'focusCurrentPlayer':
         this.store.focusCurrentPlayer();

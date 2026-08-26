@@ -63,12 +63,23 @@ describe('GameTableSnapshotCoordinatorState', () => {
   });
 
   it('applies snapshot overlays before publishing and reconciling dependants', () => {
-    state.setSnapshot({ openRevealedLibraryFromSnapshot }, snapshot(1));
+    const authoritativeSnapshot = snapshot(1);
+    state.setSnapshot({ openRevealedLibraryFromSnapshot }, authoritativeSnapshot);
 
     expect(snapshotSignal()?.version).toBe(5);
-    expect(trackSnapshot).toHaveBeenCalledWith(snapshotSignal());
+    expect(trackSnapshot).toHaveBeenCalledWith(authoritativeSnapshot);
     expect(reconcileSnapshot).toHaveBeenCalledWith(snapshotSignal());
     expect(openRevealedLibraryFromSnapshot).toHaveBeenCalledWith(snapshotSignal());
+  });
+
+  it('does not feed layout-only snapshot transforms into drop feedback', () => {
+    const authoritativeSnapshot = snapshot(1);
+
+    state.setSnapshot({ openRevealedLibraryFromSnapshot }, authoritativeSnapshot);
+
+    expect(trackSnapshot).toHaveBeenCalledOnce();
+    expect(trackSnapshot).toHaveBeenCalledWith(authoritativeSnapshot);
+    expect(trackSnapshot).not.toHaveBeenCalledWith(snapshotSignal());
   });
 
   it('does not feed viewport-only reflows into drop feedback', () => {

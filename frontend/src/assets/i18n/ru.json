@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Покинуть стол?",
       "leaveTableConfirmationMessage": "Вы сдадите эту игру и покинете комнату. Это действие нельзя отменить.",
       "concedeGameConfirmationTitle": "Сдаться в игре?",
-      "concedeGameConfirmationMessage": "Вы немедленно проиграете эту игру. Это действие нельзя отменить."
+      "concedeGameConfirmationMessage": "Вы немедленно проиграете эту игру. Это действие нельзя отменить.",
+      "reloadRequiredTitle": "Требуется перезагрузка",
+      "reloadRequiredMessage": "Не удалось синхронизировать стол. Перезагрузите страницу, прежде чем продолжить.",
+      "reloadRequiredAction": "Перезагрузить страницу"
     },
     "reactions": {
       "like": "ÐÑ€Ð°Ð²Ð¸Ñ‚ÑÑ",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} запустил своего командира из командной зоны. Счетчик каста командира — {{ commanderCastCount }}."
+      "cast": "{{ actor }} запустил своего командира из командной зоны. Счетчик каста командира — {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} установил счётчик разыгрываний командира {{ commanderName }} на {{ commanderCastCount }}.",
+      "unknown": "Командир"
     },
     "token": {
       "created": "{{ actor }} создал токен: {{ tokenName }}.",

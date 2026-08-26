@@ -64,6 +64,20 @@ describe('GameTableCommandStore', () => {
     expect(core.error()).toBe('Could not apply game action.');
   });
 
+  it('requires a page reload instead of showing a toast when a websocket command times out', async () => {
+    isMigratedCommand.mockReturnValue(true);
+    websocketSendCommand.mockRejectedValue(new Error('WebSocket command timed out.'));
+
+    await store.command(
+      commandContext('WebSocket command timed out.'),
+      'card.moved',
+      { playerId: 'player-1', instanceId: 'card-1', fromZone: 'library', toZone: 'hand' },
+    );
+
+    expect(core.reloadReason()).toBe('sync-timeout');
+    expect(core.error()).toBeNull();
+  });
+
   it('sends migrated commands over websocket without calling the HTTP command endpoint', async () => {
     isMigratedCommand.mockReturnValue(true);
     websocketSendCommand.mockResolvedValue(true);

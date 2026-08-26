@@ -37,6 +37,33 @@ describe('GameTableChatLogState', () => {
     expect(entry?.messagePrefix).toBe('drew 2 cards.');
   });
 
+  it('uses the localized name of the commander identified by its cast counter', () => {
+    const state = new GameTableChatLogState();
+    const firstCommander = card('commander-1', 'Atraxa, Praetors’ Voice', 'library');
+    const secondCommander = card('commander-2', 'Aminatou, tisseuse de destins', 'library');
+    const player = playerState('Alice');
+    player.zones.library = [firstCommander, secondCommander];
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': player },
+      eventLog: [{
+        id: 'event-commander-cast-counter',
+        type: 'counter.changed',
+        message: 'Legacy commander cast counter message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.commander.castCounterChanged',
+        params: { actorPlayerId: 'player-1', commanderInstanceId: 'commander-2', commanderCastCount: 3 },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.message).toBe('Alice set the commander cast counter for Aminatou, tisseuse de destins to 3.');
+    expect(entry?.card?.name).toBe('Aminatou, tisseuse de destins');
+  });
+
   it('renders a multiple-card reveal with an external subject and recipient', () => {
     const state = new GameTableChatLogState();
 

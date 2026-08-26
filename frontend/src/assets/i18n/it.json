@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Lasciare il tavolo?",
       "leaveTableConfirmationMessage": "Concederai questa partita e lascerai la stanza. Questa azione non può essere annullata.",
       "concedeGameConfirmationTitle": "Concedere la partita?",
-      "concedeGameConfirmationMessage": "Perderai questa partita immediatamente. Questa azione non può essere annullata."
+      "concedeGameConfirmationMessage": "Perderai questa partita immediatamente. Questa azione non può essere annullata.",
+      "reloadRequiredTitle": "Ricaricamento necessario",
+      "reloadRequiredMessage": "Non è stato possibile sincronizzare il tavolo. Ricarica la pagina prima di continuare.",
+      "reloadRequiredAction": "Ricarica la pagina"
     },
     "reactions": {
       "like": "Mi piace",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} ha lanciato il suo comandante dall'area di comando. Il contatore del lancio del comandante è {{ commanderCastCount }}."
+      "cast": "{{ actor }} ha lanciato il suo comandante dall'area di comando. Il contatore del lancio del comandante è {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} ha impostato il contatore dei lanci del comandante {{ commanderName }} a {{ commanderCastCount }}.",
+      "unknown": "Comandante"
     },
     "token": {
       "created": "{{ actor }} ha creato un token: {{ tokenName }}.",

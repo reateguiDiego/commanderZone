@@ -3,7 +3,7 @@ import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, Game
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
-import { MarkPendingTransferOptions, PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
+import { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 import {
   createLandStackMoves,
   detachLandStackMoves,
@@ -56,7 +56,7 @@ export interface GameTablePointerDragActionContext {
   applyDeferredRemoteSnapshot(): void;
   refetch(force?: boolean): Promise<void>;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
-  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
+  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
@@ -575,7 +575,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
-    context.markPendingTransfer(playerId, 'battlefield', instanceIds, { expires: false });
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
   }
 
   private async moveBattlefieldCardsToZone(
@@ -622,7 +622,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
-    context.markPendingTransfer(playerId, 'battlefield', instanceIds, { expires: false });
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
     context.suppressCardPreview();
   }
 

@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Tisch verlassen?",
       "leaveTableConfirmationMessage": "Du gibst dieses Spiel auf und verlässt den Raum. Diese Aktion kann nicht rückgängig gemacht werden.",
       "concedeGameConfirmationTitle": "Spiel aufgeben?",
-      "concedeGameConfirmationMessage": "Du verlierst dieses Spiel sofort. Diese Aktion kann nicht rückgängig gemacht werden."
+      "concedeGameConfirmationMessage": "Du verlierst dieses Spiel sofort. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "reloadRequiredTitle": "Neuladen erforderlich",
+      "reloadRequiredMessage": "Der Tisch konnte nicht synchronisiert werden. Lade die Seite neu, bevor du fortfährst.",
+      "reloadRequiredAction": "Seite neu laden"
     },
     "reactions": {
       "like": "Wie",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} startete seinen Kommandanten aus dem Kommandobereich. Der Commander-Cast-Zähler ist {{ commanderCastCount }}."
+      "cast": "{{ actor }} startete seinen Kommandanten aus dem Kommandobereich. Der Commander-Cast-Zähler ist {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} setzte den Kommandeur-Zauberzähler von {{ commanderName }} auf {{ commanderCastCount }}.",
+      "unknown": "Kommandeur"
     },
     "token": {
       "created": "{{ actor }} hat ein Token erstellt: {{ tokenName }}.",

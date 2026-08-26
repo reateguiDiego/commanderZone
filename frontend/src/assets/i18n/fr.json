@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Quitter la table ?",
       "leaveTableConfirmationMessage": "Vous allez concéder cette partie et quitter la salle. Cette action est irréversible.",
       "concedeGameConfirmationTitle": "Concéder la partie ?",
-      "concedeGameConfirmationMessage": "Vous perdrez cette partie immédiatement. Cette action est irréversible."
+      "concedeGameConfirmationMessage": "Vous perdrez cette partie immédiatement. Cette action est irréversible.",
+      "reloadRequiredTitle": "Rechargement requis",
+      "reloadRequiredMessage": "La table n’a pas pu être synchronisée. Rechargez la page avant de continuer.",
+      "reloadRequiredAction": "Recharger la page"
     },
     "reactions": {
       "like": "Jâ€™aime",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} a lancé son commandant depuis la zone de commandement. Le compteur de lancement du commandant est {{ commanderCastCount }}."
+      "cast": "{{ actor }} a lancé son commandant depuis la zone de commandement. Le compteur de lancement du commandant est {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} a réglé le compteur de lancements du commandant {{ commanderName }} à {{ commanderCastCount }}.",
+      "unknown": "Commandant"
     },
     "token": {
       "created": "{{ actor }} a créé un token : {{ tokenName }}.",

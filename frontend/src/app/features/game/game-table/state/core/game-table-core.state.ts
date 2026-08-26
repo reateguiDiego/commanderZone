@@ -2,6 +2,8 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 
+export type GameTableReloadReason = 'sync-timeout';
+
 @Injectable()
 export class GameTableCoreState {
   private readonly route = inject(ActivatedRoute);
@@ -18,6 +20,7 @@ export class GameTableCoreState {
   readonly currentDeckId = signal<string | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly reloadReason = signal<GameTableReloadReason | null>(null);
   readonly targetToast = signal<string | null>(null);
   readonly tableToast = computed(() => this.error() ?? this.targetToast());
   readonly pending = signal(false);

@@ -363,6 +363,26 @@ func TestRuntimeP0GameLogEntriesCarrySemanticI18nMetadata(t *testing.T) {
 			},
 		},
 		{
+			name:    "commander cast counter",
+			initial: testStateWithCommanderInCommand(),
+			command: command("game-1", 1, "i18n-commander-counter", "counter.changed", map[string]any{
+				"scope": "commander:commander-1",
+				"key":   "casts",
+				"value": 2,
+			}),
+			actorID: "p1",
+			i18nKey: "gameLog.commander.castCounterChanged",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["commanderInstanceId"] != "commander-1" || params["commanderCastCount"] != 2 {
+					t.Fatalf("bad commander cast counter params: %#v", params)
+				}
+				if entry["cardInstanceId"] != "commander-1" {
+					t.Fatalf("missing commander card reference: %#v", entry)
+				}
+			},
+		},
+		{
 			name:    "token created",
 			initial: testState(),
 			command: command("game-1", 1, "i18n-token", "card.token.created", map[string]any{"playerId": "p1", "quantity": 2, "name": "Clue"}),

@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "离开牌桌？",
       "leaveTableConfirmationMessage": "你将认输并离开房间。此操作无法撤销。",
       "concedeGameConfirmationTitle": "认输此局？",
-      "concedeGameConfirmationMessage": "你将立即输掉此局。此操作无法撤销。"
+      "concedeGameConfirmationMessage": "你将立即输掉此局。此操作无法撤销。",
+      "reloadRequiredTitle": "需要重新加载",
+      "reloadRequiredMessage": "无法同步牌桌。请先重新加载页面再继续。",
+      "reloadRequiredAction": "重新加载页面"
     },
     "reactions": {
       "like": "å–œæ¬¢",
@@ -1129,7 +1132,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} 从指挥区发射了他的指挥官。指挥官施法计数器为 {{ commanderCastCount }}。"
+      "cast": "{{ actor }} 从指挥区发射了他的指挥官。指挥官施法计数器为 {{ commanderCastCount }}。",
+      "castCounterChanged": "{{ actor }} 将指挥官 {{ commanderName }} 的施放次数计数器设为 {{ commanderCastCount }}。",
+      "unknown": "指挥官"
     },
     "token": {
       "created": "{{ actor }} 创建了一个代币：{{ tokenName }}。",

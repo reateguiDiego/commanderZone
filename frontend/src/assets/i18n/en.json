@@ -818,7 +818,10 @@
       "leaveTableConfirmationTitle": "Leave table?",
       "leaveTableConfirmationMessage": "You will concede this game and leave the room. This cannot be undone.",
       "concedeGameConfirmationTitle": "Concede game?",
-      "concedeGameConfirmationMessage": "You will lose this game immediately. This cannot be undone."
+      "concedeGameConfirmationMessage": "You will lose this game immediately. This cannot be undone.",
+      "reloadRequiredTitle": "Reload required",
+      "reloadRequiredMessage": "The table could not be synchronized. Reload the page before continuing.",
+      "reloadRequiredAction": "Reload page"
     },
     "reactions": {
       "like": "Like",
@@ -1046,7 +1049,9 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} cast their commander from the command zone. Commander cast count is {{ commanderCastCount }}."
+      "cast": "{{ actor }} cast their commander from the command zone. Commander cast count is {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} set the commander cast counter for {{ commanderName }} to {{ commanderCastCount }}.",
+      "unknown": "Commander"
     },
     "token": {
       "created": "{{ actor }} created a token: {{ tokenName }}.",

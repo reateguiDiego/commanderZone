@@ -346,8 +346,19 @@ export class GameTableChatLogState {
       kind: this.diceKindLabel(this.stringParam(params, 'kind')),
       result: params['result'] ?? '',
       tokenName: params['tokenName'] ?? 'Token',
-      commanderCastCount: params['commanderCastCount'] ?? '',
+      commanderName: this.commanderName(snapshot, entry, params),
+      commanderCastCount: params['commanderCastCount'] ?? params['value'] ?? '',
     };
+  }
+
+  private commanderName(snapshot: GameSnapshot | null, entry: RawGameLogEntry, params: Record<string, unknown>): string {
+    const commanderInstanceId = this.stringParam(params, 'commanderInstanceId') ?? entry.cardInstanceId;
+    const commander = commanderInstanceId ? this.cardByInstanceId(snapshot, commanderInstanceId) : this.explicitCardFromLogEntry(snapshot, entry);
+
+    return commander?.name
+      ?? this.stringParam(params, 'commanderName')
+      ?? entry.refs?.cards?.[commanderInstanceId ?? '']?.name
+      ?? this.translateRuntime('gameLog.commander.unknown');
   }
 
   private playerLabelParam(
@@ -546,7 +557,7 @@ export class GameTableChatLogState {
       .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
   }
 
-  private explicitCardFromLogEntry(snapshot: GameSnapshot | null, entry: GameLogEntry): GameCardInstance | null {
+  private explicitCardFromLogEntry(snapshot: GameSnapshot | null, entry: RawGameLogEntry): GameCardInstance | null {
     if (!entry.cardInstanceId) {
       return null;
     }
@@ -561,6 +572,19 @@ export class GameTableChatLogState {
       const zones = entry.cardZone ? [entry.cardZone] : Object.keys(player.zones) as GameZoneName[];
       for (const zone of zones) {
         const card = player.zones[zone]?.find((candidate) => candidate.instanceId === entry.cardInstanceId && !candidate.hidden);
+        if (card) {
+          return card;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private cardByInstanceId(snapshot: GameSnapshot | null, instanceId: string): GameCardInstance | null {
+    for (const player of Object.values(snapshot?.players ?? {})) {
+      for (const cards of Object.values(player.zones)) {
+        const card = cards.find((candidate) => candidate.instanceId === instanceId && !candidate.hidden);
         if (card) {
           return card;
         }
