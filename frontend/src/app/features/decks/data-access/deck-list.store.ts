@@ -12,6 +12,10 @@ import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-imag
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckFolderSection } from '../models/deck-list.models';
 import { deckEditorIdentifier } from '../utils/deck-route';
+import { DEFAULT_PLAYMAT_NAME } from '../../../core/assets/playmat-assets';
+
+const DEFAULT_DECK_BACKGROUND_NAME = DEFAULT_PLAYMAT_NAME;
+const DEFAULT_DECK_SLEEVES_NAME = 'facedown_card';
 
 export type DeckListColorFilter = 'all' | 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 export type DeckListSortMode = 'name-asc' | 'name-desc';
@@ -78,6 +82,12 @@ export class DeckListStore {
   readonly createdDeckFileLoading = signal(false);
   readonly createFormLocked = signal(false);
   readonly selectedCommanders = signal<Card[]>([]);
+  readonly newDeckBackgroundName = signal(DEFAULT_DECK_BACKGROUND_NAME);
+  readonly newDeckSleevesName = signal(DEFAULT_DECK_SLEEVES_NAME);
+  private readonly editDeckVisuals = signal({
+    backgroundName: DEFAULT_DECK_BACKGROUND_NAME,
+    sleevesName: DEFAULT_DECK_SLEEVES_NAME,
+  });
   readonly currentFolderId = signal<string | null>(null);
   readonly editingDeckId = signal<string | null>(null);
   readonly searchQuery = signal('');
@@ -179,6 +189,21 @@ export class DeckListStore {
   editDeckName = '';
   editDeckVisibility: DeckVisibility = 'private';
   editDeckFolderId = '';
+  get editDeckBackgroundName(): string {
+    return this.editDeckVisuals().backgroundName;
+  }
+
+  set editDeckBackgroundName(backgroundName: string) {
+    this.editDeckVisuals.update((visuals) => ({ ...visuals, backgroundName }));
+  }
+
+  get editDeckSleevesName(): string {
+    return this.editDeckVisuals().sleevesName;
+  }
+
+  set editDeckSleevesName(sleevesName: string) {
+    this.editDeckVisuals.update((visuals) => ({ ...visuals, sleevesName }));
+  }
   commanderQuery = '';
   createdDecklist = '';
   private createSuccessRedirectUrl: string | null = null;
@@ -221,6 +246,8 @@ export class DeckListStore {
     this.newDeckFolderId = '';
     this.newDeckVisibility = 'public';
     this.newDeckCreateEmpty = false;
+    this.newDeckBackgroundName.set(DEFAULT_DECK_BACKGROUND_NAME);
+    this.newDeckSleevesName.set(DEFAULT_DECK_SLEEVES_NAME);
     this.commanderQuery = '';
     this.createdDecklist = '';
     this.createdDeck.set(null);
@@ -559,6 +586,10 @@ export class DeckListStore {
         this.newDeckFolderId || null,
         this.newDeckVisibility,
         this.newDeckFormatId,
+        {
+          backgroundName: this.newDeckBackgroundName(),
+          sleevesName: this.newDeckSleevesName(),
+        },
       ));
       const deck = response.deck;
       this.createdDeck.set(deck);
@@ -681,7 +712,7 @@ export class DeckListStore {
 
     const colors = commanderColorIdentityUnion(deck);
 
-    return colors.length > 0 ? colors : ['C'];
+    return colors.length > 0 ? colors : ['1'];
   }
 
   shouldWarnNewDeckPublicInPrivateFolder(): boolean {
@@ -701,7 +732,9 @@ export class DeckListStore {
 
     return name !== deck.name.trim()
       || this.editDeckVisibility !== (deck.visibility ?? 'private')
-      || (this.editDeckFolderId || null) !== (deck.folderId ?? null);
+      || (this.editDeckFolderId || null) !== (deck.folderId ?? null)
+      || this.editDeckBackgroundName !== (deck.backgroundName ?? DEFAULT_DECK_BACKGROUND_NAME)
+      || this.editDeckSleevesName !== (deck.sleevesName ?? DEFAULT_DECK_SLEEVES_NAME);
   }
 
   openDeckEditModal(deck: Deck): void {
@@ -709,6 +742,10 @@ export class DeckListStore {
     this.editDeckName = deck.name;
     this.editDeckVisibility = deck.visibility ?? 'private';
     this.editDeckFolderId = deck.folderId ?? '';
+    this.editDeckVisuals.set({
+      backgroundName: deck.backgroundName ?? DEFAULT_DECK_BACKGROUND_NAME,
+      sleevesName: deck.sleevesName ?? DEFAULT_DECK_SLEEVES_NAME,
+    });
     this.deckEditModalOpen.set(true);
   }
 
@@ -718,6 +755,10 @@ export class DeckListStore {
     this.editDeckName = '';
     this.editDeckVisibility = 'private';
     this.editDeckFolderId = '';
+    this.editDeckVisuals.set({
+      backgroundName: DEFAULT_DECK_BACKGROUND_NAME,
+      sleevesName: DEFAULT_DECK_SLEEVES_NAME,
+    });
   }
 
   cancelDeckRename(): void {
@@ -754,11 +795,18 @@ export class DeckListStore {
     }
 
     try {
-      const response = await firstValueFrom(this.decksApi.update(deck.id, {
+      const payload = {
         name,
         visibility: this.editDeckVisibility,
         folderId: this.editDeckFolderId || null,
-      }));
+        ...(this.editDeckBackgroundName !== (deck.backgroundName ?? DEFAULT_DECK_BACKGROUND_NAME)
+          ? { backgroundName: this.editDeckBackgroundName }
+          : {}),
+        ...(this.editDeckSleevesName !== (deck.sleevesName ?? DEFAULT_DECK_SLEEVES_NAME)
+          ? { sleevesName: this.editDeckSleevesName }
+          : {}),
+      };
+      const response = await firstValueFrom(this.decksApi.update(deck.id, payload));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
       this.closeDeckEditModal();
     } catch (error) {

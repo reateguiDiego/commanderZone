@@ -26,121 +26,130 @@ interface ReleasePlayer {
   readonly deck: BasicCommanderDeckFromDatabaseResult;
 }
 
-test('release hardening 4-player runtime smoke converges without legacy patches or resync', async ({
-  browser,
-  request,
-  baseURL,
-}) => {
-  test.setTimeout(360_000);
-  if (!baseURL) {
-    throw new Error('Playwright baseURL is required.');
-  }
-  await assertGameRuntimeReady(request);
-
-  const runId = `release4p${Date.now().toString(36)}`;
-  const players = await createFourPlayerGame(request, runId);
-  await resolveGameToPlaying(request, players.gameId, players.players);
-
-  const contexts: BrowserContext[] = [];
-  const pages: Page[] = [];
-  const frameSets: JsonObject[][] = [];
-  try {
-    for (const player of players.players) {
-      const context = await browser.newContext({
-        baseURL,
-        storageState: authStorageState(baseURL, player.user, player.refreshToken),
-      });
-      await enableFrontendGameplayV2(context);
-      contexts.push(context);
-      const page = await context.newPage();
-      pages.push(page);
-      frameSets.push(collectWebSocketFrames(page));
+for (const playerCount of [4, 5, 6]) {
+  test(`release hardening ${playerCount}-player runtime smoke converges without legacy patches or resync`, async ({
+    browser,
+    request,
+    baseURL,
+  }) => {
+    test.setTimeout(360_000);
+    if (!baseURL) {
+      throw new Error('Playwright baseURL is required.');
     }
+    await assertGameRuntimeReady(request);
 
-    await Promise.all(pages.map((page) => page.goto(`/games/${players.gameId}`)));
-    await Promise.all(
-      pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })),
-    );
-    await Promise.all(frameSets.map((frames) => waitForGameplayConnection(frames)));
+    const runId = `release${playerCount}p${Date.now().toString(36)}`;
+    const players = await createPlayerCountGame(request, runId, playerCount);
+    await resolveGameToPlaying(request, players.gameId, players.players);
 
-    let nextBaseVersion = await gameVersion(request, players.gameId, players.players[0]!.token);
-    const commandPage = pages[0]!;
+    const contexts: BrowserContext[] = [];
+    const pages: Page[] = [];
+    const frameSets: JsonObject[][] = [];
+    try {
+      for (const player of players.players) {
+        const context = await browser.newContext({
+          baseURL,
+          storageState: authStorageState(baseURL, player.user, player.refreshToken),
+        });
+        await enableFrontendGameplayV2(context);
+        contexts.push(context);
+        const page = await context.newPage();
+        pages.push(page);
+        frameSets.push(collectWebSocketFrames(page));
+      }
 
-    for (const player of players.players) {
-      const ticket = await websocketTicket(request, players.gameId, player.token);
-      const outcome = await sendRuntimeCommandAndWait(
+      await Promise.all(pages.map((page) => page.goto(`/games/${players.gameId}`)));
+      await Promise.all(
+        pages.map((page) =>
+          expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
+        ),
+      );
+      await Promise.all(frameSets.map((frames) => waitForGameplayConnection(frames)));
+
+      let nextBaseVersion = await gameVersion(request, players.gameId, players.players[0]!.token);
+      const commandPage = pages[0]!;
+
+      for (const player of players.players) {
+        const ticket = await websocketTicket(request, players.gameId, player.token);
+        const outcome = await sendRuntimeCommandAndWait(
+          commandPage,
+          ticket.websocketUrl,
+          frameSets[0]!,
+          {
+            gameId: players.gameId,
+            baseVersion: nextBaseVersion,
+            type: 'library.draw',
+            payload: { playerId: player.user.id },
+            ownerPatch: (patch) => hasOp(patch, 'zone.cards.add'),
+          },
+        );
+        nextBaseVersion = outcome.version;
+      }
+
+      const snapshot = await gameSnapshot(request, players.gameId, players.players[0]!.token);
+      const publicMoveId = zoneInstanceIds(snapshot, players.players[0]!.user.id, 'hand')[0];
+      if (!publicMoveId) {
+        throw new Error('Release smoke needs player A to have at least one hand card after draw.');
+      }
+
+      const playerATicket = await websocketTicket(
+        request,
+        players.gameId,
+        players.players[0]!.token,
+      );
+      const moveOutcome = await sendRuntimeCommandAndWait(
         commandPage,
-        ticket.websocketUrl,
+        playerATicket.websocketUrl,
         frameSets[0]!,
         {
           gameId: players.gameId,
           baseVersion: nextBaseVersion,
-          type: 'library.draw',
-          payload: { playerId: player.user.id },
-          ownerPatch: (patch) => hasOp(patch, 'zone.cards.add'),
+          type: 'card.moved',
+          payload: {
+            playerId: players.players[0]!.user.id,
+            fromZone: 'hand',
+            toZone: 'battlefield',
+            instanceId: publicMoveId,
+            position: { x: 0.42, y: 0.44, unit: 'ratio' },
+          },
+          ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
         },
       );
-      nextBaseVersion = outcome.version;
+      nextBaseVersion = moveOutcome.version;
+
+      for (const page of pages) {
+        await expect(cardByInstanceId(page, publicMoveId)).toBeVisible({ timeout: 20_000 });
+        await expect(
+          page.locator('[data-testid="game-card"][data-zone="battlefield"]', {
+            hasText: 'Unknown Card',
+          }),
+        ).toHaveCount(0);
+      }
+
+      for (const [index, frames] of frameSets.entries()) {
+        expect(
+          frames.some((message) => message['kind'] === 'game_patch'),
+          `viewer ${index + 1} received game_patch`,
+        ).toBe(false);
+        expect(
+          frames.some((message) => message['kind'] === 'resync_required'),
+          `viewer ${index + 1} received resync_required`,
+        ).toBe(false);
+      }
+      expect(nextBaseVersion).toBeGreaterThan(1);
+    } finally {
+      await Promise.all(contexts.map((context) => context.close().catch(() => undefined)));
     }
+  });
+}
 
-    const snapshot = await gameSnapshot(request, players.gameId, players.players[0]!.token);
-    const publicMoveId = zoneInstanceIds(snapshot, players.players[0]!.user.id, 'hand')[0];
-    if (!publicMoveId) {
-      throw new Error('Release smoke needs player A to have at least one hand card after draw.');
-    }
-
-    const playerATicket = await websocketTicket(request, players.gameId, players.players[0]!.token);
-    const moveOutcome = await sendRuntimeCommandAndWait(
-      commandPage,
-      playerATicket.websocketUrl,
-      frameSets[0]!,
-      {
-        gameId: players.gameId,
-        baseVersion: nextBaseVersion,
-        type: 'card.moved',
-        payload: {
-          playerId: players.players[0]!.user.id,
-          fromZone: 'hand',
-          toZone: 'battlefield',
-          instanceId: publicMoveId,
-          position: { x: 0.42, y: 0.44, unit: 'ratio' },
-        },
-        ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
-      },
-    );
-    nextBaseVersion = moveOutcome.version;
-
-    for (const page of pages) {
-      await expect(cardByInstanceId(page, publicMoveId)).toBeVisible({ timeout: 20_000 });
-      await expect(
-        page.locator('[data-testid="game-card"][data-zone="battlefield"]', {
-          hasText: 'Unknown Card',
-        }),
-      ).toHaveCount(0);
-    }
-
-    for (const [index, frames] of frameSets.entries()) {
-      expect(
-        frames.some((message) => message['kind'] === 'game_patch'),
-        `viewer ${index + 1} received game_patch`,
-      ).toBe(false);
-      expect(
-        frames.some((message) => message['kind'] === 'resync_required'),
-        `viewer ${index + 1} received resync_required`,
-      ).toBe(false);
-    }
-    expect(nextBaseVersion).toBeGreaterThan(1);
-  } finally {
-    await Promise.all(contexts.map((context) => context.close().catch(() => undefined)));
-  }
-});
-
-async function createFourPlayerGame(
+async function createPlayerCountGame(
   request: APIRequestContext,
   runId: string,
+  playerCount: number,
 ): Promise<{ gameId: string; roomId: string; players: ReleasePlayer[] }> {
   const players: ReleasePlayer[] = [];
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < playerCount; index += 1) {
     const session = await createRealUserSession(request, `release-${index + 1}-${runId}`);
     const deck = await createBasicCommanderDeckFromDatabase(request, {
       ownerToken: session.token,
@@ -154,7 +163,13 @@ async function createFourPlayerGame(
     });
   }
 
-  const roomId = await createRoom(request, players[0]!.token, players[0]!.deck.deckId, runId, 4);
+  const roomId = await createRoom(
+    request,
+    players[0]!.token,
+    players[0]!.deck.deckId,
+    runId,
+    playerCount,
+  );
   for (const player of players.slice(1)) {
     await joinRoom(request, player.token, roomId, player.deck.deckId);
   }

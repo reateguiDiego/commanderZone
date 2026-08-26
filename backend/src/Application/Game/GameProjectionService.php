@@ -31,6 +31,7 @@ class GameProjectionService
         $rawSnapshot = $game->snapshot();
         $positionlessBattlefieldInstanceIds = $this->positionlessBattlefieldInstanceIds($rawSnapshot);
         $snapshot = $this->normalizer->normalizeSnapshot($rawSnapshot);
+        $snapshot['rematch'] = $game->rematchState();
         $this->restorePositionlessBattlefieldInstances($snapshot, $positionlessBattlefieldInstanceIds);
         if (($this->streamFlags?->enabled() ?? false) && $this->activityStreams instanceof GameActivityStreamService) {
             $snapshot = $this->activityStreams->decorateSnapshotForViewer($game, $snapshot, $viewer);
@@ -97,7 +98,7 @@ class GameProjectionService
                         $cards,
                         $viewerId,
                         (string) $playerId,
-                        ($player['playTopLibraryRevealed'] ?? false) === true,
+                        $this->isPlayTopLibraryRevealedToViewer($rawPlayer, $viewerId),
                         $tailTopLibrary,
                         is_array($rawPlayer) ? $rawPlayer : [],
                         $snapshot,
@@ -367,25 +368,13 @@ class GameProjectionService
             return [];
         }
 
-        $visibleCards = array_values(array_filter(
+        return array_values(array_map(
+            fn (array $card, int $index): array => $this->isVisibleCard($card, $viewerId)
+                ? $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)
+                : $this->hiddenOpponentHandCard($ownerId, $index),
             $cards,
-            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+            array_keys($cards),
         ));
-        $projected = array_map(
-            fn (int $index): array => $this->hiddenOpponentHandCard($ownerId, $index),
-            range(0, $handSize - 1),
-        );
-
-        if ($visibleCards === []) {
-            return $projected;
-        }
-
-        $startIndex = max(0, (int) floor(($handSize - count($visibleCards)) / 2));
-        foreach ($visibleCards as $offset => $card) {
-            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
-        }
-
-        return array_values($projected);
     }
 
     /**
@@ -423,16 +412,41 @@ class GameProjectionService
         ?array $rulingsLookup = null,
     ): array
     {
+        // Playing with the top card revealed is public state. Do not let a
+        // stale compact visibility index hide it again during bootstrap.
+        if ($playTopRevealed) {
+            $topCards = $this->orderedTopLibraryCards($cards, $tailTop, $playerState, 1);
+            $topCard = $topCards[0] ?? null;
+            if (is_array($topCard)) {
+                return [$this->projectCard(
+                    $this->faceUpLibraryCard($topCard),
+                    $viewerId,
+                    false,
+                    $requestedLanguage,
+                    $localizedCardsByLanguage,
+                    $rulingsLookup,
+                )];
+            }
+        }
+
         if ($this->usesVisibilityIndex($snapshot) && $playerState !== []) {
             $libraryState = $this->visibilityIndex()->libraryState($snapshot, $ownerId);
             if ($libraryState !== []) {
                 $topInstanceId = (string) ($libraryState['topInstanceId'] ?? '');
+                $topCards = $this->orderedTopLibraryCards($cards, $tailTop, $playerState, 1);
+                $topCard = $topCards[0] ?? null;
+                // Compact runtime snapshots created before the PHP epoch model
+                // can retain a directed audience without the per-card epoch.
+                // Trust that audience only for the missing-epoch migration
+                // shape; an explicit stale epoch must remain hidden.
+                $hasDirectedTopAudience = is_array($topCard)
+                    && !array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $topCard)
+                    && $this->visibilityIndex()->canViewerSeeCardIdentity($snapshot, $topCard, $viewerId, false);
                 if ($topInstanceId !== '' && (
                     ($libraryState['playTopRevealed'] ?? false) === true
                     || $this->visibilityIndex()->canViewerSeeLibraryCard($snapshot, $libraryState, $topInstanceId, $viewerId)
+                    || $hasDirectedTopAudience
                 )) {
-                    $topCards = $this->orderedTopLibraryCards($cards, $tailTop, $playerState, 1);
-                    $topCard = $topCards[0] ?? null;
                     if (is_array($topCard)) {
                         $topCard['faceDown'] = false;
 
@@ -779,7 +793,7 @@ class GameProjectionService
                 continue;
             }
 
-            $playTopLibraryRevealed = ($player['playTopLibraryRevealed'] ?? false) === true;
+            $playTopLibraryRevealed = $this->isPlayTopLibraryRevealedToViewer($player, $viewerId);
             $tailTopLibrary = $this->libraryOps()->usesTailTop($player);
             foreach ($player['zones'] as $zone => $cards) {
                 if (!is_array($cards)) {
@@ -967,6 +981,21 @@ class GameProjectionService
         }
 
         return $this->cardsVisibleAfterProjection($cards, $viewerId, $ownerId === $viewerId);
+    }
+
+    /** @param array<string,mixed> $player */
+    private function isPlayTopLibraryRevealedToViewer(array $player, string $viewerId): bool
+    {
+        if (($player['playTopLibraryRevealed'] ?? false) !== true) {
+            return false;
+        }
+
+        $viewers = $player['playTopLibraryRevealedTo'] ?? null;
+        if (!is_array($viewers)) {
+            return true;
+        }
+
+        return in_array('all', $viewers, true) || in_array($viewerId, $viewers, true);
     }
 
     /**

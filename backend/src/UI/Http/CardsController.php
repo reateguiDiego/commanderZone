@@ -573,6 +573,44 @@ SQL;
         return $this->json(['card' => $localization->localizeCardPayload($card->toArray(), $requestedLanguage)]);
     }
 
+    #[Route('/cards/bulk', methods: ['GET'], priority: 10)]
+    public function bulk(Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $ids = array_values(array_unique(array_filter(
+            array_map('trim', explode(',', (string) $request->query->get('ids', ''))),
+            static fn (string $id): bool => $id !== '',
+        )));
+        if ($ids === [] || count($ids) > 100) {
+            return $this->fail('ids must contain between 1 and 100 card ids.');
+        }
+
+        $cards = $entityManager->getRepository(Card::class)->findBy(['scryfallId' => $ids]);
+        $cardsById = [];
+        foreach ($cards as $card) {
+            if ($card instanceof Card) {
+                $cardsById[$card->scryfallId()] = $card;
+            }
+        }
+
+        $orderedCards = array_values(array_map(
+            static fn (string $id): Card => $cardsById[$id],
+            array_values(array_filter($ids, static fn (string $id): bool => isset($cardsById[$id]))),
+        ));
+
+        return $this->json([
+            'cards' => $localization->localizeCardPayloads(
+                array_map(static fn (Card $card): array => $card->toArray(), $orderedCards),
+                $requestedLanguage,
+                true,
+            ),
+        ]);
+    }
+
     private function isAllowedImageUri(string $uri): bool
     {
         $host = parse_url($uri, PHP_URL_HOST);

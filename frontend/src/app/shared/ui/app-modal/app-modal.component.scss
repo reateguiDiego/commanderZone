@@ -110,6 +110,10 @@
   gap: 0.35rem;
 }
 
+.modal-panel-has-close-button header {
+  padding-inline-end: 3.35rem;
+}
+
 .modal-header-image {
   width: min(10rem, 52vw);
   max-height: 3.2rem;
@@ -132,9 +136,7 @@
   flex: 1 1 12rem;
   margin: 0;
   min-width: 0;
-  overflow: hidden;
   font-size: calc(var(--modal-title-font-size, 1em) * var(--cz-text-fit-scale, 1));
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

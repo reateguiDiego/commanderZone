@@ -45,6 +45,31 @@ export class GameTableLibraryTopState {
     );
   }
 
+  openRevealedTopLibrary(playerId: string, count: number): void {
+    if (this.playersStore.currentPlayer()?.id === playerId) {
+      return;
+    }
+
+    const cards = this.visibleLibraryCards(playerId).slice(0, count);
+    if (cards.length === 0) {
+      return;
+    }
+
+    this.zoneActions.openFixedZone(
+      playerId,
+      'library',
+      `${this.playersStore.playerName(playerId)} top ${cards.length} library card${cards.length === 1 ? '' : 's'}`,
+      cards,
+      cards[0]?.instanceId ?? null,
+      false,
+      {
+        readOnly: true,
+        drawOrderLabels: this.drawOrderLabels(cards.length),
+        viewTopCount: count,
+      },
+    );
+  }
+
   async reorderTopLibraryCards(cards: readonly GameCardInstance[]): Promise<void> {
     const modal = this.zoneModalState.zoneModal();
     if (!modal || !modal.allowReorder || modal.zone !== 'library') {

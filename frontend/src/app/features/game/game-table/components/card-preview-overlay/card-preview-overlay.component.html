@@ -118,6 +118,29 @@
             }
           </div>
         }
+
+        @if (revealLabel(); as revealLabel) {
+          <div class="attachment-preview-column card-state-column preview-reveal-column">
+            <div class="attachment-preview-row">
+              <span class="attachment-preview-label attachment-preview-label-with-icon">
+                <lucide-icon name="eye" size="11" strokeWidth="2.6" aria-hidden="true" />
+                <span>Revealed</span>
+              </span>
+              <app-tooltip [text]="revealLabel" placement="bottom" align="start">
+                <span class="preview-reveal-counter" [attr.aria-label]="revealLabel">{{ revealLabel }}</span>
+              </app-tooltip>
+            </div>
+          </div>
+        }
+
+        @if (showFaceDownPill()) {
+          <div class="attachment-preview-column card-state-column preview-face-down-column">
+            <span class="preview-face-down-pill">
+              <lucide-icon name="eye-off" size="12" strokeWidth="2.6" aria-hidden="true" />
+              <span>{{ 'game.faceDownPreview.playedFaceDown' | runtimeTranslate }}</span>
+            </span>
+          </div>
+        }
       </div>
     </section>
   }

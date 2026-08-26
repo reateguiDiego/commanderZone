@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"commanderzone/game-runtime/internal/gateway"
+	"commanderzone/game-runtime/internal/lifecycle"
 	"commanderzone/game-runtime/internal/persistence"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
 )
@@ -49,6 +50,33 @@ func main() {
 
 	validator := ticketValidatorFromEnv(logger)
 	commandTimeout := envDuration(os.Getenv("GAME_RUNTIME_COMMAND_TIMEOUT"), 15*time.Second)
+	var presenceOutbox *lifecycle.PresenceOutbox
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")), "postgres") {
+		sink := lifecycleSinkFromEnv(logger)
+		if sink == nil {
+			logger.Error("postgres runtime requires GAME_RUNTIME_LIFECYCLE_URL for durable all-disconnected cleanup")
+			os.Exit(1)
+		}
+		outbox, err := lifecycle.NewPresenceOutbox(normalizePostgresURL(os.Getenv("DATABASE_URL")))
+		if err != nil {
+			logger.Error("runtime lifecycle outbox configuration failed", "error", err)
+			os.Exit(1)
+		}
+		outboxCtx, cancelOutbox := context.WithCancel(context.Background())
+		defer outbox.Close()
+		defer cancelOutbox()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = outbox.CheckSchema(ctx)
+		cancel()
+		if err != nil {
+			logger.Error("runtime lifecycle outbox schema check failed", "error", err)
+			os.Exit(1)
+		}
+		presenceOutbox = outbox
+		go outbox.Run(outboxCtx, sink, func(deliveryErr error) {
+			logger.Warn("runtime lifecycle outbox delivery failed", "error", deliveryErr)
+		})
+	}
 	var activityStore gateway.ActivityStore
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")), "postgres") {
 		store, err := gateway.NewPostgresActivityStore(normalizePostgresURL(os.Getenv("DATABASE_URL")))
@@ -63,8 +91,12 @@ func main() {
 	if activityStore != nil {
 		webSocketOptions = append(webSocketOptions, gateway.WithActivityStore(activityStore))
 	}
+	if presenceOutbox != nil {
+		webSocketOptions = append(webSocketOptions, gateway.WithPresenceLifecycleOutbox(presenceOutbox))
+	}
 	webSocketOptions = append(webSocketOptions, gateway.WithCommandTimeout(commandTimeout))
 	webSocketServer := gateway.NewWebSocketServer(validator, runtimeService, webSocketOptions...)
+	runtimeService.SetActorStoppedHook(webSocketServer.CloseGame)
 	mux.Handle("/ws", webSocketServer)
 	commandServer := gateway.NewCommandHTTPServer(runtimeService)
 	if envBool(os.Getenv("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS")) {
@@ -72,7 +104,9 @@ func main() {
 		commandServer = gateway.NewCommandHTTPServerAllowingInitialState(runtimeService)
 	}
 	commandServer.SetCommandTimeout(commandTimeout)
+	commandServer.SetResultPublisher(webSocketServer.PublishRuntimeResult)
 	mux.Handle("/commands", commandServer)
+	mux.Handle("/lifecycle/stop", gateway.NewLifecycleHTTPServer(runtimeService))
 	mux.Handle("/metrics", gateway.NewMetricsHTTPServer(runtimeService, webSocketServer))
 
 	addr := os.Getenv("GAME_RUNTIME_LISTEN")
@@ -168,6 +202,9 @@ func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() err
 			runtimesvc.WithOwnershipManager(runtimesvc.NewSingleNodeOwnershipManager()),
 			runtimesvc.WithLogger(logger),
 		}
+		if sink := lifecycleSinkFromEnv(logger); sink != nil {
+			serviceOptions = append(serviceOptions, runtimesvc.WithLifecycleSink(sink, 1))
+		}
 		logger.Info("game runtime ownership policy", "mode", ownershipMode, "instanceId", instanceID)
 		return runtimesvc.NewServiceWithStoreAndOptions(persistence.NewInMemoryEventStore(), 128, nil, serviceOptions...), func() error { return nil }
 	}
@@ -222,8 +259,25 @@ func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() err
 		runtimesvc.WithOwnershipRenewBefore(renewBefore),
 		runtimesvc.WithLogger(logger),
 	}
+	if sink := lifecycleSinkFromEnv(logger); sink != nil {
+		serviceOptions = append(serviceOptions, runtimesvc.WithLifecycleSink(sink, 1))
+	}
 	logger.Info("game runtime ownership policy", "mode", ownershipMode, "instanceId", instanceID)
 	return runtimesvc.NewServiceWithStoreAndOptions(store, 128, nil, serviceOptions...), closePersistence
+}
+
+func lifecycleSinkFromEnv(logger *slog.Logger) lifecycle.Sink {
+	url := strings.TrimSpace(os.Getenv("GAME_RUNTIME_LIFECYCLE_URL"))
+	if url == "" {
+		logger.Warn("GAME_RUNTIME_LIFECYCLE_URL is not configured; lifecycle handoffs are disabled")
+		return nil
+	}
+	sink, err := lifecycle.NewHTTPSink(url, os.Getenv("GAME_RUNTIME_TICKET_SECRET"), envDuration(os.Getenv("GAME_RUNTIME_LIFECYCLE_TIMEOUT"), 5*time.Second))
+	if err != nil {
+		logger.Error("invalid lifecycle handoff configuration", "error", err)
+		os.Exit(1)
+	}
+	return sink
 }
 
 func envDuration(value string, fallback time.Duration) time.Duration {

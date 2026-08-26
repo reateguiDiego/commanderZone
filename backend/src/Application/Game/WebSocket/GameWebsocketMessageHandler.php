@@ -28,6 +28,7 @@ final readonly class GameWebsocketMessageHandler
         'library.draw_many',
         'library.shuffle',
         'library.move_top',
+        'library.play_top_face_down',
         'library.reveal_top',
         'library.reveal',
         'library.view',
@@ -36,6 +37,7 @@ final readonly class GameWebsocketMessageHandler
         'library.put_top',
         'library.put_bottom',
         'card.face_down.changed',
+        'card.face_down.inspected',
         'card.face.changed',
         'card.revealed',
         'card.counter.changed',
@@ -54,8 +56,6 @@ final readonly class GameWebsocketMessageHandler
         'helper.updated',
         'helper.removed',
         'game.concede',
-        'game.close',
-        'disconnect.vote',
     ];
 
     public function __construct(

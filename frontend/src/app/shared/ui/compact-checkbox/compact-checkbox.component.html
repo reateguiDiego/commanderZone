@@ -1,4 +1,4 @@
-<app-tooltip [text]="title()">
+<app-tooltip [text]="title()" [stretch]="tooltipStretch()">
   <label
     class="compact-checkbox"
     [class.compact-checkbox--multiline]="multiline()"
@@ -8,6 +8,7 @@
     <input
       type="checkbox"
       [attr.name]="name()"
+      [attr.data-testid]="testId()"
       [checked]="checked()"
       [disabled]="disabled()"
       (change)="updateChecked($event)"

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
@@ -12,6 +13,8 @@ import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zo
 import { CommandersStackCard, CommandersStackComponent } from '../commanders-stack/commanders-stack.component';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
+import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
+import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -75,6 +78,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
     CommandersStackComponent,
     GameTableLongPressDirective,
     MTGIconComponent,
+    LucideAngularModule,
   ],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
@@ -84,6 +88,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 export class ZonePilesPanelComponent {
   readonly zonePointerDrag = inject(GameTableZonePointerDragService);
   readonly specialEntities = inject(GameTableSpecialEntitiesState);
+  readonly themeAssets = inject(AppThemeAssetsService);
   private pointerDragStartedInstanceId: string | null = null;
   private suppressedClickZone: GameZoneName | null = null;
 
@@ -107,6 +112,8 @@ export class ZonePilesPanelComponent {
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly currentDraggingCardInstanceId = input<string | null>(null);
   readonly draggingVisualZone = signal<GameZoneName | null>(null);
+  readonly hoveredCommanderInstanceId = signal<string | null>(null);
+  private readonly commanderFacePreviewIndexes = signal<Record<string, number>>({});
 
   readonly zoneDragStart = output<ZoneDragStartEvent>();
   readonly zoneDragEnd = output<void>();
@@ -125,6 +132,41 @@ export class ZonePilesPanelComponent {
 
   isMonarchOwner(playerId: string): boolean {
     return this.specialEntities.globalEntity('monarch')?.ownerPlayerId === playerId;
+  }
+
+  isLibraryTopRevealMarked(player: PlayerView): boolean {
+    return player.state.playTopLibraryRevealed === true || player.state.topLibraryRevealMarker === true;
+  }
+
+  canToggleLibraryTopFace(player: PlayerView): boolean {
+    if (!this.isLibraryTopRevealMarked(player)) {
+      return false;
+    }
+
+    const topCard = this.zonePreviewCard()(player, 'library');
+    return topCard !== null
+      && !topCard.hidden
+      && canShowAlternateFaceToggle(topCard);
+  }
+
+  previewLibraryTopFace(event: { event: MouseEvent; showingAlternateFace: boolean }): void {
+    const player = this.player();
+    const topCard = this.zonePreviewCard()(player, 'library');
+    if (!topCard || topCard.hidden) {
+      return;
+    }
+
+    const alternateFaceIndex = nextCardFaceIndex(topCard, activeCardFaceIndex(topCard));
+    const card = event.showingAlternateFace && alternateFaceIndex !== null
+      ? { ...topCard, activeFaceIndex: alternateFaceIndex }
+      : topCard;
+
+    this.cardPreviewShown.emit({
+      card,
+      playerId: player.id,
+      zone: 'library',
+      sourceRect: previewRectFromElement(event.event.currentTarget instanceof Element ? event.event.currentTarget : null),
+    });
   }
 
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
@@ -220,6 +262,50 @@ export class ZonePilesPanelComponent {
         sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
       });
     }
+  }
+
+  previewCommanderCastPill(event: MouseEvent, commander: GameCardInstance): void {
+    this.hoveredCommanderInstanceId.set(commander.instanceId);
+    this.previewCommandZoneCard(event, commander);
+  }
+
+  hideCommanderCastPillPreview(): void {
+    this.hoveredCommanderInstanceId.set(null);
+    this.hideZoneCardPreview('command');
+  }
+
+  visibleCommanderCard(card: GameCardInstance): GameCardInstance {
+    const faceIndex = this.commanderFacePreviewIndexes()[card.instanceId];
+
+    return faceIndex === undefined ? card : { ...card, activeFaceIndex: faceIndex };
+  }
+
+  canShowCommanderFaceToggle(card: GameCardInstance): boolean {
+    return card.hidden !== true && card.faceDown !== true && canShowAlternateFaceToggle(card);
+  }
+
+  lookAtOtherCommanderFace(event: MouseEvent, card: GameCardInstance): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentFaceIndex = this.commanderFacePreviewIndexes()[card.instanceId] ?? activeCardFaceIndex(card);
+    const nextFaceIndex = nextCardFaceIndex(card, currentFaceIndex);
+    if (nextFaceIndex === null) {
+      return;
+    }
+
+    this.commanderFacePreviewIndexes.update((indexes) => ({ ...indexes, [card.instanceId]: nextFaceIndex }));
+    this.previewCommandZoneCard(event, { ...card, activeFaceIndex: nextFaceIndex });
+  }
+
+  resetCommanderFacePreview(card: GameCardInstance): void {
+    if (this.commanderFacePreviewIndexes()[card.instanceId] === undefined) {
+      return;
+    }
+
+    this.commanderFacePreviewIndexes.update((indexes) => {
+      const { [card.instanceId]: _removed, ...rest } = indexes;
+      return rest;
+    });
   }
 
   hideZoneCardPreview(zone: GameZoneName): void {

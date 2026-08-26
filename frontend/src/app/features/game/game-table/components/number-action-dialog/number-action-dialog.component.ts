@@ -1,10 +1,11 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-number-action-dialog',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
   templateUrl: './number-action-dialog.component.html',
   styleUrl: './number-action-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,7 +33,10 @@ export class NumberActionDialogComponent {
 
   updateValueFromInput(event: Event): void {
     if (event.target instanceof HTMLInputElement) {
-      this.rawValue.set(event.target.value);
+      const sanitizedValue = event.target.value.replace(/\D/g, '').slice(0, 2);
+      const clampedValue = sanitizedValue === '' ? '' : String(this.clamp(Number.parseInt(sanitizedValue, 10)));
+      event.target.value = clampedValue;
+      this.rawValue.set(clampedValue);
     }
   }
 

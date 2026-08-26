@@ -118,8 +118,11 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertStringNotContainsString('staticCards', json_encode($result->fallbackMessages(), JSON_THROW_ON_ERROR));
     }
 
-    public function testRuntimeFailureWithoutEmergencyFlagRejectsWithoutLegacyMulligan(): void
+    public function testRuntimeFailureRejectsWithoutLegacyMulligan(): void
     {
+        // OLD REQUIREMENT: runtime failure could invoke the legacy Symfony
+        // handler. NEW REQUIREMENT: no runtime-primary failure may create a
+        // second writer for the gameplay stream.
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
             'hand' => $this->cards('hand', 7, 'hand'),
             'library' => $this->cards('library', 7, 'library'),
@@ -152,37 +155,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame(1, $runtime->calls);
     }
 
-    public function testRuntimeFailureWithEmergencyFlagFallsBackToLegacyMulligan(): void
-    {
-        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
-            'hand' => $this->cards('hand', 7, 'hand'),
-            'library' => $this->cards('library', 7, 'library'),
-        ]);
-        $runtime = RuntimeMulliganClientStub::failure();
-        $service = $this->service(
-            $game,
-            $actor,
-            expectPersist: true,
-            flags: $this->runtimeFlags(runtime: true, shadow: false),
-            runtimeClient: $runtime,
-            emergencyLegacyFallbackEnabled: true,
-        );
-
-        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-emergency-fallback');
-
-        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
-        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
-        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 0.0);
-        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_error_count'] ?? 0.0);
-        self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 0.0);
-        self::assertSame('runtime_gateway_error', $result->debugProfile()['gameplay.runtime_fallback_reason'] ?? null);
-        self::assertSame(1.0, $result->debugProfile()['command.legacy_fallback_count'] ?? 0.0);
-        self::assertSame(1.0, $result->debugProfile()['runtime.emergency_fallback_count'] ?? 0.0);
-        self::assertSame(1.0, $result->debugProfile()['runtime.legacy_handler_count'] ?? 0.0);
-        self::assertSame(1, $runtime->calls);
-    }
-
-    public function testPatchContractFailureWithoutEmergencyFlagRejectsWithoutLegacyMulligan(): void
+    public function testPatchContractFailureRejectsWithoutLegacyMulligan(): void
     {
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
             'hand' => $this->cards('hand', 7, 'hand'),
@@ -616,7 +589,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         $message = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $spectator), 'message-spectator');
 
         self::assertSame('mulligan.error', $message['kind']);
-        self::assertSame('SPECTATOR_NOT_ALLOWED', $message['error']['code']);
+        self::assertSame('NOT_IN_GAME', $message['error']['code']);
         self::assertSame(0, $game->snapshot()['players'][$actor->id()]['mulligan']['mulligansTaken']);
     }
 
@@ -709,7 +682,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         $messages = $service->initialStateMessages($game->id(), $spectator->id());
         $encoded = json_encode($messages, JSON_THROW_ON_ERROR);
 
-        self::assertSame(['mulligan.public_state'], array_column($messages, 'kind'));
+        self::assertSame([], array_column($messages, 'kind'));
         self::assertStringNotContainsString('library-1', $encoded);
         self::assertStringNotContainsString('library 1', $encoded);
         self::assertStringNotContainsString('scryCard', $encoded);
@@ -747,7 +720,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         $messages = $service->initialStateMessages($game->id(), $spectator->id());
         $encoded = json_encode($messages, JSON_THROW_ON_ERROR);
 
-        self::assertSame(['mulligan.public_state'], array_column($messages, 'kind'));
+        self::assertSame([], array_column($messages, 'kind'));
         self::assertStringNotContainsString('Secret Spell', $encoded);
         self::assertStringNotContainsString('secret-hand-1', $encoded);
         self::assertStringNotContainsString('Private text', $encoded);
@@ -894,7 +867,6 @@ class GameWebsocketMulliganServiceTest extends TestCase
         ?GameEvent $existingEvent = null,
         ?GameplayV2Flags $flags = null,
         ?GameRuntimeMulliganClientInterface $runtimeClient = null,
-        bool $emergencyLegacyFallbackEnabled = false,
     ): GameWebsocketMulliganService {
         $gameRepository = $this->createMock(EntityRepository::class);
         $gameRepository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
@@ -926,7 +898,6 @@ class GameWebsocketMulliganServiceTest extends TestCase
             null,
             $flags,
             $runtimeClient,
-            emergencyLegacyFallbackEnabled: $emergencyLegacyFallbackEnabled,
         );
     }
 

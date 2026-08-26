@@ -12,7 +12,10 @@ import (
 	"commanderzone/game-runtime/internal/persistence"
 )
 
-var ErrOwnershipNotHeld = persistence.ErrOwnershipNotHeld
+var (
+	ErrOwnershipNotHeld = persistence.ErrOwnershipNotHeld
+	ErrGameClosing      = persistence.ErrGameClosing
+)
 
 type OwnershipLease struct {
 	GameID    string
@@ -35,6 +38,13 @@ type OwnershipManager interface {
 	EnsureHeld(ctx context.Context, lease OwnershipLease) error
 	Renew(ctx context.Context, lease OwnershipLease) (OwnershipLease, error)
 	Release(ctx context.Context, lease OwnershipLease) error
+}
+
+// OwnershipRevoker is implemented by durable ownership stores. A lifecycle
+// stop can land on any runtime instance, so it must be able to invalidate the
+// current lease even when that instance does not own the actor locally.
+type OwnershipRevoker interface {
+	Revoke(ctx context.Context, gameID string) error
 }
 
 type InMemoryOwnershipManager struct {

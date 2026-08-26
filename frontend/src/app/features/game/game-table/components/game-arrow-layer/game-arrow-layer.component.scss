@@ -19,16 +19,16 @@
   stroke-linecap: round;
   stroke-dasharray: 10 7;
   filter:
-    drop-shadow(0 0 0.4rem rgb(0 0 0 / 78%))
-    drop-shadow(0 0 0.56rem rgb(215 180 106 / 58%));
+    drop-shadow(0 0 0.4rem rgb(var(--shadow-rgb) / 78%))
+    drop-shadow(0 0 0.56rem rgb(var(--gold-rgb) / 58%));
   opacity: 0.96;
   pointer-events: none;
 }
 
 .game-arrow-origin {
-  fill: rgb(7 8 7 / 86%);
+  fill: rgb(var(--game-surface-deep-rgb) / 86%);
   stroke-width: 3;
-  filter: drop-shadow(0 0 0.5rem rgb(215 180 106 / 76%));
+  filter: drop-shadow(0 0 0.5rem rgb(var(--gold-rgb) / 76%));
   pointer-events: none;
 }
 

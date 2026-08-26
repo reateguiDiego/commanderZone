@@ -17,12 +17,17 @@ interface CardRotationFlipOptions {
   readonly onComplete?: () => void;
 }
 
+interface CardFaceDownFlipOptions {
+  readonly faceDown: boolean;
+}
+
 interface CardFlipOptions {
   readonly freezeHand?: boolean;
 }
 
 interface HandDropHandoffOptions {
   readonly freezeHand?: boolean;
+  readonly layoutMode?: 'fan' | 'row';
 }
 
 interface MotionRect {
@@ -40,7 +45,9 @@ interface HandElementSnapshot extends MotionRect {
 export class GameTableMotionService {
   private readonly ngZone = inject(NgZone);
   private readonly handMotionActiveState = signal(false);
+  private readonly handMotionLayoutModeState = signal<'fan' | 'row' | null>(null);
   readonly handMotionActive = this.handMotionActiveState.asReadonly();
+  readonly handMotionLayoutMode = this.handMotionLayoutModeState.asReadonly();
   private handMotionActiveCount = 0;
   private context: gsap.Context | null = null;
   private host: HTMLElement | null = null;
@@ -65,6 +72,7 @@ export class GameTableMotionService {
     this.context?.revert();
     this.handMotionActiveCount = 0;
     this.handMotionActiveState.set(false);
+    this.handMotionLayoutModeState.set(null);
     this.context = null;
     this.host = null;
     this.reducedMotionQuery = null;
@@ -184,12 +192,12 @@ export class GameTableMotionService {
       gsap.fromTo(
         element,
         {
-          boxShadow: 'inset 0 0 0 2px rgb(215 180 106 / 44%), 0 0 1.2rem rgb(215 180 106 / 26%)',
+          boxShadow: 'inset 0 0 0 2px rgb(var(--cz-accent-rgb) / 44%), 0 0 1.2rem rgb(var(--cz-accent-rgb) / 26%)',
           filter: 'brightness(1.16) saturate(1.08)',
           scale: 0.98,
         },
         {
-          boxShadow: 'inset 0 0 0 0 rgb(215 180 106 / 0%), 0 0 0 rgb(215 180 106 / 0%)',
+          boxShadow: 'inset 0 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-accent-rgb) / 0%)',
           clearProps: 'boxShadow,filter,scale',
           duration: 0.46,
           ease: 'power2.out',
@@ -265,7 +273,7 @@ export class GameTableMotionService {
     const beforeSnapshots = this.handElementSnapshots(beforeElements);
     const clearPreparedHandMotion = options.freezeHand === false
       ? () => undefined
-      : this.markHandMotionActive();
+      : this.markHandMotionActive(options.layoutMode);
     let cleared = false;
     let animationStarted = false;
     let clearFallbackTimer: number | null = null;
@@ -549,7 +557,7 @@ export class GameTableMotionService {
     );
   }
 
-  private markHandMotionActive(): () => void {
+  private markHandMotionActive(layoutMode?: 'fan' | 'row'): () => void {
     const host = this.host;
     if (!host) {
       return () => undefined;
@@ -558,6 +566,9 @@ export class GameTableMotionService {
     let cleared = false;
     this.handMotionActiveCount += 1;
     this.handMotionActiveState.set(true);
+    if (layoutMode) {
+      this.handMotionLayoutModeState.set(layoutMode);
+    }
 
     return () => {
       if (cleared) {
@@ -568,6 +579,7 @@ export class GameTableMotionService {
       this.handMotionActiveCount = Math.max(0, this.handMotionActiveCount - 1);
       if (this.handMotionActiveCount === 0) {
         this.handMotionActiveState.set(false);
+        this.handMotionLayoutModeState.set(null);
       }
     };
   }
@@ -628,6 +640,109 @@ export class GameTableMotionService {
         });
       });
     };
+  }
+
+  prepareCardFaceDownFlip(instanceId: string, options: CardFaceDownFlipOptions): () => void {
+    const source = this.findCard(instanceId);
+    if (!source) {
+      return () => undefined;
+    }
+
+    // The patch updates Angular's card markup before this callback runs. Keep a
+    // detached copy now so the first half still shows the previous face.
+    const sourceGhostTemplate = source.cloneNode(true) as HTMLElement;
+    const sourceRect: MotionRect = source.getBoundingClientRect();
+
+    return () => {
+      this.runInContext(() => {
+        const target = this.findCard(instanceId);
+        if (!target) {
+          return;
+        }
+
+        const targetVisual = target.querySelector<HTMLElement>('.card-visual') ?? target;
+        gsap.killTweensOf(targetVisual);
+
+        if (this.prefersReducedMotion()) {
+          gsap.fromTo(targetVisual, { filter: 'brightness(1.1)' }, { clearProps: 'filter', duration: 0.14, ease: 'power1.out' });
+          return;
+        }
+
+        const ghost = this.createGhostFromTemplate(sourceGhostTemplate, sourceRect);
+        if (!ghost) {
+          this.animateFaceDownFlipFallback(targetVisual, options.faceDown);
+          return;
+        }
+
+        const direction = options.faceDown ? -1 : 1;
+        gsap.killTweensOf(ghost);
+        gsap.set(targetVisual, {
+          opacity: 0,
+          rotateY: -90 * direction,
+          scale: 0.985,
+          transformOrigin: '50% 50%',
+          transformPerspective: 1000,
+          willChange: 'transform, filter, opacity',
+        });
+
+        gsap.timeline({
+          onComplete: () => {
+            ghost.remove();
+            gsap.set(targetVisual, {
+              clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+            });
+          },
+          onInterrupt: () => {
+            ghost.remove();
+            gsap.set(targetVisual, {
+              clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+            });
+          },
+        })
+          .to(ghost, {
+            duration: 0.22,
+            ease: 'power2.in',
+            filter: 'brightness(1.12) saturate(1.08)',
+            opacity: 0.16,
+            rotateY: 90 * direction,
+            scale: 0.985,
+            transformOrigin: '50% 50%',
+            transformPerspective: 1000,
+          })
+          .to(targetVisual, {
+            duration: 0.24,
+            ease: 'power3.out',
+            filter: 'brightness(1.14) saturate(1.08)',
+            opacity: 1,
+            rotateY: 0,
+            scale: 1,
+          });
+      });
+    };
+  }
+
+  private animateFaceDownFlipFallback(target: HTMLElement, faceDown: boolean): void {
+    gsap.fromTo(
+      target,
+      {
+        filter: 'brightness(1.22) saturate(1.12)',
+        opacity: 0.58,
+        rotateY: faceDown ? -90 : 90,
+        scale: 0.96,
+        transformOrigin: '50% 50%',
+        transformPerspective: 900,
+        willChange: 'transform, filter, opacity',
+      },
+      {
+        clearProps: 'filter,opacity,rotateY,scale,transformOrigin,transformPerspective,willChange',
+        duration: 0.36,
+        ease: 'power3.out',
+        filter: 'brightness(1)',
+        opacity: 1,
+        rotateY: 0,
+        scale: 1,
+      },
+    );
   }
 
   pulseLandStack(instanceIds: readonly string[], variant: 'stack' | 'detach' = 'stack'): void {
@@ -723,11 +838,11 @@ export class GameTableMotionService {
     gsap.fromTo(
       visuals,
       {
-        boxShadow: '0 0 0 2px rgb(255 232 166 / 70%), 0 0 2.25rem rgb(232 199 126 / 58%), 0 1.1rem 2rem rgb(0 0 0 / 36%)',
+        boxShadow: '0 0 0 2px rgb(var(--cz-accent-rgb) / 70%), 0 0 2.25rem rgb(var(--cz-accent-rgb) / 58%), 0 1.1rem 2rem rgb(var(--cz-bg-rgb) / 36%)',
         filter: 'brightness(1.24) saturate(1.14)',
       },
       {
-        boxShadow: '0 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(0 0 0 / 0%)',
+        boxShadow: '0 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-bg-rgb) / 0%)',
         clearProps: 'boxShadow,filter',
         duration: 0.78,
         ease: 'power2.out',
@@ -761,9 +876,9 @@ export class GameTableMotionService {
     burst.style.borderRadius = '999px';
     burst.style.pointerEvents = 'none';
     burst.style.zIndex = '5100';
-    burst.style.border = '2px solid rgb(255 232 166 / 72%)';
-    burst.style.boxShadow = '0 0 0.65rem rgb(255 232 166 / 52%), 0 0 2rem rgb(215 180 106 / 46%)';
-    burst.style.background = 'radial-gradient(circle, rgb(255 232 166 / 18%) 0%, rgb(215 180 106 / 10%) 42%, rgb(215 180 106 / 0%) 70%)';
+    burst.style.border = '2px solid rgb(var(--cz-accent-rgb) / 72%)';
+    burst.style.boxShadow = '0 0 0.65rem rgb(var(--cz-accent-rgb) / 52%), 0 0 2rem rgb(var(--cz-accent-rgb) / 46%)';
+    burst.style.background = 'radial-gradient(circle, rgb(var(--cz-accent-rgb) / 18%) 0%, rgb(var(--cz-accent-rgb) / 10%) 42%, rgb(var(--cz-accent-rgb) / 0%) 70%)';
     burst.style.mixBlendMode = 'screen';
     burst.style.transformOrigin = '50% 50%';
     burst.style.willChange = 'opacity, transform';
@@ -866,12 +981,15 @@ export class GameTableMotionService {
   }
 
   private createGhost(source: HTMLElement, sourceRect: MotionRect): HTMLElement | null {
-    const host = this.host;
-    if (!host || sourceRect.width <= 0 || sourceRect.height <= 0) {
+    return this.createGhostFromTemplate(source.cloneNode(true) as HTMLElement, sourceRect);
+  }
+
+  private createGhostFromTemplate(template: HTMLElement, sourceRect: MotionRect): HTMLElement | null {
+    if (!this.host || sourceRect.width <= 0 || sourceRect.height <= 0) {
       return null;
     }
 
-    const ghost = source.cloneNode(true) as HTMLElement;
+    const ghost = template.cloneNode(true) as HTMLElement;
     this.prepareGhostClone(ghost);
     ghost.setAttribute('aria-hidden', 'true');
     ghost.classList.add('cz-motion-ghost');

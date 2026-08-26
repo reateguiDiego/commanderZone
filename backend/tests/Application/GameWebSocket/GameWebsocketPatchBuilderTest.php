@@ -803,6 +803,24 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringContainsString('Private Hand Reveal', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
     }
 
+    public function testRevealPatchRefreshesAllSelectedHiddenCardsInOneProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.revealed', [
+            'playerId' => $actor->id(),
+            'zone' => 'hand',
+            'instanceIds' => ['hand-1', 'hand-2'],
+            'to' => $opponent->id(),
+        ], 'action-reveal-cards', $opponent);
+
+        self::assertSame('zone.visible.set', $message['operations'][0]['op']);
+        self::assertSame('hand', $message['operations'][0]['zone']);
+        self::assertCount(2, $message['operations'][0]['cards']);
+        self::assertStringContainsString('Private Hand One', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
+        self::assertStringContainsString('Private Hand Two', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
+    }
+
     public function testCounterAndStatsPatchesUpdateOnlyTheTargetCard(): void
     {
         [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
@@ -1101,7 +1119,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertContains(['op' => 'attachment.remove', 'id' => 'attachment-1'], $message['operations']);
     }
 
-    public function testBuildsConcedeAndClosePatchesWithoutGameStatusSnapshotField(): void
+    public function testBuildsConcedePatchWithoutGameStatusSnapshotField(): void
     {
         [$game, $actor] = $this->gameWithBattlefieldCards();
 
@@ -1114,15 +1132,6 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertContains('turn.set', array_column($concede['operations'], 'op'));
         self::assertContains('eventLog.append', array_column($concede['operations'], 'op'));
 
-        [$closeGame, $closeActor] = $this->gameWithBattlefieldCards();
-        $close = $this->applyAndBuild($closeGame, $closeActor, 'game.close', [], 'action-close');
-        $encodedClose = json_encode($close, JSON_THROW_ON_ERROR);
-
-        self::assertSame('game_patch', $close['kind']);
-        self::assertSame('eventLog.append', $close['operations'][0]['op']);
-        self::assertSame('game.close', $close['operations'][0]['entries'][0]['type']);
-        self::assertStringNotContainsString('"snapshot"', $encodedClose);
-        self::assertStringNotContainsString('"status":"finished"', $encodedClose);
     }
 
     public function testConcedeDoesNotEmitTurnSetWhenTurnDoesNotChange(): void
@@ -1201,14 +1210,14 @@ class GameWebsocketPatchBuilderTest extends TestCase
                 } else {
                     $next['players'][$opponent->id()]['status'] = 'conceded';
                     $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
-                    $next['disconnectVote'] = [
+                    $next['disconnectVotes'] = [$opponent->id() => [
                         'targetPlayerId' => $opponent->id(),
                         'status' => 'resolved_expel',
                         'openedAt' => null,
                         'deadlineAt' => null,
                         'cooldownUntil' => null,
                         'votes' => [],
-                    ];
+                    ]];
                     $next['eventLog'][] = [
                         'id' => 'log-disconnect-expel-'.$template,
                         'type' => 'disconnect.vote.updated',
@@ -1282,14 +1291,14 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $previous = $game->snapshot();
         $next = $previous;
         $next['version'] = 2;
-        $next['disconnectVote'] = [
+        $next['disconnectVotes'] = [$opponent->id() => [
             'targetPlayerId' => $opponent->id(),
             'status' => 'open',
             'openedAt' => '2026-01-01T00:00:00+00:00',
             'deadlineAt' => '2026-01-01T00:01:00+00:00',
             'cooldownUntil' => null,
             'votes' => [],
-        ];
+        ]];
         $next['eventLog'][] = [
             'id' => 'log-disconnect',
             'type' => 'disconnect.vote.updated',
@@ -1303,11 +1312,11 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
 
         self::assertSame('disconnect.vote.set', $message['operations'][0]['op']);
-        self::assertSame($opponent->id(), $message['operations'][0]['disconnectVote']['targetPlayerId']);
+        self::assertSame($opponent->id(), $message['operations'][0]['disconnectVotes'][$opponent->id()]['targetPlayerId']);
         self::assertSame('eventLog.append', $message['operations'][1]['op']);
     }
 
-    public function testBuildsRematchVotePatchWithEventLogAppend(): void
+    public function testDoesNotBuildGameplayPatchForLegacyRematchVote(): void
     {
         [$game, $actor, $opponent] = $this->game();
         $previous = $game->snapshot();
@@ -1318,26 +1327,24 @@ class GameWebsocketPatchBuilderTest extends TestCase
                 $opponent->id() => [
                     'playerId' => $opponent->id(),
                     'displayName' => 'Opponent',
-                    'vote' => 'leave',
+                    'vote' => 'leave_room',
                     'votedAt' => '2026-01-01T00:00:10+00:00',
                 ],
             ],
         ];
         $next['eventLog'][] = [
             'id' => 'log-rematch',
-            'type' => 'rematch.vote',
+            'type' => 'room.rematch.vote',
             'message' => 'Rematch vote recorded.',
             'actorId' => $opponent->id(),
             'displayName' => 'Opponent',
             'createdAt' => '2026-01-01T00:00:10+00:00',
         ];
 
-        $event = new GameEvent($game, 'rematch.vote', ['playerId' => $opponent->id(), 'vote' => 'leave'], $opponent, 'action-rematch');
+        $event = new GameEvent($game, 'rematch.vote', ['playerId' => $opponent->id(), 'vote' => 'leave_room'], $opponent, 'action-rematch');
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
 
-        self::assertSame('rematch.set', $message['operations'][0]['op']);
-        self::assertSame($opponent->id(), $message['operations'][0]['rematch']['votes'][$opponent->id()]['playerId']);
-        self::assertSame('eventLog.append', $message['operations'][1]['op']);
+        self::assertNull($message['operations']);
     }
 
     public function testBuildsDisconnectVotePatchIncludingPlayerStatusWhenExpelled(): void
@@ -1350,7 +1357,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
         $previous['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'combat', 'number' => 4];
         $next['turn'] = ['activePlayerId' => $actor->id(), 'phase' => 'untap', 'number' => 5];
-        $next['disconnectVote'] = [
+        $next['disconnectVotes'] = [$opponent->id() => [
             'targetPlayerId' => $opponent->id(),
             'status' => 'resolved_expel',
             'openedAt' => null,
@@ -1364,7 +1371,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
                     'votedAt' => '2026-01-01T00:00:10+00:00',
                 ],
             ],
-        ];
+        ]];
         $next['rematch'] = [
             'votes' => [
                 $opponent->id() => [
@@ -1886,7 +1893,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
             ],
             'commanderDamage' => [],
             'counters' => [],
-            'backgroundName' => 'G_3',
+            'backgroundName' => 'g_3',
             'sleevesName' => 'default',
         ];
     }

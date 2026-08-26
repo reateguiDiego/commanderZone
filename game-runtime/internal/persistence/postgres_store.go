@@ -142,6 +142,13 @@ WHERE EXISTS (
 	  AND fencing_token = $10
 	  AND expires_at > $11
 )
+	AND (
+	NOT EXISTS (SELECT 1 FROM game WHERE id = $2::varchar)
+	OR EXISTS (SELECT 1 FROM game WHERE id = $2::varchar AND runtime_closing = FALSE FOR KEY SHARE)
+)
+	AND NOT EXISTS (
+	SELECT 1 FROM game_runtime_closing WHERE game_id = $2::varchar
+)
 `, newUUID(), event.GameID, createdBy, event.Type, string(payload), event.Version, clientActionID, event.CreatedAt, fence.OwnerInstanceID, int64(fence.Token), time.Now().UTC())
 	if err != nil {
 		return mapPostgresConstraintError(err, event.GameID, event.Version, event.ClientActionID)
@@ -151,6 +158,13 @@ WHERE EXISTS (
 		return err
 	}
 	if rows != 1 {
+		closing, closingErr := s.isGameClosing(ctx, event.GameID)
+		if closingErr != nil {
+			return closingErr
+		}
+		if closing {
+			return ErrGameClosing
+		}
 		return ErrOwnershipNotHeld
 	}
 	if err := tx.Commit(); err != nil {
@@ -232,13 +246,36 @@ func (s *PostgresEventStore) SaveSnapshot(ctx context.Context, snapshot CompactS
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, `
 INSERT INTO game_snapshot_compact (id, game_id, version, snapshot, checksum, created_at)
-VALUES ($1, $2, $3, $4::json, $5, $6)
+SELECT $1::varchar, $2::varchar, $3::int, $4::json, $5::varchar, $6::timestamp
+WHERE NOT EXISTS (
+	SELECT 1 FROM game_runtime_closing WHERE game_id = $2::varchar
+)
+	AND (
+	NOT EXISTS (SELECT 1 FROM game WHERE id = $2::varchar)
+	OR EXISTS (SELECT 1 FROM game WHERE id = $2::varchar AND runtime_closing = FALSE FOR KEY SHARE)
+)
 ON CONFLICT (game_id, version) DO UPDATE
 SET snapshot = EXCLUDED.snapshot, checksum = EXCLUDED.checksum
 `, newUUID(), snapshot.GameID, snapshot.Version, string(payload), snapshot.Checksum, time.Now().UTC())
-	return err
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrGameClosing
+	}
+	return nil
+}
+
+func (s *PostgresEventStore) isGameClosing(ctx context.Context, gameID string) (bool, error) {
+	var closing bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM game_runtime_closing WHERE game_id = $1)`, gameID).Scan(&closing)
+	return closing, err
 }
 
 func (s *PostgresEventStore) scanEvent(row *sql.Row) (protocol.EventPayloadV2, bool, error) {

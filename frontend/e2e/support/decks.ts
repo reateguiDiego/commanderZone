@@ -4,6 +4,8 @@ const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
 const SEARCH_PAGE_SIZE = 50;
 const MAX_RANDOM_ATTEMPTS_MULTIPLIER = 40;
+const MAX_DECK_NAME_LENGTH = 20;
+const VALID_DECK_CATALOG_PAGES = 3;
 
 type DeckSection = 'commander' | 'main';
 
@@ -15,6 +17,7 @@ interface CardSearchItem {
   setCode?: string | null;
   collectorNumber?: string | null;
   typeLine?: string | null;
+  oracleText?: string | null;
   colorIdentity?: string[];
   legalities?: Record<string, string>;
   commanderLegal?: boolean;
@@ -215,33 +218,38 @@ export async function createValidCommanderDeckFromDatabase(
   const seed = normalizeSeed(options.seed);
   const random = mulberry32(hashStringToUint32(seed));
   const cache = new Map<string, CardSearchItem[]>();
-  const commanderLegalCatalog = await fetchCommanderLegalCatalog(request, cache, 30);
-  if (commanderLegalCatalog.length < 100) {
+  const commanderLegalCatalog = await fetchCommanderLegalCatalog(request, cache, VALID_DECK_CATALOG_PAGES);
+  if (commanderLegalCatalog.length < 2) {
     throw new Error(
-      `createValidCommanderDeckFromDatabase requires at least 100 commander-legal cards, found ${commanderLegalCatalog.length}.`,
+      `createValidCommanderDeckFromDatabase requires at least two commander-legal cards, found ${commanderLegalCatalog.length}.`,
     );
   }
 
-  const commander = pickCommanderCandidateFromCatalog(commanderLegalCatalog, random);
-  const mainboard = pickCommanderCompatibleMainboardFromCatalog(commanderLegalCatalog, commander, random, 99);
+  const eligibleCatalog = commanderLegalCatalog.filter(isCommanderDeckEligible);
+  if (eligibleCatalog.length < 2) {
+    throw new Error(
+      `createValidCommanderDeckFromDatabase requires at least two Commander-eligible cards, found ${eligibleCatalog.length}.`,
+    );
+  }
 
-  const quickBuildPayload = {
-    name: options.name,
-    cards: [
-      toQuickBuildInput(commander, 'commander'),
-      ...mainboard.map((entry) => ({
-        scryfallId: entry.card.scryfallId,
-        quantity: entry.quantity,
-        section: 'main' as const,
-      })),
-    ],
-  };
-
+  const commander = pickCommanderCandidateFromCatalog(eligibleCatalog, random);
+  const plains = await findBasicPlains(request);
+  const mainboard = pickCommanderCompatibleMainboardFromCatalog([...eligibleCatalog, plains], commander, random, 99);
   const quickBuildResponse = await request.post(`${API_BASE_URL}/decks/quick-build`, {
     headers: {
       Authorization: `Bearer ${options.ownerToken}`,
     },
-    data: quickBuildPayload,
+    data: {
+      name: e2eDeckName(options.name),
+      cards: [
+        toQuickBuildInput(commander, 'commander'),
+        ...mainboard.map((entry) => ({
+          scryfallId: entry.card.scryfallId,
+          quantity: entry.quantity,
+          section: 'main' as const,
+        })),
+      ],
+    },
   });
   await expectQuickBuildOk(quickBuildResponse, options.name);
 
@@ -266,22 +274,10 @@ export async function createValidCommanderDeckFromDatabase(
     commander,
   );
   if (!validation.valid) {
-    const firstError = validation.errors[0];
-    throw new Error(
-      `createValidCommanderDeckFromDatabase produced an invalid deck (${firstError?.code ?? 'unknown_error'}). Seed=${seed}`,
-    );
+    throw new Error(`createValidCommanderDeckFromDatabase produced an invalid deck: ${validation.errors.map((error) => error.code).join(',')}.`);
   }
 
-  const cardResults: RandomDeckCardResult[] = quickBuild.deck.cards
-    .filter((deckCard) => deckCard.section === 'commander' || deckCard.section === 'main')
-    .map((deckCard) => ({
-      id: deckCard.card.id,
-      name: deckCard.card.name,
-      quantity: deckCard.quantity,
-      role: deckCard.section === 'commander' ? 'commander' : 'mainboard',
-      setCode: deckCard.card.setCode ?? undefined,
-      collectorNumber: deckCard.card.collectorNumber ?? undefined,
-    }));
+  const cardResults = deckCardResults(quickBuild.deck.cards);
 
   return {
     deckId: quickBuild.deck.id,
@@ -305,7 +301,7 @@ export async function createBasicCommanderDeckFromDatabase(
   const commander = options.includeWhiteDfc ? await findWhiteDoubleFacedCommander(request) : await findMonoWhiteCommander(request);
   const plains = await findBasicPlains(request);
   const quickBuildPayload = {
-    name: options.name,
+    name: e2eDeckName(options.name),
     cards: [
       toQuickBuildInput(commander, 'commander'),
       {
@@ -370,6 +366,25 @@ function toQuickBuildInput(card: CardSearchItem, section: DeckSection): { scryfa
     quantity: 1,
     section,
   };
+}
+
+function e2eDeckName(name: string): string {
+  const normalized = name.trim() || 'E2E Deck';
+
+  return normalized.slice(0, MAX_DECK_NAME_LENGTH).trimEnd() || 'E2E Deck';
+}
+
+function deckCardResults(deckCards: QuickBuildDeckCardPayload[]): RandomDeckCardResult[] {
+  return deckCards
+    .filter((deckCard) => deckCard.section === 'commander' || deckCard.section === 'main')
+    .map((deckCard) => ({
+      id: deckCard.card.id,
+      name: deckCard.card.name,
+      quantity: deckCard.quantity,
+      role: deckCard.section === 'commander' ? 'commander' : 'mainboard',
+      setCode: deckCard.card.setCode ?? undefined,
+      collectorNumber: deckCard.card.collectorNumber ?? undefined,
+    }));
 }
 
 async function pickSingleCard(params: {
@@ -540,25 +555,30 @@ function isCommanderCandidate(card: CardSearchItem): boolean {
   return (card.typeLine ?? '').toLowerCase().includes('legendary');
 }
 
+function isCommanderDeckEligible(card: CardSearchItem): boolean {
+  const typeLine = normalizedCardText(card.typeLine);
+  const oracleText = normalizedCardText(card.oracleText);
+
+  return !typeLine.includes('conspiracy')
+    && !/\bante\b/.test(oracleText)
+    && !/\b(?:sticker|attraction)\b/.test(`${typeLine}\n${oracleText}`);
+}
+
+function normalizedCardText(value?: string | null): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
 async function fetchCommanderLegalCatalog(
   request: APIRequestContext,
   cache: Map<string, CardSearchItem[]>,
   maxPages: number,
 ): Promise<CardSearchItem[]> {
-  const cards: CardSearchItem[] = [];
-  for (let page = 1; page <= maxPages; page += 1) {
-    const pageCards = await fetchPage(request, { commanderLegal: true }, page, cache);
-    if (pageCards.length === 0) {
-      break;
-    }
+  const pages = Array.from({ length: maxPages }, (_, index) => index + 1);
+  const results = await Promise.all(
+    pages.map((page) => fetchPage(request, { commanderLegal: true }, page, cache)),
+  );
 
-    cards.push(...pageCards);
-    if (pageCards.length < SEARCH_PAGE_SIZE) {
-      break;
-    }
-  }
-
-  return cards;
+  return results.flat();
 }
 
 async function findMonoWhiteCommander(request: APIRequestContext): Promise<CardSearchItem> {
@@ -620,9 +640,9 @@ async function findWhiteDoubleFacedCommander(request: APIRequestContext): Promis
 }
 
 function pickCommanderCandidateFromCatalog(cards: CardSearchItem[], random: () => number): CardSearchItem {
-  const commanders = cards.filter((card) => isCommanderCandidate(card));
+  const commanders = cards.filter((card) => isCommanderCandidate(card) && (card.colorIdentity ?? []).includes('W'));
   if (commanders.length === 0) {
-    throw new Error('createValidCommanderDeckFromDatabase could not find a legendary commander candidate.');
+    throw new Error('createValidCommanderDeckFromDatabase could not find a white legendary commander candidate.');
   }
 
   const sorted = commanders
@@ -707,6 +727,9 @@ function isCommanderMainboardCompatible(
     return false;
   }
   if (card.commanderLegal !== true) {
+    return false;
+  }
+  if (!isCommanderDeckEligible(card)) {
     return false;
   }
 

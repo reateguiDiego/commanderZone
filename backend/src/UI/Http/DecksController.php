@@ -8,6 +8,7 @@ use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckBracketSignalProvider;
+use App\Application\Deck\DeckBracketLabelProvider;
 use App\Application\Deck\DeckEditorTokenSnapshotService;
 use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
@@ -21,6 +22,7 @@ use App\Domain\Localization\LanguageCatalog;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
+use App\Domain\Deck\DeckVisualCatalog;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Room\RoomPlayer;
@@ -36,7 +38,7 @@ class DecksController extends ApiController
     private const MAX_DECK_NAME_LENGTH = 20;
 
     #[Route('/decks', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckBracketLabelProvider $bracketLabels): JsonResponse
     {
         $criteria = ['owner' => $user];
         if ($request->query->has('folderId')) {
@@ -53,9 +55,15 @@ class DecksController extends ApiController
         }
 
         $decks = $entityManager->getRepository(Deck::class)->findBy($criteria, ['id' => 'DESC']);
+        $cachedBracketLabels = $bracketLabels->labelsByDeckIds(array_map(static fn (Deck $deck): string => $deck->id(), $decks), true);
 
         return $this->json(['data' => array_map(
-            fn (Deck $deck): array => $this->localizeDeckPayload($deck->toArray(), $user, $localization),
+            function (Deck $deck) use ($cachedBracketLabels, $user, $localization): array {
+                $payload = $this->localizeDeckPayload($deck->toArray(), $user, $localization);
+                $payload['bracket'] = $cachedBracketLabels[$deck->id()] ?? null;
+
+                return $payload;
+            },
             $decks,
         )]);
     }
@@ -82,6 +90,10 @@ class DecksController extends ApiController
             return $this->fail('Folder not found.', 404);
         }
         $deck->moveToFolder($folder);
+        $visualsError = $this->applyDeckVisualsPayload($deck, $payload);
+        if ($visualsError !== null) {
+            return $this->fail($visualsError);
+        }
         $this->ensureUniqueSlug($deck, $entityManager);
         $entityManager->persist($deck);
         $entityManager->flush();
@@ -136,6 +148,10 @@ class DecksController extends ApiController
         }
 
         $deck->setVisibility($this->visibilityFromPayload($payload));
+        $visualsError = $this->applyDeckVisualsPayload($deck, $payload);
+        if ($visualsError !== null) {
+            return $this->fail($visualsError);
+        }
         $this->ensureUniqueSlug($deck, $entityManager);
         $entityManager->flush();
 
@@ -351,6 +367,10 @@ class DecksController extends ApiController
         }
         if (isset($payload['visibility'])) {
             $deck->setVisibility((string) $payload['visibility']);
+        }
+        $visualsError = $this->applyDeckVisualsPayload($deck, $payload);
+        if ($visualsError !== null) {
+            return $this->fail($visualsError);
         }
 
         $entityManager->flush();
@@ -850,6 +870,30 @@ class DecksController extends ApiController
         return in_array(($payload['visibility'] ?? null), [Deck::VISIBILITY_PRIVATE, Deck::VISIBILITY_PUBLIC], true)
             ? (string) $payload['visibility']
             : Deck::VISIBILITY_PRIVATE;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyDeckVisualsPayload(Deck $deck, array $payload): ?string
+    {
+        if (array_key_exists('backgroundName', $payload)) {
+            $backgroundName = trim((string) $payload['backgroundName']);
+            if (!DeckVisualCatalog::isSupportedBackgroundName($backgroundName)) {
+                return 'Deck background is invalid.';
+            }
+            $deck->setBackgroundName($backgroundName);
+        }
+
+        if (array_key_exists('sleevesName', $payload)) {
+            $sleevesName = trim((string) $payload['sleevesName']);
+            if (!DeckVisualCatalog::isSupportedSleevesName($sleevesName)) {
+                return 'Deck sleeves are invalid.';
+            }
+            $deck->setSleevesName($sleevesName);
+        }
+
+        return null;
     }
 
     private function deckNameError(string $name): ?string

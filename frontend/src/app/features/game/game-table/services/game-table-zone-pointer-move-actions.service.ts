@@ -38,7 +38,7 @@ export class GameTableZonePointerMoveActionsService {
     }
 
     if (request.toZone === 'battlefield' && request.targetPlayerId !== request.playerId) {
-      context.markPendingTransfer(request.playerId, request.fromZone, [request.instanceId], { expires: false });
+      context.markPendingTransfer(request.playerId, request.fromZone, [request.instanceId]);
       context.setPendingBattlefieldMove({
         cardName: sourceCard.name,
         targetPlayerName: context.playerName(request.targetPlayerId),
@@ -77,7 +77,7 @@ export class GameTableZonePointerMoveActionsService {
     request: ZonePointerDropRequest,
     sourceCard: GameCardInstance,
   ): void {
-    context.markPendingTransfer(request.playerId, request.fromZone, [request.instanceId], { expires: false });
+    context.markPendingTransfer(request.playerId, request.fromZone, [request.instanceId]);
     context.setPendingLibraryMove({
       cardName: sourceCard.name,
       commandType: 'card.moved',

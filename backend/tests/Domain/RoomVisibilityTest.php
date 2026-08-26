@@ -67,6 +67,25 @@ class RoomVisibilityTest extends TestCase
         self::assertFalse($room->addPlayer(new RoomPlayer($room, new User('extra@example.test', 'Extra'))));
     }
 
+    public function testRematchWaitingRoomPreservesItsOriginalMaxPlayers(): void
+    {
+        $owner = new User('rematch-owner@example.test', 'Owner');
+        $secondUser = new User('rematch-second@example.test', 'Second');
+        $leavingUser = new User('rematch-leaving@example.test', 'Leaving');
+        $room = new Room($owner);
+        $room->setMaxPlayers(4);
+        foreach ([$owner, $secondUser, $leavingUser] as $user) {
+            self::assertTrue($room->addPlayer(new RoomPlayer($room, $user)));
+        }
+
+        $room->returnToWaitingForRematch($owner, [$owner->id(), $secondUser->id()]);
+
+        self::assertSame(4, $room->maxPlayers());
+        self::assertSame(4, $room->toArray()['maxPlayers']);
+        self::assertCount(2, $room->players());
+        self::assertFalse($room->hasPlayer($leavingUser));
+    }
+
     public function testRoomStartingLifeIsClamped(): void
     {
         $room = new Room(new User('owner@example.test', 'Owner'));
@@ -258,5 +277,16 @@ class RoomVisibilityTest extends TestCase
         self::assertTrue($room->canBeViewedBy($owner));
         self::assertTrue($room->canBeViewedBy($player));
         self::assertFalse($room->canBeViewedBy($external));
+    }
+
+    public function testStartingRoomClearsWaitingExpiry(): void
+    {
+        $owner = new User('expiry-owner@example.test', 'Owner');
+        $room = new Room($owner);
+        $room->scheduleWaitingExpiry(new \DateTimeImmutable('+30 minutes'));
+
+        $room->start(new \App\Domain\Game\Game($room, ['players' => []]));
+
+        self::assertNull($room->waitingExpiresAt());
     }
 }

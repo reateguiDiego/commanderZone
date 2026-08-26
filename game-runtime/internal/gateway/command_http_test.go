@@ -217,6 +217,67 @@ func TestCommandHTTPServerDuplicateActionReturnsExistingEventAndMetric(t *testin
 	}
 }
 
+func TestCommandHTTPServerReturnsSemanticResyncAfterInjectedVersionCollisionAndActorContinues(t *testing.T) {
+	initial := runtimeMulliganState("game-http-conflict", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	runtimeService := runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers())
+	server := NewCommandHTTPServer(runtimeService)
+	if _, _, err := runtimeService.LoadActorRecovered(context.Background(), initial.GameID, nil); err != nil {
+		t.Fatalf("prime actor: %v", err)
+	}
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:    initial.GameID,
+		Version:   2,
+		Type:      "chat.message",
+		Payload:   map[string]any{"message": "control-plane isolation"},
+		CreatedBy: "player-2",
+		CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("inject conflicting event: %v", err)
+	}
+
+	body, err := json.Marshal(CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         initial.GameID,
+			BaseVersion:    1,
+			ClientActionID: "take-collides-v2",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body)))
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var conflict CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &conflict); err != nil {
+		t.Fatal(err)
+	}
+	if conflict.Code != "base_version_mismatch" || conflict.CurrentVersion != 2 {
+		t.Fatalf("semantic conflict mismatch: %#v", conflict)
+	}
+
+	next := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         initial.GameID,
+			BaseVersion:    conflict.CurrentVersion,
+			ClientActionID: "take-after-recovery",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if next.Event.Version != 3 {
+		t.Fatalf("next event version got %d want 3", next.Event.Version)
+	}
+}
+
 func TestCommandHTTPServerRejectsCommandWhenOwnershipNotHeld(t *testing.T) {
 	gameID := "game-http-owned"
 	initial := runtimeMulliganState(gameID, "player-1")

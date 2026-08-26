@@ -9,11 +9,11 @@
               <app-mana-symbols class="spoiler-section-title-symbols" [symbols]="group.titleManaSymbols" fallback="" size="small" />
             }
             {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
-            @if (group.id === 'commander') {
+            @if (group.id === 'commander' && store.deckColorIdentitySymbols().length > 0) {
               <app-mana-symbols
                 class="commander-colors"
                 [symbols]="store.deckColorIdentitySymbols()"
-                fallback="deckBuilder.deckList.colorFilter.colorless"
+                fallback=""
               />
             }
             @if (group.detail) {

@@ -22,12 +22,23 @@ export class GameTableSnapshotCoordinatorState {
     private readonly pendingTransferState: GameTablePendingTransferState,
   ) {}
 
-  setSnapshot(context: GameTableSnapshotCoordinatorContext, snapshot: GameSnapshot | null): void {
+  setSnapshot(
+    context: GameTableSnapshotCoordinatorContext,
+    snapshot: GameSnapshot | null,
+    options: { trackDropFeedback?: boolean } = {},
+  ): void {
+    // Entry feedback must only react to authoritative game changes. The
+    // viewport and optimistic transforms below can recalculate battlefield
+    // positions while processing unrelated commands (such as drawing or
+    // changing a commander cast counter).
+    if (options.trackDropFeedback !== false) {
+      this.dropFeedbackState.trackSnapshot(snapshot);
+    }
+
     const viewportSnapshot = this.battlefieldState.applyViewportClampedBattlefieldPositions(snapshot);
     const positionSnapshot = this.battlefieldState.applyOptimisticBattlefieldPositions(viewportSnapshot);
     const counterSnapshot = this.debouncedValueCommands.applyOptimisticValues(positionSnapshot);
     const nextSnapshot = this.cardsState.applyOptimisticCardCounters(counterSnapshot);
-    this.dropFeedbackState.trackSnapshot(nextSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.core.snapshot.set(nextSnapshot);
     context.openRevealedLibraryFromSnapshot(nextSnapshot);

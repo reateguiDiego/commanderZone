@@ -25,6 +25,7 @@ import {
 } from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
+import { gameTableErrorMessage } from '../state/core/game-table-error-message.util';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
@@ -41,6 +42,8 @@ export interface GameTableWebsocketGameplayContext {
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
+  onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
+  onLibraryTopRevealed?(playerId: string, count: number): void;
   onCommandBlocked?(
     reason: Extract<GameDebugQueueDeadLetterReason, 'circuit_blocked' | 'queue_full'>,
     type: GameWebsocketCommandType,
@@ -130,12 +133,14 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'library.draw_many',
   'library.shuffle',
   'library.move_top',
+  'library.play_top_face_down',
   'library.reveal_top',
   'library.reveal',
   'library.view',
   'library.play_top_revealed',
   'library.reorder_top',
   'card.face_down.changed',
+  'card.face_down.inspected',
   'card.face.changed',
   'card.revealed',
   'card.counter.changed',
@@ -154,7 +159,6 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'helper.updated',
   'helper.removed',
   'game.concede',
-  'game.close',
   'disconnect.vote',
 ]);
 
@@ -194,12 +198,14 @@ const RETRYABLE_COMMANDS = new Set<GameWebsocketCommandType>([
   'library.draw_many',
   'library.shuffle',
   'library.move_top',
+  'library.play_top_face_down',
   'library.reveal_top',
   'library.reveal',
   'library.view',
   'library.play_top_revealed',
   'library.reorder_top',
   'card.face_down.changed',
+  'card.face_down.inspected',
   'card.face.changed',
   'card.revealed',
   'card.counter.changed',
@@ -534,7 +540,23 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return true;
     }
 
-    return this.transport.send(message);
+    const sent = this.transport.send(message);
+    if (sent && message.gameId) {
+      this.scheduleMulliganReconciliation(message.gameId);
+    }
+
+    return sent;
+  }
+
+  private scheduleMulliganReconciliation(gameId: string): void {
+    window.setTimeout(() => {
+      const context = this.context;
+      if (!context || context.gameId() !== gameId) {
+        return;
+      }
+
+      void context.refetch(true);
+    }, 600);
   }
 
   private drainMulliganQueue(): void {
@@ -639,9 +661,18 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const hydratedPatch = await this.staticCardResolver.hydratePatch(patch, this.normalizedV2Store.state());
     const result = this.normalizedV2Store.applyPatch(hydratedPatch);
     if (result.status === 'applied') {
+      const isLocalPatch = this.isPatchV2ForInFlightCommand(hydratedPatch);
       this.gameplayDebugCounters.patchV2ApplyOk += 1;
       context.onMulliganPatchV2Applied?.(hydratedPatch, result.snapshot);
+      this.realtimeAnimationBus.emitPatchAnimation({
+        previousSnapshot: previousSnapshot ?? result.snapshot,
+        nextSnapshot: result.snapshot,
+        patch: hydratedPatch,
+        isLocalPatch,
+      });
       context.setSnapshot(result.snapshot);
+      this.notifyLibraryRevealed(context, hydratedPatch);
+      this.notifyLibraryTopRevealed(context, hydratedPatch);
       this.publishSnapshotMetric(context.gameId(), hydratedPatch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
@@ -660,6 +691,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       if (snapshot) {
         context.onMulliganPatchV2Applied?.(hydratedPatch, snapshot);
       }
+      // Visibility identity patches may follow their public version carrier.
+      // They are deliberately mergeable at the same version, but can still be
+      // observed after a newer non-visibility patch. Opening a read-only
+      // revealed-library/top modal is idempotent, whereas skipping this signal
+      // leaves the authorized viewer without the UI that the patch represents.
+      this.notifyLibraryRevealed(context, hydratedPatch);
+      this.notifyLibraryTopRevealed(context, hydratedPatch);
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
         reason: result.reason,
@@ -693,10 +731,40 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.drainQueue();
   }
 
+  private notifyLibraryTopRevealed(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): void {
+    for (const operation of patch.ops) {
+      if (operation.op !== 'library.top.revealed') {
+        continue;
+      }
+
+      const count = operation.count ?? operation.cards.length;
+      if (count > 1) {
+        context.onLibraryTopRevealed?.(operation.playerId, count);
+      }
+    }
+  }
+
+  private notifyLibraryRevealed(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): void {
+    for (const operation of patch.ops) {
+      if (operation.op === 'library.revealed.set') {
+        context.onLibraryRevealed?.(operation.playerId);
+      }
+      if (operation.op === 'player.library.visibility.set' && operation.revealedLibraryTo) {
+        context.onLibraryRevealed?.(operation.playerId, operation.revealedLibraryTo);
+      }
+    }
+  }
+
   private isPatchForInFlightCommand(patch: GameplayGamePatchMessage): boolean {
     const inFlight = this.inFlightCommand;
 
     return Boolean(inFlight && this.matchesInFlight(inFlight, patch.clientActionId));
+  }
+
+  private isPatchV2ForInFlightCommand(patch: GameplayPatchV2Message): boolean {
+    const inFlight = this.inFlightCommand;
+
+    return Boolean(inFlight && this.matchesInFlight(inFlight, patch.ackClientActionId ?? undefined));
   }
 
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {
@@ -781,7 +849,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     this.setErrorThrottled(
       `${clientActionId ?? 'global'}:${message.error.code}:${message.error.message}`,
-      message.error.message || 'WebSocket gameplay error.',
+      gameTableErrorMessage({
+        error: {
+          code: message.error.code,
+          detail: message.error.message,
+        },
+      }),
     );
     this.drainQueue();
   }

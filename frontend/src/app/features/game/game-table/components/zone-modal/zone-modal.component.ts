@@ -5,10 +5,23 @@ import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardSpoilerGridComponent } from '../card-spoiler-grid/card-spoiler-grid.component';
 import { ZoneModalState } from '../../state/zones/game-table-zone-modal.state';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../../../shared/components/format-select/format-select.component';
+
+const CARD_TYPE_OPTIONS: readonly FormatSelectOption[] = [
+  { id: '', labelKey: 'game.zoneModal.allTypes' },
+  { id: 'creature', labelKey: 'game.zoneModal.creatures' },
+  { id: 'instant', labelKey: 'game.zoneModal.instants' },
+  { id: 'sorcery', labelKey: 'game.zoneModal.sorceries' },
+  { id: 'artifact', labelKey: 'game.zoneModal.artifacts' },
+  { id: 'enchantment', labelKey: 'game.zoneModal.enchantments' },
+  { id: 'planeswalker', labelKey: 'game.zoneModal.planeswalkers' },
+  { id: 'land', labelKey: 'game.zoneModal.lands' },
+];
 
 @Component({
   selector: 'app-zone-modal',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent, CzButtonDirective, FormatSelectComponent],
   templateUrl: './zone-modal.component.html',
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -19,6 +32,7 @@ export class ZoneModalComponent implements OnDestroy {
 
   readonly modal = input.required<ZoneModalState>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
+  readonly cardTypeOptions = CARD_TYPE_OPTIONS;
 
   readonly close = output<void>();
   readonly filterChanged = output<Partial<Pick<ZoneModalState, 'type' | 'search'>>>();

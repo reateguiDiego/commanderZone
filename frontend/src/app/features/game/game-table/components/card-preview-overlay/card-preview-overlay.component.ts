@@ -5,6 +5,7 @@ import { GameCardDungeonMarker, GameCardInstance } from '../../../../../core/mod
 import { CardPreviewAttachmentInfo, CardPreviewCardStateInfo, CardPreviewSourceRect } from '../../models/card-preview.model';
 import { CardMarkerRailComponent } from '../game-card-view/card-marker-rail/card-marker-rail.component';
 import { DungeonLocationPinComponent } from '../dungeon-location-pin/dungeon-location-pin.component';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 import { BattleCounterComponent } from '../game-card-view/battle-counter/battle-counter.component';
 import { LoyaltyCounterComponent } from '../game-card-view/loyalty-counter/loyalty-counter.component';
 import { SagaCounterComponent } from '../game-card-view/saga-counter/saga-counter.component';
@@ -58,6 +59,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
     BattleCounterComponent,
     LoyaltyCounterComponent,
     SagaCounterComponent,
+    TooltipComponent,
   ],
   templateUrl: './card-preview-overlay.component.html',
   styleUrl: './card-preview-overlay.component.scss',
@@ -72,12 +74,16 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   readonly battlefieldRect = input.required<BattlefieldRect>();
   readonly attachmentInfo = input<CardPreviewAttachmentInfo | null>(null);
   readonly cardStateInfo = input<CardPreviewCardStateInfo | null>(null);
+  readonly revealLabel = input<string | null>(null);
+  readonly showFaceDownPill = input(false);
   readonly hasAttachmentDetails = computed(() => {
     const info = this.attachmentInfo();
 
     return info !== null && (info.attachedTo !== null || info.attachedCards.length > 0);
   });
-  readonly hasDetailInfo = computed(() => this.attachmentInfo() !== null || this.cardStateInfo() !== null);
+  readonly hasDetailInfo = computed(() =>
+    this.attachmentInfo() !== null || this.cardStateInfo() !== null || this.revealLabel() !== null || this.showFaceDownPill(),
+  );
   readonly dungeonMarker = computed(() => this.dungeonMarkerOverride() ?? dungeonMarkerForCard(this.card()));
   readonly faceFlipAnimating = signal(false);
   readonly battlePreviewRotated = computed(() => !this.card().faceDown && isBattleCard(this.card()));

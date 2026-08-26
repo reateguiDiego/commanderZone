@@ -3,10 +3,12 @@ package actor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
+	"commanderzone/game-runtime/internal/lifecycle"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
@@ -17,7 +19,10 @@ var (
 	ErrVersionConflict            = errors.New("baseVersion does not match actor version")
 	ErrUnknownCommand             = errors.New("unknown command")
 	ErrActorStopped               = errors.New("game actor stopped")
+	ErrGameClosing                = errors.New("game is closing")
+	ErrGameFinished               = errors.New("game is finished")
 	ErrActorPermission            = errors.New("actor is not allowed to perform command")
+	ErrStalePresenceGeneration    = errors.New("stale presence generation")
 	ErrRuntimePatchReceiptMissing = errors.New("runtime patch receipt missing for duplicate command")
 )
 
@@ -52,25 +57,30 @@ func DefaultSnapshotPolicy() SnapshotPolicy {
 }
 
 type GameActor struct {
-	gameID              string
-	state               *state.GameState
-	store               persistence.EventStore
-	appliers            map[string]Applier
-	mailbox             chan CommandRequest
-	seenActions         map[string]CommandResult
-	seenActionOrder     []string
-	startedAt           time.Time
-	lastHeartbeat       time.Time
-	stop                chan struct{}
-	stopped             chan struct{}
-	stopOnce            sync.Once
-	stateMu             sync.RWMutex
-	metricsMu           sync.RWMutex
-	metrics             ActorMetrics
-	snapshotPolicy      SnapshotPolicy
-	eventsSinceSnapshot int
-	lastSnapshotAt      time.Time
-	commandGuard        func(context.Context) (persistence.FencingToken, error)
+	gameID                  string
+	state                   *state.GameState
+	store                   persistence.EventStore
+	appliers                map[string]Applier
+	mailbox                 chan CommandRequest
+	seenActions             map[string]CommandResult
+	seenActionOrder         []string
+	startedAt               time.Time
+	lastHeartbeat           time.Time
+	stop                    chan struct{}
+	stopped                 chan struct{}
+	stopOnce                sync.Once
+	stateMu                 sync.RWMutex
+	metricsMu               sync.RWMutex
+	metrics                 ActorMetrics
+	snapshotPolicy          SnapshotPolicy
+	eventsSinceSnapshot     int
+	lastSnapshotAt          time.Time
+	closing                 bool
+	commandGuard            func(context.Context) (persistence.FencingToken, error)
+	lifecycleSink           lifecycle.Sink
+	lifecycleGeneration     int64
+	lifecycleConfirmed      func(lifecycle.Handoff)
+	internalResultPublisher func(context.Context, CommandResult)
 }
 
 type ActorMetrics struct {
@@ -137,9 +147,71 @@ func NewGameActorWithSnapshotPolicy(gameID string, initial state.GameState, stor
 	}
 }
 
+func (a *GameActor) SetLifecycleSink(sink lifecycle.Sink, generation int64) {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	a.lifecycleSink = sink
+	if generation < 1 {
+		generation = 1
+	}
+	a.lifecycleGeneration = generation
+}
+
+// SetLifecycleConfirmedHook runs only after Symfony has accepted an idempotent
+// lifecycle handoff. Runtime owns this hook to release an actor after finish;
+// it never writes to the gameplay event stream.
+func (a *GameActor) SetLifecycleConfirmedHook(hook func(lifecycle.Handoff)) {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	a.lifecycleConfirmed = hook
+}
+
+// SetInternalResultPublisher is used only by actor-owned lifecycle work (for
+// example a disconnect deadline resolved from the heartbeat). It lets the WS
+// gateway fan out the already persisted compact patch without making an extra
+// command or polling the actor.
+func (a *GameActor) SetInternalResultPublisher(publisher func(context.Context, CommandResult)) {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	a.internalResultPublisher = publisher
+}
+
+// BeginClosing fences the actor before runtime disposal. Already-completed
+// events remain durable, while queued and subsequent gameplay commands receive
+// a semantic closing result instead of a version conflict.
+func (a *GameActor) BeginClosing() {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	a.closing = true
+}
+
+// ClearDisconnectVotesForAllOffline removes actor-hot vote state and records
+// the final offline presence in the compact snapshot without a gameplay event.
+// With zero connected players there is no eligible voter; the persisted
+// all-disconnected lifecycle is the only authority.
+func (a *GameActor) ClearDisconnectVotesForAllOffline() bool {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	changed := len(a.state.DisconnectVotes) > 0
+	a.state.DisconnectVotes = map[string]map[string]any{}
+	for playerID, player := range a.state.Players {
+		if online, ok := player["isOnline"].(bool); ok && !online {
+			continue
+		}
+		player["isOnline"] = false
+		a.state.Players[playerID] = player
+		changed = true
+	}
+	return changed
+}
+
 func (a *GameActor) Enqueue(request CommandRequest) error {
 	if request.EnqueuedAt.IsZero() {
 		request.EnqueuedAt = time.Now().UTC()
+	}
+	if a.isClosing() {
+		a.recordRejected(0, 0)
+		return ErrGameClosing
 	}
 	select {
 	case <-a.stopped:
@@ -192,12 +264,88 @@ func (a *GameActor) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			a.TouchHeartbeat()
+			a.resolveDueDisconnectVotes(ctx)
 		case request := <-a.mailbox:
 			result := a.apply(ctx, request)
 			if request.Reply != nil {
 				request.Reply <- result
 			}
 		}
+	}
+}
+
+// resolveDueDisconnectVotes shares the actor's existing heartbeat tick. It
+// resolves expired ballots and reopens cooldowns for targets that remain
+// offline. The number of inspected votes is bounded by the current game,
+// never global.
+func (a *GameActor) resolveDueDisconnectVotes(ctx context.Context) {
+	snapshot := a.Snapshot()
+	if snapshot.Status == "finished" || a.isClosing() {
+		return
+	}
+	now := time.Now().UTC()
+	for targetPlayerID, vote := range snapshot.DisconnectVotes {
+		var actionID string
+		var payload map[string]any
+		switch vote["status"] {
+		case "open":
+			deadlineAt, ok := vote["deadlineAt"].(string)
+			if !ok {
+				continue
+			}
+			deadline, err := time.Parse(time.RFC3339, deadlineAt)
+			if err != nil || now.Before(deadline) {
+				continue
+			}
+			actionID = fmt.Sprintf("disconnect-timeout:%s:%s", targetPlayerID, deadlineAt)
+			payload = map[string]any{"targetPlayerId": targetPlayerID, "status": "timeout"}
+		case "resolved_wait":
+			cooldownUntil, ok := vote["cooldownUntil"].(string)
+			if !ok {
+				continue
+			}
+			cooldown, err := time.Parse(time.RFC3339, cooldownUntil)
+			if err != nil || now.Before(cooldown) {
+				continue
+			}
+			eligible := disconnectVoteEligible(vote, &snapshot, targetPlayerID, nil)
+			if len(eligible) == 0 {
+				continue
+			}
+			actionID = fmt.Sprintf("disconnect-reopen:%s:%s", targetPlayerID, cooldownUntil)
+			payload = map[string]any{"targetPlayerId": targetPlayerID, "status": "offline", "connectedUserIds": eligible}
+		default:
+			continue
+		}
+		result := a.ApplyDirect(ctx, protocol.CommandEnvelopeV2{
+			GameID: a.gameID, BaseVersion: a.Version(),
+			ClientActionID: actionID,
+			Type:           "disconnect.vote",
+			Payload:        payload,
+			Client:         map[string]any{"source": "runtime_actor_tick"},
+		}, "")
+		if result.Err != nil && !errors.Is(result.Err, ErrVersionConflict) {
+			slog.Warn("runtime due disconnect vote transition failed", "gameId", a.gameID, "targetPlayerId", targetPlayerID, "error", result.Err)
+			continue
+		}
+		if result.Err == nil {
+			a.publishInternalResult(ctx, result)
+		}
+	}
+}
+
+func (a *GameActor) isClosing() bool {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.closing
+}
+
+func (a *GameActor) publishInternalResult(ctx context.Context, result CommandResult) {
+	a.stateMu.RLock()
+	publisher := a.internalResultPublisher
+	a.stateMu.RUnlock()
+	if publisher != nil {
+		publisher(ctx, result)
 	}
 }
 
@@ -256,6 +404,15 @@ func (a *GameActor) Snapshot() state.GameState {
 	return a.state.Clone()
 }
 
+// PresenceGeneration exposes only the actor-owned fence for a player. The
+// gateway uses it to seed a new local presence sequence after process/runtime
+// recovery without consulting the gameplay event store.
+func (a *GameActor) PresenceGeneration(playerID string) int64 {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.state.PresenceGenerations[playerID]
+}
+
 func (a *GameActor) ApplyDirect(ctx context.Context, command protocol.CommandEnvelopeV2, actorID string) CommandResult {
 	return a.apply(ctx, CommandRequest{Command: command, ActorID: actorID})
 }
@@ -289,6 +446,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
+	if a.closing {
+		return a.rejectedResult(ErrGameClosing, queueWait, startedAt)
+	}
 
 	command := request.Command
 	if err := command.Validate(); err != nil {
@@ -300,15 +460,25 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		aliasTranslated = true
 		a.recordAliasTranslation()
 	}
+	// Gateway presence is an actor-internal lifecycle signal, not a browser
+	// gameplay command. Its execution point is the mailbox, so rebase it under
+	// the actor lock instead of reading the stream to discover a version. The
+	// presence generation in the payload still fences stale async transitions.
+	a.rebaseRuntimePresenceCommandLocked(&command)
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
 		if !eventCreatedByMatches(existing.Event, request.ActorID) {
 			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
 		}
 		a.recordDuplicateMemoryAction(queueWait, time.Since(startedAt))
+		a.deliverLifecycleHandoffLocked(ctx, existing.Event, fence.Token)
 		slog.Debug("runtime duplicate command served from actor memory", "gameId", a.gameID, "version", existing.Event.Version, "clientActionId", command.ClientActionID)
 		return existing
 	}
-	if a.store != nil && command.ClientActionID != "" {
+	// Presence commands carry an actor-persisted generation fence, so their
+	// normal path never needs an idempotency lookup just to discover state. A
+	// retried generation is rejected locally as stale; durable lookup remains
+	// available only on the exceptional append-conflict path below.
+	if a.store != nil && command.ClientActionID != "" && !isRuntimePresenceCommand(command) {
 		result, ok, err := a.storedDuplicateResult(ctx, command, request.ActorID)
 		if err != nil {
 			if errors.Is(err, ErrActorPermission) {
@@ -319,6 +489,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		}
 		if ok {
 			a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+			a.deliverLifecycleHandoffLocked(ctx, result.Event, fence.Token)
 			slog.Debug("runtime duplicate command served from durable event store", "gameId", a.gameID, "version", result.Event.Version, "clientActionId", command.ClientActionID)
 			return result
 		}
@@ -328,6 +499,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	if result, ok := a.idempotentConcedeResultLocked(command, request.ActorID, queueWait, startedAt); ok {
 		return result
+	}
+	if a.state.Status == "finished" {
+		return a.rejectedResult(ErrGameFinished, queueWait, startedAt)
 	}
 	if command.BaseVersion > a.state.Version && a.store != nil {
 		if err := a.catchUpPersistedEventsLocked(ctx, command.BaseVersion); err != nil {
@@ -392,6 +566,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			Op:   "eventLog.append",
 			Data: map[string]any{"entries": logEntries},
 		})
+		for viewerID, privateEntries := range runtimePrivateRevealLogEntries(a.state, command, eventPayload, logEntries) {
+			emitter.EmitPrivate(viewerID, protocol.PatchOp{
+				Op:   "eventLog.append",
+				Data: map[string]any{"entries": privateEntries},
+			})
+		}
 	}
 
 	event := protocol.EventPayloadV2{
@@ -435,6 +615,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		}
 		if err != nil {
 			rollback.Restore(a.state)
+			if errors.Is(err, persistence.ErrGameClosing) {
+				return a.rejectedResult(ErrGameClosing, queueWait, startedAt)
+			}
 			if isRecoverableDuplicateAppend(err) && command.ClientActionID != "" {
 				result, ok, lookupErr := a.storedDuplicateResult(ctx, command, request.ActorID)
 				if lookupErr != nil {
@@ -446,9 +629,20 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 				}
 				if ok {
 					a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+					a.deliverLifecycleHandoffLocked(ctx, result.Event, fence.Token)
 					slog.Debug("runtime duplicate command recovered after durable append conflict", "gameId", a.gameID, "version", result.Event.Version, "clientActionId", command.ClientActionID)
 					return result
 				}
+			}
+			if errors.Is(err, persistence.ErrDuplicateVersion) {
+				previousVersion := a.state.Version
+				if recoveryErr := a.recoverAuthoritativeStateLocked(ctx); recoveryErr != nil {
+					slog.Error("runtime actor authoritative recovery failed after stream version conflict", "gameId", a.gameID, "actorVersion", previousVersion, "clientActionId", command.ClientActionID, "error", recoveryErr)
+				} else {
+					slog.Warn("runtime actor recovered after stream version conflict", "gameId", a.gameID, "previousVersion", previousVersion, "authoritativeVersion", a.state.Version, "clientActionId", command.ClientActionID)
+				}
+				a.recordVersionConflict()
+				return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
 			}
 			return a.rejectedResult(err, queueWait, startedAt)
 		}
@@ -458,6 +652,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		Event:   event,
 		Patches: patches,
 	}
+	a.deliverLifecycleHandoffLocked(ctx, event, fence.Token)
 	a.rememberSeenAction(command.ClientActionID, result)
 	a.lastHeartbeat = time.Now().UTC()
 	a.eventsSinceSnapshot++
@@ -467,6 +662,90 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	a.recordApplied(queueWait, time.Since(startedAt))
 	return result
+}
+
+func isRuntimePresenceCommand(command protocol.CommandEnvelopeV2) bool {
+	if command.Type != "disconnect.vote" || command.Client == nil {
+		return false
+	}
+	source, _ := command.Client["source"].(string)
+	return source == "runtime_ws_presence"
+}
+
+func (a *GameActor) rebaseRuntimePresenceCommandLocked(command *protocol.CommandEnvelopeV2) {
+	if command == nil || !isRuntimePresenceCommand(*command) {
+		return
+	}
+	baseVersion := a.state.Version
+	if baseVersion < 1 {
+		baseVersion = 1
+	}
+	command.BaseVersion = baseVersion
+}
+
+// recoverAuthoritativeStateLocked is deliberately restricted to the exceptional
+// append-conflict path. Normal gameplay commands never read before writing.
+func (a *GameActor) recoverAuthoritativeStateLocked(ctx context.Context) error {
+	if a.store == nil {
+		return ErrVersionConflict
+	}
+
+	// The rolled-back actor state is already a compact authoritative base. The
+	// cheapest recovery is therefore the missing durable tail only.
+	if recovered, err := a.recoverFromBaseLocked(ctx, a.state.Clone()); err == nil && recovered.Version > a.state.Version {
+		*a.state = recovered
+		a.eventsSinceSnapshot = 0
+		a.lastHeartbeat = time.Now().UTC()
+		return nil
+	}
+
+	// A compact snapshot is the fallback for an unexpected gap/corrupt local
+	// base. This remains exceptional and never enters the normal command path.
+	snapshot, ok, err := a.store.LatestSnapshot(ctx, a.gameID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrVersionConflict
+	}
+	recovered, err := a.recoverFromBaseLocked(ctx, snapshot.State)
+	if err != nil {
+		return err
+	}
+	if recovered.Version <= a.state.Version {
+		return ErrVersionConflict
+	}
+
+	*a.state = recovered
+	a.eventsSinceSnapshot = 0
+	a.lastHeartbeat = time.Now().UTC()
+	return nil
+}
+
+func (a *GameActor) recoverFromBaseLocked(ctx context.Context, base state.GameState) (state.GameState, error) {
+	state.NormalizeForRecovery(a.gameID, &base)
+	events, err := a.store.EventsAfter(ctx, a.gameID, base.Version)
+	if err != nil {
+		return state.GameState{}, err
+	}
+	for _, event := range events {
+		if event.Version != base.Version+1 {
+			return state.GameState{}, ErrVersionConflict
+		}
+		if actorExternalNoopEvent(event.Type) {
+			base.Version = event.Version
+			continue
+		}
+		if err := ReplayEventWithAppliers(&base, eventWithoutRuntimePatchReceipt(event), a.appliersList()); err != nil {
+			return state.GameState{}, err
+		}
+		base.Version = event.Version
+	}
+	state.RebuildLocIndexForRecoveryOnly(&base)
+	if err := state.ValidateInvariants(base); err != nil {
+		return state.GameState{}, err
+	}
+	return base, nil
 }
 
 func (a *GameActor) catchUpPersistedEventsLocked(ctx context.Context, targetVersion int64) error {
@@ -531,7 +810,7 @@ func (a *GameActor) appliersList() []Applier {
 
 func actorExternalNoopEvent(eventType string) bool {
 	switch eventType {
-	case "rematch.vote", "chat.message", "chat.reaction.toggled":
+	case "chat.message", "chat.reaction.toggled":
 		return true
 	default:
 		return false
@@ -540,7 +819,7 @@ func actorExternalNoopEvent(eventType string) bool {
 
 func actorAllowsStaleBaseOverEvent(eventType string) bool {
 	switch eventType {
-	case "rematch.vote", "chat.message", "chat.reaction.toggled", "disconnect.vote.updated":
+	case "chat.message", "chat.reaction.toggled", "disconnect.vote.updated":
 		return true
 	default:
 		return false
@@ -576,6 +855,23 @@ func (a *GameActor) storedDuplicateResult(ctx context.Context, command protocol.
 	}
 	a.rememberSeenAction(command.ClientActionID, result)
 	return result, true, nil
+}
+
+func (a *GameActor) deliverLifecycleHandoffLocked(ctx context.Context, event protocol.EventPayloadV2, fencing uint64) {
+	if a.lifecycleSink == nil {
+		return
+	}
+	handoff, ok := lifecycle.FromPersistedEvent(event, fencing, a.lifecycleGeneration)
+	if !ok {
+		return
+	}
+	if err := a.lifecycleSink.Deliver(ctx, handoff); err != nil {
+		slog.Warn("runtime lifecycle handoff failed after durable event append", "gameId", a.gameID, "version", event.Version, "eventId", handoff.EventID, "type", handoff.Type, "error", err)
+		return
+	}
+	if a.lifecycleConfirmed != nil {
+		a.lifecycleConfirmed(handoff)
+	}
 }
 
 func (a *GameActor) idempotentConcedeResultLocked(command protocol.CommandEnvelopeV2, actorID string, queueWait time.Duration, startedAt time.Time) (CommandResult, bool) {

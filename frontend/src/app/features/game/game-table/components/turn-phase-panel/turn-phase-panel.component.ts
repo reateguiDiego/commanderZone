@@ -1,13 +1,21 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameSnapshot } from '../../../../../core/models/game.model';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { CompactCheckboxComponent } from '../../../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { PlayerView } from '../../game-table.store';
 import { PlayersOrderComponent } from './players-order/players-order.component';
 
 @Component({
   selector: 'app-turn-phase-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayersOrderComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    LucideAngularModule,
+    PlayersOrderComponent,
+    CzButtonDirective,
+    CompactCheckboxComponent,
+  ],
   templateUrl: './turn-phase-panel.component.html',
   styleUrl: './turn-phase-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,12 +26,22 @@ export class TurnPhasePanelComponent {
   readonly phases = input.required<ReadonlyArray<string>>();
   readonly currentPlayerId = input.required<string | null>();
   readonly isPhasePast = input.required<(phase: string) => boolean>();
-  readonly pending = input.required<boolean>();
   readonly canAdvance = input.required<boolean>();
   readonly followActiveTurnPlayer = input(false);
   readonly advancePhase = output<void>();
   readonly passTurn = output<void>();
   readonly followActiveTurnPlayerChanged = output<boolean>();
+  readonly activeTurnPlayerName = computed(() => {
+    const activePlayerId = this.turn().activePlayerId;
+    if (!activePlayerId) {
+      return null;
+    }
+
+    const player = this.players().find(({ id }) => id === activePlayerId);
+    const displayName = player?.state.user.displayName?.trim();
+
+    return displayName || null;
+  });
 
   isCurrentTurnPlayer(): boolean {
     const currentPlayerId = this.currentPlayerId();
@@ -64,11 +82,6 @@ export class TurnPhasePanelComponent {
       default:
         return this.phaseLabel(phase).replace('-', ' ');
     }
-  }
-
-  updateFollowActiveTurnPlayer(event: Event): void {
-    const checked = event.target instanceof HTMLInputElement && event.target.checked;
-    this.followActiveTurnPlayerChanged.emit(checked);
   }
 
   private phaseLabel(phase: string): string {

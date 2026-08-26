@@ -73,6 +73,28 @@ describe('DeckCardTextViewComponent', () => {
     expect(icon?.classList).toContain('ms-commander');
   });
 
+  it('does not render commander color identity when no commander identity exists', async () => {
+    const fixture = await setup(storeStub({ groupId: 'commander', groupTitle: 'Comandante', groupCards: [] }));
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.commander-colors')).toBeNull();
+    expect(element.textContent).not.toContain('deckBuilder.deckList.colorFilter.colorless');
+  });
+
+  it('renders generic mana for a colorless commander identity', async () => {
+    const fixture = await setup(storeStub({
+      groupId: 'commander',
+      groupTitle: 'Comandante',
+      groupCards: [],
+      deckColorIdentitySymbols: ['1'],
+    }));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.commander-colors .ms-1')).not.toBeNull();
+  });
+
   it('flips card faces from text rows without opening the card menu', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);
@@ -227,6 +249,7 @@ function storeStub(options: {
   groupId?: string;
   groupTitle?: string;
   groupCards?: DeckCard[];
+  deckColorIdentitySymbols?: readonly string[];
 } = {}) {
   const entry: DeckCard = options.entry ?? { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
   const groupCards = options.groupCards ?? [entry];
@@ -250,7 +273,7 @@ function storeStub(options: {
     toggleCardMenu: vi.fn(),
     displayCardName: (value: Card) => value.name,
     displayCardListName: (value: Card) => value.name,
-    deckColorIdentitySymbols: () => [],
+    deckColorIdentitySymbols: () => options.deckColorIdentitySymbols ?? [],
     displayCardManaCost: options.displayCardManaCost ?? ((value: Card) => value.manaCost),
     hasAlternateFace: () => options.hasAlternateFace ?? false,
     toggleCardFace: vi.fn(),

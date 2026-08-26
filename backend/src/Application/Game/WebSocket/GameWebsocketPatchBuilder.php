@@ -110,9 +110,7 @@ final readonly class GameWebsocketPatchBuilder
             'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
-            'rematch.vote' => $this->rematchVote($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
-            'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
             default => null,
         };
@@ -827,19 +825,35 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function cardProjectionChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
-        $location = $this->payloadCardLocation($payload);
-        if ($location === null) {
+        $locations = $this->payloadCardLocations($payload);
+        if ($locations === []) {
             return null;
         }
 
-        $operations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
-        if ($operations === null) {
-            return null;
+        $operations = [];
+        $touchesSensitiveProjection = false;
+        $refreshedTargets = [];
+        foreach ($locations as $location) {
+            $refreshTarget = $this->isHiddenZone($location['zone'])
+                ? sprintf('%s:%s', $location['playerId'], $location['zone'])
+                : sprintf('%s:%s:%s', $location['playerId'], $location['zone'], $location['instanceId']);
+            if (!isset($refreshedTargets[$refreshTarget])) {
+                $refreshOperations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
+                if ($refreshOperations === null) {
+                    return null;
+                }
+
+                $operations = [...$operations, ...$refreshOperations];
+                $refreshedTargets[$refreshTarget] = true;
+            }
+
+            $touchesSensitiveProjection = $touchesSensitiveProjection
+                || $this->operationTouchesSensitiveProjection($nextSnapshot, $location);
         }
 
         return [
             ...$operations,
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $this->operationTouchesSensitiveProjection($nextSnapshot, $location)),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $touchesSensitiveProjection),
         ];
     }
 
@@ -1197,22 +1211,6 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function rematchVote(array $previousSnapshot, array $nextSnapshot): ?array
-    {
-        $operations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
-        if ($operations === null) {
-            return null;
-        }
-
-        return [
-            ...$operations,
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
-        ];
-    }
-
-    /**
-     * @return list<array<string,mixed>>|null
-     */
     private function collectionDiffOperations(
         array $previousSnapshot,
         array $nextSnapshot,
@@ -1399,7 +1397,7 @@ final readonly class GameWebsocketPatchBuilder
     {
         $operations = [[
             'op' => 'disconnect.vote.set',
-            'disconnectVote' => is_array($nextSnapshot['disconnectVote'] ?? null) ? $nextSnapshot['disconnectVote'] : null,
+            'disconnectVotes' => is_array($nextSnapshot['disconnectVotes'] ?? null) ? $nextSnapshot['disconnectVotes'] : [],
         ]];
         $rematchOperations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
         if ($rematchOperations === null) {
@@ -1409,9 +1407,8 @@ final readonly class GameWebsocketPatchBuilder
             $operations = [...$operations, ...$rematchOperations];
         }
 
-        $targetPlayerId = is_string($nextSnapshot['disconnectVote']['targetPlayerId'] ?? null)
-            ? $nextSnapshot['disconnectVote']['targetPlayerId']
-            : null;
+        $changedVote = $this->changedDisconnectVote($previousSnapshot, $nextSnapshot);
+        $targetPlayerId = is_string($changedVote['targetPlayerId'] ?? null) ? $changedVote['targetPlayerId'] : null;
         if ($targetPlayerId !== null) {
             $previousPlayer = $previousSnapshot['players'][$targetPlayerId] ?? null;
             $nextPlayer = $nextSnapshot['players'][$targetPlayerId] ?? null;
@@ -1450,6 +1447,24 @@ final readonly class GameWebsocketPatchBuilder
             ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $previousSnapshot
+     * @param array<string,mixed> $nextSnapshot
+     * @return array<string,mixed>
+     */
+    private function changedDisconnectVote(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $previousVotes = is_array($previousSnapshot['disconnectVotes'] ?? null) ? $previousSnapshot['disconnectVotes'] : [];
+        $nextVotes = is_array($nextSnapshot['disconnectVotes'] ?? null) ? $nextSnapshot['disconnectVotes'] : [];
+        foreach ($nextVotes as $targetPlayerId => $vote) {
+            if (is_string($targetPlayerId) && is_array($vote) && ($previousVotes[$targetPlayerId] ?? null) !== $vote) {
+                return $vote;
+            }
+        }
+
+        return [];
     }
 
     /**
@@ -1590,6 +1605,37 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return ['playerId' => $playerId, 'zone' => $zone, 'instanceId' => $instanceId];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return list<array{playerId:string,zone:string,instanceId:string}>
+     */
+    private function payloadCardLocations(array $payload): array
+    {
+        $playerId = $this->payloadString($payload, 'playerId');
+        $zone = $this->payloadString($payload, 'zone');
+        if ($playerId === null || $zone === null) {
+            return [];
+        }
+
+        $instanceIds = is_array($payload['instanceIds'] ?? null)
+            ? $payload['instanceIds']
+            : [$payload['instanceId'] ?? null];
+        $normalizedIds = array_values(array_unique(array_filter(
+            $instanceIds,
+            static fn (mixed $instanceId): bool => is_string($instanceId) && trim($instanceId) !== '',
+        )));
+
+        return array_map(
+            static fn (string $instanceId): array => [
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'instanceId' => trim($instanceId),
+            ],
+            $normalizedIds,
+        );
     }
 
     /**

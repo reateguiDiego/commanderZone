@@ -55,7 +55,7 @@ final class GameplayBaselineFixtureFactory
                 'concededAt' => null,
                 'deckName' => sprintf('Performance Deck %d', $index),
                 'colorIdentity' => $this->colorIdentityForPlayer($index),
-                'backgroundName' => sprintf('%s_%d', ['W', 'U', 'B', 'R'][$index - 1], $index),
+                'backgroundName' => ['free_1', 'free_2', 'free_3', 'free_4'][$index - 1],
                 'sleevesName' => 'default',
                 'life' => 40 - ($index - 1),
                 'playTopLibraryRevealed' => false,

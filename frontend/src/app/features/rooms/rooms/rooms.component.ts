@@ -450,8 +450,8 @@ export class RoomsComponent implements OnInit, OnDestroy {
   }
 
   private showRouteToastFromNavigation(): void {
-    const state = this.router.getCurrentNavigation()?.extras.state ?? (typeof history === 'undefined' ? null : history.state);
-    const toast = typeof state?.['toast'] === 'string' ? state['toast'].trim() : '';
+    const info = this.router.getCurrentNavigation()?.extras.info;
+    const toast = this.navigationToast(info);
     if (!toast) {
       return;
     }
@@ -463,6 +463,16 @@ export class RoomsComponent implements OnInit, OnDestroy {
       }
       this.routeToastHandle = undefined;
     }, 3000);
+  }
+
+  private navigationToast(info: unknown): string {
+    if (typeof info !== 'object' || info === null) {
+      return '';
+    }
+
+    const toast = (info as Record<string, unknown>)['toast'];
+
+    return typeof toast === 'string' ? toast.trim() : '';
   }
 
   private syncCurrentRoom(rooms: Room[]): void {

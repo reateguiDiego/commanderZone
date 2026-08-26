@@ -305,7 +305,7 @@ describe('ManaActionDialogComponent', () => {
     amountInput.value = '120';
     amountInput.dispatchEvent(new Event('input'));
 
-    expect(changes).toContainEqual({ amount: 99 });
+    expect(changes).toContainEqual({ amount: 12 });
   });
 
   it('shows restrictions before confirming restricted mana', () => {

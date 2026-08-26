@@ -278,6 +278,8 @@ export interface DeckBracketEstimate {
   explanation: DeckBracketExplanation;
 }
 
+export type DeckBracketLabel = Pick<DeckBracketEstimate, 'bracket' | 'label'>;
+
 export interface TypeBreakdownAnalysis {
   sections: CardSectionAnalysis[];
 }

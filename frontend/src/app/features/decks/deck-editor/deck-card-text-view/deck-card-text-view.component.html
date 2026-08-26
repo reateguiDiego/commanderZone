@@ -10,11 +10,11 @@
             }
             <span class="deck-group-title">
               {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
-              @if (group.id === 'commander') {
+              @if (group.id === 'commander' && store.deckColorIdentitySymbols().length > 0) {
                 <app-mana-symbols
                   class="commander-colors"
                   [symbols]="store.deckColorIdentitySymbols()"
-                  fallback="deckBuilder.deckList.colorFilter.colorless"
+                  fallback=""
                 />
               }
               @if (group.detail) {

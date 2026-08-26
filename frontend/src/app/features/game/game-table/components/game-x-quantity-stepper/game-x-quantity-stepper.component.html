@@ -1,6 +1,9 @@
 <div class="number-selector" [attr.aria-label]="ariaLabel()">
   <input
-    type="number"
+    type="text"
+    inputmode="numeric"
+    pattern="[0-9]*"
+    maxlength="2"
     [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-input' : null"
     [attr.min]="min()"
     [attr.max]="max()"

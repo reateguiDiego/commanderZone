@@ -7,7 +7,10 @@
 
     <div class="number-selector" data-testid="number-action-selector">
       <input
-        type="number"
+        type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        maxlength="2"
         data-testid="number-action-input"
         [attr.min]="min()"
         [attr.max]="max()"
@@ -19,6 +22,8 @@
         <button
           class="number-stepper-button"
           type="button"
+          czButton="icon"
+          czButtonSize="sm"
           data-testid="number-action-increase"
           [attr.aria-label]="'game.numberActionDialog.increaseValue' | runtimeTranslate"
           [disabled]="!canStepUp()"
@@ -29,6 +34,8 @@
         <button
           class="number-stepper-button"
           type="button"
+          czButton="icon"
+          czButtonSize="sm"
           data-testid="number-action-decrease"
           [attr.aria-label]="'game.numberActionDialog.decreaseValue' | runtimeTranslate"
           [disabled]="!canStepDown()"
@@ -39,9 +46,15 @@
       </div>
     </div>
 
+    @if (max(); as deckCardCount) {
+      <p class="number-action-deck-count" data-testid="number-action-deck-count">
+        {{ 'game.numberAction.deckCardCount' | runtimeTranslate: { count: deckCardCount } }}
+      </p>
+    }
+
     <footer>
-      <button type="button" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() | runtimeTranslate }}</button>
-      <button class="primary-action" type="submit" data-testid="number-action-confirm">{{ confirmLabel() | runtimeTranslate }}</button>
+      <button type="button" czButton="secondary" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() | runtimeTranslate }}</button>
+      <button class="primary-action" type="submit" czButton="primary" data-testid="number-action-confirm">{{ confirmLabel() | runtimeTranslate }}</button>
     </footer>
   </form>
 </section>

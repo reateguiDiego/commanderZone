@@ -144,7 +144,7 @@ describe('CreatePlaymatSpoilerComponent', () => {
     expect(saveEvents.length).toBe(0);
   });
 
-  it('enables save and emits from the footer action when the selected playmat changed', () => {
+  it('enables selection and emits from the footer action when the selected playmat changed', () => {
     const fixture = TestBed.createComponent(CreatePlaymatSpoilerComponent);
     const saveEvents: void[] = [];
     fixture.componentRef.setInput('selectedPlaymatPath', PLAYMAT_OPTIONS[1].path);
@@ -156,7 +156,7 @@ describe('CreatePlaymatSpoilerComponent', () => {
       fixture.nativeElement.querySelectorAll('.create-playmat-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
     );
 
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Select']);
     expect(buttons[0].disabled).toBe(false);
 
     buttons[0].click();

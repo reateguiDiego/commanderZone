@@ -72,15 +72,15 @@
   display: block;
   width: var(--token-spoiler-width);
   aspect-ratio: 0.716;
-  border: 1px solid rgb(215 180 106 / 26%);
+  border: 1px solid rgb(var(--gold-rgb) / 26%);
   border-radius: 8px;
   color: var(--text);
   background:
-    radial-gradient(circle at 50% 0%, rgb(215 180 106 / 13%), transparent 9rem),
+    radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb) / 13%), transparent 9rem),
     linear-gradient(180deg, rgb(23 27 22 / 94%), rgb(7 9 8 / 96%));
   box-shadow:
-    0 0.9rem 1.6rem rgb(0 0 0 / 34%),
-    inset 0 1px 0 rgb(255 255 255 / 6%);
+    0 0.9rem 1.6rem rgb(var(--shadow-rgb) / 34%),
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 6%);
   overflow: hidden;
   text-align: left;
 }
@@ -100,7 +100,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: rgb(5 6 5 / 72%);
+  background: rgb(var(--game-surface-deep-rgb) / 72%);
 }
 
 .token-card-fallback {
@@ -117,8 +117,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 36%), transparent 42%),
-    linear-gradient(180deg, transparent 48%, rgb(0 0 0 / 68%));
+    radial-gradient(circle at 50% 50%, rgb(var(--shadow-rgb) / 36%), transparent 42%),
+    linear-gradient(180deg, transparent 48%, rgb(var(--shadow-rgb) / 68%));
   opacity: 0;
   transition: opacity 140ms ease;
   pointer-events: none;
@@ -142,11 +142,11 @@
   padding: 0.34rem;
   background:
     radial-gradient(circle at 50% 8%, rgb(255 235 174 / 18%), transparent 58%),
-    linear-gradient(180deg, rgb(17 14 9 / 98%), rgb(5 6 5 / 96%));
+    linear-gradient(180deg, rgb(17 14 9 / 98%), rgb(var(--game-surface-deep-rgb) / 96%));
   box-shadow:
-    0 0.8rem 1.75rem rgb(0 0 0 / 58%),
+    0 0.8rem 1.75rem rgb(var(--shadow-rgb) / 58%),
     0 0 0 1px rgb(255 235 174 / 8%),
-    inset 0 1px 0 rgb(255 255 255 / 14%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 14%);
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.88);
   transition:
@@ -176,8 +176,8 @@
   background:
     linear-gradient(180deg, #f3d98f, #b9822e);
   box-shadow:
-    0 0.45rem 1rem rgb(0 0 0 / 38%),
-    inset 0 1px 0 rgb(255 255 255 / 40%);
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 38%),
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 40%);
   cursor: pointer;
   transition:
     transform 140ms ease,

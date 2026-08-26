@@ -56,6 +56,29 @@ describe('NumberActionDialogComponent', () => {
     expect(input.value).toBe('2');
     expect(increase.disabled).toBe(false);
   });
+
+  it('limits typed values to two digits and the configured max', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('max', 7);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('[data-testid="number-action-input"]') as HTMLInputElement;
+    input.value = '123';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(input.value).toBe('7');
+  });
+
+  it('shows the deck card count when a max value is provided', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('max', 42);
+    fixture.detectChanges();
+
+    const deckCount = fixture.nativeElement.querySelector('[data-testid="number-action-deck-count"]') as HTMLElement;
+
+    expect(deckCount.textContent).toContain('Your deck has 42 cards.');
+  });
 });
 
 function createFixture(): ComponentFixture<NumberActionDialogComponent> {

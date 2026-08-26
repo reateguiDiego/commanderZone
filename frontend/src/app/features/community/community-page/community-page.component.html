@@ -87,7 +87,10 @@
     <section class="community-section">
       <div class="community-section-header">
         <div>
-          <h2>{{ 'community.home.decksSection.title' | runtimeTranslate }}</h2>
+          <h2>
+            {{ 'community.home.decksSection.title' | runtimeTranslate }}
+            <span class="community-deck-count">({{ publicDeckCount() | number }})</span>
+          </h2>
         </div>
         <a
           czButton="primary"

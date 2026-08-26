@@ -1044,8 +1044,44 @@ class GameCommandHandlerTest extends TestCase
 
         $snapshot = $game->snapshot();
         self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][0]['revealedTo']);
-        self::assertSame('ha revelado una carta a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('ha revelado 1 carta a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('gameLog.card.revealed', $snapshot['eventLog'][0]['i18nKey']);
+        self::assertSame(1, $snapshot['eventLog'][0]['params']['count']);
+        self::assertSame([$opponent->id()], $snapshot['eventLog'][0]['params']['recipientPlayerIds']);
         self::assertStringNotContainsString('Secret Tutor', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testRevealedCardsStoresOneSemanticLogWithTheTotalCount(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'hand' => [
+                $this->card('card-1', 'Secret Tutor', 'hand', 0, 0, 0, 0),
+                $this->card('card-2', 'Hidden Threat', 'hand', 0, 0, 0, 0),
+            ],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['user']['displayName'] = 'Opponent';
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.revealed', [
+            'playerId' => $actor->id(),
+            'zone' => 'hand',
+            'instanceIds' => ['card-1', 'card-2'],
+            'to' => $opponent->id(),
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][0]['revealedTo']);
+        self::assertSame([$opponent->id()], $snapshot['players'][$actor->id()]['zones']['hand'][1]['revealedTo']);
+        self::assertCount(1, $snapshot['eventLog']);
+        self::assertSame('ha revelado 2 cartas a Opponent.', $snapshot['eventLog'][0]['message']);
+        self::assertSame('gameLog.card.revealedMany', $snapshot['eventLog'][0]['i18nKey']);
+        self::assertSame(2, $snapshot['eventLog'][0]['params']['count']);
+        self::assertSame([$opponent->id()], $snapshot['eventLog'][0]['params']['recipientPlayerIds']);
+        self::assertSame('Opponent', $snapshot['eventLog'][0]['refs']['players'][$opponent->id()]['displayName']);
+        self::assertStringNotContainsString('Secret Tutor', $snapshot['eventLog'][0]['message']);
+        self::assertStringNotContainsString('Hidden Threat', $snapshot['eventLog'][0]['message']);
     }
 
     public function testTokenCopyPreservesRatioPositionSystem(): void
@@ -2336,7 +2372,7 @@ class GameCommandHandlerTest extends TestCase
             'damage' => 21,
         ], $actor);
 
-        self::assertTrue($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+        self::assertFalse($this->eventLogContains($game->snapshot(), 'ha muerto.'));
     }
 
     public function testCommanderDamageRequiresCommanderInstanceId(): void
@@ -2355,7 +2391,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
     }
 
-    public function testLifeAtZeroCreatesFinalDefeatedLogAndSuppressesFutureActorLogs(): void
+    public function testLifeAtZeroDoesNotEliminatePlayerOrSuppressFutureLogs(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -2383,17 +2419,11 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $snapshot['players'][$actor->id()]['zones']['hand'],
         ));
-        self::assertSame([
-            'Lost 40 life (40 -> 0).',
-            'ha muerto.',
-        ], array_map(
-            static fn (array $entry): string => $entry['message'],
-            $snapshot['eventLog'],
-        ));
-        self::assertSame('player.defeated', $snapshot['eventLog'][1]['type']);
+        self::assertFalse($this->eventLogContains($snapshot, 'ha muerto.'));
+        self::assertSame(['life.changed', 'library.draw', 'life.changed'], array_column($snapshot['eventLog'], 'type'));
     }
 
-    public function testAlreadyDefeatedPlayerWithoutDeathLogGetsDeathLogInsteadOfActionLog(): void
+    public function testActivePlayerAtZeroLifeCanStillActNormally(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $snapshot = $this->snapshot($actor->id(), [
@@ -2412,16 +2442,11 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['hand'],
         ));
-        self::assertSame([
-            'ha muerto.',
-        ], array_map(
-            static fn (array $entry): string => $entry['message'],
-            $game->snapshot()['eventLog'],
-        ));
-        self::assertSame('player.defeated', $game->snapshot()['eventLog'][0]['type']);
+        self::assertFalse($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+        self::assertSame('library.draw', $game->snapshot()['eventLog'][0]['type']);
     }
 
-    public function testAlreadyDefeatedPlayerCannotCreateLifeLogByRaisingLifeBeforeDeathIsLogged(): void
+    public function testActivePlayerAtZeroLifeCanRaiseLifeAndGetsNormalLog(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $snapshot = $this->snapshot($actor->id(), []);
@@ -2434,12 +2459,8 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame(5, $game->snapshot()['players'][$actor->id()]['life']);
-        self::assertSame([
-            'ha muerto.',
-        ], array_map(
-            static fn (array $entry): string => $entry['message'],
-            $game->snapshot()['eventLog'],
-        ));
+        self::assertFalse($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+        self::assertSame('life.changed', $game->snapshot()['eventLog'][0]['type']);
     }
 
     public function testTurnPlayerChangeCreatesClearLogEntry(): void
@@ -2460,7 +2481,7 @@ class GameCommandHandlerTest extends TestCase
         );
     }
 
-    public function testTurnPlayerChangeSkipsDefeatedPlayersWhileGameContinues(): void
+    public function testTurnPlayerChangeDoesNotSkipActivePlayerAtZeroLife(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $defeated = new User('defeated@example.test', 'Defeated');
@@ -2476,9 +2497,9 @@ class GameCommandHandlerTest extends TestCase
             'number' => 2,
         ], $actor);
 
-        self::assertSame($alive->id(), $game->snapshot()['turn']['activePlayerId']);
+        self::assertSame($defeated->id(), $game->snapshot()['turn']['activePlayerId']);
         self::assertSame(
-            sprintf('Turno 2: empieza el turno de %s. Fase untap.', $alive->id()),
+            sprintf('Turno 2: empieza el turno de %s. Fase untap.', $defeated->id()),
             $game->snapshot()['eventLog'][0]['message'] ?? null,
         );
     }

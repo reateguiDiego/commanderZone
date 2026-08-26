@@ -2,6 +2,8 @@
 
 namespace App\Application\Game\Contract\V2;
 
+use App\Application\Game\GameControlPlaneProjection;
+use App\Application\Game\GameLibraryOps;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -11,6 +13,10 @@ final class GameplayV2ContractFactory
 {
     private const RULES_VERSION = 'commanderzone-manual-v1';
     private const CARD_CATALOG_VERSION = 'legacy-snapshot-v1';
+
+    public function __construct(private readonly ?GameControlPlaneProjection $controlPlane = null)
+    {
+    }
 
     /**
      * @param array<string,mixed> $command
@@ -110,7 +116,8 @@ final class GameplayV2ContractFactory
         $requiredStaticCards = [];
         $knownStaticCatalogKeys = $this->knownStaticCatalogKeySet($knownStaticCatalogKeys);
         $language = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
-        $compactRuntime = $this->compactRuntimeBootstrapData($game->snapshot());
+        $canonicalSnapshot = $game->snapshot();
+        $compactRuntime = $this->compactRuntimeBootstrapData($canonicalSnapshot);
         $cardCatalog = [
             ...$compactRuntime['cardCatalog'],
             ...(is_array($projectedSnapshot['cardCatalog'] ?? null) ? $projectedSnapshot['cardCatalog'] : []),
@@ -129,10 +136,23 @@ final class GameplayV2ContractFactory
 
                 $zoneId = sprintf('%s:%s', $playerId, $zoneName);
                 $instanceIds = [];
+                $topLibraryCard = $zoneName === 'library' ? ($cards[array_key_last($cards)] ?? null) : null;
+                $topLibraryInstanceId = is_array($topLibraryCard)
+                    ? trim((string) ($topLibraryCard['instanceId'] ?? ''))
+                    : '';
                 foreach ($cards as $card) {
                     if (!is_array($card)) {
                         continue;
                     }
+                    $card = $this->cardVisibleToViewer(
+                        $card,
+                        $playerId,
+                        $zoneName,
+                        $viewer->id(),
+                        $topLibraryInstanceId,
+                        $this->isPlayTopLibraryRevealedToViewer($player, $viewer->id()),
+                        isset($compactRuntime['instances'][trim((string) ($card['instanceId'] ?? ''))]),
+                    );
                     $card = $this->withCompactRuntimeIdentity(
                         $card,
                         $compactRuntime['instances'],
@@ -170,6 +190,7 @@ final class GameplayV2ContractFactory
                 'user' => is_array($player['user'] ?? null) ? $player['user'] : null,
                 'displayName' => $player['user']['displayName'] ?? $playerId,
                 'life' => (int) ($player['life'] ?? 0),
+                'isOnline' => is_bool($player['isOnline'] ?? null) ? $player['isOnline'] : null,
                 'status' => is_string($player['status'] ?? null) ? $player['status'] : 'active',
                 'handCount' => (int) ($player['handCount'] ?? ($player['zoneCounts']['hand'] ?? 0)),
                 'zoneIds' => $playerZoneIds,
@@ -180,6 +201,16 @@ final class GameplayV2ContractFactory
                 'colorIdentity' => is_array($player['colorIdentity'] ?? null) ? array_values($player['colorIdentity']) : [],
                 'backgroundName' => is_string($player['backgroundName'] ?? null) ? $player['backgroundName'] : null,
                 'sleevesName' => is_string($player['sleevesName'] ?? null) ? $player['sleevesName'] : null,
+                'revealedHandIndexes' => $this->revealedHandIndexes($canonicalSnapshot, $playerId),
+                'topLibraryRevealMarker' => $this->topLibraryRevealMarker($canonicalSnapshot, $playerId),
+                'topLibraryRevealedTo' => $viewer->id() === $playerId
+                    ? $this->topLibraryRevealedTo($canonicalSnapshot, $playerId)
+                    : [],
+                // This is control state, so only the owner needs it in the bootstrap.
+                // Without it a reconnect keeps the public eye marker but hides the
+                // corresponding "stop revealing" action.
+                'playTopLibraryRevealed' => $viewer->id() === $playerId
+                    && (($canonicalSnapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true),
                 'mulligan' => is_array($player['mulligan'] ?? null) ? $player['mulligan'] : null,
             ];
         }
@@ -192,14 +223,25 @@ final class GameplayV2ContractFactory
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 
+        $controlPlane = ($this->controlPlane ?? new GameControlPlaneProjection())->project($game);
         $payload = [
             'game' => [
                 'id' => $game->id(),
                 'status' => $game->status(),
+                'controlPlaneRevision' => $controlPlane['controlPlaneRevision'],
+                'controlPlane' => $controlPlane,
+                'winnerPlayerId' => $game->winnerPlayerId(),
+                'finishedAt' => $game->finishedAt()?->format(DATE_ATOM),
+                'finishReason' => $game->finishReason(),
+                'allDisconnectedSince' => $game->allDisconnectedSince()?->format(DATE_ATOM),
+                'nextLifecycleAt' => $game->nextLifecycleAt()?->format(DATE_ATOM),
                 'version' => max(1, (int) ($projectedSnapshot['version'] ?? 1)),
                 'viewerId' => $viewer->id(),
                 'ownerId' => $projectedSnapshot['ownerId'] ?? null,
                 'gamePhase' => $projectedSnapshot['gamePhase'] ?? 'PLAYING',
+                'mulligan' => is_array($projectedSnapshot['mulligan'] ?? null) ? $projectedSnapshot['mulligan'] : null,
+                'disconnectVotes' => is_array($projectedSnapshot['disconnectVotes'] ?? null) ? $projectedSnapshot['disconnectVotes'] : [],
+                'rematch' => is_array($projectedSnapshot['rematch'] ?? null) ? $projectedSnapshot['rematch'] : null,
                 'createdAt' => $projectedSnapshot['createdAt'] ?? null,
                 'updatedAt' => $projectedSnapshot['updatedAt'] ?? null,
             ],
@@ -221,6 +263,126 @@ final class GameplayV2ContractFactory
         $payload['payloadBytes'] = $this->jsonBytes($payload);
 
         return BootstrapV2::fromArray($payload);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return list<int>
+     */
+    private function revealedHandIndexes(array $snapshot, string $playerId): array
+    {
+        $hand = $snapshot['players'][$playerId]['zones']['hand'] ?? [];
+        if (!is_array($hand)) {
+            return [];
+        }
+
+        $indexes = [];
+        foreach ($hand as $index => $card) {
+            if (is_array($card) && is_array($card['revealedTo'] ?? null) && $card['revealedTo'] !== []) {
+                $indexes[] = $index;
+            }
+        }
+
+        return $indexes;
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function topLibraryRevealMarker(array $snapshot, string $playerId): bool
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
+            return false;
+        }
+
+        $library = $player['zones']['library'] ?? [];
+        if (!is_array($library) || $library === []) {
+            return false;
+        }
+
+        $topCard = $library[array_key_last($library)] ?? null;
+        $currentEpoch = (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 0);
+
+        return is_array($topCard)
+            && (
+                ($player['playTopLibraryRevealed'] ?? false) === true
+                || (
+                    is_array($topCard['revealedTo'] ?? null)
+                    && $topCard['revealedTo'] !== []
+                    && (int) ($topCard[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] ?? 0) === $currentEpoch
+                )
+            );
+    }
+
+    /** @param array<string,mixed> $snapshot
+     *  @return list<string>
+     */
+    private function topLibraryRevealedTo(array $snapshot, string $playerId): array
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (is_array($player) && ($player['playTopLibraryRevealed'] ?? false) === true && is_array($player['playTopLibraryRevealedTo'] ?? null)) {
+            return array_values(array_filter($player['playTopLibraryRevealedTo'], static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''));
+        }
+        $library = $snapshot['players'][$playerId]['zones']['library'] ?? null;
+        if (!is_array($library) || $library === []) {
+            return [];
+        }
+
+        $topCard = $library[array_key_last($library)] ?? null;
+        $revealedTo = is_array($topCard) ? ($topCard['revealedTo'] ?? null) : null;
+
+        return is_array($revealedTo)
+            ? array_values(array_filter($revealedTo, static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''))
+            : [];
+    }
+
+    /** @param array<string,mixed> $card
+     *  @return array<string,mixed>
+     */
+    private function cardVisibleToViewer(
+        array $card,
+        string $playerId,
+        string $zoneName,
+        string $viewerId,
+        string $topLibraryInstanceId,
+        bool $playTopLibraryRevealed,
+        bool $preservesOwnerLibraryIdentity,
+    ): array {
+        if ($zoneName !== 'library' || ($preservesOwnerLibraryIdentity && $playerId === $viewerId)) {
+            return $card;
+        }
+
+        $instanceId = trim((string) ($card['instanceId'] ?? ''));
+        $revealedTo = is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [];
+        $isRevealedToViewer = in_array('all', $revealedTo, true)
+            || in_array($viewerId, $revealedTo, true);
+        $isPublicTop = $playTopLibraryRevealed && $instanceId !== '' && $instanceId === $topLibraryInstanceId;
+        if ($isRevealedToViewer || $isPublicTop) {
+            return $card;
+        }
+
+        return [
+            'instanceId' => $instanceId,
+            'ownerId' => $card['ownerId'] ?? $playerId,
+            'controllerId' => $card['controllerId'] ?? $playerId,
+            'hidden' => true,
+            'faceDown' => true,
+        ];
+    }
+
+    /** @param array<string,mixed> $player */
+    private function isPlayTopLibraryRevealedToViewer(array $player, string $viewerId): bool
+    {
+        if (($player['playTopLibraryRevealed'] ?? false) !== true) {
+            return false;
+        }
+
+        $viewers = $player['playTopLibraryRevealedTo'] ?? null;
+        if (!is_array($viewers)) {
+            return true;
+        }
+
+        return in_array('all', $viewers, true) || in_array($viewerId, $viewers, true);
     }
 
     /**

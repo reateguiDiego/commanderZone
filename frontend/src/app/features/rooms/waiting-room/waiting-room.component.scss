@@ -46,6 +46,12 @@
   color: var(--muted);
 }
 
+.realtime-warning {
+  border-color: rgb(var(--cz-warning-rgb) / 40%);
+  color: var(--cz-warning);
+  background: rgb(var(--cz-warning-rgb) / 10%);
+}
+
 .players-panel-tools,
 .metric {
   display: inline-flex;

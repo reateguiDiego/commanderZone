@@ -63,7 +63,7 @@ export class GameTableSelectionService {
   }
 
   canControlPlayer(currentPlayer: CurrentPlayerView | null, playerId: string): boolean {
-    return currentPlayer?.id === playerId && currentPlayer.state.status !== 'conceded';
+    return currentPlayer?.id === playerId && currentPlayer.state.status === 'active';
   }
 
   canUseHiddenZone(currentPlayer: CurrentPlayerView | null, playerId: string, zone: GameZoneName): boolean {

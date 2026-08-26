@@ -8,8 +8,10 @@ import type {
   GameCompactCardRef,
   GameCardDungeonMarker,
   GameCardInstance,
-  GameDisconnectVoteState,
+  GameControlPlaneState,
+  GameDisconnectVotes,
   GameLogEntry,
+  GameMulliganConfig,
   GamePlayerMulliganState,
   GamePlayerState,
   GameRematchState,
@@ -35,10 +37,17 @@ type ZoneCountMap = Record<GameZoneName, number>;
 export interface GameTableNormalizedV2GameState {
   id: string;
   status: string;
+  controlPlaneRevision: number;
+  winnerPlayerId: string | null;
+  finishedAt: string | null;
+  finishReason: string | null;
+  allDisconnectedSince: string | null;
+  nextLifecycleAt: string | null;
   viewerId: string;
   ownerId: string | null;
   version: number;
   gamePhase: string | null;
+  mulligan: GameMulliganConfig | null;
   createdAt: string | null;
   updatedAt: string | null;
   lastDiceResult?: {
@@ -47,7 +56,7 @@ export interface GameTableNormalizedV2GameState {
     result: number | string;
     createdAt?: string;
   } | null;
-  disconnectVote?: GameDisconnectVoteState | null;
+  disconnectVotes: GameDisconnectVotes;
   rematch?: GameRematchState | null;
 }
 
@@ -56,6 +65,7 @@ export interface GameTableNormalizedV2PlayerState {
   user: BootstrapPlayerV2['user'];
   displayName: string;
   life: number;
+  isOnline?: boolean;
   status: string;
   handCount: number;
   zoneCounts: Partial<Record<GameZoneName, number>>;
@@ -68,6 +78,12 @@ export interface GameTableNormalizedV2PlayerState {
   concededAt?: string | null;
   mulligan?: GamePlayerMulliganState;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
+  revealedLibraryTo?: string[];
+  libraryShuffleRevision?: number;
+  libraryTopRevealEpoch?: number;
+  revealedHandIndexes?: number[];
 }
 
 export interface GameTableNormalizedV2RelationsState {
@@ -138,16 +154,19 @@ const ZONE_NAMES: readonly GameZoneName[] = ['library', 'hand', 'battlefield', '
 @Injectable()
 export class GameTableNormalizedV2Store {
   readonly state = signal<GameTableNormalizedV2State | null>(null);
+  private readonly snapshotProjector = new GameTableSnapshotProjector();
 
   clear(): void {
     this.state.set(null);
+    this.snapshotProjector.clear();
   }
 
   applyBootstrap(bootstrap: BootstrapV2): GameSnapshot {
+    this.snapshotProjector.clear();
     const nextState = createGameTableNormalizedV2State(bootstrap, this.state()?.pendingOptimisticActions ?? {});
     this.state.set(nextState);
 
-    return hydrateGameSnapshotFromV2State(nextState);
+    return this.snapshotProjector.hydrate(nextState);
   }
 
   applyPatch(patch: PatchEnvelopeV2): GameTableNormalizedV2ApplyResult {
@@ -163,7 +182,7 @@ export class GameTableNormalizedV2Store {
 
     let snapshot: GameSnapshot;
     try {
-      snapshot = hydrateGameSnapshotFromV2State(result.state);
+      snapshot = this.snapshotProjector.hydrate(result.state);
     } catch (error) {
       console.warn('[CommanderZone normalized v2] snapshot hydration failed after patch.v2', error);
       return { status: 'resync_required', state: currentState, snapshot: null, reason: 'invalid_operation' };
@@ -174,6 +193,125 @@ export class GameTableNormalizedV2Store {
       ...result,
       snapshot,
     };
+  }
+
+  mergeStaticCards(staticCards: Record<string, BootstrapStaticCardV2>): GameSnapshot | null {
+    const currentState = this.state();
+    const entries = Object.entries(staticCards);
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextStaticCards = { ...currentState.staticCards };
+    for (const [cardRef, staticCard] of entries) {
+      nextStaticCards[cardRef] = mergeStaticCard(nextStaticCards[cardRef], staticCard);
+    }
+
+    const nextState = { ...currentState, staticCards: nextStaticCards };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  prependLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const log = mergeLogEntries(currentState.log, entries, maximumEntries, 'oldest');
+    const nextState = { ...currentState, log };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  appendLogEntries(entries: readonly GameLogEntry[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const log = mergeLogEntries(currentState.log, entries, maximumEntries, 'newest');
+    const nextState = { ...currentState, log };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  replaceLogEntries(entries: readonly GameLogEntry[]): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState = { ...currentState, log: createLogState(entries, null) };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  prependChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'oldest') };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  appendChatMessages(entries: readonly ChatMessage[], maximumEntries = 250): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState || entries.length === 0) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: mergeChatMessages(currentState.chat, entries, maximumEntries, 'newest') };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  replaceChatMessages(entries: readonly ChatMessage[]): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState = { ...currentState, chat: createChatState(entries, null) };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
+  }
+
+  /** Applies Symfony control-plane state without advancing a Go gameplay version. */
+  applyControlPlane(controlPlane: GameControlPlaneState): GameSnapshot | null {
+    const currentState = this.state();
+    if (!currentState) {
+      return null;
+    }
+
+    const nextState: GameTableNormalizedV2State = {
+      ...currentState,
+      game: {
+        ...currentState.game,
+        controlPlaneRevision: controlPlane.controlPlaneRevision,
+        status: controlPlane.status,
+        winnerPlayerId: controlPlane.winnerPlayerId,
+        finishedAt: controlPlane.finishedAt,
+        finishReason: controlPlane.finishReason,
+        allDisconnectedSince: controlPlane.allDisconnectedSince,
+        nextLifecycleAt: controlPlane.nextLifecycleAt,
+        ownerId: controlPlane.ownerId,
+        rematch: cloneRematchState(controlPlane.rematch),
+      },
+    };
+    this.state.set(nextState);
+
+    return this.snapshotProjector.hydrate(nextState);
   }
 }
 
@@ -190,7 +328,12 @@ export function createGameTableNormalizedV2State(
 
   for (const zone of Object.values(bootstrap.zones)) {
     zones[zone.playerId] ??= emptyZones();
-    zones[zone.playerId][zone.name] = [...zone.instanceIds];
+    // Runtime snapshots store libraries with the top card at the tail. The
+    // normalized client state keeps its known library top at index zero so
+    // bootstrap and realtime reveal/reorder patches share one invariant.
+    zones[zone.playerId][zone.name] = zone.name === 'library'
+      ? [...zone.instanceIds].reverse()
+      : [...zone.instanceIds];
     zoneCounts[zone.playerId] ??= emptyZoneCounts();
     zoneCounts[zone.playerId][zone.name] = Math.max(0, bootstrap.zoneCounts[zone.zoneId] ?? zone.instanceIds.length);
   }
@@ -199,19 +342,27 @@ export function createGameTableNormalizedV2State(
   const stack = createStackState(bootstrap.relations.stack);
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
   const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
+  const controlPlane = bootstrap.game.controlPlane;
 
   return {
     game: {
       id: bootstrap.game.id,
-      status: bootstrap.game.status,
+      status: controlPlane?.status ?? bootstrap.game.status,
+      controlPlaneRevision: controlPlane?.controlPlaneRevision ?? bootstrap.game.controlPlaneRevision ?? 0,
+      winnerPlayerId: controlPlane?.winnerPlayerId ?? bootstrap.game.winnerPlayerId ?? null,
+      finishedAt: controlPlane?.finishedAt ?? bootstrap.game.finishedAt ?? null,
+      finishReason: controlPlane?.finishReason ?? bootstrap.game.finishReason ?? null,
+      allDisconnectedSince: controlPlane?.allDisconnectedSince ?? bootstrap.game.allDisconnectedSince ?? null,
+      nextLifecycleAt: controlPlane?.nextLifecycleAt ?? bootstrap.game.nextLifecycleAt ?? null,
       viewerId: bootstrap.game.viewerId,
-      ownerId: bootstrap.game.ownerId ?? null,
+      ownerId: controlPlane?.ownerId ?? bootstrap.game.ownerId ?? null,
       version: bootstrap.game.version,
       gamePhase: bootstrap.game.gamePhase ?? null,
+      mulligan: bootstrap.game.mulligan ?? null,
       createdAt: bootstrap.game.createdAt ?? null,
       updatedAt: bootstrap.game.updatedAt ?? null,
-      disconnectVote: null,
-      rematch: null,
+      disconnectVotes: cloneDisconnectVotes(bootstrap.game.disconnectVotes ?? {}),
+      rematch: controlPlane?.rematch ?? bootstrap.game.rematch ?? null,
       lastDiceResult: null,
     },
     players: Object.fromEntries(
@@ -238,33 +389,386 @@ export function createGameTableNormalizedV2State(
   };
 }
 
-export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State): GameSnapshot {
-  const players = Object.fromEntries(
-    Object.entries(state.players).map(([playerId, player]) => [playerId, hydratePlayerState(state, playerId, player)]),
-  ) as Record<string, GamePlayerState>;
+interface HydratedCardProjection {
+  readonly instance: BootstrapInstanceV2;
+  readonly staticCard: BootstrapStaticCardV2 | undefined;
+  readonly zone: GameZoneName;
+  readonly card: GameCardInstance | null;
+}
 
-  return {
-    version: state.lastAppliedVersion,
-    ownerId: state.game.ownerId ?? undefined,
-    gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
-    players,
-    counters: Object.fromEntries(
-      Object.entries(state.sharedCounters).map(([scope, counters]) => [scope, { ...counters }]),
-    ),
-    turn: { ...state.turn },
-    stack: state.stack.order
+interface HydratedZoneProjection {
+  readonly instanceIds: readonly string[];
+  readonly cards: GameCardInstance[];
+}
+
+interface HydratedPlayerProjection {
+  readonly source: GameTableNormalizedV2PlayerState;
+  readonly zoneCounts: ZoneCountMap;
+  readonly zones: GamePlayerState['zones'];
+  readonly player: GamePlayerState;
+}
+
+/**
+ * Projects the normalized runtime state into the legacy snapshot shape while
+ * preserving references for unchanged players, zones and card instances.
+ * The view still receives a fresh root snapshot for the new version, but
+ * OnPush card components no longer receive new inputs for unrelated patches.
+ */
+export class GameTableSnapshotProjector {
+  private readonly cardProjections = new Map<string, HydratedCardProjection>();
+  private readonly zoneProjections = new Map<string, HydratedZoneProjection>();
+  private readonly playerProjections = new Map<string, HydratedPlayerProjection>();
+  private playersSource: GameTableNormalizedV2State['players'] | null = null;
+  private playerZonesSource: GameTableNormalizedV2State['zones'] | null = null;
+  private playerZoneCountsSource: GameTableNormalizedV2State['zoneCounts'] | null = null;
+  private playerInstancesSource: GameTableNormalizedV2State['instances'] | null = null;
+  private playerStaticCardsSource: GameTableNormalizedV2State['staticCards'] | null = null;
+  private players: Record<string, GamePlayerState> | null = null;
+  private sharedCountersSource: GameTableNormalizedV2State['sharedCounters'] | null = null;
+  private sharedCounters: Record<string, Record<string, number>> | null = null;
+  private turnSource: GameTurn | null = null;
+  private turn: GameTurn | null = null;
+  private stackSource: GameTableNormalizedV2State['stack'] | null = null;
+  private stackInstancesSource: GameTableNormalizedV2State['instances'] | null = null;
+  private stackStaticCardsSource: GameTableNormalizedV2State['staticCards'] | null = null;
+  private stack: GameSnapshot['stack'] | null = null;
+  private arrowsSource: GameTableNormalizedV2State['relations']['arrows'] | null = null;
+  private arrows: GameArrow[] | null = null;
+  private attachmentsSource: GameTableNormalizedV2State['relations']['attachments'] | null = null;
+  private attachments: GameAttachment[] | null = null;
+  private specialEntitiesSource: GameTableNormalizedV2State['relations']['specialEntities'] | null = null;
+  private specialEntities: GameSpecialEntity[] | null = null;
+  private chatSource: GameTableNormalizedV2State['chat'] | null = null;
+  private chat: ChatMessage[] | null = null;
+  private logSource: GameTableNormalizedV2State['log'] | null = null;
+  private log: GameLogEntry[] | null = null;
+  private disconnectVotesSource: GameDisconnectVotes | null = null;
+  private disconnectVotes: GameDisconnectVotes | null = null;
+  private rematchSource: GameRematchState | null = null;
+  private rematch: GameRematchState | null = null;
+
+  clear(): void {
+    this.cardProjections.clear();
+    this.zoneProjections.clear();
+    this.playerProjections.clear();
+    this.playersSource = null;
+    this.playerZonesSource = null;
+    this.playerZoneCountsSource = null;
+    this.playerInstancesSource = null;
+    this.playerStaticCardsSource = null;
+    this.players = null;
+    this.sharedCountersSource = null;
+    this.sharedCounters = null;
+    this.turnSource = null;
+    this.turn = null;
+    this.stackSource = null;
+    this.stackInstancesSource = null;
+    this.stackStaticCardsSource = null;
+    this.stack = null;
+    this.arrowsSource = null;
+    this.arrows = null;
+    this.attachmentsSource = null;
+    this.attachments = null;
+    this.specialEntitiesSource = null;
+    this.specialEntities = null;
+    this.chatSource = null;
+    this.chat = null;
+    this.logSource = null;
+    this.log = null;
+    this.disconnectVotesSource = null;
+    this.disconnectVotes = null;
+    this.rematchSource = null;
+    this.rematch = null;
+  }
+
+  hydrate(state: GameTableNormalizedV2State): GameSnapshot {
+    return {
+      version: state.lastAppliedVersion,
+      controlPlaneRevision: state.game.controlPlaneRevision,
+      ownerId: state.game.ownerId ?? undefined,
+      status: state.game.status,
+      winnerPlayerId: state.game.winnerPlayerId,
+      finishedAt: state.game.finishedAt,
+      finishReason: state.game.finishReason,
+      allDisconnectedSince: state.game.allDisconnectedSince,
+      nextLifecycleAt: state.game.nextLifecycleAt,
+      gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
+      mulligan: state.game.mulligan ?? undefined,
+      players: this.hydratePlayers(state),
+      counters: this.hydrateSharedCounters(state.sharedCounters),
+      turn: this.hydrateTurn(state.turn),
+      stack: this.hydrateStack(state),
+      arrows: this.hydrateArrows(state.relations.arrows),
+      attachments: this.hydrateAttachments(state.relations.attachments),
+      specialEntities: this.hydrateSpecialEntities(state.relations.specialEntities),
+      chat: this.hydrateChat(state.chat),
+      eventLog: this.hydrateLog(state.log),
+      rematch: this.hydrateRematch(state.game.rematch),
+      disconnectVotes: this.hydrateDisconnectVotes(state.game.disconnectVotes),
+      createdAt: state.game.createdAt ?? new Date(0).toISOString(),
+      updatedAt: state.game.updatedAt ?? undefined,
+    };
+  }
+
+  private hydratePlayers(state: GameTableNormalizedV2State): Record<string, GamePlayerState> {
+    if (
+      this.playersSource === state.players
+      && this.playerZonesSource === state.zones
+      && this.playerZoneCountsSource === state.zoneCounts
+      && this.playerInstancesSource === state.instances
+      && this.playerStaticCardsSource === state.staticCards
+      && this.players
+    ) {
+      return this.players;
+    }
+
+    const entries = Object.entries(state.players).map(([playerId, player]) => [
+      playerId,
+      this.hydratePlayer(state, playerId, player),
+    ] as const);
+    if (this.players && this.samePlayerEntries(entries, this.players)) {
+      this.recordPlayerSources(state);
+      return this.players;
+    }
+
+    this.recordPlayerSources(state);
+    this.players = Object.fromEntries(entries);
+    return this.players;
+  }
+
+  private recordPlayerSources(state: GameTableNormalizedV2State): void {
+    this.playersSource = state.players;
+    this.playerZonesSource = state.zones;
+    this.playerZoneCountsSource = state.zoneCounts;
+    this.playerInstancesSource = state.instances;
+    this.playerStaticCardsSource = state.staticCards;
+  }
+
+  private hydratePlayer(
+    state: GameTableNormalizedV2State,
+    playerId: string,
+    player: GameTableNormalizedV2PlayerState,
+  ): GamePlayerState {
+    const cached = this.playerProjections.get(playerId);
+    const zones = cached && this.canReusePlayerZones(state)
+      ? cached.zones
+      : this.hydratePlayerZones(state, playerId);
+    const zoneCounts = state.zoneCounts[playerId] ?? emptyZoneCounts();
+    if (cached && cached.source === player && cached.zoneCounts === zoneCounts && cached.zones === zones) {
+      return cached.player;
+    }
+
+    const hydratedPlayer = hydratePlayerState(state, playerId, player, zones);
+    this.playerProjections.set(playerId, { source: player, zoneCounts, zones, player: hydratedPlayer });
+    return hydratedPlayer;
+  }
+
+  private canReusePlayerZones(state: GameTableNormalizedV2State): boolean {
+    return this.playerZonesSource === state.zones
+      && this.playerInstancesSource === state.instances
+      && this.playerStaticCardsSource === state.staticCards;
+  }
+
+  private hydratePlayerZones(state: GameTableNormalizedV2State, playerId: string): GamePlayerState['zones'] {
+    const library = this.hydrateZone(state, playerId, 'library');
+    const hand = this.hydrateZone(state, playerId, 'hand');
+    const battlefield = this.hydrateZone(state, playerId, 'battlefield');
+    const graveyard = this.hydrateZone(state, playerId, 'graveyard');
+    const exile = this.hydrateZone(state, playerId, 'exile');
+    const command = this.hydrateZone(state, playerId, 'command');
+    const cached = this.playerProjections.get(playerId)?.zones;
+    if (
+      cached
+      && cached.library === library
+      && cached.hand === hand
+      && cached.battlefield === battlefield
+      && cached.graveyard === graveyard
+      && cached.exile === exile
+      && cached.command === command
+    ) {
+      return cached;
+    }
+
+    return { library, hand, battlefield, graveyard, exile, command };
+  }
+
+  private hydrateZone(
+    state: GameTableNormalizedV2State,
+    playerId: string,
+    zone: GameZoneName,
+  ): GameCardInstance[] {
+    const instanceIds = state.zones[playerId]?.[zone] ?? [];
+    const cacheKey = `${playerId}:${zone}`;
+    const cached = this.zoneProjections.get(cacheKey);
+    if (cached && cached.instanceIds === instanceIds && this.zoneCardsMatch(state, instanceIds, zone, cached.cards)) {
+      return cached.cards;
+    }
+
+    const cards = instanceIds
+      .map((instanceId) => this.hydrateCard(state, instanceId, zone))
+      .filter(isCardInstance);
+    this.zoneProjections.set(cacheKey, { instanceIds, cards });
+    return cards;
+  }
+
+  private zoneCardsMatch(
+    state: GameTableNormalizedV2State,
+    instanceIds: readonly string[],
+    zone: GameZoneName,
+    cards: GameCardInstance[],
+  ): boolean {
+    let cardIndex = 0;
+    for (const instanceId of instanceIds) {
+      const card = this.hydrateCard(state, instanceId, zone);
+      if (!card) {
+        continue;
+      }
+      if (cards[cardIndex] !== card) {
+        return false;
+      }
+      cardIndex += 1;
+    }
+
+    return cardIndex === cards.length;
+  }
+
+  private hydrateCard(
+    state: GameTableNormalizedV2State,
+    instanceId: string,
+    zone: GameZoneName,
+  ): GameCardInstance | null {
+    const instance = state.instances[instanceId];
+    if (!instance) {
+      return null;
+    }
+
+    const staticCard = state.staticCards[instance.cardRef];
+    const cached = this.cardProjections.get(instanceId);
+    if (cached && cached.instance === instance && cached.staticCard === staticCard && cached.zone === zone) {
+      return cached.card;
+    }
+
+    const card = hydrateCardInstance(state, instanceId, zone);
+    this.cardProjections.set(instanceId, { instance, staticCard, zone, card });
+    return card;
+  }
+
+  private hydrateSharedCounters(source: GameTableNormalizedV2State['sharedCounters']): Record<string, Record<string, number>> {
+    if (this.sharedCountersSource === source && this.sharedCounters) {
+      return this.sharedCounters;
+    }
+
+    this.sharedCountersSource = source;
+    this.sharedCounters = Object.fromEntries(Object.entries(source).map(([scope, counters]) => [scope, { ...counters }]));
+    return this.sharedCounters;
+  }
+
+  private hydrateTurn(source: GameTurn): GameTurn {
+    if (this.turnSource === source && this.turn) {
+      return this.turn;
+    }
+
+    this.turnSource = source;
+    this.turn = { ...source };
+    return this.turn;
+  }
+
+  private hydrateStack(state: GameTableNormalizedV2State): GameSnapshot['stack'] {
+    if (
+      this.stackSource === state.stack
+      && this.stackInstancesSource === state.instances
+      && this.stackStaticCardsSource === state.staticCards
+      && this.stack
+    ) {
+      return this.stack;
+    }
+
+    this.stackSource = state.stack;
+    this.stackInstancesSource = state.instances;
+    this.stackStaticCardsSource = state.staticCards;
+    this.stack = state.stack.order
       .map((stackId) => hydrateStackItem(state, state.stack.byId[stackId]))
-      .filter((item): item is NonNullable<typeof item> => item !== null),
-    arrows: Object.values(state.relations.arrows),
-    attachments: Object.values(state.relations.attachments),
-    specialEntities: Object.values(state.relations.specialEntities),
-    chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
-    eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
-    rematch: state.game.rematch ?? undefined,
-    disconnectVote: state.game.disconnectVote ?? null,
-    createdAt: state.game.createdAt ?? new Date(0).toISOString(),
-    updatedAt: state.game.updatedAt ?? undefined,
-  };
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+    return this.stack;
+  }
+
+  private hydrateArrows(source: GameTableNormalizedV2State['relations']['arrows']): GameArrow[] {
+    if (this.arrowsSource === source && this.arrows) {
+      return this.arrows;
+    }
+    this.arrowsSource = source;
+    this.arrows = Object.values(source);
+    return this.arrows;
+  }
+
+  private hydrateAttachments(source: GameTableNormalizedV2State['relations']['attachments']): GameAttachment[] {
+    if (this.attachmentsSource === source && this.attachments) {
+      return this.attachments;
+    }
+    this.attachmentsSource = source;
+    this.attachments = Object.values(source);
+    return this.attachments;
+  }
+
+  private hydrateSpecialEntities(source: GameTableNormalizedV2State['relations']['specialEntities']): GameSpecialEntity[] {
+    if (this.specialEntitiesSource === source && this.specialEntities) {
+      return this.specialEntities;
+    }
+    this.specialEntitiesSource = source;
+    this.specialEntities = Object.values(source);
+    return this.specialEntities;
+  }
+
+  private hydrateChat(source: GameTableNormalizedV2State['chat']): ChatMessage[] {
+    if (this.chatSource === source && this.chat) {
+      return this.chat;
+    }
+    this.chatSource = source;
+    this.chat = source.order.map((id) => source.byId[id]).filter((message): message is ChatMessage => Boolean(message));
+    return this.chat;
+  }
+
+  private hydrateLog(source: GameTableNormalizedV2State['log']): GameLogEntry[] {
+    if (this.logSource === source && this.log) {
+      return this.log;
+    }
+    this.logSource = source;
+    this.log = source.order.map((id) => source.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry));
+    return this.log;
+  }
+
+  private hydrateDisconnectVotes(source: GameDisconnectVotes): GameDisconnectVotes {
+    if (this.disconnectVotesSource === source && this.disconnectVotes) {
+      return this.disconnectVotes;
+    }
+    this.disconnectVotesSource = source;
+    this.disconnectVotes = cloneDisconnectVotes(source);
+    return this.disconnectVotes;
+  }
+
+  private hydrateRematch(source: GameRematchState | null | undefined): GameRematchState | undefined {
+    if (!source) {
+      return undefined;
+    }
+    if (this.rematchSource === source && this.rematch) {
+      return this.rematch;
+    }
+    this.rematchSource = source;
+    this.rematch = cloneRematchState(source);
+    return this.rematch;
+  }
+
+  private samePlayerEntries(
+    entries: ReadonlyArray<readonly [string, GamePlayerState]>,
+    players: Record<string, GamePlayerState>,
+  ): boolean {
+    const playerIds = Object.keys(players);
+    return entries.length === playerIds.length && entries.every(([playerId, player]) => players[playerId] === player);
+  }
+}
+
+export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State): GameSnapshot {
+  return new GameTableSnapshotProjector().hydrate(state);
 }
 
 export function applyPatchEnvelopeV2(
@@ -288,13 +792,15 @@ export function applyPatchEnvelopeV2(
 
   let nextState = state;
   for (const operation of patch.ops) {
-    const result = applyOperation(nextState, operation);
+    const result = applyOperation(nextState, normalizePatchOperation(operation));
     if (result.status === 'failed') {
       return { status: 'resync_required', state, reason: result.reason };
     }
 
     nextState = result.state;
   }
+
+  nextState = recordLibraryShuffleRevisions(nextState, patch.ops, patch.version);
 
   nextState = {
     ...nextState,
@@ -317,13 +823,15 @@ function applySameVersionPatch(
 ): GameTableNormalizedV2ApplyInternalResult {
   let nextState = state;
   for (const operation of patch.ops) {
-    const result = applySameVersionOperation(nextState, operation);
+    const result = applySameVersionOperation(nextState, normalizePatchOperation(operation));
     if (result.status === 'failed') {
       return { status: 'resync_required', state, reason: result.reason };
     }
 
     nextState = result.state;
   }
+
+  nextState = recordLibraryShuffleRevisions(nextState, patch.ops, patch.version);
 
   return {
     status: 'applied',
@@ -427,26 +935,64 @@ function restoreZoneCountsForTargets(
 
 function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
   return patch.ops.length > 0 && patch.ops.every((operation) =>
-    operation.op === 'chat.message.add' || operation.op === 'chat.reaction.set',
+    operation.op === 'chat.message.add'
+    || operation.op === 'chat.reaction.set'
+    // Runtime emits the public card patch first and the durable activity-log
+    // patch immediately after it at the same gameplay version. Log entries
+    // are keyed and merged idempotently, so this must not be discarded.
+    || operation.op === 'eventLog.append',
   );
 }
 
 function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
+  if (patch.ops.length === 0) {
+    return false;
+  }
+
+  // Public reveal markers can be delivered independently from a private
+  // identity/audience patch at the same version. They are scalar, idempotent
+  // UI state, so they must not require the command acknowledgement.
+  if (patch.ops.every(isIdempotentVisibilityOperation)) {
+    return true;
+  }
+
   return typeof patch.ackClientActionId === 'string'
     && patch.ackClientActionId.trim() !== ''
-    && patch.ops.length > 0
     && patch.ops.every(isSameVersionVisibilityMergeOperation);
+}
+
+function isIdempotentVisibilityOperation(operation: GameplayPatchV2Operation): boolean {
+  return (operation.op === 'zone.cards.remove' && operation.zone === 'library')
+    // A selected viewer can receive this removal after the public version
+    // carrier for a one-off top reveal. It is idempotent and must be merged
+    // even though the acknowledgement belongs only to the acting player.
+    || operation.op === 'hand.reveal_marker.set'
+    || operation.op === 'hand.reveal_marker.clear'
+    || operation.op === 'library.top.reveal_marker.set'
+    // The selected opponent can receive this private identity patch after the
+    // public version carrier. It has no side effects beyond replacing the
+    // visible top-card identities, so merging it at the same version is safe.
+    || operation.op === 'library.top.revealed'
+    // Full-library identity is sent only to the selected audience. It may
+    // arrive after the public version carrier on that recipient, so it must be
+    // mergeable without the actor's acknowledgement.
+    || operation.op === 'library.revealed.set';
 }
 
 function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
   switch (operation.op) {
     case 'version.advance':
+    case 'card.field.set':
     case 'zone.cards.add':
     case 'zone.cards.remove':
     case 'zone.cards.move':
     case 'zone.cards.batchMove':
     case 'zone.count.set':
     case 'library.count.set':
+    case 'hand.reveal_marker.set':
+    case 'hand.reveal_marker.clear':
+    case 'library.top.reveal_marker.set':
+    case 'library.top.reveal_audience.set':
     case 'library.top.revealed':
     case 'library.top.viewed':
     case 'library.revealed.set':
@@ -474,6 +1020,53 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
 type OperationApplyResult =
   | { status: 'applied'; state: GameTableNormalizedV2State }
   | { status: 'failed'; reason: Exclude<GameTableNormalizedV2ApplyFailureReason, 'version_gap' | 'missing_state'> };
+
+type GameplayPatchV2WireOperation = GameplayPatchV2Operation & {
+  data?: Record<string, unknown>;
+};
+
+function normalizePatchOperation(operation: GameplayPatchV2Operation): GameplayPatchV2Operation {
+  const data = (operation as GameplayPatchV2WireOperation).data;
+  if (!data || Array.isArray(data)) {
+    return operation;
+  }
+
+  return {
+    ...data,
+    op: operation.op,
+  } as GameplayPatchV2Operation;
+}
+
+function recordLibraryShuffleRevisions(
+  state: GameTableNormalizedV2State,
+  operations: readonly GameplayPatchV2Operation[],
+  revision: number,
+): GameTableNormalizedV2State {
+  const shuffledPlayerIds = new Set(
+    operations
+      .map(normalizePatchOperation)
+      .filter((operation): operation is Extract<GameplayPatchV2Operation, { op: 'library.shuffled' }> => operation.op === 'library.shuffled')
+      .map((operation) => operation.playerId),
+  );
+
+  let players = state.players;
+  for (const playerId of shuffledPlayerIds) {
+    const player = players[playerId];
+    if (!player || player.libraryShuffleRevision === revision) {
+      continue;
+    }
+
+    players = {
+      ...players,
+      [playerId]: {
+        ...player,
+        libraryShuffleRevision: revision,
+      },
+    };
+  }
+
+  return players === state.players ? state : { ...state, players };
+}
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
   switch (operation.op) {
@@ -514,6 +1107,9 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
 
+    case 'player.presence.set':
+      return updatePlayer(state, operation.playerId, (player) => ({ ...player, isOnline: operation.isOnline }));
+
     case 'turn.set':
       return {
         status: 'applied',
@@ -539,16 +1135,24 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       };
     }
 
-    case 'card.field.set':
-      return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
+    case 'card.field.set': {
+      const result = updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
         ...instance,
         ...(operation.tapped !== undefined ? { tapped: operation.tapped } : {}),
         ...(operation.rotation !== undefined ? { rotation: operation.rotation } : {}),
         ...(operation.faceDown !== undefined ? { faceDown: operation.faceDown } : {}),
         ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
+        ...(operation.faceDown === false && operation.hidden === false && operation.cardKey
+          ? { staticCardPending: !operation.staticCard }
+          : {}),
         ...(operation.cardKey !== undefined && operation.cardKey !== null ? { cardKey: operation.cardKey, cardRef: operation.cardKey } : {}),
+        ...(operation.printId !== undefined && operation.printId !== null ? { printId: operation.printId } : {}),
+        ...(operation.cardVersion !== undefined && operation.cardVersion !== null ? { cardVersion: operation.cardVersion } : {}),
+        ...(operation.language !== undefined && operation.language !== null ? { language: operation.language } : {}),
+        ...(operation.viewerVisibility !== undefined && operation.viewerVisibility !== null ? { viewerVisibility: operation.viewerVisibility } : {}),
         ...(operation.controllerId !== undefined ? { controllerId: operation.controllerId } : {}),
-        ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
+        ...(operation.revealedTo !== undefined ? { revealedTo: Array.isArray(operation.revealedTo) ? [...operation.revealedTo] : [] } : {}),
+        ...(operation.revealMarker !== undefined ? { revealMarker: operation.revealMarker } : {}),
         ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
         ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker } : {}),
         ...(operation.activeFaceIndex !== undefined ? { activeFaceIndex: operation.activeFaceIndex } : {}),
@@ -558,6 +1162,33 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
         ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
         ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        ...(operation.staticCard ? { staticCardPending: false } : {}),
+      }));
+      if (result.status === 'failed' || !operation.staticCard) {
+        return result;
+      }
+      return {
+        status: 'applied',
+        state: {
+          ...result.state,
+          staticCards: {
+            ...result.state.staticCards,
+            [operation.staticCard.cardRef]: mergeStaticCard(result.state.staticCards[operation.staticCard.cardRef], operation.staticCard),
+          },
+        },
+      };
+    }
+
+    case 'hand.reveal_marker.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        revealedHandIndexes: setRevealedHandIndex(player.revealedHandIndexes, operation.index, operation.revealed),
+      }));
+
+    case 'hand.reveal_marker.clear':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        revealedHandIndexes: clearRevealedHandIndexes(player.revealedHandIndexes, operation.indexes),
       }));
 
     case 'card.counters.patch':
@@ -572,7 +1203,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return addCardsToZone(state, operation.playerId, operation.zone, operation.cards, operation.index, operation.staticCards ?? {});
 
     case 'zone.cards.remove':
-      return removeCardsFromZone(state, operation.playerId, operation.zone, operation.instanceIds);
+      return removeCardsFromZone(state, operation.playerId, operation.zone, operation.instanceIds, operation.sourceIndexes);
 
     case 'zone.cards.move':
       return moveOneCard(state, operation);
@@ -601,14 +1232,41 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     case 'library.count.set':
       return setZoneCount(state, operation.playerId, 'library', operation.count);
 
+    case 'library.top.reveal_marker.set':
+      return updatePlayer(state, operation.playerId, (player) => ({ ...player, topLibraryRevealMarker: operation.revealed }));
+
+    case 'library.top.reveal_audience.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        topLibraryRevealedTo: Array.isArray(operation.revealedTo) ? [...operation.revealedTo] : [],
+      }));
+
     case 'library.top.revealed':
-      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {}, operation.epoch);
 
     case 'library.top.viewed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
 
-    case 'library.revealed.set':
-      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+    case 'library.revealed.set': {
+      const result = revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+      if (result.status === 'failed' || operation.revealedTo === undefined) {
+        return result;
+      }
+      const player = result.state.players[operation.playerId];
+      return !player ? result : {
+        status: 'applied',
+        state: {
+          ...result.state,
+          players: {
+            ...result.state.players,
+            [operation.playerId]: { ...player, revealedLibraryTo: [...operation.revealedTo] },
+          },
+        },
+      };
+    }
+
+    case 'player.library.visibility.set':
+      return setPlayerLibraryVisibility(state, operation);
 
     case 'library.play_top_revealed.set':
       return setPlayTopLibraryRevealed(state, operation.playerId, operation.enabled);
@@ -623,7 +1281,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return clearKnownLibraryOrder(state, operation.playerId);
 
     case 'library.shuffled':
-      return clearKnownLibraryOrder(state, operation.playerId);
+      return clearKnownLibraryOrder(state, operation.playerId, operation.visibilityEpoch);
 
     case 'stack.add':
     case 'stack.item.add':
@@ -667,6 +1325,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         mulligan: {
           ...emptyMulliganState(),
           ...player.mulligan,
+          ...(operation.mulligansTaken !== undefined ? { mulligansTaken: operation.mulligansTaken } : {}),
           ...(operation.effectiveMulligans !== undefined ? { effectiveMulligans: operation.effectiveMulligans } : {}),
           status: operation.status,
           ready: operation.ready ?? player.mulligan?.ready ?? operation.status === 'READY',
@@ -676,12 +1335,13 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     }
 
     case 'mulligan.private_state.set': {
+      const patch = mulliganPrivateStatePatch(operation);
       let nextState = updatePlayer(state, operation.playerId, (player) => ({
         ...player,
         mulligan: mergeMulliganPrivateStatePatch(
           player.mulligan,
-          operation.state,
-          operation.hand?.length ?? operation.state.handSize ?? player.handCount,
+          patch,
+          operation.hand?.length ?? patch.handSize ?? player.handCount,
           operation.scryCard ? compactRefToLegacyCard(operation.scryCard, operation.playerId, 'library') : undefined,
         ),
       }));
@@ -783,6 +1443,9 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           game: {
             ...state.game,
             status: operation.status,
+            ...(operation.winnerPlayerId !== undefined ? { winnerPlayerId: operation.winnerPlayerId } : {}),
+            ...(operation.finishedAt !== undefined ? { finishedAt: operation.finishedAt } : {}),
+            ...(operation.finishReason !== undefined ? { finishReason: operation.finishReason } : {}),
             ...(operation.phase !== undefined && operation.phase !== null ? { gamePhase: operation.phase } : {}),
           },
         },
@@ -905,7 +1568,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           ...state,
           game: {
             ...state.game,
-            disconnectVote: disconnectVotePayload(operation),
+            disconnectVotes: cloneDisconnectVotes(disconnectVotesPayload(operation)),
           },
         },
       };
@@ -927,13 +1590,27 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
   }
 }
 
-function disconnectVotePayload(operation: GameplayPatchV2Operation): GameDisconnectVoteState | null {
+function disconnectVotesPayload(operation: GameplayPatchV2Operation): GameDisconnectVotes {
   const payload = operation as {
-    disconnectVote?: GameDisconnectVoteState | null;
-    data?: { disconnectVote?: GameDisconnectVoteState | null };
+    disconnectVotes?: GameDisconnectVotes;
+    data?: { disconnectVotes?: GameDisconnectVotes };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  return payload.disconnectVotes ?? payload.data?.disconnectVotes ?? {};
+}
+
+function cloneRematchState(rematch: GameRematchState): GameRematchState {
+  return {
+    votes: Object.fromEntries(Object.entries(rematch.votes).map(([playerId, vote]) => [playerId, { ...vote }])),
+    deadlineAt: rematch.deadlineAt ?? null,
+  };
+}
+
+function cloneDisconnectVotes(votes: GameDisconnectVotes): GameDisconnectVotes {
+  return Object.fromEntries(Object.entries(votes).map(([targetPlayerId, vote]) => [
+    targetPlayerId,
+    { ...vote, eligible: vote.eligible ? [...vote.eligible] : undefined, votes: { ...vote.votes } },
+  ]));
 }
 
 function addCardsToZone(
@@ -1017,6 +1694,7 @@ function removeCardsFromZone(
   playerId: string,
   zone: GameZoneName,
   instanceIds: string[],
+  sourceIndexes?: number[],
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   const playerZoneCounts = state.zoneCounts[playerId];
@@ -1026,13 +1704,38 @@ function removeCardsFromZone(
 
   const currentZone = playerZones[zone] ?? [];
   const removalIds = new Set(instanceIds);
+  for (const [removalOffset, instanceId] of instanceIds.entries()) {
+    if (currentZone.includes(instanceId)) {
+      continue;
+    }
+
+    const sourceIndex = sourceIndexes?.[removalOffset];
+    if (typeof sourceIndex !== 'number' || !Number.isInteger(sourceIndex) || sourceIndex < 0) {
+      continue;
+    }
+
+    const fallbackInstanceId = currentZone[sourceIndex];
+    if (fallbackInstanceId) {
+      removalIds.add(fallbackInstanceId);
+    }
+  }
   const knownRemovalCount = currentZone.filter((instanceId) => removalIds.has(instanceId)).length;
-  const nextZone = removeIds(currentZone, instanceIds);
+  const removedHandIndexes = zone === 'hand'
+    ? currentZone.reduce<number[]>((indexes, instanceId, index) => {
+        if (removalIds.has(instanceId)) {
+          indexes.push(index);
+        }
+        return indexes;
+      }, [])
+    : [];
+  const nextZone = removeIds(currentZone, [...removalIds]);
+  const nextPlayers = rebaseHandRevealIndexes(state.players, playerId, removedHandIndexes);
 
   return {
     status: 'applied',
     state: {
       ...state,
+      players: nextPlayers,
       zones: {
         ...state.zones,
         [playerId]: {
@@ -1115,6 +1818,9 @@ function moveOneCard(
       );
     }
     nextInstance = completeInstanceIdentity(nextInstance, nextStaticCards[nextInstance.cardRef]);
+    if (shouldClearRevealRecipientsAfterMove(operation)) {
+      nextInstance = { ...nextInstance, revealedTo: undefined };
+    }
     nextInstances[operation.instanceId] = nextInstance;
   } else {
     const existing = nextInstances[operation.instanceId];
@@ -1125,11 +1831,13 @@ function moveOneCard(
       ...existing,
       zoneId: zoneId(operation.to.playerId, operation.to.zone),
       position: battlefieldPositionForZone(operation.to.zone, existing.position, existing.position),
+      ...(shouldClearRevealRecipientsAfterMove(operation) ? { revealedTo: undefined } : {}),
     };
   }
 
   const samePlayer = operation.from.playerId === operation.to.playerId;
   const sameZone = samePlayer && operation.from.zone === operation.to.zone;
+  const sourceRemovalIndex = sourceZone.indexOf(operation.instanceId);
   const baseTargetZone = sameZone ? sourceZone : targetZone;
   const nextSourceZone = sourceContainsInstance
     ? sourceZone.filter((id) => id !== operation.instanceId)
@@ -1171,6 +1879,9 @@ function moveOneCard(
         ...toCounts,
         [operation.to.zone]: nextTargetZone.length,
       };
+  const nextPlayers = operation.from.zone === 'hand' && sourceRemovalIndex >= 0 && !sameZone
+    ? rebaseHandRevealIndexes(state.players, operation.from.playerId, [sourceRemovalIndex])
+    : state.players;
 
   return {
     status: 'applied',
@@ -1178,6 +1889,7 @@ function moveOneCard(
       ...state,
       instances: nextInstances,
       staticCards: nextStaticCards,
+      players: nextPlayers,
       zones: {
         ...state.zones,
         [operation.from.playerId]: nextPlayerZones,
@@ -1190,6 +1902,20 @@ function moveOneCard(
       },
     },
   };
+}
+
+function shouldClearRevealRecipientsAfterMove(operation: {
+  from: { zone: GameZoneName };
+  to: { zone: GameZoneName };
+  card?: Pick<BootstrapInstanceV2, 'revealedTo'> | LegacyCardPatchPayload;
+}): boolean {
+  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand' && operation.to.zone !== 'library') {
+    return true;
+  }
+
+  return operation.from.zone === 'library'
+    && operation.to.zone !== 'library'
+    && operation.card?.revealedTo === undefined;
 }
 
 function reorderZoneByIds(
@@ -1253,6 +1979,7 @@ function revealLibraryTop(
   playerId: string,
   cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>,
   staticCards: Record<string, BootstrapStaticCardV2>,
+  revealEpoch?: number,
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   if (!playerZones) {
@@ -1296,6 +2023,15 @@ function revealLibraryTop(
           library: nextLibrary,
         },
       },
+      ...(revealEpoch === undefined ? {} : {
+        players: {
+          ...state.players,
+          [playerId]: {
+            ...state.players[playerId],
+            libraryTopRevealEpoch: revealEpoch,
+          },
+        },
+      }),
     },
   };
 }
@@ -1334,11 +2070,16 @@ function reorderLibraryTop(
 function clearKnownLibraryOrder(
   state: GameTableNormalizedV2State,
   playerId: string,
+  preserveTopRevealEpoch?: number,
 ): OperationApplyResult {
   const playerZones = state.zones[playerId];
   if (!playerZones) {
     return { status: 'failed', reason: 'target_not_found' };
   }
+
+  const player = state.players[playerId];
+  const preservesCurrentTop = preserveTopRevealEpoch !== undefined
+    && player?.libraryTopRevealEpoch === preserveTopRevealEpoch;
 
   return {
     status: 'applied',
@@ -1348,7 +2089,41 @@ function clearKnownLibraryOrder(
         ...state.zones,
         [playerId]: {
           ...playerZones,
-          library: [],
+          library: preservesCurrentTop ? playerZones.library.slice(0, 1) : [],
+        },
+      },
+      ...(player ? {
+        players: {
+          ...state.players,
+          [playerId]: {
+            ...player,
+            libraryTopRevealEpoch: preservesCurrentTop ? player.libraryTopRevealEpoch : undefined,
+          },
+        },
+      } : {}),
+    },
+  };
+}
+
+function setPlayerLibraryVisibility(
+  state: GameTableNormalizedV2State,
+  operation: Extract<GameplayPatchV2Operation, { op: 'player.library.visibility.set' }>,
+): OperationApplyResult {
+  const player = state.players[operation.playerId];
+  if (!player) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      players: {
+        ...state.players,
+        [operation.playerId]: {
+          ...player,
+          ...(operation.playTopLibraryRevealed === undefined ? {} : { playTopLibraryRevealed: operation.playTopLibraryRevealed }),
+          ...(operation.revealedLibraryTo === undefined ? {} : { revealedLibraryTo: [...operation.revealedLibraryTo] }),
         },
       },
     },
@@ -1520,14 +2295,13 @@ function upsertChatMessage(state: GameTableNormalizedV2State, message: ChatMessa
     status: 'applied',
     state: {
       ...state,
-      chat: {
-        byId: {
-          ...state.chat.byId,
-          [messageId]: { ...message },
-        },
-        order: exists || !appendIfMissing ? state.chat.order : [...state.chat.order, messageId],
-        cursor: message.id ?? message.createdAt,
-      },
+      chat: exists || !appendIfMissing
+        ? {
+            ...state.chat,
+            byId: { ...state.chat.byId, [messageId]: { ...message } },
+            cursor: message.id ?? message.createdAt,
+          }
+        : mergeChatMessages(state.chat, [message], 250, 'newest'),
     },
   };
 }
@@ -1557,44 +2331,90 @@ function setChatReactions(state: GameTableNormalizedV2State, messageId: string, 
 }
 
 function appendEventLogEntries(state: GameTableNormalizedV2State, entries: GameLogEntry[]): OperationApplyResult {
-  let byId = { ...state.log.byId };
-  let order = [...state.log.order];
-  let cursor = state.log.cursor;
-  for (const entry of entries) {
-    byId[entry.id] = { ...entry };
-    if (!order.includes(entry.id)) {
-      order.push(entry.id);
-    }
-    cursor = entry.id;
-  }
-
   return {
     status: 'applied',
     state: {
       ...state,
-      log: {
-        byId,
-        order,
-        cursor,
-      },
+      log: mergeLogEntries(state.log, entries, 250, 'newest'),
     },
   };
 }
 
-function createChatState(entries: readonly ChatMessage[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2ChatState {
-  const byId: Record<string, ChatMessage> = {};
-  const order: string[] = [];
-  let cursor = fallbackCursor;
-  for (const entry of entries ?? []) {
-    const id = chatMessageId(entry);
-    byId[id] = { ...entry, id };
-    if (!order.includes(id)) {
-      order.push(id);
-    }
-    cursor = entry.id ?? entry.createdAt ?? cursor;
+function mergeChatMessages(
+  current: GameTableNormalizedV2ChatState,
+  incoming: readonly ChatMessage[],
+  maximumEntries: number,
+  retention: 'oldest' | 'newest',
+): GameTableNormalizedV2ChatState {
+  const byId = { ...current.byId };
+  for (const message of incoming) {
+    const id = chatMessageId(message);
+    byId[id] = { ...message, id };
   }
 
-  return { byId, order, cursor };
+  const order = Object.keys(byId).sort((leftId, rightId) => compareChatMessages(byId[leftId], byId[rightId]));
+  const limit = Math.max(1, maximumEntries);
+  const retainedOrder = retention === 'oldest' ? order.slice(0, limit) : order.slice(-limit);
+  const retainedById = Object.fromEntries(retainedOrder.map((id) => [id, byId[id]])) as Record<string, ChatMessage>;
+
+  return {
+    byId: retainedById,
+    order: retainedOrder,
+    cursor: retainedById[retainedOrder.at(-1) ?? '']?.id ?? current.cursor,
+  };
+}
+
+function compareChatMessages(left: ChatMessage | undefined, right: ChatMessage | undefined): number {
+  return (left?.createdAt ?? '').localeCompare(right?.createdAt ?? '')
+    || chatMessageId(left ?? emptyChatMessage).localeCompare(chatMessageId(right ?? emptyChatMessage));
+}
+
+const emptyChatMessage: ChatMessage = {
+  userId: '',
+  displayName: '',
+  message: '',
+  createdAt: '',
+};
+
+function mergeLogEntries(
+  current: GameTableNormalizedV2LogState,
+  incoming: readonly GameLogEntry[],
+  maximumEntries: number,
+  retention: 'oldest' | 'newest',
+): GameTableNormalizedV2LogState {
+  const byId = { ...current.byId };
+  for (const entry of incoming) {
+    byId[entry.id] = { ...entry };
+  }
+
+  const order = Object.keys(byId)
+    .sort((leftId, rightId) => compareLogEntries(byId[leftId], byId[rightId]));
+  const limit = Math.max(1, maximumEntries);
+  const retainedOrder = retention === 'oldest'
+    ? order.slice(0, limit)
+    : order.slice(-limit);
+  const retainedById = Object.fromEntries(
+    retainedOrder.map((id) => [id, byId[id]]),
+  ) as Record<string, GameLogEntry>;
+
+  return {
+    byId: retainedById,
+    order: retainedOrder,
+    cursor: retainedOrder.at(-1) ?? null,
+  };
+}
+
+function compareLogEntries(left: GameLogEntry | undefined, right: GameLogEntry | undefined): number {
+  const leftCreatedAt = left?.createdAt ?? '';
+  const rightCreatedAt = right?.createdAt ?? '';
+
+  return leftCreatedAt.localeCompare(rightCreatedAt) || (left?.id ?? '').localeCompare(right?.id ?? '');
+}
+
+const ACTIVITY_BOOTSTRAP_LIMIT = 50;
+
+function createChatState(entries: readonly ChatMessage[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2ChatState {
+  return mergeChatMessages({ byId: {}, order: [], cursor: fallbackCursor }, entries ?? [], ACTIVITY_BOOTSTRAP_LIMIT, 'newest');
 }
 
 function createLogState(entries: readonly GameLogEntry[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2LogState {
@@ -1609,7 +2429,18 @@ function createLogState(entries: readonly GameLogEntry[] | undefined, fallbackCu
     cursor = entry.id;
   }
 
-  return { byId, order, cursor };
+  const retainedOrder = order
+    .sort((left, right) => compareLogEntries(byId[left], byId[right]))
+    .slice(-ACTIVITY_BOOTSTRAP_LIMIT);
+  const retainedIds = new Set(retainedOrder);
+
+  for (const id of Object.keys(byId)) {
+    if (!retainedIds.has(id)) {
+      delete byId[id];
+    }
+  }
+
+  return { byId, order: retainedOrder, cursor };
 }
 
 function replacePrivateMulliganHand(
@@ -1788,10 +2619,20 @@ function emptyMulliganState(): GamePlayerMulliganState {
   };
 }
 
-type MulliganPrivateStatePatch = Extract<
+type MulliganPrivateStateOperation = Extract<
   GameplayPatchV2Operation,
   { op: 'mulligan.private_state.set' }
->['state'];
+>;
+type MulliganPrivateStatePatch = MulliganPrivateStateOperation['state'];
+type FlatMulliganPrivateStateOperation = Omit<MulliganPrivateStateOperation, 'state'> & {
+  state?: MulliganPrivateStatePatch;
+} & Partial<MulliganPrivateStatePatch>;
+
+function mulliganPrivateStatePatch(operation: MulliganPrivateStateOperation): MulliganPrivateStatePatch {
+  const flatOperation = operation as FlatMulliganPrivateStateOperation;
+
+  return flatOperation.state ?? flatOperation;
+}
 
 function mergeMulliganPrivateStatePatch(
   current: GamePlayerMulliganState | undefined,
@@ -1806,6 +2647,9 @@ function mergeMulliganPrivateStatePatch(
 
   if (patch.rule !== undefined) {
     next.rule = patch.rule as GamePlayerMulliganState['rule'];
+  }
+  if (patch.firstMulliganFree !== undefined) {
+    next.firstMulliganFree = patch.firstMulliganFree;
   }
   if (patch.mulligansTaken !== undefined) {
     next.mulligansTaken = patch.mulligansTaken;
@@ -1890,9 +2734,18 @@ function hydratePlayerState(
   state: GameTableNormalizedV2State,
   playerId: string,
   player: GameTableNormalizedV2PlayerState,
+  hydratedZones?: GamePlayerState['zones'],
 ): GamePlayerState {
-  const zones = state.zones[playerId] ?? emptyZones();
+  const zoneIds = state.zones[playerId] ?? emptyZones();
   const zoneCounts = state.zoneCounts[playerId] ?? emptyZoneCounts();
+  const zones = hydratedZones ?? {
+    library: zoneIds.library.map((id) => hydrateCardInstance(state, id, 'library')).filter(isCardInstance),
+    hand: zoneIds.hand.map((id) => hydrateCardInstance(state, id, 'hand')).filter(isCardInstance),
+    battlefield: zoneIds.battlefield.map((id) => hydrateCardInstance(state, id, 'battlefield')).filter(isCardInstance),
+    graveyard: zoneIds.graveyard.map((id) => hydrateCardInstance(state, id, 'graveyard')).filter(isCardInstance),
+    exile: zoneIds.exile.map((id) => hydrateCardInstance(state, id, 'exile')).filter(isCardInstance),
+    command: zoneIds.command.map((id) => hydrateCardInstance(state, id, 'command')).filter(isCardInstance),
+  };
 
   return {
     user: player.user ?? {
@@ -1902,24 +2755,22 @@ function hydratePlayerState(
       roles: [],
     },
     status: player.status as GamePlayerState['status'],
+    isOnline: player.isOnline,
     concededAt: player.concededAt ?? null,
     deckName: player.deckName ?? null,
     colorIdentity: [...player.colorIdentity],
     backgroundName: player.backgroundName ?? undefined,
     sleevesName: player.sleevesName ?? undefined,
     life: player.life,
-    zones: {
-      library: zones.library.map((id) => hydrateCardInstance(state, id, 'library')).filter(isCardInstance),
-      hand: zones.hand.map((id) => hydrateCardInstance(state, id, 'hand')).filter(isCardInstance),
-      battlefield: zones.battlefield.map((id) => hydrateCardInstance(state, id, 'battlefield')).filter(isCardInstance),
-      graveyard: zones.graveyard.map((id) => hydrateCardInstance(state, id, 'graveyard')).filter(isCardInstance),
-      exile: zones.exile.map((id) => hydrateCardInstance(state, id, 'exile')).filter(isCardInstance),
-      command: zones.command.map((id) => hydrateCardInstance(state, id, 'command')).filter(isCardInstance),
-    },
+    zones,
     zoneCounts,
     handCount: zoneCounts.hand ?? player.handCount,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
     playTopLibraryRevealed: player.playTopLibraryRevealed,
+    topLibraryRevealMarker: player.topLibraryRevealMarker,
+    topLibraryRevealedTo: player.topLibraryRevealedTo ? [...player.topLibraryRevealedTo] : undefined,
+    libraryShuffleRevision: player.libraryShuffleRevision,
+    revealedHandIndexes: player.revealedHandIndexes ? [...player.revealedHandIndexes] : undefined,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
   };
@@ -1941,7 +2792,9 @@ function hydrateCardInstance(
     instanceId,
     ownerId: instance.ownerId ?? undefined,
     controllerId: instance.controllerId ?? undefined,
-    scryfallId: staticCard?.scryfallId ?? undefined,
+    // Owners retain the private print identity for an explicit face-down
+    // inspection, while public projections never contain these fields.
+    scryfallId: staticCard?.scryfallId ?? instance.printId ?? instance.cardKey ?? undefined,
     name: staticCard?.name ?? 'Card',
     imageUris: toLegacyImageUris(staticCard?.imageUris),
     cardFaces: staticCard?.cardFaces ?? undefined,
@@ -1964,6 +2817,7 @@ function hydrateCardInstance(
     dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
+    revealMarker: instance.revealMarker ?? undefined,
     position: instance.position ?? undefined,
     rotation: instance.rotation ?? 0,
     counters: instance.counters ? { ...instance.counters } : undefined,
@@ -2020,6 +2874,7 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     user: player.user,
     displayName: player.displayName,
     life: player.life,
+    isOnline: player.isOnline,
     status: player.status,
     handCount: player.handCount,
     zoneCounts: { ...player.zoneCounts },
@@ -2030,7 +2885,72 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     backgroundName: player.backgroundName ?? null,
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
+    topLibraryRevealMarker: player.topLibraryRevealMarker ?? false,
+    topLibraryRevealedTo: player.topLibraryRevealedTo ? [...player.topLibraryRevealedTo] : [],
+    revealedHandIndexes: player.revealedHandIndexes ? [...player.revealedHandIndexes] : [],
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
+  };
+}
+
+function setRevealedHandIndex(indexes: readonly number[] | undefined, index: number, revealed: boolean): number[] {
+  const current = new Set(indexes ?? []);
+  if (revealed) {
+    current.add(index);
+  } else {
+    current.delete(index);
+  }
+
+  return [...current].sort((left, right) => left - right);
+}
+
+function clearRevealedHandIndexes(indexes: readonly number[] | undefined, removedIndexes: readonly number[]): number[] {
+  const removed = [...new Set(removedIndexes)].sort((left, right) => left - right);
+  const current = indexes ?? [];
+  if (removed.length === 0 || current.length === 0) {
+    return [...current];
+  }
+
+  const rebased: number[] = [];
+  let removedCursor = 0;
+  for (const index of current) {
+    while (removedCursor < removed.length && removed[removedCursor] < index) {
+      removedCursor += 1;
+    }
+    if (removed[removedCursor] === index) {
+      continue;
+    }
+    rebased.push(index - removedCursor);
+  }
+
+  return rebased;
+}
+
+function rebaseHandRevealIndexes(
+  players: GameTableNormalizedV2State['players'],
+  playerId: string,
+  removedIndexes: readonly number[],
+): GameTableNormalizedV2State['players'] {
+  if (removedIndexes.length === 0) {
+    return players;
+  }
+
+  const player = players[playerId];
+  if (!player) {
+    return players;
+  }
+
+  const nextIndexes = clearRevealedHandIndexes(player.revealedHandIndexes, removedIndexes);
+  const currentIndexes = player.revealedHandIndexes ?? [];
+  if (nextIndexes.length === currentIndexes.length && nextIndexes.every((index, position) => index === currentIndexes[position])) {
+    return players;
+  }
+
+  return {
+    ...players,
+    [playerId]: {
+      ...player,
+      revealedHandIndexes: nextIndexes,
+    },
   };
 }
 
@@ -2488,10 +3408,6 @@ function assertRenderableIdentity(
     return;
   }
 
-  if (!staticCard) {
-    throw new Error(`Identity contract violation: visible card ${instanceId} has no static card for ${instance.cardRef}.`);
-  }
-
   const requiredIdentity: Array<[string, string | null | undefined]> = [
     ['cardKey', instance.cardKey],
     ['printId', instance.printId],
@@ -2502,6 +3418,17 @@ function assertRenderableIdentity(
   const missingInstanceField = requiredIdentity.find(([, value]) => value === undefined || value === null || value.trim() === '');
   if (missingInstanceField) {
     throw new Error(`Identity contract violation: visible card ${instanceId} is missing ${missingInstanceField[0]} for ${instance.cardRef}.`);
+  }
+
+  // A face-up transition may arrive before its static-card cache update.
+  // Keep that one valid identity renderable as a temporary Card placeholder
+  // instead of rejecting the patch and forcing a snapshot resync.
+  if (!staticCard && instance.staticCardPending === true) {
+    return;
+  }
+
+  if (!staticCard) {
+    throw new Error(`Identity contract violation: visible card ${instanceId} has no static card for ${instance.cardRef}.`);
   }
 
   const staticIdentity: Array<[string, string | null | undefined]> = [

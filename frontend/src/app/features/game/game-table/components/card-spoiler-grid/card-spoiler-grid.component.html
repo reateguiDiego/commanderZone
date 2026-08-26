@@ -28,12 +28,12 @@
           (dragend)="dragEnd()"
           (mouseleave)="resetFacePreview(card)"
         >
-          @if (allowReorder() && orderLabel(slot.index); as label) {
+          @if (orderLabel(slot.index); as label) {
             <span class="draw-order-label">{{ label }}</span>
           }
           <span class="zone-art" [class.empty]="isDraggedCard(card)" [class.face-flipping]="isFaceFlipping(card)">
             @if (cardImage()(visibleCard); as image) {
-              <img [src]="image" [alt]="visibleCard.name" loading="lazy" />
+              <img [src]="image" [alt]="visibleCard.name" loading="lazy" decoding="async" />
             } @else {
               <span class="card-spoiler-fallback">{{ visibleCard.name }}</span>
             }
@@ -57,7 +57,7 @@
         </button>
       } @else {
         <div class="card-spoiler empty-slot" aria-hidden="true">
-          @if (allowReorder() && orderLabel(slot.index); as label) {
+          @if (orderLabel(slot.index); as label) {
             <span class="draw-order-label">{{ label }}</span>
           }
           <span class="zone-art empty"></span>

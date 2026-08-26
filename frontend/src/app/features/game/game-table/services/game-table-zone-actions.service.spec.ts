@@ -121,6 +121,24 @@ describe('GameTableZoneActionsService', () => {
     expect(state.zoneModal()?.drawOrderLabels).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
   });
 
+  it('filters a fixed revealed library locally without another zone request', () => {
+    const cards = [
+      card('card-1', { name: 'Arcane Signet', typeLine: 'Artifact', zone: 'library' }),
+      card('card-2', { name: 'Llanowar Elves', typeLine: 'Creature', zone: 'library' }),
+    ];
+    const { service, state, gamesApi } = setup();
+    service.openFixedZone('player-1', 'library', 'Revealed library', cards, null, false, {
+      readOnly: true,
+      showFilters: true,
+    });
+
+    service.updateZoneFilter(context(), { type: 'creature', search: 'llanowar' });
+
+    expect(gamesApi.zone).not.toHaveBeenCalled();
+    expect(state.zoneModal()).toMatchObject({ showFilters: true, total: 1 });
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-2']);
+  });
+
   it('removes cards from a loaded modal without switching it to loading', () => {
     const { service, state } = setup();
     const cards = [card('card-1'), card('card-2'), card('card-3')];

@@ -24,9 +24,12 @@ class GameDisconnectVoteServiceTest extends TestCase
 
         self::assertNotNull($recorded);
         self::assertSame(GameDisconnectVoteService::EVENT_TYPE, $recorded['event']->toArray()['type']);
-        self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $recorded['snapshot']['disconnectVote']['status']);
-        self::assertSame($target->id(), $recorded['snapshot']['disconnectVote']['targetPlayerId']);
-        self::assertSame('2026-01-01T00:01:00+00:00', $recorded['snapshot']['disconnectVote']['deadlineAt']);
+        self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $recorded['snapshot']['disconnectVotes'][$target->id()]['status']);
+        self::assertSame($target->id(), $recorded['snapshot']['disconnectVotes'][$target->id()]['targetPlayerId']);
+        self::assertSame('2026-01-01T00:01:00+00:00', $recorded['snapshot']['disconnectVotes'][$target->id()]['deadlineAt']);
+        self::assertSame('gameLog.disconnect.voteOpened', $recorded['snapshot']['eventLog'][0]['i18nKey']);
+        self::assertSame(['kind' => 'player', 'playerId' => $target->id()], $recorded['snapshot']['eventLog'][0]['subject']);
+        self::assertSame($target->id(), $recorded['snapshot']['eventLog'][0]['params']['targetPlayerId']);
         self::assertSame($persistedBefore, $game->persistedSnapshot());
         self::assertSame(0, $recorded['event']->payload()['snapshot_write_count']);
     }
@@ -56,7 +59,9 @@ class GameDisconnectVoteServiceTest extends TestCase
             new \DateTimeImmutable('2026-01-01T00:00:11+00:00'),
         );
 
-        self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_EXPEL, $recorded['snapshot']['disconnectVote']['status']);
+        self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_EXPEL, $recorded['snapshot']['disconnectVotes'][$target->id()]['status']);
+        self::assertSame('gameLog.disconnect.tableExpelled', $recorded['snapshot']['eventLog'][1]['i18nKey']);
+        self::assertSame(['kind' => 'player', 'playerId' => $target->id()], $recorded['snapshot']['eventLog'][1]['subject']);
         self::assertSame('conceded', $recorded['snapshot']['players'][$target->id()]['status']);
         self::assertSame(GameRematchService::VOTE_LEAVE, $recorded['snapshot']['rematch']['votes'][$target->id()]['vote']);
         self::assertFalse($game->room()->hasPlayer($target));
@@ -194,8 +199,8 @@ class GameDisconnectVoteServiceTest extends TestCase
         );
 
         self::assertNotNull($resolved);
-        self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_WAIT, $resolved['snapshot']['disconnectVote']['status']);
-        self::assertSame('2026-01-01T00:06:01+00:00', $resolved['snapshot']['disconnectVote']['cooldownUntil']);
+        self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_WAIT, $resolved['snapshot']['disconnectVotes'][$target->id()]['status']);
+        self::assertSame('2026-01-01T00:06:01+00:00', $resolved['snapshot']['disconnectVotes'][$target->id()]['cooldownUntil']);
     }
 
     public function testCancelOnReconnectClosesOpenVote(): void
@@ -216,8 +221,8 @@ class GameDisconnectVoteServiceTest extends TestCase
         );
 
         self::assertNotNull($cancelled);
-        self::assertSame(GameDisconnectVoteService::STATUS_CANCELLED, $cancelled['snapshot']['disconnectVote']['status']);
-        self::assertNull($cancelled['snapshot']['disconnectVote']['deadlineAt']);
+        self::assertSame(GameDisconnectVoteService::STATUS_CANCELLED, $cancelled['snapshot']['disconnectVotes'][$target->id()]['status']);
+        self::assertNull($cancelled['snapshot']['disconnectVotes'][$target->id()]['deadlineAt']);
     }
 
     public function testCooldownBlocksImmediateReopenAndAllowsReopenAfterFiveMinutes(): void
@@ -252,7 +257,7 @@ class GameDisconnectVoteServiceTest extends TestCase
             new \DateTimeImmutable('2026-01-01T00:06:01+00:00'),
         );
         self::assertNotNull($reopened);
-        self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $reopened['snapshot']['disconnectVote']['status']);
+        self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $reopened['snapshot']['disconnectVotes'][$target->id()]['status']);
     }
 
     /**
@@ -318,7 +323,7 @@ class GameDisconnectVoteServiceTest extends TestCase
             ],
             'commanderDamage' => [],
             'counters' => [],
-            'backgroundName' => 'G_3',
+            'backgroundName' => 'g_3',
             'sleevesName' => 'default',
         ];
     }

@@ -39,7 +39,7 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
-  it('skips defeated players without increasing the round number mid-round', async () => {
+  it('keeps active zero-life players in turn order', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 
@@ -51,7 +51,7 @@ describe('GameTableTurnActionsService', () => {
     });
 
     expect(command).toHaveBeenCalledWith('turn.changed', {
-      activePlayerId: 'player-3',
+      activePlayerId: 'player-2',
       phase: 'untap',
       number: 4,
     });
@@ -75,7 +75,7 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
-  it('skips players with lethal commander damage', async () => {
+  it('keeps active players with 21 commander damage in turn order', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 
@@ -91,19 +91,19 @@ describe('GameTableTurnActionsService', () => {
     });
 
     expect(command).toHaveBeenCalledWith('turn.changed', {
-      activePlayerId: 'player-3',
+      activePlayerId: 'player-2',
       phase: 'untap',
       number: 4,
     });
   });
 
-  it('increases the round number after wrapping around defeated players', async () => {
+  it('increases the round number after wrapping around conceded players', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 
     await service.passTurn({
       snapshot: () => snapshot({ activePlayerId: 'player-3', phase: 'combat', number: 4 }),
-      players: () => [player('player-1', 12), player('player-2', 0), player('player-3', 8)],
+      players: () => [player('player-1', 12), player('player-2', 40, {}, 'conceded'), player('player-3', 8)],
       phases: () => ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'],
       command,
     });
@@ -115,7 +115,7 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
-  it('keeps the two-player endgame behavior when only one player is alive', async () => {
+  it('keeps a zero-life active player in the two-player turn order', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 

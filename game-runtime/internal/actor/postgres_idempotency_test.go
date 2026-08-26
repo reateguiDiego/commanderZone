@@ -177,9 +177,11 @@ func saveActorPostgresSnapshot(ctx context.Context, store persistence.EventStore
 func resetActorPostgresSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 	statements := []string{
+		`DROP TABLE IF EXISTS game_runtime_closing`,
 		`DROP TABLE IF EXISTS game_runtime_lease`,
 		`DROP TABLE IF EXISTS game_snapshot_compact`,
 		`DROP TABLE IF EXISTS game_event`,
+		`ALTER TABLE game ADD COLUMN IF NOT EXISTS runtime_closing BOOLEAN NOT NULL DEFAULT FALSE`,
 		`CREATE TABLE game_event (
 			id VARCHAR(36) NOT NULL PRIMARY KEY,
 			game_id VARCHAR(36) NOT NULL,
@@ -213,6 +215,10 @@ func resetActorPostgresSchema(t *testing.T, db *sql.DB) {
 		)`,
 		`CREATE INDEX idx_game_runtime_lease_owner ON game_runtime_lease (owner_instance_id)`,
 		`CREATE INDEX idx_game_runtime_lease_expires_at ON game_runtime_lease (expires_at)`,
+		`CREATE TABLE game_runtime_closing (
+			game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+			claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+		)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {

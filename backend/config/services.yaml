@@ -36,7 +36,6 @@ parameters:
     semantic_patches_enabled_default: 'false'
     compact_bootstrap_enabled_default: 'false'
     shadow_compare_enabled_default: 'false'
-    gameplay_emergency_legacy_fallback_enabled_default: 'false'
     gameplay_v2_snapshot_every_events_default: '25'
     gameplay_v2_snapshot_every_seconds_default: '30'
     gameplay_streams_enabled_default: 'true'
@@ -53,11 +52,16 @@ parameters:
     semantic_patches_enabled: '%env(bool:default:semantic_patches_enabled_default:SEMANTIC_PATCHES_ENABLED)%'
     compact_bootstrap_enabled: '%env(bool:default:compact_bootstrap_enabled_default:COMPACT_BOOTSTRAP_ENABLED)%'
     shadow_compare_enabled: '%env(bool:default:shadow_compare_enabled_default:SHADOW_COMPARE_ENABLED)%'
-    gameplay_emergency_legacy_fallback_enabled: '%env(bool:default:gameplay_emergency_legacy_fallback_enabled_default:GAMEPLAY_EMERGENCY_LEGACY_FALLBACK)%'
     gameplay_v2_snapshot_every_events: '%env(int:default:gameplay_v2_snapshot_every_events_default:GAMEPLAY_V2_SNAPSHOT_EVERY_EVENTS)%'
     gameplay_v2_snapshot_every_seconds: '%env(int:default:gameplay_v2_snapshot_every_seconds_default:GAMEPLAY_V2_SNAPSHOT_EVERY_SECONDS)%'
     gameplay_streams_enabled: '%env(bool:default:gameplay_streams_enabled_default:GAMEPLAY_STREAMS_ENABLED)%'
     gameplay_max_token_create_quantity: '%env(int:default:gameplay_max_token_create_quantity_default:GAMEPLAY_MAX_TOKEN_CREATE_QUANTITY)%'
+    all_disconnected_hot_grace_seconds_default: '120'
+    all_disconnected_total_grace_seconds_default: '1800'
+    waiting_room_inactivity_grace_seconds_default: '1800'
+    all_disconnected_hot_grace_seconds: '%env(int:default:all_disconnected_hot_grace_seconds_default:GAME_ALL_DISCONNECTED_HOT_GRACE_SECONDS)%'
+    all_disconnected_total_grace_seconds: '%env(int:default:all_disconnected_total_grace_seconds_default:GAME_ALL_DISCONNECTED_TOTAL_GRACE_SECONDS)%'
+    waiting_room_inactivity_grace_seconds: '%env(int:default:waiting_room_inactivity_grace_seconds_default:WAITING_ROOM_INACTIVITY_GRACE_SECONDS)%'
     contact_inbox_address: '%env(default:contact_inbox_address_default:CONTACT_INBOX_ADDRESS)%'
     google_oidc_client_ids: '%env(default:google_oidc_client_ids_default:GOOGLE_OIDC_CLIENT_IDS)%'
     google_oidc_jwks_uri: '%env(default:google_oidc_jwks_uri_default:GOOGLE_OIDC_JWKS_URI)%'
@@ -87,6 +91,19 @@ services:
 
     App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
         alias: App\Application\Game\Runtime\GameRuntimeCommandClient
+
+    App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeLifecycleControlClient
+
+    App\Application\Game\Lifecycle\AllDisconnectedGracePolicy:
+        arguments:
+            $hotGraceSeconds: '%all_disconnected_hot_grace_seconds%'
+            $totalGraceSeconds: '%all_disconnected_total_grace_seconds%'
+
+    App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy:
+        arguments:
+            $graceSeconds: '%waiting_room_inactivity_grace_seconds%'
+
 
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier

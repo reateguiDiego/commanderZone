@@ -1,4 +1,5 @@
 import { Card } from './card.model';
+import { DeckBracketLabel } from './deck-analysis.model';
 
 export type DeckSection = 'main' | 'commander' | 'sideboard' | 'maybeboard';
 export type DeckVisibility = 'private' | 'public';
@@ -25,6 +26,7 @@ export interface Deck {
   creatorUserId?: string;
   likes?: number;
   copies?: number;
+  bracket?: DeckBracketLabel | null;
   backgroundName?: string;
   sleevesName?: string;
   folderId: string | null;

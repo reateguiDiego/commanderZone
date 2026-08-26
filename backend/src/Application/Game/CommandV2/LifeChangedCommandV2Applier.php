@@ -26,12 +26,6 @@ final class LifeChangedCommandV2Applier implements GameCommandV2ApplierInterface
             : $oldLife + (int) ($payload['delta'] ?? 0);
         $snapshot['players'][$playerId]['life'] = $newLife;
 
-        if ($oldLife <= 0 && !$helper->v2HasPlayerDefeatedLog($snapshot, $playerId)) {
-            $helper->v2MarkPendingDefeatedPlayer($playerId, true);
-        } elseif ($oldLife > 0 && $newLife <= 0 && !$helper->v2HasPlayerDefeatedLog($snapshot, $playerId)) {
-            $helper->v2MarkPendingDefeatedPlayer($playerId);
-        }
-
         $emitter = (new PatchEmitterV2())->emitPublic([
             'op' => 'player.life.set',
             'playerId' => $playerId,

@@ -294,6 +294,7 @@
       "timer": "Timer",
       "mulligan": "Mulligan",
       "firstMulliganFree": "De eerste Mulligan is gratis",
+      "firstMulliganNotFree": "De eerste Mulligan is niet gratis",
       "mulliganDescriptions": {
         "london": "Trek elke keer 7 kaarten. Wanneer je houdt, leg je Ã©Ã©n kaart onderop je library voor elke effectieve mulligan.",
         "vancouver": "Elke effectieve mulligan trekt Ã©Ã©n kaart minder. Als je na een effectieve mulligan houdt, doe je scry 1.",
@@ -363,7 +364,8 @@
       "thisPlayer": "deze speler",
       "tieBreakRoll": "Tiebreak-worp",
       "tieBreakRollMessage": "Je speelde gelijk met {{ playerNames }}. Werp opnieuw om de gelijke stand te doorbreken.",
-      "waitingForDecksAndRolls": "Wachten op decks en worpen"
+      "waitingForDecksAndRolls": "Wachten op decks en worpen",
+      "realtimeUnavailable": "De realtimeverbinding wordt hersteld. Wijzigingen in de kamer kunnen vertraagd zijn."
     },
     "setup": {
       "gameSetupLifeControl": {
@@ -484,6 +486,8 @@
       "commanderSelect": "Selecteer",
       "filterFormat": "Formaat",
       "allFormats": "Alle formaten",
+      "filterBracket": "Bracket",
+      "allBrackets": "Alle brackets",
       "searchButton": "Zoeken",
       "empty": "Er zijn nog geen openbare decks beschikbaar.",
       "error": "Kan openbare decks niet laden."
@@ -543,6 +547,9 @@
       "current": "Huidig",
       "counters": "Counters"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Gedekt gespeeld"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Kijk naar een ander gezicht",
       "loadingCards": "Kaarten laden"
@@ -594,8 +601,10 @@
         "flipCardFace": "Beurt de kaart om",
         "playFaceDown": "Speel met de voorkant naar beneden",
         "previewCard": "Voorbeeldkaart",
+        "lookAtFaceDownCard": "Kaart bekijken",
         "moveTop": "Ga naar boven",
         "revealTopCard": "Onthul de bovenste kaart",
+        "revealXTopCards": "Onthul de bovenste X kaarten",
         "revealLibrary": "Onthul library",
         "moveAllTo": "Verplaats alles naar",
         "counters": "Counters",
@@ -603,6 +612,9 @@
         "moveTo": "Verplaats naar",
         "giveTo": "Geef aan",
         "reveal": "Onthullen",
+        "stopRevealing": "Stop met onthullen",
+        "playTopRevealed": "Speel met de bovenste kaart onthuld",
+        "stopPlayingTopRevealed": "Stop met spelen met de bovenste kaart onthuld",
         "viewAllLibrary": "Bekijk library",
         "viewXTopCards": "Kijk naar de bovenste X-kaarten",
         "bottomOfLibrary": "Onderkant van library",
@@ -661,7 +673,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "Disconnect-stemmen",
-      "expel": "Verdrijven",
+      "expel": "Uitsluiten",
       "genericDisconnectedMessage": "Een speler is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
       "noVote": "Geen stem",
       "playerDisconnectedMessage": "{{ playerName }} is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
@@ -669,6 +681,7 @@
       "playerDisconnected": "Speler ontkoppeld",
       "yourVote": "Joje stem:",
       "timeRemaining": "Resterende tijd:",
+      "voteFinished": "Stemming beëindigd",
       "targetPlayerBackOnline": "De doelspeler is weer online."
     },
     "gameRematchModal": {
@@ -726,6 +739,8 @@
       "lifeTotal": "Levenstotaal",
       "playerCounters": "Speler counters",
       "commanderDamage": "Commander damage",
+      "autoApplyCommanderDamageToLife": "Levens automatisch aftrekken",
+      "autoApplyCommanderDamageToLifeTooltip": "Als dit is ingeschakeld, passen wijzigingen in commander damage ook het levenstotaal van die speler aan.",
       "otherCounters": "Andere counters",
       "extras": "Extra's",
       "openExtraPlayerCounters": "Open extra speler counters",
@@ -752,6 +767,7 @@
       "turnOrder": "Beurvolgorde"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Beurt: {{ name }}",
       "turnPhases": "Beurt fases",
       "focusTheActiveTurnPlayer": "Focus de actieve speler aan de beurt",
       "focusTurn": "Focus beurt",
@@ -796,7 +812,16 @@
       "gameLogUnreadActions": "Partijlog, ongelezen acties",
       "chatUnreadMessages": "Chat, ongelezen berichten",
       "moveCardToAnotherBattlefield": "Verplaats de kaart naar een andere battlefield",
-      "putIntoLibrary": "Leg in library"
+      "putIntoLibrary": "Leg in library",
+      "focusedOpponentLabel": "Je bekijkt:",
+      "returnToOwnBattlefield": "Ga naar je slagveld",
+      "leaveTableConfirmationTitle": "Tafel verlaten?",
+      "leaveTableConfirmationMessage": "Je geeft dit spel op en verlaat de kamer. Deze actie kan niet ongedaan worden gemaakt.",
+      "concedeGameConfirmationTitle": "Spel opgeven?",
+      "concedeGameConfirmationMessage": "Je verliest dit spel onmiddellijk. Deze actie kan niet ongedaan worden gemaakt.",
+      "reloadRequiredTitle": "Pagina opnieuw laden vereist",
+      "reloadRequiredMessage": "De tafel kon niet worden gesynchroniseerd. Laad de pagina opnieuw voordat je verdergaat.",
+      "reloadRequiredAction": "Pagina opnieuw laden"
     },
     "reactions": {
       "like": "Zoals",
@@ -822,13 +847,19 @@
         "title": "Bekijk de bovenste kaarten",
         "description": "Kies hoeveel kaarten je van de bovenkant van je library bekijkt.",
         "confirm": "Bekijk"
-      }
+      },
+      "revealTopCards": {
+        "title": "Onthul de bovenste kaarten",
+        "description": "Kies hoeveel kaarten van de bovenkant van je library je aan de gekozen tegenstander onthult.",
+        "confirm": "Onthul"
+      },
+      "deckCardCount": "Je deck heeft {{ count }} kaarten."
     },
     "playerCounters": {
       "poison": "Vergif",
       "energy": "Energie",
       "experience": "Ervaring",
-      "rad": "Rad",
+      "rad": "Straling",
       "tickets": "Kaartjes"
     },
     "zones": {
@@ -905,7 +936,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Mulligan-status",
       "firstMulliganFree": "De eerste Mulligan is gratis",
-      "mulligansTaken": "Mulligans: {{ count }}",
+      "firstMulliganNotFree": "De eerste Mulligan is niet gratis",
+      "mulligansTaken": "Je hebt {{ count }} mulligans genomen",
       "effectiveMulligans": "Effectief: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Kies wat je met de bovenste kaart van je library wilt doen.",
@@ -926,13 +958,14 @@
       "status": {
         "deciding": "beslissen",
         "scrying": "schreejeen",
-        "ready": "klaar",
-        "bottoming": "Bottoming cards"
+        "ready": "klaar"
       },
       "actions": {
         "keepOnTop": "Blijf bovenaan",
         "putOnBottom": "Onderaan zetten",
-        "removeFromBottom": "Van onderaf verwijderen"
+        "removeFromBottom": "Van onderaf verwijderen",
+        "keepHand": "Hand houden",
+        "keepWithBottom": "Houden en onderaan zetten"
       },
       "description": {
         "londonNoBottom": "Trek 7. Je hoeft geen kaarten onderop te leggen.",
@@ -944,6 +977,174 @@
         "generousChooseBottom": "Trek {{ drawCount }} kaart(en). Kies {{ bottomCount }} om in willekeurige volgorde onderop te leggen.",
         "generousRandomOrder": "De uiteindelijke volgorde zal willekeurig zijn."
       }
+    }
+  },
+  "gameLog": {
+    "history": {
+      "loading": "Berichten laden…"
+    },
+    "fragment": {
+      "life": {
+        "self": "veranderde zijn levenspunten van {{ previousLife }} naar {{ life }}.",
+        "other": "veranderde de levenspunten van {{ player }} van {{ previousLife }} naar {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "veranderde de commandoschade van {{ previousValue }} naar {{ value }}.",
+        "other": "veranderde de commandoschade aan {{ target }} van {{ previousValue }} naar {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "nam de controle over een kaart.",
+          "other": "veranderde de beheerder van een kaart naar {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "zette {{ counter }} op {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "zette {{ counter }}-fiches op {{ value }}."
+      },
+      "turn": {
+        "changed": "beëindigde zijn beurt. De beurt van {{ player }} begint.",
+        "phaseChanged": "ging naar de fase {{ phase }}."
+      },
+      "disconnect": {
+        "expelled": "werd verwijderd na een stemming wegens verbreking van de verbinding."
+      },
+      "game": {
+        "concede": "gaf op."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} heeft diens beurt beëindigd. De beurt van {{ player }} begint.",
+      "phaseChanged": "{{ actor }} is naar de {{ phase }}fase gegaan."
+    },
+    "phase": {
+      "untap": "onttap",
+      "upkeep": "onderhoud",
+      "draw": "trek",
+      "main-1": "eerste hoofd",
+      "combat": "gevechts",
+      "main-2": "tweede hoofd",
+      "end": "eind"
+    },
+    "library": {
+      "moveTop": "{{ actor }} heeft de bovenste {{ count }} kaarten van de bibliotheek naar {{ toZone }} verplaatst.",
+      "reorderTop": "{{ actor }} heeft de bovenste {{ count }} kaarten van de bibliotheek opnieuw geordend.",
+      "putTop": "{{ actor }} heeft een kaart boven op de bibliotheek gelegd.",
+      "putBottom": "{{ actor }} heeft een kaart onder in de bibliotheek gelegd.",
+      "draw": "{{ actor }} trok een kaart.",
+      "drawMany": "{{ actor }} heeft {{ count }}-kaarten gestolen.",
+      "playTopFaceDown": "{{ actor }} heeft de eerste kaart van zijn bibliotheek gedekt gespeeld.",
+      "shuffle": "{{ actor }} schudde zijn bibliotheek door elkaar.",
+      "view": "{{ actor }} bekeek de beste {{ count }}-kaarten in zijn bibliotheek.",
+      "reveal": "{{ actor }} heeft zijn bibliotheek onthuld.",
+      "revealTop": "{{ actor }} onthulde de bovenste {{ count }} kaarten van zijn bibliotheek aan {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} onthulde {{ cardName }}, de bovenste kaart van zijn bibliotheek, aan {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} stopte met het onthullen van de bovenste kaart van zijn bibliotheek aan {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} speelt met de bovenste kaart van zijn bibliotheek onthuld aan {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} stopte met spelen met de bovenste kaart van zijn bibliotheek onthuld aan {{ recipients }}."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} heeft commandantschade aan {{ target }} gewijzigd van {{ previousValue }} naar {{ value }}."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} heeft een kaart aan de stapel toegevoegd.",
+      "itemRemoved": "{{ actor }} heeft een element van de stapel verwijderd."
+    },
+    "arrow": {
+      "created": "{{ actor }} heeft een pijl gemaakt.",
+      "removed": "{{ actor }} heeft een pijl verwijderd."
+    },
+    "attachment": {
+      "created": "{{ actor }} heeft een kaart gekoppeld.",
+      "removed": "{{ actor }} heeft een koppeling verwijderd."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} heeft een mulligan genomen.",
+      "kept": "{{ actor }} heeft diens hand gehouden.",
+      "scryConfirmed": "{{ actor }} heeft diens mulligan-scry voltooid."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} is verwijderd na een stem over de verbinding.",
+      "noVotersWait": "Er zijn geen spelers ingelogd om te stemmen. De tafel wacht op {{ target }}.",
+      "voteOpened": "{{ target }} is offline gegaan. Er werd een tafelstemming geopend.",
+      "tableExpelled": "Het bestuur heeft besloten {{ target }} te verwijderen wegens ontkoppeling.",
+      "tableWait": "Het bestuur besloot te wachten op {{ target }}.",
+      "voteCancelled": "{{ target }} opnieuw verbonden. De tafelstemming werd geannuleerd.",
+      "voteExpiredWait": "Stemming voor het verbreken van de verbinding is verlopen. De tafel zal wachten."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} heeft een willekeurige kaart uit {{ fromZone }} geselecteerd.",
+      "movedAll": "{{ actor }} heeft {{ count }} kaarten van {{ fromZone }} naar {{ toZone }} verplaatst.",
+      "battlefield": "slagveld",
+      "graveyard": "kerkhof",
+      "exile": "ballingschap",
+      "hand": "hand",
+      "library": "bibliotheek",
+      "command": "command zone",
+      "zone": "zone"
+    },
+    "card": {
+      "faceChanged": "{{ actor }} heeft {{ cardName }} naar {{ faceName }} gedraaid.",
+      "faceDownInspected": "{{ actor }} heeft een gedekte kaart bekeken.",
+      "turnedFaceDown": "{{ actor }} heeft een kaart gedekt gedraaid.",
+      "turnedFaceUp": "{{ actor }} heeft een kaart open gedraaid.",
+      "controllerChanged": "{{ actor }} heeft de bestuurder van een kaart veranderd naar {{ target }}.",
+      "revealed": "{{ actor }} onthulde 1 kaart uit zijn {{ zone }} aan {{ recipients }}.",
+      "revealedNamed": "{{ actor }} onthulde {{ cardName }} uit zijn {{ zone }} aan {{ recipients }}.",
+      "revealedMany": "{{ actor }} onthulde {{ count }} kaarten uit zijn {{ zone }} aan {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} stopte met het onthullen van 1 kaart uit zijn {{ zone }} aan {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} stopte met het onthullen van {{ count }} kaarten uit zijn {{ zone }} aan {{ recipients }}.",
+      "moved": "{{ actor }} heeft een kaart verplaatst van {{ fromZone }} naar {{ toZone }}.",
+      "tapped": "{{ actor }} tikte op een permanent.",
+      "untapped": "{{ actor }} ongebruikt een permanent.",
+      "movedMany": "{{ actor }} verplaatst {{ count }}-kaarten van {{ fromZone }} naar {{ toZone }}."
+    },
+    "audience": {
+      "all": "alle spelers"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} heeft {{ cardName }} veranderd van {{ previousPower }}/{{ previousToughness }} naar {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} heeft de loyaliteit van {{ cardName }} veranderd van {{ previousValue }} naar {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} heeft het sagehoofdstuk van {{ cardName }} veranderd van {{ previousChapter }} naar {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} heeft de verdediging van {{ cardName }} veranderd van {{ previousDefense }} naar {{ defense }} ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} plaatste de {{ counter }}-tellers in {{ value }}."
+    },
+    "counter": {
+      "changed": "{{ actor }} plaats {{ counter }} in {{ value }}."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} onaangeboorde permanente {{ count }}."
+    },
+    "life": {
+      "changed": "{{ actor }} veranderde de levensduur van {{ player }} van {{ previousLife }} in {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} gooide {{ kind }} en haalde {{ result }} eruit.",
+      "coin": "een munt",
+      "dice": "dobbelstenen",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} lanceerde zijn commandant vanuit het commandogebied. Commander cast-teller is {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} heeft de castteller van commandant {{ commanderName }} op {{ commanderCastCount }} gezet.",
+      "unknown": "Commandant"
+    },
+    "token": {
+      "created": "{{ actor }} heeft een token gemaakt: {{ tokenName }}.",
+      "createdMany": "{{ actor }} heeft {{ count }}-tokens gemaakt: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} heeft een tokenkopie gemaakt."
+    },
+    "game": {
+      "concede": "{{ player }} toegekend."
     }
   },
   "deckBuilder": {
@@ -1124,7 +1325,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Type uitsplitsing",
-      "utilityCounts": "Nut telt"
+      "utilityCounts": "Nut telt",
+      "reloadPageForData": "Laad de pagina opnieuw om analysegegevens op te halen."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Mana-balans",
@@ -2226,8 +2428,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

@@ -19,7 +19,7 @@ class Deck
 {
     public const VISIBILITY_PRIVATE = 'private';
     public const VISIBILITY_PUBLIC = 'public';
-    public const DEFAULT_BACKGROUND_NAME = 'back_5';
+    public const DEFAULT_BACKGROUND_NAME = 'free_0';
     public const DEFAULT_SLEEVES_NAME = 'facedown_card';
 
     #[ORM\Id]
@@ -175,6 +175,18 @@ class Deck
     public function sleevesName(): string
     {
         return $this->sleevesName;
+    }
+
+    public function setBackgroundName(string $backgroundName): void
+    {
+        $this->backgroundName = $backgroundName;
+        $this->touch();
+    }
+
+    public function setSleevesName(string $sleevesName): void
+    {
+        $this->sleevesName = $sleevesName;
+        $this->touch();
     }
 
     public function likes(): int

@@ -60,6 +60,8 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		return nil, err
 	}
 
+	emitHandRevealMarkerClears(emitter, game, moves)
+	emitRevealedHandRemovalsForViewers(emitter, game, moves)
 	applyMovementZoneState(game, moves, visualPosition, hasRequestedFaceDown, requestedFaceDown)
 	evaporated := evaporatingMoveSet(game, moves)
 	removedRelations := pruneRelationsForMoves(game, moves)
@@ -67,6 +69,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 	normalMoves := nonEvaporatingMoves(moves, evaporated)
 	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
 	emitMovementPatches(emitter, game, normalMoves)
+	emitLibraryTopRevealMarkersForMoves(emitter, game, moves)
 	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, removedRelations)
@@ -156,6 +159,8 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	if err != nil {
 		return nil, err
 	}
+	emitHandRevealMarkerClears(emitter, game, moves)
+	emitRevealedHandRemovalsForViewers(emitter, game, moves)
 	applyMovementZoneState(game, moves, nil, false, false)
 	evaporated := evaporatingMoveSet(game, moves)
 	removedRelations := pruneRelationsForMoves(game, moves)
@@ -163,6 +168,7 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	normalMoves := nonEvaporatingMoves(moves, evaporated)
 	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
 	emitMovementPatches(emitter, game, normalMoves)
+	emitLibraryTopRevealMarkersForMoves(emitter, game, moves)
 	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, removedRelations)
@@ -295,6 +301,10 @@ func applyMovementZoneState(game *state.GameState, moves []state.ZoneMove, reque
 		if move.To.Zone != state.ZoneBattlefield {
 			if move.From.Zone == state.ZoneBattlefield {
 				resetBattlefieldExitState(game, move.InstanceID)
+			} else if move.From.Zone == state.ZoneHand && move.To.Zone != state.ZoneHand {
+				resetHandRevealState(game, move.InstanceID)
+			} else if move.From.Zone == state.ZoneLibrary && move.To.Zone != state.ZoneLibrary {
+				resetLibraryRevealState(game, move.InstanceID)
 			} else {
 				instance.Position = nil
 				game.Instances[move.InstanceID] = instance
@@ -308,6 +318,7 @@ func applyMovementZoneState(game *state.GameState, moves []state.ZoneMove, reque
 				instance.VisibleToMask = 0
 				game.EnsureVisibility()
 				delete(game.Visibility.InstanceMasks, move.InstanceID)
+				delete(game.Visibility.HandRevealAudiences, move.InstanceID)
 			}
 		}
 		if requestedPosition != nil {
@@ -316,6 +327,86 @@ func applyMovementZoneState(game *state.GameState, moves []state.ZoneMove, reque
 			instance.Position = defaultBattlefieldPosition(move.To.Index)
 		}
 		game.Instances[move.InstanceID] = instance
+	}
+}
+
+func resetHandRevealState(game *state.GameState, instanceID string) {
+	instance := game.Instances[instanceID]
+	instance.VisibleToMask = 0
+	game.EnsureVisibility()
+	delete(game.Visibility.InstanceMasks, instanceID)
+	delete(game.Visibility.HandRevealAudiences, instanceID)
+	game.Instances[instanceID] = instance
+}
+
+func emitHandRevealMarkerClears(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
+	indexesByPlayer := map[string][]int{}
+	for _, move := range moves {
+		if move.From.Zone != state.ZoneHand || move.To.Zone == state.ZoneHand {
+			continue
+		}
+		if game.Instances[move.InstanceID].VisibleToMask == 0 {
+			continue
+		}
+		indexesByPlayer[move.From.PlayerID] = append(indexesByPlayer[move.From.PlayerID], move.From.Index)
+	}
+
+	for playerID, indexes := range indexesByPlayer {
+		emitter.EmitPublic(protocol.PatchOp{
+			Op: "hand.reveal_marker.clear",
+			Data: map[string]any{
+				"playerId": playerID,
+				"indexes":  indexes,
+			},
+		})
+	}
+}
+
+// emitRevealedHandRemovalsForViewers keeps a recipient's projected hand in
+// sync when a card they could see leaves that hand. The targeted removal is
+// intentional even for public destinations: it lets a recipient reconcile a
+// compact/legacy hand projection whose placeholder id is not the real card id.
+func emitRevealedHandRemovalsForViewers(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
+	for _, move := range moves {
+		if move.From.Zone != state.ZoneHand || move.To.Zone == state.ZoneHand {
+			continue
+		}
+
+		viewers := append([]string(nil), game.Visibility.HandRevealAudiences[move.InstanceID]...)
+		if len(viewers) == 0 {
+			viewers = viewerIDsForMask(game, game.Instances[move.InstanceID].VisibleToMask)
+		}
+		for _, viewerID := range viewers {
+			if viewerID == "" || viewerID == move.From.PlayerID || viewerID == move.To.PlayerID {
+				continue
+			}
+			emitter.EmitPrivate(viewerID, protocol.PatchOp{
+				Op: "zone.cards.remove",
+				Data: map[string]any{
+					"playerId":      move.From.PlayerID,
+					"zone":          move.From.Zone,
+					"instanceIds":   []string{move.InstanceID},
+					"sourceIndexes": []int{move.From.Index},
+				},
+			})
+		}
+	}
+}
+
+func emitLibraryTopRevealMarkersForMoves(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
+	playerIDs := map[string]bool{}
+	for _, move := range moves {
+		if move.From.Zone == state.ZoneLibrary {
+			playerIDs[move.From.PlayerID] = true
+		}
+		if move.To.Zone == state.ZoneLibrary {
+			playerIDs[move.To.PlayerID] = true
+		}
+	}
+	for playerID := range playerIDs {
+		clearLibraryTopRevealUnlessPersistent(game, playerID)
+		emitCurrentTopWhenPlayTopRevealed(emitter, game, playerID)
+		emitLibraryTopRevealMarker(emitter, game, playerID)
 	}
 }
 
@@ -334,6 +425,7 @@ func resetBattlefieldExitState(game *state.GameState, instanceID string) {
 	instance.VisibleToMask = 0
 	game.EnsureVisibility()
 	delete(game.Visibility.InstanceMasks, instanceID)
+	delete(game.Visibility.HandRevealAudiences, instanceID)
 	game.Instances[instanceID] = instance
 	if location, ok := game.Loc[instanceID]; ok {
 		location.ControllerID = instance.ControllerID
@@ -682,6 +774,7 @@ func removeEvaporatedInstances(game *state.GameState, moves []state.ZoneMove, ev
 		_, _ = state.RemoveFromCurrentZone(game, move.InstanceID)
 		delete(game.Instances, move.InstanceID)
 		delete(game.Visibility.InstanceMasks, move.InstanceID)
+		delete(game.Visibility.HandRevealAudiences, move.InstanceID)
 	}
 }
 

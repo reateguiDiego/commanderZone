@@ -33,7 +33,19 @@ interface PlayerCounterChange {
   to: number;
 }
 
-export interface GameLogEntryView extends GameLogEntry {
+type GameLogSubjectView =
+  { kind: 'player'; playerId: string; displayName: string };
+
+const PLAYER_COUNTER_TRANSLATION_KEYS = new Set([
+  'poison',
+  'energy',
+  'experience',
+  'rad',
+  'tickets',
+]);
+
+export interface GameLogEntryView extends Omit<GameLogEntry, 'subject'> {
+  subject: GameLogSubjectView | null;
   card: GameCardInstance | null;
   cardList: readonly string[];
   cardListPrefix: string;
@@ -41,7 +53,7 @@ export interface GameLogEntryView extends GameLogEntry {
   cardListLabel: string;
   messagePrefix: string;
   messageSuffix: string;
-  appearance: 'default' | 'phase' | 'death';
+  appearance: 'default' | 'phase' | 'turn' | 'death';
 }
 
 @Injectable()
@@ -79,7 +91,7 @@ export class GameTableChatLogState {
         && entry.type !== 'cards.position.changed'
         && entry.message !== 'Reordered hand.');
 
-    return this.compactLog(this.suppressDefeatedPlayerLogs(
+    return this.compactLog(this.suppressConcededPlayerLogs(
       entries,
     ));
   }
@@ -89,63 +101,186 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
-    if (this.isPrivateLibraryDestinationLog(entry)) {
+    const presentation = this.logPresentation(snapshot, entry);
+    const renderedEntry = { ...entry, message: presentation.message };
+
+    if (this.isPrivateLibraryDestinationLog(renderedEntry)) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: [],
         cardListPrefix: '',
         cardListSuffix: '',
         cardListLabel: '',
-        messagePrefix: this.privateLibraryDestinationMessage(entry.message),
+        messagePrefix: this.privateLibraryDestinationMessage(renderedEntry.message),
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const cardListView = this.cardListView(entry);
+    const cardListView = this.cardListView(renderedEntry);
     if (cardListView) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: cardListView.cardList,
         cardListPrefix: cardListView.messagePrefix,
         cardListSuffix: cardListView.messageSuffix,
         cardListLabel: cardListView.label,
-        messagePrefix: entry.message,
+        messagePrefix: renderedEntry.message,
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const card = this.cardFromLogEntry(snapshot, zones, entry);
+    const card = this.cardFromLogEntry(snapshot, zones, renderedEntry);
     if (!card) {
       return {
-        ...entry,
+        ...renderedEntry,
+        subject: presentation.subject,
         card: null,
         cardList: [],
         cardListPrefix: '',
         cardListSuffix: '',
         cardListLabel: '',
-        messagePrefix: entry.message,
+        messagePrefix: renderedEntry.message,
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
     }
 
-    const index = entry.message.indexOf(card.name);
+    const index = renderedEntry.message.indexOf(card.name);
 
     return {
-      ...entry,
+      ...renderedEntry,
+      subject: presentation.subject,
       card,
       cardList: [],
       cardListPrefix: '',
       cardListSuffix: '',
       cardListLabel: '',
-      messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
-      messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
-      appearance: this.logAppearance(entry),
+      messagePrefix: index >= 0 ? renderedEntry.message.slice(0, index) : renderedEntry.message,
+      messageSuffix: index >= 0 ? renderedEntry.message.slice(index + card.name.length) : '',
+      appearance: this.logAppearance(renderedEntry),
     };
+  }
+
+  private logPresentation(
+    snapshot: GameSnapshot | null,
+    entry: GameLogEntry,
+  ): { message: string; subject: GameLogEntryView['subject'] } {
+    if (!entry.i18nKey) {
+      const params = this.logTranslationParams(snapshot, entry);
+      const subject = this.logSubject(snapshot, entry, params);
+      const message = entry.message;
+      const legacyCounterFragment = this.legacyPlayerCounterFragment(message);
+
+      return {
+        message: legacyCounterFragment
+          ?? (subject ? this.removeSubjectPrefix(message, subject.displayName) ?? message : message),
+        subject,
+      };
+    }
+
+    const params = this.logTranslationParams(snapshot, entry);
+    const subject = this.logSubject(snapshot, entry, params);
+    if (!subject) {
+      return { message: this.logMessage(snapshot, entry), subject: null };
+    }
+
+    const fragmentKey = this.fragmentTranslationKey(entry.i18nKey, subject.playerId, params);
+    if (fragmentKey) {
+      const fragment = this.translateRuntime(fragmentKey, params);
+      if (fragment !== fragmentKey) {
+        return { message: fragment, subject };
+      }
+      return { message: this.logMessage(snapshot, entry), subject: null };
+    }
+
+    const fullMessage = this.logMessage(snapshot, entry);
+    const fragment = this.removeSubjectPrefix(fullMessage, subject.displayName);
+
+    return { message: fragment ?? fullMessage, subject };
+  }
+
+  private logSubject(
+    snapshot: GameSnapshot | null,
+    entry: GameLogEntry,
+    params: Record<string, unknown>,
+  ): GameLogSubjectView | null {
+    if (entry.subject?.kind === 'player') {
+      return {
+        kind: 'player',
+        playerId: entry.subject.playerId,
+        displayName: this.playerDisplayName(snapshot, entry, entry.subject.playerId),
+      };
+    }
+
+    const actorPlayerId = this.stringParam(params, 'actorPlayerId') ?? entry.actorId ?? null;
+    const playerId = this.stringParam(params, 'playerId');
+    const targetPlayerId = this.stringParam(params, 'targetPlayerId');
+    const previousPlayerId = this.stringParam(params, 'previousPlayerId');
+    const subjectPlayerId = entry.i18nKey === 'gameLog.turn.changed'
+      ? previousPlayerId
+      : entry.i18nKey === 'gameLog.disconnect.expelled'
+        ? targetPlayerId
+        : entry.i18nKey === 'gameLog.game.concede'
+          ? playerId
+          : actorPlayerId;
+    const displayName = subjectPlayerId
+      ? this.playerDisplayName(snapshot, entry, subjectPlayerId)
+      : entry.displayName?.trim() ?? '';
+
+    return displayName === '' || subjectPlayerId === null
+      ? null
+      : { kind: 'player', playerId: subjectPlayerId, displayName };
+  }
+
+
+  private fragmentTranslationKey(
+    i18nKey: string,
+    subjectPlayerId: string | null,
+    params: Record<string, unknown>,
+  ): string | null {
+    const playerId = this.stringParam(params, 'playerId');
+    const targetPlayerId = this.stringParam(params, 'targetPlayerId');
+    const participantId = i18nKey === 'gameLog.life.changed' ? playerId : targetPlayerId;
+    const suffix = participantId && participantId === subjectPlayerId ? 'self' : 'other';
+
+    switch (i18nKey) {
+      case 'gameLog.life.changed':
+        return `gameLog.fragment.life.${suffix}`;
+      case 'gameLog.commanderDamage.changed':
+        return `gameLog.fragment.commanderDamage.${suffix}`;
+      case 'gameLog.card.controllerChanged':
+        return `gameLog.fragment.card.controllerChanged.${suffix}`;
+      case 'gameLog.counter.changed':
+        return 'gameLog.fragment.counter.changed';
+      case 'gameLog.cardCounter.changed':
+        return 'gameLog.fragment.cardCounter.changed';
+      case 'gameLog.turn.changed':
+        return 'gameLog.fragment.turn.changed';
+      case 'gameLog.turn.phaseChanged':
+        return 'gameLog.fragment.turn.phaseChanged';
+      case 'gameLog.disconnect.expelled':
+        return 'gameLog.fragment.disconnect.expelled';
+      case 'gameLog.game.concede':
+        return 'gameLog.fragment.game.concede';
+      default:
+        return null;
+    }
+  }
+
+  private removeSubjectPrefix(message: string, subject: string): string | null {
+    const trimmedSubject = subject.trim();
+    if (!trimmedSubject || !message.startsWith(trimmedSubject)) {
+      return null;
+    }
+
+    const fragment = message.slice(trimmedSubject.length).trimStart();
+    return fragment === '' ? null : fragment;
   }
 
   private renderableLogEntry(snapshot: GameSnapshot | null, entry: RawGameLogEntry): GameLogEntry {
@@ -177,21 +312,53 @@ export class GameTableChatLogState {
     const playerId = this.stringParam(params, 'playerId') ?? actorPlayerId;
 
     return {
+      actorPlayerId,
+      playerId,
+      targetPlayerId: this.stringParam(params, 'targetPlayerId'),
+      previousPlayerId: this.stringParam(params, 'previousPlayerId'),
       actor: actorPlayerId ? this.playerDisplayName(snapshot, entry, actorPlayerId) : entry.displayName ?? 'System',
       player: playerId ? this.playerDisplayName(snapshot, entry, playerId) : entry.displayName ?? 'System',
+      previousPlayer: this.playerLabelParam(snapshot, entry, params, 'previousPlayerId'),
+      phase: this.phaseLabel(this.stringParam(params, 'phase')),
       target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
+      recipients: this.revealRecipientsLabel(snapshot, entry, params),
       count: params['count'] ?? '',
+      zone: this.zoneLabel(this.stringParam(params, 'zone')),
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
       toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
-      counter: params['counter'] ?? '',
+      counter: this.counterLabel(params['counter']),
       value: params['value'] ?? '',
+      cardName: params['cardName'] ?? '',
+      faceName: params['faceName'] ?? '',
+      previousPower: params['previousPower'] ?? '',
+      previousToughness: params['previousToughness'] ?? '',
+      power: params['power'] ?? '',
+      toughness: params['toughness'] ?? '',
+      previousValue: params['previousValue'] ?? '',
+      previousChapter: params['previousChapter'] ?? '',
+      chapter: params['chapter'] ?? '',
+      previousDefense: params['previousDefense'] ?? '',
+      defense: params['defense'] ?? '',
+      delta: params['delta'] ?? '',
+      choice: params['choice'] ?? '',
       previousLife: params['previousLife'] ?? '',
       life: params['life'] ?? '',
       kind: this.diceKindLabel(this.stringParam(params, 'kind')),
       result: params['result'] ?? '',
       tokenName: params['tokenName'] ?? 'Token',
-      commanderCastCount: params['commanderCastCount'] ?? '',
+      commanderName: this.commanderName(snapshot, entry, params),
+      commanderCastCount: params['commanderCastCount'] ?? params['value'] ?? '',
     };
+  }
+
+  private commanderName(snapshot: GameSnapshot | null, entry: RawGameLogEntry, params: Record<string, unknown>): string {
+    const commanderInstanceId = this.stringParam(params, 'commanderInstanceId') ?? entry.cardInstanceId;
+    const commander = commanderInstanceId ? this.cardByInstanceId(snapshot, commanderInstanceId) : this.explicitCardFromLogEntry(snapshot, entry);
+
+    return commander?.name
+      ?? this.stringParam(params, 'commanderName')
+      ?? entry.refs?.cards?.[commanderInstanceId ?? '']?.name
+      ?? this.translateRuntime('gameLog.commander.unknown');
   }
 
   private playerLabelParam(
@@ -203,6 +370,26 @@ export class GameTableChatLogState {
     const playerId = this.stringParam(params, key);
 
     return playerId ? this.playerDisplayName(snapshot, entry, playerId) : '';
+  }
+
+  private revealRecipientsLabel(
+    snapshot: GameSnapshot | null,
+    entry: RawGameLogEntry,
+    params: Record<string, unknown>,
+  ): string {
+    if (this.stringParam(params, 'revealAudience') === 'all') {
+      return this.translateRuntime('gameLog.audience.all');
+    }
+
+    const recipientPlayerIds = Array.isArray(params['recipientPlayerIds'])
+      ? params['recipientPlayerIds'].filter((playerId): playerId is string => typeof playerId === 'string' && playerId.trim() !== '')
+      : [];
+
+    if (recipientPlayerIds.length === 0) {
+      return this.translateRuntime('gameLog.audience.all');
+    }
+
+    return recipientPlayerIds.map((playerId) => this.playerDisplayName(snapshot, entry, playerId)).join(', ');
   }
 
   private playerDisplayName(snapshot: GameSnapshot | null, entry: RawGameLogEntry, playerId: string): string {
@@ -269,35 +456,86 @@ export class GameTableChatLogState {
   }
 
   private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
-    if (this.isDefeatLog(entry)) {
+    if (this.isConcedeLog(entry)) {
       return 'death';
     }
 
-    return entry.type === 'turn.changed' ? 'phase' : 'default';
+    if (entry.i18nKey === 'gameLog.turn.phaseChanged') {
+      return 'phase';
+    }
+
+    if (entry.i18nKey === 'gameLog.turn.changed') {
+      return 'turn';
+    }
+
+    if (entry.type !== 'turn.changed') {
+      return 'default';
+    }
+
+    return this.stringParam(this.recordParam(entry.params), 'previousPlayerId')
+      ? 'turn'
+      : 'phase';
   }
 
-  private isDefeatLog(entry: GameLogEntry): boolean {
-    const message = entry.message.trim();
-
-    return entry.type === 'player.defeated'
-      || entry.type === 'game.concede'
-      || /\bha muerto\.?$/i.test(message)
-      || /\bconceded\.?$/i.test(message);
+  private isConcedeLog(entry: GameLogEntry): boolean {
+    return entry.type === 'game.concede';
   }
 
-  private suppressDefeatedPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
-    const defeatedPlayerIds = new Set<string>();
+  private counterLabel(counter: unknown): string {
+    const rawCounter = typeof counter === 'string' ? counter.trim() : '';
+    const normalizedCounter = rawCounter.toLowerCase();
+    if (!PLAYER_COUNTER_TRANSLATION_KEYS.has(normalizedCounter)) {
+      return rawCounter;
+    }
+
+    const key = `game.playerCounters.${normalizedCounter}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? rawCounter : translated;
+  }
+
+  private legacyPlayerCounterFragment(message: string): string | null {
+    const match = /^.+?\s+set\s+(poison|energy|experience|rad|tickets)\s+to\s+(-?\d+)\.$/i.exec(message)
+      ?? /^.+?\s+(poison|energy|experience|rad|tickets)\s+counter\s+(?:increased|decreased)\s+from\s+-?\d+\s+to\s+(-?\d+)\.$/i.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    const counter = match[1].toLowerCase();
+    if (!PLAYER_COUNTER_TRANSLATION_KEYS.has(counter)) {
+      return null;
+    }
+
+    return this.translateRuntime('gameLog.fragment.counter.changed', {
+      counter: this.counterLabel(counter),
+      value: match[2],
+    });
+  }
+
+  private phaseLabel(phase: string | null): string {
+    if (!phase) {
+      return '';
+    }
+
+    const key = `gameLog.phase.${phase}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? phase : translated;
+  }
+
+  private suppressConcededPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
+    const concededPlayerIds = new Set<string>();
     const visibleEntries: GameLogEntry[] = [];
 
     for (const entry of entries) {
       const actorId = entry.actorId ?? null;
-      if (actorId && defeatedPlayerIds.has(actorId)) {
+      if (actorId && concededPlayerIds.has(actorId)) {
         continue;
       }
 
       visibleEntries.push(entry);
-      if (this.isDefeatLog(entry) && actorId) {
-        defeatedPlayerIds.add(actorId);
+      if (this.isConcedeLog(entry) && actorId) {
+        concededPlayerIds.add(actorId);
       }
     }
 
@@ -319,7 +557,7 @@ export class GameTableChatLogState {
       .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
   }
 
-  private explicitCardFromLogEntry(snapshot: GameSnapshot | null, entry: GameLogEntry): GameCardInstance | null {
+  private explicitCardFromLogEntry(snapshot: GameSnapshot | null, entry: RawGameLogEntry): GameCardInstance | null {
     if (!entry.cardInstanceId) {
       return null;
     }
@@ -334,6 +572,19 @@ export class GameTableChatLogState {
       const zones = entry.cardZone ? [entry.cardZone] : Object.keys(player.zones) as GameZoneName[];
       for (const zone of zones) {
         const card = player.zones[zone]?.find((candidate) => candidate.instanceId === entry.cardInstanceId && !candidate.hidden);
+        if (card) {
+          return card;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private cardByInstanceId(snapshot: GameSnapshot | null, instanceId: string): GameCardInstance | null {
+    for (const player of Object.values(snapshot?.players ?? {})) {
+      for (const cards of Object.values(player.zones)) {
+        const card = cards.find((candidate) => candidate.instanceId === instanceId && !candidate.hidden);
         if (card) {
           return card;
         }

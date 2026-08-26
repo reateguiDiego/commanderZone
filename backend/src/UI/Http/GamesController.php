@@ -5,22 +5,28 @@ namespace App\UI\Http;
 use App\Application\Auth\ImpersonationContext;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\GameControlPlaneProjection;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameActivityStreamService;
-use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\RematchVoteActionConflictException;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
 use App\Application\Game\Runtime\GameplayRuntimeRoute;
 use App\Application\Game\Runtime\GameplayRuntimeRouter;
+use App\Application\Game\Runtime\GameRuntimeGatewayException;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
+use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
+use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketConfigurationException;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketUrlFactory;
+use App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
@@ -34,6 +40,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
@@ -61,6 +68,7 @@ class GamesController extends ApiController
         ?GameplayV2ContractFactory $contractsV2 = null,
         ?GameplayV2Flags $flagsV2 = null,
         ?GameEventStoreV2 $eventStoreV2 = null,
+        ?GameControlPlaneProjection $controlPlane = null,
     ): JsonResponse
     {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
@@ -106,6 +114,7 @@ class GamesController extends ApiController
             'game' => [
                 ...$game->toArray(),
                 'snapshot' => $projectedSnapshot,
+                'controlPlane' => ($controlPlane ?? new GameControlPlaneProjection())->project($game),
             ],
         ]);
     }
@@ -150,15 +159,13 @@ class GamesController extends ApiController
         $canControl = $game->canBeControlledBy($user);
         $role = $canControl ? 'player' : 'viewer';
         $permissions = $canControl ? ['view', 'command'] : ['view'];
-        if ($canControl && $game->room()->owner()->id() === $user->id()) {
-            $permissions[] = 'game.close';
-        }
         $ticket = $tickets->issue(
             $game->id(),
             $user->id(),
             playerId: $user->id(),
             role: $role,
             permissions: $permissions,
+            viewerMask: $this->viewerMaskForSnapshot($game->snapshot(), $user->id()),
         );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {
@@ -190,6 +197,68 @@ class GamesController extends ApiController
                 'expiry' => $ticket->expiresAt->getTimestamp(),
             ],
         ]);
+    }
+
+    /**
+     * Legacy snapshots can predate the persisted visibility index. The runtime
+     * assigns missing viewer bits in lexical player-id order, so tickets must
+     * use the same deterministic fallback or group visibility patches (such as
+     * library.reveal_top) cannot reach their intended recipients.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    private function viewerMaskForSnapshot(array $snapshot, string $viewerId): int
+    {
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+        $knownMask = max(0, (int) ($viewerBits[$viewerId] ?? 0));
+        if ($knownMask > 0) {
+            return $knownMask;
+        }
+
+        $missingPlayerIds = [];
+        foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $playerId) {
+            if (!is_string($playerId) || $playerId === '') {
+                continue;
+            }
+            if (max(0, (int) ($viewerBits[$playerId] ?? 0)) === 0) {
+                $missingPlayerIds[] = $playerId;
+            }
+        }
+        sort($missingPlayerIds, SORT_STRING);
+
+        foreach ($missingPlayerIds as $playerId) {
+            $assignedMask = $this->nextViewerMask($viewerBits);
+            if ($assignedMask === 0) {
+                return 0;
+            }
+            $viewerBits[$playerId] = $assignedMask;
+            if ($playerId === $viewerId) {
+                return $assignedMask;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param array<string,mixed> $viewerBits
+     */
+    private function nextViewerMask(array $viewerBits): int
+    {
+        $usedMask = 0;
+        foreach ($viewerBits as $viewerMask) {
+            $usedMask |= max(0, (int) $viewerMask);
+        }
+
+        for ($mask = 1; $mask > 0; $mask <<= 1) {
+            if (($usedMask & $mask) === 0) {
+                return $mask;
+            }
+        }
+
+        return 0;
     }
 
     #[Route('/games/{id}/debug/health', methods: ['GET'])]
@@ -819,19 +888,14 @@ class GamesController extends ApiController
         ], 201);
     }
 
-    #[Route('/games/{id}/rematch-vote', methods: ['POST'])]
-    public function rematchVote(
+    #[Route('/games/{id}/control-plane', methods: ['GET'])]
+    public function controlPlane(
         string $id,
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        GameProjectionService $projection,
-        GameRematchService $rematch,
-        GameEventPublisher $gamePublisher,
-        RoomEventPublisher $roomPublisher,
-        ?GameplayV2Flags $flagsV2 = null,
-        ?GameEventStoreV2 $eventStoreV2 = null,
-    ): JsonResponse {
+        GameControlPlaneProjection $controlPlane,
+    ): Response {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
         }
@@ -843,55 +907,178 @@ class GamesController extends ApiController
         if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
-        if (!$game->room()->hasPlayer($user)) {
-            return $this->fail('Only room players can vote for a rematch.', 403);
+
+        $afterRevision = $this->controlPlaneAfterRevision($request);
+        if ($afterRevision === null) {
+            return $this->fail('afterRevision must be a non-negative integer.', 400);
+        }
+
+        $state = $controlPlane->project($game);
+        if ($afterRevision >= $state['controlPlaneRevision']) {
+            return new Response('', Response::HTTP_NO_CONTENT);
+        }
+
+        return $this->json(['controlPlane' => $state]);
+    }
+
+    #[Route('/games/{id}/rematch-vote', methods: ['POST'])]
+    public function rematchVote(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameRematchService $rematch,
+        GameControlPlaneProjection $controlPlane,
+        GameEventPublisher $gamePublisher,
+        RoomEventPublisher $roomPublisher,
+        \App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface $runtimeControl,
+        GameRuntimeLifecycleCommandService $runtimeLifecycle,
+        ?GameRuntimeClosingFence $closingFence = null,
+        ?WaitingRoomInactivityPolicy $waitingRoomInactivity = null,
+    ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
         }
 
         $payload = $this->payload($request);
         $vote = (string) ($payload['vote'] ?? '');
+        $clientActionId = $this->controlPlaneActionId($payload['clientActionId'] ?? null);
+        if ($clientActionId === null) {
+            return $this->fail('clientActionId must be between 1 and 120 characters.', 422);
+        }
+        $previousActionId = $this->optionalControlPlaneActionId($payload['previousActionId'] ?? null);
+        if ($previousActionId === false) {
+            return $this->fail('previousActionId must be between 1 and 120 characters when provided.', 422);
+        }
+
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if ($closingFence?->isClaimed($id)) {
+            return $this->fail('Game lifecycle is closing.', 409, ['code' => 'GAME_CLOSING']);
+        }
+        // A matching replay remains authorized after leave_room removed the
+        // membership. It returns the durable acknowledgement without a second
+        // mutation or publication.
+        $knownReplay = $game->hasRematchAction($user->id(), $clientActionId);
+        if (!$game->canBeViewedBy($user) && !$knownReplay) {
+            return $this->fail('Game access denied.', 403);
+        }
+        if (!$game->room()->hasPlayer($user) && !$knownReplay) {
+            return $this->fail('Only room players can vote for a rematch.', 403);
+        }
+
+        // leave_room during active gameplay is also a gameplay concession.
+        // The Go actor must accept that mutation before Symfony removes the
+        // membership. Do this cross-process handoff before taking Doctrine
+        // locks/starting a transaction: the actor must never wait on the
+        // control-plane transaction that it indirectly needs to project.
+        if (
+            !$knownReplay
+            && $vote === GameRematchService::VOTE_LEAVE
+            && $this->gameCanConcedeLeavingPlayer($game, $user)
+        ) {
+            try {
+                // Reuse the same deterministic lifecycle identity as the
+                // normal room leave endpoint, so concurrent/retried leaves
+                // converge on one Go command without a second append.
+                $runtimeLifecycle->concedeForLeave($game, $user, 'room_leave');
+            } catch (GameRuntimeVersionConflictException $exception) {
+                return $this->fail($exception->getMessage(), 409, [
+                    'status' => 'resync_required',
+                    'code' => 'BASE_VERSION_MISMATCH',
+                    'currentVersion' => $exception->currentVersion,
+                ]);
+            } catch (GameRuntimeGatewayException $exception) {
+                // The room membership is deliberately untouched. A retry can
+                // safely resume once the authoritative actor is available.
+                return $this->fail($exception->getMessage(), 503);
+            } catch (\InvalidArgumentException $exception) {
+                return $this->fail($exception->getMessage());
+            }
+
+            // Go can durably append a concession while its lifecycle handoff
+            // is temporarily unavailable. Membership must not outrun that
+            // durable Symfony fact: a retry with the same action id causes Go
+            // to redeliver the existing handoff without another game_event.
+            $entityManager->refresh($game);
+            if ($game->status() === Game::STATUS_ACTIVE && $this->gameCanConcedeLeavingPlayer($game, $user)) {
+                return $this->fail('Gameplay lifecycle confirmation is pending. Retry leave_room.', 503, [
+                    'code' => 'LIFECYCLE_CONFIRMATION_PENDING',
+                ]);
+            }
+        }
+
         $event = null;
         $room = $game->room();
         $roomDeleted = false;
         $roomReady = false;
-        $projectedSnapshot = null;
+        $deduplicated = false;
+        $runtimeStopRequired = false;
 
         try {
             $entityManager->beginTransaction();
+            // The entity was loaded before entering the transaction for the
+            // authorization fast-path. Refresh it after acquiring the row
+            // lock so a concurrent rematch command is always compared with
+            // the newest persisted action cursor, never an in-memory stale
+            // rematchState.
             $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+            $entityManager->refresh($game, LockMode::PESSIMISTIC_WRITE);
+            $room = $game->room();
+            $entityManager->lock($room, LockMode::PESSIMISTIC_WRITE);
+            $entityManager->refresh($room);
 
-            if ($vote === GameRematchService::VOTE_LEAVE && $room->players()->count() === 1) {
+            // Rematch is strictly control-plane state. Never hydrate or append
+            // GameEvent records here: Go remains the sole gameplay writer.
+            $recorded = $rematch->recordVote($game, $user, $vote, $clientActionId, $previousActionId);
+            $event = $recorded['event'];
+            $deduplicated = $recorded['deduplicated'];
+
+            if (!$deduplicated && $vote === GameRematchService::VOTE_LEAVE) {
+                $wasOwner = $room->owner()->id() === $user->id();
                 $room->removeUser($user);
-                $roomDeleted = true;
-                $this->removeRoomWithGame($room, $entityManager);
-            } else {
-                if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
-                    $eventStoreV2->hydrateGame($game);
+                if ($wasOwner && $room->players()->count() > 0) {
+                    $room->transferOwnershipToOldestRemainingPlayer();
                 }
-                $recorded = $rematch->recordVote($game, $user, $vote);
-                $event = $recorded['event'];
-                $snapshot = $recorded['snapshot'];
-                $entityManager->persist($event);
+                if ($room->players()->count() === 0) {
+                    $roomDeleted = true;
+                    $closingFence?->claim($id);
+                    $runtimeStopRequired = true;
+                    $this->removeRoomWithGame($room, $entityManager);
+                }
+            }
 
-                if ($vote === GameRematchService::VOTE_LEAVE) {
-                    $room->removeUser($user);
-                    if ($room->players()->count() === 0) {
-                        $roomDeleted = true;
-                        $this->removeRoomWithGame($room, $entityManager);
-                    } else {
-                        $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $snapshot, $rematch, $entityManager);
-                    }
-                } elseif ($rematch->shouldWaitForGameEnd($snapshot, $user)) {
-                    $projectedSnapshot = $projection->projectSnapshot($snapshot, $user);
-                } else {
-                    $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $snapshot, $rematch, $entityManager);
-                    if (!$roomReady) {
-                        $projectedSnapshot = $projection->projectSnapshot($snapshot, $user);
-                    }
+            if (!$deduplicated && !$roomDeleted && $game->status() === Game::STATUS_FINISHED) {
+                $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $rematch, $entityManager, $waitingRoomInactivity);
+                if (!$roomReady && $rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
+                    // Fewer than two players chose play_again. This terminal
+                    // path removes the remaining memberships with the room.
+                    $roomDeleted = true;
+                    $closingFence?->claim($id);
+                    $runtimeStopRequired = true;
+                    $this->removeRoomWithGame($room, $entityManager);
                 }
+            }
+
+            if ($roomReady) {
+                $closingFence?->claim($id);
+                $runtimeStopRequired = true;
             }
 
             $entityManager->flush();
             $entityManager->commit();
+        } catch (RematchVoteActionConflictException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->json([
+                'error' => $exception->getMessage(),
+                'code' => 'CONTROL_PLANE_ACTION_STALE',
+                'controlPlane' => $controlPlane->project($game),
+            ], Response::HTTP_CONFLICT);
         } catch (\InvalidArgumentException $exception) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();
@@ -906,17 +1093,29 @@ class GamesController extends ApiController
             throw $exception;
         }
 
-        if ($event instanceof GameEvent && !$roomDeleted && !$roomReady) {
-            $gamePublisher->publish($game, $event);
+        if ($runtimeStopRequired) {
+            // Remote runtime disposal never runs while Doctrine owns a game
+            // row lock. The durable closing fence committed above prevents a
+            // remote owner from appending during this post-commit handoff.
+            $runtimeControl->stopByGameId($game->id());
         }
-        if ($vote === GameRematchService::VOTE_LEAVE && !$roomDeleted) {
+
+        $state = $controlPlane->project($game);
+        if (is_array($event) && !$roomDeleted && !$roomReady) {
+            $gamePublisher->publishControlPlane($game, $event);
+        }
+        if (!$deduplicated && $vote === GameRematchService::VOTE_LEAVE && !$roomDeleted) {
             $roomPublisher->publish($room, 'room.player.left');
         }
         if ($roomDeleted) {
+            $gamePublisher->publishRoomDeleted($id, $room->id());
             $roomPublisher->publishDeleted($room->id());
 
             return $this->json([
                 'status' => GameRematchService::STATUS_ROOM_DELETED,
+                'clientActionId' => $clientActionId,
+                'deduplicated' => $deduplicated,
+                'controlPlane' => $state,
                 'left' => true,
                 'roomDeleted' => true,
             ]);
@@ -927,12 +1126,18 @@ class GamesController extends ApiController
 
             return $this->json([
                 'status' => GameRematchService::STATUS_ROOM_READY,
+                'clientActionId' => $clientActionId,
+                'deduplicated' => $deduplicated,
+                'controlPlane' => $state,
                 'room' => $room->toArray(),
             ]);
         }
-        if ($vote === GameRematchService::VOTE_LEAVE) {
+        if (!$room->hasPlayer($user)) {
             return $this->json([
                 'status' => GameRematchService::STATUS_LEFT,
+                'clientActionId' => $clientActionId,
+                'deduplicated' => $deduplicated,
+                'controlPlane' => $state,
                 'left' => true,
                 'roomDeleted' => false,
             ]);
@@ -940,18 +1145,19 @@ class GamesController extends ApiController
 
         $status = GameRematchService::STATUS_WAITING_FOR_VOTES;
         $message = null;
-        if ($projectedSnapshot !== null && $rematch->shouldWaitForGameEnd($projectedSnapshot, $user)) {
+        if ($rematch->shouldWaitForGameEnd($game)) {
             $status = GameRematchService::STATUS_WAITING_FOR_GAME_END;
             $message = 'Tu voto se ha guardado. Espera a que termine la partida.';
         }
 
-        return $this->json([
+        return $this->json(array_filter([
             'status' => $status,
             'message' => $message,
-            'event' => $event?->toArray(),
-            'snapshot' => $projectedSnapshot,
-            'version' => $projectedSnapshot['version'] ?? null,
-        ]);
+            'clientActionId' => $clientActionId,
+            'deduplicated' => $deduplicated,
+            'event' => $event,
+            'controlPlane' => $state,
+        ], static fn (mixed $value): bool => $value !== null));
     }
 
     #[Route('/games/{id}/disconnect-vote', methods: ['POST'])]
@@ -960,11 +1166,8 @@ class GamesController extends ApiController
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        GameProjectionService $projection,
-        GameDisconnectVoteService $disconnectVotes,
         GameWebsocketRoomRegistry $rooms,
-        GameEventPublisher $gamePublisher,
-        RoomEventPublisher $roomPublisher,
+        GameRuntimeLifecycleCommandService $runtimeLifecycle,
     ): JsonResponse {
         if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
             return $response;
@@ -985,58 +1188,33 @@ class GamesController extends ApiController
             return $this->fail('targetPlayerId and vote are required.');
         }
 
-        $room = $game->room();
-        $roomDeleted = false;
-        $event = null;
+        if (!$runtimeLifecycle->isRuntimePrimary('disconnect.vote')) {
+            return $this->fail('Disconnect votes require the active gameplay runtime.', 503);
+        }
+
         try {
-            $entityManager->beginTransaction();
-            $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
-            $recorded = $disconnectVotes->recordVote(
+            $result = $runtimeLifecycle->recordDisconnectVote(
                 $game,
                 $user,
                 $targetPlayerId,
                 $vote,
                 array_values(array_unique([...$rooms->connectedUserIdsForGame($game->id()), $user->id()])),
             );
-            $event = $recorded['event'];
-            $entityManager->persist($event);
-            if ($room->players()->count() === 0) {
-                $roomDeleted = true;
-                $this->removeRoomWithGame($room, $entityManager);
-            }
-            $entityManager->flush();
-            $entityManager->commit();
-        } catch (\InvalidArgumentException $exception) {
-            if ($entityManager->getConnection()->isTransactionActive()) {
-                $entityManager->rollback();
-            }
-
-            return $this->fail($exception->getMessage());
-        } catch (\Throwable $exception) {
-            if ($entityManager->getConnection()->isTransactionActive()) {
-                $entityManager->rollback();
-            }
-
-            throw $exception;
-        }
-
-        if ($event instanceof GameEvent && !$roomDeleted) {
-            $gamePublisher->publish($game, $event);
-        }
-        if ($roomDeleted) {
-            $roomPublisher->publishDeleted($room->id());
-
-            return $this->json([
-                'status' => 'room_deleted',
-                'roomDeleted' => true,
+        } catch (GameRuntimeVersionConflictException $exception) {
+            return $this->fail($exception->getMessage(), 409, [
+                'status' => 'resync_required',
+                'code' => 'BASE_VERSION_MISMATCH',
+                'currentVersion' => $exception->currentVersion,
             ]);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->fail($exception->getMessage());
         }
 
         return $this->json([
             'status' => 'recorded',
-            'event' => $event->toArray(),
-            'snapshot' => $projection->project($game, $user),
-            'version' => $game->snapshot()['version'] ?? null,
+            'event' => $result?->event,
+            'snapshot' => null,
+            'version' => $result?->event['version'] ?? null,
         ], 201);
     }
 
@@ -1119,11 +1297,38 @@ class GamesController extends ApiController
             return $this->fail('Chat stream is not enabled.', 404);
         }
 
-        $limit = max(1, min(500, (int) $request->query->get('limit', 150)));
+        $limit = max(1, min(500, (int) $request->query->get('limit', 50)));
         $cursor = trim((string) $request->query->get('cursor', ''));
+        $before = trim((string) $request->query->get('before', ''));
+
+        if ($cursor !== '' && $before !== '') {
+            return $this->fail('cursor and before cannot be used together.');
+        }
+
+        if ($before !== '') {
+            $page = $activityStreams->chatHistoryPage($game, $user, $limit, $before);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextBefore' => $page['nextBefore'],
+            ]);
+        }
+
+        if ($cursor !== '') {
+            $page = $activityStreams->chatForwardPage($game, $user, $limit, $cursor);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextAfter' => $page['nextAfter'],
+            ]);
+        }
 
         return $this->json([
-            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit, $cursor !== '' ? $cursor : null),
+            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit),
             'limit' => $limit,
         ]);
     }
@@ -1152,11 +1357,38 @@ class GamesController extends ApiController
             return $this->fail('Log stream is not enabled.', 404);
         }
 
-        $limit = max(1, min(500, (int) $request->query->get('limit', 250)));
+        $limit = max(1, min(500, (int) $request->query->get('limit', 50)));
         $cursor = trim((string) $request->query->get('cursor', ''));
+        $before = trim((string) $request->query->get('before', ''));
+
+        if ($cursor !== '' && $before !== '') {
+            return $this->fail('cursor and before cannot be used together.');
+        }
+
+        if ($before !== '') {
+            $page = $activityStreams->logHistoryPage($game, $limit, $before);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextBefore' => $page['nextBefore'],
+            ]);
+        }
+
+        if ($cursor !== '') {
+            $page = $activityStreams->logForwardPage($game, $limit, $cursor);
+
+            return $this->json([
+                'data' => $page['entries'],
+                'limit' => $limit,
+                'hasMore' => $page['hasMore'],
+                'nextAfter' => $page['nextAfter'],
+            ]);
+        }
 
         return $this->json([
-            'data' => $activityStreams->logEntries($game, $limit, $cursor !== '' ? $cursor : null),
+            'data' => $activityStreams->logEntries($game, $limit),
             'limit' => $limit,
         ]);
     }
@@ -1191,7 +1423,12 @@ class GamesController extends ApiController
                 $playerId,
                 $zone,
                 $user,
-                ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+                ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true
+                    && (
+                        !is_array($snapshot['players'][$playerId]['playTopLibraryRevealedTo'] ?? null)
+                        || in_array('all', $snapshot['players'][$playerId]['playTopLibraryRevealedTo'], true)
+                        || in_array($user->id(), $snapshot['players'][$playerId]['playTopLibraryRevealedTo'], true)
+                    ),
                 playerState: is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : null,
             );
         }
@@ -1309,6 +1546,55 @@ class GamesController extends ApiController
         ], 201);
     }
 
+    private function gameCanConcedeLeavingPlayer(Game $game, User $user): bool
+    {
+        if ($game->status() !== Game::STATUS_ACTIVE) {
+            return false;
+        }
+
+        $player = $game->snapshot()['players'][$user->id()] ?? null;
+        $lifecyclePlayer = $game->lifecycleState()['players'][$user->id()] ?? null;
+        if (is_array($lifecyclePlayer) && ($lifecyclePlayer['status'] ?? null) === 'conceded') {
+            return false;
+        }
+
+        return is_array($player) && ($player['status'] ?? null) === 'active';
+    }
+
+    private function controlPlaneAfterRevision(Request $request): ?int
+    {
+        $value = $request->query->get('afterRevision');
+        if (!is_string($value) || !preg_match('/^\d+$/', $value)) {
+            return null;
+        }
+        if (strlen($value) > 10 || (strlen($value) === 10 && $value > '2147483647')) {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    private function controlPlaneActionId(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $actionId = trim($value);
+
+        return $actionId !== '' && strlen($actionId) <= 120 ? $actionId : null;
+    }
+
+    /** @return string|null|false False means an invalid value was supplied. */
+    private function optionalControlPlaneActionId(mixed $value): string|null|false
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $this->controlPlaneActionId($value) ?? false;
+    }
+
     /**
      * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload
@@ -1374,21 +1660,24 @@ class GamesController extends ApiController
     private function returnRoomToWaitingIfRematchReady(
         Room $room,
         Game $game,
-        array $snapshot,
         GameRematchService $rematch,
         EntityManagerInterface $entityManager,
+        ?WaitingRoomInactivityPolicy $waitingRoomInactivity,
     ): bool {
-        if (!$rematch->allSnapshotPlayersHaveVoted($snapshot) || $rematch->activeLifePlayerCount($snapshot) > 1) {
+        if ($game->status() !== Game::STATUS_FINISHED || !$rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
             return false;
         }
 
-        $eligiblePlayerIds = $rematch->eligiblePlayAgainPlayerIds($room, $snapshot);
+        $eligiblePlayerIds = $rematch->eligiblePlayAgainPlayerIds($room, $game);
         if (count($eligiblePlayerIds) < Room::MIN_PLAYERS) {
             return false;
         }
 
         $owner = $rematch->rematchOwner($room, $eligiblePlayerIds);
         $room->returnToWaitingForRematch($owner, $eligiblePlayerIds);
+        if ($waitingRoomInactivity instanceof WaitingRoomInactivityPolicy) {
+            $room->scheduleWaitingExpiry($waitingRoomInactivity->expiresFromNow());
+        }
         $entityManager->remove($game);
 
         return true;

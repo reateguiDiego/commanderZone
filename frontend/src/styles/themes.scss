@@ -22,6 +22,8 @@
   --cz-warning-rgb: 210 172 71;
   --cz-info: #38bdf8;
   --cz-info-rgb: 56 189 248;
+  --cz-bracket-5: #7b2cff;
+  --cz-bracket-5-rgb: 123 44 255;
   --cz-on-accent: var(--cz-bg);
   --bg: var(--cz-bg);
   --surface: var(--cz-surface);
@@ -260,16 +262,16 @@
 }
 
 app-game-table {
-  --bg: #11130f;
-  --surface: #181b16;
-  --surface-2: #20251d;
-  --surface-3: #2b3026;
-  --line: #3d4535;
-  --text: #f3f0e8;
-  --muted: #aaa99f;
-  --gold: #d7b46a;
-  --green: #80b37a;
-  --red: #d16f5f;
-  --blue: #72a7c7;
-  --violet: #a88bd5;
+  --bg: var(--cz-bg);
+  --surface: var(--cz-surface);
+  --surface-2: var(--cz-surface-elevated);
+  --surface-3: color-mix(in srgb, var(--cz-surface-elevated) 76%, var(--cz-text) 24%);
+  --line: rgb(var(--cz-primary-rgb) / 32%);
+  --text: var(--cz-text);
+  --muted: rgb(var(--cz-text-rgb) / 66%);
+  --gold: var(--cz-accent);
+  --green: var(--cz-success);
+  --red: var(--cz-danger);
+  --blue: var(--cz-info);
+  --violet: var(--cz-secondary);
 }

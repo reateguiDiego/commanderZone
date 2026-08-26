@@ -44,6 +44,93 @@ class GameActivityStreamServiceTest extends TestCase
         self::assertSame('lost 2 life', $decorated['eventLog'][0]['message']);
     }
 
+    public function testChatHistoryNeverIncludesAnotherPlayersPrivateMessage(): void
+    {
+        [$game, $actor, $target, $spectator] = $this->gameWithPlayers();
+        $publicMessage = new GameChatMessage($game, $actor, 'public');
+        $privateMessage = new GameChatMessage($game, $actor, 'private', $target->id(), $target->displayName());
+
+        $page = $this->service(chatResults: [$privateMessage, $publicMessage])
+            ->chatHistoryPage($game, $spectator, 50, '');
+
+        self::assertSame(['public'], array_column($page['entries'], 'message'));
+    }
+
+    public function testLogBootstrapReturnsTheNewestSliceInChronologicalOrder(): void
+    {
+        [$game] = $this->gameWithPlayers();
+        $oldestOfLatestEntries = new GameLogEntry(
+            $game,
+            250,
+            'life.changed',
+            'first retained entry',
+            createdAt: new \DateTimeImmutable('2026-08-19T10:00:00+00:00'),
+        );
+        $newestEntry = new GameLogEntry(
+            $game,
+            251,
+            'life.changed',
+            'newest entry',
+            createdAt: new \DateTimeImmutable('2026-08-19T10:01:00+00:00'),
+        );
+
+        // The database query is DESC to retain the latest bounded slice.
+        $service = $this->service(logResults: [$newestEntry, $oldestOfLatestEntries]);
+
+        self::assertSame(
+            ['first retained entry', 'newest entry'],
+            array_column($service->logEntries($game), 'message'),
+        );
+    }
+
+    public function testLogHistoryPageReturnsFiftyOlderEntriesWithTheNextCursor(): void
+    {
+        [$game] = $this->gameWithPlayers();
+        $newestFirst = [];
+        for ($index = 699; $index >= 649; --$index) {
+            $newestFirst[] = new GameLogEntry(
+                $game,
+                $index,
+                'performance.test',
+                sprintf('Performance log entry %03d', $index),
+                createdAt: new \DateTimeImmutable(sprintf('2026-08-19T10:%02d:%02d+00:00', intdiv($index, 60), $index % 60)),
+            );
+        }
+
+        $service = $this->service(logResults: $newestFirst);
+        $page = $service->logHistoryPage($game, 50, null);
+
+        self::assertTrue($page['hasMore']);
+        self::assertCount(50, $page['entries']);
+        self::assertSame('Performance log entry 650', $page['entries'][0]['message']);
+        self::assertSame('Performance log entry 699', $page['entries'][49]['message']);
+        self::assertSame($page['entries'][0]['id'], $page['nextBefore']);
+    }
+
+    public function testLogForwardPageReturnsFiftyNewerEntriesWithTheNextCursor(): void
+    {
+        [$game] = $this->gameWithPlayers();
+        $oldestFirst = [];
+        for ($index = 0; $index <= 50; ++$index) {
+            $oldestFirst[] = new GameLogEntry(
+                $game,
+                $index,
+                'performance.test',
+                sprintf('Performance log entry %03d', $index),
+                createdAt: new \DateTimeImmutable(sprintf('2026-08-19T10:%02d:%02d+00:00', intdiv($index, 60), $index % 60)),
+            );
+        }
+
+        $service = $this->service(logResults: $oldestFirst);
+        $page = $service->logForwardPage($game, 50, 'cursor');
+
+        self::assertTrue($page['hasMore']);
+        self::assertCount(50, $page['entries']);
+        self::assertSame('Performance log entry 000', $page['entries'][0]['message']);
+        self::assertSame('Performance log entry 049', $page['entries'][49]['message']);
+        self::assertSame($page['entries'][49]['id'], $page['nextAfter']);
+    }
+
     public function testToggleReactionReplacesPreviousReactionAndCanClearIt(): void
     {
         [$game, $actor, $target] = $this->gameWithPlayers();
@@ -210,11 +297,12 @@ class GameActivityStreamServiceTest extends TestCase
 
         $queryBuilder = $this->getMockBuilder(QueryBuilder::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['where', 'setParameter', 'orderBy', 'setMaxResults', 'andWhere', 'getQuery'])
+            ->onlyMethods(['where', 'setParameter', 'orderBy', 'addOrderBy', 'setMaxResults', 'andWhere', 'getQuery'])
             ->getMock();
         $queryBuilder->method('where')->willReturnSelf();
         $queryBuilder->method('setParameter')->willReturnSelf();
         $queryBuilder->method('orderBy')->willReturnSelf();
+        $queryBuilder->method('addOrderBy')->willReturnSelf();
         $queryBuilder->method('setMaxResults')->willReturnSelf();
         $queryBuilder->method('andWhere')->willReturnSelf();
         $queryBuilder->method('getQuery')->willReturn($query);

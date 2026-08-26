@@ -294,6 +294,7 @@
       "timer": "Minuteur",
       "mulligan": "Mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
+      "firstMulliganNotFree": "Le premier mulligan n'est pas gratuit",
       "mulliganDescriptions": {
         "london": "Piochez 7 cartes Ã  chaque fois. Quand vous gardez une main, mettez une carte au-dessous de votre bibliothÃ¨que pour chaque mulligan effectif.",
         "vancouver": "Chaque mulligan effectif vous fait piocher une carte de moins. Si vous gardez aprÃ¨s un mulligan effectif, regard 1.",
@@ -363,7 +364,8 @@
       "thisPlayer": "ce joueur",
       "tieBreakRoll": "Lancement dÃ©cisif",
       "tieBreakRollMessage": "Vous Ãªtes Ã  Ã©galitÃ© avec {{ playerNames }}. Lancez Ã  nouveau pour briser lâ€™Ã©galitÃ©.",
-      "waitingForDecksAndRolls": "En attente des decks et des lancers"
+      "waitingForDecksAndRolls": "En attente des decks et des lancers",
+      "realtimeUnavailable": "La connexion en temps réel se rétablit. Les changements de salle peuvent être retardés."
     },
     "setup": {
       "gameSetupLifeControl": {
@@ -484,6 +486,8 @@
       "commanderSelect": "SÃ©lectionner",
       "filterFormat": "Format",
       "allFormats": "Tous les formats",
+      "filterBracket": "Bracket",
+      "allBrackets": "Tous les brackets",
       "searchButton": "Rechercher",
       "empty": "Aucun deck public disponible pour lâ€™instant.",
       "error": "Impossible de charger les decks publics."
@@ -543,6 +547,9 @@
       "current": "Actuel",
       "counters": "Marqueurs"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jouée face cachée"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Regarder lâ€™autre face",
       "loadingCards": "Chargement des cartes"
@@ -554,7 +561,7 @@
       "labels": {
         "refreshSnapshot": "Actualiser lâ€™Ã©phÃ©mÃ¨re",
         "focusMyBoard": "Centrer mon champ de bataille",
-        "concede": "ConcÃ©der",
+        "concede": "Concéder",
         "leaveTable": "Quitter la table",
         "deleteArrow": "Supprimer la flÃ¨che",
         "deleteArrows": "Supprimer les flÃ¨ches",
@@ -594,8 +601,10 @@
         "flipCardFace": "Retourner la carte",
         "playFaceDown": "Jouez face cachÃ©e",
         "previewCard": "PrÃ©visualiser la carte",
+        "lookAtFaceDownCard": "Regarder la carte",
         "moveTop": "DÃ©placer vers le haut",
         "revealTopCard": "RÃ©vÃ©ler la carte du dessus",
+        "revealXTopCards": "Révéler les X cartes du dessus",
         "revealLibrary": "RÃ©vÃ©ler la bibliothÃ¨que",
         "moveAllTo": "DÃ©placez tout vers",
         "counters": "Marqueurs",
@@ -603,6 +612,9 @@
         "moveTo": "Passer Ã ",
         "giveTo": "Donner Ã ",
         "reveal": "RÃ©vÃ©ler",
+        "stopRevealing": "Ne plus révéler",
+        "playTopRevealed": "Jouer avec la carte du dessus révélée",
+        "stopPlayingTopRevealed": "Ne plus jouer avec la carte du dessus révélée",
         "viewAllLibrary": "Voir la bibliothÃ¨que",
         "viewXTopCards": "Regarder les X cartes du dessus",
         "bottomOfLibrary": "Dessous de la bibliothÃ¨que",
@@ -669,6 +681,7 @@
       "playerDisconnected": "Joueur dÃ©connectÃ©",
       "yourVote": "Votre vote :",
       "timeRemaining": "Temps restant :",
+      "voteFinished": "Vote terminé",
       "targetPlayerBackOnline": "Le joueur ciblÃ© est Ã  nouveau en ligne."
     },
     "gameRematchModal": {
@@ -726,6 +739,8 @@
       "lifeTotal": "Total de vie",
       "playerCounters": "Marqueurs de joueurs",
       "commanderDamage": "dÃ©gÃ¢ts de commandant",
+      "autoApplyCommanderDamageToLife": "Soustraire les points de vie automatiquement",
+      "autoApplyCommanderDamageToLifeTooltip": "Lorsque cette option est activée, les changements de dégâts de commandant ajustent aussi les points de vie de ce joueur.",
       "otherCounters": "Autres marqueurs",
       "extras": "SupplÃ©ments",
       "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplÃ©mentaires",
@@ -752,6 +767,7 @@
       "turnOrder": "Ordre du tour"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Tour : {{ name }}",
       "turnPhases": "Phases du tour",
       "focusTheActiveTurnPlayer": "Concentrez le joueur actif du tour",
       "focusTurn": "Centrer le tour",
@@ -796,7 +812,16 @@
       "gameLogUnreadActions": "Journal de partie, actions non lues",
       "chatUnreadMessages": "Chat, messages non lus",
       "moveCardToAnotherBattlefield": "DÃ©placer la carte vers un autre champ de bataille",
-      "putIntoLibrary": "Mettre en bibliothÃ¨que"
+      "putIntoLibrary": "Mettre en bibliothÃ¨que",
+      "focusedOpponentLabel": "Vous regardez :",
+      "returnToOwnBattlefield": "Aller sur votre champ de bataille",
+      "leaveTableConfirmationTitle": "Quitter la table ?",
+      "leaveTableConfirmationMessage": "Vous allez concéder cette partie et quitter la salle. Cette action est irréversible.",
+      "concedeGameConfirmationTitle": "Concéder la partie ?",
+      "concedeGameConfirmationMessage": "Vous perdrez cette partie immédiatement. Cette action est irréversible.",
+      "reloadRequiredTitle": "Rechargement requis",
+      "reloadRequiredMessage": "La table n’a pas pu être synchronisée. Rechargez la page avant de continuer.",
+      "reloadRequiredAction": "Recharger la page"
     },
     "reactions": {
       "like": "Jâ€™aime",
@@ -822,13 +847,19 @@
         "title": "Regarder les cartes du dessus",
         "description": "Choisissez le nombre de cartes du haut de votre bibliothÃ¨que que vous souhaitez consulter.",
         "confirm": "Regarder"
-      }
+      },
+      "revealTopCards": {
+        "title": "Révéler les cartes du dessus",
+        "description": "Choisissez combien de cartes du dessus de votre bibliothèque révéler à l'adversaire sélectionné.",
+        "confirm": "Révéler"
+      },
+      "deckCardCount": "Votre deck contient {{ count }} cartes."
     },
     "playerCounters": {
       "poison": "Poison",
       "energy": "Ã‰nergie",
       "experience": "ExpÃ©rience",
-      "rad": "Rad",
+      "rad": "Radiation",
       "tickets": "Tickets"
     },
     "zones": {
@@ -905,7 +936,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Ã‰tat du mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
-      "mulligansTaken": "Mulligans : {{ count }}",
+      "firstMulliganNotFree": "Le premier mulligan n'est pas gratuit",
+      "mulligansTaken": "Vous avez pris {{ count }} mulligans",
       "effectiveMulligans": "Effectifs : {{ count }}",
       "scryTitle": "Regard 1",
       "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothÃ¨que.",
@@ -926,13 +958,14 @@
       "status": {
         "deciding": "en rÃ©flexion",
         "scrying": "regard",
-        "ready": "prÃªt",
-        "bottoming": "Bottoming cards"
+        "ready": "prÃªt"
       },
       "actions": {
         "keepOnTop": "Laisser au-dessus",
         "putOnBottom": "Mettre au-dessous",
-        "removeFromBottom": "Retirer du dessous"
+        "removeFromBottom": "Retirer du dessous",
+        "keepHand": "Garder la main",
+        "keepWithBottom": "Garder et mettre au-dessous"
       },
       "description": {
         "londonNoBottom": "Piochez 7. Vous nâ€™avez pas besoin de mettre de cartes au-dessous.",
@@ -944,6 +977,174 @@
         "generousChooseBottom": "Piochez des cartes {{ drawCount }}. Choisissez {{ bottomCount }} Ã  mettre au-dessous dans un ordre alÃ©atoire.",
         "generousRandomOrder": "Lâ€™ordre final sera alÃ©atoire."
       }
+    }
+  },
+  "gameLog": {
+    "history": {
+      "loading": "Chargement des messages…"
+    },
+    "fragment": {
+      "life": {
+        "self": "a fait passer ses points de vie de {{ previousLife }} à {{ life }}.",
+        "other": "a fait passer les points de vie de {{ player }} de {{ previousLife }} à {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "a modifié les blessures de commandant de {{ previousValue }} à {{ value }}.",
+        "other": "a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "a pris le contrôle d'une carte.",
+          "other": "a changé le contrôleur d'une carte pour {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "a mis {{ counter }} à {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "a mis les marqueurs {{ counter }} à {{ value }}."
+      },
+      "turn": {
+        "changed": "a terminé son tour. Le tour de {{ player }} commence.",
+        "phaseChanged": "est passé à la phase {{ phase }}."
+      },
+      "disconnect": {
+        "expelled": "a été expulsé après un vote pour déconnexion."
+      },
+      "game": {
+        "concede": "a concédé."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} a terminé son tour. Le tour de {{ player }} commence.",
+      "phaseChanged": "{{ actor }} est passé à la phase de {{ phase }}."
+    },
+    "phase": {
+      "untap": "dégagement",
+      "upkeep": "entretien",
+      "draw": "pioche",
+      "main-1": "première phase principale",
+      "combat": "combat",
+      "main-2": "seconde phase principale",
+      "end": "fin"
+    },
+    "library": {
+      "moveTop": "{{ actor }} a déplacé les {{ count }} cartes du dessus de sa bibliothèque vers {{ toZone }}.",
+      "reorderTop": "{{ actor }} a réordonné les {{ count }} cartes du dessus de sa bibliothèque.",
+      "putTop": "{{ actor }} a mis une carte au-dessus de sa bibliothèque.",
+      "putBottom": "{{ actor }} a mis une carte au-dessous de sa bibliothèque.",
+      "draw": "{{ actor }} a pioché une carte.",
+      "drawMany": "{{ actor }} a volé les cartes {{ count }}.",
+      "playTopFaceDown": "{{ actor }} a joué la première carte de sa bibliothèque face cachée.",
+      "shuffle": "{{ actor }} a mélangé sa bibliothèque.",
+      "view": "{{ actor }} a examiné les meilleures cartes {{ count }} de sa bibliothèque.",
+      "reveal": "{{ actor }} a dévoilé sa bibliothèque.",
+      "revealTop": "{{ actor }} a révélé les {{ count }} cartes du dessus de sa bibliothèque à {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} a révélé {{ cardName }}, la carte du dessus de sa bibliothèque, à {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} a arrêté de révéler la carte du dessus de sa bibliothèque à {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} joue avec la carte du dessus de sa bibliothèque révélée à {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} a arrêté de jouer avec la carte du dessus de sa bibliothèque révélée à {{ recipients }}."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} a modifié les blessures de commandant infligées à {{ target }} de {{ previousValue }} à {{ value }}."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} a ajouté une carte à la pile.",
+      "itemRemoved": "{{ actor }} a retiré un élément de la pile."
+    },
+    "arrow": {
+      "created": "{{ actor }} a créé une flèche.",
+      "removed": "{{ actor }} a supprimé une flèche."
+    },
+    "attachment": {
+      "created": "{{ actor }} a attaché une carte.",
+      "removed": "{{ actor }} a retiré une attache."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} a pris un mulligan.",
+      "kept": "{{ actor }} a gardé sa main.",
+      "scryConfirmed": "{{ actor }} a terminé son regard du mulligan."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} a été expulsé après un vote de déconnexion.",
+      "noVotersWait": "Il n'y a aucun joueur connecté pour voter. La table attendra {{ target }}.",
+      "voteOpened": "{{ target }} s'est déconnecté. Un vote par table est ouvert.",
+      "tableExpelled": "Le conseil d'administration a décidé d'expulser {{ target }} pour déconnexion.",
+      "tableWait": "Le conseil d'administration a décidé d'attendre {{ target }}.",
+      "voteCancelled": "{{ target }} reconnecté. Le vote par table a été annulé.",
+      "voteExpiredWait": "Le vote de déconnexion a expiré. La table attendra."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} a sélectionné une carte au hasard dans {{ fromZone }}.",
+      "movedAll": "{{ actor }} a déplacé {{ count }} cartes de {{ fromZone }} vers {{ toZone }}.",
+      "battlefield": "champ de bataille",
+      "graveyard": "cimetière",
+      "exile": "exil",
+      "hand": "main",
+      "library": "bibliothèque",
+      "command": "zone de commandement",
+      "zone": "zone"
+    },
+    "card": {
+      "faceChanged": "{{ actor }} a retourné {{ cardName }} sur {{ faceName }}.",
+      "faceDownInspected": "{{ actor }} a regardé une carte face cachée.",
+      "turnedFaceDown": "{{ actor }} a retourné une carte face cachée.",
+      "turnedFaceUp": "{{ actor }} a retourné une carte face visible.",
+      "controllerChanged": "{{ actor }} a changé le contrôleur d'une carte pour {{ target }}.",
+      "revealed": "{{ actor }} a révélé 1 carte de sa {{ zone }} à {{ recipients }}.",
+      "revealedNamed": "{{ actor }} a révélé {{ cardName }} de sa {{ zone }} à {{ recipients }}.",
+      "revealedMany": "{{ actor }} a révélé {{ count }} cartes de sa {{ zone }} à {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} a arrêté de révéler 1 carte de sa {{ zone }} à {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} a arrêté de révéler {{ count }} cartes de sa {{ zone }} à {{ recipients }}.",
+      "moved": "{{ actor }} a déplacé une carte de {{ fromZone }} vers {{ toZone }}.",
+      "tapped": "{{ actor }} a engagé un permanent.",
+      "untapped": "{{ actor }} a dégagé un permanent.",
+      "movedMany": "{{ actor }} a déplacé les cartes {{ count }} de {{ fromZone }} vers {{ toZone }}."
+    },
+    "audience": {
+      "all": "tous les joueurs"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} a changé {{ cardName }} de {{ previousPower }}/{{ previousToughness }} à {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} a changé la loyauté de {{ cardName }} de {{ previousValue }} à {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} a changé le chapitre de saga de {{ cardName }} de {{ previousChapter }} à {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} a changé la défense de {{ cardName }} de {{ previousDefense }} à {{ defense }} ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} a mis les compteurs {{ counter }} dans {{ value }}."
+    },
+    "counter": {
+      "changed": "{{ actor }} a mis {{ counter }} dans {{ value }}."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} {{ count }} permanent inexploité."
+    },
+    "life": {
+      "changed": "{{ actor }} a changé la vie de {{ player }} de {{ previousLife }} à {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} a lancé {{ kind }} et a retiré {{ result }}.",
+      "coin": "une pièce de monnaie",
+      "dice": "dés",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} a lancé son commandant depuis la zone de commandement. Le compteur de lancement du commandant est {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} a réglé le compteur de lancements du commandant {{ commanderName }} à {{ commanderCastCount }}.",
+      "unknown": "Commandant"
+    },
+    "token": {
+      "created": "{{ actor }} a créé un token : {{ tokenName }}.",
+      "createdMany": "{{ actor }} a créé les jetons {{ count }} : {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} a créé une copie du jeton."
+    },
+    "game": {
+      "concede": "{{ player }} accordé."
     }
   },
   "deckBuilder": {
@@ -1124,7 +1325,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "RÃ©partition des types",
-      "utilityCounts": "DÃ©compte des utilitaires"
+      "utilityCounts": "DÃ©compte des utilitaires",
+      "reloadPageForData": "Rechargez la page pour obtenir les données d'analyse."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Ã‰quilibre du mana",
@@ -2231,8 +2433,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

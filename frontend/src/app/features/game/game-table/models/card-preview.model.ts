@@ -16,6 +16,8 @@ export interface CardPreviewEvent {
   readonly playerId: string;
   readonly zone: GameZoneName;
   readonly sourceRect: CardPreviewSourceRect | null;
+  /** Allows the card owner to inspect their own face-down card without changing shared visibility. */
+  readonly revealFaceDownCard?: boolean;
 }
 
 export interface CardPreviewAttachmentItem {

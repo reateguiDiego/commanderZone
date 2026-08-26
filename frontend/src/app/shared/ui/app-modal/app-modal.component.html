@@ -10,6 +10,7 @@
       [class.modal-panel-narrow]="size === 'narrow'"
       [class.modal-panel-wide]="size === 'wide'"
       [class.modal-panel-overflow-visible]="panelOverflow === 'visible'"
+      [class.modal-panel-has-close-button]="showCloseButton"
       (click)="$event.stopPropagation()"
     >
       @if (showCloseButton) {

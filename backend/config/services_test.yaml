@@ -3,3 +3,7 @@ services:
         public: true
 
     Symfony\Component\Mercure\HubInterface: '@App\Tests\Support\RecordingMercureHub'
+
+    App\Tests\Support\InMemoryGameRuntimeLifecycleControl: ~
+
+    App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface: '@App\Tests\Support\InMemoryGameRuntimeLifecycleControl'

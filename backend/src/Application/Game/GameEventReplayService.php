@@ -292,11 +292,36 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'library.reveal':
+                $this->applyRuntimeLibraryReveal($snapshot, $payload);
+
+                return true;
+
+            case 'library.reveal_top':
+                $this->applyRuntimeLibraryTopReveal($snapshot, $payload);
+
+                return true;
+
+            case 'library.play_top_revealed':
+                $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
+                if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
+                    $enabled = ($payload['enabled'] ?? true) === true;
+                    $snapshot['players'][$playerId]['playTopLibraryRevealed'] = $enabled;
+                    if ($enabled && is_array($payload['viewers'] ?? null)) {
+                        $snapshot['players'][$playerId]['playTopLibraryRevealedTo'] = $this->stringList($payload['viewers']);
+                    } elseif (!$enabled) {
+                        unset($snapshot['players'][$playerId]['playTopLibraryRevealedTo']);
+                    }
+                }
+
+                return true;
+
+            case 'library.play_top_face_down':
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
                 $moves = array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
-                if ($event->type() === 'card.moved' && count($moves) === 1 && array_key_exists('faceDown', $payload)) {
+                if (count($moves) === 1 && array_key_exists('faceDown', $payload)) {
                     $moves[0]['faceDown'] = ($payload['faceDown'] ?? false) === true;
                 }
                 foreach ($moves as $move) {
@@ -432,13 +457,30 @@ final class GameEventReplayService
      */
     private function applyRuntimeDisconnectVoteUpdated(array &$snapshot, array $payload): void
     {
-        if (is_array($payload['disconnectVote'] ?? null)) {
+        if (is_array($payload['disconnectVotes'] ?? null)) {
+            $votesByTarget = [];
+            foreach ($payload['disconnectVotes'] as $targetPlayerId => $disconnectVote) {
+                if (!is_string($targetPlayerId) || !is_array($disconnectVote)) {
+                    continue;
+                }
+                $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
+                $votesByTarget[$targetPlayerId] = $disconnectVote;
+            }
+            $snapshot['disconnectVotes'] = $votesByTarget;
+        } elseif (is_array($payload['disconnectVote'] ?? null)) {
+            // Read-only compatibility for historical single-target events.
             $disconnectVote = $payload['disconnectVote'];
             $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
-            $snapshot['disconnectVote'] = $disconnectVote;
+            $targetPlayerId = is_string($disconnectVote['targetPlayerId'] ?? null) ? trim($disconnectVote['targetPlayerId']) : '';
+            if ($targetPlayerId !== '') {
+                $snapshot['disconnectVotes'][$targetPlayerId] = $disconnectVote;
+            }
         }
 
         $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '';
+        if ($targetPlayerId !== '' && is_bool($payload['isOnline'] ?? null) && isset($snapshot['players'][$targetPlayerId])) {
+            $snapshot['players'][$targetPlayerId]['isOnline'] = $payload['isOnline'];
+        }
         if ($targetPlayerId !== '' && ($payload['status'] ?? null) === 'resolved_expel' && isset($snapshot['players'][$targetPlayerId])) {
             $snapshot['players'][$targetPlayerId]['status'] = 'conceded';
             if (is_string($payload['concededAt'] ?? null)) {
@@ -624,11 +666,6 @@ final class GameEventReplayService
      */
     private function applyRuntimeCardRevealed(array &$snapshot, array $payload): void
     {
-        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
-        if (!is_array($card)) {
-            return;
-        }
-
         $revealed = true;
         if (array_key_exists('revealed', $payload)) {
             $revealed = ($payload['revealed'] ?? false) === true;
@@ -637,17 +674,56 @@ final class GameEventReplayService
             $revealed = ($payload['hidden'] ?? false) !== true;
         }
 
-        if (!$revealed) {
-            $card['revealedTo'] = [];
-
-            return;
-        }
-
         $viewers = $this->stringList($payload['viewers'] ?? []);
         if ($viewers === [] && is_string($payload['to'] ?? null)) {
             $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
         }
-        $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($instanceIds === []) {
+            $instanceIds = $this->stringList([$payload['instanceId'] ?? null]);
+        }
+
+        foreach ($instanceIds as $instanceId) {
+            $card =& $this->locateCard($snapshot, $instanceId);
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $card['revealedTo'] = !$revealed ? [] : ($viewers !== [] ? $viewers : ['all']);
+        }
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyRuntimeLibraryReveal(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = $viewers !== [] ? $viewers : ['all'];
+    }
+
+    /** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+    private function applyRuntimeLibraryTopReveal(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        foreach ($this->stringList($payload['instanceIds'] ?? []) as $instanceId) {
+            $card =& $this->locateCard($snapshot, $instanceId);
+            if (is_array($card)) {
+                $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+            }
+        }
     }
 
     /**
@@ -1551,6 +1627,10 @@ final class GameEventReplayService
         $targetPlayerId = (string) ($to['playerId'] ?? '');
         $targetZone = (string) ($to['zone'] ?? '');
         $targetIndex = array_key_exists('index', $to) ? max(0, (int) $to['index']) : null;
+        if ($sourceZone === 'library' && $targetZone !== 'library') {
+            $card['revealedTo'] = [];
+            unset($card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY]);
+        }
         if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
             $this->resetBattlefieldExitCard($card, $targetPlayerId);
             $this->pruneBattlefieldRelationsForMovedInstance($snapshot, $instanceId);
@@ -1721,6 +1801,13 @@ final class GameEventReplayService
      */
     private function targetsFromVisibility(array $snapshot, ?string $visibility): array
     {
+        if ($visibility === 'all') {
+            return array_values(array_filter(
+                array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []),
+                static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== '',
+            ));
+        }
+
         if ($visibility === null || $visibility === 'public') {
             return ['all'];
         }

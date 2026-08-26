@@ -14,6 +14,7 @@ import {
   GameTableBattlefieldDragCoordinatorService,
 } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { AlignmentGuide } from '../drag-drop/game-table-battlefield-drag.state';
+import { updateGameSnapshotCards } from '../core/game-snapshot-mutation';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
 import { buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { buildLandStackGroups } from '../../utils/land-stack';
@@ -21,6 +22,7 @@ import { buildLandStackGroups } from '../../utils/land-stack';
 export interface GameTableBattlefieldContext {
   readonly snapshot: () => GameSnapshot | null;
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly setError: (message: string) => void;
   readonly errorMessage: (error: unknown) => string;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
@@ -147,7 +149,7 @@ export class GameTableBattlefieldState {
     }
 
     if (nextSnapshot) {
-      context.setSnapshot(nextSnapshot);
+      context.setViewportReflowSnapshot(nextSnapshot);
     }
   }
 
@@ -169,13 +171,13 @@ export class GameTableBattlefieldState {
         return nextSnapshot;
       }
 
-      nextSnapshot ??= structuredClone(snapshot);
-      const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === measured.card.instanceId);
-      if (nextCard) {
-        nextCard.position = ratioPosition;
-      }
-
-      return nextSnapshot;
+      return this.withUpdatedBattlefieldPosition(
+        nextSnapshot ?? snapshot,
+        playerId,
+        measured.card.instanceId,
+        ratioPosition,
+        nextSnapshot,
+      );
     }
 
     if (this.samePosition(nextPosition, sourcePosition)) {
@@ -195,13 +197,13 @@ export class GameTableBattlefieldState {
       }
     }
 
-    nextSnapshot ??= structuredClone(snapshot);
-    const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === measured.card.instanceId);
-    if (nextCard) {
-      nextCard.position = nextPosition;
-    }
-
-    return nextSnapshot;
+    return this.withUpdatedBattlefieldPosition(
+      nextSnapshot ?? snapshot,
+      playerId,
+      measured.card.instanceId,
+      nextPosition,
+      nextSnapshot,
+    );
   }
 
   updateLocalCardPosition(context: GameTableBattlefieldContext, playerId: string, instanceId: string, position: { x: number; y: number }): void {
@@ -210,10 +212,18 @@ export class GameTableBattlefieldState {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.position = this.ratioPositionForBattlefield(playerId, instanceId, position);
+    const next = updateGameSnapshotCards(snapshot, [{
+      playerId,
+      zone: 'battlefield',
+      instanceId,
+      update: (card) => {
+        const nextPosition = this.ratioPositionForBattlefield(playerId, instanceId, position);
+        return card.position !== undefined && sameBattlefieldPosition(card.position, nextPosition)
+          ? card
+          : { ...card, position: nextPosition };
+      },
+    }]);
+    if (next !== snapshot) {
       context.setSnapshot(next);
     }
   }
@@ -244,21 +254,14 @@ export class GameTableBattlefieldState {
       return snapshot;
     }
 
-    const next = structuredClone(snapshot);
-    let applied = false;
-    for (const optimisticPosition of this.optimisticBattlefieldPositions.values()) {
-      const card = next.players[optimisticPosition.playerId]?.zones.battlefield.find(
-        (candidate) => candidate.instanceId === optimisticPosition.instanceId,
-      );
-      if (!card) {
-        continue;
-      }
-
-      card.position = optimisticPosition.position;
-      applied = true;
-    }
-
-    return applied ? next : snapshot;
+    return updateGameSnapshotCards(snapshot, [...this.optimisticBattlefieldPositions.values()].map((optimisticPosition) => ({
+      playerId: optimisticPosition.playerId,
+      zone: 'battlefield' as const,
+      instanceId: optimisticPosition.instanceId,
+      update: (card: GameCardInstance) => card.position !== undefined && sameBattlefieldPosition(card.position, optimisticPosition.position)
+        ? card
+        : { ...card, position: optimisticPosition.position },
+    })));
   }
 
   applyViewportClampedBattlefieldPositions(snapshot: GameSnapshot | null): GameSnapshot | null {
@@ -291,11 +294,13 @@ export class GameTableBattlefieldState {
         continue;
       }
 
-      next ??= structuredClone(snapshot);
-      const nextCard = next.players[clamp.playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === clamp.instanceId);
-      if (nextCard) {
-        nextCard.position = clamp.clampedPosition;
-      }
+      next = this.withUpdatedBattlefieldPosition(
+        next ?? snapshot,
+        clamp.playerId,
+        clamp.instanceId,
+        clamp.clampedPosition,
+        next,
+      );
     }
 
     return next ?? snapshot;
@@ -314,20 +319,15 @@ export class GameTableBattlefieldState {
     }
 
     const movedIds = new Set(movedInstanceIds);
-    const next = structuredClone(snapshot);
-    const sourcePlayer = next.players[playerId];
-    const targetPlayer = next.players[targetPlayerId];
-    if (!sourcePlayer || !targetPlayer) {
-      return false;
-    }
-
+    const sourcePlayer = snapshot.players[playerId];
+    const targetPlayer = snapshot.players[targetPlayerId];
     const movedCards = sourcePlayer.zones.hand.filter((card) => movedIds.has(card.instanceId));
     if (movedCards.length !== movedIds.size) {
       return false;
     }
 
-    sourcePlayer.zones.hand = sourcePlayer.zones.hand.filter((card) => !movedIds.has(card.instanceId));
-    targetPlayer.zones.battlefield = [
+    const sourceHand = sourcePlayer.zones.hand.filter((card) => !movedIds.has(card.instanceId));
+    const targetBattlefield = [
       ...targetPlayer.zones.battlefield.filter((card) => !movedIds.has(card.instanceId)),
       ...movedCards.map((card) => ({
         ...card,
@@ -335,20 +335,37 @@ export class GameTableBattlefieldState {
       })),
     ];
 
-    if (sourcePlayer.zoneCounts) {
-      sourcePlayer.zoneCounts = {
-        ...sourcePlayer.zoneCounts,
-        hand: sourcePlayer.zones.hand.length,
+    const nextPlayers = { ...snapshot.players };
+    if (playerId === targetPlayerId) {
+      nextPlayers[playerId] = {
+        ...sourcePlayer,
+        zones: {
+          ...sourcePlayer.zones,
+          hand: sourceHand,
+          battlefield: targetBattlefield,
+        },
+        ...(sourcePlayer.zoneCounts ? {
+          zoneCounts: {
+            ...sourcePlayer.zoneCounts,
+            hand: sourceHand.length,
+            battlefield: targetBattlefield.length,
+          },
+        } : {}),
       };
-    }
-    if (targetPlayer.zoneCounts) {
-      targetPlayer.zoneCounts = {
-        ...targetPlayer.zoneCounts,
-        battlefield: targetPlayer.zones.battlefield.length,
+    } else {
+      nextPlayers[playerId] = {
+        ...sourcePlayer,
+        zones: { ...sourcePlayer.zones, hand: sourceHand },
+        ...(sourcePlayer.zoneCounts ? { zoneCounts: { ...sourcePlayer.zoneCounts, hand: sourceHand.length } } : {}),
+      };
+      nextPlayers[targetPlayerId] = {
+        ...targetPlayer,
+        zones: { ...targetPlayer.zones, battlefield: targetBattlefield },
+        ...(targetPlayer.zoneCounts ? { zoneCounts: { ...targetPlayer.zoneCounts, battlefield: targetBattlefield.length } } : {}),
       };
     }
 
-    context.setSnapshot(next);
+    context.setSnapshot({ ...snapshot, players: nextPlayers });
 
     return true;
   }
@@ -486,6 +503,25 @@ export class GameTableBattlefieldState {
 
   private samePosition(left: GameCardPosition, right: GameCardPosition): boolean {
     return sameBattlefieldPosition(left, right);
+  }
+
+  private withUpdatedBattlefieldPosition(
+    snapshot: GameSnapshot,
+    playerId: string,
+    instanceId: string,
+    position: GameCardPosition,
+    previousSnapshot: GameSnapshot | null,
+  ): GameSnapshot | null {
+    const next = updateGameSnapshotCards(snapshot, [{
+      playerId,
+      zone: 'battlefield',
+      instanceId,
+      update: (card) => card.position !== undefined && sameBattlefieldPosition(card.position, position)
+        ? card
+        : { ...card, position },
+    }]);
+
+    return next === snapshot ? previousSnapshot : next;
   }
 
   private clampBattlefieldPosition(

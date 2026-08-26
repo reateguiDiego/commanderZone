@@ -31,6 +31,7 @@ type ticketPayload struct {
 	Roles       []string `json:"roles,omitempty"`
 	ViewerKind  string   `json:"viewerKind,omitempty"`
 	Protocol    string   `json:"protocol,omitempty"`
+	ViewerMask  uint64   `json:"viewerMask,omitempty"`
 	ExpiresAt   int64    `json:"exp"`
 }
 
@@ -78,6 +79,7 @@ func (v *HMACTicketValidator) ValidateTicket(_ context.Context, ticket string) (
 		Roles:       payload.Roles,
 		ViewerKind:  payload.ViewerKind,
 		Protocol:    payload.Protocol,
+		ViewerMask:  payload.ViewerMask,
 	}, nil
 }
 
@@ -91,6 +93,7 @@ func SignTicket(secret string, claims TicketClaims, ttl time.Duration) (string, 
 		Roles:       claims.Roles,
 		ViewerKind:  claims.ViewerKind,
 		Protocol:    claims.Protocol,
+		ViewerMask:  claims.ViewerMask,
 		ExpiresAt:   time.Now().Add(ttl).Unix(),
 	}
 	body, err := json.Marshal(payload)

@@ -3,16 +3,20 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const E2E_ROOT = join(process.cwd(), 'e2e');
+const LEGACY_COMPATIBILITY_SPECS = new Set([
+  'game-rollback-legacy-smoke.spec.ts',
+]);
 
 test('E2E runtime-primary helpers do not post gameplay commands through legacy HTTP', () => {
   const offenders: string[] = [];
   for (const file of tsFiles(E2E_ROOT)) {
-    if (file.endsWith('game-runtime-routing-static.spec.ts')) {
+    const relativePath = relative(E2E_ROOT, file).replaceAll('\\', '/');
+    if (relativePath === 'game-runtime-routing-static.spec.ts' || LEGACY_COMPATIBILITY_SPECS.has(relativePath)) {
       continue;
     }
     const content = readFileSync(file, 'utf8');
     if (postsToLegacyGameplayCommandEndpoint(content)) {
-      offenders.push(relative(E2E_ROOT, file).replaceAll('\\', '/'));
+      offenders.push(relativePath);
     }
   }
 

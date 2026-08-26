@@ -301,6 +301,24 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame('UNKNOWN_MESSAGE_KIND', $reply['error']['code']);
     }
 
+    public function testRejectsDisconnectVotesFromLegacySymfonyWebsocket(): void
+    {
+        $reply = $this->handler()->handle([
+            'kind' => 'command',
+            'messageId' => 'disconnect-vote-1',
+            'command' => [
+                'type' => 'disconnect.vote',
+                'payload' => ['targetPlayerId' => 'player-2', 'vote' => 'expel'],
+                'clientActionId' => 'disconnect-action-1',
+                'baseVersion' => 1,
+            ],
+        ], $this->peer());
+
+        self::assertSame('command_ack', $reply['kind']);
+        self::assertSame('rejected', $reply['status']);
+        self::assertSame('COMMAND_NOT_SUPPORTED_OVER_WEBSOCKET', $reply['error']['code']);
+    }
+
     private function handler(
         ?Game $game = null,
         ?User $actor = null,
@@ -394,7 +412,7 @@ class GameWebsocketMessageHandlerTest extends TestCase
                     ],
                     'commanderDamage' => [],
                     'counters' => [],
-                    'backgroundName' => 'G_3',
+                    'backgroundName' => 'g_3',
                     'sleevesName' => 'default',
                 ],
             ],

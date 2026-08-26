@@ -294,6 +294,7 @@
       "timer": "Ð¢Ð°Ð¹Ð¼ÐµÑ€",
       "mulligan": "Mulligan",
       "firstMulliganFree": "ÐŸÐµÑ€Ð²Ñ‹Ð¹ Ð¼Ð°Ð»Ð»Ð¸Ð³Ð°Ð½ Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ñ‹Ð¹",
+      "firstMulliganNotFree": "First mulligan is not free",
       "mulliganDescriptions": {
         "london": "ÐšÐ°Ð¶Ð´Ñ‹Ð¹ Ñ€Ð°Ð· Ð²Ð¾Ð·ÑŒÐ¼Ð¸Ñ‚Ðµ 7 ÐºÐ°Ñ€Ñ‚. ÐšÐ¾Ð³Ð´Ð° Ð¾ÑÑ‚Ð°Ð²Ð»ÑÐµÑ‚Ðµ Ñ€ÑƒÐºÑƒ, Ð¿Ð¾Ð»Ð¾Ð¶Ð¸Ñ‚Ðµ Ð½Ð° Ð½Ð¸Ð· Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸ Ð¿Ð¾ Ð¾Ð´Ð½Ð¾Ð¹ ÐºÐ°Ñ€Ñ‚Ðµ Ð·Ð° ÐºÐ°Ð¶Ð´Ñ‹Ð¹ ÑƒÑ‡Ð¸Ñ‚Ñ‹Ð²Ð°ÐµÐ¼Ñ‹Ð¹ Ð¼Ð°Ð»Ð»Ð¸Ð³Ð°Ð½.",
         "vancouver": "ÐšÐ°Ð¶Ð´Ñ‹Ð¹ ÑƒÑ‡Ð¸Ñ‚Ñ‹Ð²Ð°ÐµÐ¼Ñ‹Ð¹ Ð¼Ð°Ð»Ð»Ð¸Ð³Ð°Ð½ Ð±ÐµÑ€ÐµÑ‚ Ð½Ð° Ð¾Ð´Ð½Ñƒ ÐºÐ°Ñ€Ñ‚Ñƒ Ð¼ÐµÐ½ÑŒÑˆÐµ. Ð•ÑÐ»Ð¸ Ð²Ñ‹ Ð¾ÑÑ‚Ð°Ð²Ð»ÑÐµÑ‚Ðµ Ñ€ÑƒÐºÑƒ Ð¿Ð¾ÑÐ»Ðµ ÑƒÑ‡Ð¸Ñ‚Ñ‹Ð²Ð°ÐµÐ¼Ð¾Ð³Ð¾ Ð¼Ð°Ð»Ð»Ð¸Ð³Ð°Ð½Ð°, ÑÐ´ÐµÐ»Ð°Ð¹Ñ‚Ðµ Ð¿Ñ€ÐµÐ´ÑÐºÐ°Ð·Ð°Ð½Ð¸Ðµ 1.",
@@ -363,7 +364,8 @@
       "thisPlayer": "ÑÑ‚Ð¾Ñ‚ Ð¸Ð³Ñ€Ð¾Ðº",
       "tieBreakRoll": "Ð¢Ð°Ð¹-Ð±Ñ€ÐµÐ¹Ðº",
       "tieBreakRollMessage": "Ð£ Ð²Ð°Ñ Ð½Ð¸Ñ‡ÑŒÑ Ñ {{ playerNames }}. Ð‘Ñ€Ð¾ÑÑŒÑ‚Ðµ ÐµÑ‰Ðµ Ñ€Ð°Ð·, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð¾Ð¿Ñ€ÐµÐ´ÐµÐ»Ð¸Ñ‚ÑŒ Ð¿Ð¾Ð±ÐµÐ´Ð¸Ñ‚ÐµÐ»Ñ.",
-      "waitingForDecksAndRolls": "ÐžÐ¶Ð¸Ð´Ð°Ð½Ð¸Ðµ ÐºÐ¾Ð»Ð¾Ð´ Ð¸ Ð±Ñ€Ð¾ÑÐºÐ¾Ð²"
+      "waitingForDecksAndRolls": "ÐžÐ¶Ð¸Ð´Ð°Ð½Ð¸Ðµ ÐºÐ¾Ð»Ð¾Ð´ Ð¸ Ð±Ñ€Ð¾ÑÐºÐ¾Ð²",
+      "realtimeUnavailable": "Подключение в реальном времени восстанавливается. Изменения комнаты могут отображаться с задержкой."
     },
     "setup": {
       "gameSetupLifeControl": {
@@ -484,6 +486,8 @@
       "commanderSelect": "Ð’Ñ‹Ð±Ñ€Ð°Ñ‚ÑŒ",
       "filterFormat": "Ð¤Ð¾Ñ€Ð¼Ð°Ñ‚",
       "allFormats": "Ð’ÑÐµ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚Ñ‹",
+      "filterBracket": "Брекет",
+      "allBrackets": "Все брекеты",
       "searchButton": "ÐŸÐ¾Ð¸ÑÐº",
       "empty": "ÐžÐ±Ñ‰ÐµÑÑ‚Ð²ÐµÐ½Ð½Ñ‹Ñ… ÐºÐ¾Ð»Ð¾Ð´ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚.",
       "error": "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð¾Ð±Ñ‰ÐµÐ´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ñ‹Ðµ ÐºÐ¾Ð»Ð¾Ð´Ñ‹."
@@ -543,6 +547,9 @@
       "current": "Ð¢ÐµÐºÑƒÑ‰Ð¸Ð¹",
       "counters": "Ð–ÐµÑ‚Ð¾Ð½Ñ‹"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Разыграна лицом вниз"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "ÐŸÐ¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ Ð´Ñ€ÑƒÐ³ÑƒÑŽ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ñƒ",
       "loadingCards": "Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° ÐºÐ°Ñ€Ñ‚"
@@ -554,7 +561,7 @@
       "labels": {
         "refreshSnapshot": "ÐžÐ±Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ ÑÐ½Ð¸Ð¼Ð¾Ðº",
         "focusMyBoard": "Ð¤Ð¾ÐºÑƒÑ Ð½Ð° Ð¼Ð¾ÐµÐ¼ Ð¿Ð¾Ð»Ðµ Ð±Ð¸Ñ‚Ð²Ñ‹",
-        "concede": "Ð¡Ð´Ð°Ñ‚ÑŒÑÑ",
+        "concede": "Сдаться",
         "leaveTable": "ÐŸÐ¾ÐºÐ¸Ð½ÑƒÑ‚ÑŒ ÑÑ‚Ð¾Ð»",
         "deleteArrow": "Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ ÑÑ‚Ñ€ÐµÐ»ÐºÑƒ",
         "deleteArrows": "Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ ÑÑ‚Ñ€ÐµÐ»ÐºÐ¸",
@@ -594,8 +601,10 @@
         "flipCardFace": "ÐŸÐµÑ€ÐµÐ²ÐµÑ€Ð½ÑƒÑ‚ÑŒ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ñƒ ÐºÐ°Ñ€Ñ‚Ñ‹",
         "playFaceDown": "ÐŸÐ¾Ð»Ð¾Ð¶Ð¸Ñ‚ÑŒ Ñ€ÑƒÐ±Ð°ÑˆÐºÐ¾Ð¹ Ð²Ð²ÐµÑ€Ñ…",
         "previewCard": "ÐŸÑ€ÐµÐ´Ð²Ð°Ñ€Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ð¹ Ð¿Ñ€Ð¾ÑÐ¼Ð¾Ñ‚Ñ€ ÐºÐ°Ñ€Ñ‚Ñ‹",
+        "lookAtFaceDownCard": "Посмотреть карту",
         "moveTop": "ÐŸÐµÑ€ÐµÐ¼ÐµÑÑ‚Ð¸Ñ‚ÑŒ Ð²Ð²ÐµÑ€Ñ…",
         "revealTopCard": "ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ Ð²ÐµÑ€Ñ…Ð½ÑŽÑŽ ÐºÐ°Ñ€Ñ‚Ñƒ",
+        "revealXTopCards": "Показать X верхних карт",
         "revealLibrary": "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÑƒ",
         "moveAllTo": "ÐŸÐµÑ€ÐµÐ¼ÐµÑÑ‚Ð¸Ñ‚ÑŒ Ð²ÑÐµ Ð²",
         "counters": "Ð–ÐµÑ‚Ð¾Ð½Ñ‹",
@@ -603,6 +612,9 @@
         "moveTo": "ÐŸÐµÑ€ÐµÐ¼ÐµÑÑ‚Ð¸Ñ‚ÑŒ Ð²",
         "giveTo": "ÐžÑ‚Ð´Ð°Ñ‚ÑŒ",
         "reveal": "ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ",
+        "stopRevealing": "Прекратить показывать",
+        "playTopRevealed": "Играть с открытой верхней картой",
+        "stopPlayingTopRevealed": "Перестать играть с открытой верхней картой",
         "viewAllLibrary": "ÐŸÐ¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÑƒ",
         "viewXTopCards": "ÐŸÐ¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ X Ð²ÐµÑ€Ñ…Ð½Ð¸Ñ… ÐºÐ°Ñ€Ñ‚",
         "bottomOfLibrary": "ÐÐ¸Ð· Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸",
@@ -661,7 +673,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "Ð“Ð¾Ð»Ð¾ÑÐ° Ð¿Ñ€Ð¸ Ð¾Ñ‚ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ð¸",
-      "expel": "Ð’Ñ‹Ð³Ð½Ð°Ñ‚ÑŒ",
+      "expel": "Исключить",
       "genericDisconnectedMessage": "Ð˜Ð³Ñ€Ð¾Ðº Ð¾Ñ‚ÐºÐ»ÑŽÑ‡Ð¸Ð»ÑÑ. ÐŸÑ€Ð¾Ð³Ð¾Ð»Ð¾ÑÑƒÐ¹Ñ‚Ðµ, Ð¶Ð´Ð°Ñ‚ÑŒ Ð»Ð¸ Ð¿ÐµÑ€ÐµÐ¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð¸Ð»Ð¸ ÑƒÐ´Ð°Ð»Ð¸Ñ‚ÑŒ ÐµÐ³Ð¾ ÑÐ¾ ÑÑ‚Ð¾Ð»Ð°.",
       "noVote": "ÐÐµÑ‚ Ð³Ð¾Ð»Ð¾ÑÐ°",
       "playerDisconnectedMessage": "{{ playerName }} Ð¾Ñ‚ÐºÐ»ÑŽÑ‡Ð¸Ð»ÑÑ. ÐŸÑ€Ð¾Ð³Ð¾Ð»Ð¾ÑÑƒÐ¹Ñ‚Ðµ, Ð¶Ð´Ð°Ñ‚ÑŒ Ð»Ð¸ Ð¿ÐµÑ€ÐµÐ¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð¸Ð»Ð¸ ÑƒÐ´Ð°Ð»Ð¸Ñ‚ÑŒ ÐµÐ³Ð¾ ÑÐ¾ ÑÑ‚Ð¾Ð»Ð°.",
@@ -669,6 +681,7 @@
       "playerDisconnected": "Ð˜Ð³Ñ€Ð¾Ðº Ð¾Ñ‚ÐºÐ»ÑŽÑ‡ÐµÐ½",
       "yourVote": "Ð’Ð°Ñˆ Ð³Ð¾Ð»Ð¾Ñ:",
       "timeRemaining": "ÐžÑÑ‚Ð°Ð²ÑˆÐµÐµÑÑ Ð²Ñ€ÐµÐ¼Ñ:",
+      "voteFinished": "Голосование завершено",
       "targetPlayerBackOnline": "Ð¦ÐµÐ»ÐµÐ²Ð¾Ð¹ Ð¸Ð³Ñ€Ð¾Ðº ÑÐ½Ð¾Ð²Ð° Ð² ÑÐµÑ‚Ð¸."
     },
     "gameRematchModal": {
@@ -726,6 +739,8 @@
       "lifeTotal": "Ð’ÑÐµÐ³Ð¾ Ð¶Ð¸Ð·Ð½ÐµÐ¹",
       "playerCounters": "Ð–ÐµÑ‚Ð¾Ð½Ñ‹ Ð¸Ð³Ñ€Ð¾ÐºÐ°",
       "commanderDamage": "ÐšÐ¾Ð¼Ð°Ð½Ð´Ð¸Ñ€ÑÐºÐ¸Ð¹ ÑƒÑ€Ð¾Ð½",
+      "autoApplyCommanderDamageToLife": "Автоматически вычитать жизнь",
+      "autoApplyCommanderDamageToLifeTooltip": "Если включено, изменения командирского урона также меняют количество жизней этого игрока.",
       "otherCounters": "Ð”Ñ€ÑƒÐ³Ð¸Ðµ Ð¶ÐµÑ‚Ð¾Ð½Ñ‹",
       "extras": "Extras",
       "openExtraPlayerCounters": "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð´Ð¾Ð¿Ð¾Ð»Ð½Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ðµ Ð¶ÐµÑ‚Ð¾Ð½Ñ‹ Ð¸Ð³Ñ€Ð¾ÐºÐ°",
@@ -752,6 +767,7 @@
       "turnOrder": "ÐŸÐ¾Ñ€ÑÐ´Ð¾Ðº Ñ…Ð¾Ð´Ð¾Ð²"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Ход: {{ name }}",
       "turnPhases": "Ð¤Ð°Ð·Ñ‹ Ñ…Ð¾Ð´Ð°",
       "focusTheActiveTurnPlayer": "Ð¡Ñ„Ð¾ÐºÑƒÑÐ¸Ñ€ÑƒÐ¹Ñ‚Ðµ Ð°ÐºÑ‚Ð¸Ð²Ð½Ð¾Ð³Ð¾ Ð¸Ð³Ñ€Ð¾ÐºÐ° Ñ…Ð¾Ð´Ð°",
       "focusTurn": "Ð¤Ð¾ÐºÑƒÑ Ð½Ð° Ñ…Ð¾Ð´Ðµ",
@@ -796,7 +812,16 @@
       "gameLogUnreadActions": "Ð–ÑƒÑ€Ð½Ð°Ð» Ð¿Ð°Ñ€Ñ‚Ð¸Ð¸, Ð½ÐµÐ¿Ñ€Ð¾Ñ‡Ð¸Ñ‚Ð°Ð½Ð½Ñ‹Ðµ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ",
       "chatUnreadMessages": "Ð§Ð°Ñ‚, Ð½ÐµÐ¿Ñ€Ð¾Ñ‡Ð¸Ñ‚Ð°Ð½Ð½Ñ‹Ðµ ÑÐ¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ñ",
       "moveCardToAnotherBattlefield": "ÐŸÐµÑ€ÐµÐ¼ÐµÑÑ‚Ð¸Ñ‚ÑŒ ÐºÐ°Ñ€Ñ‚Ñƒ Ð½Ð° Ð´Ñ€ÑƒÐ³Ð¾Ðµ Ð¿Ð¾Ð»Ðµ Ð±Ð¸Ñ‚Ð²Ñ‹",
-      "putIntoLibrary": "ÐŸÐ¾Ð»Ð¾Ð¶Ð¸Ñ‚ÑŒ Ð² Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÑƒ"
+      "putIntoLibrary": "ÐŸÐ¾Ð»Ð¾Ð¶Ð¸Ñ‚ÑŒ Ð² Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÑƒ",
+      "focusedOpponentLabel": "Просмотр:",
+      "returnToOwnBattlefield": "К своему полю боя",
+      "leaveTableConfirmationTitle": "Покинуть стол?",
+      "leaveTableConfirmationMessage": "Вы сдадите эту игру и покинете комнату. Это действие нельзя отменить.",
+      "concedeGameConfirmationTitle": "Сдаться в игре?",
+      "concedeGameConfirmationMessage": "Вы немедленно проиграете эту игру. Это действие нельзя отменить.",
+      "reloadRequiredTitle": "Требуется перезагрузка",
+      "reloadRequiredMessage": "Не удалось синхронизировать стол. Перезагрузите страницу, прежде чем продолжить.",
+      "reloadRequiredAction": "Перезагрузить страницу"
     },
     "reactions": {
       "like": "ÐÑ€Ð°Ð²Ð¸Ñ‚ÑÑ",
@@ -822,13 +847,19 @@
         "title": "ÐŸÐ¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ Ð²ÐµÑ€Ñ…Ð½Ð¸Ðµ ÐºÐ°Ñ€Ñ‚Ñ‹",
         "description": "Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ, ÑÐºÐ¾Ð»ÑŒÐºÐ¾ Ð²ÐµÑ€Ñ…Ð½Ð¸Ñ… ÐºÐ°Ñ€Ñ‚ Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸ Ð¿Ð¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ.",
         "confirm": "ÐŸÐ¾ÑÐ¼Ð¾Ñ‚Ñ€ÐµÑ‚ÑŒ"
-      }
+      },
+      "revealTopCards": {
+        "title": "Показать верхние карты",
+        "description": "Выберите, сколько верхних карт вашей библиотеки показать выбранному сопернику.",
+        "confirm": "Показать"
+      },
+      "deckCardCount": "В вашей колоде {{ count }} карт."
     },
     "playerCounters": {
       "poison": "Ð¯Ð´",
       "energy": "Ð­Ð½ÐµÑ€Ð³Ð¸Ñ",
       "experience": "ÐžÐ¿Ñ‹Ñ‚",
-      "rad": "Rad",
+      "rad": "Радиация",
       "tickets": "Ð‘Ð¸Ð»ÐµÑ‚Ñ‹"
     },
     "zones": {
@@ -905,7 +936,8 @@
       "title": "ÐœÐ°Ð»Ð»Ð¸Ð³Ð°Ð½",
       "metaAriaLabel": "Ð¡Ñ‚Ð°Ñ‚ÑƒÑ ÐœÐ°Ð»Ð»Ð¸Ð³Ð°Ð½Ð°",
       "firstMulliganFree": "ÐŸÐµÑ€Ð²Ñ‹Ð¹ Ð¼Ð°Ð»Ð»Ð¸Ð³Ð°Ð½ Ð±ÐµÑÐ¿Ð»Ð°Ñ‚Ð½Ñ‹Ð¹",
-      "mulligansTaken": "ÐœÐ°Ð»Ð»Ð¸Ð³Ð°Ð½Ñ‹: {{ count }}",
+      "firstMulliganNotFree": "First mulligan is not free",
+      "mulligansTaken": "You have taken {{ count }} mulligans",
       "effectiveMulligans": "Ð£Ñ‡Ð¸Ñ‚Ñ‹Ð²Ð°ÐµÐ¼Ñ‹Ðµ: {{ count }}",
       "scryTitle": "ÐŸÑ€ÐµÐ´ÑÐºÐ°Ð·Ð°Ð½Ð¸Ðµ 1",
       "scryDescription": "Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ, Ñ‡Ñ‚Ð¾ ÑÐ´ÐµÐ»Ð°Ñ‚ÑŒ Ñ Ð²ÐµÑ€Ñ…Ð½ÐµÐ¹ ÐºÐ°Ñ€Ñ‚Ð¾Ð¹ Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸.",
@@ -926,13 +958,14 @@
       "status": {
         "deciding": "Ð²Ñ‹Ð±Ð¸Ñ€Ð°ÐµÑ‚",
         "scrying": "Ð´ÐµÐ»Ð°ÐµÑ‚ Ð¿Ñ€ÐµÐ´ÑÐºÐ°Ð·Ð°Ð½Ð¸Ðµ",
-        "ready": "Ð³Ð¾Ñ‚Ð¾Ð²",
-        "bottoming": "Bottoming cards"
+        "ready": "Ð³Ð¾Ñ‚Ð¾Ð²"
       },
       "actions": {
         "keepOnTop": "ÐžÑÑ‚Ð°Ð²Ð¸Ñ‚ÑŒ ÑÐ²ÐµÑ€Ñ…Ñƒ",
         "putOnBottom": "ÐŸÐ¾Ð»Ð¾Ð¶Ð¸Ñ‚ÑŒ Ð½Ð° Ð½Ð¸Ð·",
-        "removeFromBottom": "Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ ÑÐ½Ð¸Ð·Ñƒ"
+        "removeFromBottom": "Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ ÑÐ½Ð¸Ð·Ñƒ",
+        "keepHand": "Keep hand",
+        "keepWithBottom": "Keep and bottom"
       },
       "description": {
         "londonNoBottom": "Ð’Ð¾Ð·ÑŒÐ¼Ð¸Ñ‚Ðµ 7. Ð’Ð°Ð¼ Ð½Ðµ Ð½ÑƒÐ¶Ð½Ð¾ ÐºÐ»Ð°ÑÑ‚ÑŒ ÐºÐ°Ñ€Ñ‚Ñ‹ Ð½Ð° Ð½Ð¸Ð· Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸.",
@@ -944,6 +977,174 @@
         "generousChooseBottom": "Ð’Ð¾Ð·ÑŒÐ¼Ð¸Ñ‚Ðµ {{ drawCount }} ÐºÐ°Ñ€Ñ‚(Ñ‹). Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ {{ bottomCount }}, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð¿Ð¾Ð»Ð¾Ð¶Ð¸Ñ‚ÑŒ Ð½Ð° Ð½Ð¸Ð· Ð±Ð¸Ð±Ð»Ð¸Ð¾Ñ‚ÐµÐºÐ¸ Ð² ÑÐ»ÑƒÑ‡Ð°Ð¹Ð½Ð¾Ð¼ Ð¿Ð¾Ñ€ÑÐ´ÐºÐµ.",
         "generousRandomOrder": "ÐžÐºÐ¾Ð½Ñ‡Ð°Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ð¹ Ð¿Ð¾Ñ€ÑÐ´Ð¾Ðº Ð±ÑƒÐ´ÐµÑ‚ ÑÐ»ÑƒÑ‡Ð°Ð¹Ð½Ñ‹Ð¼."
       }
+    }
+  },
+  "gameLog": {
+    "history": {
+      "loading": "Загрузка сообщений…"
+    },
+    "fragment": {
+      "life": {
+        "self": "изменил количество своих жизней с {{ previousLife }} до {{ life }}.",
+        "other": "изменил количество жизней игрока {{ player }} с {{ previousLife }} до {{ life }}."
+      },
+      "commanderDamage": {
+        "self": "изменил урон командира с {{ previousValue }} до {{ value }}.",
+        "other": "изменил урон командира, нанесённый {{ target }}, с {{ previousValue }} до {{ value }}."
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "получил контроль над картой.",
+          "other": "изменил контролирующего карту на {{ target }}."
+        }
+      },
+      "counter": {
+        "changed": "установил значение счётчика «{{ counter }}» на {{ value }}."
+      },
+      "cardCounter": {
+        "changed": "установил количество жетонов «{{ counter }}» на {{ value }}."
+      },
+      "turn": {
+        "changed": "завершил свой ход. Начинается ход игрока {{ player }}.",
+        "phaseChanged": "перешёл к фазе {{ phase }}."
+      },
+      "disconnect": {
+        "expelled": "был исключён после голосования из-за отключения."
+      },
+      "game": {
+        "concede": "сдался."
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} завершил(а) ход. Начинается ход {{ player }}.",
+      "phaseChanged": "{{ actor }} перешёл(ла) к фазе {{ phase }}."
+    },
+    "phase": {
+      "untap": "разворота",
+      "upkeep": "поддержки",
+      "draw": "взятия карты",
+      "main-1": "первой главной",
+      "combat": "боя",
+      "main-2": "второй главной",
+      "end": "завершения"
+    },
+    "library": {
+      "moveTop": "{{ actor }} переместил(а) верхние {{ count }} карт из библиотеки в {{ toZone }}.",
+      "reorderTop": "{{ actor }} изменил(а) порядок верхних {{ count }} карт библиотеки.",
+      "putTop": "{{ actor }} положил(а) карту наверх библиотеки.",
+      "putBottom": "{{ actor }} положил(а) карту в низ библиотеки.",
+      "draw": "{{ actor }} вытащил карту.",
+      "drawMany": "{{ actor }} украл карты {{ count }}.",
+      "playTopFaceDown": "{{ actor }} разыграл первую карту своей библиотеки рубашкой вниз.",
+      "shuffle": "{{ actor }} перетасовал свою библиотеку.",
+      "view": "{{ actor }} просмотрел лучшие карты {{ count }} в своей библиотеке.",
+      "reveal": "{{ actor }} раскрыл свою библиотеку.",
+      "revealTop": "{{ actor }} показал(а) {{ recipients }} верхние {{ count }} карт(ы) своей библиотеки.",
+      "revealTopNamed": "{{ actor }} показал(а) {{ recipients }} {{ cardName }}, верхнюю карту своей библиотеки.",
+      "stoppedRevealingTop": "{{ actor }} перестал(а) показывать {{ recipients }} верхнюю карту своей библиотеки.",
+      "playTopRevealed": "{{ actor }} играет с верхней картой своей библиотеки, открытой для {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} перестал(а) играть с верхней картой своей библиотеки, открытой для {{ recipients }}."
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} изменил(а) урон командира {{ target }} с {{ previousValue }} на {{ value }}."
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} добавил(а) карту в стек.",
+      "itemRemoved": "{{ actor }} удалил(а) элемент из стека."
+    },
+    "arrow": {
+      "created": "{{ actor }} создал(а) стрелку.",
+      "removed": "{{ actor }} удалил(а) стрелку."
+    },
+    "attachment": {
+      "created": "{{ actor }} прикрепил(а) карту.",
+      "removed": "{{ actor }} снял(а) прикрепление."
+    },
+    "mulligan": {
+      "taken": "{{ actor }} взял(а) муллиган.",
+      "kept": "{{ actor }} оставил(а) руку.",
+      "scryConfirmed": "{{ actor }} завершил(а) предсказание после муллигана."
+    },
+    "disconnect": {
+      "expelled": "{{ target }} был(а) исключён(а) после голосования об отключении.",
+      "noVotersWait": "Нет игроков, вошедших в систему для голосования. Таблица будет ждать {{ target }}.",
+      "voteOpened": "{{ target }} отключился от сети. Было открыто заочное голосование.",
+      "tableExpelled": "Правление решило исключить {{ target }} за отключение.",
+      "tableWait": "Правление решило дождаться {{ target }}.",
+      "voteCancelled": "{{ target }} восстановлен. Заочное голосование было отменено.",
+      "voteExpiredWait": "Голосование за отключение истекло. Стол подождет."
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} выбрал(а) случайную карту из {{ fromZone }}.",
+      "movedAll": "{{ actor }} переместил(а) {{ count }} карт из {{ fromZone }} в {{ toZone }}.",
+      "battlefield": "поле боя",
+      "graveyard": "кладбище",
+      "exile": "изгнание",
+      "hand": "рука",
+      "library": "библиотека",
+      "command": "командная зона",
+      "zone": "зона"
+    },
+    "card": {
+      "faceChanged": "{{ actor }} перевернул(а) {{ cardName }} на сторону {{ faceName }}.",
+      "faceDownInspected": "{{ actor }} посмотрел(а) карту рубашкой вверх.",
+      "turnedFaceDown": "{{ actor }} перевернул(а) карту рубашкой вверх.",
+      "turnedFaceUp": "{{ actor }} перевернул(а) карту лицом вверх.",
+      "controllerChanged": "{{ actor }} изменил(а) контролирующего карту на {{ target }}.",
+      "revealed": "{{ actor }} показал(а) 1 карту из своей {{ zone }} {{ recipients }}.",
+      "revealedNamed": "{{ actor }} показал(а) {{ cardName }} из своей {{ zone }} {{ recipients }}.",
+      "revealedMany": "{{ actor }} показал(а) {{ count }} карт из своей {{ zone }} {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} перестал(а) показывать 1 карту из своей {{ zone }} {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} перестал(а) показывать {{ count }} карт из своей {{ zone }} {{ recipients }}.",
+      "moved": "{{ actor }} переместил карту из {{ fromZone }} в {{ toZone }}.",
+      "tapped": "{{ actor }} нажал на перманент.",
+      "untapped": "{{ actor }} разблокировал перманент.",
+      "movedMany": "{{ actor }} переместил карты {{ count }} из {{ fromZone }} в {{ toZone }}."
+    },
+    "audience": {
+      "all": "всем игрокам"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} изменил(а) {{ cardName }} с {{ previousPower }}/{{ previousToughness }} на {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} изменил(а) верность {{ cardName }} с {{ previousValue }} на {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} изменил(а) главу саги {{ cardName }} с {{ previousChapter }} на {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} изменил(а) защиту {{ cardName }} с {{ previousDefense }} на {{ defense }} ({{ delta }})."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} помещает счетчики {{ counter }} в {{ value }}."
+    },
+    "counter": {
+      "changed": "{{ actor }} поместил {{ counter }} в {{ value }}."
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} неиспользованный постоянный {{ count }}."
+    },
+    "life": {
+      "changed": "{{ actor }} изменил жизнь {{ player }} с {{ previousLife }} на {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} свернул {{ kind }} и извлек {{ result }}.",
+      "coin": "монета",
+      "dice": "кости",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} запустил своего командира из командной зоны. Счетчик каста командира — {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} установил счётчик разыгрываний командира {{ commanderName }} на {{ commanderCastCount }}.",
+      "unknown": "Командир"
+    },
+    "token": {
+      "created": "{{ actor }} создал токен: {{ tokenName }}.",
+      "createdMany": "{{ actor }} создал токены {{ count }}: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} создал копию токена."
+    },
+    "game": {
+      "concede": "{{ player }} предоставлен."
     }
   },
   "deckBuilder": {
@@ -1124,7 +1325,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Ð Ð°Ð·Ð±Ð¸Ð²ÐºÐ° Ð¿Ð¾ Ñ‚Ð¸Ð¿Ð°Ð¼",
-      "utilityCounts": "Ð¡Ð»ÑƒÐ¶ÐµÐ±Ð½Ñ‹Ðµ Ð¿Ð¾ÐºÐ°Ð·Ð°Ñ‚ÐµÐ»Ð¸"
+      "utilityCounts": "Ð¡Ð»ÑƒÐ¶ÐµÐ±Ð½Ñ‹Ðµ Ð¿Ð¾ÐºÐ°Ð·Ð°Ñ‚ÐµÐ»Ð¸",
+      "reloadPageForData": "Перезагрузите страницу, чтобы получить данные анализа."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Ð‘Ð°Ð»Ð°Ð½Ñ Ð¼Ð°Ð½Ñ‹",
@@ -2231,8 +2433,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

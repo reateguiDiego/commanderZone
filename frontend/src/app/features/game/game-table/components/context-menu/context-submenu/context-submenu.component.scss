@@ -28,21 +28,21 @@
 .submenu-trigger:hover:not(:disabled),
 .submenu-trigger:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
-    rgb(255 255 255 / 2%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    rgb(var(--highlight-rgb) / 2%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 34%),
-    0 0.45rem 1rem rgb(0 0 0 / 28%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
   transform: translateY(-1px);
 }
 
 .submenu-trigger:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
-    rgb(255 255 255 / 3%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    rgb(var(--highlight-rgb) / 3%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 44%),
-    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
+    0 0.22rem 0.55rem rgb(var(--shadow-rgb) / 24%);
   transform: translateY(0);
 }
 
@@ -59,7 +59,7 @@
 
 .submenu-item-label lucide-icon {
   flex: 0 0 auto;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
 }
 
 .submenu-item-image-icon {
@@ -71,7 +71,7 @@
 }
 
 .submenu-item-mana-icon {
-  --submenu-mechanic-icon-gold: var(--gold, var(--game-accent, #d7b46a));
+  --submenu-mechanic-icon-gold: var(--gold, var(--game-accent));
 
   display: inline-grid;
   width: 1.06rem;
@@ -86,7 +86,7 @@
 
 .submenu-item-mana-icon {
   font-size: 1.08rem;
-  filter: drop-shadow(0 0.05rem 0.12rem rgb(0 0 0 / 55%));
+  filter: drop-shadow(0 0.05rem 0.12rem rgb(var(--shadow-rgb) / 55%));
 }
 
 .submenu-item-graveyard-icon {
@@ -96,7 +96,7 @@
     saturate(1.04)
     contrast(1.05)
     brightness(1.02)
-    drop-shadow(0 0.05rem 0.12rem rgb(0 0 0 / 55%));
+    drop-shadow(0 0.05rem 0.12rem rgb(var(--shadow-rgb) / 55%));
 }
 
 .submenu-item-counter-pill-icon {
@@ -109,18 +109,18 @@
   justify-content: center;
   align-self: center;
   padding-top: 0.05rem;
-  border: 1px solid rgb(215 180 106 / 72%);
+  border: 1px solid rgb(var(--gold-rgb) / 72%);
   border-radius: 999px;
-  background: linear-gradient(145deg, rgb(7 8 7 / 96%), rgb(28 25 16 / 94%));
-  color: var(--game-accent, #d7b46a);
+  background: linear-gradient(145deg, rgb(var(--game-surface-deep-rgb) / 96%), rgb(28 25 16 / 94%));
+  color: var(--game-accent);
   font-size: 0.5rem;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
   text-transform: uppercase;
   box-shadow:
-    0 0.2rem 0.45rem rgb(0 0 0 / 42%),
-    0 0 0.45rem rgb(215 180 106 / 16%);
+    0 0.2rem 0.45rem rgb(var(--shadow-rgb) / 42%),
+    0 0 0.45rem rgb(var(--gold-rgb) / 16%);
 }
 
 .submenu-item-counter-pill-icon::after {
@@ -128,11 +128,11 @@
   position: absolute;
   right: -0.26rem;
   bottom: -0.2rem;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
   font-size: 0.84rem;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 0 0.18rem rgb(0 0 0 / 72%);
+  text-shadow: 0 0 0.18rem rgb(var(--shadow-rgb) / 72%);
 }
 
 .submenu.side-left .submenu-trigger,
@@ -152,7 +152,7 @@
   line-height: 1;
   position: relative;
   top: -0.12rem;
-  color: var(--game-accent, #d7b46a);
+  color: var(--game-accent);
   transition: transform 140ms ease;
 }
 
@@ -178,12 +178,12 @@
   display: grid;
   min-width: 13rem;
   padding: 0.35rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 10%), transparent 42%),
-    var(--game-surface-deep, rgb(7 8 7 / 92%));
-  box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 38%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 10%), transparent 42%),
+    var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 92%));
+  box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
 }
 
 .submenu.direction-up .submenu-panel {
@@ -223,22 +223,22 @@
 .submenu-child-panel button:hover:not(:disabled),
 .submenu-child-panel button:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
-    rgb(255 255 255 / 2%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    rgb(var(--highlight-rgb) / 2%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 34%),
-    0 0.45rem 1rem rgb(0 0 0 / 28%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
   transform: translateY(-1px);
 }
 
 .submenu-panel button:active:not(:disabled),
 .submenu-child-panel button:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
-    rgb(255 255 255 / 3%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    rgb(var(--highlight-rgb) / 3%);
   box-shadow:
-    inset 0 0 0 1px rgb(215 180 106 / 44%),
-    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
+    0 0.22rem 0.55rem rgb(var(--shadow-rgb) / 24%);
   transform: translateY(0);
 }
 
@@ -275,12 +275,12 @@
   display: grid;
   min-width: 12rem;
   padding: 0.35rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 10%), transparent 42%),
-    var(--game-surface-deep, rgb(7 8 7 / 94%));
-  box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 38%);
+    linear-gradient(135deg, rgb(var(--gold-rgb) / 10%), transparent 42%),
+    var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 94%));
+  box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
 }
 
 .submenu.child-side-left .submenu-child-panel {
@@ -289,7 +289,7 @@
 }
 
 .submenu-child-panel button {
-  color: var(--game-text, #f3f0e8);
+  color: var(--game-text);
 }
 
 .danger-menu-item {
@@ -306,8 +306,8 @@
 .submenu-child-panel .danger-menu-item:focus-visible:not(:disabled) {
   background:
     linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
-    rgb(255 255 255 / 2%);
+    rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(248 113 113 / 42%),
-    0 0.45rem 1rem rgb(0 0 0 / 28%);
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
 }

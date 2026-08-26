@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -37,7 +38,7 @@ interface UserSearchRouteTarget {
 
 @Component({
   selector: 'app-community-page',
-  imports: [FormsModule, RouterLink, LucideAngularModule, RuntimeTranslatePipe, CardPreviewSectionComponent, HeroRuleComponent, CzButtonDirective, CommunityDeckGridComponent, GlobalLoaderComponent],
+  imports: [DecimalPipe, FormsModule, RouterLink, LucideAngularModule, RuntimeTranslatePipe, CardPreviewSectionComponent, HeroRuleComponent, CzButtonDirective, CommunityDeckGridComponent, GlobalLoaderComponent],
   templateUrl: './community-page.component.html',
   styleUrl: './community-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,6 +66,7 @@ export class CommunityPageComponent implements OnDestroy {
   readonly featuredCommanders = computed(() => sortCardPreviewItemsByTimesPlayed(this.home()?.commanders ?? []).slice(0, 3));
   readonly featuredCards = computed(() => sortCardPreviewItemsByTimesPlayed(this.home()?.cards ?? []).slice(0, 3));
   readonly featuredDecks = computed(() => this.home()?.decks.slice(0, 6) ?? []);
+  readonly publicDeckCount = computed(() => this.home()?.publicDeckCount ?? 0);
   readonly commandersTitleKey = computed(() => this.device.isMobileLayout()
     ? 'community.home.mobileCommandersTitle'
     : 'community.home.commandersTitle');

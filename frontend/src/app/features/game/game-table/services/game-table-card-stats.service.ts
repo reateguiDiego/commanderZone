@@ -5,6 +5,7 @@ interface PendingPowerToughnessChange {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
+  cardName: string;
   power: number;
   toughness: number;
 }
@@ -13,6 +14,7 @@ interface PendingLoyaltyChange {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
+  cardName: string;
   loyalty: number;
 }
 
@@ -20,6 +22,7 @@ interface PendingBattleChange {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
+  cardName: string;
   defense: number;
 }
 
@@ -27,6 +30,7 @@ interface PendingSagaChange {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
+  cardName: string;
   saga: number;
 }
 
@@ -75,6 +79,7 @@ export class GameTableCardStatsService {
       playerId,
       zone,
       instanceId: card.instanceId,
+      cardName: card.name,
       defense: nextDefense,
     });
     this.scheduleFlush(key, () => void this.flushBattleChange(context, key));
@@ -97,6 +102,7 @@ export class GameTableCardStatsService {
       playerId,
       zone,
       instanceId: card.instanceId,
+      cardName: card.name,
       saga: nextSaga,
     });
     this.scheduleFlush(key, () => void this.flushSagaChange(context, key));
@@ -118,6 +124,7 @@ export class GameTableCardStatsService {
       playerId,
       zone,
       instanceId: card.instanceId,
+      cardName: card.name,
       loyalty: nextLoyalty,
     });
     this.scheduleFlush(key, () => void this.flushLoyaltyChange(context, key));
@@ -160,6 +167,7 @@ export class GameTableCardStatsService {
       playerId,
       zone,
       instanceId: card.instanceId,
+      cardName: card.name,
       power: nextPower,
       toughness: nextToughness,
     });
@@ -178,6 +186,7 @@ export class GameTableCardStatsService {
       playerId: change.playerId,
       zone: change.zone,
       instanceId: change.instanceId,
+      cardName: change.cardName,
       power: change.power,
       toughness: change.toughness,
     }, true);
@@ -195,6 +204,7 @@ export class GameTableCardStatsService {
       playerId: change.playerId,
       zone: change.zone,
       instanceId: change.instanceId,
+      cardName: change.cardName,
       defense: change.defense,
     }, true);
   }
@@ -211,6 +221,7 @@ export class GameTableCardStatsService {
       playerId: change.playerId,
       zone: change.zone,
       instanceId: change.instanceId,
+      cardName: change.cardName,
       saga: change.saga,
     }, true);
   }
@@ -227,6 +238,7 @@ export class GameTableCardStatsService {
       playerId: change.playerId,
       zone: change.zone,
       instanceId: change.instanceId,
+      cardName: change.cardName,
       loyalty: change.loyalty,
     }, true);
   }

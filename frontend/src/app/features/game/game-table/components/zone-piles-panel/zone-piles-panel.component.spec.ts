@@ -1,11 +1,17 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { Circle, Crown, Eye, Flag, Library, LucideAngularModule, RotateCw, Sparkles } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
+import { AppThemeService } from '../../../../../core/theme/app-theme.service';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { ZonePilesPanelComponent } from './zone-piles-panel.component';
 
 describe('ZonePilesPanelComponent', () => {
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
+
   it('exposes the zone dock and each pile as motion zones', async () => {
     const fixture = await renderZonePilesPanel();
 
@@ -16,6 +22,39 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'command').dataset['motionZone']).toBe('player-1:command');
     expect(zoneElement(fixture, 'graveyard').dataset['motionZone']).toBe('player-1:graveyard');
     expect(zoneElement(fixture, 'exile').dataset['motionZone']).toBe('player-1:exile');
+  });
+
+  it('shows an icon-only eye on the top-left of library while its top card is revealed for play', async () => {
+    const fixture = await renderZonePilesPanel({
+      playTopLibraryRevealed: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    const indicator = fixture.nativeElement.querySelector('.library-top-revealed-indicator') as HTMLElement | null;
+    expect(indicator).not.toBeNull();
+    expect(indicator?.getAttribute('aria-label')).toBe('Revealed top library card');
+    expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
+  });
+
+  it('shows the same public eye for a targeted top-library reveal', async () => {
+    const fixture = await renderZonePilesPanel({
+      topLibraryRevealMarker: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
+  });
+
+  it('uses the theme-specific command zone logo asset', async () => {
+    const fixture = await renderZonePilesPanel();
+    const appTheme = TestBed.inject(AppThemeService);
+
+    expect(commandZoneLogo(fixture).getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
+
+    appTheme.selectTheme('candy-summoners');
+    fixture.detectChanges();
+
+    expect(commandZoneLogo(fixture).getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header_black.webp');
   });
 
   it('exposes the top draggable pile card as a motion origin', async () => {
@@ -134,6 +173,58 @@ describe('ZonePilesPanelComponent', () => {
     expect(castCounters.map((element) => element.dataset['cardId'])).toEqual(['commander-1', 'commander-2']);
     expect(castCounters.map((element) => element.textContent?.trim())).toEqual(['1', '3']);
     expect(castSpy).toHaveBeenCalledWith({ playerId: 'player-1', commanderInstanceId: 'commander-2', delta: 1 });
+  });
+
+  it('previews the corresponding commander when hovering its dual-command cast counter', async () => {
+    const firstCommander = { ...card('commander-1', 'Rograkh', 'command'), isCommander: true };
+    const secondCommander = { ...card('commander-2', 'Silas Renn', 'command'), isCommander: true };
+    const fixture = await renderZonePilesPanel({
+      command: [firstCommander, secondCommander],
+      cardImage: (card) => `/assets/${card.instanceId}.jpg`,
+    });
+    const previewSpy = vi.fn();
+    const hiddenSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+    fixture.componentInstance.cardPreviewHidden.subscribe(hiddenSpy);
+
+    const commandCards = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="command-zone-card"]'));
+    const castCounter = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="commander-cast-count"]'))[1]!;
+    expect(castCounter.classList).toContain('dual-commander-cast-count');
+    stubElementRect(castCounter);
+    castCounter.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(commandCards[0]!.classList).not.toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.classList).toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.querySelector('img')?.classList).toContain('commanders-stack-card-image-hovered');
+
+    castCounter.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(previewSpy).toHaveBeenCalledWith({
+      card: secondCommander,
+      playerId: 'player-1',
+      zone: 'command',
+      sourceRect: { left: 0, top: 0, right: 100, bottom: 140, width: 100, height: 140 },
+    });
+    expect(hiddenSpy).toHaveBeenCalledOnce();
+    expect(commandCards[1]!.classList).not.toContain('commanders-stack-card-hovered');
+    expect(commandCards[1]!.querySelector('img')?.classList).not.toContain('commanders-stack-card-image-hovered');
+  });
+
+  it('does not add a hover interaction to a single commander cast counter', async () => {
+    const commander = card('commander-1', 'Rograkh', 'command');
+    const fixture = await renderZonePilesPanel({
+      command: [commander],
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const castCounter = zoneElement(fixture, 'command').querySelector<HTMLElement>('[data-testid="commander-cast-count"]')!;
+    castCounter.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+    expect(castCounter.classList).not.toContain('dual-commander-cast-count');
+    expect(previewSpy).not.toHaveBeenCalled();
   });
 
   it('keeps command stack cast counters visible when a commander is pending transfer', async () => {
@@ -319,6 +410,37 @@ describe('ZonePilesPanelComponent', () => {
 
     expect(previewSpy).toHaveBeenCalledWith({ card: topCard, playerId: 'player-1', zone: 'library', sourceRect: null });
     expect(hiddenSpy).toHaveBeenCalled();
+  });
+
+  it('puts the alternate-face toggle on a revealed library card and previews that face locally', async () => {
+    const topCard: GameCardInstance = {
+      ...card('library-dfc', 'Front // Back', 'library'),
+      activeFaceIndex: 0,
+      cardFaces: [
+        { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+        { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+      ],
+    };
+    const fixture = await renderZonePilesPanel({
+      library: [topCard],
+      topLibraryRevealMarker: true,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => zone === 'library' ? topCard : null,
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const toggle = zoneElement(fixture, 'library').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    expect(toggle).not.toBeNull();
+
+    toggle.click();
+
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'library-dfc', activeFaceIndex: 1 }),
+      playerId: 'player-1',
+      zone: 'library',
+    }));
+    expect(topCard.activeFaceIndex).toBe(0);
   });
 
   it('emits a large-card preview when hovering the visible graveyard and exile cards', async () => {
@@ -687,6 +809,8 @@ describe('ZonePilesPanelComponent', () => {
 });
 
 interface RenderZonePilesPanelOptions {
+  playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
   isZoneDropSettling?: (playerId: string, zone: GameZoneName) => boolean;
   isZoneTransferPending?: (playerId: string, zone: GameZoneName) => boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
@@ -711,7 +835,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   await TestBed.configureTestingModule({
     imports: [ZonePilesPanelComponent],
     providers: [
-      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Flag, Library, Sparkles })),
+      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Eye, Flag, Library, RotateCw, Sparkles })),
       {
         provide: GameTableSpecialEntitiesState,
         useValue: {
@@ -733,6 +857,8 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
         roles: [],
       },
       life: 40,
+      playTopLibraryRevealed: options.playTopLibraryRevealed ?? false,
+      topLibraryRevealMarker: options.topLibraryRevealMarker ?? false,
       zones: {
         library: options.library ?? [],
         hand: [],
@@ -779,6 +905,10 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
 
 function zoneElement(fixture: ComponentFixture<ZonePilesPanelComponent>, zone: GameZoneName): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-testid="drop-zone"][data-zone="${zone}"]`);
+}
+
+function commandZoneLogo(fixture: ComponentFixture<ZonePilesPanelComponent>): HTMLImageElement {
+  return zoneElement(fixture, 'command').querySelector('.zone-pile-logo') as HTMLImageElement;
 }
 
 function card(instanceId: string, name: string, zone: GameZoneName): GameCardInstance {

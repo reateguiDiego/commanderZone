@@ -14,7 +14,7 @@ import { Deck } from '../../../core/models/deck.model';
 import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room, RoomMulliganRule, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
-import { MercureService } from '../../../core/realtime/mercure.service';
+import { MercureService, MercureWaitingRoomStreamMessage } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -44,6 +44,8 @@ interface WaitingTurnOrderRow {
   readonly rolled: boolean;
 }
 
+const WAITING_ROOM_PRESENCE_INTERVAL_MS = 120_000;
+
 @Component({
   selector: 'app-waiting-room',
   imports: [RuntimeTranslatePipe, 
@@ -72,12 +74,14 @@ export class WaitingRoomComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly pageHeader = inject(PageHeaderStore);
-  private roomSyncHandle?: number;
+  private presenceHandle?: number;
   private roomSyncInFlight = false;
+  private presenceInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
   private roomRealtimeSubscription?: Subscription;
   private navigatingToGame = false;
   private deletingOnDestroy = false;
+  private destroyed = false;
   private seatOrderIds: string[] = [];
   private copiedFeedbackHandle?: number;
   private playerOrderAnimationFrame?: number;
@@ -108,6 +112,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly sentInvites = signal<RoomInvite[]>([]);
   readonly invitingUserIds = signal<string[]>([]);
   readonly error = signal<string | null>(null);
+  readonly mercureUnavailable = signal(false);
   readonly roomPendingLeave = signal<Room | null>(null);
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly playerPendingKick = signal<RoomPlayer | null>(null);
@@ -153,12 +158,9 @@ export class WaitingRoomComponent implements OnDestroy {
   constructor() {
     void this.loadDecks();
     void this.loadFriends();
-    void this.loadRoomState(true);
+    void this.initializeWaitingRoom();
     this.subscribeToRoomRealtime();
     this.subscribeToInviteRealtime();
-    this.roomSyncHandle = window.setInterval(() => {
-      void this.syncRoomState();
-    }, 5000);
 
     effect(() => {
       const prompt = this.currentTieBreakPrompt();
@@ -176,9 +178,11 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.roomSyncHandle !== undefined) {
-      window.clearInterval(this.roomSyncHandle);
+    this.destroyed = true;
+    if (this.presenceHandle !== undefined) {
+      window.clearTimeout(this.presenceHandle);
     }
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     if (this.copiedFeedbackHandle !== undefined) {
       window.clearTimeout(this.copiedFeedbackHandle);
     }
@@ -954,6 +958,88 @@ export class WaitingRoomComponent implements OnDestroy {
     }
   }
 
+  private async initializeWaitingRoom(): Promise<void> {
+    await this.loadRoomState(true);
+    if (this.destroyed) {
+      return;
+    }
+    this.startPresenceHeartbeat();
+  }
+
+  private startPresenceHeartbeat(): void {
+    if (this.destroyed) {
+      return;
+    }
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    if (document.visibilityState === 'visible') {
+      void this.sendPresence();
+      this.schedulePresenceHeartbeat();
+    }
+  }
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState !== 'visible') {
+      this.stopPresenceHeartbeat();
+      return;
+    }
+
+    void this.restoreVisibleWaitingRoom();
+  };
+
+  private async restoreVisibleWaitingRoom(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    await this.sendPresence();
+    if (this.destroyed) {
+      return;
+    }
+    await this.syncRoomState();
+    this.schedulePresenceHeartbeat();
+  }
+
+  private schedulePresenceHeartbeat(): void {
+    this.stopPresenceHeartbeat();
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+
+    this.presenceHandle = window.setTimeout(async () => {
+      await this.sendPresence();
+      this.schedulePresenceHeartbeat();
+    }, WAITING_ROOM_PRESENCE_INTERVAL_MS);
+  }
+
+  private stopPresenceHeartbeat(): void {
+    if (this.presenceHandle !== undefined) {
+      window.clearTimeout(this.presenceHandle);
+      this.presenceHandle = undefined;
+    }
+  }
+
+  private async sendPresence(): Promise<void> {
+    if (this.destroyed || this.presenceInFlight || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    const waitingRoomId = this.roomId();
+    if (!waitingRoomId) {
+      return;
+    }
+
+    this.presenceInFlight = true;
+    try {
+      await firstValueFrom(this.roomsApi.presence(waitingRoomId));
+    } catch (error) {
+      if (error instanceof HttpErrorResponse && (error.status === 403 || error.status === 404 || error.status === 409)) {
+        this.deletingOnDestroy = true;
+        await this.router.navigate(['/rooms']);
+      }
+    } finally {
+      this.presenceInFlight = false;
+    }
+  }
+
   private async loadSentInvites(roomId: string, skipGlobalLoading = false): Promise<void> {
     try {
       const response = await firstValueFrom(this.roomsApi.invites(roomId, skipGlobalLoading));
@@ -966,9 +1052,13 @@ export class WaitingRoomComponent implements OnDestroy {
   private syncSelectedDeckFromRoom(room: Room): void {
     const userId = this.currentUserId();
     const currentPlayer = room.players.find((player) => player.user.id === userId);
-    if (currentPlayer?.deckId) {
-      this.selectedDeckId = currentPlayer.deckId;
+    const deckId = currentPlayer?.deckId;
+
+    if (!deckId) {
+      return;
     }
+
+    this.selectedDeckId = deckId;
   }
 
   private currentUserId(): string | null {
@@ -1336,7 +1426,7 @@ export class WaitingRoomComponent implements OnDestroy {
         void this.loadRoomState(true);
       },
       error: () => {
-        // Polling remains as fallback.
+        this.mercureUnavailable.set(true);
       },
     });
   }
@@ -1349,11 +1439,23 @@ export class WaitingRoomComponent implements OnDestroy {
 
     this.roomRealtimeSubscription?.unsubscribe();
     this.roomRealtimeSubscription = this.mercure.waitingRoomEvents(waitingRoomId).subscribe({
-      next: (event) => {
-        void this.handleWaitingRoomEvent(event);
+      next: (message: MercureWaitingRoomStreamMessage) => {
+        if (message.kind === 'unavailable') {
+          this.mercureUnavailable.set(true);
+          return;
+        }
+        if (message.kind === 'connected') {
+          this.mercureUnavailable.set(false);
+          if (message.reconnected) {
+            void this.syncRoomState();
+          }
+          return;
+        }
+
+        void this.handleWaitingRoomEvent(message.event);
       },
       error: () => {
-        // Polling remains as fallback.
+        this.mercureUnavailable.set(true);
       },
     });
   }

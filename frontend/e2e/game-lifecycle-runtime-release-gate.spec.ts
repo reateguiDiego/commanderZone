@@ -82,42 +82,107 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
     expect(JSON.stringify(concedePatch)).toContain(playerB.user.id);
     expect(snapshotRefetches).toBe(refetchBaseline);
 
-    const secondConcede = await sendRuntimeCommandAndWait(commandPage, ticketB.websocketUrl, framesA, {
-      gameId,
-      baseVersion: concedeOutcome.version,
-      type: 'game.concede',
-      payload: { playerId: playerB.user.id },
-      ownerPatch: (patch) => hasOp(patch, 'player.status.set'),
-    });
-    expect(secondConcede.patch['kind']).toBe('patch.v2');
-    expect(secondConcede.version).toBe(concedeOutcome.version);
-    expect(JSON.stringify(secondConcede.patch)).toContain(playerB.user.id);
+    const snapshotAfterConcede = await gameSnapshot(request, gameId, playerA.token);
+    expect(snapshotAfterConcede.players[playerB.user.id]?.status).toBe('conceded');
+    expect(snapshotAfterConcede.gamePhase).toBe('FINISHED');
     expect(snapshotRefetches).toBe(refetchBaseline);
-
-    const ticketA = await websocketTicket(request, gameId, playerA.token);
-    const closeOutcome = await sendRuntimeCommandAndWait(commandPage, ticketA.websocketUrl, framesB, {
-      gameId,
-      baseVersion: concedeOutcome.version,
-      type: 'game.close',
-      payload: { requestedBy: playerA.user.id },
-      ownerPatch: (patch) => hasOp(patch, 'game.status.set'),
-    });
-    const closePatch = closeOutcome.patch;
-    const rawCloseFrames = closeOutcome.rawFrames;
-    expect(closePatch['kind']).toBe('patch.v2');
-    expect(JSON.stringify(closePatch)).toContain('finished');
-    expect(rawCloseFrames.some((frame) => typeof frame === 'object' && frame !== null && (frame as JsonObject)['kind'] === 'game_patch')).toBe(false);
-    expect(snapshotRefetches).toBe(refetchBaseline);
-
-    const snapshotAfterClose = await gameSnapshot(request, gameId, playerA.token);
-    expect(snapshotAfterClose.players[playerB.user.id]?.status).toBe('conceded');
-    expect(snapshotAfterClose.gamePhase).toBe('FINISHED');
 
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
     expect(framesB.some((message) => message['kind'] === 'resync_required')).toBe(false);
 
+  } finally {
+    await contextA.close();
+    await contextB.close();
+  }
+});
+
+test('rematch vote ACK updates its voter and Mercure updates the other player without a gameplay snapshot', async ({ browser, request, baseURL }) => {
+  test.setTimeout(180_000);
+  if (!baseURL) {
+    throw new Error('Playwright baseURL is required.');
+  }
+  await assertGameRuntimeReady(request);
+
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const setup = await createCommanderGameWithBasicDecks(request, {
+    playerAPrefix: `rm-a-${suffix.slice(-7)}`,
+    playerBPrefix: `rm-b-${suffix.slice(-7)}`,
+  });
+  const { gameId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
+
+  const contextA = await browser.newContext({
+    baseURL,
+    storageState: authStorageState(baseURL, playerA.user, playerA.refreshToken),
+  });
+  const contextB = await browser.newContext({
+    baseURL,
+    storageState: authStorageState(baseURL, playerB.user, playerB.refreshToken),
+  });
+  await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
+
+  try {
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+    const framesA = collectWebSocketFrames(pageA);
+    const framesB = collectWebSocketFrames(pageB);
+    let gameplaySnapshotRequests = 0;
+    for (const page of [pageA, pageB]) {
+      page.on('request', (httpRequest) => {
+        const url = httpRequest.url();
+        if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
+          gameplaySnapshotRequests += 1;
+        }
+      });
+    }
+
+    await Promise.all([pageA.goto(`/games/${gameId}`), pageB.goto(`/games/${gameId}`)]);
+    await Promise.all([
+      expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
+      expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
+      waitForGameplayConnection(framesA),
+      waitForGameplayConnection(framesB),
+    ]);
+    const snapshotBaseline = gameplaySnapshotRequests;
+
+    const ticketB = await websocketTicket(request, gameId, playerB.token);
+    const concede = await sendRuntimeCommandAndWait(pageB, ticketB.websocketUrl, framesB, {
+      gameId,
+      baseVersion: await gameVersion(request, gameId, playerB.token),
+      type: 'game.concede',
+      payload: { playerId: playerB.user.id },
+      ownerPatch: (patch) => hasOp(patch, 'player.status.set'),
+    });
+
+    const playAgain = /Play again|Jugar de nuevo/i;
+    await Promise.all([
+      expect(pageA.getByRole('button', { name: playAgain })).toBeVisible({ timeout: 30_000 }),
+      expect(pageB.getByRole('button', { name: playAgain })).toBeVisible({ timeout: 30_000 }),
+    ]);
+
+    const voteResponse = pageB.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes(`/games/${gameId}/rematch-vote`),
+    );
+    await pageB.getByRole('button', { name: playAgain }).click();
+    const response = await voteResponse;
+    expect(response.ok()).toBe(true);
+    const responseBody = await response.json() as {
+      clientActionId?: unknown;
+      controlPlane?: { controlPlaneRevision?: unknown };
+      snapshot?: unknown;
+    };
+    expect(typeof responseBody.clientActionId).toBe('string');
+    expect(Number(responseBody.controlPlane?.controlPlaneRevision ?? 0)).toBeGreaterThan(0);
+    expect(responseBody.snapshot).toBeUndefined();
+    expect(await gameVersion(request, gameId, playerA.token)).toBe(concede.version);
+
+    const voterRow = pageB.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
+    const observerRow = pageA.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
+    await expect(voterRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again');
+    await expect(observerRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again', { timeout: 30_000 });
+    expect(gameplaySnapshotRequests).toBe(snapshotBaseline);
   } finally {
     await contextA.close();
     await contextB.close();
@@ -212,7 +277,6 @@ test('leave table concedes through runtime and navigates back to rooms', async (
   await enableFrontendGameplayV2(contextA);
 
   try {
-    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
     const pageA = await contextA.newPage();
     const framesA = collectWebSocketFrames(pageA);
     let snapshotRefetches = 0;
@@ -258,7 +322,7 @@ test('leave table concedes through runtime and navigates back to rooms', async (
     const snapshotAfterLeave = await gameSnapshot(request, gameId, playerB.token);
     const leavingPlayer = snapshotAfterLeave.players[playerA.user.id];
     expect(leavingPlayer?.status).toBe('conceded');
-    expect(snapshotAfterLeave.rematch?.votes?.[playerA.user.id]?.vote).toBe('leave');
+    expect(snapshotAfterLeave.rematch?.votes?.[playerA.user.id]?.vote).toBe('leave_room');
 
     expect(snapshotRefetches).toBe(refetchBaseline);
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
@@ -280,15 +344,6 @@ async function assertGameRuntimeReady(request: APIRequestContext): Promise<void>
   if (!response.ok()) {
     throw new Error(`game-runtime is not ready at ${RUNTIME_READY_URL}: ${response.status()} ${await response.text()}`);
   }
-}
-
-async function openDebugObserver(context: BrowserContext, request: APIRequestContext, gameId: string, token: string): Promise<{ page: Page; frames: JsonObject[] }> {
-  const ticket = await websocketTicket(request, gameId, token);
-  const page = await context.newPage();
-  const frames = collectWebSocketFrames(page);
-  await page.goto(`/games/${gameId}/debug?token=${encodeURIComponent(ticket.token)}`);
-  await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
-  return { page, frames };
 }
 
 function collectWebSocketFrames(page: Page): JsonObject[] {

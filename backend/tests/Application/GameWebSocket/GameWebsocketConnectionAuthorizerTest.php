@@ -103,6 +103,7 @@ class GameWebsocketConnectionAuthorizerTest extends TestCase
         $viewer = new User('viewer@example.test', 'Viewer');
         $room = new Room($owner);
         $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $viewer));
         $game = new Game($room, ['players' => [$viewer->id() => ['zones' => []]]]);
         $ticketManager = new GameWebsocketTicketManager('test-secret');
         $ticket = $ticketManager->issue($game->id(), $viewer->id())->ticket;

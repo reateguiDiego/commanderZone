@@ -51,22 +51,50 @@ export class GameTableLibraryActionsService {
     await context.command('library.shuffle', { playerId, reason: 'revealed-library-closed' });
   }
 
-  async revealTop(context: GameTableLibraryActionContext, playerId: string, target = 'all'): Promise<void> {
+  async revealTop(context: GameTableLibraryActionContext, playerId: string, target = 'all', count = 1): Promise<void> {
     if (!context.isCurrentPlayer(playerId)) {
       context.setError('You can only reveal from your own library.');
       return;
     }
 
-    await context.command('library.reveal_top', { playerId, count: 1, to: target });
+    const sanitizedCount = this.sanitizeCount(count);
+    const topCard = sanitizedCount === 1
+      ? context.currentPlayer()?.state.zones.library.at(-1)
+      : undefined;
+    const revealedCardName = topCard?.name.trim() ?? '';
+
+    await context.command('library.reveal_top', {
+      playerId,
+      count: sanitizedCount,
+      to: target,
+      ...(revealedCardName ? { revealedCardName } : {}),
+    });
   }
 
-  async setPlayTopRevealed(context: GameTableLibraryActionContext, playerId: string, enabled: boolean): Promise<void> {
+  async stopRevealTop(context: GameTableLibraryActionContext, playerId: string, target?: string): Promise<void> {
+    if (!context.isCurrentPlayer(playerId)) {
+      context.setError('You can only stop revealing from your own library.');
+      return;
+    }
+    await context.command('library.reveal_top', { playerId, stop: true, ...(target ? { to: target } : {}) });
+  }
+
+  async setPlayTopRevealed(context: GameTableLibraryActionContext, playerId: string, enabled: boolean, target?: string): Promise<void> {
     if (!context.isCurrentPlayer(playerId)) {
       context.setError('You can only reveal your own library.');
       return;
     }
 
-    await context.command('library.play_top_revealed', { playerId, enabled });
+    await context.command('library.play_top_revealed', { playerId, enabled, ...(enabled && target ? { to: target } : {}) });
+  }
+
+  async playTopFaceDown(context: GameTableLibraryActionContext, playerId: string): Promise<void> {
+    if (!context.isCurrentPlayer(playerId)) {
+      context.setError('You can only play from your own library.');
+      return;
+    }
+
+    await context.command('library.play_top_face_down', { playerId });
   }
 
   async revealLibrary(context: GameTableLibraryActionContext, playerId: string, targetPlayerId: string): Promise<void> {

@@ -6,7 +6,9 @@
   primaryLabel="game.gameDisconnectVoteModal.wait"
   secondaryLabel="game.gameDisconnectVoteModal.expel"
   secondaryVariant="primary"
-  [primaryDisabled]="pending()"
+  [showPrimary]="canVote()"
+  [showSecondary]="canVote()"
+  [primaryDisabled]="pending() || !canVote()"
   [showCloseButton]="true"
   closeLabel="common.modal.close"
   [lockBodyScroll]="false"
@@ -21,6 +23,10 @@
 
     @if (countdownSeconds() !== null) {
       <p class="vote-line countdown">{{ 'game.gameDisconnectVoteModal.timeRemaining' | runtimeTranslate }} <strong>{{ countdownSeconds() }}s</strong></p>
+    }
+
+    @if (voteFinished()) {
+      <p class="vote-line vote-finished">{{ 'game.gameDisconnectVoteModal.voteFinished' | runtimeTranslate }}</p>
     }
 
     @if (targetOnline()) {

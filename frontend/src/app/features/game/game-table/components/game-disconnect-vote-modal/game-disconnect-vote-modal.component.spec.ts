@@ -27,6 +27,7 @@ describe('GameDisconnectVoteModalComponent', () => {
   it('renders the disconnected-player modal when opened by state', () => {
     fixture.componentRef.setInput('open', true);
     fixture.componentRef.setInput('targetPlayerName', 'Player B');
+    fixture.componentRef.setInput('canVote', true);
     fixture.detectChanges();
 
     const text = String(fixture.nativeElement.textContent ?? '');
@@ -34,5 +35,34 @@ describe('GameDisconnectVoteModalComponent', () => {
     expect(text).toContain('Player disconnected');
     expect(text).toContain('Player B has disconnected.');
     expect(text).toContain('Expel');
+  });
+
+  it('does not render vote actions for a passive spectator', () => {
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('targetPlayerName', 'Player B');
+    fixture.componentRef.setInput('canVote', false);
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll('footer button') as NodeListOf<HTMLButtonElement>;
+    const buttonLabels = Array.from(buttons).map((button) => button.textContent?.trim());
+
+    expect(buttonLabels).not.toContain('Wait');
+    expect(buttonLabels).not.toContain('Expel');
+  });
+
+  it('informs the player that an expired vote can no longer be cast', () => {
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('canVote', false);
+    fixture.componentRef.setInput('countdownSeconds', 0);
+    fixture.componentRef.setInput('voteFinished', true);
+    fixture.detectChanges();
+
+    const text = String(fixture.nativeElement.textContent ?? '');
+    const buttons = fixture.nativeElement.querySelectorAll('footer button') as NodeListOf<HTMLButtonElement>;
+    const buttonLabels = Array.from(buttons).map((button) => button.textContent?.trim());
+
+    expect(text).toContain('Voting has ended');
+    expect(buttonLabels).not.toContain('Wait');
+    expect(buttonLabels).not.toContain('Expel');
   });
 });

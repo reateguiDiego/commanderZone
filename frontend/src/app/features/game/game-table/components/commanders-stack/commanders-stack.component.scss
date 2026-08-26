@@ -54,25 +54,29 @@
   opacity: 0;
 }
 
-.commanders-stack-card-primary:hover {
+.commanders-stack-card-primary:hover,
+.commanders-stack-card-primary.commanders-stack-card-hovered {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
   transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
-.commanders-stack-card-secondary:hover {
+.commanders-stack-card-secondary:hover,
+.commanders-stack-card-secondary.commanders-stack-card-hovered {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
   transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
 .commanders-stack-card:hover .zone-card-image,
-.commanders-stack-card:hover .command-zone-card-name {
-  border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 76%, #fff7da);
+.commanders-stack-card:hover .command-zone-card-name,
+.commanders-stack-card.commanders-stack-card-hovered .zone-card-image,
+.commanders-stack-card.commanders-stack-card-hovered .command-zone-card-name {
+  border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent)) 76%, #fff7da);
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 48%),
-    0 0.68rem 1.05rem rgb(0 0 0 / 42%),
-    0 0 0.75rem color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 34%, transparent);
+    0 0 0 1px rgb(var(--shadow-rgb) / 48%),
+    0 0.68rem 1.05rem rgb(var(--shadow-rgb) / 42%),
+    0 0 0.75rem color-mix(in srgb, var(--commander-accent, var(--game-accent)) 34%, transparent);
 }
 
 .zone-card-image {
@@ -80,15 +84,46 @@
   z-index: 2;
   width: 100%;
   height: 100%;
-  border: 1px solid rgb(215 180 106 / 16%);
+  border: 1px solid rgb(var(--gold-rgb) / 16%);
   border-radius: 6px;
   object-fit: cover;
   pointer-events: none;
   user-select: none;
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 48%),
-    0 0.5rem 0.9rem rgb(0 0 0 / 36%);
-  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+    0 0 0 1px rgb(var(--shadow-rgb) / 48%),
+    0 0.5rem 0.9rem rgb(var(--shadow-rgb) / 36%);
+  transition:
+    opacity 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zone-card-image.commanders-stack-card-image-hovered {
+  border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent)) 88%, #fff7da);
+  filter: brightness(1.12) saturate(1.08);
+  outline: 2px solid color-mix(in srgb, var(--commander-accent, var(--game-accent)) 72%, #fff7da);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--commander-accent, var(--game-accent)) 80%, #fff7da),
+    0 0.82rem 1.28rem rgb(var(--shadow-rgb) / 52%),
+    0 0 1rem color-mix(in srgb, var(--commander-accent, var(--game-accent)) 52%, transparent);
+  transform: scale(1.035);
+}
+
+.commander-face-toggle {
+  position: absolute;
+  z-index: 8;
+  top: 0.16rem;
+  right: 0.16rem;
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid var(--game-accent-line);
+  border-radius: 999px;
+  background: rgb(var(--game-surface-deep-rgb) / 84%);
+  color: var(--game-accent);
+  cursor: pointer;
 }
 
 .command-zone-card-name {
@@ -97,10 +132,10 @@
   height: 100%;
   place-items: center;
   padding: 0.28rem;
-  border: 1px solid rgb(215 180 106 / 16%);
+  border: 1px solid rgb(var(--gold-rgb) / 16%);
   border-radius: 6px;
-  background: rgb(7 8 7 / 82%);
-  color: var(--game-text, #f3f0e8);
+  background: rgb(var(--game-surface-deep-rgb) / 82%);
+  color: var(--game-text);
   font-size: 0.52rem;
   font-weight: 800;
   line-height: 1.1;
@@ -133,16 +168,20 @@
   }
 
   .commanders-stack-card-primary:hover,
-  .commanders-stack-card-secondary:hover {
+  .commanders-stack-card-primary.commanders-stack-card-hovered,
+  .commanders-stack-card-secondary:hover,
+  .commanders-stack-card-secondary.commanders-stack-card-hovered {
     transform: translateY(-0.18rem) rotate(0deg) scale(1.015);
   }
 
   .commanders-stack-card:hover .zone-card-image,
-  .commanders-stack-card:hover .command-zone-card-name {
+  .commanders-stack-card:hover .command-zone-card-name,
+  .commanders-stack-card.commanders-stack-card-hovered .zone-card-image,
+  .commanders-stack-card.commanders-stack-card-hovered .command-zone-card-name {
     box-shadow:
-      0 0 0 1px rgb(0 0 0 / 42%),
-      0 0.44rem 0.72rem rgb(0 0 0 / 34%),
-      0 0 0.42rem color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 28%, transparent);
+      0 0 0 1px rgb(var(--shadow-rgb) / 42%),
+      0 0.44rem 0.72rem rgb(var(--shadow-rgb) / 34%),
+      0 0 0.42rem color-mix(in srgb, var(--commander-accent, var(--game-accent)) 28%, transparent);
   }
 
   .command-zone-card-name {

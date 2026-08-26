@@ -433,6 +433,25 @@ describe('resolveCardPreviewCard', () => {
       sourceRect: null,
     })).toBe(currentSnapshotCard);
   });
+
+  it('preserves a locally requested alternate face while using the live snapshot card', () => {
+    const currentSnapshotCard: GameCardInstance = {
+      ...doubleFacedCard('dfc-preview', 'Front Face // Back Face', 0),
+      counters: { charge: 2 },
+    };
+    const snapshot = gameSnapshot([currentSnapshotCard], []);
+
+    const resolved = resolveCardPreviewCard(snapshot, {
+      card: { ...currentSnapshotCard, activeFaceIndex: 1 },
+      playerId: 'player-1',
+      zone: 'battlefield',
+      sourceRect: null,
+    });
+
+    expect(resolved.activeFaceIndex).toBe(1);
+    expect(resolved.counters).toEqual({ charge: 2 });
+    expect(resolved.cardFaces).toBe(currentSnapshotCard.cardFaces);
+  });
 });
 
 function card(instanceId: string, name: string): GameCardInstance {

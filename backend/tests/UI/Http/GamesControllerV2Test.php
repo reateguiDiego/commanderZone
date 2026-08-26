@@ -76,7 +76,9 @@ class GamesControllerV2Test extends TestCase
     {
         [$game, $viewer] = $this->game();
         $projection = $this->createMock(GameProjectionService::class);
-        $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer));
+        $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer, [
+            'mulligan' => ['rule' => 'GENEROUS', 'firstMulliganFree' => false],
+        ]));
 
         $controller = new GamesController();
         $controller->setContainer($this->controllerContainer());
@@ -94,6 +96,9 @@ class GamesControllerV2Test extends TestCase
 
         self::assertSame($game->id(), $payload['game']['id']);
         self::assertSame($viewer->id(), $payload['game']['viewerId']);
+        self::assertSame(0, $payload['game']['controlPlaneRevision']);
+        self::assertSame(0, $payload['game']['controlPlane']['controlPlaneRevision']);
+        self::assertSame(['rule' => 'GENEROUS', 'firstMulliganFree' => false], $payload['game']['mulligan']);
         self::assertArrayHasKey($viewer->id().':battlefield', $payload['zones']);
         self::assertArrayHasKey('battlefield-1', $payload['instances']);
         self::assertArrayNotHasKey('snapshot', $payload['game']);

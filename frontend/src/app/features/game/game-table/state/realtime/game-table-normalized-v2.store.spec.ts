@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BootstrapV2, PatchEnvelopeV2 } from '../../../../../core/models/game-v2.model';
+import type { ChatMessage, GameLogEntry } from '../../../../../core/models/game.model';
 import {
   applyPatchEnvelopeV2,
   createGameTableNormalizedV2State,
@@ -17,11 +18,53 @@ describe('game table normalized v2 store', () => {
     expect(state.staticCards['token:beast'].name).toBe('Beast');
     expect(state.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
     expect(snapshot.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
-    expect(snapshot.players['player-1'].backgroundName).toBe('G_4');
+    expect(snapshot.players['player-1'].backgroundName).toBe('g_4');
     expect(snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
     expect(snapshot.players['player-1'].zones.hand[0]?.name).toBe('Lightning Bolt');
     expect(snapshot.players['player-2'].zones.hand[0]?.scryfallId).toBeUndefined();
     expect(snapshot.players['player-2'].zones.hand[0]?.name).toBe('Card');
+  });
+
+  it('normalizes a runtime library tail-top bootstrap before rendering a directed top reveal', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-2'] = {
+      instanceId: 'library-2',
+      cardRef: 'card:revealed-top',
+      cardKey: 'card:revealed-top',
+      printId: 's-revealed-top',
+      cardVersion: 'revealed-top-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      zoneId: 'player-1:library',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      hidden: false,
+      faceDown: false,
+      revealedTo: ['player-2'],
+      tapped: false,
+    };
+    bootstrap.staticCards['card:revealed-top'] = {
+      cardRef: 'card:revealed-top',
+      cardKey: 'card:revealed-top',
+      printId: 's-revealed-top',
+      cardVersion: 'revealed-top-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      scryfallId: 's-revealed-top',
+      name: 'Directed Top Card',
+      imageUris: { normal: 'https://cards.test/directed-top.jpg' },
+      cardFaces: [],
+    };
+
+    const state = createGameTableNormalizedV2State(bootstrap);
+    const snapshot = hydrateGameSnapshotFromV2State(state);
+
+    expect(state.zones['player-1'].library).toEqual(['library-2', 'library-1']);
+    expect(snapshot.players['player-1'].zones.library[0]).toMatchObject({
+      name: 'Directed Top Card',
+      imageUris: { normal: 'https://cards.test/directed-top.jpg' },
+      revealedTo: ['player-2'],
+    });
   });
 
   it('applies ordered patches and keeps version idempotent', () => {
@@ -42,6 +85,40 @@ describe('game table normalized v2 store', () => {
     expect(second.state.instances['battlefield-1'].tapped).toBe(true);
     expect(duplicate.status).toBe('ignored');
     expect(duplicate.state.players['player-1'].life).toBe(37);
+  });
+
+  it('retains untouched snapshot branches when scalar v2 patches are projected', () => {
+    const store = new GameTableNormalizedV2Store();
+    const initial = store.applyBootstrap(bootstrapV2());
+    const lifePatch = store.applyPatch(patch(6, [{ op: 'player.life.set', playerId: 'player-1', value: 37 }]));
+
+    expect(lifePatch.status).toBe('applied');
+    if (lifePatch.status !== 'applied') {
+      return;
+    }
+
+    expect(lifePatch.snapshot.players['player-2']).toBe(initial.players['player-2']);
+    expect(lifePatch.snapshot.players['player-1'].zones).toBe(initial.players['player-1'].zones);
+    expect(lifePatch.snapshot.players['player-1'].zones.battlefield[0]).toBe(initial.players['player-1'].zones.battlefield[0]);
+
+    const cardPatch = store.applyPatch(patch(7, [{
+      op: 'card.field.set',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    }]));
+
+    expect(cardPatch.status).toBe('applied');
+    if (cardPatch.status !== 'applied') {
+      return;
+    }
+
+    expect(cardPatch.state.instances['battlefield-1']?.tapped).toBe(true);
+    expect(cardPatch.snapshot.players['player-2']).toBe(lifePatch.snapshot.players['player-2']);
+    expect(cardPatch.snapshot.players['player-1'].zones.hand).toBe(lifePatch.snapshot.players['player-1'].zones.hand);
+    expect(cardPatch.snapshot.players['player-1'].zones.battlefield).not.toBe(lifePatch.snapshot.players['player-1'].zones.battlefield);
+    expect(cardPatch.snapshot.players['player-1'].zones.battlefield[0]).not.toBe(lifePatch.snapshot.players['player-1'].zones.battlefield[0]);
   });
 
   it('applies version carrier patches as no-op version advances', () => {
@@ -586,6 +663,57 @@ describe('game table normalized v2 store', () => {
     expect(hydrateGameSnapshotFromV2State(publicResult.state).eventLog.map((entry) => entry.id)).toEqual(['draw-log-entry']);
   });
 
+  it('merges the public face-down game log after the owner card patch at the same version', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const ownerCardPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        faceDown: true,
+        hidden: false,
+        cardKey: 'sol-ring',
+      }]),
+      visibility: 'player:player-1',
+      ackClientActionId: 'face-down-action',
+    };
+    const publicCardAndLogPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        faceDown: true,
+        hidden: true,
+      }, {
+        op: 'eventLog.append',
+        entries: [{
+          id: 'face-down-log-entry',
+          type: 'card.face_down.changed',
+          message: 'Player One turned a card face down.',
+          actorId: 'player-1',
+          displayName: 'Player One',
+          createdAt: '2026-08-19T00:00:00.000Z',
+          i18nKey: 'gameLog.card.turnedFaceDown',
+        }],
+      }]),
+      ackClientActionId: 'face-down-action',
+    };
+
+    const ownerResult = applyPatchEnvelopeV2(initial, ownerCardPatch);
+    const publicResult = applyPatchEnvelopeV2(ownerResult.state, publicCardAndLogPatch);
+
+    expect(ownerResult.status).toBe('applied');
+    expect(publicResult.status).toBe('applied');
+    expect(hydrateGameSnapshotFromV2State(publicResult.state).eventLog).toEqual([
+      expect.objectContaining({
+        id: 'face-down-log-entry',
+        i18nKey: 'gameLog.card.turnedFaceDown',
+      }),
+    ]);
+  });
+
   it('merges same-version runtime library visibility patches without losing public counts', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const privateDrawPatch: PatchEnvelopeV2 = {
@@ -651,6 +779,382 @@ describe('game table normalized v2 store', () => {
     }
   });
 
+  it('keeps only the latest 50 bootstrap chat and log entries', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.chat = Array.from({ length: 75 }, (_, index) => chatEntry(index + 1));
+    bootstrap.eventLog = Array.from({ length: 75 }, (_, index) => logEntry(index + 1));
+
+    const state = createGameTableNormalizedV2State(bootstrap);
+
+    expect(state.chat.order).toEqual(Array.from({ length: 50 }, (_, index) => `chat-${index + 26}`));
+    expect(state.log.order).toEqual(Array.from({ length: 50 }, (_, index) => `log-${index + 26}`));
+    expect(Object.keys(state.chat.byId)).toHaveLength(50);
+    expect(Object.keys(state.log.byId)).toHaveLength(50);
+  });
+
+  it('keeps only the newest 250 entries when history is prepended and realtime logs continue', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap({
+      ...bootstrapV2(),
+      eventLog: Array.from({ length: 50 }, (_, index) => logEntry(index + 650)),
+    });
+
+    const historySnapshot = store.prependLogEntries(
+      Array.from({ length: 50 }, (_, index) => logEntry(index + 600)),
+      250,
+    );
+    expect(historySnapshot?.eventLog).toHaveLength(100);
+    expect(historySnapshot?.eventLog[0]?.id).toBe('log-600');
+
+    const oldestWindow = store.prependLogEntries(
+      Array.from({ length: 50 }, (_, index) => logEntry(index + 550)),
+      100,
+    );
+    expect(oldestWindow?.eventLog).toHaveLength(100);
+    expect(oldestWindow?.eventLog[0]?.id).toBe('log-550');
+    expect(oldestWindow?.eventLog.at(-1)?.id).toBe('log-649');
+
+    const result = store.applyPatch(patch(6, [{
+      op: 'eventLog.append',
+      entries: Array.from({ length: 200 }, (_, index) => logEntry(index + 700)),
+    }]));
+
+    expect(result.status).toBe('applied');
+    if (result.status === 'applied') {
+      expect(result.snapshot.eventLog).toHaveLength(250);
+      expect(result.snapshot.eventLog[0]?.id).toBe('log-600');
+      expect(result.snapshot.eventLog.at(-1)?.id).toBe('log-899');
+    }
+  });
+
+  it('keeps chat history ordered and bounded to 250 messages while paging in both directions', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap({
+      ...bootstrapV2(),
+      chat: Array.from({ length: 50 }, (_, index) => chatEntry(index + 650)),
+    });
+
+    const oldestWindow = store.prependChatMessages(
+      Array.from({ length: 250 }, (_, index) => chatEntry(index + 400)),
+      250,
+    );
+    expect(oldestWindow?.chat).toHaveLength(250);
+    expect(oldestWindow?.chat[0]?.id).toBe('chat-400');
+    expect(oldestWindow?.chat.at(-1)?.id).toBe('chat-649');
+
+    const newestWindow = store.appendChatMessages(
+      Array.from({ length: 50 }, (_, index) => chatEntry(index + 650)),
+      250,
+    );
+    expect(newestWindow?.chat).toHaveLength(250);
+    expect(newestWindow?.chat[0]?.id).toBe('chat-450');
+    expect(newestWindow?.chat.at(-1)?.id).toBe('chat-699');
+  });
+
+  it('keeps a face-up transition renderable while its static-card cache is pending', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['battlefield-1'] = {
+      ...bootstrap.instances['battlefield-1']!,
+      staticCardPending: true,
+    };
+    delete bootstrap.staticCards['card:sol-ring'];
+    const state = createGameTableNormalizedV2State(bootstrap);
+    const snapshot = hydrateGameSnapshotFromV2State(state);
+
+    expect(snapshot.players['player-1'].zones.battlefield[0]).toMatchObject({
+      instanceId: 'battlefield-1',
+      name: 'Card',
+      hidden: false,
+    });
+  });
+
+  it('merges a hand reveal marker after the same-version private identity patch', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const privateIdentityPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'hand',
+        instanceId: 'hand-1',
+        hidden: false,
+        revealedTo: ['player-2'],
+      }]),
+      visibility: 'player:player-2',
+      ackClientActionId: 'reveal-hand-card',
+    };
+    const publicMarkerPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'hand.reveal_marker.set',
+        playerId: 'player-1',
+        index: 0,
+        revealed: true,
+      }]),
+      visibility: 'public',
+      ackClientActionId: 'reveal-hand-card',
+    };
+    const privateStopPatch: PatchEnvelopeV2 = {
+      ...patch(7, [{
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'hand',
+        instanceId: 'hand-1',
+        hidden: true,
+        revealedTo: [],
+      }]),
+      visibility: 'player:player-2',
+      ackClientActionId: 'stop-revealing-hand-card',
+    };
+    const publicStopMarkerPatch: PatchEnvelopeV2 = {
+      ...patch(7, [{
+        op: 'hand.reveal_marker.set',
+        playerId: 'player-1',
+        index: 0,
+        revealed: false,
+      }]),
+      visibility: 'public',
+      ackClientActionId: 'stop-revealing-hand-card',
+    };
+    const secondRevealMarkerPatch: PatchEnvelopeV2 = {
+      ...patch(8, [{
+        op: 'hand.reveal_marker.set',
+        playerId: 'player-1',
+        index: 0,
+        revealed: true,
+      }]),
+      visibility: 'public',
+      ackClientActionId: 'reveal-hand-card-again',
+    };
+
+    const identityFirst = applyPatchEnvelopeV2(initial, privateIdentityPatch);
+    const merged = applyPatchEnvelopeV2(identityFirst.state, publicMarkerPatch);
+    const stopIdentityFirst = applyPatchEnvelopeV2(merged.state, privateStopPatch);
+    const stopped = applyPatchEnvelopeV2(stopIdentityFirst.state, publicStopMarkerPatch);
+    const revealedAgain = applyPatchEnvelopeV2(stopped.state, secondRevealMarkerPatch);
+
+    expect(identityFirst.status).toBe('applied');
+    expect(merged.status).toBe('applied');
+    expect(merged.state.lastAppliedVersion).toBe(6);
+    expect(merged.state.players['player-1'].revealedHandIndexes).toEqual([0]);
+    expect(stopIdentityFirst.status).toBe('applied');
+    expect(stopped.status).toBe('applied');
+    expect(stopped.state.players['player-1'].revealedHandIndexes).toEqual([]);
+    expect(revealedAgain.status).toBe('applied');
+    expect(revealedAgain.state.players['player-1'].revealedHandIndexes).toEqual([0]);
+  });
+
+  it('removes a hand reveal marker when its public patch has no command acknowledgement', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const revealed = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'hand.reveal_marker.set',
+      playerId: 'player-1',
+      index: 0,
+      revealed: true,
+    }]));
+    const hidden = applyPatchEnvelopeV2(revealed.state, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'public',
+      ops: [{
+        op: 'hand.reveal_marker.set',
+        playerId: 'player-1',
+        index: 0,
+        revealed: false,
+      }],
+    });
+
+    expect(revealed.status).toBe('applied');
+    expect(hidden.status).toBe('applied');
+    expect(hidden.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes a top-library reveal marker when its public patch has no command acknowledgement', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const revealed = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'library.top.reveal_marker.set',
+      playerId: 'player-1',
+      revealed: true,
+    }]));
+    const hidden = applyPatchEnvelopeV2(revealed.state, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'public',
+      ops: [{
+        op: 'library.top.reveal_marker.set',
+        playerId: 'player-1',
+        revealed: false,
+      }],
+    });
+
+    expect(revealed.status).toBe('applied');
+    expect(hidden.status).toBe('applied');
+    expect(hidden.state.players['player-1'].topLibraryRevealMarker).toBe(false);
+  });
+
+  it('removes a one-off revealed top card for its viewer after the public draw patch', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const revealed = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.top.revealed',
+        playerId: 'player-1',
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:forest': {
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            name: 'Forest',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }],
+    });
+    const publicDraw = applyPatchEnvelopeV2(revealed.state, patch(7, [{
+      op: 'library.top.reveal_marker.set',
+      playerId: 'player-1',
+      revealed: false,
+    }]));
+    const viewerRemoval: PatchEnvelopeV2 = {
+      gameId: 'game-1',
+      version: 7,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'zone.cards.remove',
+        playerId: 'player-1',
+        zone: 'library',
+        instanceIds: ['library-1'],
+      }],
+    };
+
+    const removed = applyPatchEnvelopeV2(publicDraw.state, viewerRemoval);
+    const snapshot = hydrateGameSnapshotFromV2State(removed.state);
+
+    expect(removed.status).toBe('applied');
+    expect(removed.state.zones['player-1'].library).toEqual(['library-2']);
+    expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Card');
+    expect(removed.state.players['player-1'].topLibraryRevealMarker).toBe(false);
+  });
+
+  it('applies a targeted full-library reveal after its public version carrier without an acknowledgement', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const publicCarrier = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.count.set',
+      playerId: 'player-1',
+      zone: 'library',
+      count: 2,
+    }]));
+    const targetedReveal: PatchEnvelopeV2 = {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.revealed.set',
+        playerId: 'player-1',
+        revealedTo: ['player-2'],
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:forest': {
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            name: 'Forest',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }],
+    };
+
+    const revealed = applyPatchEnvelopeV2(publicCarrier.state, targetedReveal);
+
+    expect(publicCarrier.status).toBe('applied');
+    expect(revealed.status).toBe('applied');
+    expect(revealed.state.players['player-1'].revealedLibraryTo).toEqual(['player-2']);
+    expect(hydrateGameSnapshotFromV2State(revealed.state).players['player-1'].zones.library[0]?.name).toBe('Forest');
+  });
+
+  it('applies a targeted multi-card top reveal after its public version carrier without an acknowledgement', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const publicCarrier = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.count.set',
+      playerId: 'player-1',
+      zone: 'library',
+      count: 2,
+    }]));
+    const targetedReveal: PatchEnvelopeV2 = {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.top.revealed',
+        playerId: 'player-1',
+        count: 2,
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:forest': {
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            name: 'Forest',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }],
+    };
+
+    const revealed = applyPatchEnvelopeV2(publicCarrier.state, targetedReveal);
+
+    expect(publicCarrier.status).toBe('applied');
+    expect(revealed.status).toBe('applied');
+    expect(hydrateGameSnapshotFromV2State(revealed.state).players['player-1'].zones.library[0]?.name).toBe('Forest');
+  });
+
   it('applies lifecycle status and disconnect vote patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -663,18 +1167,20 @@ describe('game table normalized v2 store', () => {
       {
         op: 'disconnect.vote.set',
         data: {
-          disconnectVote: {
-            targetPlayerId: 'player-2',
-            status: 'open',
-            openedAt: '2026-01-01T00:00:13.000Z',
-            deadlineAt: '2026-01-01T00:01:13.000Z',
-            cooldownUntil: null,
-            votes: {
-              'player-1': {
-                playerId: 'player-1',
-                displayName: 'Player One',
-                vote: 'expel',
-                votedAt: '2026-01-01T00:00:14.000Z',
+          disconnectVotes: {
+            'player-2': {
+              targetPlayerId: 'player-2',
+              status: 'open',
+              openedAt: '2026-01-01T00:00:13.000Z',
+              deadlineAt: '2026-01-01T00:01:13.000Z',
+              cooldownUntil: null,
+              votes: {
+                'player-1': {
+                  playerId: 'player-1',
+                  displayName: 'Player One',
+                  vote: 'expel',
+                  votedAt: '2026-01-01T00:00:14.000Z',
+                },
               },
             },
           },
@@ -690,7 +1196,7 @@ describe('game table normalized v2 store', () => {
     expect(result.status).toBe('applied');
     expect(result.state.players['player-2'].status).toBe('conceded');
     expect(result.state.players['player-2'].concededAt).toBe('2026-01-01T00:00:12.000Z');
-    expect(result.state.game.disconnectVote?.targetPlayerId).toBe('player-2');
+    expect(result.state.game.disconnectVotes['player-2']?.targetPlayerId).toBe('player-2');
     expect(result.state.game.status).toBe('finished');
     expect(result.state.game.gamePhase).toBe('FINISHED');
   });
@@ -1080,6 +1586,55 @@ describe('game table normalized v2 store', () => {
     });
   });
 
+  it('keeps a public reveal marker on an otherwise hidden hand slot without exposing the card identity', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const marked = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'hand.reveal_marker.set',
+      playerId: 'player-2',
+      index: 0,
+      revealed: true,
+    }]));
+    const cleared = applyPatchEnvelopeV2(marked.state, patch(7, [{
+      op: 'hand.reveal_marker.clear',
+      playerId: 'player-2',
+      indexes: [0],
+    }]));
+
+    expect(marked.status).toBe('applied');
+    expect(marked.state.players['player-2'].revealedHandIndexes).toEqual([0]);
+    expect(cleared.status).toBe('applied');
+    expect(cleared.state.players['player-2'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('applies control-plane lifecycle state without changing the Go gameplay version', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap(bootstrapV2());
+
+    const snapshot = store.applyControlPlane({
+      controlPlaneRevision: 3,
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+      finishedAt: '2026-01-01T00:00:20.000Z',
+      finishReason: 'last_player_standing',
+      allDisconnectedSince: null,
+      nextLifecycleAt: '2026-01-01T00:01:20.000Z',
+      ownerId: 'player-2',
+      rematch: {
+        votes: {},
+        deadlineAt: '2026-01-01T00:01:20.000Z',
+      },
+    });
+
+    expect(snapshot).toEqual(expect.objectContaining({
+      version: 5,
+      status: 'finished',
+      winnerPlayerId: 'player-1',
+      ownerId: 'player-2',
+    }));
+    expect(snapshot?.controlPlaneRevision).toBe(3);
+    expect(store.state()?.lastAppliedVersion).toBe(5);
+  });
+
   it('hydrates a public visible card from the same identity contract used by runtime static hints', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -1440,6 +1995,23 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
 
+  it('keeps the top reveal audience as owner-only menu metadata', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const revealed = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'library.top.reveal_audience.set',
+      playerId: 'player-1',
+      revealedTo: ['player-1', 'player-2'],
+    }]));
+    const stopped = applyPatchEnvelopeV2(revealed.state, patch(7, [{
+      op: 'library.top.reveal_audience.set',
+      playerId: 'player-1',
+      revealedTo: null as unknown as string[],
+    }]));
+
+    expect(revealed.state.players['player-1'].topLibraryRevealedTo).toEqual(['player-1', 'player-2']);
+    expect(stopped.state.players['player-1'].topLibraryRevealedTo).toEqual([]);
+  });
+
   it('applies runtime draw patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -1745,6 +2317,56 @@ describe('game table normalized v2 store', () => {
     expect(shuffled.status).toBe('applied');
     expect(shuffled.state.zones['player-1'].library).toEqual([]);
     expect(shuffled.state.zoneCounts['player-1'].library).toBe(98);
+    expect(shuffled.state.players['player-1'].libraryShuffleRevision).toBe(8);
+    expect(hydrateGameSnapshotFromV2State(shuffled.state).players['player-1'].libraryShuffleRevision).toBe(8);
+  });
+
+  it('keeps only the new revealed top card after a shuffle while play-top-revealed is active', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const privateTopReveal = applyPatchEnvelopeV2(initial, {
+      ...patch(6, [{
+        op: 'library.top.revealed',
+        playerId: 'player-1',
+        epoch: 2,
+        cards: [{
+          instanceId: 'new-top-card',
+          cardRef: 'card:new-top',
+          cardKey: 'card:new-top',
+          printId: 'new-top-print',
+          cardVersion: 'new-top-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'card:new-top': {
+            cardRef: 'card:new-top',
+            cardKey: 'card:new-top',
+            printId: 'new-top-print',
+            cardVersion: 'new-top-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            name: 'New Top Card',
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      }]),
+      visibility: 'player:player-2',
+      ackClientActionId: 'shuffle-with-revealed-top',
+    });
+    const publicShuffle = applyPatchEnvelopeV2(privateTopReveal.state, {
+      ...patch(6, [{ op: 'library.shuffled', playerId: 'player-1', visibilityEpoch: 2 }]),
+      visibility: 'public',
+      ackClientActionId: 'shuffle-with-revealed-top',
+    });
+
+    expect(privateTopReveal.status).toBe('applied');
+    expect(publicShuffle.status).toBe('applied');
+    expect(publicShuffle.state.zones['player-1'].library).toEqual(['new-top-card']);
+    expect(hydrateGameSnapshotFromV2State(publicShuffle.state).players['player-1'].zones.library[0]?.name).toBe('New Top Card');
   });
 
   it('applies private library view patch without mutating counts', () => {
@@ -1795,6 +2417,121 @@ describe('game table normalized v2 store', () => {
     expect(Object.values(moved.state.instances).filter((instance) =>
       instance.zoneId === 'player-1:library' && instance.cardKey,
     ).map((instance) => instance.instanceId)).toEqual(['library-2']);
+  });
+
+  it('clears a one-off library reveal when the card leaves the library', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-1'] = {
+      ...bootstrap.instances['library-1'],
+      hidden: false,
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'library-1',
+      from: { playerId: 'player-1', zone: 'library' },
+      to: { playerId: 'player-1', zone: 'hand', index: 1 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1'].revealedTo).toBeUndefined();
+  });
+
+  it('keeps a revealed hand card visible when it moves to the library and clears its hand marker', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    bootstrap.instances['hand-1'] = {
+      ...bootstrap.instances['hand-1'],
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'library', index: 0 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].revealedTo).toEqual(['player-2']);
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('clears a revealed hand card and its marker when it moves to a public zone', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    bootstrap.instances['hand-1'] = {
+      ...bootstrap.instances['hand-1'],
+      revealedTo: ['player-2'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'graveyard', index: 0 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].revealedTo).toBeUndefined();
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes a hand reveal marker as soon as the revealed card is removed', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].revealedHandIndexes = [0];
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.remove',
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceIds: ['hand-1'],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes the real hand slot when a compact opponent projection cannot map the revealed instance id', () => {
+    const bootstrap = bootstrapV2();
+    const hiddenHandIds = ['player-2-hidden-hand-0', 'player-2-hidden-hand-1', 'player-2-hidden-hand-2', 'player-2-hidden-hand-3'];
+    bootstrap.players['player-2'].handCount = hiddenHandIds.length;
+    bootstrap.players['player-2'].zoneCounts.hand = hiddenHandIds.length;
+    bootstrap.players['player-2'].revealedHandIndexes = [1];
+    bootstrap.zones['player-2:hand'].instanceIds = hiddenHandIds;
+    bootstrap.zoneCounts['player-2:hand'] = hiddenHandIds.length;
+    for (const instanceId of hiddenHandIds) {
+      bootstrap.instances[instanceId] = {
+        instanceId,
+        cardRef: `instance:${instanceId}`,
+        zoneId: 'player-2:hand',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        hidden: true,
+        tapped: false,
+      };
+    }
+
+    const result = applyPatchEnvelopeV2(createGameTableNormalizedV2State(bootstrap), patch(6, [{
+      op: 'zone.cards.remove',
+      playerId: 'player-2',
+      zone: 'hand',
+      instanceIds: ['revealed-hand-instance'],
+      sourceIndexes: [1],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual([
+      'player-2-hidden-hand-0',
+      'player-2-hidden-hand-2',
+      'player-2-hidden-hand-3',
+    ]);
+    expect(result.state.zoneCounts['player-2'].hand).toBe(3);
+    expect(result.state.players['player-2'].revealedHandIndexes).toEqual([]);
   });
 
   it('keeps a rival face-down hand-to-battlefield move hidden', () => {
@@ -1894,12 +2631,24 @@ describe('game table normalized v2 store', () => {
       faceDown: true,
       hidden: true,
       controllerId: 'player-2',
+      cardKey: 'scryfall:card-1:card',
+      printId: 'card-1',
+      cardVersion: 'runtime-identity-v1',
+      language: 'en',
+      viewerVisibility: 'public',
     }]));
 
     expect(result.status).toBe('applied');
     expect(result.state.instances['battlefield-1'].faceDown).toBe(true);
     expect(result.state.instances['battlefield-1'].hidden).toBe(true);
     expect(result.state.instances['battlefield-1'].controllerId).toBe('player-2');
+    expect(result.state.instances['battlefield-1']).toEqual(expect.objectContaining({
+      cardKey: 'scryfall:card-1:card',
+      printId: 'card-1',
+      cardVersion: 'runtime-identity-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+    }));
   });
 
   it('applies runtime edge patches without static payload duplication or resync', () => {
@@ -2529,7 +3278,7 @@ function bootstrapV2(): BootstrapV2 {
         counters: {},
         deckName: 'Owner Deck',
         colorIdentity: ['G', 'W', 'U', 'B'],
-        backgroundName: 'G_4',
+        backgroundName: 'g_4',
         sleevesName: 'custom-sleeves',
       },
       'player-2': {
@@ -2545,7 +3294,7 @@ function bootstrapV2(): BootstrapV2 {
         counters: {},
         deckName: 'Opponent Deck',
         colorIdentity: ['U', 'R'],
-        backgroundName: 'U_2',
+        backgroundName: 'u_2',
         sleevesName: 'opponent-sleeves',
       },
     },
@@ -2601,5 +3350,24 @@ function bootstrapV2(): BootstrapV2 {
     },
     chatCursor: null,
     logCursor: null,
+  };
+}
+
+function logEntry(index: number): GameLogEntry {
+  return {
+    id: `log-${index}`,
+    type: 'performance.test',
+    message: `Performance log entry ${index}`,
+    createdAt: new Date(Date.UTC(2026, 7, 19, 0, 0, index)).toISOString(),
+  };
+}
+
+function chatEntry(index: number): ChatMessage {
+  return {
+    id: `chat-${index}`,
+    userId: 'player-1',
+    displayName: 'Player One',
+    message: `Performance chat message ${index}`,
+    createdAt: new Date(Date.UTC(2026, 7, 19, 0, 0, index)).toISOString(),
   };
 }

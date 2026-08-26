@@ -9,6 +9,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameEventReplayService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganEventTypes;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -210,13 +211,15 @@ class GameEventStoreV2Test extends TestCase
         $event = new GameEvent($game, 'disconnect.vote.updated', [
             'targetPlayerId' => $target->id(),
             'status' => 'resolved_expel',
-            'disconnectVote' => $disconnectVote,
+            'isOnline' => false,
+            'disconnectVotes' => [$target->id() => $disconnectVote],
             'concededAt' => '2026-01-01T00:00:11+00:00',
         ], $actor, 'runtime-disconnect-vote', 2);
 
         $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
 
-        self::assertSame($disconnectVote, $rebuilt['disconnectVote']);
+        self::assertSame([$target->id() => $disconnectVote], $rebuilt['disconnectVotes']);
+        self::assertFalse($rebuilt['players'][$target->id()]['isOnline']);
         self::assertSame('conceded', $rebuilt['players'][$target->id()]['status']);
         self::assertSame('2026-01-01T00:00:11+00:00', $rebuilt['players'][$target->id()]['concededAt']);
         self::assertSame(2, $rebuilt['version']);
@@ -227,19 +230,19 @@ class GameEventStoreV2Test extends TestCase
         $actor = new User('compact-disconnect@example.test', 'Compact Disconnect');
         $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
         $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
-        $snapshot['disconnectVote'] = [
+        $snapshot['disconnectVotes'] = [$actor->id() => [
             'targetPlayerId' => $actor->id(),
             'status' => 'open',
             'openedAt' => '2026-01-01T00:00:00+00:00',
             'deadlineAt' => '2026-01-01T00:01:00+00:00',
             'cooldownUntil' => null,
             'votes' => [],
-        ];
+        ]];
 
         $mapper = new CompactGameCardStateMapper();
         $hydrated = $mapper->hydrateSnapshot($mapper->compactSnapshot($snapshot, 'game-compact-disconnect', 'active'));
 
-        self::assertSame($snapshot['disconnectVote'], $hydrated['disconnectVote']);
+        self::assertSame($snapshot['disconnectVotes'], $hydrated['disconnectVotes']);
     }
 
     public function testReplayAndBootstrapPreserveLongRunningTurnStateAfterConcede(): void
@@ -743,6 +746,8 @@ class GameEventStoreV2Test extends TestCase
             'hand' => [],
             'battlefield' => [],
         ]));
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0]['revealedTo'] = ['viewer-1'];
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
         $game = new Game(new Room($actor), $baseSnapshot);
 
         $draw = new GameEvent($game, 'library.draw', [
@@ -768,6 +773,8 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'], $battlefieldCard['position'] ?? null);
         self::assertSame('battlefield', $rebuilt['loc']['library-1']['zone'] ?? null);
         self::assertSame($actor->id(), $rebuilt['loc']['library-1']['playerId'] ?? null);
+        self::assertSame([], $battlefieldCard['revealedTo'] ?? null);
+        self::assertArrayNotHasKey(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $battlefieldCard);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
@@ -922,6 +929,46 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame([], $rebuilt['attachments'] ?? null);
         self::assertSame(31, $rebuilt['players'][$owner->id()]['life']);
         self::assertSame(35, $rebuilt['players'][$controller->id()]['life']);
+    }
+
+    public function testReplayPersistsRuntimePlayTopFaceDownForReconnect(): void
+    {
+        $actor = new User('runtime-play-top-face-down@example.test', 'Runtime Play Top Face Down');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.play_top_face_down');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-top-face-down-1', 'Library Hidden Card', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $playTopFaceDown = new GameEvent($game, 'library.play_top_face_down', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'library',
+            'toZone' => 'battlefield',
+            'instanceId' => 'library-top-face-down-1',
+            'instanceIds' => ['library-top-face-down-1'],
+            'faceDown' => true,
+            'moves' => [[
+                'instanceId' => 'library-top-face-down-1',
+                'from' => ['playerId' => $actor->id(), 'zone' => 'library', 'index' => 0],
+                'to' => ['playerId' => $actor->id(), 'zone' => 'battlefield', 'index' => 0],
+                'position' => ['x' => 0.44, 'y' => 0.52, 'unit' => 'ratio'],
+            ]],
+        ], $actor, 'runtime-play-top-face-down', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(
+            new Game(new Room($actor), $baseSnapshot),
+            null,
+            [$playTopFaceDown],
+        );
+
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-top-face-down-1'], $this->zoneIds($rebuilt, $actor->id(), 'battlefield'));
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'library-top-face-down-1');
+        self::assertSame('Library Hidden Card', $card['name'] ?? null);
+        self::assertSame('https://example.test/card.jpg', $card['imageUris']['normal'] ?? null);
+        self::assertTrue($card['faceDown'] ?? false);
+        self::assertSame([$actor->id()], $card['revealedTo'] ?? null);
+        self::assertSame(['x' => 0.44, 'y' => 0.52, 'unit' => 'ratio'], $card['position'] ?? null);
     }
 
     public function testRuntimeGoReplayPreservesBattlefieldStateAcrossCounterForRefresh(): void
@@ -1154,6 +1201,27 @@ class GameEventStoreV2Test extends TestCase
         $this->expectExceptionMessage('Unsupported runtime shuffle algorithm');
 
         (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
+    }
+
+    public function testReplayKeepsAnAllAudienceRuntimeTopLibraryRevealVisibleAfterReconnect(): void
+    {
+        $actor = new User('runtime-reveal-all@example.test', 'Runtime Reveal All');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-top', 'Revealed Top', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $reveal = new GameEvent($game, 'library.reveal_top', [
+            'playerId' => $actor->id(),
+            'instanceIds' => ['library-top'],
+            'to' => 'all',
+        ], $actor, 'runtime-reveal-all', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$reveal]);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt);
+
+        self::assertSame([$actor->id()], $this->cardById($rebuilt, $actor->id(), 'library', 'library-top')['revealedTo'] ?? []);
+        self::assertFalse($bootstrap->instances['library-top']['hidden'] ?? true);
     }
 
     public function testReplayRebuildsRuntimeGoCommanderCastCountersForReconnect(): void

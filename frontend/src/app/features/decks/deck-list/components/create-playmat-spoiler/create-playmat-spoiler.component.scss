@@ -76,14 +76,19 @@
 }
 
 .create-playmat-option-pill {
+  --cosmetic-pill-rgb: var(--cz-text-rgb);
+  --cosmetic-pill-color: var(--cz-text);
+
   display: inline-flex;
   align-items: center;
   min-width: 0;
   padding: 0.18rem 0.38rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 38%);
+  border: 1px solid rgb(var(--cosmetic-pill-rgb) / 44%);
   border-radius: 999px;
-  background: rgb(var(--cz-bg-rgb) / 82%);
-  color: var(--cz-text);
+  background:
+    linear-gradient(135deg, rgb(var(--cosmetic-pill-rgb) / 22%), rgb(var(--cosmetic-pill-rgb) / 4%)),
+    rgb(var(--cz-bg-rgb) / 84%);
+  color: var(--cosmetic-pill-color);
   font-size: 0.58rem;
   font-weight: 800;
   line-height: 1;
@@ -93,13 +98,23 @@
 }
 
 .create-playmat-option-pill--premium {
-  border-color: rgb(var(--cz-warning-rgb) / 44%);
-  color: var(--cz-warning);
+  --cosmetic-pill-rgb: var(--cz-primary-rgb);
+  --cosmetic-pill-color: var(--cz-primary);
+
+  font-weight: 850;
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 12%),
+    0 0.25rem 0.65rem rgb(var(--cz-bg-rgb) / 42%);
 }
 
 .create-playmat-option-pill--combination {
-  border-color: rgb(var(--cz-accent-rgb) / 42%);
-  color: var(--cz-accent);
+  --cosmetic-pill-rgb: var(--cz-warning-rgb);
+  --cosmetic-pill-color: var(--cz-warning);
+
+  border-style: dashed;
+  background: rgb(var(--cosmetic-pill-rgb) / 12%);
+  font-weight: 720;
+  text-transform: none;
 }
 
 .create-playmat-option:hover {

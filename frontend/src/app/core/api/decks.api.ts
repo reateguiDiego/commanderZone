@@ -43,6 +43,11 @@ export interface DeckImportCommanderSelectionPayload {
   commanders?: CommanderReplacementPayload[];
 }
 
+export interface DeckVisualSelectionPayload {
+  backgroundName?: string;
+  sleevesName?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DecksApi {
   private readonly http = inject(HttpClient);
@@ -53,8 +58,14 @@ export class DecksApi {
       : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
   }
 
-  create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private', format: DeckFormat['id'] = 'commander'): Observable<DeckResponse> {
-    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility, format });
+  create(
+    name: string,
+    folderId: string | null = null,
+    visibility: DeckVisibility = 'private',
+    format: DeckFormat['id'] = 'commander',
+    visuals: DeckVisualSelectionPayload = {},
+  ): Observable<DeckResponse> {
+    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility, format, ...visuals });
   }
 
   quickBuild(payload: { name: string; folderId?: string | null; visibility?: DeckVisibility; format?: DeckFormat['id']; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
@@ -118,7 +129,13 @@ export class DecksApi {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { name });
   }
 
-  update(id: string, payload: { name?: string; visibility?: DeckVisibility; folderId?: string | null }): Observable<DeckResponse> {
+  update(id: string, payload: {
+    name?: string;
+    visibility?: DeckVisibility;
+    folderId?: string | null;
+    backgroundName?: string;
+    sleevesName?: string;
+  }): Observable<DeckResponse> {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, payload);
   }
 

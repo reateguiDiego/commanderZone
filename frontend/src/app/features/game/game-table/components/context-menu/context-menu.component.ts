@@ -25,17 +25,18 @@ export type ContextMenuAction =
   | { type: 'openLog' }
   | { type: 'leaveTable' }
   | { type: 'concedeGame' }
-  | { type: 'closeGame' }
   | { type: 'focusPlayer' }
   | { type: 'openZone'; zone: GameZoneName }
   | { type: 'changeLife'; delta: number }
   | { type: 'drawCard' }
   | { type: 'drawPrompt' }
+  | { type: 'revealTopPrompt'; targetPlayerId: string }
   | { type: 'moveTop'; zone: GameZoneName; targetPlayerId?: string; position?: 'top' | 'bottom' }
   | { type: 'shuffle' }
   | { type: 'revealTop'; target?: string }
+  | { type: 'stopRevealTop'; target?: string }
   | { type: 'revealLibrary'; targetPlayerId: string }
-  | { type: 'playTopRevealed'; enabled: boolean }
+  | { type: 'playTopRevealed'; enabled: boolean; target?: string }
   | { type: 'openLibraryView'; mode: 'all' | 'top' }
   | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
   | { type: 'selectRandomCard' }
@@ -44,8 +45,11 @@ export type ContextMenuAction =
   | { type: 'addManaFromCard' }
   | { type: 'faceDown' }
   | { type: 'playFaceDown' }
+  | { type: 'playTopFaceDown' }
+  | { type: 'lookAtFaceDownCard' }
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
+  | { type: 'stopRevealCard' }
   | { type: 'createToken' }
   | { type: 'createMonarch' }
   | { type: 'removeMonarch' }
@@ -93,6 +97,8 @@ type ContextSubmenu =
   | 'revealTo'
   | 'libraryMoveTop'
   | 'libraryRevealTop'
+  | 'libraryPlayTopRevealed'
+  | 'libraryRevealTopCount'
   | 'libraryReveal'
   | 'libraryView'
   | 'gameMechanics';
@@ -112,7 +118,6 @@ export class ContextMenuComponent {
   readonly menu = input.required<GameContextMenu>();
   readonly currentPlayer = input<PlayerView | null>(null);
   readonly players = input.required<readonly PlayerView[]>();
-  readonly isGameOwner = input(false);
   readonly counterPresets = input.required<readonly string[]>();
   readonly moveZones = input.required<readonly GameZoneName[]>();
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
@@ -165,19 +170,20 @@ export class ContextMenuComponent {
   );
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
-  readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
-    ...this.sortedItems(this.players().map((player) => ({
+  readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
+  readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
+  readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryRevealTopMenuItems());
+  readonly libraryPlayTopRevealedMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryPlayTopRevealedMenuItems());
+  readonly libraryRevealTopCountMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
+    this.sortedItems(this.libraryRevealTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
       icon: 'users',
       preserveCase: true,
     }))),
-  ]);
-  readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
-  readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
+  );
   readonly libraryRevealMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
-    this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+    this.sortedItems(this.libraryRevealTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
       icon: 'users',
@@ -331,7 +337,7 @@ export class ContextMenuComponent {
   isCurrentPlayerActive(): boolean {
     const current = this.currentPlayer();
 
-    return current !== null && current.state.status !== 'conceded';
+    return current !== null && current.state.status === 'active';
   }
 
   canControlActivePlayer(): boolean {
@@ -631,6 +637,39 @@ export class ContextMenuComponent {
     return this.players().filter((player) => player.id !== currentOwnerId && !playerIsDefeated(player));
   }
 
+  canLookAtFaceDownCard(): boolean {
+    const card = this.menu().card;
+    const currentPlayer = this.currentPlayer();
+
+    return this.showsBattlefieldCardActions()
+      && card?.faceDown === true
+      && currentPlayer !== null
+      && card.ownerId === currentPlayer.id;
+  }
+
+  isRevealedHandCard(): boolean {
+    const card = this.menu().card;
+    return this.menu().zone === 'hand'
+      && (card?.revealMarker === true || (card?.revealedTo?.length ?? 0) > 0);
+  }
+
+  visibilityTargetPlayers(): readonly PlayerView[] {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+
+    return this.players().filter((player) => player.id !== currentPlayerId);
+  }
+
+  libraryRevealTargets(): readonly PlayerView[] {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const sourcePlayerId = this.menu().playerId;
+
+    return this.players().filter((player) =>
+      player.id !== currentPlayerId
+      && player.id !== sourcePlayerId
+      && !playerIsDefeated(player),
+    );
+  }
+
   private monarchHolderPlayerId(): string | null {
     const currentMenu = this.menu();
     if (!this.isMonarchCardMenu()) {
@@ -746,7 +785,21 @@ export class ContextMenuComponent {
   }
 
   selectLibraryRevealTopTarget(target: string): void {
-    this.actionSelected.emit({ type: 'revealTop', target });
+    if (target.startsWith('stop:')) {
+      this.actionSelected.emit({ type: 'stopRevealTop', target: target.slice('stop:'.length) });
+      return;
+    }
+
+    this.actionSelected.emit({ type: 'revealTop', target: target.startsWith('reveal:') ? target.slice('reveal:'.length) : target });
+  }
+
+  selectLibraryPlayTopRevealedTarget(target: string): void {
+    const selectedTarget = target.startsWith('play:') ? target.slice('play:'.length) : target;
+    this.actionSelected.emit({ type: 'playTopRevealed', enabled: true, target: selectedTarget });
+  }
+
+  selectLibraryRevealTopCountTarget(targetPlayerId: string): void {
+    this.actionSelected.emit({ type: 'revealTopPrompt', targetPlayerId });
   }
 
   selectLibraryRevealTarget(targetPlayerId: string): void {
@@ -899,14 +952,76 @@ export class ContextMenuComponent {
   }
 
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
+    const playerItems = this.sortedItems(this.visibilityTargetPlayers().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'users',
+      preserveCase: true,
+    })));
+
+    return playerItems.length > 1
+      ? [{ value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' }, ...playerItems]
+      : playerItems;
+  }
+
+  private buildLibraryRevealTopMenuItems(): readonly ContextSubmenuItem[] {
+    const sourcePlayer = this.players().find((player) => player.id === this.menu().playerId);
+    if (!sourcePlayer) {
+      return [];
+    }
+
+    const otherPlayers = this.players()
+      .filter((player) => player.id !== sourcePlayer.id)
+      .sort((left, right) => this.playerLabel(left).localeCompare(this.playerLabel(right)));
+    const targetPlayers = [sourcePlayer, ...otherPlayers];
+    const revealedTo = new Set(sourcePlayer.state.topLibraryRevealedTo ?? []);
+    const allRevealed = targetPlayers.length > 0 && targetPlayers.every((player) => revealedTo.has(player.id));
+    const itemFor = (player: PlayerView): ContextSubmenuItem => {
+      const label = this.playerLabel(player);
+      if (!revealedTo.has(player.id)) {
+        return { value: `reveal:${player.id}`, label, icon: 'users', preserveCase: true };
+      }
+
+      return {
+        value: `stop:${player.id}`,
+        label: `${this.displayLabel('game.contextMenu.labels.stopRevealing')}: ${label}`,
+        icon: 'eye-off',
+        preserveCase: true,
+      };
+    };
+
     return [
-      { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
-      ...this.sortedItems(this.players().map((player) => ({
-        value: player.id,
+      allRevealed
+        ? {
+            value: 'stop:all',
+            label: `${this.displayLabel('game.contextMenu.labels.stopRevealing')}: ${this.displayLabel('game.contextMenu.labels.all')}`,
+            icon: 'eye-off',
+            preserveCase: true,
+          }
+        : { value: 'reveal:all', label: 'game.contextMenu.labels.all', icon: 'users' },
+      ...targetPlayers.map(itemFor),
+    ];
+  }
+
+  private buildLibraryPlayTopRevealedMenuItems(): readonly ContextSubmenuItem[] {
+    const sourcePlayer = this.players().find((player) => player.id === this.menu().playerId);
+    if (!sourcePlayer) {
+      return [];
+    }
+
+    const otherPlayers = this.players()
+      .filter((player) => player.id !== sourcePlayer.id && !playerIsDefeated(player))
+      .sort((left, right) => this.playerLabel(left).localeCompare(this.playerLabel(right)));
+    const targetPlayers = [sourcePlayer, ...otherPlayers];
+
+    return [
+      { value: 'play:all', label: 'game.contextMenu.labels.all', icon: 'users' },
+      ...targetPlayers.map((player) => ({
+        value: `play:${player.id}`,
         label: this.playerLabel(player),
         icon: 'users',
         preserveCase: true,
-      }))),
+      })),
     ];
   }
 
@@ -982,6 +1097,11 @@ export class ContextMenuComponent {
   stopClick(event: MouseEvent): void {
     event.stopPropagation();
     this.interacted.emit();
+  }
+
+  selectFaceDownCardInspection(event: MouseEvent): void {
+    event.stopPropagation();
+    this.actionSelected.emit({ type: 'lookAtFaceDownCard' });
   }
 
   @HostListener('document:mousedown', ['$event'])

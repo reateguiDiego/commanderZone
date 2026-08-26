@@ -24,6 +24,7 @@ final readonly class GameWebsocketTicketManager
         ?string $playerId = null,
         string $role = 'player',
         array $permissions = ['view', 'command'],
+        int $viewerMask = 0,
     ): GameWebsocketTicket
     {
         $issuedAt = $now ?? new \DateTimeImmutable();
@@ -40,6 +41,7 @@ final readonly class GameWebsocketTicketManager
             'roles' => [$role],
             'viewerKind' => $role,
             'protocol' => 'v2',
+            'viewerMask' => max(0, $viewerMask),
             'iat' => $issuedAt->getTimestamp(),
             'exp' => $expiresAt->getTimestamp(),
         ];

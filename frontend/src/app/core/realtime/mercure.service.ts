@@ -1,19 +1,41 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, firstValueFrom } from 'rxjs';
+import { Observable, filter, firstValueFrom, map } from 'rxjs';
 import { API_BASE_URL, MERCURE_URL } from '../api/api.config';
 import { FriendRealtimeEvent } from '../models/friendship.model';
 import { MercureGameEvent } from '../models/game.model';
 import { WaitingRoomEvent } from '../models/room.model';
+
+export type MercureGameStreamMessage =
+  | { readonly kind: 'connected'; readonly reconnected: boolean }
+  | { readonly kind: 'event'; readonly event: MercureGameEvent };
+
+export type MercureWaitingRoomStreamMessage =
+  | { readonly kind: 'connected'; readonly reconnected: boolean }
+  | { readonly kind: 'unavailable' }
+  | { readonly kind: 'event'; readonly event: WaitingRoomEvent };
 
 @Injectable({ providedIn: 'root' })
 export class MercureService {
   constructor(private readonly http: HttpClient) {}
 
   gameEvents(gameId: string): Observable<MercureGameEvent> {
-    return new Observable<MercureGameEvent>((subscriber) => {
+    return this.gameEventStream(gameId).pipe(
+      filter((message): message is Extract<MercureGameStreamMessage, { kind: 'event' }> => message.kind === 'event'),
+      map((message) => message.event),
+    );
+  }
+
+  /**
+   * The game table consumes this single stream so it can recover a compact
+   * control-plane projection exactly once after a real EventSource reconnect.
+   */
+  gameEventStream(gameId: string): Observable<MercureGameStreamMessage> {
+    return new Observable<MercureGameStreamMessage>((subscriber) => {
       let source: EventSource | null = null;
       let closed = false;
+      let opened = false;
+      let reconnectPending = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`games/${gameId}`)}`;
       this.prepareMercureConnection()
         .then((withCredentials) => {
@@ -22,16 +44,25 @@ export class MercureService {
           }
           source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
+          source.onopen = () => {
+            const reconnected = opened && reconnectPending;
+            opened = true;
+            reconnectPending = false;
+            subscriber.next({ kind: 'connected', reconnected });
+          };
+
           source.onmessage = (message) => {
             try {
-              subscriber.next(JSON.parse(message.data) as MercureGameEvent);
+              subscriber.next({ kind: 'event', event: JSON.parse(message.data) as MercureGameEvent });
             } catch (error) {
               subscriber.error(error);
             }
           };
 
           source.onerror = () => {
-            // Snapshot polling in the gameplay store is the fallback. Keep the stream open.
+            // EventSource owns reconnection. Mark it so the next `open` can do
+            // one compact control-plane recovery without polling.
+            reconnectPending ||= opened;
           };
         })
         .catch((error) => subscriber.error(error));
@@ -109,10 +140,13 @@ export class MercureService {
     });
   }
 
-  waitingRoomEvents(roomId: string): Observable<WaitingRoomEvent> {
-    return new Observable<WaitingRoomEvent>((subscriber) => {
+  waitingRoomEvents(roomId: string): Observable<MercureWaitingRoomStreamMessage> {
+    return new Observable<MercureWaitingRoomStreamMessage>((subscriber) => {
       let source: EventSource | null = null;
       let closed = false;
+      let opened = false;
+      let reconnectPending = false;
+      let unavailable = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`rooms/${roomId}/waiting`)}`;
       this.prepareMercureConnection()
         .then((withCredentials) => {
@@ -121,19 +155,33 @@ export class MercureService {
           }
           source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
+          source.onopen = () => {
+            const reconnected = opened && reconnectPending;
+            opened = true;
+            reconnectPending = false;
+            unavailable = false;
+            subscriber.next({ kind: 'connected', reconnected });
+          };
+
           source.onmessage = (message) => {
             try {
-              subscriber.next(JSON.parse(message.data) as WaitingRoomEvent);
+              subscriber.next({ kind: 'event', event: JSON.parse(message.data) as WaitingRoomEvent });
             } catch (error) {
               subscriber.error(error);
             }
           };
 
           source.onerror = () => {
-            // Polling in the waiting room remains the fallback. Keep the stream open.
+            // EventSource performs exponential reconnects itself. Waiting-room
+            // state deliberately has no HTTP polling fallback.
+            reconnectPending ||= opened;
+            if (!unavailable) {
+              unavailable = true;
+              subscriber.next({ kind: 'unavailable' });
+            }
           };
         })
-        .catch((error) => subscriber.error(error));
+        .catch(() => subscriber.next({ kind: 'unavailable' }));
 
       return () => {
         closed = true;

@@ -7,6 +7,8 @@ import { GameTablePendingTransferState } from './game-table-pending-transfer.sta
 import { GameTableCoreState } from './game-table-core.state';
 import { GameTablePendingTransferRegistrarState } from './game-table-pending-transfer-registrar.state';
 
+const RELOAD_REQUIRED_COMMAND_MESSAGE = 'websocket command timed out.';
+
 export interface GameTableCommandContext {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly websocket: () => GameTableWebsocketGameplayContext;
@@ -54,12 +56,19 @@ export class GameTableCommandStore {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
       const message = context.errorMessage(error);
-      if (!this.shouldSuppressCommandErrorToast(type, message, error)) {
+      if (this.requiresPageReload(error)) {
+        this.core.reloadReason.set('sync-timeout');
+      } else if (!this.shouldSuppressCommandErrorToast(type, message, error)) {
         this.core.error.set(message);
       }
     } finally {
       this.core.pending.set(false);
     }
+  }
+
+  private requiresPageReload(error: unknown): boolean {
+    return error instanceof Error
+      && error.message.trim().toLowerCase() === RELOAD_REQUIRED_COMMAND_MESSAGE;
   }
 
   private shouldSuppressCommandErrorToast(type: GameCommandType, message: string, error: unknown): boolean {

@@ -1,4 +1,4 @@
-import { GameSnapshot } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableChatLogState } from './game-table-chat-log.state';
 
 describe('GameTableChatLogState', () => {
@@ -33,14 +33,211 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.messagePrefix).toBe('Alice drew 2 cards.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('drew 2 cards.');
+  });
+
+  it('uses the localized name of the commander identified by its cast counter', () => {
+    const state = new GameTableChatLogState();
+    const firstCommander = card('commander-1', 'Atraxa, Praetors’ Voice', 'library');
+    const secondCommander = card('commander-2', 'Aminatou, tisseuse de destins', 'library');
+    const player = playerState('Alice');
+    player.zones.library = [firstCommander, secondCommander];
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': player },
+      eventLog: [{
+        id: 'event-commander-cast-counter',
+        type: 'counter.changed',
+        message: 'Legacy commander cast counter message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.commander.castCounterChanged',
+        params: { actorPlayerId: 'player-1', commanderInstanceId: 'commander-2', commanderCastCount: 3 },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.message).toBe('set the commander cast counter for Aminatou, tisseuse de destins to 3.');
+    expect(entry?.card?.name).toBe('Aminatou, tisseuse de destins');
+  });
+
+  it('renders a multiple-card reveal with an external subject and recipient', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-reveal-many',
+        type: 'card.revealed',
+        message: 'Legacy reveal message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.card.revealedMany',
+        params: {
+          actorPlayerId: 'player-1',
+          playerId: 'player-1',
+          recipientPlayerIds: ['player-2'],
+          revealAudience: 'players',
+          zone: 'hand',
+          count: 10,
+        },
+        refs: {
+          players: {
+            'player-1': { id: 'player-1', displayName: 'Alice' },
+            'player-2': { id: 'player-2', displayName: 'Bruno' },
+          },
+        },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('revealed 10 cards from their hand to Bruno.');
+  });
+
+  it('renders reveal visibility logs with the localized audience and source zone', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-stop-playing-top',
+        type: 'library.play_top_revealed',
+        message: 'Legacy message.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.library.stoppedPlayingTopRevealed',
+        params: {
+          actorPlayerId: 'player-1',
+          recipientPlayerIds: ['player-2'],
+          revealAudience: 'players',
+        },
+        refs: {
+          players: {
+            'player-1': { id: 'player-1', displayName: 'Alice' },
+            'player-2': { id: 'player-2', displayName: 'Bruno' },
+          },
+        },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('stopped playing with the top card of their library revealed to Bruno.');
+  });
+
+  it('renders a private reveal log with the card name and hover-preview card', () => {
+    const state = new GameTableChatLogState();
+    const base = snapshot();
+    const revealedCard: GameCardInstance = {
+      instanceId: 'hand-1',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      name: 'Sol Ring',
+      zone: 'hand',
+      tapped: false,
+    };
+    base.players = {
+      'player-1': {
+        ...playerState('Alice'),
+        zones: { ...playerState('Alice').zones, hand: [revealedCard] },
+      },
+      'player-2': playerState('Bruno'),
+    };
+    base.eventLog = [{
+      id: 'event-private-reveal',
+      type: 'card.revealed',
+      message: 'Legacy reveal message.',
+      actorId: 'player-1',
+      displayName: 'Alice',
+      createdAt: '2026-05-14T00:00:00Z',
+      i18nKey: 'gameLog.card.revealedNamed',
+      params: {
+        actorPlayerId: 'player-1',
+        recipientPlayerIds: ['player-2'],
+        revealAudience: 'players',
+        zone: 'hand',
+        cardName: 'Sol Ring',
+      },
+      cardInstanceId: 'hand-1',
+      cardPlayerId: 'player-1',
+      cardZone: 'hand',
+      visibility: 'private',
+    }];
+
+    const [entry] = state.eventLogView(base, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('revealed ');
+    expect(entry?.messageSuffix).toBe(' from their hand to Bruno.');
+    expect(entry?.card).toEqual(revealedCard);
+  });
+
+  it('renders face-down inspection logs without resolving a card reference', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-face-down-inspected',
+        type: 'card.face_down.inspected',
+        message: 'Alice looked at a face-down card.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.card.faceDownInspected',
+        params: { actorPlayerId: 'player-1' },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('looked at a face-down card.');
+    expect(entry?.card).toBeNull();
+  });
+
+  it('renders play-top-face-down logs without resolving a card reference', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-play-top-face-down',
+        type: 'library.play_top_face_down',
+        message: 'Alice played the top card of their library face down.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.library.playTopFaceDown',
+        params: { actorPlayerId: 'player-1' },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('played the top card of their library face down.');
+    expect(entry?.card).toBeNull();
   });
 
   it('renders semantic game log entries with the platform translation service', () => {
     const state = new GameTableChatLogState({
       instant: (key: string, params?: Record<string, unknown>) => {
-        if (key === 'gameLog.life.changed') {
-          return `${params?.['actor']} cambi\u00f3 la vida de ${params?.['player']} de ${params?.['previousLife']} a ${params?.['life']}.`;
+        if (key === 'gameLog.fragment.life.other') {
+          return `cambi\u00f3 la vida de ${params?.['player']} de ${params?.['previousLife']} a ${params?.['life']}.`;
         }
 
         return key;
@@ -72,10 +269,179 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.messagePrefix).toBe('Alicia cambi\u00f3 la vida de Bruno de 40 a 37.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alicia' });
+    expect(entry?.messagePrefix).toBe('cambi\u00f3 la vida de Bruno de 40 a 37.');
   });
 
-  it('falls back to the legacy message when a semantic key is unknown', () => {
+  it('uses the reflexive fragment when the indirect complement is the subject', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-life-self',
+        type: 'life.changed',
+        message: "Alice changed Alice's life from 40 to 37.",
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.life.changed',
+        params: { actorPlayerId: 'player-1', playerId: 'player-1', previousLife: 40, life: 37 },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe('changed their life from 40 to 37.');
+  });
+
+  it('uses the previous player as the external subject for turn changes', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-turn',
+        type: 'turn.changed',
+        message: "Alice finished their turn. Bruno's turn begins.",
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.turn.changed',
+        params: { actorPlayerId: 'player-1', previousPlayerId: 'player-1', playerId: 'player-2' },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Alice' });
+    expect(entry?.messagePrefix).toBe("finished their turn. Bruno's turn begins.");
+  });
+
+  it('uses the affected player as the subject for concede and expulsion logs', () => {
+    const state = new GameTableChatLogState();
+    const game = {
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alice'),
+        'player-2': playerState('Bruno'),
+      },
+    };
+
+    const [expelled] = state.eventLogView({
+      ...game,
+      eventLog: [{
+        id: 'event-expelled',
+        type: 'disconnect.vote',
+        message: 'Bruno was expelled after a disconnect vote.',
+        actorId: 'player-1',
+        displayName: 'Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.disconnect.expelled',
+        params: { actorPlayerId: 'player-1', targetPlayerId: 'player-2' },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+    const [conceded] = state.eventLogView({
+      ...game,
+      eventLog: [{
+        id: 'event-concede',
+        type: 'game.concede',
+        message: 'Bruno conceded.',
+        actorId: 'player-2',
+        displayName: 'Bruno',
+        createdAt: '2026-05-14T00:00:01Z',
+        i18nKey: 'gameLog.game.concede',
+        params: { actorPlayerId: 'player-2', playerId: 'player-2' },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(expelled?.subject).toEqual({ kind: 'player', playerId: 'player-2', displayName: 'Bruno' });
+    expect(expelled?.messagePrefix).toBe('was expelled after a disconnect vote.');
+    expect(conceded?.subject).toEqual({ kind: 'player', playerId: 'player-2', displayName: 'Bruno' });
+    expect(conceded?.messagePrefix).toBe('conceded.');
+  });
+
+  it('localizes player counter names and keeps the subject out of the action fragment', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'game.playerCounters.rad') {
+          return 'Radiación';
+        }
+        if (key === 'gameLog.fragment.counter.changed') {
+          return `puso ${params?.['counter']} en ${params?.['value']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('JD') },
+      eventLog: [{
+        id: 'event-player-counter',
+        type: 'counter.changed',
+        message: 'JD set rad to 3.',
+        actorId: 'player-1',
+        displayName: 'JD',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.counter.changed',
+        params: { actorPlayerId: 'player-1', playerId: 'player-1', counter: 'rad', value: 3 },
+        subject: { kind: 'player', playerId: 'player-1' },
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
+    expect(entry?.messagePrefix).toBe('puso Radiación en 3.');
+  });
+
+  it('translates historical player counter messages without semantic metadata', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'game.playerCounters.poison') {
+          return 'Veneno';
+        }
+        if (key === 'gameLog.fragment.counter.changed') {
+          return `puso ${params?.['counter']} en ${params?.['value']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const entries = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('JD') },
+      eventLog: [
+        {
+          id: 'event-legacy-player-counter-direct',
+          type: 'counter.changed',
+          message: 'JD set poison to 3.',
+          actorId: 'player-1',
+          displayName: 'JD',
+          createdAt: '2026-05-14T00:00:00Z',
+        },
+        {
+          id: 'event-legacy-player-counter-change',
+          type: 'counter.changed',
+          message: 'JD poison counter increased from 0 to 3.',
+          actorId: 'player-1',
+          displayName: 'JD',
+          createdAt: '2026-05-14T00:00:01Z',
+        },
+      ],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'JD' });
+      expect(entry.messagePrefix).toBe('puso Veneno en 3.');
+    }
+  });
+
+  it('keeps the player as the subject for legacy messages without semantic metadata', () => {
     const state = new GameTableChatLogState();
 
     const [entry] = state.eventLogView({
@@ -95,6 +461,52 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.messagePrefix).toBe('Legacy draw message.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
+  });
+
+  it('passes card-stat and face parameters to semantic game log translations', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'gameLog.cardStats.sagaChanged') {
+          return `${params?.['actor']} cambió ${params?.['cardName']} de ${params?.['previousChapter']} a ${params?.['chapter']} (${params?.['delta']}).`;
+        }
+        if (key === 'gameLog.card.faceChanged') {
+          return `${params?.['actor']} cambió ${params?.['cardName']} a ${params?.['faceName']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const entries = state.eventLog({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alicia') },
+      eventLog: [
+        {
+          id: 'event-semantic-saga',
+          type: 'card.power_toughness.changed',
+          message: 'Legacy saga message.',
+          actorId: 'player-1',
+          createdAt: '2026-05-14T00:00:00Z',
+          i18nKey: 'gameLog.cardStats.sagaChanged',
+          params: { actorPlayerId: 'player-1', cardName: 'El viejo dios', previousChapter: 'I', chapter: 'II', delta: '+1' },
+        },
+        {
+          id: 'event-semantic-face',
+          type: 'card.face.changed',
+          message: 'Legacy face message.',
+          actorId: 'player-1',
+          createdAt: '2026-05-14T00:00:01Z',
+          i18nKey: 'gameLog.card.faceChanged',
+          params: { actorPlayerId: 'player-1', cardName: 'Delver', faceName: 'Insectile Aberration' },
+        },
+      ],
+    });
+
+    expect(entries.map((entry) => entry.message)).toEqual([
+      'Alicia cambió El viejo dios de I a II (+1).',
+      'Alicia cambió Delver a Insectile Aberration.',
+    ]);
   });
 
   it('exposes aggregate card links when public-zone cards move to library', () => {
@@ -269,7 +681,7 @@ describe('GameTableChatLogState', () => {
     expect(entries[0]?.message).toBe('Player poison counter increased from 0 to 3 (+3).');
   });
 
-  it('marks player death entries for red log styling', () => {
+  it('does not treat legacy automatic death entries as a concede', () => {
     const state = new GameTableChatLogState();
     const [entry] = state.eventLogView({
       ...snapshot(),
@@ -278,8 +690,9 @@ describe('GameTableChatLogState', () => {
       ],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.appearance).toBe('death');
-    expect(entry?.messagePrefix).toBe('Player ha muerto.');
+    expect(entry?.appearance).toBe('default');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
+    expect(entry?.messagePrefix).toBe('ha muerto.');
   });
 
   it('marks concede entries for red log styling', () => {
@@ -292,10 +705,11 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.appearance).toBe('death');
-    expect(entry?.messagePrefix).toBe('Player conceded.');
+    expect(entry?.subject).toEqual({ kind: 'player', playerId: 'player-1', displayName: 'Player' });
+    expect(entry?.messagePrefix).toBe('conceded.');
   });
 
-  it('hides later game log entries from a player after their death entry', () => {
+  it('does not hide later game log entries after a legacy automatic death entry', () => {
     const state = new GameTableChatLogState();
     const entries = state.eventLog({
       ...snapshot(),
@@ -309,6 +723,7 @@ describe('GameTableChatLogState', () => {
     expect(entries.map((entry) => entry.message)).toEqual([
       'Lost 40 life (40 -> 0).',
       'Player ha muerto.',
+      'Drew 1 card.',
     ]);
   });
 

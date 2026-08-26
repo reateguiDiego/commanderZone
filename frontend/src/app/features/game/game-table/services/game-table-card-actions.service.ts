@@ -460,11 +460,14 @@ export class GameTableCardActionsService {
       }
 
       const currentIndex = Number.isInteger(item.card.activeFaceIndex) ? Number(item.card.activeFaceIndex) : 0;
+      const faceIndex = (currentIndex + 1) % faceCount;
       await context.command('card.face.changed', {
         playerId: item.playerId,
         zone: item.zone,
         instanceId: item.card.instanceId,
-        faceIndex: (currentIndex + 1) % faceCount,
+        cardName: item.card.name,
+        faceName: item.card.cardFaces?.[faceIndex]?.name ?? undefined,
+        faceIndex,
       });
     }
     context.closeContextMenu();
@@ -480,14 +483,31 @@ export class GameTableCardActionsService {
       return;
     }
 
-    for (const item of this.actionTargets(context, menu)) {
-      await context.command('card.revealed', {
-        playerId: item.playerId,
-        zone: item.zone,
-        instanceId: item.card.instanceId,
-        to: target,
-      });
+    const targets = this.actionTargets(context, menu);
+    const revealedCardName = targets.length === 1 ? targets[0]?.card.name.trim() : '';
+    await context.command('card.revealed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceIds: targets.map((item) => item.card.instanceId),
+      to: target,
+      ...(revealedCardName ? { revealedCardName } : {}),
+    });
+    context.closeContextMenu();
+  }
+
+  async stopRevealCard(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card || !context.canControlPlayer(menu.playerId)) {
+      return;
     }
+
+    const targets = this.actionTargets(context, menu);
+    await context.command('card.revealed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceIds: targets.map((item) => item.card.instanceId),
+      revealed: false,
+      clearAll: true,
+    });
     context.closeContextMenu();
   }
 
@@ -611,6 +631,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
+      cardName: menu.card.name,
       power,
       toughness,
     });

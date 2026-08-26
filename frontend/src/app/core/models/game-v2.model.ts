@@ -6,8 +6,10 @@ import type {
   GameAttachment,
   GameCompactCardRef,
   GameCardPosition,
-  GameDisconnectVoteState,
+  GameControlPlaneState,
+  GameDisconnectVotes,
   GameLogEntry,
+  GameMulliganConfig,
   GamePowerToughnessValue,
   GamePlayerMulliganState,
   GameRematchState,
@@ -51,10 +53,20 @@ export interface EventPayloadV2 {
 export interface BootstrapGameV2 {
   id: string;
   status: string;
+  controlPlaneRevision?: number;
+  controlPlane?: GameControlPlaneState;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   version: number;
   viewerId: string;
   ownerId?: string | null;
   gamePhase?: string | null;
+  mulligan?: GameMulliganConfig | null;
+  disconnectVotes?: GameDisconnectVotes;
+  rematch?: GameRematchState | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -64,6 +76,7 @@ export interface BootstrapPlayerV2 {
   user: User | null;
   displayName: string;
   life: number;
+  isOnline?: boolean;
   status: string;
   handCount: number;
   zoneIds: string[];
@@ -75,6 +88,9 @@ export interface BootstrapPlayerV2 {
   backgroundName?: string | null;
   sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
+  revealedHandIndexes?: number[];
   mulligan?: GamePlayerMulliganState | null;
 }
 
@@ -110,6 +126,7 @@ export interface BootstrapInstanceV2 {
   controllerId?: string | null;
   hidden?: boolean;
   faceDown?: boolean;
+  staticCardPending?: boolean;
   tapped?: boolean;
   position?: GameCardPosition | null;
   rotation?: number | null;
@@ -122,6 +139,7 @@ export interface BootstrapInstanceV2 {
   activeFaceIndex?: number | null;
   dungeonMarker?: { x: number; y: number } | null;
   revealedTo?: string[];
+  revealMarker?: boolean;
   isToken?: boolean;
   isTokenCopy?: boolean;
   isCommander?: boolean;
@@ -291,8 +309,14 @@ export type GameplayPatchV2Operation =
       faceDown?: boolean;
       hidden?: boolean;
       cardKey?: string | null;
+      printId?: string | null;
+      cardVersion?: string | null;
+      language?: string | null;
+      viewerVisibility?: string | null;
+      staticCard?: BootstrapStaticCardV2 | null;
       controllerId?: string;
       revealedTo?: string[];
+      revealMarker?: boolean;
       counters?: Record<string, number>;
       dungeonMarker?: { x: number; y: number } | null;
       activeFaceIndex?: number | null;
@@ -325,6 +349,7 @@ export type GameplayPatchV2Operation =
       playerId: string;
       zone: GameZoneName;
       instanceIds: string[];
+      sourceIndexes?: number[];
     }
   | ({
       op: 'zone.cards.move';
@@ -354,6 +379,27 @@ export type GameplayPatchV2Operation =
       cardKey?: string;
     }
   | {
+      op: 'hand.reveal_marker.set';
+      playerId: string;
+      index: number;
+      revealed: boolean;
+    }
+  | {
+      op: 'hand.reveal_marker.clear';
+      playerId: string;
+      indexes: number[];
+    }
+  | {
+      op: 'library.top.reveal_marker.set';
+      playerId: string;
+      revealed: boolean;
+    }
+  | {
+      op: 'library.top.reveal_audience.set';
+      playerId: string;
+      revealedTo: string[];
+    }
+  | {
       op: 'library.count.set';
       playerId: string;
       count: number;
@@ -362,6 +408,7 @@ export type GameplayPatchV2Operation =
       op: 'library.top.revealed';
       playerId: string;
       count?: number;
+      epoch?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
     }
@@ -373,11 +420,18 @@ export type GameplayPatchV2Operation =
       staticCards?: Record<string, BootstrapStaticCardV2>;
     }
   | {
+      op: 'player.library.visibility.set';
+      playerId: string;
+      playTopLibraryRevealed?: boolean;
+      revealedLibraryTo?: string[];
+    }
+  | {
       op: 'library.revealed.set';
       playerId: string;
       count?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
+      revealedTo?: string[];
     }
   | {
       op: 'library.play_top_revealed.set';
@@ -450,6 +504,7 @@ export type GameplayPatchV2Operation =
       status: MulliganPlayerStatus;
       ready?: boolean;
       handCount?: number;
+      mulligansTaken?: number;
       effectiveMulligans?: number;
     }
   | {
@@ -457,6 +512,7 @@ export type GameplayPatchV2Operation =
       playerId: string;
       state: {
         rule?: string;
+        firstMulliganFree?: boolean;
         mulligansTaken?: number;
         effectiveMulligans?: number;
         drawCount?: number;
@@ -521,6 +577,9 @@ export type GameplayPatchV2Operation =
       op: 'game.status.set';
       status: string;
       phase?: string | null;
+      winnerPlayerId?: string | null;
+      finishedAt?: string | null;
+      finishReason?: string | null;
     }
   | {
       op: 'zone.counts.set';
@@ -634,8 +693,13 @@ export type GameplayPatchV2Operation =
       concededAt?: string | null;
     }
   | {
+      op: 'player.presence.set';
+      playerId: string;
+      isOnline: boolean;
+    }
+  | {
       op: 'disconnect.vote.set';
-      disconnectVote: GameDisconnectVoteState | null;
+      disconnectVotes: GameDisconnectVotes;
     }
   | {
       op: 'rematch.set';

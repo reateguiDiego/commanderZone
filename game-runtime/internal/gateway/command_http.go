@@ -20,6 +20,7 @@ type CommandHTTPServer struct {
 	runtime           *runtimesvc.Service
 	commandTimeout    time.Duration
 	allowInitialState bool
+	resultPublisher   func(context.Context, actor.CommandResult)
 }
 
 type CommandHTTPRequest struct {
@@ -29,11 +30,12 @@ type CommandHTTPRequest struct {
 }
 
 type CommandHTTPResponse struct {
-	Event   protocol.EventPayloadV2    `json:"event"`
-	Patches []protocol.PatchEnvelopeV2 `json:"patches"`
-	Metrics map[string]any             `json:"metrics,omitempty"`
-	Error   string                     `json:"error,omitempty"`
-	Code    string                     `json:"code,omitempty"`
+	Event          protocol.EventPayloadV2    `json:"event"`
+	Patches        []protocol.PatchEnvelopeV2 `json:"patches"`
+	Metrics        map[string]any             `json:"metrics,omitempty"`
+	Error          string                     `json:"error,omitempty"`
+	Code           string                     `json:"code,omitempty"`
+	CurrentVersion int64                      `json:"currentVersion,omitempty"`
 }
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
@@ -50,6 +52,10 @@ func (s *CommandHTTPServer) SetCommandTimeout(timeout time.Duration) {
 	if timeout > 0 {
 		s.commandTimeout = timeout
 	}
+}
+
+func (s *CommandHTTPServer) SetResultPublisher(publisher func(context.Context, actor.CommandResult)) {
+	s.resultPublisher = publisher
 }
 
 func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +108,14 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result.Err != nil {
 		status := http.StatusConflict
 		code := "command_failed"
+		if errors.Is(result.Err, actor.ErrVersionConflict) {
+			writeCommandHTTPJSON(w, status, CommandHTTPResponse{
+				Error:          result.Err.Error(),
+				Code:           "base_version_mismatch",
+				CurrentVersion: gameActor.Version(),
+			})
+			return
+		}
 		if result.Err == actor.ErrUnknownCommand {
 			status = http.StatusBadRequest
 			code = "unknown_command"
@@ -117,6 +131,9 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		writeCommandHTTPError(w, status, code, result.Err.Error())
 		return
+	}
+	if s.resultPublisher != nil {
+		s.resultPublisher(r.Context(), result)
 	}
 
 	metrics := metricsFromEventPayload(result.Event.Payload)

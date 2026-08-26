@@ -16,7 +16,7 @@ const POLL_TIMEOUT = 15_000;
 
 test.setTimeout(300000);
 
-test('full game browser gauntlet: multiplayer open, life sync, chat sync, move card, reconnect, concede, close', async ({
+test('full game browser gauntlet: multiplayer open, life sync, chat sync, move card, reconnect, concede', async ({
   browser,
   request,
   baseURL,
@@ -30,7 +30,7 @@ test('full game browser gauntlet: multiplayer open, life sync, chat sync, move c
     playerBPrefix: 'gauntlet-b',
     roomVisibility: 'public',
   });
-  const { gameId, roomId, playerA, playerB } = setup;
+  const { gameId, playerA, playerB } = setup;
 
   const contextA = await browser.newContext({
     baseURL,
@@ -155,29 +155,6 @@ test('full game browser gauntlet: multiplayer open, life sync, chat sync, move c
       })
       .toBe('conceded');
 
-    await sendRuntimeCommand(request, {
-      gameId,
-      token: playerA.token,
-      baseVersion: concedeOutcome.version,
-      type: 'game.close',
-      payload: {},
-    });
-
-    await expect
-      .poll(async () => {
-        const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
-          headers: {
-            Authorization: `Bearer ${playerA.token}`,
-          },
-        });
-        if (!roomResponse.ok()) {
-          return '';
-        }
-        const roomPayload = (await roomResponse.json()) as { room: { status: string } };
-
-        return roomPayload.room.status;
-      })
-      .toBe('archived');
   } finally {
     await contextA.close();
     await contextB.close();

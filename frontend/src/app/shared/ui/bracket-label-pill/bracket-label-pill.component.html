@@ -1,0 +1,11 @@
+@if (bracket(); as estimate) {
+  <span
+    class="bracket-label-pill"
+    [class]="'bracket-label-pill bracket-label-pill--' + estimate.bracket"
+    [attr.aria-label]="'bracket.pill.ariaLabel' | runtimeTranslate: { bracket: estimate.bracket, label: estimate.label }"
+    [title]="'bracket.pill.ariaLabel' | runtimeTranslate: { bracket: estimate.bracket, label: estimate.label }"
+  >
+    <img [src]="'assets/icons/brackets/bracket_' + estimate.bracket + '.webp'" alt="" />
+    <span>{{ 'bracket.tooltip.current' | runtimeTranslate: { bracket: estimate.bracket } }}</span>
+  </span>
+}

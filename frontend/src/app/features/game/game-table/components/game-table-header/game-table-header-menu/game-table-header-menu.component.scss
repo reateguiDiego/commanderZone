@@ -10,11 +10,36 @@
   display: inline-grid;
   place-items: center;
   line-height: 0;
+  transform-origin: center;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease,
+    background-color 360ms ease;
 }
 
 .icon-button lucide-icon {
   display: grid;
   place-items: center;
+  transform-origin: center;
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 360ms ease,
+    color 360ms ease;
+}
+
+.header-menu-dropdown.open .icon-button {
+  border-color: rgb(var(--gold-rgb) / 38%);
+  background: rgb(var(--gold-rgb) / 12%);
+  box-shadow:
+    0 0.72rem 1.4rem rgb(var(--shadow-rgb) / 26%),
+    0 0 0 1px rgb(var(--gold-rgb) / 10%);
+  transform: translateY(-0.5px);
+}
+
+.header-menu-dropdown.open .icon-button lucide-icon {
+  filter: drop-shadow(0 0 0.45rem rgb(var(--gold-rgb) / 34%));
+  transform: rotate(45deg) scale(1.025);
 }
 
 .header-menu-panel {
@@ -25,12 +50,19 @@
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid rgb(var(--gold-rgb) / 58%);
   border-radius: 10px;
   padding: 0.55rem;
-  background: linear-gradient(145deg, rgb(12 15 14 / 96%), rgb(8 10 10 / 94%));
-  box-shadow: 0 0.95rem 2rem rgb(0 0 0 / 42%);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--gold-rgb) / 20%), transparent 10rem),
+    linear-gradient(145deg, rgb(var(--game-surface-rgb) / 98%), rgb(var(--game-surface-deep-rgb) / 100%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--game-text-rgb) / 8%),
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 22%),
+    0 0.95rem 2rem rgb(var(--shadow-rgb) / 54%);
   backdrop-filter: blur(14px);
+  transform-origin: top right;
+  animation: header-menu-panel-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .menu-item,
@@ -53,8 +85,8 @@
 .menu-item:hover,
 .language-item:hover,
 .language-item.selected {
-  border-color: rgb(215 180 106 / 32%);
-  background: rgb(215 180 106 / 10%);
+  border-color: rgb(var(--gold-rgb) / 32%);
+  background: rgb(var(--gold-rgb) / 10%);
 }
 
 .menu-item.with-detail {
@@ -86,16 +118,28 @@
 }
 
 .menu-item.danger {
-  color: #ffb4b4;
+  color: color-mix(in srgb, var(--game-danger) 58%, var(--game-text));
+}
+
+@keyframes header-menu-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.18rem) scale(0.995);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .language-list {
   display: grid;
   gap: 0.32rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--highlight-rgb) / 10%);
   border-radius: 8px;
   padding: 0.35rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgb(var(--highlight-rgb) / 4%);
 }
 
 .language-item {

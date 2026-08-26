@@ -1,7 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameControlPlaneState, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
@@ -10,7 +9,7 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { AlignmentGuide } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-feedback.state';
-import { GameTablePendingTransferState, type PendingTransferExpiration } from './state/core/game-table-pending-transfer.state';
+import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/core/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { CardPreviewEvent, previewRectFromElement } from './models/card-preview.model';
@@ -51,6 +50,8 @@ import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
+import { GameTableStaticCardResolverV2Service } from './services/game-table-static-card-resolver-v2.service';
+import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
@@ -70,6 +71,7 @@ interface AutomaticTapManaTarget extends SelectedCard {
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
+  private readonly faceDownPreviewImages = signal<ReadonlyMap<string, string>>(new Map());
   private locallyConcededPlayerId: string | null = null;
   private lastSeenActiveTurnPlayerId: string | null = null;
 
@@ -84,6 +86,8 @@ export class GameTableStore implements OnDestroy {
   private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
+  private readonly staticCardResolver = inject(GameTableStaticCardResolverV2Service);
+  private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
   private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
@@ -139,6 +143,7 @@ export class GameTableStore implements OnDestroy {
   readonly chatTargetPlayerId = this.chatStore.chatTargetPlayerId;
   readonly loading = this.coreState.loading;
   readonly error = this.coreState.error;
+  readonly reloadReason = this.coreState.reloadReason;
   readonly targetToast = this.coreState.targetToast;
   readonly tableToast = this.coreState.tableToast;
   readonly pending = this.coreState.pending;
@@ -174,19 +179,24 @@ export class GameTableStore implements OnDestroy {
       return null;
     }
 
+    const snapshotMulligan = this.currentPlayer()?.state.mulligan ?? null;
     const privateState = this.mulliganState.privateState();
     if (privateState?.playerId === currentPlayerId) {
       const scryCard = this.mulliganState.privateScryCardFor(currentPlayerId);
       const hand = this.mulliganState.privateHandFor(currentPlayerId);
+      const config = this.mulliganConfig();
 
       return {
         ...privateState.mulligan,
+        ...snapshotMulligan,
+        ...(config?.rule ? { rule: config.rule } : {}),
+        ...(typeof config?.firstMulliganFree === 'boolean' ? { firstMulliganFree: config.firstMulliganFree } : {}),
         handCount: hand?.length ?? privateState.handSize ?? privateState.hand.length,
         ...(scryCard ? { scryCard } : {}),
       };
     }
 
-    return this.currentPlayer()?.state.mulligan ?? null;
+    return snapshotMulligan;
   });
   readonly currentMulliganHand = computed<readonly GameCardInstance[]>(() => {
     const currentPlayerId = this.currentPlayer()?.id ?? null;
@@ -201,7 +211,6 @@ export class GameTableStore implements OnDestroy {
   readonly opponentCardsTargetCards = this.opponentTargetsState.opponentCardsTargetCards;
   readonly chatRecipients = this.chatStore.chatRecipients;
   readonly shouldShowChatRecipientSelect = this.chatStore.shouldShowChatRecipientSelect;
-  readonly isGameOwner = this.playersStore.isGameOwner;
   readonly syncStatus = computed<GameTableSyncStatus>(() => {
     if (this.pending()) {
       return 'pending';
@@ -233,6 +242,7 @@ export class GameTableStore implements OnDestroy {
   constructor() {
     this.contexts.bind({
       setSnapshot: (snapshot) => this.setSnapshot(snapshot),
+      setViewportReflowSnapshot: (snapshot) => this.setSnapshot(snapshot, { trackDropFeedback: false }),
       refetch: (force, source) => this.refetch(force, source),
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
@@ -243,8 +253,16 @@ export class GameTableStore implements OnDestroy {
       },
       pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
       pendingLibraryMove: () => this.pendingLibraryMove(),
+      openRevealedLibrary: (playerId, recipients) => {
+        void this.openRevealedLibraryForRecipients(playerId, recipients);
+      },
+      openRevealedTopLibrary: (playerId, count) => this.libraryTopState.openRevealedTopLibrary(playerId, count),
+      onControlPlaneAccepted: (controlPlane) => this.rematchVotes.acceptControlPlane(
+        this.gameId(),
+        this.currentPlayer()?.id ?? null,
+        controlPlane,
+      ),
     });
-    this.pendingTransferState.setExpirationHandler((expiration) => this.handlePendingTransferExpired(expiration));
     effect(() => {
       this.toastState.scheduleErrorDismiss(this.error(), this.snapshot() !== null);
     });
@@ -258,7 +276,6 @@ export class GameTableStore implements OnDestroy {
     this.uiState.destroy();
     this.cardStats.clear();
     this.dropFeedbackState.destroy();
-    this.pendingTransferState.setExpirationHandler(null);
     this.pendingTransferState.clear();
     this.session.stop();
   }
@@ -359,6 +376,10 @@ export class GameTableStore implements OnDestroy {
 
   publicCardImage(card: GameCardInstance): string | null {
     return this.cardsState.publicCardImage(card);
+  }
+
+  faceDownPreviewImage(card: GameCardInstance): string | null {
+    return this.publicCardImage(card) ?? this.faceDownPreviewImages().get(card.instanceId) ?? null;
   }
 
   cardBackImage(player?: PlayerView | null): string {
@@ -956,12 +977,66 @@ export class GameTableStore implements OnDestroy {
     await this.libraryActions.shuffleRevealedLibrary(this.contexts.libraryAction(), playerId);
   }
 
-  async revealTop(playerId: string, target = 'all'): Promise<void> {
-    await this.libraryActions.revealTop(this.contexts.libraryAction(), playerId, target);
+  async revealTop(playerId: string, target = 'all', count = 1): Promise<void> {
+    await this.libraryActions.revealTop(this.contexts.libraryAction(), playerId, target, count);
   }
 
-  async setPlayTopRevealed(playerId: string, enabled: boolean): Promise<void> {
-    await this.libraryActions.setPlayTopRevealed(this.contexts.libraryAction(), playerId, enabled);
+  inspectFaceDownCard(
+    card: GameCardInstance,
+    playerId?: string,
+    zone?: GameZoneName,
+    revealFaceDownCard = false,
+  ): void {
+    this.uiState.showPinnedCardPreview(
+      card,
+      () => Boolean(this.draggingCardInstanceId()),
+      playerId,
+      zone,
+      revealFaceDownCard,
+    );
+    if (revealFaceDownCard) {
+      void this.cacheOwnerFaceDownPreviewImage(card);
+    }
+  }
+
+  recordFaceDownCardInspection(card: GameCardInstance, playerId: string, zone: GameZoneName): void {
+    if (card.faceDown !== true || zone !== 'battlefield') {
+      return;
+    }
+
+    void this.command('card.face_down.inspected', {
+      instanceId: card.instanceId,
+      playerId,
+    });
+  }
+
+  private async cacheOwnerFaceDownPreviewImage(card: GameCardInstance): Promise<void> {
+    if (this.faceDownPreviewImage(card)) {
+      return;
+    }
+
+    const image = await this.staticCardResolver.resolveOwnerFaceDownPreviewImage(card);
+    if (!image) {
+      return;
+    }
+
+    this.faceDownPreviewImages.update((images) => {
+      if (images.get(card.instanceId) === image) {
+        return images;
+      }
+
+      const nextImages = new Map(images);
+      nextImages.set(card.instanceId, image);
+      return nextImages;
+    });
+  }
+
+  async stopRevealTop(playerId: string, target?: string): Promise<void> {
+    await this.libraryActions.stopRevealTop(this.contexts.libraryAction(), playerId, target);
+  }
+
+  async setPlayTopRevealed(playerId: string, enabled: boolean, target?: string): Promise<void> {
+    await this.libraryActions.setPlayTopRevealed(this.contexts.libraryAction(), playerId, enabled, target);
   }
 
   async revealLibrary(playerId: string, targetPlayerId: string): Promise<void> {
@@ -1060,6 +1135,11 @@ export class GameTableStore implements OnDestroy {
 
   async playFaceDown(menu: GameContextMenu): Promise<void> {
     await this.cardActions.playFaceDown(this.contexts.cardAction(), menu);
+  }
+
+  async playTopFaceDown(playerId: string): Promise<void> {
+    await this.libraryActions.playTopFaceDown(this.contexts.libraryAction(), playerId);
+    this.closeContextMenu();
   }
 
   startBattlefieldPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
@@ -1400,6 +1480,10 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.revealCard(this.contexts.cardAction(), menu, target);
   }
 
+  async stopRevealCard(menu: GameContextMenu): Promise<void> {
+    await this.cardActions.stopRevealCard(this.contexts.cardAction(), menu);
+  }
+
   async tokenCopy(menu: GameContextMenu): Promise<void> {
     await this.cardActions.tokenCopy(this.contexts.cardAction(), menu);
   }
@@ -1448,6 +1532,7 @@ export class GameTableStore implements OnDestroy {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
+      cardName: menu.card.name,
       power: null,
       toughness: null,
     });
@@ -1627,7 +1712,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean } = {},
   ): void {
     this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
@@ -1679,7 +1764,12 @@ export class GameTableStore implements OnDestroy {
 
     this.openingRevealedLibraryPlayerId = playerId;
     try {
-      await this.openZone(playerId, 'library', null, true);
+      const snapshot = this.snapshot();
+      const cards = snapshot?.players[playerId]?.zones.library ?? [];
+      this.openFixedZone(playerId, 'library', `${this.playerName(playerId)} ${this.zoneTitle('library')}`, cards, null, false, {
+        readOnly: true,
+        showFilters: true,
+      });
       this.shuffleLibraryOnModalClosePlayerId.set(playerId);
       this.shuffleLibraryOnModalCloseReason.set('revealed-library-closed');
     } finally {
@@ -1724,7 +1814,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    if (current?.state.status === 'conceded') {
+    if (current.state.status !== 'active') {
       this.closeContextMenu();
       return;
     }
@@ -1744,27 +1834,9 @@ export class GameTableStore implements OnDestroy {
     await this.concedeGame();
   }
 
-  async closeGame(): Promise<void> {
-    if (!this.isGameOwner()) {
-      return;
-    }
-
-    await this.command('game.close', {});
-    await this.gameActionsStore.navigateToRooms();
-  }
-
   async leaveTable(): Promise<void> {
     const current = this.currentPlayer() ?? this.localPlayerFromSnapshot();
     this.closeContextMenu();
-    if (current && current.state.status !== 'conceded') {
-      try {
-        await this.command('game.concede', { playerId: current.id }, true);
-      } catch (error) {
-        if (!this.isAlreadyConcededError(error)) {
-          throw error;
-        }
-      }
-    }
 
     if (current || this.viewerCanControlTable()) {
       await this.gameActionsStore.leaveCurrentRoom();
@@ -1776,31 +1848,17 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.currentPlayer(this.playersStore.players(), this.auth.user()?.id);
   }
 
-  private isAlreadyConcededError(error: unknown): boolean {
-    const message = this.commandErrorMessage(error).toLowerCase();
-
-    return message.includes('already conceded') || message.includes('player already conceded');
+  private async openRevealedLibraryForRecipients(playerId: string, recipients?: readonly string[]): Promise<void> {
+    const currentPlayerId = this.currentPlayer()?.id;
+    if (recipients && (!currentPlayerId || !recipients.includes(currentPlayerId))) {
+      return;
+    }
+    await this.openRevealedLibraryModal(playerId);
   }
 
-  private commandErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      const response = error.error as { error?: unknown; detail?: unknown; message?: unknown } | null;
-      if (response && typeof response === 'object') {
-        for (const key of ['error', 'detail', 'message'] as const) {
-          if (typeof response[key] === 'string' && response[key].trim() !== '') {
-            return response[key];
-          }
-        }
-      }
-
-      return error.message ?? '';
-    }
-
-    if (error instanceof Error) {
-      return error.message;
-    }
-
-    return typeof error === 'string' ? error : '';
+  /** Applies an authoritative lifecycle/rematch ACK without touching gameplay versioning. */
+  applyControlPlaneAcknowledgement(controlPlane: GameControlPlaneState): boolean {
+    return this.session.applyControlPlaneAcknowledgement(this.contexts.session(), controlPlane);
   }
 
   async copyGameId(): Promise<void> {
@@ -1861,7 +1919,7 @@ export class GameTableStore implements OnDestroy {
     };
   }
 
-  private setSnapshot(snapshot: GameSnapshot | null): void {
+  private setSnapshot(snapshot: GameSnapshot | null, options: { trackDropFeedback?: boolean } = {}): void {
     this.mulliganState.syncSnapshot(snapshot);
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;
@@ -1885,7 +1943,7 @@ export class GameTableStore implements OnDestroy {
 
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
-    }, snapshot);
+    }, snapshot, options);
     this.pruneTransientCardUiState(snapshot);
   }
 
@@ -1999,14 +2057,6 @@ export class GameTableStore implements OnDestroy {
       closeContextMenu: () => this.closeContextMenu(),
       command: (type: GameCommandType, payload: Record<string, unknown>) => this.command(type, payload),
     };
-  }
-
-  private handlePendingTransferExpired(_expiration: PendingTransferExpiration): void {
-    this.pendingBattlefieldMove.set(null);
-    this.pendingLibraryMove.set(null);
-    this.selectedCards.set([]);
-    this.error.set('Card move did not complete. No changes were applied; try again.');
-    void this.refetch(true, 'pending_transfer.timeout');
   }
 
   private logForcedRefetch(source: string): void {

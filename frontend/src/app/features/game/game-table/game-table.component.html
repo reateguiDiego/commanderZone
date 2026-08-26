@@ -39,6 +39,20 @@
   @if (store.loading()) {
     <app-global-loader />
   } @else if (store.snapshot(); as snapshot) {
+    @if (store.reloadReason()) {
+      <app-modal
+        data-testid="game-table-reload-required-modal"
+        [open]="true"
+        title="game.gameTable.reloadRequiredTitle"
+        message="game.gameTable.reloadRequiredMessage"
+        primaryLabel="game.gameTable.reloadRequiredAction"
+        [showSecondary]="false"
+        [showCloseButton]="false"
+        [closeOnBackdrop]="false"
+        size="compact"
+        (primary)="reloadPage()"
+      />
+    }
     <app-game-arrow-layer
       [snapshot]="snapshot"
       [focusedPlayerId]="store.focusedPlayer()?.id ?? null"
@@ -63,6 +77,7 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              [autoApplyCommanderDamageToLife]="autoApplyCommanderDamageToLife()"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
@@ -79,7 +94,6 @@
             [phases]="store.phases"
             [currentPlayerId]="store.currentPlayer()?.id ?? null"
             [isPhasePast]="isPhasePast"
-            [pending]="store.pending()"
             [canAdvance]="store.canAdvanceTurnPhase()"
             [followActiveTurnPlayer]="followActiveTurnPlayer()"
             (advancePhase)="store.advanceTurnPhase()"
@@ -94,38 +108,21 @@
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
-            (mouseleave)="queueFloatingContentScrollToBottom()"
+            (mouseleave)="handleFloatingPanelLeave()"
             (focusin)="queueFloatingContentScrollToBottom()"
             (focusout)="handleFloatingPanelFocusOut($event)"
             (transitionend)="handleFloatingPanelTransitionEnd($event)"
           >
             <header class="floating-handle">
-              <button
-                type="button"
-                data-testid="game-log-open"
-                [class.active]="store.activeFloatingTab() === 'log'"
-                [class.has-unread]="unreadLog()"
-                [attr.aria-label]="(unreadLog() ? 'game.gameTable.gameLogUnreadActions' : 'game.gameTable.gameLog') | runtimeTranslate"
-                (click)="openFloatingTab('log')"
-              >
-                <span>{{ 'game.gameTable.gameLog' | runtimeTranslate }}</span>
-                @if (unreadLog()) {
-                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
-                }
-              </button>
-              <button
-                type="button"
-                data-testid="chat-open"
-                [class.active]="store.activeFloatingTab() === 'chat'"
-                [class.has-unread]="unreadChat()"
-                [attr.aria-label]="(unreadChat() ? 'game.gameTable.chatUnreadMessages' : 'game.gameTable.chat') | runtimeTranslate"
-                (click)="openFloatingTab('chat')"
-              >
-                <span>{{ 'game.gameTable.chat' | runtimeTranslate }}</span>
-                @if (unreadChat()) {
-                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
-                }
-              </button>
+              <app-tab-list
+                [items]="floatingPanelTabs()"
+                [activeId]="store.activeFloatingTab()"
+                ariaLabel="game.gameTable.gameLog"
+                variant="pill"
+                size="md"
+                [iconSize]="13"
+                (tabSelected)="selectFloatingTab($event)"
+              />
             </header>
             <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
               @if (store.activeFloatingTab() === 'log') {
@@ -133,6 +130,7 @@
                   <p
                     class="collapsed-log-entry"
                     [class.phase-entry]="entry.appearance === 'phase'"
+                    [class.turn-entry]="entry.appearance === 'turn'"
                     [class.death-entry]="entry.appearance === 'death'"
                   >
                     <small>{{ logTime(entry.createdAt) }}</small>
@@ -174,14 +172,23 @@
                 [entries]="store.eventLog()"
                 [highlightedEntryIds]="highlightedLogEntryIds()"
                 [fadingEntryIds]="fadingLogEntryIds()"
+                [loadingOlder]="logHistory.loadingOlder()"
+                [loadingNewer]="logHistory.loadingNewer()"
+                [canLoadOlder]="logHistory.canLoadOlder()"
+                [canLoadNewer]="logHistory.canLoadNewer()"
                 [playerColor]="chatAuthorColor"
                 [logTime]="logTime"
+                (loadOlder)="loadOlderLogHistory()"
+                (loadNewer)="loadNewerLogHistory()"
                 (previewCard)="store.showCardPreview($event)"
                 (hidePreview)="store.hideCardPreview()"
               />
             } @else {
               <div class="chat-panel-content floating-expanded-content" data-testid="chat-panel">
-                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
+                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed" (scroll)="handleChatHistoryScroll($event)">
+                  @if (chatHistory.loadingOlder()) {
+                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+                  }
                   @for (message of snapshot.chat; track message.id ?? message.createdAt + message.userId) {
                     <p
                       class="chat-entry"
@@ -237,6 +244,9 @@
                       </span>
                     </p>
                   }
+                  @if (chatHistory.loadingNewer()) {
+                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+                  }
                 </div>
                 <form class="chat-form" (ngSubmit)="store.sendChat()">
                   @if (store.shouldShowChatRecipientSelect()) {
@@ -287,39 +297,53 @@
             />
           }
 
-          @if (focusedOpponentPlayer(); as battlefieldOwner) {
-            <div
-              class="battlefield-owner-summary"
-              data-testid="battlefield-owner-summary"
-              (click)="$event.stopPropagation()"
-              (contextmenu)="$event.stopPropagation()"
-            >
-              <app-player-summary-panel
-                class="player-summary-panel-context"
-                contextLabel="Estas viendo a:"
-                returnActionLabel="Ir a tu battlefield"
-                [player]="battlefieldOwner"
-                [players]="store.players()"
-                [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              [playerCounterValue]="playerCounterValue"
-              [canEditCounters]="false"
-              [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
-              (helperPreviewRequested)="showHelperPreview($event)"
-              (helperPreviewHidden)="store.hideCardPreview()"
-              (helperContextRequested)="handleHelperContextRequest($event)"
-              (returnRequested)="returnToCurrentPlayerBattlefield()"
-              />
-            </div>
-          }
+          <div class="battlefield-top-left-controls">
+            @if (focusedOpponentPlayer(); as battlefieldOwner) {
+              <div
+                class="battlefield-owner-summary"
+                data-testid="battlefield-owner-summary"
+                (click)="$event.stopPropagation()"
+                (contextmenu)="$event.stopPropagation()"
+              >
+                <app-player-summary-panel
+                  class="player-summary-panel-context"
+                  [contextLabel]="'game.gameTable.focusedOpponentLabel' | runtimeTranslate"
+                  [returnActionLabel]="'game.gameTable.returnToOwnBattlefield' | runtimeTranslate"
+                  [player]="battlefieldOwner"
+                  [players]="store.players()"
+                  [colorAccent]="colorAccent"
+                  [deckLabel]="deckLabel"
+                  [manaSymbols]="manaSymbols"
+                  [playerCounterValue]="playerCounterValue"
+                  [canEditCounters]="false"
+                  [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+                  (helperPreviewRequested)="showHelperPreview($event)"
+                  (helperPreviewHidden)="store.hideCardPreview()"
+                  (helperContextRequested)="handleHelperContextRequest($event)"
+                  (returnRequested)="returnToCurrentPlayerBattlefield()"
+                />
+              </div>
+            }
 
-          @if (shouldShowRematchVotesButton()) {
-            <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
-              <lucide-icon name="vote" size="16" />
-              <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
-            </button>
-          }
+            @if (canConcedeFromBattlefieldControls()) {
+              <button
+                class="battlefield-concede-button danger-button"
+                data-testid="battlefield-concede"
+                type="button"
+                (click)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
+              >
+                <lucide-icon name="skull" size="16" />
+                <span>{{ 'game.contextMenu.labels.concede' | runtimeTranslate }}</span>
+              </button>
+            }
+
+            @if (shouldShowRematchVotesButton()) {
+              <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
+                <lucide-icon name="vote" size="16" />
+                <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
+              </button>
+            }
+          </div>
 
           <app-focused-battlefield
             [player]="player"
@@ -401,6 +425,7 @@
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 [motionActive]="handMotionActive()"
+                [motionLayoutMode]="handMotionLayoutMode()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="handleHandDropped($event)"
                 (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"
@@ -483,6 +508,7 @@
               [isCardTransferPending]="isCardTransferPending"
               [arrowTargeting]="manualRelationTargetingActive()"
               [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
+              [isOffline]="player.state.isOnline === false"
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
               [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
@@ -541,23 +567,11 @@
       }
 
       <app-modal
-        [open]="closeGameDialogOpen()"
-        [title]="'game.gameTable.closeGame' | runtimeTranslate"
-        message="This finishes the current game and sends the table back to the rooms list."
-        primaryLabel="Close game"
-        secondaryLabel="Cancel"
-        [danger]="true"
-        [lockBodyScroll]="false"
-        (primary)="confirmCloseGame()"
-        (secondary)="cancelCloseGame()"
-      />
-
-      <app-modal
         [open]="tableExitAction() !== null"
         [title]="tableExitTitle()"
         [message]="tableExitMessage()"
         [primaryLabel]="tableExitPrimaryLabel()"
-        secondaryLabel="Cancel"
+        secondaryLabel="common.modal.cancel"
         [danger]="true"
         [lockBodyScroll]="false"
         (primary)="confirmTableExitAction()"
@@ -572,7 +586,6 @@
         [pending]="rematchPending()"
         [playAgainDisabled]="playAgainDisabledByOtherVotes()"
         [countdownSeconds]="rematchCountdownSeconds()"
-        [countdownMode]="rematchCountdownMode()"
         [missingPlayerNames]="rematchMissingVotePlayerNames()"
         (playAgain)="votePlayAgain()"
         (leaveRoom)="abandonRematchRoom()"
@@ -585,8 +598,10 @@
         [targetOnline]="disconnectVote.targetIsOnline()"
         [currentVote]="disconnectVote.currentVote()"
         [players]="disconnectVote.players()"
+        [canVote]="disconnectVote.canVote()"
         [pending]="disconnectVote.pending()"
         [countdownSeconds]="disconnectVote.countdownSeconds()"
+        [voteFinished]="disconnectVote.voteFinished()"
         [error]="disconnectVote.error()"
         (voteWait)="voteDisconnectWait()"
         (voteExpel)="voteDisconnectExpel()"
@@ -633,6 +648,7 @@
 
       @if (rollModalOpen()) {
         <app-roll-modal
+          size="big"
           (rolled)="recordRollResult($event)"
           (closed)="closeRollModal()"
         />
@@ -815,6 +831,7 @@
         [publicPlayers]="store.mulliganPublicPlayers()"
         [pending]="store.mulliganPending()"
         [error]="store.mulliganError()"
+        [ownerBackgroundImage]="gameBackgroundImage(store.currentPlayer())"
         [cardImage]="cardImage"
         (take)="store.takeMulligan()"
         (keep)="store.keepMulligan($event)"
@@ -822,17 +839,22 @@
       />
     }
 
-    @if (store.hoveredPreview(); as preview) {
-      <app-card-preview-overlay
-        [card]="preview.card"
-        [image]="store.cardImage(preview.card)"
-        [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
-        [sourceRect]="preview.sourceRect"
-        [avoidRect]="contextMenuAvoidRect()"
-        [battlefieldRect]="battlefieldLayoutSize()"
-        [attachmentInfo]="hoveredPreviewAttachmentInfo()"
-        [cardStateInfo]="hoveredPreviewCardStateInfo()"
-      />
+    @if (store.pendingLibraryMove() === null) {
+      @if (store.hoveredPreview(); as preview) {
+        @let previewCard = hoveredPreviewCard();
+        <app-card-preview-overlay
+          [card]="previewCard ?? preview.card"
+          [image]="preview.revealFaceDownCard ? store.faceDownPreviewImage(previewCard ?? preview.card) : store.cardImage(previewCard ?? preview.card)"
+          [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
+          [sourceRect]="preview.sourceRect"
+          [avoidRect]="contextMenuAvoidRect()"
+          [battlefieldRect]="battlefieldLayoutSize()"
+          [attachmentInfo]="hoveredPreviewAttachmentInfo()"
+          [cardStateInfo]="hoveredPreviewCardStateInfo()"
+          [revealLabel]="hoveredPreviewRevealLabel()"
+          [showFaceDownPill]="preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true"
+        />
+      }
     }
 
     @if (arrowTargetDialog(); as dialog) {
@@ -853,7 +875,6 @@
         [menu]="menu"
         [currentPlayer]="store.currentPlayer()"
         [players]="store.players()"
-        [isGameOwner]="store.isGameOwner()"
         [counterPresets]="counterPresets"
         [moveZones]="moveZones"
         [isCurrentPlayer]="isCurrentPlayer"

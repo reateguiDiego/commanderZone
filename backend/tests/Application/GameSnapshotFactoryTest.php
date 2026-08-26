@@ -110,48 +110,64 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertSame('*+1', $commander['defaultToughness']);
     }
 
-    public function testPicksTemporaryPlayMatFromCommanderColorIdentity(): void
+    public function testUsesTheDeckDefaultCosmeticsAsIs(): void
     {
         $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity(['G']));
 
-        self::assertMatchesRegularExpression(
-            '/^G_\d+$/',
-            $snapshot['players']['owner-id']['backgroundName'],
-        );
+        self::assertSame(Deck::DEFAULT_BACKGROUND_NAME, $snapshot['players']['owner-id']['backgroundName']);
+        self::assertSame(Deck::DEFAULT_SLEEVES_NAME, $snapshot['players']['owner-id']['sleevesName']);
     }
 
-    public function testPicksTemporaryColorlessPlayMatWhenCommanderIsColorless(): void
+    public function testUsesPersistedCosmeticsForEachDeckAndAllowsSharedPlaymats(): void
     {
-        $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity([]));
+        $owner = new User('owner@example.test', 'Owner');
+        $guest = new User('guest@example.test', 'Guest');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+        $this->setPrivateProperty($guest, 'id', 'guest-id');
+        $room = new Room($owner);
 
-        self::assertMatchesRegularExpression(
-            '/^C_\d+$/',
-            $snapshot['players']['owner-id']['backgroundName'],
-        );
+        $ownerDeck = new Deck($owner, 'Owner Deck');
+        $ownerDeck->setBackgroundName('free_g_2');
+        $ownerDeck->setSleevesName('azorius_1');
+        $guestDeck = new Deck($guest, 'Guest Deck');
+        $guestDeck->setBackgroundName('free_g_2');
+        $guestDeck->setSleevesName('grixis_1');
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $ownerDeck));
+        $room->addPlayer(new RoomPlayer($room, $guest, $guestDeck));
+
+        $snapshot = (new GameSnapshotFactory())->fromRoom($room);
+
+        self::assertSame('free_g_2', $snapshot['players']['owner-id']['backgroundName']);
+        self::assertSame('azorius_1', $snapshot['players']['owner-id']['sleevesName']);
+        self::assertSame('free_g_2', $snapshot['players']['guest-id']['backgroundName']);
+        self::assertSame('grixis_1', $snapshot['players']['guest-id']['sleevesName']);
     }
 
-    public function testPicksTemporaryPlayMatFromOneOfTheCommanderColors(): void
+    public function testReplacesObsoleteDeckPlaymatsWithDistinctFallbacksAtGameCreation(): void
     {
-        $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity(['B', 'G']));
+        $owner = new User('owner@example.test', 'Owner');
+        $this->setPrivateProperty($owner, 'id', 'player-1');
+        $room = new Room($owner);
+        $room->setMaxPlayers(6);
 
-        self::assertMatchesRegularExpression(
-            '/^(B|G)_\d+$/',
-            $snapshot['players']['owner-id']['backgroundName'],
-        );
-    }
+        for ($index = 1; $index <= 6; ++$index) {
+            $player = $index === 1 ? $owner : new User(sprintf('player-%d@example.test', $index), sprintf('Player %d', $index));
+            $this->setPrivateProperty($player, 'id', sprintf('player-%d', $index));
+            $deck = new Deck($player, sprintf('Deck %d', $index));
+            $deck->setBackgroundName(sprintf('G_%d', $index));
+            $room->addPlayer(new RoomPlayer($room, $player, $deck));
+        }
 
-    public function testTemporaryPlayMatsDoNotRepeatInsideSameRoom(): void
-    {
-        $snapshot = $this->snapshotWithTwoCommanders(
-            $this->cardWithColorIdentity(['G']),
-            $this->cardWithColorIdentity(['G']),
-        );
-        $backgroundNames = array_map(
-            static fn (array $player): string => $player['backgroundName'],
-            $snapshot['players'],
-        );
+        $snapshot = (new GameSnapshotFactory())->fromRoom($room);
 
-        self::assertCount(2, array_unique($backgroundNames));
+        self::assertSame(
+            ['free_1', 'free_2', 'free_3', 'free_4', 'free_5', 'free_0'],
+            array_values(array_map(
+                static fn (array $player): string => $player['backgroundName'],
+                $snapshot['players'],
+            )),
+        );
     }
 
     public function testInitialCommanderDamageIsKeyedByEachCommanderInstance(): void
@@ -395,25 +411,6 @@ class GameSnapshotFactoryTest extends TestCase
         $deck->addCard(new DeckCard($deck, $commander, 1, DeckCard::SECTION_COMMANDER));
 
         $room->addPlayer(new RoomPlayer($room, $owner, $deck));
-
-        return (new GameSnapshotFactory())->fromRoom($room);
-    }
-
-    private function snapshotWithTwoCommanders(Card $firstCommander, Card $secondCommander): array
-    {
-        $owner = new User('owner@example.test', 'Owner');
-        $guest = new User('guest@example.test', 'Guest');
-        $this->setPrivateProperty($owner, 'id', 'owner-id');
-        $this->setPrivateProperty($guest, 'id', 'guest-id');
-
-        $room = new Room($owner);
-        $firstDeck = new Deck($owner, 'First Deck');
-        $firstDeck->addCard(new DeckCard($firstDeck, $firstCommander, 1, DeckCard::SECTION_COMMANDER));
-        $secondDeck = new Deck($guest, 'Second Deck');
-        $secondDeck->addCard(new DeckCard($secondDeck, $secondCommander, 1, DeckCard::SECTION_COMMANDER));
-
-        $room->addPlayer(new RoomPlayer($room, $owner, $firstDeck));
-        $room->addPlayer(new RoomPlayer($room, $guest, $secondDeck));
 
         return (new GameSnapshotFactory())->fromRoom($room);
     }

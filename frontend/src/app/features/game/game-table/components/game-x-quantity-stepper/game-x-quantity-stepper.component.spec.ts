@@ -23,6 +23,18 @@ describe('GameXQuantityStepperComponent', () => {
     expect(changes).toEqual([3, 1]);
   });
 
+  it('limits typed values to two digits and the configured max', () => {
+    const fixture = createFixture(2, 1, 7);
+    const changes: number[] = [];
+    fixture.componentInstance.valueChanged.subscribe((value) => changes.push(value));
+
+    input(fixture).value = '123';
+    input(fixture).dispatchEvent(new Event('input'));
+
+    expect(input(fixture).value).toBe('7');
+    expect(changes).toEqual([7]);
+  });
+
   it('disables controls at configured limits', () => {
     const fixture = createFixture(1, 1, 3);
 

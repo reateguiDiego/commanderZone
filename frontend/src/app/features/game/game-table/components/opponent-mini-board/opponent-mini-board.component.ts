@@ -90,6 +90,7 @@ export class OpponentMiniBoardComponent {
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly arrowTargeting = input(false);
   readonly isActiveTurnPlayer = input(false);
+  readonly isOffline = input(false);
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
   readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
@@ -116,6 +117,17 @@ export class OpponentMiniBoardComponent {
 
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
+  }
+
+  revealedZoneCardCount(player: PlayerView, zone: OpponentCountZone): number {
+    if (zone !== 'hand' && zone !== 'library') {
+      return 0;
+    }
+
+    return player.state.zones[zone].filter((card) =>
+      card.hidden !== true
+      && (card.revealMarker === true || (card.revealedTo?.length ?? 0) > 0),
+    ).length;
   }
 
   defeatedBackgroundImageCss(player: PlayerView): string | null {

@@ -1,6 +1,7 @@
 import { RuntimeTranslatePipe } from '../../localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import {
   ROLL_OPTIONS,
   RollKind,
@@ -8,9 +9,11 @@ import {
   rollOption,
 } from './roll';
 
+export type RollModalSize = 'default' | 'big';
+
 @Component({
   selector: 'app-roll-modal',
-  imports: [RuntimeTranslatePipe],
+  imports: [RuntimeTranslatePipe, CzButtonDirective],
   templateUrl: './roll-modal.component.html',
   styleUrl: './roll-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,6 +21,7 @@ import {
 export class RollModalComponent implements OnInit, OnDestroy {
   private readonly bodyScrollLock = inject(BodyScrollLockService);
 
+  readonly size = input<RollModalSize>('default');
   readonly closed = output<void>();
   readonly rolled = output<RollResult>();
   readonly rollOptions = ROLL_OPTIONS;

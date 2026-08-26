@@ -170,13 +170,14 @@
                       [hasCommanderArt]="store.deckCommanderImage(item.deck) !== null"
                       [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
                       [hasIssues]="store.deckHasIssues(item.deck)"
-                      [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                    [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                    [bracket]="item.deck.bracket ?? null"
                       metricsMode="owner"
                       (openDeck)="store.openDeck(item.deck)"
                     />
                     <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                       <app-tooltip [text]="'deckBuilder.deckList.editDeck' | runtimeTranslate">
-                        <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); store.openDeckEditModal(item.deck)">
+                        <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); openDeckEditModal(item.deck)">
                           <lucide-icon name="pencil" size="16" />
                         </button>
                       </app-tooltip>
@@ -235,12 +236,13 @@
                     [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
                     [hasIssues]="store.deckHasIssues(deck)"
                     [issueTooltip]="store.deckIssueTooltip(deck)"
+                    [bracket]="deck.bracket ?? null"
                     metricsMode="owner"
                     (openDeck)="store.openDeck(deck)"
                   />
                   <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                     <app-tooltip [text]="'deckBuilder.deckList.editDeck' | runtimeTranslate">
-                      <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); store.openDeckEditModal(deck)">
+                      <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); openDeckEditModal(deck)">
                         <lucide-icon name="pencil" size="16" />
                       </button>
                     </app-tooltip>
@@ -273,14 +275,14 @@
     (primary)="submitCreateModal()"
     (secondary)="cancelCreateFlow()"
   >
-    @if (playmatEditorOpen()) {
+    @if (createPlaymatEditorOpen()) {
       <app-create-playmat-spoiler
         [selectedPlaymatPath]="draftPlaymatPath()"
         [initialPlaymatPath]="selectedPlaymatPath()"
         (playmatSelected)="selectDraftPlaymat($event)"
         (save)="savePlaymatSelection()"
       />
-    } @else if (sleeveEditorOpen()) {
+    } @else if (createSleeveEditorOpen()) {
       <app-create-sleeve-spoiler
         [selectedSleevePath]="draftSleevePath()"
         [initialSleevePath]="selectedSleevePath()"
@@ -551,13 +553,32 @@
 
   <app-modal
     [open]="store.deckEditModalOpen()"
-    [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate"
+    [title]="editModalTitle()"
     primaryLabel="common.actions.save"
     secondaryLabel="common.modal.cancel"
+    [showPrimary]="editPlaymatEditorOpen() === false && editSleeveEditorOpen() === false"
+    [showSecondary]="editPlaymatEditorOpen() === false && editSleeveEditorOpen() === false"
+    [showBackButton]="editPlaymatEditorOpen() || editSleeveEditorOpen()"
     [primaryDisabled]="!store.canSaveDeckEdit()"
+    (back)="closeCosmeticEditor()"
     (primary)="store.saveDeckEdit()"
     (secondary)="store.closeDeckEditModal()"
   >
+    @if (editPlaymatEditorOpen()) {
+      <app-create-playmat-spoiler
+        [selectedPlaymatPath]="editDraftPlaymatPath()"
+        [initialPlaymatPath]="editSelectedPlaymatPath()"
+        (playmatSelected)="selectDraftPlaymat($event)"
+        (save)="savePlaymatSelection()"
+      />
+    } @else if (editSleeveEditorOpen()) {
+      <app-create-sleeve-spoiler
+        [selectedSleevePath]="editDraftSleevePath()"
+        [initialSleevePath]="editSelectedSleevePath()"
+        (sleeveSelected)="selectDraftSleeve($event)"
+        (save)="saveSleeveSelection()"
+      />
+    } @else {
     <div class="form-stack deck-modal-form">
       <label>
         {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
@@ -583,10 +604,60 @@
         privateSubtitle="common.visibility.visibilityChoice.privateOnlyYouSubtitle"
       />
 
+      <div class="create-cosmetics-row">
+        <div class="create-cosmetics-previews" aria-label="Deck visual previews">
+          <app-tooltip [text]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate" [stretch]="true">
+            <button
+              class="create-cosmetics-preview"
+              type="button"
+              [attr.aria-label]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate"
+              (click)="openPlaymatEditor('edit')"
+            >
+              <span class="field-label create-cosmetics-preview-label">
+                {{ 'deckBuilder.deckList.playmat' | runtimeTranslate }}
+                <lucide-icon class="create-cosmetics-edit-icon" name="pencil" size="13" aria-hidden="true" />
+              </span>
+              <img
+                class="create-cosmetics-preview-image create-cosmetics-preview-image--playmat"
+                [src]="editSelectedPlaymatPath()"
+                [alt]="'deckBuilder.deckList.playmat' | runtimeTranslate"
+                width="196"
+                height="110"
+                loading="lazy"
+                decoding="async"
+              />
+            </button>
+          </app-tooltip>
+          <app-tooltip [text]="'deckBuilder.deckList.editSleeve' | runtimeTranslate" [stretch]="true">
+            <button
+              class="create-cosmetics-preview"
+              type="button"
+              [attr.aria-label]="'deckBuilder.deckList.editSleeve' | runtimeTranslate"
+              (click)="openSleeveEditor('edit')"
+            >
+              <span class="field-label create-cosmetics-preview-label">
+                {{ 'deckBuilder.deckList.sleeve' | runtimeTranslate }}
+                <lucide-icon class="create-cosmetics-edit-icon" name="pencil" size="13" aria-hidden="true" />
+              </span>
+              <img
+                class="create-cosmetics-preview-image create-cosmetics-preview-image--sleeve"
+                [src]="editSelectedSleevePath()"
+                [alt]="'deckBuilder.deckList.sleeve' | runtimeTranslate"
+                width="78"
+                height="110"
+                loading="lazy"
+                decoding="async"
+              />
+            </button>
+          </app-tooltip>
+        </div>
+      </div>
+
       @if (store.shouldWarnEditDeckPublicInPrivateFolder()) {
         <p class="notice warning compact-notice">{{ 'deckBuilder.deckList.thisDeckIsPublicButItsFolder' | runtimeTranslate }}</p>
       }
     </div>
+    }
   </app-modal>
 
   <app-modal

@@ -24,6 +24,7 @@ describe('GameTableWebsocketGameplayService', () => {
   let setErrorSpy: ReturnType<typeof vi.fn<(message: string | null) => void>>;
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let onMulliganPatchV2AppliedSpy: ReturnType<typeof vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>>;
+  let onLibraryRevealedSpy: ReturnType<typeof vi.fn<(playerId: string) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
   let consoleDebugSpy: ReturnType<typeof vi.spyOn>;
   let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
@@ -35,6 +36,7 @@ describe('GameTableWebsocketGameplayService', () => {
   };
   const cardsApi = {
     getSilently: vi.fn(),
+    getManySilently: vi.fn(),
   };
 
   beforeEach(() => {
@@ -51,6 +53,7 @@ describe('GameTableWebsocketGameplayService', () => {
 
     messages = new Subject<GameplayServerMessage>();
     cardsApi.getSilently.mockReset();
+    cardsApi.getManySilently.mockReset();
     gameplayV2Flags.enabled.mockReset();
     gameplayV2Flags.enabled.mockReturnValue(false);
     status = signal('connected');
@@ -64,6 +67,7 @@ describe('GameTableWebsocketGameplayService', () => {
     };
     onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
     onMulliganPatchV2AppliedSpy = vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>();
+    onLibraryRevealedSpy = vi.fn<(playerId: string) => void>();
     consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -183,6 +187,38 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].life).toBe(38);
     expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('emits remote V2 patches for battlefield arrival animations', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    TestBed.inject(GameTableNormalizedV2Store).applyBootstrap(bootstrapV2());
+    const animationBus = TestBed.inject(GameTableRealtimeAnimationBusService);
+    const patchAnimation = vi.fn();
+    const subscription = animationBus.patchAnimation$.subscribe(patchAnimation);
+
+    try {
+      messages.next({
+        kind: 'patch.v2',
+        gameId: 'game-1',
+        version: 2,
+        visibility: 'public',
+        ops: [{
+          op: 'card.field.set',
+          playerId: 'player-1',
+          zone: 'battlefield',
+          instanceId: 'battlefield-1',
+          loyalty: 4,
+        }],
+      });
+
+      await vi.waitFor(() => expect(patchAnimation).toHaveBeenCalledTimes(1));
+      expect(patchAnimation).toHaveBeenCalledWith(expect.objectContaining({
+        patch: expect.objectContaining({ kind: 'patch.v2' }),
+        isLocalPatch: false,
+      }));
+    } finally {
+      subscription.unsubscribe();
+    }
   });
 
   it('resolves visible private runtime card cache misses without snapshot refetch', async () => {
@@ -1387,7 +1423,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
-  it('sends relation and game close commands over websocket and applies small patches without snapshot refetch', async () => {
+  it('sends relation commands over websocket and applies small patches without snapshot refetch', async () => {
     const sent = service.sendCommand(context(), 'arrow.created', {
       fromInstanceId: 'battlefield-1',
       toInstanceId: 'battlefield-2',
@@ -1414,26 +1450,42 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.arrows).toEqual([expect.objectContaining({ id: 'arrow-1', ownerId: 'player-1' })]);
     expect(refetchSpy).not.toHaveBeenCalled();
 
-    const closeSent = service.sendCommand(context(), 'game.close', {});
-    const closeMessage = sentMessage();
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
 
-    expect(closeMessage.command.type).toBe('game.close');
-    expect(closeMessage.command.baseVersion).toBe(2);
+  it('opens an authorized library reveal after one bulk catalog hydration', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+    cardsApi.getManySilently.mockReturnValue(of({ cards: [catalogCard('unresolved', 'Resolved library card')] }));
 
     messages.next({
-      kind: 'game_patch',
+      kind: 'patch.v2',
       gameId: 'game-1',
-      baseVersion: 2,
-      version: 3,
-      clientActionId: closeMessage.command.clientActionId,
-      operations: [{
-        op: 'eventLog.append',
-        entries: [{ id: 'log-close', type: 'game.close', message: 'Closed the game.', actorId: 'player-1', displayName: 'Player 1', createdAt: '2026-01-01T00:00:01.000Z' }],
+      version: 1,
+      visibility: 'player:player-2',
+      ops: [{
+        op: 'library.revealed.set',
+        playerId: 'player-1',
+        revealedTo: ['player-2'],
+        cards: [{
+          instanceId: 'library-1',
+          cardRef: 'card:unresolved',
+          cardKey: 'card:unresolved',
+          printId: 'unresolved',
+          cardVersion: 'unresolved-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          zoneId: 'player-1:library',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
       }],
     });
-    await closeSent;
 
-    expect(snapshotState.eventLog.map((entry) => entry.id)).toContain('log-close');
+    await vi.waitFor(() => expect(onLibraryRevealedSpy).toHaveBeenCalledWith('player-1'));
+    expect(snapshotState.players['player-1'].zones.library[0]?.instanceId).toBe('library-1');
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['unresolved']);
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
@@ -1492,7 +1544,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(player.playTopLibraryRevealed).toBe(true);
     expect(player.revealedLibraryTo).toEqual(['all']);
     expect(player.zones.library.map((entry) => entry.instanceId)).toEqual(['library-visible']);
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('default');
     expect(refetchSpy).not.toHaveBeenCalled();
   });
@@ -1539,7 +1591,7 @@ describe('GameTableWebsocketGameplayService', () => {
           ...snapshotState.players,
           'player-1': {
             ...snapshotState.players['player-1'],
-            backgroundName: 'R_1',
+            backgroundName: 'r_1',
             sleevesName: 'custom-sleeves',
             zones: {
               ...snapshotState.players['player-1'].zones,
@@ -1566,7 +1618,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).toHaveBeenCalledTimes(1);
     expect(refetchSpy).toHaveBeenCalledWith(true);
     expect(snapshotState.version).toBe(8);
-    expect(snapshotState.players['player-1'].backgroundName).toBe('R_1');
+    expect(snapshotState.players['player-1'].backgroundName).toBe('r_1');
     expect(snapshotState.players['player-1'].sleevesName).toBe('custom-sleeves');
     expect(snapshotState.players['player-1'].zones.battlefield[0]?.position).toEqual({ x: 0.42, y: 0.24, unit: 'ratio' });
   });
@@ -2192,6 +2244,7 @@ describe('GameTableWebsocketGameplayService', () => {
       setError,
       onCommandBlocked: (reason, type, payload) => onCommandBlockedSpy(reason, type, payload),
       onMulliganPatchV2Applied: (patch, snapshot) => onMulliganPatchV2AppliedSpy(patch, snapshot),
+      onLibraryRevealed: (playerId) => onLibraryRevealedSpy(playerId),
     };
   }
 });
@@ -2203,7 +2256,7 @@ function snapshot(): GameSnapshot {
     players: {
       'player-1': {
         user: { id: 'player-1', email: 'player1@example.test', displayName: 'Player 1', roles: [] },
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         sleevesName: 'default',
         life: 40,
         zones: {
@@ -2244,7 +2297,7 @@ function snapshot(): GameSnapshot {
       },
       'player-2': {
         user: { id: 'player-2', email: 'player2@example.test', displayName: 'Player 2', roles: [] },
-        backgroundName: 'U_1',
+        backgroundName: 'u_1',
         sleevesName: 'default',
         life: 40,
         zones: {

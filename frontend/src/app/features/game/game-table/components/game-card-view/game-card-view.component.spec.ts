@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
+import { CircleQuestionMark, Eye, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -25,6 +25,19 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
 
     expect(cardElement.classList.contains('hover-lifted')).toBe(true);
+  });
+
+  it('shows an icon-only reveal indicator, including on a face-down card', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('revealMarker', true);
+    fixture.componentRef.setInput('faceDown', true);
+    fixture.detectChanges();
+
+    const indicator = fixture.nativeElement.querySelector('.reveal-indicator') as HTMLElement | null;
+    expect(indicator).not.toBeNull();
+    expect(indicator?.textContent).not.toContain('Revealed to');
+    expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
   });
 
   it('keeps a hovered hand card lifted when clicked to avoid a selection bounce', async () => {
@@ -811,7 +824,7 @@ describe('GameCardViewComponent', () => {
     open.mockRestore();
   });
 
-  it('plays face flip animation for active face and face-down changes', async () => {
+  it('plays face flip animation when the active face changes', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
 
@@ -826,21 +839,6 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
     expectFlipThenClear();
 
-    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: true });
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: false });
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('faceDown', true);
-    fixture.detectChanges();
-    expectFlipThenClear();
-
-    fixture.componentRef.setInput('faceDown', false);
-    fixture.detectChanges();
-    expect(cardElement.classList).toContain('face-flipping');
   });
 
   it('shows a centered face look affordance for double-faced cards and previews the other face', async () => {
@@ -908,7 +906,7 @@ describe('GameCardViewComponent', () => {
   it('shows a smaller face look affordance in mini mode and emits the alternate preview request', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -1288,6 +1286,35 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
   });
 
+  it('does not change loyalty or saga counters when the card is readonly', async () => {
+    const { fixture } = await renderHandCard();
+    const loyaltyChanged = vi.fn();
+    const sagaChanged = vi.fn();
+    fixture.componentInstance.loyaltyChanged.subscribe(loyaltyChanged);
+    fixture.componentInstance.sagaChanged.subscribe(sagaChanged);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('countersEditable', false);
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    fixture.componentInstance.changeLoyalty(new MouseEvent('pointerup'), 1);
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
+    expect(sagaChanged).not.toHaveBeenCalled();
+    expect(loyaltyChanged).not.toHaveBeenCalled();
+  });
+
   it('closes the active preview when a saga counter is clicked', async () => {
     const { fixture } = await renderHandCard();
     const previewRequested = vi.fn();
@@ -1393,7 +1420,7 @@ describe('GameCardViewComponent', () => {
   it('does not render marker rails in mini mode', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -1417,7 +1444,7 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);

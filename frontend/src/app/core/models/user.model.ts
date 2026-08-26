@@ -25,6 +25,7 @@ export interface UserGamePreferences {
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
   enableStackMana: boolean;
+  autoApplyCommanderDamageToLife: boolean;
   gameAnimations: boolean;
   chatNotificationSounds: boolean;
 }

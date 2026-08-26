@@ -156,6 +156,30 @@ describe('GameTableWebsocketTransportService', () => {
     expect(JSON.stringify((console.info as unknown as { mock: { calls: unknown[][] } }).mock.calls)).not.toContain('ticket-1');
   });
 
+  it('retains the latest websocket player presence for the active game', async () => {
+    await service.connect('game-1');
+
+    sockets[0].emitMessage({
+      kind: 'player_presence_changed',
+      gameId: 'game-1',
+      playerId: 'user-2',
+      displayName: 'Opponent',
+      status: 'offline',
+      changedAt: '2026-01-01T00:00:00Z',
+    });
+    expect(service.playerOnlineByPlayerId()).toEqual({ 'user-2': false });
+
+    sockets[0].emitMessage({
+      kind: 'player_presence_changed',
+      gameId: 'game-1',
+      playerId: 'user-2',
+      displayName: 'Opponent',
+      status: 'online',
+      changedAt: '2026-01-01T00:01:00Z',
+    });
+    expect(service.playerOnlineByPlayerId()).toEqual({ 'user-2': true });
+  });
+
   it('adapts legacy runtime type patch messages into explicit kind patch.v2 messages', async () => {
     const messages = receivedMessages(service);
 

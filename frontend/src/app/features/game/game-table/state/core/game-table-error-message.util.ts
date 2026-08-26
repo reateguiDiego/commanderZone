@@ -42,5 +42,9 @@ export function gameTableErrorMessage(error: unknown): string {
     return 'La accion ya no es valida en el estado actual.';
   }
 
+  if (haystack.includes('invalid payload field: disconnectvote')) {
+    return 'La votacion ya no esta disponible porque el jugador se ha reconectado.';
+  }
+
   return message || fallback || 'Action failed.';
 }

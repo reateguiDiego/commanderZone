@@ -27,7 +27,6 @@ class GameCommandHandler
     private const MULLIGAN_STATUS_READY = 'READY';
     private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
     private const MAX_CARD_COUNTER_TYPES = 5;
-    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
     private const THE_RING_SCRYFALL_ID = '7215460e-8c06-47d0-94e5-d1832d0218af';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
@@ -41,7 +40,6 @@ class GameCommandHandler
     ];
     private const SUPPORTED_COMMANDS = [
         'game.concede',
-        'game.close',
         'mulligan.take',
         'mulligan.keep',
         'mulligan.scry_confirm',
@@ -131,8 +129,6 @@ class GameCommandHandler
      * @var array<string,mixed>|null
      */
     private ?array $pendingEventPayload = null;
-    private ?string $pendingDefeatedPlayerId = null;
-    private bool $pendingDefeatPreexisted = false;
     private int $fullScanCount = 0;
     /**
      * @var array<string,mixed>|null
@@ -254,8 +250,6 @@ class GameCommandHandler
             $log = null;
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
 
@@ -272,7 +266,6 @@ class GameCommandHandler
             } else {
                 match ($type) {
                     'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
-                    'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
                     'mulligan.take' => $log = $this->applyMulliganTake($snapshot, $actor),
                     'mulligan.keep' => $log = $this->applyMulliganKeep($snapshot, $payload, $actor),
                     'mulligan.scry_confirm' => $log = $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
@@ -409,6 +402,9 @@ class GameCommandHandler
             ? $mulliganRule
             : Room::DEFAULT_MULLIGAN_RULE;
         $snapshot['mulligan']['firstMulliganFree'] = (bool) ($snapshot['mulligan']['firstMulliganFree'] ?? false);
+        // Go owns these independently by target player. Keep the compact
+        // runtime shape intact when Symfony projects/bootstrap snapshots.
+        $snapshot['disconnectVotes'] = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
@@ -435,6 +431,11 @@ class GameCommandHandler
             $player['backgroundName'] = $this->visualName($player['backgroundName'] ?? null, Deck::DEFAULT_BACKGROUND_NAME);
             $player['sleevesName'] = $this->visualName($player['sleevesName'] ?? null, Deck::DEFAULT_SLEEVES_NAME);
             $player['playTopLibraryRevealed'] = (bool) ($player['playTopLibraryRevealed'] ?? false);
+			if (is_array($player['playTopLibraryRevealedTo'] ?? null)) {
+				$player['playTopLibraryRevealedTo'] = array_values(array_filter($player['playTopLibraryRevealedTo'], static fn (mixed $viewerId): bool => is_string($viewerId) && $viewerId !== ''));
+			} else {
+				unset($player['playTopLibraryRevealedTo']);
+			}
             $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null) ? array_values($player['revealedLibraryTo']) : [];
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
@@ -934,17 +935,6 @@ class GameCommandHandler
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
     }
 
-    private function applyGameClose(array &$snapshot, Game $game, User $actor): string
-    {
-        if ($game->room()->owner()->id() !== $actor->id()) {
-            throw new \InvalidArgumentException('Only the room owner can close the game.');
-        }
-
-        $game->finish();
-
-        return 'Closed the game.';
-    }
-
     private function applyChatMessage(array &$snapshot, array $payload, User $actor): ?string
     {
         $message = trim((string) ($payload['message'] ?? ''));
@@ -1120,13 +1110,6 @@ class GameCommandHandler
             ? (int) $payload['life']
             : $oldLife + (int) ($payload['delta'] ?? 0);
         $snapshot['players'][$playerId]['life'] = $newLife;
-        if ($oldLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
-            $this->pendingDefeatedPlayerId = $playerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($oldLife > 0 && $newLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
-            $this->pendingDefeatedPlayerId = $playerId;
-        }
-
         return $this->lifeChangeLog($oldLife, $newLife);
     }
 
@@ -1156,16 +1139,6 @@ class GameCommandHandler
             'commanderInstanceId' => $commanderInstanceId,
             'damage' => $nextDamage,
         ];
-        if ($current >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)) {
-            $this->pendingDefeatedPlayerId = $targetPlayerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($current < self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
-            && $nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
-            && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)
-        ) {
-            $this->pendingDefeatedPlayerId = $targetPlayerId;
-        }
-
         return $this->commanderDamageLog(
             sprintf('%s (%s)', $this->cardLogName($commander), $this->playerName($snapshot, $sourcePlayerId)),
             $this->playerName($snapshot, $targetPlayerId),
@@ -1748,12 +1721,42 @@ class GameCommandHandler
 
     private function applyCardRevealed(array &$snapshot, array $payload): string
     {
-        $location = $this->requiredCardLocation($snapshot, $payload);
-        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
-        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
-        $card['revealedTo'] = $targets;
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        $instanceIds = $this->revealedCardInstanceIds($payload);
+        $locations = [];
 
-        return sprintf('ha revelado una carta a %s.', $this->visibilityTargetLabel($snapshot, $targets));
+        foreach ($instanceIds as $instanceId) {
+            $location = $this->assertLocation($snapshot, $instanceId, $zone);
+            if ($location['playerId'] !== $playerId) {
+                throw new \InvalidArgumentException('Card not found.');
+            }
+            $locations[] = $location;
+        }
+
+        if (($payload['revealed'] ?? true) === false) {
+            foreach ($locations as $location) {
+                $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']]['revealedTo'] = [];
+            }
+
+            return count($locations) === 1
+                ? 'ha dejado de revelar una carta.'
+                : sprintf('ha dejado de revelar %d cartas.', count($locations));
+        }
+
+        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
+        foreach ($locations as $location) {
+            $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']]['revealedTo'] = $targets;
+        }
+        $count = count($locations);
+        $this->pendingLogContext = $this->revealedCardLogContext($snapshot, $playerId, $targets, $count);
+
+        return sprintf(
+            'ha revelado %d carta%s a %s.',
+            $count,
+            $count === 1 ? '' : 's',
+            $this->visibilityTargetLabel($snapshot, $targets),
+        );
     }
 
     private function applyTokenCopyCreated(array &$snapshot, array $payload, User $actor): string
@@ -2435,6 +2438,15 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $enabled = (bool) ($payload['enabled'] ?? true);
         $snapshot['players'][$playerId]['playTopLibraryRevealed'] = $enabled;
+		if ($enabled) {
+			$to = $payload['to'] ?? 'all';
+			$viewers = $to === 'all'
+				? array_keys($snapshot['players'])
+				: (is_string($to) && isset($snapshot['players'][$to]) ? [$to] : []);
+			$snapshot['players'][$playerId]['playTopLibraryRevealedTo'] = array_values($viewers);
+		} else {
+			unset($snapshot['players'][$playerId]['playTopLibraryRevealedTo']);
+		}
 
         return $enabled
             ? 'juega con la top card de su library revelada.'
@@ -2876,46 +2888,11 @@ class GameCommandHandler
         $snapshot['version'] = ((int) ($snapshot['version'] ?? 1)) + 1;
         $snapshot['updatedAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
 
-        $actorId = $actor->id();
-        $actorIsDefeated = $this->playerIsDefeated($snapshot, $actorId);
-        $deathAlreadyLogged = $this->hasPlayerDefeatedLog($snapshot, $actorId);
-        $deathPending = $this->pendingDefeatedPlayerId === $actorId && !$deathAlreadyLogged;
-        if ($deathAlreadyLogged) {
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
-        if ($this->pendingDefeatPreexisted && $deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
-        if ($actorIsDefeated && !$deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-            $this->pendingLogContext = [];
-            $this->pendingEventPayload = null;
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
-            return;
-        }
-
         if ($message !== null && $message !== '') {
             $this->appendLogEntry($snapshot, $type, $message, $actor, $this->pendingLogContext);
         }
-        if ($deathPending) {
-            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
-        }
         $this->pendingLogContext = [];
         $this->pendingEventPayload = null;
-        $this->pendingDefeatedPlayerId = null;
-        $this->pendingDefeatPreexisted = false;
     }
 
     /**
@@ -2969,27 +2946,6 @@ class GameCommandHandler
         }
 
         return trim($message);
-    }
-
-    private function hasPlayerDefeatedLog(array $snapshot, string $playerId): bool
-    {
-        foreach ($snapshot['eventLog'] ?? [] as $entry) {
-            if (($entry['type'] ?? null) === 'player.defeated' && ($entry['actorId'] ?? null) === $playerId) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function playerIsDefeated(array $snapshot, string $playerId): bool
-    {
-        return GameTurnSuccession::playerIsDefeated($snapshot, $playerId);
-    }
-
-    private function playerDefeatedMessage(array $snapshot, string $playerId): string
-    {
-        return sprintf('%s ha muerto.', $this->playerName($snapshot, $playerId));
     }
 
     private function playerIsAliveForTurn(array $snapshot, string $playerId): bool
@@ -3069,6 +3025,7 @@ class GameCommandHandler
         $state = GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken);
         $snapshot['players'][$playerId]['mulligan'] = [
             ...$state,
+            'firstMulliganFree' => $firstMulliganFree,
             'status' => $status,
             'ready' => $status === self::MULLIGAN_STATUS_READY,
             'scryCardInstanceId' => $status === self::MULLIGAN_STATUS_SCRYING && $scryCardInstanceId !== ''
@@ -3970,6 +3927,26 @@ class GameCommandHandler
         return $location;
     }
 
+    /**
+     * @return list<string>
+     */
+    private function revealedCardInstanceIds(array $payload): array
+    {
+        $instanceIds = is_array($payload['instanceIds'] ?? null)
+            ? $payload['instanceIds']
+            : [$payload['instanceId'] ?? null];
+        $normalizedIds = array_values(array_unique(array_filter(
+            $instanceIds,
+            static fn (mixed $instanceId): bool => is_string($instanceId) && trim($instanceId) !== '',
+        )));
+
+        if ($normalizedIds === []) {
+            throw new \InvalidArgumentException('instanceId or instanceIds is required.');
+        }
+
+        return array_map(static fn (string $instanceId): string => trim($instanceId), $normalizedIds);
+    }
+
     private function requiredPlayerId(array $snapshot, array $payload, string $key = 'playerId'): string
     {
         $playerId = $this->resolveSnapshotPlayerId($snapshot, $payload[$key] ?? null);
@@ -4064,10 +4041,10 @@ class GameCommandHandler
         if ($actorPlayerId === null) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
-        if ($type === 'game.concede' || $type === 'game.close') {
+        if ($type === 'game.concede') {
             return;
         }
-        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled'], true)) {
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
         }
 
@@ -4129,7 +4106,7 @@ class GameCommandHandler
         $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
         $isMulliganCommand = in_array($type, self::MULLIGAN_COMMANDS, true);
         if ($gamePhase === self::GAME_PHASE_MULLIGAN) {
-            if ($isMulliganCommand || in_array($type, ['game.concede', 'game.close', 'chat.message', 'chat.reaction.toggled'], true)) {
+            if ($isMulliganCommand || in_array($type, ['game.concede', 'chat.message', 'chat.reaction.toggled'], true)) {
                 return;
             }
 
@@ -4273,6 +4250,36 @@ class GameCommandHandler
         $names = array_values(array_map(fn (string $playerId): string => $this->playerName($snapshot, $playerId), $targets));
 
         return $names === [] ? 'todos' : implode(', ', $names);
+    }
+
+    /**
+     * @param list<string> $targets
+     *
+     * @return array<string,mixed>
+     */
+    private function revealedCardLogContext(array $snapshot, string $playerId, array $targets, int $count): array
+    {
+        $recipientPlayerIds = array_values(array_filter($targets, static fn (string $target): bool => $target !== 'all'));
+        $referencedPlayerIds = array_values(array_unique([$playerId, ...$recipientPlayerIds]));
+        $players = [];
+        foreach ($referencedPlayerIds as $referencedPlayerId) {
+            $players[$referencedPlayerId] = [
+                'id' => $referencedPlayerId,
+                'displayName' => $this->playerName($snapshot, $referencedPlayerId),
+            ];
+        }
+
+        return [
+            'i18nKey' => $count === 1 ? 'gameLog.card.revealed' : 'gameLog.card.revealedMany',
+            'params' => [
+                'actorPlayerId' => $playerId,
+                'playerId' => $playerId,
+                'recipientPlayerIds' => $recipientPlayerIds,
+                'revealAudience' => in_array('all', $targets, true) ? 'all' : 'players',
+                'count' => $count,
+            ],
+            'refs' => ['players' => $players],
+        ];
     }
 
     private function playerName(array $snapshot, string $playerId): string
@@ -4463,6 +4470,7 @@ class GameCommandHandler
     {
         return [
             'rule' => is_string($state['rule'] ?? null) ? $state['rule'] : null,
+            'firstMulliganFree' => ($state['firstMulliganFree'] ?? false) === true,
             'mulligansTaken' => max(0, (int) ($state['mulligansTaken'] ?? 0)),
             'effectiveMulligans' => max(0, (int) ($state['effectiveMulligans'] ?? 0)),
             'drawCount' => max(0, (int) ($state['drawCount'] ?? 0)),
@@ -4911,17 +4919,6 @@ class GameCommandHandler
         return $this->requiredCardLocation($snapshot, $payload);
     }
 
-    public function v2HasPlayerDefeatedLog(array $snapshot, string $playerId): bool
-    {
-        return $this->hasPlayerDefeatedLog($snapshot, $playerId);
-    }
-
-    public function v2MarkPendingDefeatedPlayer(string $playerId, bool $preexisted = false): void
-    {
-        $this->pendingDefeatedPlayerId = $playerId;
-        $this->pendingDefeatPreexisted = $preexisted;
-    }
-
     public function v2LifeChangeLog(int $from, int $to): string
     {
         return $this->lifeChangeLog($from, $to);
@@ -5289,6 +5286,14 @@ class GameCommandHandler
     public function v2LibraryRevealTopData(array &$snapshot, array $payload): array
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
+        if (($payload['stop'] ?? false) === true) {
+            $this->libraryOps->clearReveals($snapshot['players'][$playerId]);
+            return [
+                'log' => 'Stopped revealing the top library card.',
+                'eventPayload' => ['playerId' => $playerId, 'stop' => true],
+                'operations' => [['op' => 'library.top.reveal_marker.set', 'playerId' => $playerId, 'revealed' => false]],
+            ];
+        }
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
         $revealed = $this->libraryOps->revealTop($snapshot['players'][$playerId], $count, $targets);
@@ -5299,7 +5304,13 @@ class GameCommandHandler
             'count' => $revealed,
             'cards' => $cards,
         ];
+        $markerOperation = [
+            'op' => 'library.top.reveal_marker.set',
+            'playerId' => $playerId,
+            'revealed' => $revealed > 0,
+        ];
         $emitter = new CommandV2\PatchEmitterV2();
+        $emitter->emitPublic($markerOperation);
         if (in_array('all', $targets, true)) {
             $emitter->emitPublic($operation);
         } elseif (count($targets) === 1) {
@@ -5310,6 +5321,24 @@ class GameCommandHandler
                 $emitter->emitGroup($mask, $operation);
             }
         }
+        $replayEntries = [[
+            'visibility' => 'public',
+            'op' => $markerOperation,
+        ]];
+        $replayEntries[] = in_array('all', $targets, true)
+            ? [
+                'visibility' => 'public',
+                'op' => $operation,
+            ]
+            : (count($targets) === 1
+                ? [
+                    'visibility' => 'player:'.$targets[0],
+                    'op' => $operation,
+                ]
+                : [
+                    'visibility' => 'group:'.$this->v2VisibilityTargetsMask($snapshot, $targets),
+                    'op' => $operation,
+                ]);
 
         return [
             'log' => sprintf(
@@ -5328,20 +5357,7 @@ class GameCommandHandler
             'groupPayloads' => $emitter->groupPayloads(),
             'eventStorePayload' => [
                 'replay' => [
-                    'entries' => in_array('all', $targets, true)
-                        ? [[
-                            'visibility' => 'public',
-                            'op' => $operation,
-                        ]]
-                        : (count($targets) === 1
-                            ? [[
-                                'visibility' => 'player:'.$targets[0],
-                                'op' => $operation,
-                            ]]
-                            : [[
-                                'visibility' => 'group:'.$this->v2VisibilityTargetsMask($snapshot, $targets),
-                                'op' => $operation,
-                            ]]),
+                    'entries' => $replayEntries,
                 ],
             ],
         ];
@@ -6262,8 +6278,6 @@ class GameCommandHandler
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
             $this->pendingMulliganEventData = [];
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
             $this->ensureLocationIndex($snapshot);
@@ -6363,8 +6377,6 @@ class GameCommandHandler
         $startedAt = microtime(true);
         $pendingLogContext = $this->pendingLogContext;
         $pendingEventPayload = $this->pendingEventPayload;
-        $pendingDefeatedPlayerId = $this->pendingDefeatedPlayerId;
-        $pendingDefeatPreexisted = $this->pendingDefeatPreexisted;
         $pendingStreamLogEntries = $this->pendingStreamLogEntries;
         try {
             $shadowSnapshot = $this->prepareSnapshotForV2($snapshotBefore);
@@ -6406,8 +6418,6 @@ class GameCommandHandler
         } finally {
             $this->pendingLogContext = $pendingLogContext;
             $this->pendingEventPayload = $pendingEventPayload;
-            $this->pendingDefeatedPlayerId = $pendingDefeatedPlayerId;
-            $this->pendingDefeatPreexisted = $pendingDefeatPreexisted;
             $this->pendingStreamLogEntries = $pendingStreamLogEntries;
         }
     }
@@ -6475,8 +6485,6 @@ class GameCommandHandler
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
             $this->pendingMulliganEventData = [];
-            $this->pendingDefeatedPlayerId = null;
-            $this->pendingDefeatPreexisted = false;
             $this->pendingStreamLogEntries = [];
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
@@ -6653,7 +6661,6 @@ class GameCommandHandler
             case 'helper.updated':
             case 'helper.removed':
             case 'zone.random_card.selected':
-            case 'game.close':
             case 'game.concede':
                 return;
 

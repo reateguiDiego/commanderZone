@@ -174,7 +174,7 @@ describe('game realtime contract', () => {
     const snapshot = snapshotFixture();
 
     expect(snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
-    expect(snapshot.players['player-1'].backgroundName).toBe('G_3');
+    expect(snapshot.players['player-1'].backgroundName).toBe('g_3');
   });
 
   it('defines card position patches by instanceId and preserves ratio coordinates', () => {
@@ -416,7 +416,7 @@ function snapshotFixture(): GameSnapshot {
         user: { id: 'player-1', email: 'player-1@example.test', displayName: 'Player 1', roles: [] },
         deckName: 'Test Deck',
         colorIdentity: ['G'],
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         sleevesName: 'custom-sleeves',
         life: 40,
         zones: {

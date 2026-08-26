@@ -66,7 +66,7 @@ class ScryfallSyncCommand extends Command
         }
 
         $cards = $this->bulkDataClient->loadBulkItems($bulkType, is_string($file) && $file !== '' ? $file : null);
-        $oracleIdsWithRulings = $this->oracleIdsWithRulings(
+        [$oracleIdsWithRulings, $rulingsMetadataAvailable] = $this->oracleIdsWithRulings(
             is_string($rulingsFile) && trim($rulingsFile) !== '' ? trim($rulingsFile) : null,
             is_string($file) && $file !== '',
             $output,
@@ -94,7 +94,10 @@ class ScryfallSyncCommand extends Command
                 continue;
             }
 
-            $this->upsertCard($cardData, $this->hasRulings($cardData, $oracleIdsWithRulings));
+            $this->upsertCard(
+                $cardData,
+                $this->hasRulings($cardData, $oracleIdsWithRulings, $rulingsMetadataAvailable),
+            );
             $this->replaceCardTokenRelations($cardData);
             if ($this->printTablesAvailable()) {
                 $this->upsertCardPrintAndLocale($cardData);
@@ -133,32 +136,38 @@ class ScryfallSyncCommand extends Command
     }
 
     /**
-     * @return array<string,true>
+     * @return array{array<string,true>,bool}
      */
     private function oracleIdsWithRulings(?string $rulingsFile, bool $usingLocalCardsFile, OutputInterface $output): array
     {
         if ($usingLocalCardsFile && $rulingsFile === null) {
-            $output->writeln('<comment>Local cards file provided without --rulings-file. has_rulings will default to false unless the card payload already includes it.</comment>');
+            $output->writeln('<comment>Local cards file provided without --rulings-file. Existing has_rulings values will be preserved; new cards default to false unless their payload includes it.</comment>');
 
-            return [];
+            return [[], false];
         }
 
         $oracleIds = [];
-        foreach ($this->bulkDataClient->loadBulkItems('rulings', $rulingsFile) as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
+        try {
+            foreach ($this->bulkDataClient->loadBulkItems('rulings', $rulingsFile) as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
 
-            $oracleId = trim((string) ($entry['oracle_id'] ?? ''));
-            if ($oracleId !== '') {
-                $oracleIds[$oracleId] = true;
+                $oracleId = trim((string) ($entry['oracle_id'] ?? ''));
+                if ($oracleId !== '') {
+                    $oracleIds[$oracleId] = true;
+                }
             }
+        } catch (ScryfallBulkDataTypeNotFound) {
+            $output->writeln('<comment>Scryfall does not expose rulings bulk data. Continuing without changing existing has_rulings values.</comment>');
+
+            return [[], false];
         }
 
-        return $oracleIds;
+        return [$oracleIds, true];
     }
 
-    private function hasRulings(array $data, array $oracleIdsWithRulings): bool
+    private function hasRulings(array $data, array $oracleIdsWithRulings, bool $rulingsMetadataAvailable): ?bool
     {
         if (array_key_exists('has_rulings', $data)) {
             return (bool) $data['has_rulings'];
@@ -166,10 +175,10 @@ class ScryfallSyncCommand extends Command
 
         $oracleId = trim((string) ($data['oracle_id'] ?? ''));
 
-        return $oracleId !== '' && isset($oracleIdsWithRulings[$oracleId]);
+        return $rulingsMetadataAvailable ? $oracleId !== '' && isset($oracleIdsWithRulings[$oracleId]) : null;
     }
 
-    private function upsertCard(array $data, bool $hasRulings): void
+    private function upsertCard(array $data, ?bool $hasRulings): void
     {
         $name = (string) $data['name'];
         $legalities = $data['legalities'] ?? [];
@@ -250,7 +259,7 @@ INSERT INTO card (
     :printed_name,
     :flavor_name,
     :image_status,
-    :has_rulings,
+    COALESCE(:has_rulings, false),
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
@@ -287,7 +296,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     printed_name = EXCLUDED.printed_name,
     flavor_name = EXCLUDED.flavor_name,
     image_status = EXCLUDED.image_status,
-    has_rulings = EXCLUDED.has_rulings,
+    has_rulings = COALESCE(:has_rulings, card.has_rulings),
     updated_at = NOW()
 SQL,
             [

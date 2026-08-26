@@ -26,17 +26,19 @@ import { GameplayErrorPayload, GameplayMulliganPublicPlayerState } from '../../.
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { MulliganOverlayAnimations } from './mulligan-overlay.animations';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type ScryDestination = 'TOP' | 'BOTTOM';
+type MulliganStatusCandidate = MulliganPlayerStatus | string | null | undefined;
 
 interface MulliganRuleDescriptionLine {
   readonly key: string;
-  readonly params?: Readonly<Record<string, number>>;
 }
 
 @Component({
   selector: 'app-mulligan-overlay',
-  imports: [GameCardViewComponent, LucideAngularModule, RuntimeTranslatePipe],
+  imports: [GameCardViewComponent, LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective],
   templateUrl: './mulligan-overlay.component.html',
   styleUrl: './mulligan-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,25 +52,21 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   readonly publicPlayers = input<readonly GameplayMulliganPublicPlayerState[]>([]);
   readonly pending = input(false);
   readonly error = input<GameplayErrorPayload | null>(null);
+  readonly ownerBackgroundImage = input<string | null>(null);
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
 
   readonly take = output<void>();
   readonly keep = output<readonly string[]>();
   readonly scryConfirmed = output<ScryDestination>();
 
+  readonly dismissed = signal(false);
   readonly selectedBottomIds = signal<readonly string[]>([]);
-  readonly selectedBottomCards = computed(() => {
-    const cardsById = new Map(this.hand().map((card) => [card.instanceId, card]));
-
-    return this.selectedBottomIds()
-      .map((instanceId) => cardsById.get(instanceId) ?? null)
-      .filter((card): card is GameCardInstance => card !== null);
-  });
+  readonly facePreviewIndexes = signal<Readonly<Record<string, number>>>({});
   readonly selectedBottomIdSet = computed(() => new Set(this.selectedBottomIds()));
-  readonly isOpen = computed(() => this.gamePhase() === 'MULLIGAN');
-  readonly rule = computed<MulliganRule>(() => this.currentMulligan()?.rule ?? this.config()?.rule ?? 'LONDON');
+  readonly isOpen = computed(() => this.gamePhase() === 'MULLIGAN' && !this.dismissed());
+  readonly rule = computed<MulliganRule>(() => this.config()?.rule ?? this.currentMulligan()?.rule ?? 'LONDON');
   readonly bottomOrderMode = computed<BottomOrderMode>(() => this.currentMulligan()?.bottomOrderMode ?? 'NONE');
-  readonly status = computed<MulliganPlayerStatus>(() => this.currentMulligan()?.status ?? 'DECIDING');
+  readonly status = computed<MulliganPlayerStatus>(() => this.normalizeStatus(this.currentMulligan()?.status));
   readonly bottomSelectionCount = computed(() => this.currentMulligan()?.bottomSelectionCount ?? 0);
   readonly selectedCountParams = computed(() => ({
     selected: this.selectedBottomIds().length,
@@ -76,15 +74,50 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }));
   readonly acceptDisabled = computed(() =>
     this.pending()
+      || !this.canSubmitBottomSelection()
       || (this.bottomSelectionCount() > 0 && this.selectedBottomIds().length !== this.bottomSelectionCount()),
   );
+  readonly takeDisabled = computed(() =>
+    this.pending()
+      || this.status() !== 'DECIDING'
+      || this.currentMulligan()?.canTakeAnotherMulligan === false,
+  );
+  readonly keepActionLabelKey = computed(() =>
+    this.bottomSelectionCount() > 0
+      ? 'game.mulliganOverlay.actions.keepWithBottom'
+      : 'game.mulliganOverlay.actions.keepHand',
+  );
+  readonly firstMulliganFreeLabelKey = computed<string | null>(() => {
+    const mulligan = this.currentMulligan();
+    const firstMulliganFree = this.config()?.firstMulliganFree ?? mulligan?.firstMulliganFree;
+
+    if (typeof firstMulliganFree === 'boolean') {
+      return firstMulliganFree
+        ? 'game.mulliganOverlay.firstMulliganFree'
+        : 'game.mulliganOverlay.firstMulliganNotFree';
+    }
+
+    if (!mulligan || mulligan.mulligansTaken <= 0) {
+      return null;
+    }
+
+    return mulligan.mulligansTaken > mulligan.effectiveMulligans
+      ? 'game.mulliganOverlay.firstMulliganFree'
+      : 'game.mulliganOverlay.firstMulliganNotFree';
+  });
   readonly otherPlayers = computed(() => {
     const currentPlayerId = this.currentPlayerId();
 
     return this.publicPlayers().filter((player) => player.playerId !== currentPlayerId);
   });
-  readonly ruleDescription = computed<readonly MulliganRuleDescriptionLine[]>(() => this.descriptionForRule());
+  readonly ruleDescriptionKey = computed(() => this.descriptionKeyForRule(this.rule()));
+  readonly ruleDescription = computed<readonly MulliganRuleDescriptionLine[]>(() => [{ key: this.ruleDescriptionKey() }]);
   readonly scryCard = computed(() => this.currentMulligan()?.scryCard ?? null);
+  readonly ownerBackgroundImageCss = computed(() => {
+    const image = this.ownerBackgroundImage()?.trim();
+
+    return image ? `url("${image}")` : 'none';
+  });
 
   private readonly animations = new MulliganOverlayAnimations(
     inject<ElementRef<HTMLElement>>(ElementRef),
@@ -93,34 +126,45 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   constructor() {
     effect(() => {
+      if (this.gamePhase() !== 'MULLIGAN' && this.dismissed()) {
+        this.dismissed.set(false);
+      }
+
       const validHandIds = new Set(this.hand().map((card) => card.instanceId));
+      const scryCard = this.scryCard();
+      if (scryCard) {
+        validHandIds.add(scryCard.instanceId);
+      }
       const bottomSelectionCount = this.bottomSelectionCount();
-      const status = this.status();
       const validSelection = this.selectedBottomIds()
         .filter((instanceId) => validHandIds.has(instanceId))
         .slice(0, bottomSelectionCount);
+      const validFacePreviewIndexes = Object.fromEntries(
+        Object.entries(this.facePreviewIndexes()).filter(([instanceId]) => validHandIds.has(instanceId)),
+      );
 
       if (!this.canSubmitBottomSelection() || bottomSelectionCount === 0) {
         if (this.selectedBottomIds().length > 0) {
           this.selectedBottomIds.set([]);
         }
-        return;
+      } else if (!sameStringArray(validSelection, this.selectedBottomIds())) {
+        this.selectedBottomIds.set(validSelection);
       }
 
-      if (!sameStringArray(validSelection, this.selectedBottomIds())) {
-        this.selectedBottomIds.set(validSelection);
+      if (!sameNumberRecord(validFacePreviewIndexes, this.facePreviewIndexes())) {
+        this.facePreviewIndexes.set(validFacePreviewIndexes);
       }
     });
   }
 
   ngAfterViewChecked(): void {
     if (!this.isOpen()) {
+      this.facePreviewIndexes.set({});
       this.animations.resetTransientState();
       return;
     }
 
     this.animations.syncHand(this.status() === 'DECIDING' ? this.handAnimationKey() : '');
-    this.animations.syncPills(this.selectedBottomIds());
   }
 
   ngOnDestroy(): void {
@@ -138,15 +182,18 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     return labels[rule];
   }
 
-  statusLabelKey(status: MulliganPlayerStatus): string {
+  statusLabelKey(status: MulliganStatusCandidate): string {
     const labels: Record<MulliganPlayerStatus, string> = {
       DECIDING: 'game.mulliganOverlay.status.deciding',
-      BOTTOMING: 'game.mulliganOverlay.status.bottoming',
       SCRYING: 'game.mulliganOverlay.status.scrying',
       READY: 'game.mulliganOverlay.status.ready',
     };
 
-    return labels[status];
+    return labels[this.normalizeStatus(status)];
+  }
+
+  normalizedStatus(status: MulliganStatusCandidate): MulliganPlayerStatus {
+    return this.normalizeStatus(status);
   }
 
   selectedCard(card: GameCardInstance): boolean {
@@ -179,36 +226,13 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     this.toggleBottomCard(card);
   }
 
-  removeBottomCard(instanceId: string): void {
-    if (this.status() !== 'DECIDING') {
-      return;
-    }
-
-    this.animations.animatePillRemoval(instanceId);
-    this.selectedBottomIds.set(this.selectedBottomIds().filter((candidate) => candidate !== instanceId));
-  }
-
-  moveBottomCard(index: number, delta: -1 | 1): void {
-    if (this.rule() !== 'LONDON' || this.status() !== 'DECIDING') {
-      return;
-    }
-
-    const nextIndex = index + delta;
-    const selected = [...this.selectedBottomIds()];
-    if (nextIndex < 0 || nextIndex >= selected.length) {
-      return;
-    }
-
-    [selected[index], selected[nextIndex]] = [selected[nextIndex], selected[index]];
-    this.selectedBottomIds.set(selected);
-  }
-
   takeMulligan(): void {
     if (this.pending() || this.status() !== 'DECIDING' || this.currentMulligan()?.canTakeAnotherMulligan === false) {
       return;
     }
 
     this.selectedBottomIds.set([]);
+    this.facePreviewIndexes.set({});
     this.animations.animateHandExit();
     this.take.emit();
   }
@@ -234,9 +258,65 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     this.scryConfirmed.emit(destination);
   }
 
+  dismiss(): void {
+    if (this.canKeepInitialHandOnDismiss()) {
+      this.keep.emit([]);
+    }
+
+    this.dismissed.set(true);
+  }
+
   stopCardClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  previewCard(card: GameCardInstance): GameCardInstance {
+    const faceIndex = this.facePreviewIndexes()[card.instanceId];
+
+    return faceIndex === undefined ? card : { ...card, activeFaceIndex: faceIndex };
+  }
+
+  canShowFaceToggle(card: GameCardInstance): boolean {
+    return card.hidden !== true
+      && card.faceDown !== true
+      && canShowAlternateFaceToggle(card);
+  }
+
+  lookAtOtherFace(event: Event, card: GameCardInstance): void {
+    this.stopFaceToggleEvent(event);
+    const nextFaceIndex = nextCardFaceIndex(card, this.facePreviewIndexes()[card.instanceId] ?? activeCardFaceIndex(card));
+    if (nextFaceIndex === null) {
+      return;
+    }
+
+    this.facePreviewIndexes.update((indexes) => ({ ...indexes, [card.instanceId]: nextFaceIndex }));
+    this.animations.animateFaceFlip(card.instanceId);
+  }
+
+  resetFacePreview(card: GameCardInstance): void {
+    if (this.facePreviewIndexes()[card.instanceId] === undefined) {
+      return;
+    }
+
+    this.facePreviewIndexes.update((indexes) => {
+      const { [card.instanceId]: _removed, ...rest } = indexes;
+
+      return rest;
+    });
+    this.animations.animateFaceFlip(card.instanceId);
+  }
+
+  stopFaceToggleEvent(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  stopFaceTogglePointer(event: PointerEvent): void {
+    event.stopPropagation();
+    if (event.button === 0) {
+      event.preventDefault();
+    }
   }
 
   private canSelectBottomCards(): boolean {
@@ -246,7 +326,14 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private canSubmitBottomSelection(): boolean {
-    return this.status() === 'DECIDING' || this.status() === 'BOTTOMING';
+    return this.status() === 'DECIDING';
+  }
+
+  private canKeepInitialHandOnDismiss(): boolean {
+    return !this.pending()
+      && this.status() === 'DECIDING'
+      && this.bottomSelectionCount() === 0
+      && this.currentMulligan()?.mulligansTaken === 0;
   }
 
   private toggleBottomCard(card: GameCardInstance): void {
@@ -256,7 +343,6 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
     const selected = this.selectedBottomIds();
     if (selected.includes(card.instanceId)) {
-      this.animations.animatePillRemoval(card.instanceId);
       this.selectedBottomIds.set(selected.filter((instanceId) => instanceId !== card.instanceId));
       return;
     }
@@ -269,45 +355,25 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private handAnimationKey(): string {
-    return [
-      this.currentMulligan()?.mulligansTaken ?? 0,
-      ...this.hand().map((card) => card.instanceId),
-    ].join('|');
+    return this.hand().map((card) => card.instanceId).join('|');
   }
 
-  private descriptionForRule(): readonly MulliganRuleDescriptionLine[] {
-    const state = this.currentMulligan();
-    const drawCount = state?.drawCount ?? 0;
-    const bottomSelectionCount = this.bottomSelectionCount();
+  private descriptionKeyForRule(rule: MulliganRule): string {
+    return `rooms.roomSetupControls.mulliganDescriptions.${rule.toLowerCase()}`;
+  }
 
-    switch (this.rule()) {
-      case 'LONDON':
-        return bottomSelectionCount === 0
-          ? [{ key: 'game.mulliganOverlay.description.londonNoBottom' }]
-          : [
-              { key: 'game.mulliganOverlay.description.londonChooseBottom', params: { count: bottomSelectionCount } },
-              { key: 'game.mulliganOverlay.description.londonBottomOrder' },
-            ];
-      case 'VANCOUVER':
-        return state?.needsScryAfterKeep
-          ? [
-              { key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } },
-              { key: 'game.mulliganOverlay.description.vancouverScry' },
-            ]
-          : [{ key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } }];
-      case 'PARIS':
-        return [{ key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } }];
-      case 'GENEROUS':
-        return bottomSelectionCount === 0
-          ? [{ key: 'game.mulliganOverlay.description.generousNoBottom', params: { count: drawCount } }]
-          : [
-              { key: 'game.mulliganOverlay.description.generousChooseBottom', params: { drawCount, bottomCount: bottomSelectionCount } },
-              { key: 'game.mulliganOverlay.description.generousRandomOrder' },
-            ];
-    }
+  private normalizeStatus(status: MulliganStatusCandidate): MulliganPlayerStatus {
+    return status === 'SCRYING' || status === 'READY' ? status : 'DECIDING';
   }
 }
 
 function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameNumberRecord(left: Readonly<Record<string, number>>, right: Readonly<Record<string, number>>): boolean {
+  const leftEntries = Object.entries(left);
+
+  return leftEntries.length === Object.keys(right).length
+    && leftEntries.every(([key, value]) => right[key] === value);
 }

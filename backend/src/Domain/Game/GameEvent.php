@@ -79,12 +79,6 @@ class GameEvent
         return $this->payload;
     }
 
-    public function replacePayload(array $payload): void
-    {
-        $this->payload = $payload;
-        $this->updatedAt = new \DateTimeImmutable();
-    }
-
     public function version(): int
     {
         return $this->version;

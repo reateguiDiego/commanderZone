@@ -1,9 +1,10 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, OnDestroy, WritableSignal, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, WritableSignal, computed, effect, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ExtraActionsMenuComponent } from '../../../../../shared/ui/extra-actions-menu/extra-actions-menu.component';
+import { CompactCheckboxComponent } from '../../../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../../game-table.store';
@@ -50,7 +51,7 @@ interface CommanderDamageRow {
   commanders: readonly CommanderDamageCommanderRow[];
 }
 
-interface LifeFeedback {
+interface CounterFeedback {
   id: number;
   delta: number;
   phase: 'active' | 'exiting';
@@ -71,7 +72,7 @@ const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
 
 @Component({
   selector: 'app-player-summary-panel',
-  imports: [RuntimeTranslatePipe, ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, SpecialEntityStripComponent],
+  imports: [RuntimeTranslatePipe, CompactCheckboxComponent, ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, SpecialEntityStripComponent],
   templateUrl: './player-summary-panel.component.html',
   styleUrl: './player-summary-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -81,6 +82,8 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   private readonly pendingCommanderDamageDeltas = signal<Record<string, number>>({});
   private readonly pendingPlayerCounterDeltas = signal<Record<string, number>>({});
   private readonly flushTimers = new Map<string, number>();
+  private readonly counterFeedbackTimers = new Map<string, number>();
+  private readonly counterFeedbackClearTimers = new Map<string, number>();
   private lifeFeedbackClearTimer: number | null = null;
   private lifeFeedbackTimer: number | null = null;
   private nextFeedbackId = 0;
@@ -93,6 +96,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly autoApplyCommanderDamageToLifeDefault = input(true, { alias: 'autoApplyCommanderDamageToLife' });
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
   readonly contextLabel = input<string | null>(null);
   readonly returnActionLabel = input<string | null>(null);
@@ -103,7 +107,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly returnRequested = output<void>();
-  readonly lifeFeedback = signal<LifeFeedback | null>(null);
+  readonly lifeFeedback = signal<CounterFeedback | null>(null);
+  readonly counterFeedbacks = signal<Record<string, CounterFeedback>>({});
+  readonly autoApplyCommanderDamageToLifeValue = signal(true);
   readonly otherCountersExpanded = signal(false);
   readonly visibleSpecialEntities = computed(() =>
     this.specialEntities().filter((entity) => entity.template !== 'the_ring'),
@@ -136,6 +142,12 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     return clampPlayerLife(currentPlayer.state.life + this.pendingLifeDelta(currentPlayer.id));
   });
 
+  constructor() {
+    effect(() => {
+      this.autoApplyCommanderDamageToLifeValue.set(this.autoApplyCommanderDamageToLifeDefault());
+    });
+  }
+
   ngOnDestroy(): void {
     for (const timer of this.flushTimers.values()) {
       window.clearTimeout(timer);
@@ -146,7 +158,15 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     if (this.lifeFeedbackClearTimer !== null) {
       window.clearTimeout(this.lifeFeedbackClearTimer);
     }
+    for (const timer of this.counterFeedbackTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    for (const timer of this.counterFeedbackClearTimers.values()) {
+      window.clearTimeout(timer);
+    }
     this.flushTimers.clear();
+    this.counterFeedbackTimers.clear();
+    this.counterFeedbackClearTimers.clear();
     this.lifeFeedbackClearTimer = null;
     this.lifeFeedbackTimer = null;
   }
@@ -189,6 +209,8 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
 
     const key = this.commanderDamageKey(targetPlayer.id, commanderInstanceId);
     const pendingDelta = this.updatePendingDelta(this.pendingCommanderDamageDeltas, key, nextDamage - currentDamage);
+    this.updateCounterFeedback(key, pendingDelta);
+    this.applyCommanderDamageLifeDelta(targetPlayer.id, -(nextDamage - currentDamage));
     this.scheduleOrCancelFlush(`commander-damage:${key}`, pendingDelta, () =>
       this.flushCommanderDamageChange(targetPlayer.id, sourcePlayerId, commanderInstanceId),
     );
@@ -209,6 +231,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
 
     const pendingKey = this.playerCounterKey(currentPlayer.id, key);
     const pendingDelta = this.updatePendingDelta(this.pendingPlayerCounterDeltas, pendingKey, nextValue - currentValue);
+    this.updateCounterFeedback(pendingKey, pendingDelta);
     this.scheduleOrCancelFlush(`player-counter:${pendingKey}`, pendingDelta, () =>
       this.flushPlayerCounterChange(currentPlayer.id, key),
     );
@@ -228,6 +251,10 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     this.otherCountersExpanded.update((expanded) => !expanded);
   }
 
+  setAutoApplyCommanderDamageToLife(checked: boolean): void {
+    this.autoApplyCommanderDamageToLifeValue.set(checked);
+  }
+
   requestReturn(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -237,6 +264,14 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   counterValue(key: PlayerCounterKey): number {
     const currentPlayer = this.player();
     return Math.max(0, this.playerCounterValue()(currentPlayer, key) + this.pendingPlayerCounterDelta(currentPlayer.id, key));
+  }
+
+  commanderDamageFeedback(commanderInstanceId: string): CounterFeedback | null {
+    return this.counterFeedbacks()[this.commanderDamageKey(this.player().id, commanderInstanceId)] ?? null;
+  }
+
+  playerCounterFeedback(key: PlayerCounterKey): CounterFeedback | null {
+    return this.counterFeedbacks()[this.playerCounterKey(this.player().id, key)] ?? null;
   }
 
   private flushLifeChange(playerId: string): void {
@@ -269,6 +304,23 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
 
     this.playerCounterChanged.emit({ playerId, key, delta });
     this.clearPendingDelta(this.pendingPlayerCounterDeltas, pendingKey);
+  }
+
+  private applyCommanderDamageLifeDelta(playerId: string, delta: number): void {
+    if (!this.autoApplyCommanderDamageToLifeValue()) {
+      return;
+    }
+
+    const currentLife = this.displayedLife();
+    const nextLife = clampPlayerLife(currentLife + delta);
+    const appliedDelta = nextLife - currentLife;
+    if (appliedDelta === 0) {
+      return;
+    }
+
+    const pendingDelta = this.updatePendingDelta(this.pendingLifeDeltas, playerId, appliedDelta);
+    this.updateLifeFeedback(pendingDelta);
+    this.scheduleOrCancelFlush(`life:${playerId}`, pendingDelta, () => this.flushLifeChange(playerId));
   }
 
   private updatePendingDelta(pendingDeltas: WritableSignal<Record<string, number>>, key: string, delta: number): number {
@@ -332,6 +384,62 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
       this.lifeFeedback.set(null);
       this.lifeFeedbackClearTimer = null;
     }, PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS);
+  }
+
+  private updateCounterFeedback(key: string, delta: number): void {
+    this.clearCounterFeedbackTimer(this.counterFeedbackTimers, key);
+    this.clearCounterFeedbackTimer(this.counterFeedbackClearTimers, key);
+
+    this.counterFeedbacks.update((current) => ({
+      ...current,
+      [key]: {
+        id: this.nextFeedbackId,
+        delta,
+        phase: 'active',
+        tone: delta < 0 ? 'damage' : delta > 0 ? 'gain' : 'neutral',
+      },
+    }));
+    this.nextFeedbackId += 1;
+
+    const timer = window.setTimeout(() => {
+      this.counterFeedbackTimers.delete(key);
+      this.releaseCounterFeedback(key);
+    }, PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
+    this.counterFeedbackTimers.set(key, timer);
+  }
+
+  private releaseCounterFeedback(key: string): void {
+    const currentFeedback = this.counterFeedbacks()[key];
+    if (!currentFeedback) {
+      return;
+    }
+
+    this.counterFeedbacks.update((current) => ({
+      ...current,
+      [key]: { ...currentFeedback, phase: 'exiting' },
+    }));
+    const timer = window.setTimeout(() => {
+      this.counterFeedbacks.update((current) => {
+        if (current[key] === undefined) {
+          return current;
+        }
+
+        const { [key]: _removed, ...rest } = current;
+        return rest;
+      });
+      this.counterFeedbackClearTimers.delete(key);
+    }, PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS);
+    this.counterFeedbackClearTimers.set(key, timer);
+  }
+
+  private clearCounterFeedbackTimer(timers: Map<string, number>, key: string): void {
+    const timer = timers.get(key);
+    if (timer === undefined) {
+      return;
+    }
+
+    window.clearTimeout(timer);
+    timers.delete(key);
   }
 
   private scheduleOrCancelFlush(timerKey: string, pendingDelta: number, flush: () => void): void {

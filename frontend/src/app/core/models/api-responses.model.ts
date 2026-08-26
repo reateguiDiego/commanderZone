@@ -1,7 +1,7 @@
 import { Card } from './card.model';
 import { CommunityDeckDetail, CommunityDeckSummary, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityUser } from './community.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
-import { Game, GameDisconnectVoteChoice, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
+import { ChatMessage, Game, GameControlPlaneState, GameDisconnectVoteChoice, GameEvent, GameLogEntry, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
 import { RoomInvite } from './room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from './room.model';
@@ -52,6 +52,26 @@ export interface EmailVerificationConfirmResponse {
 
 export interface CardResponse {
   card: Card;
+}
+
+export interface GameLogHistoryPageResponse {
+  data: GameLogEntry[];
+  limit: number;
+  hasMore: boolean;
+  nextBefore?: string | null;
+  nextAfter?: string | null;
+}
+
+export interface GameChatHistoryPageResponse {
+  data: ChatMessage[];
+  limit: number;
+  hasMore: boolean;
+  nextBefore?: string | null;
+  nextAfter?: string | null;
+}
+
+export interface CardsResponse {
+  cards: Card[];
 }
 
 export interface CardImageResponse {
@@ -346,9 +366,13 @@ export type RematchVoteStatus = 'left' | 'room_deleted' | 'waiting_for_game_end'
 export interface RematchVoteResponse {
   status: RematchVoteStatus;
   message?: string | null;
+  /** The accepted id is echoed for idempotent retries. */
+  clientActionId?: string | null;
+  deduplicated?: boolean;
+  /** Informational unversioned lifecycle notification; never a persisted GameEvent. */
   event?: GameEvent | null;
-  snapshot?: GameSnapshot | null;
-  version?: number | null;
+  /** Compact authoritative state; never a gameplay snapshot. */
+  controlPlane?: GameControlPlaneState | null;
   room?: Room;
   left?: boolean;
   roomDeleted?: boolean;
@@ -356,6 +380,12 @@ export interface RematchVoteResponse {
 
 export interface RematchVoteRequest {
   vote: GameRematchVote;
+  clientActionId: string;
+  previousActionId?: string | null;
+}
+
+export interface GameControlPlaneResponse {
+  controlPlane: GameControlPlaneState;
 }
 
 export interface DisconnectVoteRequest {

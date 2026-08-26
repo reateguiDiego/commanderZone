@@ -294,6 +294,7 @@
       "timer": "å®šæ—¶å™¨",
       "mulligan": "Mulligan",
       "firstMulliganFree": "é¦–æ¬¡å†è°ƒåº¦å…è´¹",
+      "firstMulliganNotFree": "First mulligan is not free",
       "mulliganDescriptions": {
         "london": "æ¯æ¬¡æŠ“ 7 å¼ ç‰Œã€‚å†³å®šä¿ç•™æ‰‹ç‰ŒåŽï¼Œæ¯æ¬¡æœ‰æ•ˆå†è°ƒåº¦å°†ä¸€å¼ ç‰Œç½®äºŽç‰Œåº“åº•ã€‚",
         "vancouver": "æ¯æ¬¡æœ‰æ•ˆå†è°ƒåº¦å°‘æŠ“ä¸€å¼ ç‰Œã€‚è‹¥åœ¨æœ‰æ•ˆå†è°ƒåº¦åŽä¿ç•™æ‰‹ç‰Œï¼Œåˆ™å åœ 1ã€‚",
@@ -363,7 +364,8 @@
       "thisPlayer": "è¿™ä½çŽ©å®¶",
       "tieBreakRoll": "å¹³å±€é‡æŽ·",
       "tieBreakRollMessage": "ä½ ä¸Ž {{ playerNames }} å¹³å±€ã€‚è¯·å†æ¬¡æŽ·éª°å†³å®šé¡ºåºã€‚",
-      "waitingForDecksAndRolls": "ç­‰å¾…å¥—ç‰Œå’ŒæŽ·éª°"
+      "waitingForDecksAndRolls": "ç­‰å¾…å¥—ç‰Œå’ŒæŽ·éª°",
+      "realtimeUnavailable": "实时连接正在恢复。房间变更可能会延迟显示。"
     },
     "setup": {
       "gameSetupLifeControl": {
@@ -484,6 +486,8 @@
       "commanderSelect": "é€‰æ‹©",
       "filterFormat": "æ ¼å¼",
       "allFormats": "æ‰€æœ‰æ ¼å¼",
+      "filterBracket": "分组",
+      "allBrackets": "所有分组",
       "searchButton": "æœç´¢",
       "empty": "å°šæ— å¯ç”¨çš„å…¬å…±å¥—ç‰Œã€‚",
       "error": "æ— æ³•åŠ è½½å…¬å…±å¥—ç‰Œã€‚"
@@ -543,6 +547,9 @@
       "current": "å½“å‰çš„",
       "counters": "æŒ‡ç¤ºç‰©"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "已背面放置"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "æŸ¥çœ‹å¦ä¸€é¢",
       "loadingCards": "æ­£åœ¨åŠ è½½ç‰Œ"
@@ -554,7 +561,7 @@
       "labels": {
         "refreshSnapshot": "åˆ·æ–°å¿«ç…§",
         "focusMyBoard": "èšç„¦æˆ‘çš„æˆ˜åœº",
-        "concede": "è®¤è¾“",
+        "concede": "认输",
         "leaveTable": "ç¦»å¼€æ¡Œé¢",
         "deleteArrow": "åˆ é™¤ç®­å¤´",
         "deleteArrows": "åˆ é™¤ç®­å¤´",
@@ -594,8 +601,10 @@
         "flipCardFace": "ç¿»è½¬ç‰Œé¢",
         "playFaceDown": "é¢æœä¸‹ä½¿ç”¨",
         "previewCard": "é¢„è§ˆç‰Œ",
+        "lookAtFaceDownCard": "查看卡牌",
         "moveTop": "ç§»è‡³é¡¶éƒ¨",
         "revealTopCard": "å±•ç¤ºç‰Œåº“é¡¶ç‰Œ",
+        "revealXTopCards": "展示牌库顶X张牌",
         "revealLibrary": "å±•ç¤ºç‰Œåº“",
         "moveAllTo": "å…¨éƒ¨ç§»è‡³",
         "counters": "æŒ‡ç¤ºç‰©",
@@ -603,6 +612,9 @@
         "moveTo": "ç§»è‡³",
         "giveTo": "ç»™äºˆ",
         "reveal": "æ­ç¤º",
+        "stopRevealing": "停止展示",
+        "playTopRevealed": "展示牌库顶牌进行游戏",
+        "stopPlayingTopRevealed": "停止展示牌库顶牌进行游戏",
         "viewAllLibrary": "æŸ¥çœ‹ç‰Œåº“",
         "viewXTopCards": "æŸ¥çœ‹ç‰Œåº“é¡¶ X å¼ ç‰Œ",
         "bottomOfLibrary": "ç‰Œåº“åº•",
@@ -661,7 +673,7 @@
     },
     "gameDisconnectVoteModal": {
       "disconnectVotes": "æ–­çº¿æŠ•ç¥¨",
-      "expel": "ç§»å‡º",
+      "expel": "逐出",
       "genericDisconnectedMessage": "æœ‰çŽ©å®¶æ–­çº¿ã€‚æŠ•ç¥¨å†³å®šç­‰å¾…å…¶é‡è¿žæˆ–å°†å…¶ç§»å‡ºæ¡Œé¢ã€‚",
       "noVote": "æœªæŠ•ç¥¨",
       "playerDisconnectedMessage": "{{ playerName }} å·²æ–­çº¿ã€‚æŠ•ç¥¨å†³å®šç­‰å¾…å…¶é‡è¿žæˆ–å°†å…¶ç§»å‡ºæ¡Œé¢ã€‚",
@@ -669,6 +681,7 @@
       "playerDisconnected": "çŽ©å®¶å·²æ–­å¼€è¿žæŽ¥",
       "yourVote": "æ‚¨çš„æŠ•ç¥¨ï¼š",
       "timeRemaining": "å‰©ä½™æ—¶é—´ï¼š",
+      "voteFinished": "投票已结束",
       "targetPlayerBackOnline": "ç›®æ ‡çŽ©å®¶å†æ¬¡åœ¨çº¿ã€‚"
     },
     "gameRematchModal": {
@@ -726,6 +739,8 @@
       "lifeTotal": "æ€»ç”Ÿå‘½",
       "playerCounters": "çŽ©å®¶æŒ‡ç¤ºç‰©",
       "commanderDamage": "æŒ‡æŒ¥å®˜ä¼¤å®³",
+      "autoApplyCommanderDamageToLife": "自动扣减生命",
+      "autoApplyCommanderDamageToLifeTooltip": "启用后，指挥官伤害的变化也会调整该玩家的生命值。",
       "otherCounters": "å…¶ä»–æŒ‡ç¤ºç‰©",
       "extras": "Extras",
       "openExtraPlayerCounters": "æ‰“å¼€çŽ©å®¶é¢å¤–æŒ‡ç¤ºç‰©",
@@ -752,6 +767,7 @@
       "turnOrder": "å›žåˆé¡ºåº"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "回合：{{ name }}",
       "turnPhases": "å›žåˆé˜¶æ®µ",
       "focusTheActiveTurnPlayer": "èšç„¦å½“å‰å›žåˆçŽ©å®¶",
       "focusTurn": "èšç„¦å›žåˆ",
@@ -796,7 +812,16 @@
       "gameLogUnreadActions": "å¯¹å±€æ—¥å¿—ï¼Œæœ‰æœªè¯»æ“ä½œ",
       "chatUnreadMessages": "èŠå¤©ã€æœªè¯»æ¶ˆæ¯",
       "moveCardToAnotherBattlefield": "å°†ç‰Œç§»è‡³å¦ä¸€ä¸ªæˆ˜åœº",
-      "putIntoLibrary": "æ”¾å…¥ç‰Œåº“"
+      "putIntoLibrary": "æ”¾å…¥ç‰Œåº“",
+      "focusedOpponentLabel": "正在查看：",
+      "returnToOwnBattlefield": "前往你的战场",
+      "leaveTableConfirmationTitle": "离开牌桌？",
+      "leaveTableConfirmationMessage": "你将认输并离开房间。此操作无法撤销。",
+      "concedeGameConfirmationTitle": "认输此局？",
+      "concedeGameConfirmationMessage": "你将立即输掉此局。此操作无法撤销。",
+      "reloadRequiredTitle": "需要重新加载",
+      "reloadRequiredMessage": "无法同步牌桌。请先重新加载页面再继续。",
+      "reloadRequiredAction": "重新加载页面"
     },
     "reactions": {
       "like": "å–œæ¬¢",
@@ -822,13 +847,19 @@
         "title": "æŸ¥çœ‹ç‰Œåº“é¡¶ç‰Œ",
         "description": "é€‰æ‹©æŸ¥çœ‹å‡ å¼ ç‰Œåº“é¡¶ç‰Œã€‚",
         "confirm": "æŸ¥çœ‹"
-      }
+      },
+      "revealTopCards": {
+        "title": "展示牌库顶牌",
+        "description": "选择要向所选对手展示的牌库顶牌数量。",
+        "confirm": "展示"
+      },
+      "deckCardCount": "你的牌库有 {{ count }} 张牌。"
     },
     "playerCounters": {
       "poison": "æ¯’",
       "energy": "æ´»åŠ›",
       "experience": "ç»éªŒ",
-      "rad": "Rad",
+      "rad": "辐射",
       "tickets": "é—¨ç¥¨"
     },
     "zones": {
@@ -905,7 +936,8 @@
       "title": "å†è°ƒåº¦",
       "metaAriaLabel": "è°ƒåº¦çŠ¶æ€",
       "firstMulliganFree": "é¦–æ¬¡å†è°ƒåº¦å…è´¹",
-      "mulligansTaken": "è°ƒåº¦ï¼š{{ count }}",
+      "firstMulliganNotFree": "First mulligan is not free",
+      "mulligansTaken": "You have taken {{ count }} mulligans",
       "effectiveMulligans": "æœ‰æ•ˆï¼š{{ count }}",
       "scryTitle": "å åœ 1",
       "scryDescription": "é€‰æ‹©å¦‚ä½•å¤„ç†ç‰Œåº“é¡¶ç‰Œã€‚",
@@ -926,13 +958,14 @@
       "status": {
         "deciding": "å†³å®š",
         "scrying": "å åœ",
-        "ready": "å‡†å¤‡å¥½",
-        "bottoming": "Bottoming cards"
+        "ready": "å‡†å¤‡å¥½"
       },
       "actions": {
         "keepOnTop": "ä¿ç•™åœ¨é¡¶",
         "putOnBottom": "ç½®äºŽåº•",
-        "removeFromBottom": "ä»Žåº•å–å‡º"
+        "removeFromBottom": "ä»Žåº•å–å‡º",
+        "keepHand": "Keep hand",
+        "keepWithBottom": "Keep and bottom"
       },
       "description": {
         "londonNoBottom": "æŠ“ 7 å¼ ã€‚ä½ ä¸éœ€è¦å°†ç‰Œç½®äºŽç‰Œåº“åº•ã€‚",
@@ -944,6 +977,174 @@
         "generousChooseBottom": "æŠ“ {{ drawCount }} å¼ ç‰Œã€‚é€‰æ‹© {{ bottomCount }} å¼ ç‰Œä»¥éšæœºé¡ºåºç½®äºŽç‰Œåº“åº•ã€‚",
         "generousRandomOrder": "æœ€ç»ˆçš„é¡ºåºå°†æ˜¯éšæœºçš„ã€‚"
       }
+    }
+  },
+  "gameLog": {
+    "history": {
+      "loading": "正在加载消息…"
+    },
+    "fragment": {
+      "life": {
+        "self": "将自己的生命从 {{ previousLife }} 调整为 {{ life }}。",
+        "other": "将 {{ player }} 的生命从 {{ previousLife }} 调整为 {{ life }}。"
+      },
+      "commanderDamage": {
+        "self": "将统帅伤害从 {{ previousValue }} 调整为 {{ value }}。",
+        "other": "将对 {{ target }} 造成的统帅伤害从 {{ previousValue }} 调整为 {{ value }}。"
+      },
+      "card": {
+        "controllerChanged": {
+          "self": "获得了一张牌的操控权。",
+          "other": "将一张牌的操控者改为 {{ target }}。"
+        }
+      },
+      "counter": {
+        "changed": "将 {{ counter }} 设为 {{ value }}。"
+      },
+      "cardCounter": {
+        "changed": "将 {{ counter }} 指示物设为 {{ value }}。"
+      },
+      "turn": {
+        "changed": "结束了自己的回合。{{ player }} 的回合开始。",
+        "phaseChanged": "进入了 {{ phase }} 阶段。"
+      },
+      "disconnect": {
+        "expelled": "在断线投票后被移出游戏。"
+      },
+      "game": {
+        "concede": "认输了。"
+      }
+    },
+    "turn": {
+      "changed": "{{ previousPlayer }} 的回合结束。{{ player }} 的回合开始。",
+      "phaseChanged": "{{ actor }} 进入了{{ phase }}阶段。"
+    },
+    "phase": {
+      "untap": "重置",
+      "upkeep": "维持",
+      "draw": "抓牌",
+      "main-1": "第一个主",
+      "combat": "战斗",
+      "main-2": "第二个主",
+      "end": "结束"
+    },
+    "library": {
+      "moveTop": "{{ actor }} 将牌库顶的 {{ count }} 张牌移至 {{ toZone }}。",
+      "reorderTop": "{{ actor }} 重新排列了牌库顶的 {{ count }} 张牌。",
+      "putTop": "{{ actor }} 将一张牌放到了牌库顶。",
+      "putBottom": "{{ actor }} 将一张牌放到了牌库底。",
+      "draw": "{{ actor }} 抽了一张牌。",
+      "drawMany": "{{ actor }} 窃取了 {{ count }} 卡。",
+      "playTopFaceDown": "{{ actor }} 已将其牌库中的第一张牌面朝下打出。",
+      "shuffle": "{{ actor }} 洗牌了他的牌库。",
+      "view": "{{ actor }} 查看了他牌库中最上面的 {{ count }} 卡。",
+      "reveal": "{{ actor }} 公布了它的库。",
+      "revealTop": "{{ actor }} 向 {{ recipients }} 展示了其牌库顶的 {{ count }} 张牌。",
+      "revealTopNamed": "{{ actor }} 向 {{ recipients }} 展示了其牌库顶的 {{ cardName }}。",
+      "stoppedRevealingTop": "{{ actor }} 停止向 {{ recipients }} 展示其牌库顶的牌。",
+      "playTopRevealed": "{{ actor }} 使用其牌库顶、向 {{ recipients }} 展示的牌进行游戏。",
+      "stoppedPlayingTopRevealed": "{{ actor }} 停止使用其牌库顶、向 {{ recipients }} 展示的牌进行游戏。"
+    },
+    "commanderDamage": {
+      "changed": "{{ actor }} 将对 {{ target }} 的指挥官伤害从 {{ previousValue }} 改为 {{ value }}。"
+    },
+    "stack": {
+      "cardAdded": "{{ actor }} 将一张牌加入堆叠。",
+      "itemRemoved": "{{ actor }} 从堆叠移除了一个项目。"
+    },
+    "arrow": {
+      "created": "{{ actor }} 创建了一条箭头。",
+      "removed": "{{ actor }} 删除了一条箭头。"
+    },
+    "attachment": {
+      "created": "{{ actor }} 附着了一张牌。",
+      "removed": "{{ actor }} 移除了一个附着。"
+    },
+    "mulligan": {
+      "taken": "{{ actor }} 进行了调度。",
+      "kept": "{{ actor }} 保留了手牌。",
+      "scryConfirmed": "{{ actor }} 完成了调度后的占卜。"
+    },
+    "disconnect": {
+      "expelled": "{{ target }} 在断线投票后被移出游戏。",
+      "noVotersWait": "没有玩家登录投票。该表将等待 {{ target }}。",
+      "voteOpened": "{{ target }} 下线。桌面投票开始了。",
+      "tableExpelled": "董事会决定驱逐 {{ target }} 进行断线。",
+      "tableWait": "董事会决定等待 {{ target }}。",
+      "voteCancelled": "{{ target }} 已重新连接。桌面投票被取消。",
+      "voteExpiredWait": "断开连接投票已过期。桌子会等。"
+    },
+    "zone": {
+      "randomSelected": "{{ actor }} 从 {{ fromZone }} 随机选择了一张牌。",
+      "movedAll": "{{ actor }} 将 {{ count }} 张牌从 {{ fromZone }} 移至 {{ toZone }}。",
+      "battlefield": "战场",
+      "graveyard": "坟场",
+      "exile": "放逐区",
+      "hand": "手牌",
+      "library": "牌库",
+      "command": "统帅区",
+      "zone": "区域"
+    },
+    "card": {
+      "faceChanged": "{{ actor }} 将 {{ cardName }} 翻转为 {{ faceName }} 一面。",
+      "faceDownInspected": "{{ actor }} 查看了一张背面朝上的牌。",
+      "turnedFaceDown": "{{ actor }} 将一张牌变为背面朝上。",
+      "turnedFaceUp": "{{ actor }} 将一张牌变为正面朝上。",
+      "controllerChanged": "{{ actor }} 将一张牌的操控者改为 {{ target }}。",
+      "revealed": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 1 张牌。",
+      "revealedNamed": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 {{ cardName }}。",
+      "revealedMany": "{{ actor }} 向 {{ recipients }} 展示了其{{ zone }}中的 {{ count }} 张牌。",
+      "stoppedRevealing": "{{ actor }} 停止向 {{ recipients }} 展示其{{ zone }}中的 1 张牌。",
+      "stoppedRevealingMany": "{{ actor }} 停止向 {{ recipients }} 展示其{{ zone }}中的 {{ count }} 张牌。",
+      "moved": "{{ actor }} 将一张卡从 {{ fromZone }} 移至 {{ toZone }}。",
+      "tapped": "{{ actor }} 横置了一个永久物。",
+      "untapped": "{{ actor }} 永久未开发。",
+      "movedMany": "{{ actor }} 将 {{ count }} 卡从 {{ fromZone }} 移动到 {{ toZone }}。"
+    },
+    "audience": {
+      "all": "所有玩家"
+    },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} 将 {{ cardName }} 从 {{ previousPower }}/{{ previousToughness }} 改为 {{ power }}/{{ toughness }}。",
+      "loyaltyChanged": "{{ actor }} 将 {{ cardName }} 的忠诚度从 {{ previousValue }} 改为 {{ value }}（{{ delta }}）。",
+      "sagaChanged": "{{ actor }} 将 {{ cardName }} 的传奇章节从 {{ previousChapter }} 改为 {{ chapter }}（{{ delta }}）。",
+      "defenseChanged": "{{ actor }} 将 {{ cardName }} 的防御力从 {{ previousDefense }} 改为 {{ defense }}（{{ delta }}）。"
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} 将 {{ counter }} 计数器放入 {{ value }} 中。"
+    },
+    "counter": {
+      "changed": "{{ actor }} 将 {{ counter }} 放入 {{ value }} 中。"
+    },
+    "battlefield": {
+      "untappedAll": "{{ actor }} 未开发的永久 {{ count }}。"
+    },
+    "life": {
+      "changed": "{{ actor }} 将 {{ player }} 的寿命从 {{ previousLife }} 更改为 {{ life }}。"
+    },
+    "dice": {
+      "rolled": "{{ actor }}滚动{{ kind }}并取出{{ result }}。",
+      "coin": "一枚硬币",
+      "dice": "骰子",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} 从指挥区发射了他的指挥官。指挥官施法计数器为 {{ commanderCastCount }}。",
+      "castCounterChanged": "{{ actor }} 将指挥官 {{ commanderName }} 的施放次数计数器设为 {{ commanderCastCount }}。",
+      "unknown": "指挥官"
+    },
+    "token": {
+      "created": "{{ actor }} 创建了一个代币：{{ tokenName }}。",
+      "createdMany": "{{ actor }} 创建了 {{ count }} 代币：{{ tokenName }}。"
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} 创建了令牌副本。"
+    },
+    "game": {
+      "concede": "授予 {{ player }}。"
     }
   },
   "deckBuilder": {
@@ -1124,7 +1325,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "ç±»åž‹ç»†åˆ†",
-      "utilityCounts": "åŠŸèƒ½ç»Ÿè®¡"
+      "utilityCounts": "åŠŸèƒ½ç»Ÿè®¡",
+      "reloadPageForData": "重新加载页面以获取分析数据。"
     },
     "deckManaBalancePanel": {
       "manaBalance": "æ³•æœ¯åŠ›å¹³è¡¡",
@@ -2231,8 +2433,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

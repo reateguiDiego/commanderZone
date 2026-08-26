@@ -50,7 +50,10 @@ export class GameTableGameActionsStore {
       return;
     }
 
-    await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave'));
+    await firstValueFrom(this.gamesApi.rematchVote(gameId, {
+      vote: 'leave_room',
+      clientActionId: this.clientActionId(),
+    }));
   }
 
   async leaveCurrentRoom(): Promise<void> {
@@ -85,7 +88,10 @@ export class GameTableGameActionsStore {
 
   async navigateToRoomsWithLoadError(): Promise<void> {
     await this.router.navigate(['/rooms'], {
-      state: {
+      // A load error is a one-navigation notification, never route state.
+      // `state` survives browser history restoration and made this toast
+      // reappear whenever the Rooms component was reconstructed.
+      info: {
         toast: 'Could not load game.',
       },
     });
@@ -109,6 +115,10 @@ export class GameTableGameActionsStore {
     }
 
     return this.errorMessage(error).toLowerCase().includes('only room players can leave');
+  }
+
+  private clientActionId(): string {
+    return globalThis.crypto?.randomUUID?.() ?? `leave-room-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   private errorMessage(error: HttpErrorResponse): string {

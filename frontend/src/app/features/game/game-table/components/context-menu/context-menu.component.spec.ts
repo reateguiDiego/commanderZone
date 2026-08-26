@@ -46,6 +46,7 @@ import {
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
+import type { PlayerView } from '../../game-table.store';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 
 describe('ContextMenuComponent', () => {
@@ -980,6 +981,8 @@ describe('ContextMenuComponent', () => {
       playerId: 'user-1',
       zone: 'hand',
       card: card('card-1'),
+    }, {
+      currentPlayer: player('user-1', 'User'),
     });
     const text = menuText(fixture);
 
@@ -1002,9 +1005,10 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'revealTo');
     fixture.detectChanges();
     const revealText = menuText(fixture);
-    expect(revealText).toContain('All');
-    expect(revealText).toContain('User');
     expect(revealText).toContain('Opponent');
+    expect(revealText).not.toContain('All');
+    expect(revealText).not.toContain('User');
+    expect(fixture.componentInstance.revealToMenuItems().map((item) => item.value)).toEqual(['user-2']);
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).not.toBeNull();
     expect(text).not.toContain('Tap / untap');
     expect(text).not.toContain('Power/Toughness');
@@ -1024,6 +1028,24 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectRevealTarget('user-2');
 
     expect(selected).toHaveBeenCalledWith({ type: 'revealCard', target: 'user-2' });
+  });
+
+  it('shows All in reveal visibility targets only when there are several other players', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: card('card-1'),
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Spectator'),
+      ],
+    });
+
+    expect(fixture.componentInstance.revealToMenuItems().map((item) => item.value)).toEqual(['all', 'user-2', 'user-3']);
   });
 
   it('shows tap actions for saga cards on the battlefield', () => {
@@ -1120,6 +1142,13 @@ describe('ContextMenuComponent', () => {
       kind: 'zone',
       playerId: 'user-1',
       zone: 'library',
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Spectator'),
+      ],
     });
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
@@ -1128,9 +1157,11 @@ describe('ContextMenuComponent', () => {
       'Draw a card D',
       'Draw X cards',
       'Move top›',
+      'Play face down',
       'Reveal top card›',
+      'Reveal X top cards›',
       'Reveal library›',
-      'Play with top card revealed',
+      'Play with top card revealed›',
       'Shuffle S',
       'Select random card',
       'View›',
@@ -1147,25 +1178,133 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectLibraryMoveTop('zone:library');
     fixture.componentInstance.selectLibraryMoveTop('hand:user-2');
     fixture.componentInstance.selectLibraryMoveTop('battlefield:user-2');
+    const playTopFaceDownButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Play face down'));
+    playTopFaceDownButton?.click();
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryRevealTop');
-    fixture.componentInstance.selectLibraryRevealTopTarget('user-2');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryRevealTopMenuItems().map((item) => item.value)).toEqual([
+      'reveal:all',
+      'reveal:user-1',
+      'reveal:user-2',
+      'reveal:user-3',
+    ]);
+    expect(menuText(fixture)).toContain('Opponent');
+    expect(menuText(fixture)).toContain('Spectator');
+    expect(menuText(fixture)).toContain('User');
+    fixture.componentInstance.selectLibraryRevealTopTarget('reveal:user-2');
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryRevealTopCount');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryRevealTopCountMenuItems().map((item) => item.value)).toEqual(['user-2', 'user-3']);
+    fixture.componentInstance.selectLibraryRevealTopCountTarget('user-2');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryReveal');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryRevealMenuItems().map((item) => item.value)).toEqual(['user-2', 'user-3']);
     fixture.componentInstance.selectLibraryRevealTarget('user-2');
-    const playTopButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Play with top card revealed'));
-    playTopButton?.click();
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryPlayTopRevealed');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.libraryPlayTopRevealedMenuItems().map((item) => item.value)).toEqual([
+      'play:all',
+      'play:user-1',
+      'play:user-2',
+      'play:user-3',
+    ]);
+    fixture.componentInstance.selectLibraryPlayTopRevealedTarget('play:user-2');
     fixture.componentInstance.selectLibraryView('top');
     fixture.componentInstance.selectLibraryView('all');
 
     expect(selected).toHaveBeenCalledWith({ type: 'moveTop', zone: 'library', position: 'bottom' });
     expect(selected).toHaveBeenCalledWith({ type: 'moveTop', zone: 'hand', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'playTopFaceDown' });
     expect(selected).toHaveBeenCalledWith({ type: 'moveTop', zone: 'battlefield', targetPlayerId: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'revealTop', target: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'revealTopPrompt', targetPlayerId: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'revealLibrary', targetPlayerId: 'user-2' });
-    expect(selected).toHaveBeenCalledWith({ type: 'playTopRevealed', enabled: true });
+    expect(selected).toHaveBeenCalledWith({ type: 'playTopRevealed', enabled: true, target: 'user-2' });
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'top' });
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'all' });
+  });
+
+  it('replaces each revealed top-card audience with its inverse while that reveal is active', () => {
+    const revealedPlayer = player('user-1', 'User');
+    revealedPlayer.state.topLibraryRevealMarker = true;
+    revealedPlayer.state.topLibraryRevealedTo = ['user-1', 'user-2'];
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'library',
+    }, {
+      currentPlayer: revealedPlayer,
+      players: [revealedPlayer, player('user-2', 'Opponent')],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toContain('Reveal top card›');
+    expect(fixture.componentInstance.libraryRevealTopMenuItems().map((item) => item.value)).toEqual([
+      'stop:all',
+      'stop:user-1',
+      'stop:user-2',
+    ]);
+
+    fixture.componentInstance.selectLibraryRevealTopTarget('stop:user-2');
+
+    expect(selected).toHaveBeenCalledWith({ type: 'stopRevealTop', target: 'user-2' });
+  });
+
+  it('keeps the play-top toggle separate from a one-off top-card reveal', () => {
+    const revealedPlayer = player('user-1', 'User');
+    revealedPlayer.state.topLibraryRevealMarker = true;
+    revealedPlayer.state.playTopLibraryRevealed = true;
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'library',
+    }, {
+      currentPlayer: revealedPlayer,
+      players: [revealedPlayer, player('user-2', 'Opponent')],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toContain('Reveal top card›');
+    expect(buttonLabels(fixture)).toContain('Stop playing with top card revealed');
+    expect(buttonLabels(fixture)).not.toContain('Stop revealing');
+
+    menuButtons(fixture).find((button) => button.textContent?.includes('Stop playing with top card revealed'))?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'playTopRevealed', enabled: false });
+  });
+
+  it('replaces a revealed hand card action with stop revealing', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: { ...card('revealed-card'), revealedTo: ['user-2'] },
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toContain('Stop revealing');
+    expect(buttonLabels(fixture)).not.toContain('Reveal›');
+
+    menuButtons(fixture).find((button) => button.textContent?.includes('Stop revealing'))?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'stopRevealCard' });
+  });
+
+  it('uses the public hand reveal marker for the owner context menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: { ...card('revealed-card'), revealMarker: true },
+    });
+
+    expect(buttonLabels(fixture)).toContain('Stop revealing');
+    expect(buttonLabels(fixture)).not.toContain('Reveal›');
   });
 
   it('opens library submenus to the left in aggressive compact mode', () => {
@@ -1539,6 +1678,50 @@ describe('ContextMenuComponent', () => {
     expect(menuText(regularCard)).not.toContain('Command');
   });
 
+  it('only lets the owner inspect a face-down battlefield card', () => {
+    const ownerFixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('face-down-card'), faceDown: true },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+    const selected = vi.fn();
+    const interacted = vi.fn();
+    ownerFixture.componentInstance.actionSelected.subscribe(selected);
+    ownerFixture.componentInstance.interacted.subscribe(interacted);
+
+    const lookAtCard = menuButtons(ownerFixture).find((button) => button.textContent?.includes('Look at card'));
+
+    expect(lookAtCard).toBeDefined();
+    lookAtCard?.click();
+    expect(selected).toHaveBeenCalledWith({ type: 'lookAtFaceDownCard' });
+    expect(interacted).not.toHaveBeenCalled();
+
+    const opponentFixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-2',
+      zone: 'battlefield',
+      card: { ...card('opponent-face-down-card'), ownerId: 'user-1', controllerId: 'user-2', faceDown: true },
+    }, {
+      currentPlayer: player('user-2', 'Opponent'),
+    });
+
+    expect(menuText(opponentFixture)).not.toContain('Look at card');
+
+    const ownerWithoutControlFixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-2',
+      zone: 'battlefield',
+      card: { ...card('borrowed-face-down-card'), controllerId: 'user-2', faceDown: true },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+
+    expect(menuText(ownerWithoutControlFixture)).toContain('Look at card');
+  });
+
   it('hides power toughness setup when the battlefield card already has visible stats', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -1707,7 +1890,6 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
     ...menu,
   } satisfies GameContextMenu);
   fixture.componentRef.setInput('currentPlayer', options.currentPlayer ?? null);
-  fixture.componentRef.setInput('isGameOwner', false);
   fixture.componentRef.setInput('players', options.players ?? [
     player('user-1', 'User'),
     player('user-2', 'Opponent'),
@@ -1739,8 +1921,8 @@ function player(
   id: string,
   displayName: string,
   status: 'active' | 'conceded' = 'active',
-  colorIdentity: readonly string[] = [],
-) {
+  colorIdentity: string[] = [],
+): PlayerView {
   return {
     id,
     state: {

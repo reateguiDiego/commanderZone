@@ -8,10 +8,200 @@ import (
 	"time"
 
 	"commanderzone/game-runtime/internal/actor"
+	"commanderzone/game-runtime/internal/lifecycle"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
+
+type confirmingLifecycleSink struct {
+	handoffs chan lifecycle.Handoff
+}
+
+func (s *confirmingLifecycleSink) Deliver(_ context.Context, handoff lifecycle.Handoff) error {
+	s.handoffs <- handoff
+	return nil
+}
+
+func TestServiceStopsFinishedActorOnlyAfterLifecycleConfirmation(t *testing.T) {
+	gameID := "game-finished"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	sink := &confirmingLifecycleSink{handoffs: make(chan lifecycle.Handoff, 1)}
+	service := NewServiceWithStoreAndOptions(store, 8, nil, WithLifecycleSink(sink, 1))
+	defer shutdownService(t, service)
+
+	gameActor, created, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil || !created {
+		t.Fatalf("load actor: created=%v err=%v", created, err)
+	}
+	result := gameActor.Submit(context.Background(), protocol.CommandEnvelopeV2{
+		GameID: gameID, BaseVersion: 1, ClientActionID: "concede-p2", Type: "game.concede", Payload: map[string]any{"playerId": "p2"},
+	}, "p2")
+	if result.Err != nil || result.Event.Version != 2 {
+		t.Fatalf("finish command = %#v", result)
+	}
+	select {
+	case handoff := <-sink.handoffs:
+		if handoff.Type != lifecycle.GameFinished || handoff.WinnerPlayerID != "p1" || handoff.Version != result.Event.Version {
+			t.Fatalf("finish handoff = %#v", handoff)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected lifecycle confirmation before runtime stop")
+	}
+
+	deadline := time.After(time.Second)
+	for {
+		if _, exists := service.Actor(gameID); !exists {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("finished actor remained registered after lifecycle confirmation")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil || len(events) != 1 || events[0].Version != 2 {
+		t.Fatalf("game stream changed during runtime stop: events=%#v err=%v", events, err)
+	}
+}
+
+func TestStopActorFencesCommandsUntilDeletionIsReleased(t *testing.T) {
+	gameID := "game-closing"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	stopped := make(chan string, 1)
+	service.SetActorStoppedHook(func(id string) { stopped <- id })
+	gameActor, _, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.StopActor(ctx, gameID); err != nil {
+		t.Fatalf("stop actor: %v", err)
+	}
+	if err := service.StopActor(ctx, gameID); err != nil {
+		t.Fatalf("duplicate stop must be idempotent: %v", err)
+	}
+	if _, exists := service.Actor(gameID); exists || len(service.leases) != 0 {
+		t.Fatalf("actor or lease retained after stop: actors=%#v leases=%#v", service.actors, service.leases)
+	}
+	select {
+	case got := <-stopped:
+		if got != gameID {
+			t.Fatalf("stopped hook gameId = %s", got)
+		}
+	default:
+		t.Fatal("expected stopped hook")
+	}
+	if result := gameActor.Submit(context.Background(), protocol.CommandEnvelopeV2{
+		GameID: gameID, BaseVersion: 1, ClientActionID: "after-closing", Type: "life.changed", Payload: map[string]any{"playerId": "p1", "life": 39},
+	}, "p1"); !errors.Is(result.Err, actor.ErrGameClosing) {
+		t.Fatalf("command after closing = %#v", result)
+	}
+	if _, _, err := service.LoadActorRecovered(context.Background(), gameID, nil); !errors.Is(err, ErrActorClosing) {
+		t.Fatalf("load after closing = %v, want ErrActorClosing", err)
+	}
+	if events, err := store.EventsAfter(context.Background(), gameID, 0); err != nil || len(events) != 0 {
+		t.Fatalf("closing must not append gameplay events: events=%#v err=%v", events, err)
+	}
+
+	service.ReleaseClosingTombstone(gameID)
+	if _, created, err := service.LoadActorRecovered(context.Background(), gameID, nil); err != nil || !created {
+		t.Fatalf("load after deletion release: created=%v err=%v", created, err)
+	}
+	shutdownService(t, service)
+}
+
+func TestAllDisconnectedClearsVotesInSnapshotWithoutGameplayEvent(t *testing.T) {
+	gameID := "game-all-offline"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	defer shutdownService(t, service)
+	gameActor, _, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+	open := protocol.CommandEnvelopeV2{
+		GameID: gameID, BaseVersion: 1, ClientActionID: "open-disconnect", Type: "disconnect.vote",
+		Payload: map[string]any{"targetPlayerId": "p2", "status": "offline", "connectedUserIds": []string{"p1"}},
+		Client:  map[string]any{"source": "runtime_ws_presence"},
+	}
+	if result := gameActor.Submit(context.Background(), open, ""); result.Err != nil {
+		t.Fatalf("open vote: %v", result.Err)
+	}
+	if err := service.ClearDisconnectVotesForAllOffline(context.Background(), gameID); err != nil {
+		t.Fatalf("clear all disconnected votes: %v", err)
+	}
+	if votes := gameActor.Snapshot().DisconnectVotes; len(votes) != 0 {
+		t.Fatalf("votes retained with zero connected players: %#v", votes)
+	}
+	for playerID, player := range gameActor.Snapshot().Players {
+		if online, ok := player["isOnline"].(bool); !ok || online {
+			t.Fatalf("player %s presence = %#v, want offline", playerID, player["isOnline"])
+		}
+	}
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || !hibernated {
+		t.Fatalf("hibernate all-offline actor = %v, %v", hibernated, err)
+	}
+	recovered, _, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("recover all-offline actor: %v", err)
+	}
+	for playerID, player := range recovered.Snapshot().Players {
+		if online, ok := player["isOnline"].(bool); !ok || online {
+			t.Fatalf("recovered player %s presence = %#v, want offline", playerID, player["isOnline"])
+		}
+	}
+	if events, err := store.EventsAfter(context.Background(), gameID, 0); err != nil || len(events) != 1 {
+		t.Fatalf("all-disconnected cleanup appended gameplay event: events=%#v err=%v", events, err)
+	}
+}
+
+func TestHibernateActorDefersToAnActiveConnectionAndThenReleasesIt(t *testing.T) {
+	gameID := "game-hibernate-connection"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	defer shutdownService(t, service)
+
+	gameActor, first, release, err := service.AcquireConnection(context.Background(), gameID)
+	if err != nil || !first || gameActor == nil {
+		t.Fatalf("acquire connection: actor=%v first=%v err=%v", gameActor, first, err)
+	}
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || hibernated {
+		t.Fatalf("hibernate while connected = hibernated=%v err=%v", hibernated, err)
+	}
+	if current, ok := service.Actor(gameID); !ok || current != gameActor {
+		t.Fatal("active connection lost its actor")
+	}
+
+	release()
+	if hibernated, err := service.HibernateActor(context.Background(), gameID); err != nil || !hibernated {
+		t.Fatalf("hibernate after release = hibernated=%v err=%v", hibernated, err)
+	}
+	if _, ok := service.Actor(gameID); ok {
+		t.Fatal("hibernated actor remained registered")
+	}
+
+	recovered, created, err := service.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil || !created || recovered == nil {
+		t.Fatalf("recover hibernated actor: actor=%v created=%v err=%v", recovered, created, err)
+	}
+}
 
 func TestServiceLoadActorIsIdempotentByGameID(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
@@ -509,8 +699,8 @@ func (s snapshotFailRuntimeStore) SaveSnapshot(context.Context, persistence.Comp
 
 func runtimeTestState(gameID string) state.GameState {
 	gameState := EmptyInitialState(gameID)
-	gameState.Players["p1"] = map[string]any{"life": 40}
-	gameState.Players["p2"] = map[string]any{"life": 40}
+	gameState.Players["p1"] = map[string]any{"life": 40, "status": "active"}
+	gameState.Players["p2"] = map[string]any{"life": 40, "status": "active"}
 	gameState.Turn = map[string]any{"activePlayerId": "p1"}
 	return gameState
 }

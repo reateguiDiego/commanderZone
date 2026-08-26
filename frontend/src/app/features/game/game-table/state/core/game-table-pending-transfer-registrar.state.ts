@@ -70,6 +70,7 @@ export class GameTablePendingTransferRegistrarState {
     const rawCount = Number(payload['count'] ?? 1);
     const count = Number.isFinite(rawCount) ? Math.max(1, Math.floor(rawCount)) : 1;
     const library = this.core.snapshot()?.players[playerId]?.zones.library ?? [];
+    const sourceZoneCount = this.core.snapshot()?.players[playerId]?.zoneCounts?.library ?? library.length;
     const instanceIds = library.slice(0, count).map((card) => card.instanceId);
     if (toZone === 'battlefield') {
       this.dropFeedbackState.markPendingBattlefieldEntry(targetPlayerId, instanceIds);
@@ -80,6 +81,7 @@ export class GameTablePendingTransferRegistrarState {
       fromZone: 'library',
       instanceIds,
       sourceVersion: this.core.snapshot()?.version ?? null,
+      sourceZoneCount,
     });
   }
 

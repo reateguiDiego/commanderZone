@@ -4,14 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom, Subscription } from 'rxjs';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
-import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
+import { GameSnapshotPatchOperation, GameplayPatchV2Message } from '../../../core/models/game-realtime.model';
+import type { GameplayPatchV2Operation } from '../../../core/models/game-v2.model';
 import { Card } from '../../../core/models/card.model';
 import { CardsApi } from '../../../core/api/cards.api';
-import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
@@ -27,6 +29,7 @@ import { GameTableGameRealtimeService } from './services/game-table-game-realtim
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
+import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
@@ -35,6 +38,8 @@ import { GameTableZonePointerMoveActionsService } from './services/game-table-zo
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatReadStateService, type GameTableChatReadContext } from './services/game-table-chat-read-state.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
+import { GameTableLogHistoryService } from './services/game-table-log-history.service';
+import { GameTableChatHistoryService } from './services/game-table-chat-history.service';
 import { GameTableManaCometService } from './services/game-table-mana-comet.service';
 import {
   GameTableRealtimeAnimationBusService,
@@ -158,8 +163,19 @@ interface ViewTopNumberActionRequest {
   readonly confirmLabel: string;
 }
 
-type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
-type RematchCountdownMode = 'initial' | 'courtesy';
+interface RevealTopNumberActionRequest {
+  readonly kind: 'revealTop';
+  readonly playerId: string;
+  readonly targetPlayerId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultValue: number;
+  readonly min: number;
+  readonly max?: number;
+  readonly confirmLabel: string;
+}
+
+type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest | RevealTopNumberActionRequest;
 type TableExitAction = 'concede' | 'leave';
 type FloatingPanelTab = 'chat' | 'log';
 const CHAT_REACTION_WINDOW_MS = 30 * 60 * 1000;
@@ -412,6 +428,18 @@ interface ZoneGhostOptions {
   readonly dropEvent?: DragEvent;
 }
 
+interface RealtimeCardMove {
+  readonly instanceId: string;
+  readonly from: {
+    readonly playerId: string;
+    readonly zone: GameZoneName;
+  };
+  readonly to: {
+    readonly playerId: string;
+    readonly zone: GameZoneName;
+  };
+}
+
 interface PendingCardMotion {
   readonly sourceInstanceId: string;
   readonly sourceRect?: MotionSourceRect | null;
@@ -464,6 +492,7 @@ interface MotionSourceRect {
     ChatRecipientSelectComponent,
     GlobalLoaderComponent,
     RollModalComponent,
+    TabListComponent,
   ],
   providers: [
     GameTableStore,
@@ -496,6 +525,7 @@ interface MotionSourceRect {
     GameTableBattlefieldDragCoordinatorService,
     GameTableGameRealtimeService,
     GameTableDisconnectVoteService,
+    GameTableRematchVoteService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,
     GameTableCommandService,
@@ -513,6 +543,8 @@ interface MotionSourceRect {
     GameTableMotionService,
     GameTableChatReadStateService,
     GameTableNotificationSoundService,
+    GameTableLogHistoryService,
+    GameTableChatHistoryService,
     GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
     GameTableE2eStaticCardCacheToolsService,
@@ -532,14 +564,17 @@ interface MotionSourceRect {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+  readonly logHistory = inject(GameTableLogHistoryService);
+  readonly chatHistory = inject(GameTableChatHistoryService);
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly cardsApi = inject(CardsApi);
-  private readonly gamesApi = inject(GamesApi);
+  private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly router = inject(Router);
+  private readonly authStore = inject(AuthStore);
   private readonly motion = inject(GameTableMotionService);
   private readonly chatReadState = inject(GameTableChatReadStateService);
   readonly manaComets = inject(GameTableManaCometService);
@@ -558,7 +593,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly effectiveBattlefieldCardWidthRem = computed(() => this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldGapRem = computed(() => this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldManaLaneHeightRem = computed(() => this.battlefieldZoom.manaLaneMinHeightRemFor(this.effectiveBattlefieldZoomPercent()));
+  readonly autoApplyCommanderDamageToLife = computed(() =>
+    this.authStore.user()?.preferences?.game?.autoApplyCommanderDamageToLife ?? true,
+  );
   readonly handMotionActive = this.motion.handMotionActive;
+  readonly handMotionLayoutMode = this.motion.handMotionLayoutMode;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
   readonly topDraggableCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.topDraggableCard(player, zone);
@@ -670,7 +709,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly rematchPending = signal(false);
   readonly rematchToast = signal<string | null>(null);
   readonly rematchCountdownSeconds = signal<number | null>(null);
-  readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
   readonly tableExitAction = signal<TableExitAction | null>(null);
   readonly gameplayCardSearchRequest = signal<GameplayCardSearchRequest | null>(null);
   readonly gameplayCardSearchPending = signal(false);
@@ -687,11 +725,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       .find((player) => player.id === playerId)
       ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly rollModalOpen = signal(false);
-  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
+  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave'
+    ? 'game.gameTable.leaveTableConfirmationTitle'
+    : 'game.gameTable.concedeGameConfirmationTitle');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
-    ? 'You will concede this game and leave the room. This cannot be undone.'
-    : 'You will lose this game immediately. This cannot be undone.');
-  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave' ? 'Leave table' : 'Concede');
+    ? 'game.gameTable.leaveTableConfirmationMessage'
+    : 'game.gameTable.concedeGameConfirmationMessage');
+  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave'
+    ? 'game.contextMenu.labels.leaveTable'
+    : 'game.contextMenu.labels.concede');
+  readonly canConcedeFromBattlefieldControls = computed(() => {
+    const localPlayer = this.store.currentPlayer();
+
+    return localPlayer !== null
+      && localPlayer.state.status === 'active'
+      && (
+        localPlayer.state.life <= 0
+        || Object.values(localPlayer.state.commanderDamage).some((damage) => damage >= 21)
+      );
+  });
   private readonly leavingTable = signal(false);
   private readonly tableExitPending = computed(() => this.tableExitAction() !== null || this.leavingTable());
   readonly manualRelationTargetingActive = computed(() =>
@@ -716,7 +768,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       bottom: top + CONTEXT_MENU_AVOID_HEIGHT,
     };
   });
-  readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
     const request = this.powerToughnessDialog();
 
@@ -724,17 +775,59 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly floatingPanelTabs = computed<readonly TabListItem[]>(() => [
+    {
+      id: 'log',
+      label: 'game.gameTable.gameLog',
+      icon: 'scroll-text',
+      testId: 'game-log-open',
+      ariaLabel: this.unreadLog() ? 'game.gameTable.gameLogUnreadActions' : 'game.gameTable.gameLog',
+      attention: this.unreadLog(),
+      classNames: this.unreadLog() ? ['has-unread'] : [],
+    },
+    {
+      id: 'chat',
+      label: 'game.gameTable.chat',
+      icon: 'message-circle',
+      testId: 'chat-open',
+      ariaLabel: this.unreadChat() ? 'game.gameTable.chatUnreadMessages' : 'game.gameTable.chat',
+      attention: this.unreadChat(),
+      classNames: this.unreadChat() ? ['has-unread'] : [],
+    },
+  ]);
   readonly hoveredPreviewAttachmentInfo = computed(() => {
+    const previewCard = this.hoveredPreviewCard();
+
+    return previewCard ? buildCardPreviewAttachmentInfo(this.store.snapshot(), previewCard) : null;
+  });
+  readonly hoveredPreviewCard = computed(() => {
     const preview = this.store.hoveredPreview();
     const snapshot = this.store.snapshot();
 
-    return preview ? buildCardPreviewAttachmentInfo(snapshot, resolveCardPreviewCard(snapshot, preview)) : null;
+    return preview ? resolveCardPreviewCard(snapshot, preview) : null;
+  });
+  readonly hoveredPreviewZone = computed<GameZoneName | null>(() => {
+    const preview = this.store.hoveredPreview();
+    const snapshot = this.store.snapshot();
+    if (!preview) {
+      return null;
+    }
+
+    const isOnBattlefield = Object.values(snapshot?.players ?? {}).some((player) =>
+      player.zones.battlefield.some((card) => card.instanceId === preview.card.instanceId),
+    );
+
+    return isOnBattlefield ? 'battlefield' : preview.zone;
   });
   readonly hoveredPreviewCardStateInfo = computed(() => {
-    const preview = this.store.hoveredPreview();
-    const snapshot = this.store.snapshot();
+    const previewCard = this.hoveredPreviewCard();
 
-    return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
+    return previewCard ? buildCardPreviewCardStateInfo(previewCard) : null;
+  });
+  readonly hoveredPreviewRevealLabel = computed(() => {
+    const previewCard = this.hoveredPreviewCard();
+
+    return previewCard ? this.revealLabelForCard(previewCard, this.hoveredPreviewZone()) : null;
   });
 
   private battlefieldEmblemsForPlayer(playerId: string): readonly GameCardInstance[] {
@@ -773,7 +866,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return currentPlayer && focusedPlayer && currentPlayer.id !== focusedPlayer.id ? focusedPlayer : null;
   });
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
-  readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
 
@@ -800,11 +892,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
   readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending());
   readonly rematchVotePlayers = computed<readonly RematchPlayerVoteView[]>(() => {
-    const votes = this.store.snapshot()?.rematch?.votes ?? {};
+    const snapshot = this.store.snapshot();
+    const votes = snapshot?.rematch?.votes ?? {};
+    const winnerPlayerId = snapshot?.winnerPlayerId ?? null;
 
     return this.store.players().map((player) => ({
       playerId: player.id,
       displayName: player.state.user.displayName || player.state.user.email || player.id,
+      winner: player.id === winnerPlayerId,
       life: player.state.life,
       defeated: playerIsDefeated(player),
       vote: votes[player.id]?.vote ?? null,
@@ -826,7 +921,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return false;
     }
 
-    return otherPlayers.every((player) => player.vote === 'leave');
+    return otherPlayers.every((player) => player.vote === 'leave_room');
   });
   readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
@@ -870,7 +965,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private rematchCountdownDeadlineMs: number | null = null;
   private chatReactionClockTimer: number | null = null;
   private rematchCountdownKey = '';
-  private rematchAutoLeaveKey = '';
   private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
   private lastObservedChatKey: string | null = null;
@@ -926,12 +1020,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       }
 
-      const promptKey = this.rematchPromptKey();
-      const missingPlayers = this.rematchMissingVotePlayers();
-      const hasMissingVotes = missingPlayers.length > 0;
-      const countdownEnabled = this.rematchVoteCountdownEnabled();
-
-      queueMicrotask(() => this.syncRematchCountdown(promptKey, hasMissingVotes, countdownEnabled));
+      const snapshot = this.store.snapshot();
+      // The server owns the deadline, but it only becomes actionable after
+      // the authoritative finish handoff. A conceded spectator may vote
+      // early while gameplay continues; that must never start an endgame UI
+      // countdown.
+      const gameFinished = snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
+      const deadlineAt = gameFinished ? snapshot?.rematch?.deadlineAt ?? null : null;
+      queueMicrotask(() => this.syncRematchCountdown(deadlineAt));
     });
 
     effect(() => {
@@ -987,11 +1083,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.syncFollowActiveTurnPlayer(snapshot.turn.activePlayerId);
 
+    const activeTab = this.store.activeFloatingTab();
+    if ((activeTab === 'log' && this.logHistory.viewingOlderHistory())
+      || (activeTab === 'chat' && this.chatHistory.viewingOlderHistory())) {
+      return;
+    }
+
     const log = this.store.eventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
     const latestLog = log.at(-1)?.id ?? '';
     const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
-    const key = `${this.store.activeFloatingTab()}:${snapshot.chat.length}:${latestChat}:${snapshot.eventLog.length}:${rawLatestLog}:${log.length}:${latestLog}`;
+    const key = `${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
     if (key === this.lastAutoScrollKey) {
       return;
     }
@@ -999,6 +1101,37 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.lastAutoScrollKey = key;
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
     this.queueBattlefieldReflow();
+  }
+
+  loadOlderLogHistory(): void {
+    this.clearQueuedFloatingContentScroll();
+    void this.logHistory.loadOlder();
+  }
+
+  loadNewerLogHistory(): void {
+    void this.logHistory.loadNewer();
+  }
+
+  async handleChatHistoryScroll(event: Event): Promise<void> {
+    const feed = event.currentTarget;
+    if (!(feed instanceof HTMLElement)) {
+      return;
+    }
+
+    const threshold = 96;
+    if (feed.scrollTop <= threshold) {
+      const previousHeight = feed.scrollHeight;
+      const previousTop = feed.scrollTop;
+      await this.chatHistory.loadOlder();
+      requestAnimationFrame(() => {
+        feed.scrollTop = previousTop + feed.scrollHeight - previousHeight;
+      });
+    } else if (feed.scrollTop + feed.clientHeight >= feed.scrollHeight - threshold) {
+      await this.chatHistory.loadNewer();
+      requestAnimationFrame(() => {
+        feed.scrollTop = Math.max(0, feed.scrollHeight - feed.clientHeight);
+      });
+    }
   }
 
   ngOnDestroy(): void {
@@ -1124,6 +1257,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
   }
 
+  selectFloatingTab(tabId: string): void {
+    if (tabId === 'chat' || tabId === 'log') {
+      this.openFloatingTab(tabId);
+    }
+  }
+
   chatMessageKey(message: ChatMessage, index: number): string {
     return this.chatReadState.messageKey(message, index);
   }
@@ -1223,6 +1362,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.queueFloatingContentScrollToBottom();
   }
 
+  handleFloatingPanelLeave(): void {
+    this.queueFloatingContentScrollToBottom();
+    if (this.store.activeFloatingTab() === 'log') {
+      void this.logHistory.restoreLatest();
+    } else {
+      void this.chatHistory.restoreLatest();
+    }
+  }
+
   handleFloatingPanelTransitionEnd(event: TransitionEvent): void {
     if (event.propertyName === 'max-height') {
       this.queueFloatingContentScrollToBottom();
@@ -1262,6 +1410,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.requestTableExit('leave');
   }
 
+  requestBattlefieldConcedeConfirmation(): void {
+    this.requestTableExit('concede');
+  }
+
   @HostListener('window:resize')
   handleViewportResize(): void {
     this.queueBattlefieldReflow();
@@ -1282,7 +1434,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.cancelNumberAction();
         this.cancelPowerToughnessDialog();
         this.cancelArrowTargetDialog();
-        this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
       case 'd':
@@ -1541,19 +1692,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
-    const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
+    const stateAnimations = [
+      ...this.realtimePatchRotationAnimationsFor(event),
+      ...this.realtimePatchFaceDownAnimationsFor(event),
+    ];
 
     if (!event.isLocalPatch) {
+      this.prepareRemoteHandLayoutMotion(event);
       this.playRealtimeMoveGhosts(event);
     }
 
-    if (rotationAnimations.length > 0 || !event.isLocalPatch) {
+    if (stateAnimations.length > 0 || !event.isLocalPatch) {
       window.requestAnimationFrame(() => {
         if (this.destroyed) {
           return;
         }
 
-        for (const playAnimation of rotationAnimations) {
+        for (const playAnimation of stateAnimations) {
           playAnimation();
         }
 
@@ -1565,7 +1720,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private realtimePatchRotationAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
-    if (event.isLocalPatch) {
+    if (event.isLocalPatch || event.patch.kind !== 'game_patch') {
       return [];
     }
 
@@ -1579,6 +1734,40 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         case 'cards.state.set':
           this.collectRealtimeCardsStateAnimations(event.previousSnapshot, operation, animations);
           break;
+      }
+    }
+
+    return animations;
+  }
+
+  private realtimePatchFaceDownAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
+    const animations: Array<() => void> = [];
+
+    if (event.patch.kind === 'game_patch') {
+      for (const operation of event.patch.operations) {
+        switch (operation.op) {
+          case 'card.state.set':
+            this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, operation, animations);
+            break;
+          case 'cards.state.set':
+            for (const state of operation.cards) {
+              this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, {
+                ...state,
+                playerId: operation.playerId,
+                zone: operation.zone,
+              }, animations);
+            }
+            break;
+        }
+      }
+
+      return animations;
+    }
+
+    for (const rawOperation of event.patch.ops) {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      if (operation.op === 'card.field.set') {
+        this.collectRealtimeCardFaceDownAnimation(event.previousSnapshot, operation, animations);
       }
     }
 
@@ -1619,6 +1808,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
   }
 
+  private collectRealtimeCardFaceDownAnimation(
+    snapshot: GameSnapshot,
+    state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'playerId' | 'zone' | 'instanceId' | 'faceDown'>,
+    animations: Array<() => void>,
+  ): void {
+    if (!this.shouldAnimateFocusedBattlefield(state.playerId, state.zone)) {
+      return;
+    }
+
+    const card = snapshot.players[state.playerId]?.zones[state.zone]?.find((candidate) => candidate.instanceId === state.instanceId) ?? null;
+    if (!card || !this.hasRealtimeFaceDownStateChange(card, state)) {
+      return;
+    }
+
+    animations.push(this.motion.prepareCardFaceDownFlip(state.instanceId, { faceDown: state.faceDown }));
+  }
+
   private hasRealtimeRotationStateChange(
     card: GameCardInstance,
     state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'tapped' | 'rotation'>,
@@ -1627,43 +1833,101 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       || state.rotation !== undefined && card.rotation !== state.rotation;
   }
 
+  private hasRealtimeFaceDownStateChange(
+    card: GameCardInstance,
+    state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'faceDown'>,
+  ): state is { faceDown: boolean } {
+    return state.faceDown !== undefined && card.faceDown !== state.faceDown;
+  }
+
   private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
-    for (const operation of event.patch.operations) {
-      if (operation.op === 'card.move') {
-        this.playRealtimeCardMoveGhost(operation);
-      }
+    for (const move of this.realtimeCardMoves(event.patch)) {
+      this.playRealtimeCardMoveGhost(event.previousSnapshot, move);
     }
   }
 
-  private playRealtimeCardMoveGhost(operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): void {
-    if (!this.shouldAnimateVisibleRemoteMoveSource(operation.from.playerId, operation.from.zone)) {
+  private realtimeCardMoves(eventPatch: GameTableRealtimePatchAnimationEvent['patch']): readonly RealtimeCardMove[] {
+    if (eventPatch.kind === 'game_patch') {
+      return eventPatch.operations
+        .filter((operation): operation is Extract<GameSnapshotPatchOperation, { op: 'card.move' }> => operation.op === 'card.move')
+        .map((operation) => ({
+          instanceId: operation.instanceId,
+          from: operation.from,
+          to: operation.to,
+        }));
+    }
+
+    return eventPatch.ops.flatMap((rawOperation) => {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      switch (operation.op) {
+        case 'zone.cards.move':
+          return [{
+            instanceId: operation.instanceId,
+            from: operation.from,
+            to: operation.to,
+          }];
+        case 'zone.cards.batchMove':
+          return operation.moves.map((move) => ({
+            instanceId: move.instanceId,
+            from: move.from,
+            to: move.to,
+          }));
+        default:
+          return [];
+      }
+    });
+  }
+
+  private prepareRemoteHandLayoutMotion(event: GameTableRealtimePatchAnimationEvent): void {
+    const handPlayerId = this.store.handPlayer()?.id;
+    if (!handPlayerId || !this.realtimeCardMoves(event.patch).some((move) =>
+      move.from.playerId === handPlayerId && move.from.zone === 'hand'
+      || move.to.playerId === handPlayerId && move.to.zone === 'hand')) {
       return;
     }
 
-    if (!this.cardFromSnapshot(operation.from.playerId, operation.from.zone, operation.instanceId)) {
+    const playHandoff = this.motion.prepareHandDropHandoff('[data-zone="hand"][data-card-instance-id]');
+    window.requestAnimationFrame(() => {
+      if (!this.destroyed) {
+        playHandoff();
+      }
+    });
+  }
+
+  private playRealtimeCardMoveGhost(snapshot: GameSnapshot, move: RealtimeCardMove): void {
+    if (!this.shouldAnimateVisibleRemoteMoveSource(move.from.playerId, move.from.zone)) {
       return;
     }
 
-    if (operation.to.playerId !== operation.from.playerId) {
+    if (!this.cardFromSnapshotFrom(snapshot, move.from.playerId, move.from.zone, move.instanceId)) {
+      return;
+    }
+
+    const sourceElement = this.realtimeMoveSourceElement(move.from.playerId, move.from.zone, move.instanceId);
+
+    if (move.to.playerId !== move.from.playerId) {
       this.animateGhostToPlayer({
-        sourceInstanceId: operation.instanceId,
-        targetPlayerId: operation.to.playerId,
+        sourceElement,
+        sourceInstanceId: move.instanceId,
+        targetPlayerId: move.to.playerId,
       });
       return;
     }
 
-    if (operation.to.zone === 'hand') {
+    if (move.to.zone === 'hand') {
       this.animateGhostToHand({
-        sourceInstanceId: operation.instanceId,
-        targetPlayerId: operation.to.playerId,
+        sourceElement,
+        sourceInstanceId: move.instanceId,
+        targetPlayerId: move.to.playerId,
       });
       return;
     }
 
     this.animateGhostToDropZone({
-      sourceInstanceId: operation.instanceId,
-      targetPlayerId: operation.to.playerId,
-      targetZone: operation.to.zone,
+      sourceElement,
+      sourceInstanceId: move.instanceId,
+      targetPlayerId: move.to.playerId,
+      targetZone: move.to.zone,
     });
   }
 
@@ -1674,6 +1938,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private playRealtimePatchArrivalAnimations(event: GameTableRealtimePatchAnimationEvent): void {
+    if (event.patch.kind === 'patch.v2') {
+      this.playRealtimeV2PatchArrivalAnimations(event.patch);
+      return;
+    }
+
     const punchCardIds = new Set<string>();
 
     for (const operation of event.patch.operations) {
@@ -1702,6 +1971,79 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       }
     }
 
+    this.playRealtimeCardPunches(punchCardIds);
+  }
+
+  private playRealtimeV2PatchArrivalAnimations(patch: GameplayPatchV2Message): void {
+    const punchCardIds = new Set<string>();
+
+    for (const rawOperation of patch.ops) {
+      const operation = this.normalizedRealtimeV2Operation(rawOperation);
+      switch (operation.op) {
+        case 'zone.cards.move':
+          this.addV2BattlefieldArrivalCard(punchCardIds, operation.to.playerId, operation.to.zone, operation.instanceId);
+          break;
+        case 'zone.cards.batchMove':
+          for (const move of operation.moves) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, move.to.playerId, move.to.zone, move.instanceId);
+          }
+          break;
+        case 'zone.cards.add':
+          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+            operation.cards.forEach((card) => punchCardIds.add(card.instanceId));
+          }
+          break;
+        case 'card.field.set':
+          if (this.hasV2PermanentVisualChange(operation)) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          }
+          break;
+        case 'card.counters.patch':
+        case 'card.stats.set':
+        case 'card.counters.set':
+          this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          break;
+        case 'card.state.set':
+          if (operation.counters !== undefined) {
+            this.addV2BattlefieldArrivalCard(punchCardIds, operation.playerId, operation.zone, operation.instanceId);
+          }
+          break;
+      }
+    }
+
+    this.playRealtimeCardPunches(punchCardIds);
+  }
+
+  private normalizedRealtimeV2Operation(operation: GameplayPatchV2Operation): GameplayPatchV2Operation {
+    const wireOperation = operation as GameplayPatchV2Operation & { data?: Record<string, unknown> };
+    if (!wireOperation.data || Array.isArray(wireOperation.data)) {
+      return operation;
+    }
+
+    return { ...wireOperation.data, op: operation.op } as GameplayPatchV2Operation;
+  }
+
+  private addV2BattlefieldArrivalCard(
+    instanceIds: Set<string>,
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+  ): void {
+    if (this.shouldAnimateFocusedBattlefield(playerId, zone)) {
+      instanceIds.add(instanceId);
+    }
+  }
+
+  private hasV2PermanentVisualChange(operation: Extract<GameplayPatchV2Operation, { op: 'card.field.set' }>): boolean {
+    return operation.counters !== undefined
+      || operation.power !== undefined
+      || operation.toughness !== undefined
+      || operation.loyalty !== undefined
+      || operation.defense !== undefined
+      || operation.saga !== undefined;
+  }
+
+  private playRealtimeCardPunches(punchCardIds: ReadonlySet<string>): void {
     if (punchCardIds.size === 0) {
       return;
     }
@@ -1735,10 +2077,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async animateHandLayoutAfterAction(
     action: () => Promise<void>,
-    options: { readonly freezeHand?: boolean } = {},
+    options: { readonly freezeHand?: boolean; readonly layoutMode?: 'fan' | 'row' } = {},
   ): Promise<void> {
     const handCardSelector = '[data-zone="hand"][data-card-instance-id]';
-    const playFlip = options.freezeHand === undefined
+    const playFlip = options.freezeHand === undefined && options.layoutMode === undefined
       ? this.motion.prepareHandDropHandoff(handCardSelector)
       : this.motion.prepareHandDropHandoff(handCardSelector, options);
 
@@ -1850,6 +2192,43 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private cardFromSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
     return this.store.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private cardFromSnapshotFrom(snapshot: GameSnapshot, playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
+    return snapshot.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private realtimeMoveSourceElement(playerId: string, zone: GameZoneName, instanceId: string): HTMLElement | null {
+    const host = this.gameScreen?.nativeElement;
+    if (!host) {
+      return null;
+    }
+
+    const matchingCards = Array.from(host.querySelectorAll<HTMLElement>('[data-card-instance-id], [data-motion-origin-card-id]'))
+      .filter((element) =>
+        (element.dataset['cardInstanceId'] === instanceId || element.dataset['motionOriginCardId'] === instanceId)
+        && this.isRealtimeMoveSourceElement(element, playerId, zone)
+        && this.isDropTargetVisible(element));
+
+    return matchingCards.reduce<HTMLElement | null>((largest, candidate) => {
+      if (!largest) {
+        return candidate;
+      }
+
+      const largestRect = largest.getBoundingClientRect();
+      const candidateRect = candidate.getBoundingClientRect();
+      return candidateRect.width * candidateRect.height > largestRect.width * largestRect.height ? candidate : largest;
+    }, null);
+  }
+
+  private isRealtimeMoveSourceElement(element: HTMLElement, playerId: string, zone: GameZoneName): boolean {
+    const zoneElement = element.closest<HTMLElement>('[data-zone]');
+    const playerElement = element.closest<HTMLElement>('[data-player-id]');
+    const isOpponentMiniBattlefield = zone === 'battlefield'
+      && element.closest<HTMLElement>('[data-testid="opponent-mini-board"]')?.dataset['playerId'] === playerId;
+
+    return isOpponentMiniBattlefield
+      || zoneElement?.dataset['zone'] === zone && playerElement?.dataset['playerId'] === playerId;
   }
 
   private cardEvaporatesOutsideBattlefield(card: GameCardInstance | null, targetZone: DropZoneTarget): boolean {
@@ -2250,6 +2629,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.battlefieldZoomReflowFrame = null;
   }
 
+  reloadPage(): void {
+    window.location.reload();
+  }
+
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
     return !menu.card && menu.zone !== 'library';
   }
@@ -2280,7 +2663,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'refreshSnapshot':
         this.store.closeContextMenu();
-        window.location.reload();
+        this.reloadPage();
         return;
       case 'focusCurrentPlayer':
         this.store.focusCurrentPlayer();
@@ -2303,10 +2686,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'concedeGame':
         this.requestTableExit('concede');
         return;
-      case 'closeGame':
-        this.openCloseGameDialog();
-        this.store.closeContextMenu();
-        return;
       case 'focusPlayer':
         this.focusPlayerBattlefield(menu.playerId);
         return;
@@ -2325,6 +2704,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'drawPrompt':
         this.openDrawDialog(menu.playerId);
         return;
+      case 'revealTopPrompt':
+        this.openRevealTopDialog(menu.playerId, action.targetPlayerId);
+        return;
       case 'moveTop':
         this.openMoveTopDialog(menu.playerId, action.zone, {
           targetPlayerId: action.targetPlayerId,
@@ -2339,13 +2721,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.store.closeContextMenu();
         void this.store.revealTop(menu.playerId, action.target ?? 'all');
         return;
+      case 'stopRevealTop':
+        this.store.closeContextMenu();
+        void this.store.stopRevealTop(menu.playerId, action.target);
+        return;
       case 'revealLibrary':
         this.store.closeContextMenu();
         void this.store.revealLibrary(menu.playerId, action.targetPlayerId);
         return;
       case 'playTopRevealed':
         this.store.closeContextMenu();
-        void this.store.setPlayTopRevealed(menu.playerId, action.enabled);
+        void this.store.setPlayTopRevealed(menu.playerId, action.enabled, action.target);
         return;
       case 'openLibraryView':
         if (action.mode === 'all') {
@@ -2377,11 +2763,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'playFaceDown':
         void this.store.playFaceDown(menu);
         return;
+      case 'playTopFaceDown':
+        void this.store.playTopFaceDown(menu.playerId);
+        return;
       case 'flipCardFace':
         void this.store.flipCardFace(menu);
         return;
       case 'revealCard':
         void this.store.revealCard(menu, action.target);
+        return;
+      case 'stopRevealCard':
+        void this.store.stopRevealCard(menu);
         return;
       case 'createToken':
         this.openGameplayCardSearchModal(menu.playerId, 'token');
@@ -2501,6 +2893,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         }
         this.store.closeContextMenu();
         return;
+      case 'lookAtFaceDownCard':
+        this.store.closeContextMenu();
+        if (menu.card && this.canInspectOwnFaceDownCard(menu.card)) {
+          this.store.inspectFaceDownCard(menu.card, menu.playerId, menu.zone, true);
+          this.store.recordFaceDownCardInspection(menu.card, menu.playerId, menu.zone);
+        }
+        return;
       }
   }
 
@@ -2521,6 +2920,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'viewTop':
         void this.store.viewTopLibrary(request.playerId, value);
+        return;
+      case 'revealTop':
+        void this.store.revealTop(request.playerId, request.targetPlayerId, value);
         return;
     }
   }
@@ -2871,13 +3273,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       });
     }
 
-    await this.store.moveHandCardByPointer(
-      event.playerId,
-      event.targetPlayerId,
-      event.movedInstanceId,
-      event.toZone,
-      event.position,
-      event.rawZone,
+    await this.animateHandLayoutAfterAction(
+      () => this.store.moveHandCardByPointer(
+        event.playerId,
+        event.targetPlayerId,
+        event.movedInstanceId,
+        event.toZone,
+        event.position,
+        event.rawZone,
+      ),
+      { layoutMode: 'fan' },
     );
   }
 
@@ -3100,15 +3505,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.arrowTargetDialog.set(null);
   }
 
-  confirmCloseGame(): void {
-    this.closeGameDialogOpen.set(false);
-    void this.store.closeGame();
-  }
-
-  cancelCloseGame(): void {
-    this.closeGameDialogOpen.set(false);
-  }
-
   async confirmTableExitAction(): Promise<void> {
     const action = this.tableExitAction();
     this.tableExitAction.set(null);
@@ -3303,7 +3699,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async abandonRematchRoom(): Promise<void> {
-    await this.submitRematchVote('leave');
+    await this.submitRematchVote('leave_room');
   }
 
   closeDisconnectVoteModal(): void {
@@ -3424,6 +3820,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private openDrawDialog(playerId: string): void {
     this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
     this.numberActionDialog.set({
       kind: 'draw',
       playerId,
@@ -3431,6 +3832,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       description: 'game.numberAction.drawCards.description',
       defaultValue: 1,
       min: 1,
+      max,
       confirmLabel: 'game.numberAction.drawCards.confirm',
     });
   }
@@ -3679,6 +4081,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private openViewTopLibraryDialog(playerId: string): void {
     this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
     this.numberActionDialog.set({
       kind: 'viewTop',
       playerId,
@@ -3686,8 +4093,33 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       description: 'game.numberAction.viewTopCards.description',
       defaultValue: 1,
       min: 1,
+      max,
       confirmLabel: 'game.numberAction.viewTopCards.confirm',
     });
+  }
+
+  private openRevealTopDialog(playerId: string, targetPlayerId: string): void {
+    this.store.closeContextMenu();
+    const max = this.numberActionLibraryMax(playerId);
+    if (max < 1) {
+      return;
+    }
+
+    this.numberActionDialog.set({
+      kind: 'revealTop',
+      playerId,
+      targetPlayerId,
+      title: 'game.numberAction.revealTopCards.title',
+      description: 'game.numberAction.revealTopCards.description',
+      defaultValue: 1,
+      min: 1,
+      max,
+      confirmLabel: 'game.numberAction.revealTopCards.confirm',
+    });
+  }
+
+  private numberActionLibraryMax(playerId: string): number {
+    return Math.min(99, Math.max(0, this.store.zoneCardCountById(playerId, 'library')));
   }
 
   private libraryMoveTopDestinationLabel(toZone: GameZoneName, targetPlayerId?: string, position?: 'top' | 'bottom'): string {
@@ -3746,6 +4178,37 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private playerName(playerId: string): string {
     return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
+  }
+
+  revealLabelForCard(card: GameCardInstance, zone: GameZoneName | null): string | null {
+    const recipients = this.revealRecipientsForCard(card, zone);
+    if ((zone !== 'hand' && zone !== 'library') || card.hidden || card.faceDown || recipients.length === 0) {
+      return null;
+    }
+
+    const players = this.store.players();
+    const recipientsLabel = recipients.includes('all') || recipients.length === players.length
+      ? 'everyone'
+      : recipients.map((playerId) => this.playerName(playerId)).join(', ');
+
+    return `Revealed to ${recipientsLabel}`;
+  }
+
+  private revealRecipientsForCard(card: GameCardInstance, zone: GameZoneName | null): readonly string[] {
+    if ((card.revealedTo?.length ?? 0) > 0 || zone !== 'library') {
+      return card.revealedTo ?? [];
+    }
+
+    const snapshot = this.store.snapshot();
+    const owner = Object.values(snapshot?.players ?? {}).find((player) =>
+      player.zones.library.some((libraryCard) => libraryCard.instanceId === card.instanceId),
+    );
+
+    return owner?.topLibraryRevealedTo ?? [];
+  }
+
+  private canInspectOwnFaceDownCard(card: GameCardInstance): boolean {
+    return card.faceDown === true && card.ownerId === this.store.currentPlayer()?.id;
   }
 
   private sortOpponentSidebarPlayers(players: readonly PlayerView[]): PlayerView[] {
@@ -4126,10 +4589,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     window.requestAnimationFrame(() => this.focusPlayerBattlefield(selectedPlayerId));
   }
 
-  private openCloseGameDialog(): void {
-    this.closeGameDialogOpen.set(true);
-  }
-
   private clearQueuedFloatingContentScroll(): void {
     if (this.floatingScrollFrame !== null) {
       window.cancelAnimationFrame(this.floatingScrollFrame);
@@ -4142,22 +4601,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
   }
 
-  private syncRematchCountdown(promptKey: string, hasMissingVotes: boolean, countdownEnabled: boolean): void {
-    if (!promptKey || !hasMissingVotes || !countdownEnabled) {
+  private syncRematchCountdown(deadlineAt: string | null): void {
+    const deadlineMs = deadlineAt ? Date.parse(deadlineAt) : Number.NaN;
+    if (!Number.isFinite(deadlineMs)) {
       this.clearRematchCountdown();
       return;
     }
 
-    const mode: RematchCountdownMode = this.rematchMissingVotePlayers().length === 1 ? 'courtesy' : 'initial';
-    const countdownKey = `${promptKey}:${mode}`;
+    const countdownKey = deadlineAt ?? '';
     if (this.rematchCountdownKey === countdownKey && this.rematchCountdownDeadlineMs !== null) {
       this.updateRematchCountdown();
       return;
     }
 
     this.rematchCountdownKey = countdownKey;
-    this.rematchCountdownDeadlineMs = Date.now() + (mode === 'courtesy' ? 30_000 : 60_000);
-    this.rematchCountdownMode.set(mode);
+    this.rematchCountdownDeadlineMs = deadlineMs;
     this.startRematchCountdownTimer();
     this.updateRematchCountdown();
   }
@@ -4167,31 +4625,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 250);
+    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 1000);
   }
 
   private updateRematchCountdown(): void {
     if (this.rematchCountdownDeadlineMs === null) {
       return;
     }
-    if (!this.rematchVoteCountdownEnabled()) {
-      this.clearRematchCountdown();
-      return;
-    }
-
     const seconds = Math.max(0, Math.ceil((this.rematchCountdownDeadlineMs - Date.now()) / 1000));
     this.rematchCountdownSeconds.set(seconds);
-    if (seconds > 0 || !this.currentPlayerNeedsRematchVote() || this.rematchPending()) {
-      return;
-    }
-
-    const countdownKey = this.rematchCountdownKey;
-    if (!countdownKey || countdownKey === this.rematchAutoLeaveKey) {
-      return;
-    }
-
-    this.rematchAutoLeaveKey = countdownKey;
-    void this.submitRematchVote('leave');
   }
 
   private async submitRematchVote(vote: GameRematchVote): Promise<void> {
@@ -4207,8 +4649,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.rematchPending.set(true);
     this.rematchToast.set(null);
     try {
-      const response = await firstValueFrom(this.gamesApi.rematchVote(gameId, vote));
-      if (vote === 'leave') {
+      const response = await this.rematchVotes.submit(gameId, vote);
+      if (response.controlPlane) {
+        this.store.applyControlPlaneAcknowledgement(response.controlPlane);
+        this.rematchVotes.acceptControlPlane(gameId, this.store.currentPlayer()?.id ?? null, response.controlPlane);
+      }
+      if (vote === 'leave_room') {
         this.rematchModalOpen.set(false);
         await this.router.navigate(['/rooms']);
         return;
@@ -4228,8 +4674,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
       }
 
-      await this.store.refetch(true, 'rematch.vote_waiting_for_game_end');
     } catch (error) {
+      const controlPlane = this.rematchVotes.controlPlaneFromError(error);
+      if (controlPlane) {
+        this.store.applyControlPlaneAcknowledgement(controlPlane);
+        this.rematchVotes.acceptControlPlane(gameId, this.store.currentPlayer()?.id ?? null, controlPlane);
+      }
       this.showRematchToast(this.rematchErrorMessage(error));
     } finally {
       this.rematchPending.set(false);
@@ -4274,7 +4724,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.rematchCountdownDeadlineMs = null;
     this.rematchCountdownKey = '';
     this.rematchCountdownSeconds.set(null);
-    this.rematchCountdownMode.set(null);
   }
 
 }

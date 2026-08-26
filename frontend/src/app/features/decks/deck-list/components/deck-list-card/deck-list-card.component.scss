@@ -208,6 +208,16 @@
   padding: 0.85rem 0.9rem;
 }
 
+.deck-card-badges {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    filter 160ms ease;
+}
+
 .deck-card-metrics {
   position: absolute;
   right: 0.9rem;
@@ -272,6 +282,13 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .deck-list-row:not(:focus-within):hover .deck-card-badges {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.96);
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
   .deck-list-row:hover .deck-card-metrics.owner-metrics {
     opacity: 0;
     transform: translateY(0.4rem) scale(0.96);

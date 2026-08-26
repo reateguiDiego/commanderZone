@@ -2,6 +2,7 @@ import { expect, type APIRequestContext, type APIResponse, type Browser, type Br
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const MAILPIT_API_BASE_URL = process.env['E2E_MAILPIT_API_BASE_URL'] ?? 'http://127.0.0.1:8025';
+const MAX_EMAIL_LOCAL_PART_LENGTH = 64;
 
 export interface E2EAuthUser {
   id: string;
@@ -174,10 +175,22 @@ function uniqueCredentials(prefix: string): { email: string; password: string; d
   const displaySuffix = token.replace(/[^a-z0-9]/gi, '').slice(-6);
 
   return {
-    email: `${prefix}-${token}@example.test`,
+    email: `${emailLocalPart(prefix, token)}@example.test`,
     password: `Pass-${token}-1234`,
     displayName: `${firstName} ${lastName[0]} ${displaySuffix}`,
   };
+}
+
+function emailLocalPart(prefix: string, token: string): string {
+  const normalizedPrefix = prefix
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'e2e';
+  const prefixLimit = Math.max(1, MAX_EMAIL_LOCAL_PART_LENGTH - token.length - 1);
+  const compactPrefix = normalizedPrefix.slice(0, prefixLimit).replace(/-+$/g, '') || 'e';
+
+  return `${compactPrefix}-${token}`;
 }
 
 async function readEmailVerificationToken(request: APIRequestContext, email: string): Promise<string | null> {

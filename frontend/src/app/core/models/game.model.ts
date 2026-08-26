@@ -9,7 +9,7 @@ export type GamePowerToughnessValue = GameCardStatValue;
 export type GamePhase = 'MULLIGAN' | 'PLAYING' | 'FINISHED';
 export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
-export type MulliganPlayerStatus = 'DECIDING' | 'BOTTOMING' | 'SCRYING' | 'READY';
+export type MulliganPlayerStatus = 'DECIDING' | 'SCRYING' | 'READY';
 export interface GameCardPixelPosition {
   x: number;
   y: number;
@@ -31,7 +31,6 @@ export interface GameCardDungeonMarker {
 
 export type GameCommandType =
   | 'game.concede'
-  | 'game.close'
   | 'chat.message'
   | 'chat.reaction.toggled'
   | 'dice.rolled'
@@ -47,6 +46,7 @@ export type GameCommandType =
   | 'card.dungeon_marker.changed'
   | 'cards.position.changed'
   | 'card.face_down.changed'
+  | 'card.face_down.inspected'
   | 'card.face.changed'
   | 'card.revealed'
   | 'card.token.created'
@@ -61,6 +61,7 @@ export type GameCommandType =
   | 'library.draw_many'
   | 'library.shuffle'
   | 'library.move_top'
+  | 'library.play_top_face_down'
   | 'library.reveal_top'
   | 'library.reveal'
   | 'library.view'
@@ -105,6 +106,7 @@ export interface GameCardInstance {
   activeFaceIndex?: number;
   hidden?: boolean;
   revealedTo?: string[];
+  revealMarker?: boolean;
   position?: GameCardPosition;
   dungeonMarker?: GameCardDungeonMarker | null;
   rotation?: number;
@@ -138,6 +140,7 @@ export interface GameMulliganConfig {
 
 export interface GamePlayerMulliganState {
   rule?: MulliganRule;
+  firstMulliganFree?: boolean;
   mulligansTaken: number;
   effectiveMulligans: number;
   drawCount?: number;
@@ -155,6 +158,7 @@ export interface GamePlayerMulliganState {
 
 export interface GamePlayerState {
   user: User;
+  isOnline?: boolean;
   status?: 'active' | 'conceded';
   concededAt?: string | null;
   deckName?: string | null;
@@ -162,7 +166,12 @@ export interface GamePlayerState {
   backgroundName?: string;
   sleevesName?: string;
   playTopLibraryRevealed?: boolean;
+  topLibraryRevealMarker?: boolean;
+  topLibraryRevealedTo?: string[];
   revealedLibraryTo?: string[];
+  /** Local render revision, advanced by a confirmed realtime library shuffle. */
+  libraryShuffleRevision?: number;
+  revealedHandIndexes?: number[];
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -199,6 +208,11 @@ export interface ChatMessage {
   reactions?: ChatReactions;
 }
 
+export interface GameLogSubject {
+  kind: 'player';
+  playerId: string;
+}
+
 export interface GameLogEntry {
   id: string;
   type: string;
@@ -209,6 +223,7 @@ export interface GameLogEntry {
   displayName?: string | null;
   i18nKey?: string;
   params?: Record<string, unknown>;
+  subject?: GameLogSubject;
   refs?: {
     players?: Record<string, {
       id: string;
@@ -273,17 +288,42 @@ export interface GameSpecialEntity {
   createdAt: string;
 }
 
-export type GameRematchVote = 'play_again' | 'leave';
+export type GameRematchVote = 'play_again' | 'leave_room';
 
 export interface GameRematchVoteState {
   playerId: string;
   displayName: string;
   vote: GameRematchVote;
   votedAt: string;
+  /** Idempotency token for this player's last accepted control-plane vote. */
+  clientActionId?: string | null;
 }
 
 export interface GameRematchState {
   votes: Record<string, GameRematchVoteState>;
+  /** Server-authoritative lifecycle deadline. The browser only renders it. */
+  deadlineAt?: string | null;
+}
+
+/**
+ * Low-frequency room and lifecycle state published by Symfony/Mercure.
+ * It intentionally has no gameplay stream version: the Go actor remains the
+ * only writer of the versioned gameplay stream.
+ */
+export interface GameControlPlaneState {
+  /**
+   * Monotonic Symfony control-plane revision. It is deliberately independent
+   * from the Go-owned gameplay event version.
+   */
+  controlPlaneRevision: number;
+  status: string;
+  winnerPlayerId: string | null;
+  finishedAt: string | null;
+  finishReason: string | null;
+  allDisconnectedSince: string | null;
+  nextLifecycleAt: string | null;
+  ownerId: string | null;
+  rematch: GameRematchState;
 }
 
 export type GameDisconnectVoteChoice = 'wait' | 'expel';
@@ -302,12 +342,24 @@ export interface GameDisconnectVoteState {
   openedAt: string | null;
   deadlineAt: string | null;
   cooldownUntil: string | null;
+  eligible?: string[];
+  version?: number;
   votes: Record<string, GameDisconnectVoteEntry>;
 }
 
+export type GameDisconnectVotes = Record<string, GameDisconnectVoteState>;
+
 export interface GameSnapshot {
   version: number;
+  /** Low-frequency control-plane cursor, never a gameplay stream version. */
+  controlPlaneRevision?: number;
   ownerId?: string;
+  status?: string;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   gamePhase?: GamePhase;
   mulligan?: GameMulliganConfig;
   players: Record<string, GamePlayerState>;
@@ -325,7 +377,7 @@ export interface GameSnapshot {
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;
-  disconnectVote?: GameDisconnectVoteState | null;
+  disconnectVotes?: GameDisconnectVotes;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;
@@ -334,6 +386,14 @@ export interface GameSnapshot {
 export interface Game {
   id: string;
   status: 'active' | string;
+  controlPlaneRevision?: number;
+  /** Compact Symfony-owned lifecycle/rematch projection returned with bootstrap. */
+  controlPlane?: GameControlPlaneState;
+  winnerPlayerId?: string | null;
+  finishedAt?: string | null;
+  finishReason?: string | null;
+  allDisconnectedSince?: string | null;
+  nextLifecycleAt?: string | null;
   snapshot: GameSnapshot;
 }
 
@@ -355,6 +415,9 @@ export interface MercureGameEvent {
   gameId: string;
   event: GameEvent;
   version: number | null;
+  /** Mirrors controlPlane.controlPlaneRevision for lightweight diagnostics. */
+  controlPlaneRevision?: number | null;
+  controlPlane?: GameControlPlaneState;
 }
 
 export interface GameZoneResponse {

@@ -18,6 +18,7 @@ var clientInvocableRuntimeCommandTypes = map[string]string{
 	"dice.rolled":                  "runtime websocket gameplay command",
 	"card.tapped":                  "runtime websocket gameplay command",
 	"card.face_down.changed":       "runtime websocket gameplay command",
+	"card.face_down.inspected":     "runtime websocket gameplay command",
 	"card.revealed":                "runtime websocket gameplay command",
 	"card.controller.changed":      "runtime websocket gameplay command",
 	"cards.position.changed":       "runtime websocket gameplay command",
@@ -33,6 +34,7 @@ var clientInvocableRuntimeCommandTypes = map[string]string{
 	"library.play_top_revealed":    "runtime websocket gameplay command",
 	"library.reorder_top":          "runtime websocket gameplay command",
 	"library.move_top":             "runtime websocket gameplay command",
+	"library.play_top_face_down":   "runtime websocket gameplay command",
 	"library.put_top":              "runtime websocket gameplay command",
 	"library.put_bottom":           "runtime websocket gameplay command",
 	"library.view":                 "runtime websocket gameplay command",
@@ -57,7 +59,6 @@ var clientInvocableRuntimeCommandTypes = map[string]string{
 	"helper.updated":               "runtime websocket gameplay command",
 	"helper.removed":               "runtime websocket gameplay command",
 	"game.concede":                 "runtime websocket gameplay command",
-	"game.close":                   "runtime websocket gameplay command",
 	"disconnect.vote":              "runtime websocket lifecycle command",
 	"mulligan.take":                "runtime websocket mulligan command",
 	"mulligan.keep":                "runtime websocket mulligan command",
@@ -127,6 +128,7 @@ func FinalGameplayCommandTypes() []string {
 		"dice.rolled",
 		"card.tapped",
 		"card.face_down.changed",
+		"card.face_down.inspected",
 		"card.revealed",
 		"card.controller.changed",
 		"cards.position.changed",
@@ -142,6 +144,7 @@ func FinalGameplayCommandTypes() []string {
 		"library.play_top_revealed",
 		"library.reorder_top",
 		"library.move_top",
+		"library.play_top_face_down",
 		"library.put_top",
 		"library.put_bottom",
 		"library.view",
@@ -166,7 +169,6 @@ func FinalGameplayCommandTypes() []string {
 		"helper.updated",
 		"helper.removed",
 		"game.concede",
-		"game.close",
 		"disconnect.vote",
 		"mulligan.take",
 		"mulligan.keep",
@@ -185,6 +187,12 @@ func ClientInvocableRuntimeCommandTypes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func IsClientInvocableRuntimeCommandType(commandType string) bool {
+	canonical, _ := CanonicalCommandType(commandType)
+	_, ok := clientInvocableRuntimeCommandTypes[canonical]
+	return ok
 }
 
 func InternalOnlyCommandTypes() []string {

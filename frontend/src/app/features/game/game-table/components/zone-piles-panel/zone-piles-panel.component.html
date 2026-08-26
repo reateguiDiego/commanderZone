@@ -39,7 +39,7 @@
           @if (zone === 'command') {
             <img
               class="zone-pile-logo"
-              src="/assets/icons/CZ/CZ_logo_zone_header.webp"
+              [src]="themeAssets.czZoneHeaderLogoUrl()"
               [alt]="zoneTitle()(zone)"
               draggable="false"
             />
@@ -82,6 +82,11 @@
                 [layerImage]="layerImage"
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
+                [showRevealIndicator]="zone === 'library' && isLibraryTopRevealMarked(currentPlayer)"
+                [faceToggleEnabled]="zone === 'library' && canToggleLibraryTopFace(currentPlayer)"
+                [shufflePlayerId]="zone === 'library' ? currentPlayer.id : null"
+                [shuffleRevision]="zone === 'library' ? currentPlayer.state.libraryShuffleRevision ?? null : null"
+                (alternateFaceToggled)="previewLibraryTopFace($event)"
               />
             }
           }
@@ -93,6 +98,8 @@
                 [playerId]="currentPlayer.id"
                 [cards]="commanderStackCards(currentPlayer, commanders)"
                 [canDrag]="canDragCommandZoneCards()"
+                [cardImage]="cardImage()"
+                [hoveredCardInstanceId]="hoveredCommanderInstanceId()"
                 (pointerDragStarted)="startZonePointerDrag($event.event, zone, $event.card, true)"
                 (nativeDragStarted)="startZoneDrag($event.event, currentPlayer, zone, $event.card)"
                 (nativeDragEnded)="clearZoneDrag($event); zoneDragEnd.emit()"
@@ -101,7 +108,8 @@
               />
             } @else {
               @for (commander of commanders; track commander.instanceId) {
-                @let commanderImage = cardImage()(commander);
+                @let visibleCommander = visibleCommanderCard(commander);
+                @let commanderImage = cardImage()(visibleCommander);
                 <span
                   class="command-zone-card"
                   data-testid="command-zone-card"
@@ -114,18 +122,23 @@
                   (pointerdown)="canDragCommandZoneCards() ? startZonePointerDrag($event, zone, commander, true) : undefined"
                   (dragstart)="blockZoneNativeDrag($event)"
                   (dragend)="$event.stopPropagation(); clearZoneDrag($event); zoneDragEnd.emit()"
-                  (mouseenter)="previewCommandZoneCard($event, commander)"
-                  (mouseleave)="hideZoneCardPreview(zone)"
+                  (mouseenter)="previewCommandZoneCard($event, visibleCommander)"
+                  (mouseleave)="resetCommanderFacePreview(commander); hideZoneCardPreview(zone)"
                 >
                   @if (commanderImage) {
                     <img
                       class="zone-card-image"
                       [src]="commanderImage"
-                      [alt]="commander.name"
+                      [alt]="visibleCommander.name"
                       draggable="false"
                     />
                   } @else {
-                    <span class="command-zone-card-name">{{ commander.name }}</span>
+                    <span class="command-zone-card-name">{{ visibleCommander.name }}</span>
+                  }
+                  @if (canShowCommanderFaceToggle(commander)) {
+                    <span role="button" tabindex="-1" class="commander-face-toggle" (pointerdown)="$event.stopPropagation()" (click)="lookAtOtherCommanderFace($event, commander)">
+                      <lucide-icon name="rotate-cw" size="13" aria-hidden="true" />
+                    </span>
                   }
                 </span>
               }
@@ -141,6 +154,9 @@
                     [attr.data-card-id]="pill.commander.instanceId"
                     [attr.title]="pill.commander.name"
                     [attr.aria-label]="'Commander casts for ' + pill.commander.name"
+                    [class.dual-commander-cast-count]="commanders.length === 2"
+                    (mouseenter)="commanders.length === 2 ? previewCommanderCastPill($event, pill.commander) : undefined"
+                    (mouseleave)="commanders.length === 2 ? hideCommanderCastPillPreview() : undefined"
                     (click)="changeCommanderCastCount($event, pill.commander, 1)"
                     (contextmenu)="changeCommanderCastCount($event, pill.commander, -1)"
                   >

@@ -27,7 +27,6 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class GameWebsocketMulliganService
 {
@@ -48,8 +47,6 @@ final readonly class GameWebsocketMulliganService
         private ?GameplayRuntimeRouter $runtimeRouter = null,
         private ?GameplayRuntimePatchAdapter $runtimePatchAdapter = null,
         private ?GameEventStoreV2 $eventStoreV2 = null,
-        #[Autowire('%gameplay_emergency_legacy_fallback_enabled%')]
-        private bool $emergencyLegacyFallbackEnabled = false,
         private ?LoggerInterface $logger = null,
     ) {
     }
@@ -149,28 +146,16 @@ final readonly class GameWebsocketMulliganService
                     return $this->runtimeRejectedResult($game, $actor, $kind, $messageId, $previousVersion, $exception->getMessage());
                 } catch (GameRuntimeGatewayException $exception) {
                     $patchContractError = $this->isRuntimePatchContractError($exception);
-                    if (!$this->emergencyLegacyFallbackEnabled) {
-                        $this->logger?->error('Runtime mulligan command failed without emergency fallback.', [
-                            'gameId' => $game->id(),
-                            'command.type' => $kind,
-                            'messageId' => $messageId,
-                            'exception' => $exception,
-                            'reason' => 'runtime_mulligan_disallows_legacy_fallback',
-                            'alert' => 'runtime_command_failed_no_legacy_fallback',
-                        ]);
-
-                        return $this->runtimeFailureResult($game, $actor, $kind, $messageId, $previousVersion, $patchContractError);
-                    }
-
-                    $runtimeFallbackDebug = $this->runtimeFailureDebugProfile($patchContractError, true);
-                    $this->logger?->error('Emergency legacy mulligan fallback metric recorded.', [
+                    $this->logger?->error('Runtime mulligan command failed without legacy fallback.', [
                         'gameId' => $game->id(),
                         'command.type' => $kind,
                         'messageId' => $messageId,
-                        'alert' => 'runtime_emergency_legacy_fallback',
-                        'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
-                        'patchContractError' => $patchContractError,
+                        'exception' => $exception,
+                        'reason' => 'runtime_mulligan_disallows_legacy_fallback',
+                        'alert' => 'runtime_command_failed_no_legacy_fallback',
                     ]);
+
+                    return $this->runtimeFailureResult($game, $actor, $kind, $messageId, $previousVersion, $patchContractError);
                 }
             }
 
@@ -350,29 +335,27 @@ final readonly class GameWebsocketMulliganService
         return GameWebsocketCommandResult::forViewerMessageLists(
             [$actor->id() => [$error]],
             [],
-            $this->runtimeFailureDebugProfile($patchContractError, false),
+            $this->runtimeFailureDebugProfile($patchContractError),
         );
     }
 
     /**
      * @return array<string,float|string>
      */
-    private function runtimeFailureDebugProfile(bool $patchContractError, bool $fallback): array
+    private function runtimeFailureDebugProfile(bool $patchContractError): array
     {
-        $reason = $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error';
-
         return [
             'gameplay.runtime_route' => 1.0,
-            'gameplay.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'gameplay.runtime_fallback_count' => 0.0,
             'gameplay.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
             'gameplay.runtime_patch_contract_error' => $patchContractError ? 1.0 : 0.0,
-            'gameplay.runtime_fallback_reason' => $fallback ? $reason : '',
-            'command.legacy_fallback_count' => $fallback ? 1.0 : 0.0,
+            'gameplay.runtime_fallback_reason' => '',
+            'command.legacy_fallback_count' => 0.0,
             'mulligan.runtime_route' => 1.0,
-            'mulligan.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'mulligan.runtime_fallback_count' => 0.0,
             'mulligan.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
-            'runtime.legacy_handler_count' => $fallback ? 1.0 : 0.0,
-            'runtime.emergency_fallback_count' => $fallback ? 1.0 : 0.0,
+            'runtime.legacy_handler_count' => 0.0,
+            'runtime.emergency_fallback_count' => 0.0,
         ];
     }
 
@@ -518,6 +501,7 @@ final readonly class GameWebsocketMulliganService
             if (!is_array($patch)) {
                 continue;
             }
+            $patch = $this->completeRuntimeMulliganPrivateState($patch, $runtimeResult->event);
             $patch = $this->hydratePrivateMulliganStaticCards($patch, $staticCardsByCardKey);
             $basePatch = $basePatch === [] ? $patch : $basePatch;
             $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
@@ -574,6 +558,94 @@ final readonly class GameWebsocketMulliganService
 
     /**
      * @param array<string,mixed>               $patch
+     * @param array<string,mixed>               $runtimeEvent
+     *
+     * @return array<string,mixed>
+     */
+    private function completeRuntimeMulliganPrivateState(array $patch, array $runtimeEvent): array
+    {
+        $mulligan = is_array($runtimeEvent['mulligan'] ?? null) ? $runtimeEvent['mulligan'] : [];
+        $playerStatuses = is_array($mulligan['playerStatus'] ?? null) ? $mulligan['playerStatus'] : [];
+        if ($playerStatuses === []) {
+            return $patch;
+        }
+
+        $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
+        $changed = false;
+        foreach ($ops as $index => $op) {
+            if (!is_array($op)) {
+                continue;
+            }
+
+            $operationKind = is_string($op['op'] ?? null) ? $op['op'] : '';
+            $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+            $playerId = is_string($operationData['playerId'] ?? null) ? $operationData['playerId'] : '';
+            $playerStatus = is_array($playerStatuses[$playerId] ?? null) ? $playerStatuses[$playerId] : [];
+            if ($playerId === '' || $playerStatus === []) {
+                continue;
+            }
+
+            if ($operationKind === 'mulligan.status.set') {
+                $nextOperationData = [
+                    ...$operationData,
+                    'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $operationData['mulligansTaken'] ?? 0)),
+                    'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $operationData['effectiveMulligans'] ?? 0)),
+                ];
+                if (is_array($op['data'] ?? null)) {
+                    $ops[$index]['data'] = $nextOperationData;
+                } else {
+                    $ops[$index] = [
+                        ...$op,
+                        ...$nextOperationData,
+                    ];
+                }
+                $changed = true;
+                continue;
+            }
+
+            if ($operationKind !== 'mulligan.private_state.set') {
+                continue;
+            }
+
+            $state = is_array($operationData['state'] ?? null) ? $operationData['state'] : [];
+            $firstMulliganFree = ($mulligan['firstMulliganFree'] ?? $state['firstMulliganFree'] ?? false) === true;
+            $currentHandSize = max(0, (int) ($playerStatus['currentHandSize'] ?? $state['handSize'] ?? $state['drawCount'] ?? 0));
+            $cardsToBottom = max(0, (int) ($playerStatus['cardsToBottom'] ?? $state['cardsToBottom'] ?? $state['bottomSelectionCount'] ?? 0));
+            $bottomPending = ($playerStatus['bottomPending'] ?? $state['bottomPending'] ?? false) === true;
+            $status = is_string($playerStatus['status'] ?? null) ? $playerStatus['status'] : ($state['status'] ?? 'DECIDING');
+
+            $nextState = [
+                ...$state,
+                'rule' => is_string($mulligan['rule'] ?? null) ? $mulligan['rule'] : ($state['rule'] ?? null),
+                'firstMulliganFree' => $firstMulliganFree,
+                'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $state['mulligansTaken'] ?? 0)),
+                'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $state['effectiveMulligans'] ?? 0)),
+                'drawCount' => $currentHandSize,
+                'bottomSelectionCount' => $cardsToBottom,
+                'finalHandSize' => $bottomPending ? max(0, $currentHandSize - $cardsToBottom) : $currentHandSize,
+                'needsBottomSelection' => $bottomPending,
+                'bottomOrderMode' => is_string($playerStatus['bottomOrderMode'] ?? null) ? $playerStatus['bottomOrderMode'] : ($state['bottomOrderMode'] ?? 'NONE'),
+                'needsScryAfterKeep' => ($playerStatus['scryPending'] ?? $state['scryPending'] ?? false) === true,
+                'canTakeAnotherMulligan' => $status === 'DECIDING',
+                'status' => $status,
+                'ready' => $status === 'READY',
+            ];
+            if (is_array($op['data'] ?? null)) {
+                $ops[$index]['data'] = [
+                    ...$operationData,
+                    'state' => $nextState,
+                ];
+            } else {
+                $ops[$index]['state'] = $nextState;
+            }
+            $changed = true;
+        }
+
+        return $changed ? [...$patch, 'ops' => $ops] : $patch;
+    }
+
+    /**
+     * @param array<string,mixed>               $patch
      * @param array<string,array<string,mixed>> $staticCardsByCardKey
      *
      * @return array<string,mixed>
@@ -592,7 +664,8 @@ final readonly class GameWebsocketMulliganService
                 continue;
             }
 
-            $hand = is_array($op['hand'] ?? null) ? $op['hand'] : [];
+            $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+            $hand = is_array($operationData['hand'] ?? null) ? $operationData['hand'] : [];
             $staticCards = [];
             foreach ($hand as $cardIndex => $card) {
                 if (!is_array($card)) {
@@ -606,8 +679,16 @@ final readonly class GameWebsocketMulliganService
                 }
             }
             if ($staticCards !== []) {
-                $ops[$index]['hand'] = $hand;
-                $ops[$index]['staticCards'] = $staticCards;
+                if (is_array($op['data'] ?? null)) {
+                    $ops[$index]['data'] = [
+                        ...$operationData,
+                        'hand' => $hand,
+                        'staticCards' => $staticCards,
+                    ];
+                } else {
+                    $ops[$index]['hand'] = $hand;
+                    $ops[$index]['staticCards'] = $staticCards;
+                }
                 $changed = true;
             }
         }
@@ -893,6 +974,7 @@ final readonly class GameWebsocketMulliganService
         $hand = is_array($player['zones']['hand'] ?? null) ? array_values($player['zones']['hand']) : [];
         $compactHand = $this->compactHand($hand);
         $status = is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING';
+        $firstMulliganFree = ($mulligan['firstMulliganFree'] ?? $snapshot['mulligan']['firstMulliganFree'] ?? false) === true;
         $bottomSelectionCount = max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0));
         $needsBottomSelection = ($mulligan['needsBottomSelection'] ?? false) === true;
         $needsScryAfterKeep = ($mulligan['needsScryAfterKeep'] ?? false) === true;
@@ -906,6 +988,7 @@ final readonly class GameWebsocketMulliganService
             'handSize' => count($compactHand),
             'mulligan' => [
                 'rule' => $mulligan['rule'] ?? null,
+                'firstMulliganFree' => $firstMulliganFree,
                 'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
                 'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
                 'drawCount' => max(0, (int) ($mulligan['drawCount'] ?? 0)),
@@ -923,6 +1006,8 @@ final readonly class GameWebsocketMulliganService
                     'op' => 'mulligan.private_state.set',
                     'playerId' => $playerId,
                     'status' => $status,
+                    'firstMulliganFree' => $firstMulliganFree,
+                    'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
                     'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
                     'handSize' => count($compactHand),
                     'cardsToBottom' => $bottomSelectionCount,

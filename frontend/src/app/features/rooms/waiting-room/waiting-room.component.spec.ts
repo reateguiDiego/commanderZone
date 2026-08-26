@@ -24,6 +24,9 @@ import { WaitingRoomComponent } from './waiting-room.component';
 class DummyRoomsPageComponent {}
 
 describe('WaitingRoomComponent', () => {
+  const decksApi = {
+    list: vi.fn(),
+  };
   const roomsApi = {
     list: vi.fn(),
     show: vi.fn(),
@@ -33,6 +36,7 @@ describe('WaitingRoomComponent', () => {
     leave: vi.fn(),
     kickPlayer: vi.fn(),
     rollTurn: vi.fn(),
+    presence: vi.fn(),
     start: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -43,6 +47,7 @@ describe('WaitingRoomComponent', () => {
   };
 
   beforeEach(async () => {
+    decksApi.list.mockReset().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] }));
     roomsApi.list.mockReset().mockReturnValue(of({ data: [room()] }));
     roomsApi.show.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
@@ -51,6 +56,7 @@ describe('WaitingRoomComponent', () => {
     roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     roomsApi.kickPlayer.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.rollTurn.mockReset().mockReturnValue(of({ room: room() }));
+    roomsApi.presence.mockReset().mockReturnValue(of(undefined));
     roomsApi.start.mockReset().mockReturnValue(of({ room: room(), game: { id: 'game-1' } }));
     roomsApi.update.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));
@@ -62,7 +68,7 @@ describe('WaitingRoomComponent', () => {
       providers: [
         provideRouter([{ path: 'rooms', component: DummyRoomsPageComponent }]),
         importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Minus, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
-        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] })) } },
+        { provide: DecksApi, useValue: decksApi },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
@@ -201,6 +207,35 @@ describe('WaitingRoomComponent', () => {
     expect(playerCard?.style.getPropertyValue('--player-deck-art')).toContain('atraxa-art.jpg');
     expect(playerCard?.style.getPropertyValue('--player-deck-secondary-art')).toContain('silas-art.jpg');
     expect(playerCard?.querySelectorAll('.player-dual-deck-art-pane')).toHaveLength(2);
+  });
+
+  it('renders the selected deck bracket for every player in the waiting room', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.currentRoom.set(room({
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: 'deck-owner',
+          deck: deck('deck-owner', 'Owner deck', { bracket: { bracket: 2, label: 'Core' } }),
+          turnRoll: null,
+        },
+        {
+          id: 'player-2',
+          user: { id: 'user-2', email: 'guest@test', displayName: 'Guest', roles: [] },
+          deckId: 'deck-guest',
+          deck: deck('deck-guest', 'Guest deck', { bracket: { bracket: 4, label: 'Optimized' } }),
+          turnRoll: null,
+        },
+      ],
+    }));
+    fixture.detectChanges();
+
+    expect(renderedPlayerCards(fixture)[0]?.querySelector('app-bracket-label-pill')).not.toBeNull();
+    expect(renderedPlayerCards(fixture)[1]?.querySelector('app-bracket-label-pill')).not.toBeNull();
   });
 
   it('shows a single-action modal instead of selecting an invalid deck', async () => {
@@ -539,6 +574,7 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentPlayerCanRoll()).toBe(true);
     expect(rollButton).not.toBeNull();
     expect(rollButton?.disabled).toBe(false);
+    expect(rollButton?.classList.contains('roll-pending')).toBe(true);
   });
 
   it('keeps a lagging tied player rollable after another tied player has already rerolled', async () => {

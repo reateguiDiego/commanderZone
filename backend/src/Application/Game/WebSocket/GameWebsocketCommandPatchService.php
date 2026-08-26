@@ -31,7 +31,6 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class GameWebsocketCommandPatchService
 {
@@ -63,6 +62,7 @@ final readonly class GameWebsocketCommandPatchService
         'cards.position.changed' => 'playerId',
         'card.dungeon_marker.changed' => 'playerId',
         'card.face_down.changed' => 'playerId',
+        'card.face_down.inspected' => 'playerId',
         'card.face.changed' => 'playerId',
         'card.revealed' => 'playerId',
         'card.controller.changed' => 'playerId',
@@ -104,8 +104,6 @@ final readonly class GameWebsocketCommandPatchService
         private ?GameActivityStreamService $activityStreams = null,
         private ?GameplayStreamsFlags $streamFlags = null,
         private ?GameplayRuntimeGateway $runtimeGateway = null,
-        #[Autowire('%gameplay_emergency_legacy_fallback_enabled%')]
-        private bool $emergencyLegacyFallbackEnabled = false,
         private ?LoggerInterface $logger = null,
     ) {
         $this->visualCommandBackpressure = new \ArrayObject();
@@ -129,6 +127,20 @@ final readonly class GameWebsocketCommandPatchService
         ?string $ticketPlayerId = null,
         array $ticketPermissions = [],
     ): array|GameWebsocketCommandResult {
+        // Active disconnect lifecycle is actor-owned. Keep this defensive
+        // guard here as well as in the message allowlist so no alternate
+        // Symfony caller can append a competing gameplay event.
+        if ($type === GameDisconnectVoteService::COMMAND_TYPE) {
+            return $this->messages->rejectedCommand(
+                $gameId,
+                $messageId,
+                $clientActionId,
+                max(1, $baseVersion),
+                'COMMAND_NOT_SUPPORTED_OVER_WEBSOCKET',
+                'Disconnect votes are owned by the active gameplay runtime.',
+            );
+        }
+
         $metricsInspector = $this->metricsInspector();
         $metricsRecorder = $this->metricsRecorder();
         $startedAt = microtime(true);
@@ -233,7 +245,6 @@ final readonly class GameWebsocketCommandPatchService
             return $message;
         }
 
-        $runtimeFinalEmergencyFallback = false;
         $runtimeFinalResult = $this->runtimeFinalPathResult(
             $gameId,
             $userId,
@@ -249,7 +260,6 @@ final readonly class GameWebsocketCommandPatchService
             $usageStartedAt,
             $metricsRecorder,
             $metricsInspector,
-            $runtimeFinalEmergencyFallback,
         );
         if ($runtimeFinalResult !== null) {
             return $runtimeFinalResult;
@@ -258,8 +268,7 @@ final readonly class GameWebsocketCommandPatchService
         $runtimeCommandType = $this->runtimeCommandType($type);
         $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
         if ($runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
-            && $responseProtocol !== 'v2'
-            && !$this->emergencyLegacyFallbackEnabled) {
+            && $responseProtocol !== 'v2') {
             $this->recordRuntimePrimaryRequiresFinalPathMetric(
                 $metricsRecorder,
                 $metricsInspector,
@@ -522,61 +531,6 @@ final readonly class GameWebsocketCommandPatchService
                 return $message;
             }
 
-            if ($runtimeFinalEmergencyFallback) {
-                $runtimeRoute = GameplayRuntimeRoute::LegacyOnly;
-            }
-            $runtimeLifecycleError = $runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
-                ? $this->runtimeLifecycleTransitionError(
-                    $game,
-                    $runtimeCommandType,
-                    $payload,
-                    $actor,
-                    $this->runtimeLifecycleEvents($manager, $game, $runtimeCommandType),
-                )
-                : null;
-            if ($runtimeLifecycleError !== null) {
-                $manager->rollback();
-                $message = $this->messages->rejectedCommand(
-                    $game->id(),
-                    $messageId,
-                    $clientActionId,
-                    $this->lifecycleEffectiveVersion($game, $currentVersion),
-                    'INVALID_COMMAND_MESSAGE',
-                    $runtimeLifecycleError,
-                );
-                $this->recordMetric(
-                    $metricsRecorder,
-                    $metricsInspector,
-                    [
-                        'transport' => 'websocket',
-                        'command.type' => $type,
-                        'gameId' => $game->id(),
-                        'snapshot_load_ms' => $snapshotLoadMs,
-                        'normalize_ms' => 0.0,
-                        'command_apply_ms' => 0.0,
-                        'persist_ms' => 0.0,
-                        'projection_ms' => 0.0,
-                        'patch_build_ms' => 0.0,
-                        'total_server_ms' => $this->elapsedMs($startedAt),
-                        'snapshot_bytes_before' => $snapshotBytesBefore,
-                        'snapshot_bytes_after' => $snapshotBytesBefore,
-                        'patch_bytes' => 0,
-                        'number_of_players' => $numberOfPlayers,
-                        'number_of_instances' => $numberOfInstances,
-                        'number_of_visible_cards' => 0,
-                        'resync_required' => false,
-                        'clientActionId_duplicate' => false,
-                        'status' => 'invalid_runtime_lifecycle_transition',
-                        'gameplay.runtime_route' => 1,
-                        'gameplay.runtime_fallback_count' => 0,
-                        'gameplay.runtime_error_count' => 0,
-                        'gameplay.runtime_patch_contract_error' => 0,
-                    ],
-                    $usageStartedAt,
-                );
-
-                return $message;
-            }
             if ($baseVersion !== $currentVersion && $runtimeRoute !== GameplayRuntimeRoute::RuntimePrimary) {
                 $manager->rollback();
                 $delta = max(0, $currentVersion - $baseVersion);
@@ -651,16 +605,10 @@ final readonly class GameWebsocketCommandPatchService
                         ...$phaseTimings,
                         ...$runtimeMetrics,
                     ];
-                    $this->enrichRuntimePersistedEvent(
-                        $manager,
-                        $game,
-                        $clientActionId,
-                        $runtimeCommand['type'],
-                        $runtimeCommand['payload'],
-                    );
                     $runtimeProjected = $this->runtimePatchedResult(
                         $game,
                         $runtimeResult->patches,
+                        $runtimeResult->event,
                         $currentVersion,
                         $clientActionId,
                         $runtimeCommand['type'],
@@ -668,10 +616,6 @@ final readonly class GameWebsocketCommandPatchService
                         $phaseTimings,
                         $startedAt,
                     );
-                    if ($type === 'game.close') {
-                        $game->finish();
-                        $manager->flush();
-                    }
                     $patchBytes = (int) ($runtimeProjected['patch_bytes'] ?? 0);
                     $this->recordMetric(
                         $metricsRecorder,
@@ -759,26 +703,7 @@ final readonly class GameWebsocketCommandPatchService
                             'Runtime patch contract failed after the legacy snapshot version diverged.',
                         );
                     }
-                    if (!$this->emergencyLegacyFallbackEnabled) {
-                        $this->recordRuntimeFailureMetric(
-                            $metricsRecorder,
-                            $metricsInspector,
-                            $usageStartedAt,
-                            $type,
-                            $game->id(),
-                            $snapshotLoadMs,
-                            $snapshotBytesBefore,
-                            $numberOfPlayers,
-                            $numberOfInstances,
-                            true,
-                            $this->elapsedMs($startedAt),
-                        );
-
-                        return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, true);
-                    }
-                    $manager->beginTransaction();
-                    $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
-                    $this->recordRuntimeFallbackMetric(
+                    $this->recordRuntimeFailureMetric(
                         $metricsRecorder,
                         $metricsInspector,
                         $usageStartedAt,
@@ -791,6 +716,8 @@ final readonly class GameWebsocketCommandPatchService
                         true,
                         $this->elapsedMs($startedAt),
                     );
+
+                    return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, true);
                 } catch (GameRuntimeGatewayException) {
                     if ($baseVersion !== $currentVersion) {
                         return $this->messages->resyncRequiredCommand(
@@ -802,26 +729,7 @@ final readonly class GameWebsocketCommandPatchService
                             'Runtime command could not be applied and legacy fallback is unsafe after version divergence.',
                         );
                     }
-                    if (!$this->emergencyLegacyFallbackEnabled) {
-                        $this->recordRuntimeFailureMetric(
-                            $metricsRecorder,
-                            $metricsInspector,
-                            $usageStartedAt,
-                            $type,
-                            $game->id(),
-                            $snapshotLoadMs,
-                            $snapshotBytesBefore,
-                            $numberOfPlayers,
-                            $numberOfInstances,
-                            false,
-                            $this->elapsedMs($startedAt),
-                        );
-
-                        return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, false);
-                    }
-                    $manager->beginTransaction();
-                    $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
-                    $this->recordRuntimeFallbackMetric(
+                    $this->recordRuntimeFailureMetric(
                         $metricsRecorder,
                         $metricsInspector,
                         $usageStartedAt,
@@ -834,6 +742,8 @@ final readonly class GameWebsocketCommandPatchService
                         false,
                         $this->elapsedMs($startedAt),
                     );
+
+                    return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, false);
                 }
             } elseif ($runtimeRoute === GameplayRuntimeRoute::Shadow) {
                 $shadowStartedAt = microtime(true);
@@ -1165,7 +1075,6 @@ final readonly class GameWebsocketCommandPatchService
         ?array $usageStartedAt,
         GameplayMetricsRecorderInterface $metricsRecorder,
         GameplayMetricsInspector $metricsInspector,
-        bool &$emergencyFallback,
     ): array|GameWebsocketCommandResult|null {
         $runtimeCommandType = $this->runtimeCommandType($type);
         if (($this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly) !== GameplayRuntimeRoute::RuntimePrimary) {
@@ -1216,6 +1125,7 @@ final readonly class GameWebsocketCommandPatchService
             $patched = $this->runtimeFinalPatchedResult(
                 $gameId,
                 $runtimeResult->patches,
+                $runtimeResult->event,
                 $baseVersion,
                 $clientActionId,
                 [
@@ -1275,7 +1185,6 @@ final readonly class GameWebsocketCommandPatchService
                 $usageStartedAt,
                 $metricsRecorder,
                 $metricsInspector,
-                $emergencyFallback,
             );
         } catch (GameRuntimeGatewayException $exception) {
             return $this->runtimeFinalFailureResult(
@@ -1290,7 +1199,6 @@ final readonly class GameWebsocketCommandPatchService
                 $usageStartedAt,
                 $metricsRecorder,
                 $metricsInspector,
-                $emergencyFallback,
             );
         }
     }
@@ -1306,10 +1214,6 @@ final readonly class GameWebsocketCommandPatchService
         if (!in_array('command', $ticketPermissions, true)) {
             return 'Runtime command permission is required.';
         }
-        if ($type === 'game.close' && !in_array('game.close', $ticketPermissions, true)) {
-            return 'Only the room owner can close the game.';
-        }
-
         return null;
     }
 
@@ -1325,6 +1229,87 @@ final readonly class GameWebsocketCommandPatchService
 
     /**
      * @param list<array<string,mixed>> $patches
+     * @param array<string,mixed>       $runtimeEvent
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function completeRuntimeMulliganPatches(array $patches, array $runtimeEvent): array
+    {
+        $mulligan = is_array($runtimeEvent['mulligan'] ?? null) ? $runtimeEvent['mulligan'] : [];
+        $playerStatuses = is_array($mulligan['playerStatus'] ?? null) ? $mulligan['playerStatus'] : [];
+        if ($playerStatuses === []) {
+            return $patches;
+        }
+
+        foreach ($patches as $patchIndex => $patch) {
+            $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
+            $changed = false;
+            foreach ($ops as $opIndex => $op) {
+                if (!is_array($op)) {
+                    continue;
+                }
+
+                $operationKind = is_string($op['op'] ?? null) ? $op['op'] : '';
+                if (!in_array($operationKind, ['mulligan.status.set', 'mulligan.private_state.set'], true)) {
+                    continue;
+                }
+
+                $operationData = is_array($op['data'] ?? null) ? $op['data'] : $op;
+                $playerId = is_string($operationData['playerId'] ?? null) ? $operationData['playerId'] : '';
+                $playerStatus = is_array($playerStatuses[$playerId] ?? null) ? $playerStatuses[$playerId] : [];
+                if ($playerId === '' || $playerStatus === []) {
+                    continue;
+                }
+
+                if ($operationKind === 'mulligan.status.set') {
+                    $operationData = [
+                        ...$operationData,
+                        'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $operationData['mulligansTaken'] ?? 0)),
+                        'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $operationData['effectiveMulligans'] ?? 0)),
+                    ];
+                } else {
+                    $state = is_array($operationData['state'] ?? null) ? $operationData['state'] : [];
+                    $currentHandSize = max(0, (int) ($playerStatus['currentHandSize'] ?? $state['handSize'] ?? $state['drawCount'] ?? 0));
+                    $cardsToBottom = max(0, (int) ($playerStatus['cardsToBottom'] ?? $state['cardsToBottom'] ?? $state['bottomSelectionCount'] ?? 0));
+                    $bottomPending = ($playerStatus['bottomPending'] ?? $state['bottomPending'] ?? false) === true;
+                    $status = is_string($playerStatus['status'] ?? null) ? $playerStatus['status'] : ($state['status'] ?? 'DECIDING');
+                    $operationData = [
+                        ...$operationData,
+                        'state' => [
+                            ...$state,
+                            'rule' => is_string($mulligan['rule'] ?? null) ? $mulligan['rule'] : ($state['rule'] ?? null),
+                            'firstMulliganFree' => ($mulligan['firstMulliganFree'] ?? $state['firstMulliganFree'] ?? false) === true,
+                            'mulligansTaken' => max(0, (int) ($playerStatus['mulliganCount'] ?? $state['mulligansTaken'] ?? 0)),
+                            'effectiveMulligans' => max(0, (int) ($playerStatus['effectiveMulligans'] ?? $state['effectiveMulligans'] ?? 0)),
+                            'drawCount' => $currentHandSize,
+                            'bottomSelectionCount' => $cardsToBottom,
+                            'finalHandSize' => $bottomPending ? max(0, $currentHandSize - $cardsToBottom) : $currentHandSize,
+                            'needsBottomSelection' => $bottomPending,
+                            'bottomOrderMode' => is_string($playerStatus['bottomOrderMode'] ?? null) ? $playerStatus['bottomOrderMode'] : ($state['bottomOrderMode'] ?? 'NONE'),
+                            'needsScryAfterKeep' => ($playerStatus['scryPending'] ?? $state['scryPending'] ?? false) === true,
+                            'canTakeAnotherMulligan' => $status === 'DECIDING',
+                            'status' => $status,
+                            'ready' => $status === 'READY',
+                        ],
+                    ];
+                }
+
+                $ops[$opIndex] = is_array($op['data'] ?? null)
+                    ? [...$op, 'data' => $operationData]
+                    : [...$op, ...$operationData];
+                $changed = true;
+            }
+
+            if ($changed) {
+                $patches[$patchIndex] = [...$patch, 'ops' => $ops];
+            }
+        }
+
+        return $patches;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $patches
      * @param array<string,float>       $phaseTimings
      *
      * @return array{result: GameWebsocketCommandResult, patch_ms: float, patch_bytes: int}
@@ -1332,6 +1317,7 @@ final readonly class GameWebsocketCommandPatchService
     private function runtimeFinalPatchedResult(
         string $gameId,
         array $patches,
+        array $runtimeEvent,
         int $baseVersion,
         string $ackClientActionId,
         array $phaseTimings,
@@ -1340,6 +1326,7 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
+        $patches = $this->completeRuntimeMulliganPatches($patches, $runtimeEvent);
         $version = null;
         foreach ($patches as $patch) {
             if (is_int($patch['version'] ?? null)) {
@@ -1536,10 +1523,7 @@ final readonly class GameWebsocketCommandPatchService
         ?array $usageStartedAt,
         GameplayMetricsRecorderInterface $metricsRecorder,
         GameplayMetricsInspector $metricsInspector,
-        bool &$emergencyFallback,
     ): array|GameWebsocketCommandResult|null {
-        $emergencyFallback = false;
-
         $this->logger?->error('Runtime gameplay command failed without emergency fallback.', [
             'gameId' => $gameId,
             'command.type' => $type,
@@ -1957,10 +1941,10 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function disconnectVoteDirectPatchPayload(array $snapshot, GameEvent $event, string $clientActionId): array
     {
-        $disconnectVote = is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null;
+        $disconnectVotes = is_array($snapshot['disconnectVotes'] ?? null) ? $snapshot['disconnectVotes'] : [];
         $operations = [[
             'op' => 'disconnect.vote.set',
-            'disconnectVote' => $disconnectVote,
+            'disconnectVotes' => $disconnectVotes,
         ]];
         $payload = $event->payload();
         if (($payload['status'] ?? null) === GameDisconnectVoteService::STATUS_RESOLVED_EXPEL && is_string($payload['targetPlayerId'] ?? null)) {
@@ -1996,10 +1980,6 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function runtimeCommand(Game $game, string $type, array $payload, User $actor): array
     {
-        if ($type === 'game.close' && $game->room()->owner()->id() !== $actor->id()) {
-            throw new \InvalidArgumentException('Only the room owner can close the game.');
-        }
-
         return $this->runtimeCommandPayload($type, $payload, $actor->id());
     }
 
@@ -2081,9 +2061,6 @@ final readonly class GameWebsocketCommandPatchService
     private function assertRuntimeActorScopedPayload(string $type, array $payload, string $defaultPlayerId): void
     {
         $canonicalType = $this->runtimeCommandType($type);
-        if ($canonicalType === 'game.close') {
-            return;
-        }
         if ($canonicalType === 'game.concede') {
             $this->assertRuntimeActorPayloadField($payload, 'playerId', $defaultPlayerId, 'Players can only concede themselves.');
 
@@ -2143,69 +2120,6 @@ final readonly class GameWebsocketCommandPatchService
 
         return is_string($runtimeType)
             && $this->runtimeCommandType($runtimeType) === $this->runtimeCommandType($legacyEvent->type());
-    }
-
-    /**
-     * @param array<string,int>|null $usageStartedAt
-     */
-    private function recordRuntimeFallbackMetric(
-        GameplayMetricsRecorderInterface $metricsRecorder,
-        GameplayMetricsInspector $metricsInspector,
-        ?array $usageStartedAt,
-        string $type,
-        string $gameId,
-        float $snapshotLoadMs,
-        int $snapshotBytesBefore,
-        int $numberOfPlayers,
-        int $numberOfInstances,
-        bool $patchContractError,
-        float $totalServerMs = 0.0,
-    ): void {
-        $this->logger?->error('Emergency legacy gameplay fallback metric recorded.', [
-            'gameId' => $gameId,
-            'command.type' => $type,
-            'alert' => 'runtime_emergency_legacy_fallback',
-            'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
-            'patchContractError' => $patchContractError,
-        ]);
-        $this->recordMetric(
-            $metricsRecorder,
-            $metricsInspector,
-            [
-                'transport' => 'websocket',
-                'command.type' => $type,
-                'gameId' => $gameId,
-                'snapshot_load_ms' => $snapshotLoadMs,
-                'normalize_ms' => 0.0,
-                'command_apply_ms' => 0.0,
-                'persist_ms' => 0.0,
-                'projection_ms' => 0.0,
-                'patch_build_ms' => 0.0,
-                'total_server_ms' => $totalServerMs,
-                'snapshot_bytes_before' => $snapshotBytesBefore,
-                'snapshot_bytes_after' => $snapshotBytesBefore,
-                'patch_bytes' => 0,
-                'number_of_players' => $numberOfPlayers,
-                'number_of_instances' => $numberOfInstances,
-                'number_of_visible_cards' => 0,
-                'resync_required' => false,
-                'clientActionId_duplicate' => false,
-                'status' => 'runtime_fallback',
-                'gameplay.runtime_fallback_reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
-                'gameplay.runtime_route' => 1,
-                'gameplay.runtime_fallback_count' => 1,
-                'gameplay.runtime_error_count' => $patchContractError ? 0 : 1,
-                'gameplay.runtime_patch_contract_error' => $patchContractError ? 1 : 0,
-                'command.legacy_fallback_count' => 1,
-                ...$this->runtimeHotPathCounters(
-                    legacyHandlerCount: 1,
-                    emergencyFallbackCount: 1,
-                    snapshotLoadCount: $snapshotBytesBefore > 0 ? 1 : 0,
-                    dbLockCount: $snapshotBytesBefore > 0 ? 1 : 0,
-                ),
-            ],
-            $usageStartedAt,
-        );
     }
 
     /**
@@ -2399,6 +2313,7 @@ final readonly class GameWebsocketCommandPatchService
     private function runtimePatchedResult(
         Game $game,
         array $patches,
+        array $runtimeEvent,
         int $baseVersion,
         string $ackClientActionId,
         string $runtimeCommandType,
@@ -2409,6 +2324,7 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
+        $patches = $this->completeRuntimeMulliganPatches($patches, $runtimeEvent);
         $snapshot = $game->snapshot();
         $baseStaticCardsByCardKey = [
             ...$this->staticCardsByCardKey($snapshot),
@@ -2467,82 +2383,6 @@ final readonly class GameWebsocketCommandPatchService
             'patch_ms' => $phaseTimings['patch'],
             'patch_bytes' => $patchBytes,
         ];
-    }
-
-    /**
-     * Runtime events are persisted by the Go actor with compact instance identity only. For token templates,
-     * Symfony still has the original command payload, so it stores a sanitized static bundle for replay/bootstrap.
-     *
-     * @param array<string,mixed> $runtimeCommandPayload
-     */
-    private function enrichRuntimePersistedEvent(
-        EntityManagerInterface $manager,
-        Game $game,
-        string $clientActionId,
-        string $runtimeCommandType,
-        array $runtimeCommandPayload,
-    ): void {
-        $staticCards = $this->runtimePayloadStaticCardsByCardKey($runtimeCommandType, $runtimeCommandPayload);
-        if ($staticCards === []) {
-            return;
-        }
-
-        $event = $manager->getRepository(GameEvent::class)->findOneBy([
-            'game' => $game,
-            'clientActionId' => $clientActionId,
-        ]);
-        if (!$event instanceof GameEvent) {
-            return;
-        }
-
-        $payload = $event->payload();
-        $payload['staticCards'] = [
-            ...(is_array($payload['staticCards'] ?? null) ? $payload['staticCards'] : []),
-            ...array_map(
-                fn (array $staticCard): array => $this->compactRuntimeStaticCard($staticCard, 'public'),
-                $staticCards,
-            ),
-        ];
-        $event->replacePayload($payload);
-        $manager->flush();
-    }
-
-    /**
-     * @param array<string,mixed> $payload
-     * @param list<GameEvent> $events
-     */
-    private function runtimeLifecycleTransitionError(Game $game, string $type, array $payload, User $actor, array $events): ?string
-    {
-        if ($type === 'game.close') {
-            if ($game->status() === Game::STATUS_FINISHED || ($game->snapshot()['gamePhase'] ?? null) === 'FINISHED') {
-                return 'Game is already closed.';
-            }
-            foreach ($events as $event) {
-                if ($event instanceof GameEvent && $event->type() === 'game.close') {
-                    return 'Game is already closed.';
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @return list<GameEvent>
-     */
-    private function runtimeLifecycleEvents(EntityManagerInterface $manager, Game $game, string $type): array
-    {
-        if (!in_array($type, ['game.concede', 'game.close'], true)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            $manager->getRepository(GameEvent::class)->findBy([
-                'game' => $game,
-                'type' => $type,
-            ]),
-            static fn (mixed $event): bool => $event instanceof GameEvent,
-        ));
     }
 
     private function lifecycleEffectiveVersion(Game $game, int $snapshotVersion): int
@@ -2614,6 +2454,17 @@ final readonly class GameWebsocketCommandPatchService
                 }
             }
             $op['moves'] = $moves;
+
+            return $op;
+        }
+
+        if ($opName === 'card.field.set' && ($op['hidden'] ?? false) !== true) {
+            $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['zone'] ?? 'battlefield'));
+            $op = $this->cardWithRuntimeIdentity($op, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            $staticCard = $this->staticCardForCard($op, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            if ($staticCard !== null) {
+                $op['staticCard'] = $staticCard;
+            }
 
             return $op;
         }

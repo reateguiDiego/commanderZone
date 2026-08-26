@@ -294,6 +294,7 @@
       "timer": "Minutero",
       "mulligan": "Mulligan",
       "firstMulliganFree": "El primer mulligan es gratis.",
+      "firstMulliganNotFree": "El primer mulligan no es gratis.",
       "mulliganDescriptions": {
         "london": "Roba 7 cartas cada vez. Cuando te quedes una mano, pon una carta en el fondo de tu biblioteca por cada mulligan efectivo.",
         "vancouver": "Cada mulligan efectivo roba una carta menos. Si te quedas la mano después de un mulligan efectivo, adivina 1.",
@@ -363,7 +364,8 @@
       "thisPlayer": "este jugador",
       "tieBreakRoll": "Tirada de desempate",
       "tieBreakRollMessage": "Has empatado con {{ playerNames }}. Vuelve a tirar para romper el empate.",
-      "waitingForDecksAndRolls": "Esperando mazos y tiradas"
+      "waitingForDecksAndRolls": "Esperando mazos y tiradas",
+      "realtimeUnavailable": "La conexión en tiempo real se está recuperando. Los cambios de la sala pueden retrasarse."
     },
     "setup": {
       "gameSetupLifeControl": {
@@ -484,6 +486,8 @@
       "commanderSelect": "Seleccionar comandante",
       "filterFormat": "Formato",
       "allFormats": "Todos los formatos",
+      "filterBracket": "Bracket",
+      "allBrackets": "Todos los brackets",
       "searchButton": "Buscar",
       "empty": "Aún no hay mazos públicos disponibles.",
       "error": "No se pudieron cargar los mazos públicos."
@@ -543,6 +547,9 @@
       "current": "Actual",
       "counters": "Contadores"
     },
+    "faceDownPreview": {
+      "playedFaceDown": "Jugada boca abajo"
+    },
     "cardSpoilerGrid": {
       "lookAtOtherFace": "Mira otra cara",
       "loadingCards": "Cargando cartas"
@@ -594,8 +601,10 @@
         "flipCardFace": "Dar la vuelta a la carta",
         "playFaceDown": "Jugar boca abajo",
         "previewCard": "Vista previa de la carta",
+        "lookAtFaceDownCard": "Mirar carta",
         "moveTop": "Mover arriba",
         "revealTopCard": "Revelar la carta superior",
+        "revealXTopCards": "Revelar las X primeras cartas",
         "revealLibrary": "Revelar biblioteca",
         "moveAllTo": "Mover todo a",
         "counters": "Contadores",
@@ -603,6 +612,9 @@
         "moveTo": "Mover a",
         "giveTo": "Dar a",
         "reveal": "Revelar",
+        "stopRevealing": "Dejar de revelar",
+        "playTopRevealed": "Jugar con la carta superior revelada",
+        "stopPlayingTopRevealed": "Dejar de jugar con la carta superior revelada",
         "viewAllLibrary": "Ver biblioteca",
         "viewXTopCards": "Ver las X cartas superiores",
         "bottomOfLibrary": "Fondo de la biblioteca",
@@ -669,6 +681,7 @@
       "playerDisconnected": "Jugador desconectado",
       "yourVote": "Tu voto:",
       "timeRemaining": "Tiempo restante:",
+      "voteFinished": "Votación finalizada",
       "targetPlayerBackOnline": "El jugador objetivo está nuevamente en línea."
     },
     "gameRematchModal": {
@@ -726,6 +739,8 @@
       "lifeTotal": "Total de vida",
       "playerCounters": "Contadores de jugadores",
       "commanderDamage": "Daño de comandante",
+      "autoApplyCommanderDamageToLife": "Restar vida automáticamente",
+      "autoApplyCommanderDamageToLifeTooltip": "Si está activado, los cambios de daño de comandante también ajustan las vidas de ese jugador.",
       "otherCounters": "Otros contadores",
       "extras": "Extras",
       "openExtraPlayerCounters": "Abrir contadores de jugadores adicionales",
@@ -752,6 +767,7 @@
       "turnOrder": "Orden de turno"
     },
     "turnPhasePanel": {
+      "activeTurnPlayer": "Turno: {{ name }}",
       "turnPhases": "Fases del turno",
       "focusTheActiveTurnPlayer": "Enfocar al jugador activo",
       "focusTurn": "Enfocar turno",
@@ -796,7 +812,16 @@
       "gameLogUnreadActions": "Registro de partida, acciones sin leer",
       "chatUnreadMessages": "Chat, mensajes no leídos",
       "moveCardToAnotherBattlefield": "Poner carta en otro campo de batalla",
-      "putIntoLibrary": "Poner en la biblioteca"
+      "putIntoLibrary": "Poner en la biblioteca",
+      "focusedOpponentLabel": "Estás viendo a:",
+      "returnToOwnBattlefield": "Ir a tu campo de batalla",
+      "leaveTableConfirmationTitle": "¿Abandonar la mesa?",
+      "leaveTableConfirmationMessage": "Concederás esta partida y abandonarás la sala. Esta acción no se puede deshacer.",
+      "concedeGameConfirmationTitle": "¿Conceder la partida?",
+      "concedeGameConfirmationMessage": "Perderás esta partida de inmediato. Esta acción no se puede deshacer.",
+      "reloadRequiredTitle": "Es necesario recargar",
+      "reloadRequiredMessage": "No se ha podido sincronizar la mesa. Recarga la página antes de continuar.",
+      "reloadRequiredAction": "Recargar página"
     },
     "reactions": {
       "like": "Me gusta",
@@ -822,13 +847,19 @@
         "title": "Ver cartas superiores",
         "description": "Elige cuántas cartas de la parte superior de tu biblioteca quieres mirar.",
         "confirm": "Vista"
-      }
+      },
+      "revealTopCards": {
+        "title": "Revelar cartas superiores",
+        "description": "Elige cuántas cartas de la parte superior de tu biblioteca revelar al oponente seleccionado.",
+        "confirm": "Revelar"
+      },
+      "deckCardCount": "Tu deck tiene {{ count }} cartas."
     },
     "playerCounters": {
       "poison": "Veneno",
       "energy": "Energía",
       "experience": "Experiencia",
-      "rad": "Rad",
+      "rad": "Radiación",
       "tickets": "Entradas"
     },
     "zones": {
@@ -905,7 +936,8 @@
       "title": "Mulligan",
       "metaAriaLabel": "Estado de mulligan",
       "firstMulliganFree": "El primer mulligan es gratis.",
-      "mulligansTaken": "Mulligan: {{ count }}",
+      "firstMulliganNotFree": "El primer mulligan no es gratis.",
+      "mulligansTaken": "Has hecho {{ count }} mulligans",
       "effectiveMulligans": "Efectivo: {{ count }}",
       "scryTitle": "Adivina 1",
       "scryDescription": "Elige qué hacer con la carta superior de tu biblioteca.",
@@ -924,7 +956,6 @@
         "generous": "Generoso"
       },
       "status": {
-        "bottoming": "eligiendo fondo",
         "deciding": "decidiendo",
         "scrying": "Adivinando",
         "ready": "listo"
@@ -932,7 +963,9 @@
       "actions": {
         "keepOnTop": "Dejar arriba",
         "putOnBottom": "Poner en el fondo",
-        "removeFromBottom": "Quitar desde abajo"
+        "removeFromBottom": "Quitar desde abajo",
+        "keepHand": "Quedarse mano",
+        "keepWithBottom": "Quedarse y enviar al fondo"
       },
       "description": {
         "londonNoBottom": "Roba 7. No tienes que poner ninguna carta en el fondo.",
@@ -947,24 +980,67 @@
     }
   },
   "gameLog": {
+    "history": { "loading": "Cargando mensajes…" },
+    "fragment": {
+      "life": { "self": "cambió su vida de {{ previousLife }} a {{ life }}.", "other": "cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}." },
+      "commanderDamage": { "self": "cambió el daño de comandante de {{ previousValue }} a {{ value }}.", "other": "cambió el daño de comandante infligido a {{ target }} de {{ previousValue }} a {{ value }}." },
+      "card": { "controllerChanged": { "self": "tomó el control de una carta.", "other": "cambió el controlador de una carta a {{ target }}." } },
+      "counter": { "changed": "puso {{ counter }} en {{ value }}." },
+      "cardCounter": { "changed": "puso los contadores {{ counter }} en {{ value }}." },
+      "turn": { "changed": "terminó su turno. Empieza el turno de {{ player }}.", "phaseChanged": "avanzó a la fase de {{ phase }}." },
+      "disconnect": { "expelled": "fue expulsado tras una votación por desconexión." },
+      "game": { "concede": "concedió." }
+    },
     "library": {
-      "draw": "{{ actor }} rob\u00f3 una carta.",
-      "drawMany": "{{ actor }} rob\u00f3 {{ count }} cartas.",
-      "shuffle": "{{ actor }} baraj\u00f3 su biblioteca."
+      "draw": "{{ actor }} robó una carta.",
+      "drawMany": "{{ actor }} robó {{ count }} cartas.",
+      "playTopFaceDown": "{{ actor }} ha jugado la primera carta de su biblioteca boca abajo.",
+      "moveTop": "{{ actor }} movió las {{ count }} primeras cartas de su biblioteca a {{ toZone }}.",
+      "reorderTop": "{{ actor }} reordenó las {{ count }} primeras cartas de su biblioteca.",
+      "putTop": "{{ actor }} puso una carta en la parte superior de su biblioteca.",
+      "putBottom": "{{ actor }} puso una carta en la parte inferior de su biblioteca.",
+      "shuffle": "{{ actor }} barajó su biblioteca.",
+      "view": "{{ actor }} miró las {{ count }} primeras cartas de su biblioteca.",
+      "reveal": "{{ actor }} reveló su biblioteca.",
+      "revealTop": "{{ actor }} reveló las {{ count }} primeras cartas de su biblioteca a {{ recipients }}.",
+      "revealTopNamed": "{{ actor }} reveló {{ cardName }}, la primera carta de su biblioteca, a {{ recipients }}.",
+      "stoppedRevealingTop": "{{ actor }} dejó de revelar la primera carta de su biblioteca a {{ recipients }}.",
+      "playTopRevealed": "{{ actor }} juega con la primera carta de su biblioteca revelada para {{ recipients }}.",
+      "stoppedPlayingTopRevealed": "{{ actor }} dejó de jugar con la primera carta de su biblioteca revelada para {{ recipients }}."
     },
     "card": {
-      "moved": "{{ actor }} movi\u00f3 una carta de {{ fromZone }} a {{ toZone }}.",
-      "tapped": "{{ actor }} gir\u00f3 un permanente.",
-      "untapped": "{{ actor }} enderez\u00f3 un permanente."
+      "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
+      "faceChanged": "{{ actor }} cambió {{ cardName }} a {{ faceName }}.",
+      "faceDownInspected": "{{ actor }} ha mirado una carta boca abajo.",
+      "turnedFaceDown": "{{ actor }} puso una carta boca abajo.",
+      "turnedFaceUp": "{{ actor }} puso una carta boca arriba.",
+      "controllerChanged": "{{ actor }} cambió el controlador de una carta a {{ target }}.",
+      "revealed": "{{ actor }} reveló 1 carta de su {{ zone }} a {{ recipients }}.",
+      "revealedNamed": "{{ actor }} reveló {{ cardName }} de su {{ zone }} a {{ recipients }}.",
+      "revealedMany": "{{ actor }} reveló {{ count }} cartas de su {{ zone }} a {{ recipients }}.",
+      "stoppedRevealing": "{{ actor }} dejó de revelar 1 carta de su {{ zone }} a {{ recipients }}.",
+      "stoppedRevealingMany": "{{ actor }} dejó de revelar {{ count }} cartas de su {{ zone }} a {{ recipients }}.",
+      "tapped": "{{ actor }} giró un permanente.",
+      "untapped": "{{ actor }} enderezó un permanente.",
+      "movedMany": "{{ actor }} movió {{ count }} cartas de {{ fromZone }} a {{ toZone }}."
+    },
+    "audience": { "all": "todos los jugadores" },
+    "cardStats": {
+      "powerToughnessChanged": "{{ actor }} cambió {{ cardName }} de {{ previousPower }}/{{ previousToughness }} a {{ power }}/{{ toughness }}.",
+      "loyaltyChanged": "{{ actor }} cambió la lealtad de {{ cardName }} de {{ previousValue }} a {{ value }} ({{ delta }}).",
+      "sagaChanged": "{{ actor }} cambió el capítulo de saga de {{ cardName }} de {{ previousChapter }} a {{ chapter }} ({{ delta }}).",
+      "defenseChanged": "{{ actor }} cambió la defensa de {{ cardName }} de {{ previousDefense }} a {{ defense }} ({{ delta }})."
     },
     "cardCounter": {
       "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
     },
+    "counter": { "changed": "{{ actor }} puso {{ counter }} en {{ value }}." },
+    "battlefield": { "untappedAll": "{{ actor }} enderezó {{ count }} permanentes." },
     "life": {
-      "changed": "{{ actor }} cambi\u00f3 la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+      "changed": "{{ actor }} cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}."
     },
     "dice": {
-      "rolled": "{{ actor }} tir\u00f3 {{ kind }} y sac\u00f3 {{ result }}.",
+      "rolled": "{{ actor }} tiró {{ kind }} y sacó {{ result }}.",
       "coin": "una moneda",
       "dice": "dados",
       "d4": "d4",
@@ -973,19 +1049,31 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lanz\u00f3 su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+      "cast": "{{ actor }} lanzó su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}.",
+      "castCounterChanged": "{{ actor }} puso el contador de casteos del comandante {{ commanderName }} en {{ commanderCastCount }}.",
+      "unknown": "Comandante"
     },
     "token": {
-      "created": "{{ actor }} cre\u00f3 una ficha: {{ tokenName }}.",
-      "createdMany": "{{ actor }} cre\u00f3 {{ count }} fichas: {{ tokenName }}."
+      "created": "{{ actor }} creó una ficha: {{ tokenName }}.",
+      "createdMany": "{{ actor }} creó {{ count }} fichas: {{ tokenName }}."
     },
     "tokenCopy": {
-      "created": "{{ actor }} cre\u00f3 una copia de ficha."
+      "created": "{{ actor }} creó una copia de ficha."
     },
+    "turn": { "changed": "{{ previousPlayer }} ha finalizado su turno. Empieza el turno de {{ player }}.", "phaseChanged": "{{ actor }} ha avanzado a la fase de {{ phase }}." },
+    "phase": { "untap": "enderezar", "upkeep": "mantenimiento", "draw": "robar", "main-1": "primera principal", "combat": "combate", "main-2": "segunda principal", "end": "final" },
+    "commanderDamage": { "changed": "{{ actor }} cambió el daño de comandante infligido a {{ target }} de {{ previousValue }} a {{ value }}." },
+    "stack": { "cardAdded": "{{ actor }} añadió una carta a la pila.", "itemRemoved": "{{ actor }} retiró un elemento de la pila." },
+    "arrow": { "created": "{{ actor }} creó una flecha.", "removed": "{{ actor }} eliminó una flecha." },
+    "attachment": { "created": "{{ actor }} anexó una carta.", "removed": "{{ actor }} eliminó un anexo." },
+    "mulligan": { "taken": "{{ actor }} hizo mulligan.", "kept": "{{ actor }} se quedó su mano.", "scryConfirmed": "{{ actor }} completó su escrutar del mulligan." },
+    "disconnect": { "expelled": "{{ target }} fue expulsado tras una votación por desconexión.", "noVotersWait": "No hay jugadores conectados para votar. La mesa esperará a {{ target }}.", "voteOpened": "{{ target }} se desconectó. Se abrió una votación de mesa.", "tableExpelled": "La mesa decidió expulsar a {{ target }} por desconexión.", "tableWait": "La mesa decidió esperar a {{ target }}.", "voteCancelled": "{{ target }} se reconectó. La votación de mesa se canceló.", "voteExpiredWait": "La votación por desconexión expiró. La mesa esperará." },
     "game": {
-      "concede": "{{ player }} concedi\u00f3."
+      "concede": "{{ player }} concedió."
     },
     "zone": {
+      "randomSelected": "{{ actor }} seleccionó una carta al azar de {{ fromZone }}.",
+      "movedAll": "{{ actor }} movió {{ count }} cartas de {{ fromZone }} a {{ toZone }}.",
       "battlefield": "campo de batalla",
       "graveyard": "cementerio",
       "exile": "exilio",
@@ -1173,7 +1261,8 @@
     },
     "deckAnalysisPanel": {
       "typeBreakdown": "Desglose de tipos",
-      "utilityCounts": "Recuento de utilidad"
+      "utilityCounts": "Recuento de utilidad",
+      "reloadPageForData": "Recarga la página para obtener datos de análisis."
     },
     "deckManaBalancePanel": {
       "manaBalance": "Equilibrio de maná",

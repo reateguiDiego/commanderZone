@@ -13,6 +13,11 @@ import {
 import { GameTableCoreState } from '../core/game-table-core.state';
 
 type MulliganBottomRequiredOperation = Extract<GameplayPatchV2Operation, { op: 'mulligan.bottom.required.set' }>;
+type MulliganPrivateStateOperation = Extract<GameplayPatchV2Operation, { op: 'mulligan.private_state.set' }>;
+type MulliganPrivateStatePatch = MulliganPrivateStateOperation['state'];
+type FlatMulliganPrivateStateOperation = Omit<MulliganPrivateStateOperation, 'state'> & {
+  state?: MulliganPrivateStatePatch;
+} & Partial<MulliganPrivateStatePatch>;
 
 @Injectable()
 export class GameTableMulliganState {
@@ -41,6 +46,26 @@ export class GameTableMulliganState {
     }
 
     this.completed.set(false);
+    this.pendingAction.set(false);
+    this.error.set(null);
+    const privateState = this.privateState();
+    if (!privateState) {
+      return;
+    }
+
+    const snapshotMulligan = snapshot.players[privateState.playerId]?.mulligan;
+    if (!snapshotMulligan) {
+      return;
+    }
+
+    this.privateState.set({
+      ...privateState,
+      handSize: snapshotMulligan.handCount ?? privateState.handSize,
+      mulligan: {
+        ...privateState.mulligan,
+        ...snapshotMulligan,
+      },
+    });
   }
 
   beginAction(): boolean {
@@ -109,8 +134,9 @@ export class GameTableMulliganState {
     message: GameplayPatchV2Message,
     snapshot: GameSnapshot,
   ): GameplayMulliganPrivateStateMessage | null {
-    const stateOperation = message.ops.find((operation) => operation.op === 'mulligan.private_state.set');
-    const handOperation = message.ops.find((operation) => operation.op === 'mulligan.hand.replace_private');
+    const operations = message.ops.map(normalizePatchOperation);
+    const stateOperation = operations.find((operation) => operation.op === 'mulligan.private_state.set');
+    const handOperation = operations.find((operation) => operation.op === 'mulligan.hand.replace_private');
     if (!stateOperation && !handOperation) {
       return null;
     }
@@ -122,8 +148,8 @@ export class GameTableMulliganState {
 
     const player = snapshot.players[playerId];
     const mulligan = player?.mulligan;
-    const patchState = stateOperation?.state;
-    const bottomOperation = message.ops.find((operation): operation is MulliganBottomRequiredOperation =>
+    const patchState = stateOperation ? mulliganPrivateStatePatch(stateOperation) : undefined;
+    const bottomOperation = operations.find((operation): operation is MulliganBottomRequiredOperation =>
       operation.op === 'mulligan.bottom.required.set' && operation.playerId === playerId
     );
     const bottomOperationOrderMode = bottomOperation?.orderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined;
@@ -137,6 +163,7 @@ export class GameTableMulliganState {
       handSize: hand.length || patchState?.handSize || mulligan?.handCount || player?.handCount,
       mulligan: {
         rule: (patchState?.rule as GamePlayerMulliganState['rule'] | undefined) ?? mulligan?.rule,
+        firstMulliganFree: patchState?.firstMulliganFree ?? mulligan?.firstMulliganFree,
         mulligansTaken: patchState?.mulligansTaken ?? mulligan?.mulligansTaken ?? 0,
         effectiveMulligans: patchState?.effectiveMulligans ?? mulligan?.effectiveMulligans ?? 0,
         drawCount: patchState?.drawCount ?? mulligan?.drawCount ?? hand.length,
@@ -426,6 +453,28 @@ function compactPrivateStateMessage(message: GameplayMulliganPrivateStateMessage
     hand: message.hand.map(compactMulliganCard),
     ...(message.scryCard ? { scryCard: compactMulliganCard(message.scryCard) } : {}),
   };
+}
+
+function mulliganPrivateStatePatch(operation: MulliganPrivateStateOperation): MulliganPrivateStatePatch {
+  const flatOperation = operation as FlatMulliganPrivateStateOperation;
+
+  return flatOperation.state ?? flatOperation;
+}
+
+type GameplayPatchV2WireOperation = GameplayPatchV2Operation & {
+  data?: Record<string, unknown>;
+};
+
+function normalizePatchOperation(operation: GameplayPatchV2Operation): GameplayPatchV2Operation {
+  const data = (operation as GameplayPatchV2WireOperation).data;
+  if (!data || Array.isArray(data)) {
+    return operation;
+  }
+
+  return {
+    ...data,
+    op: operation.op,
+  } as GameplayPatchV2Operation;
 }
 
 function compactMulliganCard(card: GameplayMulliganPrivateCard): GameCompactCardRef {

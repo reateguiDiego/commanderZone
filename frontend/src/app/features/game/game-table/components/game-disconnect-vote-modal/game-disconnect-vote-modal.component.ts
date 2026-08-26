@@ -17,8 +17,11 @@ export class GameDisconnectVoteModalComponent {
   readonly targetOnline = input(false);
   readonly currentVote = input<GameDisconnectVoteChoice | null>(null);
   readonly players = input<readonly DisconnectVotePlayerView[]>([]);
+  /** Spectators can inspect the synchronized state but cannot cast a vote. */
+  readonly canVote = input(false);
   readonly pending = input(false);
   readonly countdownSeconds = input<number | null>(null);
+  readonly voteFinished = input(false);
   readonly error = input<string | null>(null);
 
   readonly voteWait = output<void>();

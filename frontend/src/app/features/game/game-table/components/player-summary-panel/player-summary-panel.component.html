@@ -120,8 +120,31 @@
                     <span class="commander-damage-line">
                       <small class="commander-damage-name">{{ commander.name }}</small>
                       @if (canEditCounters()) {
+                        @let feedback = commanderDamageFeedback(commander.commanderInstanceId);
                         <span class="counter-stepper commander-damage-stepper" aria-label="Commander damage from {{ row.username }} - {{ commander.name }}">
-                          <span class="counter-value">{{ commander.damage }}</span>
+                          <span class="counter-value-shell">
+                            <span
+                              class="counter-value"
+                              [class.counter-value-gain]="feedback?.tone === 'gain'"
+                              [class.counter-value-damage]="feedback?.tone === 'damage'"
+                              [class.counter-value-neutral]="feedback?.tone === 'neutral'"
+                            >
+                              {{ commander.damage }}
+                            </span>
+                            <span class="counter-feedback-layer" aria-hidden="true">
+                              @if (feedback; as counterFeedback) {
+                                <span
+                                  class="counter-feedback"
+                                  [class.counter-feedback-exiting]="counterFeedback.phase === 'exiting'"
+                                  [class.counter-feedback-gain]="counterFeedback.tone === 'gain'"
+                                  [class.counter-feedback-damage]="counterFeedback.tone === 'damage'"
+                                  [class.counter-feedback-neutral]="counterFeedback.tone === 'neutral'"
+                                >
+                                  {{ counterFeedback.delta > 0 ? '+' : '' }}{{ counterFeedback.delta }}
+                                </span>
+                              }
+                            </span>
+                          </span>
                           <button
                             type="button"
                             class="counter-step-button"
@@ -148,6 +171,17 @@
                   }
                 </span>
               </article>
+            }
+            @if (canEditCounters()) {
+              <app-compact-checkbox
+                class="commander-damage-life-toggle"
+                testId="auto-apply-commander-damage-to-life"
+                [label]="'game.playerSummaryPanel.autoApplyCommanderDamageToLife' | runtimeTranslate"
+                [title]="'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip' | runtimeTranslate"
+                [tooltipStretch]="true"
+                [checked]="autoApplyCommanderDamageToLifeValue()"
+                (checkedChange)="setAutoApplyCommanderDamageToLife($event)"
+              />
             }
           </div>
         }
@@ -176,8 +210,31 @@
                     <strong>{{ tracker.label | runtimeTranslate }}</strong>
                   </span>
                   @if (canEditCounters()) {
+                    @let feedback = playerCounterFeedback(tracker.key);
                     <span class="counter-stepper" aria-label="{{ tracker.label | runtimeTranslate }} counters">
-                      <span class="counter-value">{{ counterValue(tracker.key) }}</span>
+                      <span class="counter-value-shell">
+                        <span
+                          class="counter-value"
+                          [class.counter-value-gain]="feedback?.tone === 'gain'"
+                          [class.counter-value-damage]="feedback?.tone === 'damage'"
+                          [class.counter-value-neutral]="feedback?.tone === 'neutral'"
+                        >
+                          {{ counterValue(tracker.key) }}
+                        </span>
+                        <span class="counter-feedback-layer" aria-hidden="true">
+                          @if (feedback; as counterFeedback) {
+                            <span
+                              class="counter-feedback"
+                              [class.counter-feedback-exiting]="counterFeedback.phase === 'exiting'"
+                              [class.counter-feedback-gain]="counterFeedback.tone === 'gain'"
+                              [class.counter-feedback-damage]="counterFeedback.tone === 'damage'"
+                              [class.counter-feedback-neutral]="counterFeedback.tone === 'neutral'"
+                            >
+                              {{ counterFeedback.delta > 0 ? '+' : '' }}{{ counterFeedback.delta }}
+                            </span>
+                          }
+                        </span>
+                      </span>
                       <button
                         type="button"
                         class="counter-step-button"

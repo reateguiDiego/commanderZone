@@ -26,14 +26,68 @@ describe('DeckListCardComponent', () => {
       cards: [],
     });
     fixture.componentRef.setInput('colorIdentity', ['G', 'U']);
+    fixture.componentRef.setInput('bracket', { bracket: 3, label: 'Upgraded' });
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.textContent).toContain('Public Deck');
     expect(element.querySelector('.visibility-pill')?.textContent?.trim()).toBe('Public');
+    expect(element.querySelector('app-bracket-label-pill')?.textContent).toContain('Bracket 3');
     expect(element.querySelector('.deck-row-actions')).toBeNull();
     expect(element.querySelector('button')).toBeNull();
+  });
+
+  it('hides the bracket for an invalid deck even when a bracket is present', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Invalid Deck',
+      format: 'commander',
+      valid: false,
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('bracket', { bracket: 3, label: 'Upgraded' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.bracket-label-pill')).toBeNull();
+  });
+
+  it('does not render commander colors when the deck has no color identity', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'No Commander Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('colorIdentity', []);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.deck-commander-colors')).toBeNull();
+    expect(element.textContent).not.toContain('deckBuilder.deckList.colorFilter.colorless');
+  });
+
+  it('renders a generic mana symbol for a colorless commander identity', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Colorless Commander Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      cards: [],
+    });
+    fixture.componentRef.setInput('colorIdentity', ['1']);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.deck-commander-colors .ms-1')).not.toBeNull();
   });
 
   it('renders a crawlable deck link when a deck href is provided', () => {
@@ -77,5 +131,23 @@ describe('DeckListCardComponent', () => {
     expect(metrics?.classList).toContain('owner-metrics');
     expect(metrics?.querySelector('.deck-card-metric-likes')?.getAttribute('aria-label')).toBe('Likes: 17');
     expect(metrics?.querySelector('.deck-card-metric-copies')?.getAttribute('aria-label')).toBe('Copies: 4');
+  });
+
+  it('hides owner metrics for private decks without likes or copies', () => {
+    const fixture = TestBed.createComponent(DeckListCardComponent);
+    fixture.componentRef.setInput('deck', {
+      id: 'deck-1',
+      name: 'Private Deck',
+      format: 'commander',
+      visibility: 'private',
+      folderId: null,
+      likes: 0,
+      copies: 0,
+      cards: [],
+    });
+    fixture.componentRef.setInput('metricsMode', 'owner');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.deck-card-metrics.owner-metrics')).toBeNull();
   });
 });

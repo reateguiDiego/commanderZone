@@ -622,6 +622,24 @@ describe('API services', () => {
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 
+  it('loads an older game log page without the global loader', () => {
+    TestBed.inject(GamesApi).logHistoryPage('game-1', 'log-650').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/games/game-1/log?before=log-650&limit=50`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ data: [], limit: 50, hasMore: false, nextBefore: null });
+  });
+
+  it('loads a newer game log page without the global loader', () => {
+    TestBed.inject(GamesApi).logForwardPage('game-1', 'log-250').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/games/game-1/log?cursor=log-250&limit=50`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ data: [], limit: 50, hasMore: false, nextAfter: null });
+  });
+
   it('requests gameplay websocket tickets with feature-owned loading policy', () => {
     TestBed.inject(GamesApi).websocketTicket('game-1').subscribe();
 

@@ -262,7 +262,7 @@ describe('GameTableDropActionsService', () => {
     await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'battlefield', instanceId: 'moved' }), 'player-1', 'library');
 
     expect(command).not.toHaveBeenCalled();
-    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved'], { expires: false });
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved']);
     expect(setPendingLibraryMove).toHaveBeenCalledWith({
       cardName: 'Cultivate',
       commandType: 'card.moved',
@@ -349,7 +349,7 @@ describe('GameTableDropActionsService', () => {
     }), 'player-1', 'library');
 
     expect(command).not.toHaveBeenCalled();
-    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2'], { expires: false });
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2']);
     expect(setPendingLibraryMove).toHaveBeenCalledWith({
       cardName: '2 cards',
       commandType: 'cards.moved',

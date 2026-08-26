@@ -2,8 +2,11 @@
 
 namespace App\Application\User;
 
-use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\Runtime\GameRuntimeGatewayException;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
+use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
+use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Game\Game;
@@ -18,17 +21,22 @@ use Doctrine\ORM\EntityManagerInterface;
 class UserAccountDeletionService
 {
     public function __construct(
-        private readonly GameCommandHandler $gameCommandHandler,
         private readonly GameRematchService $gameRematch,
+        private readonly GameRuntimeLifecycleCommandService $runtimeLifecycle,
+        private readonly ?GameRuntimeLifecycleControlInterface $runtimeControl = null,
+        private readonly ?GameRuntimeClosingFence $closingFence = null,
     ) {
     }
 
     public function delete(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
     {
+        $rooms = $this->roomsForUser($user, $entityManager);
+        $this->concedeRuntimeGamesBeforeRemoval($rooms, $user, $entityManager);
+
         try {
             $entityManager->beginTransaction();
 
-            $roomRemovalResult = $this->removeFromRoomsInOpenTransaction($user, $entityManager);
+            $roomRemovalResult = $this->removeFromRoomsInOpenTransaction($rooms, $user, $entityManager);
             $entityManager->flush();
 
             $this->deleteOwnedDecks($user, $entityManager);
@@ -52,9 +60,12 @@ class UserAccountDeletionService
 
     public function removeFromRooms(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
     {
+        $rooms = $this->roomsForUser($user, $entityManager);
+        $this->concedeRuntimeGamesBeforeRemoval($rooms, $user, $entityManager);
+
         try {
             $entityManager->beginTransaction();
-            $result = $this->removeFromRoomsInOpenTransaction($user, $entityManager);
+            $result = $this->removeFromRoomsInOpenTransaction($rooms, $user, $entityManager);
             $entityManager->flush();
             $entityManager->commit();
         } catch (\Throwable $exception) {
@@ -68,21 +79,27 @@ class UserAccountDeletionService
         return $result;
     }
 
-    private function removeFromRoomsInOpenTransaction(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
+    /**
+     * @param list<Room> $rooms
+     */
+    private function removeFromRoomsInOpenTransaction(array $rooms, User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
     {
         $gameEvents = [];
+        $controlPlaneEvents = [];
         $changedRooms = [];
         $deletedRoomIds = [];
 
-        foreach ($this->roomsForUser($user, $entityManager) as $room) {
+        foreach ($rooms as $room) {
             $roomResult = $this->removeUserFromRoom($room, $user, $entityManager);
             $gameEvents = [...$gameEvents, ...$roomResult->gameEvents];
+            $controlPlaneEvents = [...$controlPlaneEvents, ...$roomResult->controlPlaneEvents];
             $changedRooms = [...$changedRooms, ...$roomResult->changedRooms];
             $deletedRoomIds = [...$deletedRoomIds, ...$roomResult->deletedRoomIds];
         }
 
         return new UserAccountDeletionResult(
             $this->uniqueGameEvents($gameEvents),
+            $this->uniqueControlPlaneEvents($controlPlaneEvents),
             $this->uniqueRooms($changedRooms),
             array_values(array_unique($deletedRoomIds)),
         );
@@ -104,9 +121,55 @@ class UserAccountDeletionService
         return array_values(array_filter($rooms, static fn (mixed $room): bool => $room instanceof Room));
     }
 
+    /**
+     * @param list<Room> $rooms
+     */
+    private function concedeRuntimeGamesBeforeRemoval(array $rooms, User $user, EntityManagerInterface $entityManager): void
+    {
+        foreach ($rooms as $room) {
+            $game = $room->game();
+            $startedRoom = $room->status() === Room::STATUS_STARTED || $game instanceof Game;
+            if (
+                !$room->hasPlayer($user)
+                || !$startedRoom
+                || !$game instanceof Game
+                || !$this->gameHasSnapshotPlayer($game, $user)
+            ) {
+                continue;
+            }
+
+            if ($this->gameCanConcedeLeavingPlayer($game, $user)) {
+                if (!$this->runtimeLifecycle->isRuntimePrimary('game.concede')) {
+                    throw new GameRuntimeGatewayException('The gameplay runtime is required to concede an active player before leaving.');
+                }
+
+                // Keep the Go write outside the account-deletion transaction
+                // and game-row lock. A repeated deletion request reuses the
+                // action id.
+                $this->runtimeLifecycle->concedeForLeave($game, $user, 'account_deletion');
+                $entityManager->refresh($game);
+                if ($game->status() === Game::STATUS_ACTIVE && $this->gameCanConcedeLeavingPlayer($game, $user)) {
+                    throw new GameRuntimeGatewayException('Gameplay lifecycle confirmation is pending. Retry account deletion.');
+                }
+            }
+
+            if (!$this->roomHasOtherPlayers($room, $user, $entityManager)) {
+                if (!$this->runtimeControl instanceof GameRuntimeLifecycleControlInterface || !$this->closingFence instanceof GameRuntimeClosingFence) {
+                    throw new GameRuntimeGatewayException('Runtime lifecycle disposal is required before deleting the final active room member.');
+                }
+                // The game is still present and no Doctrine lock is held. The
+                // durable claim blocks every runtime writer before shutdown;
+                // only then may the account transaction delete its game.
+                $this->closingFence->claim($game->id());
+                $this->runtimeControl->stopByGameId($game->id());
+            }
+        }
+    }
+
     private function removeUserFromRoom(Room $room, User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
     {
         $gameEvents = [];
+        $controlPlaneEvents = [];
         $changedRooms = [];
         $deletedRoomIds = [];
 
@@ -124,20 +187,13 @@ class UserAccountDeletionService
             $deletedRoomIds[] = $room->id();
             $this->removeRoomWithGame($room, $entityManager);
 
-            return new UserAccountDeletionResult([], [], $deletedRoomIds);
+            return new UserAccountDeletionResult([], [], [], $deletedRoomIds);
         }
 
         if ($isRoomPlayer && $startedRoom && $game instanceof Game && $hasOtherRoomPlayers && $this->gameHasSnapshotPlayer($game, $user)) {
-            if ($this->gameCanConcedeLeavingPlayer($game, $user)) {
-                $gameConcedeEvent = $this->gameCommandHandler->apply($game, 'game.concede', [], $user);
-                $entityManager->persist($gameConcedeEvent);
-                $gameEvents[] = ['game' => $game, 'event' => $gameConcedeEvent];
-            }
-
             if ($this->gameCanRecordLeaveVote($game, $user)) {
                 $recorded = $this->gameRematch->recordVote($game, $user, GameRematchService::VOTE_LEAVE);
-                $entityManager->persist($recorded['event']);
-                $gameEvents[] = ['game' => $game, 'event' => $recorded['event']];
+                $controlPlaneEvents[] = ['game' => $game, 'event' => $recorded['event']];
             }
         }
 
@@ -149,7 +205,7 @@ class UserAccountDeletionService
             $deletedRoomIds[] = $room->id();
             $this->removeRoomWithGame($room, $entityManager);
 
-            return new UserAccountDeletionResult($gameEvents, [], $deletedRoomIds);
+            return new UserAccountDeletionResult($gameEvents, $controlPlaneEvents, [], $deletedRoomIds);
         }
 
         if ($isRoomOwner) {
@@ -162,7 +218,7 @@ class UserAccountDeletionService
         $room->appendWaitingLog(sprintf('%s left the room.', $this->userDisplayName($user)));
         $changedRooms[] = $room;
 
-        return new UserAccountDeletionResult($gameEvents, $changedRooms, $deletedRoomIds);
+        return new UserAccountDeletionResult($gameEvents, $controlPlaneEvents, $changedRooms, $deletedRoomIds);
     }
 
     private function deleteOwnedDecks(User $user, EntityManagerInterface $entityManager): void
@@ -224,7 +280,12 @@ class UserAccountDeletionService
 
         $player = $game->snapshot()['players'][$user->id()] ?? null;
 
-        return is_array($player) && ($player['status'] ?? 'active') !== 'conceded';
+        $lifecyclePlayer = $game->lifecycleState()['players'][$user->id()] ?? null;
+        if (is_array($lifecyclePlayer) && ($lifecyclePlayer['status'] ?? null) === 'conceded') {
+            return false;
+        }
+
+        return is_array($player) && ($player['status'] ?? null) === 'active';
     }
 
     private function gameCanRecordLeaveVote(Game $game, User $user): bool
@@ -234,7 +295,7 @@ class UserAccountDeletionService
             return false;
         }
 
-        $vote = $game->snapshot()['rematch']['votes'][$user->id()]['vote'] ?? null;
+        $vote = $game->rematchState()['votes'][$user->id()]['vote'] ?? null;
 
         return $vote !== GameRematchService::VOTE_LEAVE;
     }
@@ -281,6 +342,23 @@ class UserAccountDeletionService
         $unique = [];
         foreach ($gameEvents as $entry) {
             $unique[$entry['event']->toArray()['id']] = $entry;
+        }
+
+        return array_values($unique);
+    }
+
+    /**
+     * @param list<array{game: Game, event: array<string,mixed>}> $events
+     * @return list<array{game: Game, event: array<string,mixed>}>
+     */
+    private function uniqueControlPlaneEvents(array $events): array
+    {
+        $unique = [];
+        foreach ($events as $entry) {
+            $eventId = is_string($entry['event']['id'] ?? null) ? $entry['event']['id'] : null;
+            if ($eventId !== null) {
+                $unique[$eventId] = $entry;
+            }
         }
 
         return array_values($unique);

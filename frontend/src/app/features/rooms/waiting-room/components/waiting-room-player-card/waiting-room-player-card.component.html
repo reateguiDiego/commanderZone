@@ -6,9 +6,21 @@
     </div>
   }
 
-  @if (host()) {
-    <span class="host-ribbon">{{ 'rooms.waitingRoomPlayerCard.host' | runtimeTranslate }}</span>
-  }
+  <div class="player-status-stack">
+    @if (host()) {
+      <span class="host-ribbon">{{ 'rooms.waitingRoomPlayerCard.host' | runtimeTranslate }}</span>
+    }
+
+    <span class="ready-state" [class.ready]="ready()">
+      @if (ready()) {
+        Ready
+      } @else if (!player.deckId) {
+        Deck pending
+      } @else {
+        Roll pending
+      }
+    </span>
+  </div>
 
   @if (canKick()) {
     <button
@@ -51,15 +63,9 @@
       />
     </div>
 
-    <span class="ready-state" [class.ready]="ready()">
-      @if (ready()) {
-        Ready
-      } @else if (!player.deckId) {
-        Deck pending
-      } @else {
-        Roll pending
-      }
-    </span>
+    @if (player.deckId && deckBracket(); as bracket) {
+      <app-bracket-label-pill [bracket]="bracket" />
+    }
 
   </div>
 

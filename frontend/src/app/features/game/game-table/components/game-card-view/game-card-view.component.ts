@@ -123,7 +123,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private statOverlayArrivalTimer: number | null = null;
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;
-  private previousFaceDown: boolean | null = null;
   private previewFaceIndexOverride: number | null = null;
   private faceFlipTimer: number | null = null;
   private pointerInside = false;
@@ -158,10 +157,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly statDropSettling = input(false);
   readonly commanderEntrySettling = input(false);
   readonly hoverInteractionsEnabled = input(true);
+  readonly faceToggleEnabled = input(true);
   readonly activeHoverInstanceId = input<string | null>(null);
   readonly motionActive = input(false);
   readonly faceDown = input(false);
   readonly hidden = input(false);
+  readonly revealMarker = input(false);
   readonly visible = input(true);
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
@@ -269,6 +270,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     const currentCard = this.card();
 
     return !this.faceDown()
+      && this.faceToggleEnabled()
       && currentCard.hidden !== true
       && canShowAlternateFaceToggle(currentCard);
   });
@@ -293,6 +295,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     && this.dungeonMarkerPosition() !== null
   ));
   readonly monarchCard = computed(() => isMonarchCard(this.card()));
+  readonly showRevealIndicator = computed(() => this.revealMarker());
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {
@@ -457,6 +460,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   changeLoyalty(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.countersEditable()) {
+      return;
+    }
     this.dismissPreviewAfterCounterChange();
     this.loyaltyChanged.emit({ event, card: this.card(), delta });
   }
@@ -464,7 +470,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   changeSaga(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.sagaVisible()) {
+    if (!this.countersEditable() || !this.sagaVisible()) {
       return;
     }
 
@@ -1050,22 +1056,17 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private syncFaceFlipAnimation(): void {
     const currentCard = this.card();
     const activeFaceIndex = currentCard.activeFaceIndex ?? 0;
-    const faceDown = Boolean(this.faceDown() || this.hidden() || currentCard.faceDown || currentCard.hidden);
     const isSameCard = this.previousFaceInstanceId === currentCard.instanceId;
     const faceChanged = isSameCard
       && this.previousActiveFaceIndex !== null
       && this.previousActiveFaceIndex !== activeFaceIndex;
-    const faceDownChanged = isSameCard
-      && this.previousFaceDown !== null
-      && this.previousFaceDown !== faceDown;
 
-    if ((faceChanged || faceDownChanged) && this.canPlayFaceFlipAnimation()) {
+    if (faceChanged && this.canPlayFaceFlipAnimation()) {
       this.startFaceFlipAnimation();
     }
 
     this.previousFaceInstanceId = currentCard.instanceId;
     this.previousActiveFaceIndex = activeFaceIndex;
-    this.previousFaceDown = faceDown;
   }
 
   private canPlayFaceFlipAnimation(): boolean {

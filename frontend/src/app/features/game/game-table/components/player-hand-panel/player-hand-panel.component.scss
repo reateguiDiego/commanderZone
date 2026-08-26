@@ -36,6 +36,8 @@
   --hand-card-preview-height: 9.7rem;
   --hand-card-row-width: 7.2rem;
   --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
+  --hand-drop-indicator-width: clamp(1.6rem, calc(var(--hand-card-row-width) * 0.36), 2.55rem);
+  --hand-drop-indicator-overhang: clamp(1.2rem, calc(var(--hand-card-preview-height) * 0.16), 2.3rem);
   --hand-row-expanded-extra-height: 2.75rem;
   border: 0;
   background: transparent;
@@ -49,7 +51,7 @@
 .hand-area.hand-revealed {
   z-index: 620;
   --hand-reveal-offset: 0rem;
-  filter: drop-shadow(0 1.9rem 1.8rem rgb(0 0 0 / 42%));
+  filter: drop-shadow(0 1.9rem 1.8rem rgb(var(--shadow-rgb) / 42%));
   pointer-events: auto;
 }
 
@@ -98,7 +100,7 @@
   padding-left: 0.8rem;
   padding-top: 2.8rem;
   scrollbar-width: thin;
-  scrollbar-color: rgb(215 180 106 / 52%) rgb(7 8 7 / 18%);
+  scrollbar-color: rgb(var(--gold-rgb) / 52%) rgb(var(--game-surface-deep-rgb) / 18%);
 }
 
 .hand-row-expanded::-webkit-scrollbar {
@@ -107,14 +109,14 @@
 
 .hand-row-expanded::-webkit-scrollbar-track {
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgb(7 8 7 / 24%) 16%, rgb(7 8 7 / 24%) 84%, transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--game-surface-deep-rgb) / 24%) 16%, rgb(var(--game-surface-deep-rgb) / 24%) 84%, transparent);
 }
 
 .hand-row-expanded::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgb(255 238 184 / 42%), rgb(215 180 106 / 74%), rgb(255 238 184 / 42%));
-  box-shadow: 0 0 0.7rem rgb(215 180 106 / 24%);
+    linear-gradient(90deg, rgb(var(--gold-rgb) / 42%), rgb(var(--gold-rgb) / 74%), rgb(var(--gold-rgb) / 42%));
+  box-shadow: 0 0 0.7rem rgb(var(--gold-rgb) / 24%);
 }
 
 .hand-area.hand-revealed .hand-row,
@@ -173,10 +175,10 @@
   z-index: 3;
   min-width: 4.7rem;
   padding: 0.22rem 0.5rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border: 1px solid var(--game-line-soft);
   border-radius: 999px;
-  background: rgb(7 8 7 / 42%);
-  color: var(--game-accent, #d7b46a);
+  background: rgb(var(--game-surface-deep-rgb) / 42%);
+  color: var(--game-accent);
   font-size: 0.72rem;
   font-weight: 900;
   opacity: 0.52;
@@ -212,6 +214,13 @@
   --hand-row-card-step: var(--hand-card-row-step);
 }
 
+// Opponent hands must remain visually countable. Keep one rendered card per
+// public hand slot and reduce their width as the hand grows, rather than
+// collapsing the extra cards into an indistinguishable pile.
+.hand-fan-countable app-game-card-view {
+  --game-card-view-width: var(--opponent-hand-card-width);
+}
+
 .hand-fan-compact-drop-target {
   padding-inline: 120px;
 }
@@ -226,7 +235,7 @@
   position: absolute;
   inset: 0 -1.25rem 0;
   z-index: -1;
-  border: 1px solid rgb(215 180 106 / 0%);
+  border: 1px solid rgb(var(--gold-rgb) / 0%);
   border-bottom: 0;
   border-radius: inherit;
   background: transparent;
@@ -248,7 +257,7 @@
   aspect-ratio: auto;
   max-height: none;
   border-radius: 12px 12px 0 0;
-  filter: drop-shadow(0 1.4rem 1.5rem rgb(0 0 0 / 28%));
+  filter: drop-shadow(0 1.4rem 1.5rem rgb(var(--shadow-rgb) / 28%));
   pointer-events: none;
 }
 
@@ -312,7 +321,7 @@
   border-color: transparent;
   border-radius: 999px;
   background:
-    radial-gradient(ellipse at center, rgb(255 225 150 / 28%) 0%, rgb(215 180 106 / 14%) 42%, transparent 76%);
+    radial-gradient(ellipse at center, rgb(255 225 150 / 28%) 0%, rgb(var(--gold-rgb) / 14%) 42%, transparent 76%);
   box-shadow: none;
   filter: blur(10px);
 }
@@ -329,30 +338,43 @@
   transform: translateX(calc(-50% + (var(--hand-drop-slot-distance, 0) * var(--hand-card-row-step))));
 }
 
-.hand-drop-slot::before {
-  content: '';
+.hand-drop-slot-indicator {
   position: absolute;
-  top: -15px;
-  bottom: 0.05rem;
+  top: calc(-1 * var(--hand-drop-indicator-overhang));
+  bottom: auto;
   left: 50%;
-  width: 0.22rem;
-  border-radius: 999px;
-  background: var(--game-accent, #d7b46a);
-  box-shadow:
-    0 0 0 3px rgb(215 180 106 / 20%),
-    0 0 1rem rgb(215 180 106 / 58%);
+  width: var(--hand-drop-indicator-width);
+  height: calc(100% + var(--hand-drop-indicator-overhang) + 5px);
+  color: var(--game-accent);
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 0.3rem rgb(var(--game-accent-rgb) / 64%))
+    drop-shadow(0 0 0.8rem rgb(var(--game-accent-rgb) / 34%));
   transform: translateX(-50%);
 }
 
-.hand-fan-row .hand-drop-slot::before {
-  top: -0.8rem;
-  bottom: -0.15rem;
-  width: 0.28rem;
-  background:
-    linear-gradient(180deg, rgb(255 241 181 / 96%), var(--game-accent, #d7b46a));
-  box-shadow:
-    0 0 0 4px rgb(215 180 106 / 18%),
-    0 0 1.25rem rgb(215 180 106 / 68%);
+.hand-drop-slot-indicator-aura,
+.hand-drop-slot-indicator-rail,
+.hand-drop-slot-indicator-cap {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hand-drop-slot-indicator-aura {
+  stroke: rgb(var(--game-accent-rgb) / 22%);
+  stroke-width: 11px;
+}
+
+.hand-drop-slot-indicator-rail {
+  stroke: currentColor;
+  stroke-width: 6.8px;
+}
+
+.hand-drop-slot-indicator-cap {
+  stroke: currentColor;
+  stroke-width: 8px;
 }
 
 .hand-drop-slot-after {
@@ -367,17 +389,17 @@
   z-index: 4200;
   display: grid;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--game-accent, #d7b46a) 66%, transparent);
+  border: 1px solid color-mix(in srgb, var(--game-accent) 66%, transparent);
   border-radius: 10px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
-  color: var(--game-text, #f3f0e8);
+  background: var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 88%));
+  color: var(--game-text);
   contain: layout style;
   filter:
     brightness(1.03)
     saturate(1.03);
   box-shadow:
-    0 20px 46px rgb(0 0 0 / 50%),
-    0 0 0 1px rgb(255 255 255 / 10%);
+    0 20px 46px rgb(var(--shadow-rgb) / 50%),
+    0 0 0 1px rgb(var(--highlight-rgb) / 10%);
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.15;
@@ -404,11 +426,11 @@
   min-width: 2rem;
   height: 2rem;
   place-items: center;
-  border: 2px solid rgb(243 240 232 / 92%);
+  border: 2px solid rgb(var(--game-text-rgb) / 92%);
   border-radius: 999px;
-  background: var(--game-accent, #d7b46a);
+  background: var(--game-accent);
   box-shadow:
-    0 0.45rem 1rem rgb(0 0 0 / 44%),
+    0 0.45rem 1rem rgb(var(--shadow-rgb) / 44%),
     0 0 0 4px rgb(7 8 6 / 74%);
   color: #171205;
   font-size: 0.86rem;
@@ -427,8 +449,8 @@
 
 .drop-target-active {
   box-shadow:
-    inset 0 0 0 2px var(--game-accent, #d7b46a),
-    inset 0 0 2rem rgb(215 180 106 / 14%);
+    inset 0 0 0 2px var(--game-accent),
+    inset 0 0 2rem rgb(var(--gold-rgb) / 14%);
 }
 
 .hand-row .hand-fan.drop-target-active,
@@ -750,10 +772,6 @@
     height: calc(var(--game-zone-row-height, 5.45rem) * 0.55);
   }
 
-  .hand-drop-slot::before {
-    top: -0.5rem;
-    bottom: 0.02rem;
-  }
 }
 
 @media (max-height: 768px) and (max-width: 1180px) {

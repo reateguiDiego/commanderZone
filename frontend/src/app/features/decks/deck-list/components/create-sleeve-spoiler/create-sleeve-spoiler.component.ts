@@ -2,12 +2,14 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostList
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TabListComponent, type TabListItem } from '../../../../../shared/ui/tab-list/tab-list.component';
 
 const SLEEVE_BASE_PATH = '/assets/images/sleeves/';
 const DEFAULT_SLEEVE_FILE = 'facedown_card.jpg';
 
 type SleeveColor = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 type SleeveCategory = 'default' | 'mono' | 'colorless' | 'combination';
+type SleeveTierTab = 'free' | 'premium';
 
 interface SleeveDefinition {
   readonly fileName: string;
@@ -66,7 +68,6 @@ const COLORLESS_SLEEVE_FILES = [
   'o_9.webp',
   'o_10.webp',
   'o_11.webp',
-  'o_12.webp',
 ] as const;
 
 const COMBINATION_SLEEVE_DEFINITIONS: readonly SleeveDefinition[] = [
@@ -132,9 +133,19 @@ export const SLEEVE_OPTIONS: readonly SleeveOption[] = SLEEVE_DEFINITIONS.map((d
   combinationName: definition.combinationName,
 }));
 
+export function sleeveNameFromPath(path: string): string {
+  return SLEEVE_OPTIONS.find((sleeve) => sleeve.path === path)?.fileName.replace(/\.[^.]+$/, '') ?? DEFAULT_SLEEVE_FILE.replace(/\.[^.]+$/, '');
+}
+
+export function sleevePathFromName(name: string | null | undefined): string {
+  const normalizedName = name?.trim().replace(/\.[^.]+$/, '');
+
+  return SLEEVE_OPTIONS.find((sleeve) => sleeve.fileName.replace(/\.[^.]+$/, '') === normalizedName)?.path ?? DEFAULT_SLEEVE_PATH;
+}
+
 @Component({
   selector: 'app-create-sleeve-spoiler',
-  imports: [CzButtonDirective, PrettyScrollDirective, RuntimeTranslatePipe],
+  imports: [CzButtonDirective, PrettyScrollDirective, RuntimeTranslatePipe, TabListComponent],
   templateUrl: './create-sleeve-spoiler.component.html',
   styleUrl: './create-sleeve-spoiler.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -145,8 +156,17 @@ export class CreateSleeveSpoilerComponent implements AfterViewInit, OnDestroy {
   readonly sleeveSelected = output<string>();
   readonly save = output<void>();
   readonly sleeveGrid = viewChild<ElementRef<HTMLElement>>('sleeveGrid');
+  readonly activeTier = signal<SleeveTierTab>('free');
+  readonly tierTabItems: readonly TabListItem[] = [
+    { id: 'free', label: 'deckBuilder.deckList.cosmetics.free' },
+    { id: 'premium', label: 'deckBuilder.deckList.cosmetics.premium' },
+  ];
   readonly hoverPreview = signal<SleeveHoverPreview | null>(null);
-  readonly sleeves = SLEEVE_OPTIONS;
+  readonly sleeves = computed(() => {
+    const premium = this.activeTier() === 'premium';
+
+    return SLEEVE_OPTIONS.filter((sleeve) => sleeve.premium === premium);
+  });
   readonly canSave = computed(() => this.selectedSleevePath() !== this.initialSleevePath());
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingHoverPreview: PendingSleeveHoverPreview | null = null;
@@ -162,6 +182,14 @@ export class CreateSleeveSpoilerComponent implements AfterViewInit, OnDestroy {
   selectSleeve(path: string): void {
     this.hideHoverPreview();
     this.sleeveSelected.emit(path);
+  }
+
+  switchTierFromList(tier: string): void {
+    if (tier === 'free' || tier === 'premium') {
+      this.activeTier.set(tier);
+      this.hideHoverPreview();
+      this.scrollSleeveGridToTop();
+    }
   }
 
   saveSelection(): void {

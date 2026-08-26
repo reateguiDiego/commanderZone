@@ -21,4 +21,7 @@ func TestVisibilityIndexHidesOpponentHandAndFaceDown(t *testing.T) {
 	if game.CanViewerSeeCardKey("p2", "b") {
 		t.Fatal("faceDown leaked cardKey")
 	}
+	if !game.CanViewerSeeCardKey("p1", "b") {
+		t.Fatal("owner cannot see own faceDown cardKey")
+	}
 }

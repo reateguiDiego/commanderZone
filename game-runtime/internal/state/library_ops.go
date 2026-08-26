@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"math/rand"
+	"sort"
 	"time"
 )
 
@@ -291,8 +292,14 @@ func finishLibraryShuffle(game *GameState, playerID string, zones PlayerZones) e
 }
 
 func (s *GameState) EnsureVisibility() {
+	if s.Visibility.ViewerBits == nil {
+		s.Visibility.ViewerBits = map[string]uint64{}
+	}
 	if s.Visibility.InstanceMasks == nil {
 		s.Visibility.InstanceMasks = map[string]uint64{}
+	}
+	if s.Visibility.HandRevealAudiences == nil {
+		s.Visibility.HandRevealAudiences = map[string][]string{}
 	}
 	if s.Visibility.LibraryEpochByOwner == nil {
 		s.Visibility.LibraryEpochByOwner = map[string]int64{}
@@ -300,6 +307,37 @@ func (s *GameState) EnsureVisibility() {
 	if s.Visibility.TopRevealWindows == nil {
 		s.Visibility.TopRevealWindows = map[string]TopRevealWindow{}
 	}
+	if len(s.Visibility.ViewerBits) >= len(s.Players) {
+		return
+	}
+
+	playerIDs := make([]string, 0, len(s.Players))
+	for playerID := range s.Players {
+		if s.Visibility.ViewerBits[playerID] == 0 {
+			playerIDs = append(playerIDs, playerID)
+		}
+	}
+	sort.Strings(playerIDs)
+	for _, playerID := range playerIDs {
+		bit := nextViewerBit(s.Visibility.ViewerBits)
+		if bit == 0 {
+			return
+		}
+		s.Visibility.ViewerBits[playerID] = bit
+	}
+}
+
+func nextViewerBit(viewerBits map[string]uint64) uint64 {
+	var used uint64
+	for _, bit := range viewerBits {
+		used |= bit
+	}
+	for bit := uint64(1); bit != 0; bit <<= 1 {
+		if used&bit == 0 {
+			return bit
+		}
+	}
+	return 0
 }
 
 func (s *GameState) RevealTopWindow(ownerID string, count int, viewers []string, mask uint64) TopRevealWindow {
@@ -316,7 +354,7 @@ func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool
 		return false
 	}
 	if instance.FaceDown {
-		return false
+		return viewerID != "" && viewerID == instance.OwnerID
 	}
 	location, ok := s.Loc[instanceID]
 	if !ok {
@@ -351,7 +389,8 @@ func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Locati
 	if current := s.Visibility.LibraryEpochByOwner[location.PlayerID]; window.Epoch != current {
 		return false
 	}
-	if location.Index < 0 || location.Index >= window.Count {
+	zones, ok := s.Zones[location.PlayerID]
+	if !ok || location.Index < len(zones.Library)-window.Count || location.Index >= len(zones.Library) {
 		return false
 	}
 	for _, candidate := range window.To {

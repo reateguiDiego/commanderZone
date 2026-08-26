@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\Runtime\GameRuntimeCommandClient;
 use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
+use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -124,5 +125,22 @@ final class GameRuntimeCommandClientTest extends TestCase
         $this->expectExceptionMessage('player already conceded');
 
         $client->dispatch('game.concede', 'game-1', 'player-1', 2, 'action-2', ['playerId' => 'player-1']);
+    }
+
+    public function testVersionConflictExposesAuthoritativeRuntimeVersionForExceptionalRecovery(): void
+    {
+        $httpClient = new MockHttpClient(new MockResponse(json_encode([
+            'code' => 'base_version_mismatch',
+            'error' => 'baseVersion does not match actor version',
+            'currentVersion' => 9,
+        ], JSON_THROW_ON_ERROR), ['http_code' => 409]));
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
+
+        try {
+            $client->dispatch('game.concede', 'game-1', 'player-1', 7, 'leave-1', ['playerId' => 'player-1']);
+            self::fail('Expected a runtime version conflict.');
+        } catch (GameRuntimeVersionConflictException $conflict) {
+            self::assertSame(9, $conflict->currentVersion);
+        }
     }
 }

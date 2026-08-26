@@ -8,7 +8,13 @@ import (
 	"commanderzone/game-runtime/internal/state"
 )
 
-var ErrOwnershipNotHeld = errors.New("runtime ownership not held")
+var (
+	ErrOwnershipNotHeld = errors.New("runtime ownership not held")
+	// ErrGameClosing is returned by the durable control-plane fence. It is
+	// distinct from an ownership loss so gateways can reject the command with
+	// its semantic lifecycle state instead of COMMAND_FAILED.
+	ErrGameClosing = errors.New("game runtime is closing")
+)
 
 type CompactSnapshot struct {
 	GameID   string

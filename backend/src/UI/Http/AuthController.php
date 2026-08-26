@@ -601,6 +601,7 @@ class AuthController extends ApiController
      *   showManaHelperOnStartup?: bool,
      *   enableManaRow?: bool,
      *   enableStackMana?: bool,
+     *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
      *   chatNotificationSounds?: bool
      * }|null
@@ -615,6 +616,7 @@ class AuthController extends ApiController
             'showManaHelperOnStartup',
             'enableManaRow',
             'enableStackMana',
+            'autoApplyCommanderDamageToLife',
             'gameAnimations',
             'chatNotificationSounds',
         ];
@@ -723,6 +725,9 @@ class AuthController extends ApiController
 
         foreach ($result->gameEvents as $entry) {
             $gameEventPublisher->publish($entry['game'], $entry['event']);
+        }
+        foreach ($result->controlPlaneEvents as $entry) {
+            $gameEventPublisher->publishControlPlane($entry['game'], $entry['event']);
         }
 
         foreach ($result->changedRooms as $room) {

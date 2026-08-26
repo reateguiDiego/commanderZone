@@ -1,6 +1,6 @@
 import {
   GameCardInstance,
-  GameDisconnectVoteState,
+  GameDisconnectVotes,
   GamePlayerState,
   GameSpecialEntity,
   GameSnapshot,
@@ -123,6 +123,9 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
 
+    case 'player.presence.set':
+      return updatePlayer(snapshot, operation.playerId, (player) => ({ ...player, isOnline: operation.isOnline }));
+
     case 'card.position.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
         ...card,
@@ -196,17 +199,12 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       return { status: 'applied', snapshot: { ...snapshot, timer: operation.timer ? { ...operation.timer } : undefined } };
 
     case 'disconnect.vote.set':
-      const disconnectVote = disconnectVotePayload(operation);
+      const disconnectVotes = disconnectVotesPayload(operation);
       return {
         status: 'applied',
         snapshot: {
           ...snapshot,
-          disconnectVote: disconnectVote
-            ? {
-                ...disconnectVote,
-                votes: { ...disconnectVote.votes },
-              }
-            : null,
+          disconnectVotes: cloneDisconnectVotes(disconnectVotes),
         },
       };
 
@@ -308,15 +306,17 @@ function appendUniqueEventLogEntries(
   existing: GameSnapshot['eventLog'],
   incoming: GameSnapshot['eventLog'],
 ): GameSnapshot['eventLog'] {
-  const seenIds = new Set<string>();
-  const entries = [...existing, ...incoming].filter((entry) => {
-    if (seenIds.has(entry.id)) {
-      return false;
-    }
+  const entriesById = new Map<string, GameSnapshot['eventLog'][number]>();
+  const order: string[] = [];
 
-    seenIds.add(entry.id);
-    return true;
-  });
+  for (const entry of [...existing, ...incoming]) {
+    if (!entriesById.has(entry.id)) {
+      order.push(entry.id);
+    }
+    entriesById.set(entry.id, entry);
+  }
+
+  const entries = order.map((id) => entriesById.get(id)!);
 
   return entries.slice(-MAX_EVENT_LOG_ENTRIES);
 }
@@ -394,13 +394,20 @@ function removeSpecialEntity(snapshot: GameSnapshot, entityId: string): Operatio
   };
 }
 
-function disconnectVotePayload(operation: GameSnapshotPatchOperation): GameDisconnectVoteState | null {
+function disconnectVotesPayload(operation: GameSnapshotPatchOperation): GameDisconnectVotes {
   const payload = operation as {
-    disconnectVote?: GameDisconnectVoteState | null;
-    data?: { disconnectVote?: GameDisconnectVoteState | null };
+    disconnectVotes?: GameDisconnectVotes;
+    data?: { disconnectVotes?: GameDisconnectVotes };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  return payload.disconnectVotes ?? payload.data?.disconnectVotes ?? {};
+}
+
+function cloneDisconnectVotes(votes: GameDisconnectVotes): GameDisconnectVotes {
+  return Object.fromEntries(Object.entries(votes).map(([targetPlayerId, vote]) => [
+    targetPlayerId,
+    { ...vote, eligible: vote.eligible ? [...vote.eligible] : undefined, votes: { ...vote.votes } },
+  ]));
 }
 
 function applyCardPositions(
@@ -584,6 +591,9 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
 
   const fromIndex = fromCards.findIndex((card) => card.instanceId === operation.instanceId);
   const hiddenPlaceholderIndex = fromIndex >= 0 ? -1 : fromCards.findIndex(isHiddenPlaceholder);
+  const removedHandIndex = operation.from.zone === 'hand'
+    ? (fromIndex >= 0 ? fromIndex : hiddenPlaceholderIndex)
+    : -1;
   const sourceCard = fromIndex >= 0 ? fromCards[fromIndex] : undefined;
   const movingCard = operation.card
     ? preserveCommanderIdentity(operation.card, operation.card.instanceId === sourceCard?.instanceId ? sourceCard : undefined)
@@ -605,29 +615,56 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
     ? nextFromCards
     : toCards.filter((card) => card.instanceId !== operation.instanceId && card.instanceId !== movingCard?.instanceId);
   if (!movingCard) {
-    return replaceZone(snapshot, operation.from.playerId, operation.from.zone, nextFromCards);
+    const sourceSnapshot = replaceZoneSnapshotOnly(snapshot, operation.from.playerId, operation.from.zone, nextFromCards);
+    const shouldRebaseHandRevealIndexes = removedHandIndex >= 0
+      && !(operation.from.playerId === operation.to.playerId && operation.from.zone === operation.to.zone);
+    return {
+      status: 'applied',
+      snapshot: shouldRebaseHandRevealIndexes
+        ? rebaseHandRevealIndexes(sourceSnapshot, operation.from.playerId, [removedHandIndex])
+        : sourceSnapshot,
+    };
   }
   const insertIndex = operation.to.index === undefined
     ? targetCardsAfterRemoval.length
     : Math.min(operation.to.index, targetCardsAfterRemoval.length);
   const nextToCards = [
     ...targetCardsAfterRemoval.slice(0, insertIndex),
-    preserveCommanderIdentity({ ...movingCard, zone: operation.to.zone }, sourceCard),
+    preserveCommanderIdentity({
+      ...movingCard,
+      zone: operation.to.zone,
+      ...(shouldClearRevealRecipientsAfterMove(operation) ? { revealedTo: undefined } : {}),
+    }, sourceCard),
     ...targetCardsAfterRemoval.slice(insertIndex),
   ];
 
   const nextSnapshot = replaceZoneSnapshotOnly(snapshot, operation.from.playerId, operation.from.zone, nextFromCards);
   const movedSnapshot = replaceZoneSnapshotOnly(nextSnapshot, operation.to.playerId, operation.to.zone, nextToCards);
+  const shouldRebaseHandRevealIndexes = removedHandIndex >= 0
+    && !(operation.from.playerId === operation.to.playerId && operation.from.zone === operation.to.zone);
+  const rebasedSnapshot = shouldRebaseHandRevealIndexes
+    ? rebaseHandRevealIndexes(movedSnapshot, operation.from.playerId, [removedHandIndex])
+    : movedSnapshot;
 
   if (!operation.zoneCounts) {
-    return { status: 'applied', snapshot: movedSnapshot };
+    return { status: 'applied', snapshot: rebasedSnapshot };
   }
 
-  return updatePlayer(movedSnapshot, operation.to.playerId, (player) => {
+  return updatePlayer(rebasedSnapshot, operation.to.playerId, (player) => {
     const zoneCounts = mergeZoneCounts(player, operation.zoneCounts ?? {});
 
     return zoneCounts ? { ...player, zoneCounts } : null;
   });
+}
+
+function shouldClearRevealRecipientsAfterMove(operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): boolean {
+  if (operation.from.zone === 'hand' && operation.to.zone !== 'hand' && operation.to.zone !== 'library') {
+    return true;
+  }
+
+  return operation.from.zone === 'library'
+    && operation.to.zone !== 'library'
+    && operation.card?.revealedTo === undefined;
 }
 
 function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOperation, { op: 'card.remove' }>): OperationResult {
@@ -645,6 +682,10 @@ function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatch
     return { status: 'failed', reason: 'target_not_found' };
   }
 
+  const removedHandIndex = operation.zone === 'hand'
+    ? cards.findIndex((card) => card.instanceId === operation.instanceId)
+    : -1;
+
   const nextSnapshot = zonesWithCard.reduce(
     (currentSnapshot, zone) => replaceZoneSnapshotOnly(
       currentSnapshot,
@@ -654,12 +695,15 @@ function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatch
     ),
     snapshot,
   );
+  const rebasedSnapshot = removedHandIndex >= 0
+    ? rebaseHandRevealIndexes(nextSnapshot, operation.playerId, [removedHandIndex])
+    : nextSnapshot;
 
   if (!operation.zoneCounts) {
-    return { status: 'applied', snapshot: nextSnapshot };
+    return { status: 'applied', snapshot: rebasedSnapshot };
   }
 
-  return updatePlayer(nextSnapshot, operation.playerId, (updatedPlayer) => {
+  return updatePlayer(rebasedSnapshot, operation.playerId, (updatedPlayer) => {
     const zoneCounts = mergeZoneCounts(updatedPlayer, operation.zoneCounts ?? {});
 
     return zoneCounts ? { ...updatedPlayer, zoneCounts } : null;
@@ -702,6 +746,59 @@ function replaceZoneSnapshotOnly(snapshot: GameSnapshot, playerId: string, zone:
       },
     },
   };
+}
+
+function rebaseHandRevealIndexes(
+  snapshot: GameSnapshot,
+  playerId: string,
+  removedIndexes: readonly number[],
+): GameSnapshot {
+  if (removedIndexes.length === 0) {
+    return snapshot;
+  }
+
+  const player = snapshot.players[playerId];
+  if (!player) {
+    return snapshot;
+  }
+
+  const currentIndexes = player.revealedHandIndexes ?? [];
+  const nextIndexes = clearRevealedHandIndexes(currentIndexes, removedIndexes);
+  if (nextIndexes.length === currentIndexes.length && nextIndexes.every((index, position) => index === currentIndexes[position])) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    players: {
+      ...snapshot.players,
+      [playerId]: {
+        ...player,
+        revealedHandIndexes: nextIndexes,
+      },
+    },
+  };
+}
+
+function clearRevealedHandIndexes(indexes: readonly number[], removedIndexes: readonly number[]): number[] {
+  const removed = [...new Set(removedIndexes)].sort((left, right) => left - right);
+  if (removed.length === 0 || indexes.length === 0) {
+    return [...indexes];
+  }
+
+  const rebased: number[] = [];
+  let removedCursor = 0;
+  for (const index of indexes) {
+    while (removedCursor < removed.length && removed[removedCursor] < index) {
+      removedCursor += 1;
+    }
+    if (removed[removedCursor] === index) {
+      continue;
+    }
+    rebased.push(index - removedCursor);
+  }
+
+  return rebased;
 }
 
 function preserveCommanderIdentity(card: GameCardInstance, previousCard?: GameCardInstance): GameCardInstance {

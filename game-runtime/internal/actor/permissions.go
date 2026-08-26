@@ -16,6 +16,7 @@ var ownPlayerPayloadCommands = map[string]string{
 	"library.play_top_revealed":    "playerId",
 	"library.reorder_top":          "playerId",
 	"library.move_top":             "playerId",
+	"library.play_top_face_down":   "playerId",
 	"library.put_top":              "playerId",
 	"library.put_bottom":           "playerId",
 	"library.view":                 "playerId",
@@ -32,6 +33,7 @@ var ownPlayerPayloadCommands = map[string]string{
 	"cards.position.changed":       "playerId",
 	"card.dungeon_marker.changed":  "playerId",
 	"card.face_down.changed":       "playerId",
+	"card.face_down.inspected":     "playerId",
 	"card.face.changed":            "playerId",
 	"card.revealed":                "playerId",
 	"card.controller.changed":      "playerId",
@@ -69,17 +71,17 @@ var ownInstanceSubjectCommands = map[string][]string{
 
 func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, actorID string) error {
 	actorID = strings.TrimSpace(actorID)
-	if command.Type == "disconnect.vote" && command.Client["source"] == "runtime_ws_presence" {
+	if command.Type == "disconnect.vote" && (command.Client["source"] == "runtime_ws_presence" || command.Client["source"] == "runtime_actor_tick") {
 		return nil
 	}
 	if actorID == "" {
 		return ErrActorPermission
 	}
-	if command.Type == "game.close" {
-		return nil
-	}
 	if command.Type == "game.concede" {
 		return a.requirePayloadPlayer(command.Payload, "playerId", actorID)
+	}
+	if _, ok := a.state.Players[actorID]; !ok || playerStatus(a.state, actorID) != "active" {
+		return ErrActorPermission
 	}
 	if command.Type == "turn.changed" {
 		activePlayerID, _ := a.state.Turn["activePlayerId"].(string)
@@ -151,6 +153,19 @@ func (a *GameActor) requireCounterOwner(payload map[string]any, actorID string) 
 }
 
 func (a *GameActor) requireOwnInstances(command protocol.CommandEnvelopeV2, actorID string) error {
+	if command.Type == "card.revealed" {
+		instanceIDs, err := cardRevealedInstanceIDs(command.Payload)
+		if err != nil {
+			return err
+		}
+		for _, instanceID := range instanceIDs {
+			if !a.actorControlsInstance(instanceID, actorID) {
+				return ErrActorPermission
+			}
+		}
+		return nil
+	}
+
 	for _, key := range ownInstanceSubjectCommands[command.Type] {
 		instanceID, _ := command.Payload[key].(string)
 		if instanceID == "" {

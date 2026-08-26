@@ -98,3 +98,52 @@ func TestGameStateAcceptsLegacyGamePhaseAndNormalizesRecoveryMaps(t *testing.T) 
 		t.Fatalf("expected recovery maps to be initialized: %#v", game)
 	}
 }
+
+func TestGameStateNormalizesEmptyDisconnectVotesArray(t *testing.T) {
+	payload := []byte(`{
+		"gameId": "game-1",
+		"version": 1,
+		"status": "active",
+		"players": {},
+		"turn": {},
+		"disconnectVotes": [],
+		"instances": {},
+		"zones": {},
+		"loc": {},
+		"visibility": {},
+		"relations": {}
+	}`)
+
+	var game GameState
+	if err := json.Unmarshal(payload, &game); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if game.DisconnectVotes == nil || len(game.DisconnectVotes) != 0 {
+		t.Fatalf("disconnectVotes = %#v, want empty map", game.DisconnectVotes)
+	}
+}
+
+func TestGameStatePreservesPresenceGenerationsForRecovery(t *testing.T) {
+	payload := []byte(`{
+		"gameId": "game-1",
+		"version": 3,
+		"status": "active",
+		"players": {},
+		"turn": {},
+		"disconnectVotes": [],
+		"presenceGenerations": {"p2": 1234},
+		"instances": {},
+		"zones": {},
+		"loc": {},
+		"visibility": {},
+		"relations": {}
+	}`)
+
+	var game GameState
+	if err := json.Unmarshal(payload, &game); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if game.PresenceGenerations["p2"] != 1234 {
+		t.Fatalf("presence generations = %#v, want p2=1234", game.PresenceGenerations)
+	}
+}

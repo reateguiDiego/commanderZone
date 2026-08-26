@@ -6,20 +6,14 @@ use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
+use App\Domain\Deck\DeckVisualCatalog;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
 use Symfony\Component\Uid\Uuid;
 
 class GameSnapshotFactory
 {
-    private const PLAY_MAT_COUNTS_BY_COLOR = [
-        'W' => 12,
-        'U' => 15,
-        'B' => 13,
-        'R' => 10,
-        'G' => 9,
-        'C' => 7,
-    ];
+    private const FALLBACK_PLAYMAT_NAMES = ['free_1', 'free_2', 'free_3', 'free_4', 'free_5', 'free_0'];
 
     public function __construct(
         ?GameRandomizer $randomizer = null,
@@ -45,7 +39,7 @@ class GameSnapshotFactory
     public function fromRoom(Room $room): array
     {
         $players = [];
-        $usedBackgroundNames = [];
+        $fallbackPlaymatIndex = 0;
 
         foreach ($room->orderedPlayers() as $roomPlayer) {
             if (!$roomPlayer instanceof RoomPlayer) {
@@ -89,7 +83,7 @@ class GameSnapshotFactory
                 'concededAt' => null,
                 'deckName' => $deck?->name(),
                 'colorIdentity' => $colorIdentity,
-                'backgroundName' => $this->backgroundNameForDeck($deck, $colorIdentity, $usedBackgroundNames),
+                'backgroundName' => $this->playmatNameForGame($deck?->backgroundName(), $fallbackPlaymatIndex),
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
                 GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
@@ -171,6 +165,19 @@ class GameSnapshotFactory
         return $snapshot;
     }
 
+    private function playmatNameForGame(?string $backgroundName, int &$fallbackPlaymatIndex): string
+    {
+        $candidate = trim($backgroundName ?? Deck::DEFAULT_BACKGROUND_NAME);
+        if (DeckVisualCatalog::isSupportedBackgroundName($candidate)) {
+            return $candidate;
+        }
+
+        $playmat = self::FALLBACK_PLAYMAT_NAMES[$fallbackPlaymatIndex % count(self::FALLBACK_PLAYMAT_NAMES)];
+        ++$fallbackPlaymatIndex;
+
+        return $playmat;
+    }
+
     private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array
     {
         $card = $deckCard->card();
@@ -222,77 +229,6 @@ class GameSnapshotFactory
         $colors = array_values(array_unique($colors));
 
         return array_values(array_filter(['W', 'U', 'B', 'R', 'G'], static fn (string $color): bool => in_array($color, $colors, true)));
-    }
-
-    /**
-     * @param list<string> $colorIdentity
-     * @param list<string> $usedBackgroundNames
-     */
-    private function backgroundNameForDeck(?Deck $deck, array $colorIdentity, array &$usedBackgroundNames): string
-    {
-        if (!$deck instanceof Deck) {
-            return Deck::DEFAULT_BACKGROUND_NAME;
-        }
-
-        $storedBackgroundName = $deck->backgroundName();
-        if ($storedBackgroundName !== Deck::DEFAULT_BACKGROUND_NAME && !in_array($storedBackgroundName, $usedBackgroundNames, true)) {
-            $usedBackgroundNames[] = $storedBackgroundName;
-
-            return $storedBackgroundName;
-        }
-
-        // TODO provisional: replace this automatic playmat pick with a real deck setting once users can choose playmats.
-        $backgroundName = $this->temporaryPlayMatName($colorIdentity, $usedBackgroundNames);
-        $usedBackgroundNames[] = $backgroundName;
-
-        return $backgroundName;
-    }
-
-    /**
-     * @param list<string> $colorIdentity
-     * @param list<string> $usedBackgroundNames
-     */
-    private function temporaryPlayMatName(array $colorIdentity, array $usedBackgroundNames): string
-    {
-        $preferredColors = $colorIdentity === [] ? ['C'] : $colorIdentity;
-        $selectedColor = $preferredColors === [] ? 'C' : $this->randomizer->pickOne($preferredColors);
-        $candidates = $this->availablePlayMatNames([$selectedColor], $usedBackgroundNames);
-
-        if ($candidates === []) {
-            $candidates = $this->availablePlayMatNames($preferredColors, $usedBackgroundNames);
-        }
-
-        if ($candidates === []) {
-            $candidates = $this->availablePlayMatNames(array_keys(self::PLAY_MAT_COUNTS_BY_COLOR), $usedBackgroundNames);
-        }
-
-        if ($candidates === []) {
-            return Deck::DEFAULT_BACKGROUND_NAME;
-        }
-
-        return $this->randomizer->pickOne($candidates);
-    }
-
-    /**
-     * @param list<string> $colors
-     * @param list<string> $usedBackgroundNames
-     *
-     * @return list<string>
-     */
-    private function availablePlayMatNames(array $colors, array $usedBackgroundNames): array
-    {
-        $names = [];
-        foreach ($colors as $color) {
-            $playMatCount = self::PLAY_MAT_COUNTS_BY_COLOR[$color] ?? 0;
-            for ($index = 1; $index <= $playMatCount; ++$index) {
-                $name = sprintf('%s_%d', $color, $index);
-                if (!in_array($name, $usedBackgroundNames, true)) {
-                    $names[] = $name;
-                }
-            }
-        }
-
-        return $names;
     }
 
     private function printedCardStat(?string $value): int|string|null

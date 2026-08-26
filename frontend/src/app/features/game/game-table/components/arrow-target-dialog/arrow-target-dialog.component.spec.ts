@@ -75,10 +75,10 @@ describe('ArrowTargetDialogComponent', () => {
     expect(cancelled).toHaveBeenCalledOnce();
   });
 
-  it('filters defeated players and falls back to the first alive player', async () => {
+  it('filters conceded players and falls back to the first active player', async () => {
     const fixture = await renderDialog('player-2', [
       { id: 'player-1', state: playerState('player-1', 'Alice') },
-      { id: 'player-2', state: { ...playerState('player-2', 'Bob'), life: 0 } },
+      { id: 'player-2', state: { ...playerState('player-2', 'Bob'), status: 'conceded' } },
       { id: 'player-3', state: playerState('player-3', 'Cara') },
     ]);
     const confirmed = vi.fn();

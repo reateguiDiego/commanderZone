@@ -98,6 +98,9 @@ class Room
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $waitingExpiresAt = null;
+
     public function __construct(User $owner)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -296,6 +299,21 @@ class Room
         return $this->game;
     }
 
+    public function waitingExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->waitingExpiresAt;
+    }
+
+    public function scheduleWaitingExpiry(\DateTimeImmutable $expiresAt): void
+    {
+        if ($this->status !== self::STATUS_WAITING || $this->game !== null) {
+            return;
+        }
+
+        $this->waitingExpiresAt = $expiresAt;
+        $this->touch();
+    }
+
     public function addPlayer(RoomPlayer $player): bool
     {
         foreach ($this->players as $existing) {
@@ -385,6 +403,17 @@ class Room
         $this->touch();
     }
 
+    public function transferOwnershipToOldestRemainingPlayer(): void
+    {
+        $players = array_values($this->players->toArray());
+        if ($players === []) {
+            return;
+        }
+
+        usort($players, static fn (RoomPlayer $left, RoomPlayer $right): int => $left->joinedAt() <=> $right->joinedAt());
+        $this->transferOwnership($players[0]->user());
+    }
+
     /**
      * @param list<string> $playerUserIds
      */
@@ -412,7 +441,6 @@ class Room
         $this->owner = $owner;
         $this->status = self::STATUS_WAITING;
         $this->game = null;
-        $this->maxPlayers = max(self::MIN_MAX_PLAYERS, min(self::MAX_MAX_PLAYERS, $this->players->count()));
         $this->touch();
     }
 
@@ -420,6 +448,7 @@ class Room
     {
         $this->status = self::STATUS_STARTED;
         $this->game = $game;
+        $this->waitingExpiresAt = null;
         $this->waitingLogEntries->clear();
         $this->touch();
     }

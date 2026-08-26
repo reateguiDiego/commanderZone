@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, OnInit, co
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { type DeckVisibility } from '../../../core/models/deck.model';
+import { type Deck, type DeckVisibility } from '../../../core/models/deck.model';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
 import { FormatSelectComponent, type FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
@@ -19,8 +19,18 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
-import { CreatePlaymatSpoilerComponent, DEFAULT_PLAYMAT_PATH } from './components/create-playmat-spoiler/create-playmat-spoiler.component';
-import { CreateSleeveSpoilerComponent, DEFAULT_SLEEVE_PATH } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
+import {
+  CreatePlaymatSpoilerComponent,
+  DEFAULT_PLAYMAT_PATH,
+  playmatNameFromPath,
+  playmatPathFromName,
+} from './components/create-playmat-spoiler/create-playmat-spoiler.component';
+import {
+  CreateSleeveSpoilerComponent,
+  DEFAULT_SLEEVE_PATH,
+  sleeveNameFromPath,
+  sleevePathFromName,
+} from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
@@ -28,7 +38,8 @@ interface CommanderHoverPreview {
   y: number;
 }
 
-type CreateCosmeticEditor = 'playmat' | 'sleeve' | null;
+type CosmeticEditor = 'playmat' | 'sleeve' | null;
+type CosmeticEditorContext = 'create' | 'edit' | null;
 
 @Component({
   selector: 'app-deck-list',
@@ -62,22 +73,39 @@ export class DeckListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   readonly maxSelectedCommanders = 2;
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
-  readonly activeCosmeticEditor = signal<CreateCosmeticEditor>(null);
-  readonly playmatEditorOpen = computed(() => this.activeCosmeticEditor() === 'playmat');
-  readonly sleeveEditorOpen = computed(() => this.activeCosmeticEditor() === 'sleeve');
-  readonly selectedPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly activeCosmeticEditor = signal<CosmeticEditor>(null);
+  readonly cosmeticEditorContext = signal<CosmeticEditorContext>(null);
+  readonly createPlaymatEditorOpen = computed(() => this.isCosmeticEditorOpen('create', 'playmat'));
+  readonly createSleeveEditorOpen = computed(() => this.isCosmeticEditorOpen('create', 'sleeve'));
+  readonly editPlaymatEditorOpen = computed(() => this.isCosmeticEditorOpen('edit', 'playmat'));
+  readonly editSleeveEditorOpen = computed(() => this.isCosmeticEditorOpen('edit', 'sleeve'));
+  readonly selectedPlaymatPath = computed(() => playmatPathFromName(this.store.newDeckBackgroundName()));
   readonly draftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
-  readonly selectedSleevePath = signal(DEFAULT_SLEEVE_PATH);
+  readonly selectedSleevePath = computed(() => sleevePathFromName(this.store.newDeckSleevesName()));
   readonly draftSleevePath = signal(DEFAULT_SLEEVE_PATH);
+  readonly editSelectedPlaymatPath = computed(() => playmatPathFromName(this.store.editDeckBackgroundName));
+  readonly editDraftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly editSelectedSleevePath = computed(() => sleevePathFromName(this.store.editDeckSleevesName));
+  readonly editDraftSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly searchPanelOpen = signal(false);
   readonly createModalTitle = computed(() => {
-    switch (this.activeCosmeticEditor()) {
+    switch (this.createCosmeticEditor()) {
       case 'playmat':
         return 'deckBuilder.deckList.playmat';
       case 'sleeve':
         return 'deckBuilder.deckList.sleeve';
       default:
         return this.store.createModalTitle();
+    }
+  });
+  readonly editModalTitle = computed(() => {
+    switch (this.editCosmeticEditor()) {
+      case 'playmat':
+        return 'deckBuilder.deckList.playmat';
+      case 'sleeve':
+        return 'deckBuilder.deckList.sleeve';
+      default:
+        return 'deckBuilder.deckList.editDeck';
     }
   });
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
@@ -142,38 +170,85 @@ export class DeckListComponent implements OnInit, OnDestroy {
     return `${this.store.newDeckName.trim().length}/${this.store.maxDeckNameLength}`;
   }
 
-  openPlaymatEditor(): void {
-    this.draftPlaymatPath.set(this.selectedPlaymatPath());
+  openDeckEditModal(deck: Deck): void {
+    this.store.openDeckEditModal(deck);
+  }
+
+  openPlaymatEditor(context: Exclude<CosmeticEditorContext, null> = 'create'): void {
+    if (context === 'edit') {
+      this.editDraftPlaymatPath.set(this.editSelectedPlaymatPath());
+    } else {
+      this.draftPlaymatPath.set(this.selectedPlaymatPath());
+    }
+
+    this.cosmeticEditorContext.set(context);
     this.activeCosmeticEditor.set('playmat');
   }
 
-  openSleeveEditor(): void {
-    this.draftSleevePath.set(this.selectedSleevePath());
+  openSleeveEditor(context: Exclude<CosmeticEditorContext, null> = 'create'): void {
+    if (context === 'edit') {
+      this.editDraftSleevePath.set(this.editSelectedSleevePath());
+    } else {
+      this.draftSleevePath.set(this.selectedSleevePath());
+    }
+
+    this.cosmeticEditorContext.set(context);
     this.activeCosmeticEditor.set('sleeve');
   }
 
   closeCosmeticEditor(): void {
-    this.draftPlaymatPath.set(this.selectedPlaymatPath());
-    this.draftSleevePath.set(this.selectedSleevePath());
+    if (this.cosmeticEditorContext() === 'edit') {
+      this.editDraftPlaymatPath.set(this.editSelectedPlaymatPath());
+      this.editDraftSleevePath.set(this.editSelectedSleevePath());
+    } else {
+      this.draftPlaymatPath.set(this.selectedPlaymatPath());
+      this.draftSleevePath.set(this.selectedSleevePath());
+    }
+
     this.activeCosmeticEditor.set(null);
+    this.cosmeticEditorContext.set(null);
   }
 
   selectDraftPlaymat(path: string): void {
+    if (this.cosmeticEditorContext() === 'edit') {
+      this.editDraftPlaymatPath.set(path);
+      return;
+    }
+
     this.draftPlaymatPath.set(path);
   }
 
   savePlaymatSelection(): void {
-    this.selectedPlaymatPath.set(this.draftPlaymatPath());
+    if (this.cosmeticEditorContext() === 'edit') {
+      const selectedPath = this.editDraftPlaymatPath();
+      this.store.editDeckBackgroundName = playmatNameFromPath(selectedPath);
+    } else {
+      this.store.newDeckBackgroundName.set(playmatNameFromPath(this.draftPlaymatPath()));
+    }
+
     this.activeCosmeticEditor.set(null);
+    this.cosmeticEditorContext.set(null);
   }
 
   selectDraftSleeve(path: string): void {
+    if (this.cosmeticEditorContext() === 'edit') {
+      this.editDraftSleevePath.set(path);
+      return;
+    }
+
     this.draftSleevePath.set(path);
   }
 
   saveSleeveSelection(): void {
-    this.selectedSleevePath.set(this.draftSleevePath());
+    if (this.cosmeticEditorContext() === 'edit') {
+      const selectedPath = this.editDraftSleevePath();
+      this.store.editDeckSleevesName = sleeveNameFromPath(selectedPath);
+    } else {
+      this.store.newDeckSleevesName.set(sleeveNameFromPath(this.draftSleevePath()));
+    }
+
     this.activeCosmeticEditor.set(null);
+    this.cosmeticEditorContext.set(null);
   }
 
   setColorFilter(value: string): void {
@@ -277,6 +352,18 @@ export class DeckListComponent implements OnInit, OnDestroy {
     this.hideCommanderPreview();
     this.closeCosmeticEditor();
     await this.store.cancelCreateFlow();
+  }
+
+  private createCosmeticEditor(): CosmeticEditor {
+    return this.cosmeticEditorContext() === 'create' ? this.activeCosmeticEditor() : null;
+  }
+
+  private editCosmeticEditor(): CosmeticEditor {
+    return this.cosmeticEditorContext() === 'edit' ? this.activeCosmeticEditor() : null;
+  }
+
+  private isCosmeticEditorOpen(context: Exclude<CosmeticEditorContext, null>, editor: Exclude<CosmeticEditor, null>): boolean {
+    return this.cosmeticEditorContext() === context && this.activeCosmeticEditor() === editor;
   }
 
   private previewPosition(target: EventTarget | null): { x: number; y: number } {

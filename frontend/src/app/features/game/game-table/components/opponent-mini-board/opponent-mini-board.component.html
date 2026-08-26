@@ -23,13 +23,16 @@
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: opponent.id })"
   (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
->
+  >
   <span class="player-thumb-header">
-    @if (deckLabel()(opponent); as label) {
-      <strong class="opponent-deck-title" data-testid="opponent-deck-name">{{ label }}</strong>
-    } @else {
-      <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">{{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}</strong>
-    }
+    <span class="opponent-player-identity">
+      @if (deckLabel()(opponent); as label) {
+        <strong class="opponent-deck-title" data-testid="opponent-deck-name">{{ label }}</strong>
+      } @else {
+        <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">{{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}</strong>
+      }
+      <span class="opponent-user-name" data-testid="opponent-user-name">{{ opponent.state.user.displayName }}</span>
+    </span>
     @if (targetingPill(); as pill) {
       <span
         class="opponent-targeting-pill"
@@ -42,9 +45,14 @@
       </span>
     }
     <span class="opponent-life-group">
-      @if (isActiveTurnPlayer()) {
-        <span class="opponent-turn-pill" data-testid="opponent-turn-pill">{{ 'game.opponentMiniBoard.turn' | runtimeTranslate }}</span>
-      }
+      <span class="opponent-presence-pills">
+        @if (isActiveTurnPlayer()) {
+          <span class="opponent-turn-pill" data-testid="opponent-turn-pill">{{ 'game.opponentMiniBoard.turn' | runtimeTranslate }}</span>
+        }
+        @if (isOffline()) {
+          <span class="opponent-offline-pill" data-testid="opponent-offline-pill">{{ 'navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate }}</span>
+        }
+      </span>
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
     </span>
   </span>
@@ -108,10 +116,11 @@
   </span>
   <span class="opponent-zone-counts" [attr.aria-label]="'game.opponentMiniBoard.opponentZoneCounts' | runtimeTranslate">
     @for (summary of opponentZoneSummaries; track summary.zone) {
+      @let count = zoneCount()(opponent, summary.zone);
       <span
         class="opponent-zone-count"
-        [attr.title]="zoneCountTooltip(opponent, summary)"
-        [attr.aria-label]="zoneCountTooltip(opponent, summary)"
+        [attr.title]="(summary.title | runtimeTranslate) + ': ' + count"
+        [attr.aria-label]="(summary.title | runtimeTranslate) + ': ' + count"
       >
         @switch (summary.icon) {
           @case ('hand-fan') {
@@ -139,7 +148,16 @@
             <lucide-icon name="ban" size="20" aria-hidden="true" />
           }
         }
-        <strong>{{ zoneCount()(opponent, summary.zone) }}</strong>
+        <span class="opponent-zone-count-value">
+          <strong>{{ count }}</strong>
+          @if (revealedZoneCardCount(opponent, summary.zone); as revealedCount) {
+            <span
+              class="rc"
+              [attr.data-testid]="'opponent-zone-reveal-count-' + summary.zone"
+              aria-hidden="true"
+            >(<lucide-icon name="eye" size="14" aria-hidden="true" /><strong>{{ revealedCount }}</strong>)</span>
+          }
+        </span>
       </span>
     }
   </span>

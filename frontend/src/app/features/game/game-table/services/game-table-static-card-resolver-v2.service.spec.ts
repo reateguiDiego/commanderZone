@@ -10,10 +10,12 @@ describe('GameTableStaticCardResolverV2Service', () => {
   let service: GameTableStaticCardResolverV2Service;
   const cardsApi = {
     getSilently: vi.fn(),
+    getManySilently: vi.fn(),
   };
 
   beforeEach(() => {
     cardsApi.getSilently.mockReset();
+    cardsApi.getManySilently.mockReset();
     TestBed.configureTestingModule({
       providers: [
         GameTableStaticCardResolverV2Service,
@@ -111,6 +113,42 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(JSON.stringify(hydrated)).not.toContain('print-forest');
   });
 
+  it('resolves an owner face-down preview image from the card catalog when it is not cached locally', async () => {
+    cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
+
+    const image = await service.resolveOwnerFaceDownPreviewImage({
+      instanceId: 'face-down-forest',
+      scryfallId: 'print-forest',
+      name: 'Card',
+      tapped: false,
+      faceDown: true,
+    });
+
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('print-forest');
+    expect(image).toBe('https://cards.test/print-forest.jpg');
+  });
+
+  it('uses the active face image when looking at a face-down double-faced card', async () => {
+    const doubleFacedCard = card('print-fable', 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki');
+    doubleFacedCard.imageUris = { normal: 'https://cards.test/fable-front.jpg' };
+    doubleFacedCard.cardFaces = [
+      cardFace('Fable of the Mirror-Breaker', 'https://cards.test/fable-front.jpg'),
+      cardFace('Reflection of Kiki-Jiki', 'https://cards.test/fable-back.jpg'),
+    ];
+    cardsApi.getSilently.mockReturnValue(of({ card: doubleFacedCard }));
+
+    const image = await service.resolveOwnerFaceDownPreviewImage({
+      instanceId: 'face-down-fable',
+      scryfallId: 'print-fable',
+      name: 'Card',
+      tapped: false,
+      faceDown: true,
+      activeFaceIndex: 1,
+    });
+
+    expect(image).toBe('https://cards.test/fable-back.jpg');
+  });
+
   it('does not call the catalog when static identity is already cached', async () => {
     const cached = staticCard('runtime-card-forest', 'print-forest', 'Forest');
     const patch = patchV2([{
@@ -133,6 +171,63 @@ describe('GameTableStaticCardResolverV2Service', () => {
 
     expect(hydrated).toBe(patch);
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
+  });
+
+  it('rekeys cached static identity when a face-up patch uses another runtime revision key', async () => {
+    const scryfallId = '0007fa33-ccc3-4e33-8d83-909c5c8d408c';
+    const cachedKey = `scryfall:${scryfallId}:cached-revision`;
+    const faceUpKey = `scryfall:${scryfallId}:face-up-revision`;
+    const patch = patchV2([{
+      op: 'card.field.set',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      faceDown: false,
+      hidden: false,
+      cardKey: faceUpKey,
+      printId: faceUpKey,
+      cardVersion: 'runtime-identity-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({
+      [cachedKey]: {
+        ...staticCard(cachedKey, scryfallId, 'Plains'),
+        viewerVisibility: 'public',
+      },
+    }));
+    const faceUp = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'card.field.set' }>;
+
+    expect(cardsApi.getSilently).not.toHaveBeenCalled();
+    expect(faceUp.staticCard).toMatchObject({
+      cardRef: faceUpKey,
+      cardKey: faceUpKey,
+      name: 'Plains',
+      imageUris: { normal: `https://cards.test/${scryfallId}.jpg` },
+    });
+  });
+
+  it('hydrates a revealed library through one bulk catalog request', async () => {
+    cardsApi.getManySilently.mockReturnValue(of({
+      cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+    }));
+    const patch = patchV2([{
+      op: 'library.revealed.set',
+      playerId: 'player-1',
+      cards: [
+        { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
+        { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
+      ],
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const reveal = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'library.revealed.set' }>;
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
+    expect(cardsApi.getSilently).not.toHaveBeenCalled();
+    expect(reveal.staticCards?.['forest']?.name).toBe('Forest');
+    expect(reveal.staticCards?.['island']?.name).toBe('Island');
   });
 
   it('replaces a synthetic Card placeholder hint with resolved static content', async () => {
@@ -385,5 +480,19 @@ function card(scryfallId: string, name: string): Card {
     set: 'tst',
     collectorNumber: '1',
     lang: 'en',
+  };
+}
+
+function cardFace(name: string, image: string): NonNullable<Card['cardFaces']>[number] {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: image },
   };
 }

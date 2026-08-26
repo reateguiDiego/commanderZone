@@ -1,18 +1,45 @@
 @if (isOpen()) {
-  <section class="mulligan-overlay" data-testid="mulligan-overlay" (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()">
+  <section
+    class="mulligan-overlay"
+    data-testid="mulligan-overlay"
+    [style.--mulligan-owner-background]="ownerBackgroundImageCss()"
+    (click)="$event.stopPropagation()"
+    (contextmenu)="$event.stopPropagation()"
+  >
     <div class="mulligan-shell">
       <header class="mulligan-header">
-        <div>
+        <div class="mulligan-title-group">
           <p class="mulligan-kicker">{{ ruleLabelKey() | runtimeTranslate }}</p>
           <h1>{{ 'game.mulliganOverlay.title' | runtimeTranslate }}</h1>
+          <section class="mulligan-copy" data-testid="mulligan-rule-copy">
+            <p>{{ ruleDescriptionKey() | runtimeTranslate }}</p>
+          </section>
         </div>
-        <div class="mulligan-meta" [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate">
-          @if (config()?.firstMulliganFree) {
-            <span class="mulligan-free">{{ 'game.mulliganOverlay.firstMulliganFree' | runtimeTranslate }}</span>
+
+        <section class="mulligan-players" [attr.aria-label]="'game.mulliganOverlay.otherPlayersStatus' | runtimeTranslate">
+          @for (player of otherPlayers(); track player.playerId) {
+            <article class="mulligan-player-row" [attr.data-status]="normalizedStatus(player.status)">
+              <span>{{ player.displayName || player.playerId }}</span>
+              <strong>{{ statusLabelKey(player.status) | runtimeTranslate }}</strong>
+            </article>
+          } @empty {
+            <p class="empty-players">{{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}</p>
           }
-          <span>{{ 'game.mulliganOverlay.mulligansTaken' | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 } }}</span>
-          <span>{{ 'game.mulliganOverlay.effectiveMulligans' | runtimeTranslate: { count: currentMulligan()?.effectiveMulligans ?? 0 } }}</span>
-        </div>
+        </section>
+
+        <button
+          type="button"
+          czButton="icon"
+          czButtonSize="sm"
+          czButtonTone="danger"
+          class="mulligan-close-button"
+          data-testid="mulligan-close"
+          [attr.aria-label]="'common.modal.close' | runtimeTranslate"
+          [title]="'common.modal.close' | runtimeTranslate"
+          (click)="dismiss()"
+        >
+          <lucide-icon name="x" size="18" aria-hidden="true" />
+        </button>
       </header>
 
       <div class="mulligan-content" [attr.data-status]="status()">
@@ -24,24 +51,46 @@
                 <p>{{ 'game.mulliganOverlay.scryDescription' | runtimeTranslate }}</p>
               </div>
               @if (scryCard(); as card) {
-                <div class="scry-card">
+                @let visibleCard = previewCard(card);
+                <div
+                  class="scry-card"
+                  [attr.data-card-instance-id]="card.instanceId"
+                  (mouseleave)="resetFacePreview(card)"
+                >
                   <app-game-card-view
+                    style="--game-card-view-width: var(--mulligan-card-view-width)"
                     mode="battlefield"
-                    [card]="card"
+                    [card]="visibleCard"
                     [playerId]="currentPlayerId() ?? ''"
                     zone="library"
-                    [image]="cardImage()(card)"
+                    [image]="cardImage()(visibleCard)"
                     [selected]="false"
                     [draggable]="false"
                     [hoverInteractionsEnabled]="false"
+                    [faceToggleEnabled]="false"
                     (cardClicked)="stopCardClick($event.event)"
                     (cardMenuOpened)="stopCardClick($event.event)"
                   />
+                  @if (canShowFaceToggle(card)) {
+                    <button
+                      type="button"
+                      class="mulligan-face-toggle"
+                      [attr.aria-label]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                      [title]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                      draggable="false"
+                      (pointerdown)="stopFaceTogglePointer($event)"
+                      (click)="lookAtOtherFace($event, card)"
+                      (dblclick)="stopFaceToggleEvent($event)"
+                      (dragstart)="stopFaceToggleEvent($event)"
+                    >
+                      <lucide-icon name="rotate-cw" size="19" aria-hidden="true" />
+                    </button>
+                  }
                 </div>
               }
               <div class="mulligan-actions">
-                <button type="button" class="secondary-button" [disabled]="pending()" (click)="confirmScry('TOP')">{{ 'game.mulliganOverlay.actions.keepOnTop' | runtimeTranslate }}</button>
-                <button type="button" class="primary-button" [disabled]="pending()" (click)="confirmScry('BOTTOM')">{{ 'game.mulliganOverlay.actions.putOnBottom' | runtimeTranslate }}</button>
+                <button type="button" czButton="secondary" [disabled]="pending()" (click)="confirmScry('TOP')">{{ 'game.mulliganOverlay.actions.keepOnTop' | runtimeTranslate }}</button>
+                <button type="button" czButton="primary" [disabled]="pending()" (click)="confirmScry('BOTTOM')">{{ 'game.mulliganOverlay.actions.putOnBottom' | runtimeTranslate }}</button>
               </div>
             </section>
           } @else if (status() === 'READY') {
@@ -50,104 +99,102 @@
               <h2>{{ 'game.mulliganOverlay.waitingForPlayers' | runtimeTranslate }}</h2>
             </section>
           } @else {
-            <section class="mulligan-copy" data-testid="mulligan-rule-copy">
-              @for (line of ruleDescription(); track line.key) {
-                <p>{{ line.key | runtimeTranslate: line.params }}</p>
-              }
-            </section>
-
             <section class="mulligan-hand" [attr.aria-label]="'game.mulliganOverlay.currentHand' | runtimeTranslate">
-              @for (card of hand(); track card.instanceId) {
-                <div
-                  class="mulligan-card"
-                  [class.bottom-selected]="selectedCard(card)"
-                  [attr.data-selected]="selectedCard(card)"
-                  [attr.data-card-instance-id]="card.instanceId"
-                >
-                  <app-game-card-view
-                    mode="battlefield"
-                    [card]="card"
-                    [playerId]="currentPlayerId() ?? ''"
-                    zone="hand"
-                    [image]="cardImage()(card)"
-                    [selected]="selectedCard(card)"
-                    [draggable]="false"
-                    [hoverInteractionsEnabled]="false"
-                    (cardClicked)="stopCardClick($event.event)"
-                    (cardMenuOpened)="toggleBottomSelection($event.event, card)"
-                  />
-                  @if (bottomSelectionCount() > 0) {
-                    <button
-                      type="button"
-                      class="bottom-card-action"
-                      [class.selected]="selectedCard(card)"
-                      [disabled]="bottomCardActionDisabled(card)"
-                      (pointerdown)="$event.stopPropagation()"
-                      (click)="toggleBottomSelectionFromButton($event, card)"
-                    >
-                      {{ bottomCardActionLabelKey(card) | runtimeTranslate }}
-                    </button>
-                  }
-                </div>
-              } @empty {
-                <p class="empty-hand">{{ 'game.mulliganOverlay.emptyHand' | runtimeTranslate }}</p>
-              }
-            </section>
+              <div class="mulligan-meta" [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate">
+                @if (firstMulliganFreeLabelKey(); as firstMulliganFreeKey) {
+                  <p class="mulligan-free-rule">
+                    {{ firstMulliganFreeKey | runtimeTranslate }}
+                  </p>
+                }
+                <span>{{ 'game.mulliganOverlay.mulligansTaken' | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 } }}</span>
+              </div>
 
-            @if (bottomSelectionCount() > 0) {
-              <section class="bottom-selection" data-testid="mulligan-bottom-selection">
-                <header>
-                  <strong>{{ 'game.mulliganOverlay.selectedCount' | runtimeTranslate: selectedCountParams() }}</strong>
-                  @if (rule() === 'GENEROUS') {
-                    <span>{{ 'game.mulliganOverlay.description.generousRandomOrder' | runtimeTranslate }}</span>
-                  }
-                </header>
-                <p class="bottom-selection-help">
-                  {{ 'game.mulliganOverlay.bottomSelectionHelp' | runtimeTranslate }}
-                </p>
-                <div class="bottom-pills">
-                  @for (card of selectedBottomCards(); track card.instanceId; let index = $index) {
-                    <article class="bottom-pill" data-testid="mulligan-bottom-pill" [attr.data-bottom-pill-id]="card.instanceId">
-                      @if (cardImage()(card); as image) {
-                        <img [src]="image" [alt]="card.name" />
-                      }
-                      <span>{{ card.name }}</span>
-                      @if (rule() === 'LONDON') {
-                        <button type="button" [attr.aria-label]="'common.actions.moveUp' | runtimeTranslate" [disabled]="index === 0 || pending()" (click)="moveBottomCard(index, -1)">
-                          <lucide-icon name="chevron-up" size="15" aria-hidden="true" />
-                        </button>
-                        <button type="button" [attr.aria-label]="'common.actions.moveDown' | runtimeTranslate" [disabled]="index === selectedBottomCards().length - 1 || pending()" (click)="moveBottomCard(index, 1)">
-                          <lucide-icon name="chevron-down" size="15" aria-hidden="true" />
-                        </button>
-                      }
-                      <button type="button" [attr.aria-label]="'common.actions.remove' | runtimeTranslate" [disabled]="pending()" (click)="removeBottomCard(card.instanceId)">
-                        <lucide-icon name="x" size="15" aria-hidden="true" />
+              <div class="mulligan-card-grid">
+                @for (card of hand(); track card.instanceId) {
+                  @let visibleCard = previewCard(card);
+                  <div
+                    class="mulligan-card"
+                    [class.bottom-selected]="selectedCard(card)"
+                    [attr.data-selected]="selectedCard(card)"
+                    [attr.data-card-instance-id]="card.instanceId"
+                    (mouseleave)="resetFacePreview(card)"
+                  >
+                    <app-game-card-view
+                      style="--game-card-view-width: var(--mulligan-card-view-width)"
+                      mode="battlefield"
+                      [card]="visibleCard"
+                      [playerId]="currentPlayerId() ?? ''"
+                      zone="hand"
+                      [image]="cardImage()(visibleCard)"
+                      [selected]="selectedCard(card)"
+                      [draggable]="false"
+                      [hoverInteractionsEnabled]="false"
+                      [faceToggleEnabled]="false"
+                      (cardClicked)="stopCardClick($event.event)"
+                      (cardMenuOpened)="toggleBottomSelection($event.event, card)"
+                    />
+                    @if (canShowFaceToggle(card)) {
+                      <button
+                        type="button"
+                        class="mulligan-face-toggle"
+                        [attr.aria-label]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                        [title]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                        draggable="false"
+                        (pointerdown)="stopFaceTogglePointer($event)"
+                        (click)="lookAtOtherFace($event, card)"
+                        (dblclick)="stopFaceToggleEvent($event)"
+                        (dragstart)="stopFaceToggleEvent($event)"
+                      >
+                        <lucide-icon name="rotate-cw" size="19" aria-hidden="true" />
                       </button>
-                    </article>
-                  }
-                </div>
-              </section>
-            }
+                    }
+                    @if (bottomSelectionCount() > 0) {
+                      <button
+                        type="button"
+                        czButton="secondary"
+                        czButtonSize="sm"
+                        class="bottom-card-action"
+                        [class.selected]="selectedCard(card)"
+                        [disabled]="bottomCardActionDisabled(card)"
+                        (pointerdown)="$event.stopPropagation()"
+                        (click)="toggleBottomSelectionFromButton($event, card)"
+                      >
+                        {{ bottomCardActionLabelKey(card) | runtimeTranslate }}
+                      </button>
+                    }
+                  </div>
+                } @empty {
+                  <p class="empty-hand">{{ 'game.mulliganOverlay.emptyHand' | runtimeTranslate }}</p>
+                }
+              </div>
+            </section>
 
             <div class="mulligan-actions">
               <button
                 type="button"
-                class="secondary-button"
+                czButton="secondary"
                 data-testid="mulligan-take"
-                [disabled]="pending() || currentMulligan()?.canTakeAnotherMulligan === false"
+                [disabled]="takeDisabled()"
                 (click)="takeMulligan()"
               >
                 {{ 'game.mulliganOverlay.title' | runtimeTranslate }}
               </button>
-              <button
-                type="button"
-                class="primary-button"
-                data-testid="mulligan-keep"
-                [disabled]="acceptDisabled()"
-                (click)="acceptMulligan()"
-              >
-                {{ 'common.actions.accept' | runtimeTranslate }}
-              </button>
+              <div class="mulligan-keep-stack">
+                @if (bottomSelectionCount() > 0) {
+                  <section class="bottom-selection" data-testid="mulligan-bottom-selection">
+                    <strong>{{ 'game.mulliganOverlay.selectedCount' | runtimeTranslate: selectedCountParams() }}</strong>
+                  </section>
+                }
+                <button
+                  type="button"
+                  czButton="primary"
+                  data-testid="mulligan-keep"
+                  [disabled]="acceptDisabled()"
+                  (click)="acceptMulligan()"
+                >
+                  {{ keepActionLabelKey() | runtimeTranslate }}
+                </button>
+              </div>
             </div>
           }
 
@@ -155,18 +202,6 @@
             <p class="mulligan-error" role="alert">{{ mulliganError.message }}</p>
           }
         </main>
-
-        <aside class="mulligan-players" [attr.aria-label]="'game.mulliganOverlay.otherPlayersStatus' | runtimeTranslate">
-          <h2>{{ 'game.mulliganOverlay.players' | runtimeTranslate }}</h2>
-          @for (player of otherPlayers(); track player.playerId) {
-            <article class="mulligan-player-row" [attr.data-status]="player.status">
-              <span>{{ player.displayName || player.playerId }}</span>
-              <strong>{{ statusLabelKey(player.status) | runtimeTranslate }}</strong>
-            </article>
-          } @empty {
-            <p class="empty-players">{{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}</p>
-          }
-        </aside>
       </div>
     </div>
   </section>

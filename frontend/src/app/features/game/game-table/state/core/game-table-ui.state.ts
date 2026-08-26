@@ -74,7 +74,7 @@ export class GameTableUiState {
 
     const preview = this.normalizePreview(cardOrPreview, playerId, zone);
     const card = preview.card;
-    if (card.hidden || isDragging() || Date.now() < this.hoverPreviewSuppressedUntil) {
+    if (card.hidden || card.faceDown || isDragging() || Date.now() < this.hoverPreviewSuppressedUntil) {
       return;
     }
 
@@ -102,17 +102,26 @@ export class GameTableUiState {
   }
 
   showPinnedCardPreview(preview: CardPreviewEvent, isDragging: () => boolean): void;
-  showPinnedCardPreview(card: GameCardInstance, isDragging: () => boolean, playerId?: string, zone?: GameZoneName): void;
+  showPinnedCardPreview(
+    card: GameCardInstance,
+    isDragging: () => boolean,
+    playerId?: string,
+    zone?: GameZoneName,
+    revealFaceDownCard?: boolean,
+  ): void;
   showPinnedCardPreview(
     cardOrPreview: GameCardInstance | CardPreviewEvent,
     isDragging: () => boolean,
     playerId?: string,
     zone?: GameZoneName,
+    revealFaceDownCard?: boolean,
   ): void {
     this.clearHoverPreviewTimer();
-    const preview = this.normalizePreview(cardOrPreview, playerId, zone);
+    const preview = this.normalizePreview(cardOrPreview, playerId, zone, revealFaceDownCard);
     const card = preview.card;
-    if (card.hidden || isDragging()) {
+    const canInspectFaceDownCard = preview.revealFaceDownCard === true;
+    const isBlockedByCardVisibility = (card.hidden || card.faceDown) && !canInspectFaceDownCard;
+    if (isBlockedByCardVisibility || isDragging()) {
       return;
     }
 
@@ -130,7 +139,7 @@ export class GameTableUiState {
     }
 
     const card = preview.card;
-    if (card.hidden || isDragging()) {
+    if (card.hidden || card.faceDown || isDragging()) {
       return;
     }
 
@@ -238,6 +247,7 @@ export class GameTableUiState {
     cardOrPreview: GameCardInstance | CardPreviewEvent,
     playerId?: string,
     zone?: GameZoneName,
+    revealFaceDownCard?: boolean,
   ): CardPreviewEvent {
     if ('card' in cardOrPreview) {
       return cardOrPreview;
@@ -248,6 +258,7 @@ export class GameTableUiState {
       playerId: playerId ?? '',
       zone: zone ?? 'battlefield',
       sourceRect: null,
+      revealFaceDownCard,
     };
   }
 

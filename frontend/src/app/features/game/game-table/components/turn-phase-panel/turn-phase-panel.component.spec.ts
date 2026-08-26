@@ -25,6 +25,26 @@ describe('TurnPhasePanelComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="pass-turn"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="follow-active-turn-player"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="active-turn-player-pill"]')?.textContent).toContain('Turn: player-2');
+  });
+
+  it('does not render the active-turn player pill for the current turn player', async () => {
+    const fixture = await renderTurnPhasePanel({
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 3 },
+      currentPlayerId: 'player-1',
+    });
+
+    expect(fixture.nativeElement.querySelector('[data-testid="active-turn-player-pill"]')).toBeNull();
+  });
+
+  it('keeps turn actions visually enabled while the command is being applied', async () => {
+    const fixture = await renderTurnPhasePanel({
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 3 },
+      currentPlayerId: 'player-1',
+    });
+
+    expect(fixture.nativeElement.querySelector('[data-testid="pass-turn"]:disabled')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]:disabled')).toBeNull();
   });
 
   it('emits follow active player changes from the focus checkbox', async () => {
@@ -58,7 +78,6 @@ async function renderTurnPhasePanel(options: {
   fixture.componentRef.setInput('phases', ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end']);
   fixture.componentRef.setInput('currentPlayerId', options.currentPlayerId);
   fixture.componentRef.setInput('isPhasePast', () => false);
-  fixture.componentRef.setInput('pending', false);
   fixture.componentRef.setInput('canAdvance', options.turn.activePlayerId === options.currentPlayerId);
   fixture.detectChanges();
   await fixture.whenStable();

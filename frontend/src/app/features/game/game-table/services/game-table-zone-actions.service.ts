@@ -87,7 +87,7 @@ export class GameTableZoneActionsService {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean } = {},
   ): void {
     this.zoneModalState.openFixed(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }

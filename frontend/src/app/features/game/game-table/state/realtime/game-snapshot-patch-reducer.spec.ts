@@ -55,7 +55,7 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     const player = result.snapshot.players['player-1'];
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('custom-sleeves');
     expect(player.zones.battlefield[0].position).toEqual({ x: 0.4, y: 0.6, unit: 'ratio' });
     expect(player.zones.battlefield[1].position).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' });
@@ -119,6 +119,59 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.players['player-1'].zones.hand.map((entry) => entry.instanceId)).toEqual(['hand-1', 'library-hidden']);
+  });
+
+  it('clears a one-off library reveal when the card leaves the library', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].zones.library = [card('library-revealed', {
+      zone: 'library',
+      revealedTo: ['player-2'],
+    })];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.move',
+      instanceId: 'library-revealed',
+      from: { playerId: 'player-1', zone: 'library' },
+      to: { playerId: 'player-1', zone: 'hand' },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.hand.at(-1)?.revealedTo).toBeUndefined();
+  });
+
+  it('keeps a revealed hand card visible when it moves to the library and clears its hand marker', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].revealedHandIndexes = [0];
+    snapshot.players['player-1'].zones.hand[0] = card('hand-1', {
+      zone: 'hand',
+      revealedTo: ['player-2'],
+    });
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'library' },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.library[0]?.revealedTo).toEqual(['player-2']);
+    expect(result.snapshot.players['player-1'].revealedHandIndexes).toEqual([]);
+  });
+
+  it('removes a hand reveal marker as soon as the revealed card is removed', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].revealedHandIndexes = [0];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'card.remove',
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'hand-1',
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].revealedHandIndexes).toEqual([]);
   });
 
   it('uses card.move card payload as the destination representation even when the source card is visible', () => {
@@ -256,7 +309,7 @@ describe('game snapshot patch reducer', () => {
     expect(result.status).toBe('applied');
     expect(result.snapshot.players['player-1'].zones.library).toEqual([visibleTop]);
     expect(result.snapshot.players['player-1'].zones.hand).toBe(originalHand);
-    expect(result.snapshot.players['player-1'].backgroundName).toBe('G_3');
+    expect(result.snapshot.players['player-1'].backgroundName).toBe('g_3');
     expect(result.snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
   });
 
@@ -276,7 +329,7 @@ describe('game snapshot patch reducer', () => {
     const player = result.snapshot.players['player-1'];
     expect(player.playTopLibraryRevealed).toBe(true);
     expect(player.revealedLibraryTo).toEqual(['player-2']);
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('custom-sleeves');
   });
 
@@ -332,18 +385,20 @@ describe('game snapshot patch reducer', () => {
       {
         op: 'disconnect.vote.set',
         data: {
-          disconnectVote: {
-            targetPlayerId: 'player-2',
-            status: 'open',
-            openedAt: '2026-01-01T00:00:10.000Z',
-            deadlineAt: '2026-01-01T00:01:10.000Z',
-            cooldownUntil: null,
-            votes: {
-              'player-1': {
-                playerId: 'player-1',
-                displayName: 'Player 1',
-                vote: 'expel',
-                votedAt: '2026-01-01T00:00:15.000Z',
+          disconnectVotes: {
+            'player-2': {
+              targetPlayerId: 'player-2',
+              status: 'open',
+              openedAt: '2026-01-01T00:00:10.000Z',
+              deadlineAt: '2026-01-01T00:01:10.000Z',
+              cooldownUntil: null,
+              votes: {
+                'player-1': {
+                  playerId: 'player-1',
+                  displayName: 'Player 1',
+                  vote: 'expel',
+                  votedAt: '2026-01-01T00:00:15.000Z',
+                },
               },
             },
           },
@@ -352,11 +407,11 @@ describe('game snapshot patch reducer', () => {
     ]));
 
     expect(result.status).toBe('applied');
-    expect(result.snapshot.disconnectVote).toEqual(expect.objectContaining({
+    expect(result.snapshot.disconnectVotes?.['player-2']).toEqual(expect.objectContaining({
       targetPlayerId: 'player-2',
       status: 'open',
     }));
-    expect(result.snapshot.disconnectVote?.votes['player-1']?.vote).toBe('expel');
+    expect(result.snapshot.disconnectVotes?.['player-2']?.votes['player-1']?.vote).toBe('expel');
   });
 
   it('applies rematch snapshot updates', () => {
@@ -370,7 +425,7 @@ describe('game snapshot patch reducer', () => {
             'player-2': {
               playerId: 'player-2',
               displayName: 'Player 2',
-              vote: 'leave',
+              vote: 'leave_room',
               votedAt: '2026-01-01T00:00:15.000Z',
             },
           },
@@ -379,7 +434,7 @@ describe('game snapshot patch reducer', () => {
     ]));
 
     expect(result.status).toBe('applied');
-    expect(result.snapshot.rematch?.votes['player-2']?.vote).toBe('leave');
+    expect(result.snapshot.rematch?.votes['player-2']?.vote).toBe('leave_room');
   });
 
   it('applies append and set operations for shared gameplay collections', () => {
@@ -528,6 +583,40 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.eventLog.map((entry) => entry.id)).toEqual(['log-1', 'log-2']);
   });
 
+  it('replaces a public reveal log entry with its private recipient version', () => {
+    const snapshot = snapshotFixture();
+    snapshot.eventLog = [{
+      id: 'reveal-1',
+      type: 'card.revealed',
+      message: 'Player 1 revealed 1 card from their hand to Player 2.',
+      i18nKey: 'gameLog.card.revealed',
+      actorId: 'player-1',
+      displayName: 'Player 1',
+      createdAt: '2026-01-01T00:00:01.000Z',
+    }];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([{
+      op: 'eventLog.append',
+      entries: [{
+        id: 'reveal-1',
+        type: 'card.revealed',
+        message: 'Player 1 revealed Sol Ring from their hand to Player 2.',
+        i18nKey: 'gameLog.card.revealedNamed',
+        cardInstanceId: 'hand-1',
+        cardPlayerId: 'player-1',
+        cardZone: 'hand',
+        actorId: 'player-1',
+        displayName: 'Player 1',
+        createdAt: '2026-01-01T00:00:01.000Z',
+      }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.eventLog).toHaveLength(1);
+    expect(result.snapshot.eventLog[0]?.i18nKey).toBe('gameLog.card.revealedNamed');
+    expect(result.snapshot.eventLog[0]?.cardInstanceId).toBe('hand-1');
+  });
+
   it('applies small stack and relation add/remove operations', () => {
     const snapshot = {
       ...snapshotFixture(),
@@ -570,7 +659,7 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1']).toEqual(expect.objectContaining({
       status: 'conceded',
       concededAt: '2026-01-01T00:00:10.000Z',
-      backgroundName: 'G_3',
+      backgroundName: 'g_3',
       sleevesName: 'custom-sleeves',
     }));
     expect(snapshot.players['player-1'].status).toBeUndefined();
@@ -593,13 +682,13 @@ describe('game snapshot patch reducer', () => {
         dungeonMarker: { x: 0.35, y: 0.65 },
       },
       { op: 'player.sleeves.set', playerId: 'player-1', sleevesName: 'new-sleeves' },
-      { op: 'player.background.set', playerId: 'player-1', backgroundName: 'G_7' },
+      { op: 'player.background.set', playerId: 'player-1', backgroundName: 'g_7' },
     ]));
 
     expect(result.status).toBe('applied');
     const player = result.snapshot.players['player-1'];
     expect(player.sleevesName).toBe('new-sleeves');
-    expect(player.backgroundName).toBe('G_7');
+    expect(player.backgroundName).toBe('g_7');
     expect(player.zones.battlefield[0]).toEqual(expect.objectContaining({
       tapped: true,
       faceDown: true,
@@ -928,7 +1017,7 @@ function snapshotFixture(): GameSnapshot {
         user: { id: 'player-1', email: 'player1@example.test', displayName: 'Player 1', roles: [] },
         deckName: 'Deck 1',
         colorIdentity: ['G'],
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         sleevesName: 'custom-sleeves',
         life: 40,
         zones: {
@@ -955,7 +1044,7 @@ function snapshotFixture(): GameSnapshot {
       },
       'player-2': {
         user: { id: 'player-2', email: 'player2@example.test', displayName: 'Player 2', roles: [] },
-        backgroundName: 'U_1',
+        backgroundName: 'u_1',
         sleevesName: 'blue-sleeves',
         life: 40,
         zones: {

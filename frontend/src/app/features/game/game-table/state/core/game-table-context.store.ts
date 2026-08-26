@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthStore } from '../../../../../core/auth/auth.store';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameControlPlaneState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragContext } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCardActionContext } from '../../services/game-table-card-actions.service';
@@ -34,10 +34,12 @@ import { GameTableZonePilesState } from '../zones/game-table-zone-piles.state';
 import { GameTableCommandContext } from './game-table-command.store';
 import { GameTableCoreState } from './game-table-core.state';
 import { gameTableErrorMessage } from './game-table-error-message.util';
+import { updateGameSnapshotCards } from './game-snapshot-mutation';
 import { GameTableToastState } from './game-table-toast.state';
 
 export interface GameTableContextSource {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly refetch: (force?: boolean, source?: string) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
@@ -45,6 +47,9 @@ export interface GameTableContextSource {
   readonly setPendingLibraryMove: (move: PendingLibraryMove | null) => void;
   readonly pendingBattlefieldMove: () => PendingBattlefieldMove | null;
   readonly pendingLibraryMove: () => PendingLibraryMove | null;
+  readonly onControlPlaneAccepted: (controlPlane: GameControlPlaneState) => void;
+  readonly openRevealedLibrary: (playerId: string, recipients?: readonly string[]) => void;
+  readonly openRevealedTopLibrary: (playerId: string, count: number) => void;
 }
 
 @Injectable()
@@ -86,7 +91,9 @@ export class GameTableContextStore {
       setError: (message) => this.core.error.set(message),
       send: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
       snapshot: () => this.core.snapshot(),
-      setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      // Value controls only apply optimistic display state. They must not be
+      // interpreted as a card entering or moving on the battlefield.
+      setSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       refetch: () => source.refetch(true, 'debounced_value_command.error'),
       errorMessage: (error) => this.errorMessage(error),
     };
@@ -192,6 +199,8 @@ export class GameTableContextStore {
         setSnapshot: (snapshot) => source.setSnapshot(snapshot),
         refetch: (force) => source.refetch(force, 'websocket.request_resync'),
         setError: (message) => this.core.error.set(message),
+        onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
+        onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
         onCommandBlocked: (_reason, type, payload) => this.handleCommandBlocked(source, type, payload),
       }),
       errorMessage: (error) => this.errorMessage(error),
@@ -204,7 +213,10 @@ export class GameTableContextStore {
     const source = this.boundSource();
 
     return {
-      setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      // Card counters are optimistic presentation updates. Publishing them as
+      // authoritative input can replace the feedback baseline with viewport
+      // clamped positions before the WebSocket patch arrives.
+      setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       errorMessage: (error) => this.errorMessage(error),
       refetch: (force) => source.refetch(force, 'card_counter.error'),
       command: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
@@ -217,6 +229,7 @@ export class GameTableContextStore {
     return {
       snapshot: () => this.core.snapshot(),
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       setError: (message) => this.core.error.set(message),
       errorMessage: (error) => this.errorMessage(error),
       battlefieldDragContext: () => this.battlefieldDrag(),
@@ -276,12 +289,11 @@ export class GameTableContextStore {
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
-      markPendingTransfer: (playerId, fromZone, instanceIds, options) => this.pendingTransferState.register({
+      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
         playerId,
         fromZone,
         instanceIds,
         sourceVersion: this.core.snapshot()?.version ?? null,
-        expires: options?.expires,
       }),
       syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
         this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
@@ -396,12 +408,11 @@ export class GameTableContextStore {
       applyDeferredRemoteSnapshot: () => this.sessionService.applyDeferredRemoteSnapshot(this.session()),
       refetch: (force) => source.refetch(force, 'pointer_drag_action.recovery'),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
-      markPendingTransfer: (playerId, fromZone, instanceIds, options) => this.pendingTransferState.register({
+      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
         playerId,
         fromZone,
         instanceIds,
         sourceVersion: this.core.snapshot()?.version ?? null,
-        expires: options?.expires,
       }),
       command: (type, payload) => source.command(type, payload),
     };
@@ -448,7 +459,13 @@ export class GameTableContextStore {
       onMulliganError: (message) => this.mulliganState.handleError(message),
       onMulliganCompleted: (message) => this.mulliganState.handleCompleted(message),
       onMulliganPatchV2Applied: (patch, snapshot) => this.mulliganState.handlePatchV2Applied(patch, snapshot),
+      onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
+      onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
+      onControlPlaneAccepted: (controlPlane) => source.onControlPlaneAccepted(controlPlane),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
+      navigateToRooms: () => {
+        void this.gameActionsStore.navigateToRooms();
+      },
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();
       },
@@ -467,59 +484,45 @@ export class GameTableContextStore {
   }
 
   private updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void {
-    const snapshot = this.core.snapshot();
-    if (!snapshot) {
-      return;
-    }
-
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.power = power;
-      card.toughness = toughness;
-      this.boundSource().setSnapshot(next);
-    }
+    this.updateLocalCard(playerId, zone, instanceId, (card) =>
+      card.power === power && card.toughness === toughness ? card : { ...card, power, toughness },
+    );
   }
 
   private updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void {
-    const snapshot = this.core.snapshot();
-    if (!snapshot) {
-      return;
-    }
-
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.defense = defense;
-      this.boundSource().setSnapshot(next);
-    }
+    this.updateLocalCard(playerId, zone, instanceId, (card) =>
+      card.defense === defense ? card : { ...card, defense },
+    );
   }
 
   private updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number): void {
-    const snapshot = this.core.snapshot();
-    if (!snapshot) {
-      return;
-    }
-
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.saga = saga;
-      this.boundSource().setSnapshot(next);
-    }
+    this.updateLocalCard(playerId, zone, instanceId, (card) =>
+      card.saga === saga ? card : { ...card, saga },
+    );
   }
 
   private updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number): void {
+    this.updateLocalCard(playerId, zone, instanceId, (card) =>
+      card.loyalty === loyalty ? card : { ...card, loyalty },
+    );
+  }
+
+  private updateLocalCard(
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+    update: (card: GameCardInstance) => GameCardInstance,
+  ): void {
     const snapshot = this.core.snapshot();
     if (!snapshot) {
       return;
     }
 
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.loyalty = loyalty;
-      this.boundSource().setSnapshot(next);
+    const next = updateGameSnapshotCards(snapshot, [{ playerId, zone, instanceId, update }]);
+    if (next !== snapshot) {
+      // Card stats are optimistic presentation updates; their WebSocket patch
+      // remains the authoritative source for entry and move feedback.
+      this.boundSource().setViewportReflowSnapshot(next);
     }
   }
 

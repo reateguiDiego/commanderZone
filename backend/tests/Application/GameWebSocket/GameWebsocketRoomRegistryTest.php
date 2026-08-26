@@ -2,6 +2,7 @@
 
 namespace App\Tests\Application\GameWebSocket;
 
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use PHPUnit\Framework\TestCase;
@@ -105,6 +106,29 @@ class GameWebsocketRoomRegistryTest extends TestCase
 
         self::assertFalse($registry->isUserOfflineBeyondGrace('game-1', 'user-1', 5, new \DateTimeImmutable('2026-01-01T00:00:04+00:00')));
         self::assertTrue($registry->isUserOfflineBeyondGrace('game-1', 'user-1', 5, new \DateTimeImmutable('2026-01-01T00:00:05+00:00')));
+    }
+
+    public function testDisconnectVotesUseFifteenSecondOfflineGrace(): void
+    {
+        $registry = new GameWebsocketRoomRegistry();
+        $sent = [];
+        $peer = $this->peer('connection-a', 'game-1', $sent, 'user-1');
+        $registry->join($peer);
+        $registry->leave('connection-a');
+        $registry->markUserOffline('game-1', 'user-1', new \DateTimeImmutable('2026-01-01T00:00:00+00:00'));
+
+        self::assertFalse($registry->isUserOfflineBeyondGrace(
+            'game-1',
+            'user-1',
+            GameDisconnectVoteService::OFFLINE_GRACE_SECONDS,
+            new \DateTimeImmutable('2026-01-01T00:00:14+00:00'),
+        ));
+        self::assertTrue($registry->isUserOfflineBeyondGrace(
+            'game-1',
+            'user-1',
+            GameDisconnectVoteService::OFFLINE_GRACE_SECONDS,
+            new \DateTimeImmutable('2026-01-01T00:00:15+00:00'),
+        ));
     }
 
     public function testOfflineGraceTrackingClearsWhenUserReconnects(): void

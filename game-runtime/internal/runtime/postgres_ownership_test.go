@@ -170,6 +170,26 @@ func TestPostgresLeaseManagerRenewAndSchemaCheck(t *testing.T) {
 	}
 }
 
+func TestPostgresClosingFencePreventsAcquireAndRevokesExistingOwner(t *testing.T) {
+	dsn := postgresOwnershipDSN(t)
+	resetPostgresOwnershipSchema(t, dsn)
+	_, manager := postgresRuntimeComponents(t, dsn, time.Minute)
+	ctx := context.Background()
+	lease, err := manager.Acquire(ctx, "pg-game-closing", "pg-node-a")
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	if _, err := manager.db.ExecContext(ctx, `INSERT INTO game_runtime_closing (game_id, claimed_at) VALUES ($1, CURRENT_TIMESTAMP)`, "pg-game-closing"); err != nil {
+		t.Fatalf("claim closing: %v", err)
+	}
+	if err := manager.EnsureHeld(ctx, lease.Lease); !errors.Is(err, ErrGameClosing) {
+		t.Fatalf("ensure held err = %v, want %v", err, ErrGameClosing)
+	}
+	if _, err := manager.Acquire(ctx, "pg-game-closing", "pg-node-b"); !errors.Is(err, ErrGameClosing) {
+		t.Fatalf("acquire closing err = %v, want %v", err, ErrGameClosing)
+	}
+}
+
 func postgresOwnershipDSN(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("GAME_RUNTIME_TEST_DATABASE_URL")
@@ -217,9 +237,11 @@ func resetPostgresOwnershipSchema(t *testing.T, dsn string) {
 	}
 	defer db.Close()
 	statements := []string{
+		`DROP TABLE IF EXISTS game_runtime_closing`,
 		`DROP TABLE IF EXISTS game_runtime_lease`,
 		`DROP TABLE IF EXISTS game_snapshot_compact`,
 		`DROP TABLE IF EXISTS game_event`,
+		`ALTER TABLE game ADD COLUMN IF NOT EXISTS runtime_closing BOOLEAN NOT NULL DEFAULT FALSE`,
 		`CREATE TABLE game_event (
 			id VARCHAR(36) NOT NULL PRIMARY KEY,
 			game_id VARCHAR(36) NOT NULL,
@@ -253,6 +275,10 @@ func resetPostgresOwnershipSchema(t *testing.T, dsn string) {
 		)`,
 		`CREATE INDEX idx_game_runtime_lease_owner ON game_runtime_lease (owner_instance_id)`,
 		`CREATE INDEX idx_game_runtime_lease_expires_at ON game_runtime_lease (expires_at)`,
+		`CREATE TABLE game_runtime_closing (
+			game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+			claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+		)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {

@@ -307,13 +307,19 @@ func (CardFaceChangedApplier) Apply(_ context.Context, game *state.GameState, co
 	} else {
 		emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: data})
 	}
-	return map[string]any{
+	eventPayload := map[string]any{
 		"instanceId":      instanceID,
 		"playerId":        location.PlayerID,
 		"zone":            location.Zone,
 		"activeFaceIndex": faceIndex,
 		"metrics":         edgeMetrics("edge.face_change_ms", start, emitter),
-	}, nil
+	}
+	for _, key := range []string{"cardName", "faceName"} {
+		if value, ok := command.Payload[key].(string); ok && strings.TrimSpace(value) != "" {
+			eventPayload[key] = strings.TrimSpace(value)
+		}
+	}
+	return eventPayload, nil
 }
 
 func mapField(payload map[string]any, key string) map[string]any {

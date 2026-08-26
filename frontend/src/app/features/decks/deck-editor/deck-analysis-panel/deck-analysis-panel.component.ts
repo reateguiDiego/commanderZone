@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
@@ -25,6 +25,7 @@ export class DeckAnalysisPanelComponent {
   readonly advancedAnalysisLink = input<readonly string[] | null>(null);
   readonly advancedAnalysisState = input<AdvancedAnalysisRouteState | null>(null);
   readonly advancedAnalysisAriaLabel = input('deckBuilder.advancedAnalysis.openButton');
+  readonly hasAnalysisData = computed(() => this.store.analysis().mainDeckCards > 0);
   private readonly collapsedPanels = signal<ReadonlySet<AnalysisTogglePanel>>(new Set());
 
   isPanelCollapsed(panel: AnalysisTogglePanel): boolean {
