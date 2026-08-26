@@ -3169,12 +3169,12 @@ describe('GameTableComponent', () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
-    snapshot.players['user-1']!.backgroundName = 'back_5';
+    snapshot.players['user-1']!.backgroundName = 'free_0';
     snapshot.players['user-1']!.sleevesName = 'facedown_card';
     snapshot.players['user-2'] = {
       ...structuredClone(snapshot.players['user-1']!),
       user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
-      backgroundName: 'U_2',
+      backgroundName: 'u_2',
       sleevesName: 'C_01',
       zones: {
         library: [],
@@ -3212,7 +3212,7 @@ describe('GameTableComponent', () => {
       faceDown: true,
     };
 
-    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/play-mat/U_2.webp');
+    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/playmat/u_2.webp');
     expect(fixture.componentInstance.store.cardImage(faceDownCard)).toBe('/assets/images/facedown_card.jpg');
     expect(fixture.componentInstance.store.zonePreviewImage(fixture.componentInstance.store.currentPlayer()!, 'library'))
       .toBe('/assets/images/facedown_card.jpg');
@@ -4623,7 +4623,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
-    snapshot.players['user-2']!.backgroundName = 'U_2';
+    snapshot.players['user-2']!.backgroundName = 'u_2';
     snapshot.players['user-2']!.zones.hand = [];
     snapshot.players['user-2']!.zoneCounts = { ...snapshot.players['user-2']!.zoneCounts!, hand: 3 };
     const nextSnapshot = structuredClone(snapshot);
@@ -5097,7 +5097,7 @@ describe('GameTableComponent', () => {
       status: 'active',
       concededAt: null,
       colorIdentity: ['B'],
-      backgroundName: 'back_5',
+      backgroundName: 'free_0',
       sleevesName: 'facedown_card',
       life: 40,
       zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
@@ -5221,7 +5221,7 @@ describe('GameTableComponent', () => {
       status: 'active',
       concededAt: null,
       colorIdentity: ['B'],
-      backgroundName: 'back_5',
+      backgroundName: 'free_0',
       sleevesName: 'facedown_card',
       life: 40,
       zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
@@ -7107,7 +7107,7 @@ function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {
         status,
         concededAt: status === 'conceded' ? '2026-04-30T20:00:00+00:00' : null,
         colorIdentity: ['W'],
-        backgroundName: 'back_5',
+        backgroundName: 'free_0',
         sleevesName: 'facedown_card',
         life: 40,
         zones: {
@@ -7162,7 +7162,7 @@ function addOpponent(snapshot: GameSnapshot): void {
     status: 'active',
     concededAt: null,
     colorIdentity: ['U'],
-    backgroundName: 'back_5',
+    backgroundName: 'free_0',
     sleevesName: 'facedown_card',
     life: 39,
     zones: {

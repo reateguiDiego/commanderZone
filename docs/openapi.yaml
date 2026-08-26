@@ -5098,7 +5098,7 @@ components:
           $ref: '#/components/schemas/DeckVisibility'
         backgroundName:
           type: string
-          example: back_5
+          example: free_0
         sleevesName:
           type: string
           example: facedown_card
@@ -7719,7 +7719,7 @@ components:
             enum: [W, U, B, R, G]
         backgroundName:
           type: string
-          example: back_5
+          example: free_0
         sleevesName:
           type: string
           example: facedown_card

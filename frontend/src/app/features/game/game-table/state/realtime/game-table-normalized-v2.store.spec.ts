@@ -18,7 +18,7 @@ describe('game table normalized v2 store', () => {
     expect(state.staticCards['token:beast'].name).toBe('Beast');
     expect(state.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
     expect(snapshot.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
-    expect(snapshot.players['player-1'].backgroundName).toBe('G_4');
+    expect(snapshot.players['player-1'].backgroundName).toBe('g_4');
     expect(snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
     expect(snapshot.players['player-1'].zones.hand[0]?.name).toBe('Lightning Bolt');
     expect(snapshot.players['player-2'].zones.hand[0]?.scryfallId).toBeUndefined();
@@ -3278,7 +3278,7 @@ function bootstrapV2(): BootstrapV2 {
         counters: {},
         deckName: 'Owner Deck',
         colorIdentity: ['G', 'W', 'U', 'B'],
-        backgroundName: 'G_4',
+        backgroundName: 'g_4',
         sleevesName: 'custom-sleeves',
       },
       'player-2': {
@@ -3294,7 +3294,7 @@ function bootstrapV2(): BootstrapV2 {
         counters: {},
         deckName: 'Opponent Deck',
         colorIdentity: ['U', 'R'],
-        backgroundName: 'U_2',
+        backgroundName: 'u_2',
         sleevesName: 'opponent-sleeves',
       },
     },

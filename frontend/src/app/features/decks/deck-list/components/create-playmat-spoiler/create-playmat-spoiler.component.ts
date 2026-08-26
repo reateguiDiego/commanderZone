@@ -1,11 +1,10 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, input, output, signal, viewChild } from '@angular/core';
+import { DEFAULT_PLAYMAT_NAME, PLAYMAT_NAMES, playmatImageUrl } from '../../../../../core/assets/playmat-assets';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { TabListComponent, type TabListItem } from '../../../../../shared/ui/tab-list/tab-list.component';
 
-const PLAYMAT_BASE_PATH = '/assets/images/playmat/';
-const DEFAULT_PLAYMAT_FILE = 'free_0.png';
 type PlaymatTierTab = 'free' | 'premium';
 
 interface PlaymatHoverPreview {
@@ -23,133 +22,6 @@ interface PendingPlaymatHoverPreview {
 const HOVER_PREVIEW_WIDTH_PX = 520;
 const HOVER_PREVIEW_HEIGHT_PX = 292;
 const HOVER_PREVIEW_DELAY_MS = 180;
-
-const PLAYMAT_FILES = [
-  DEFAULT_PLAYMAT_FILE,
-  'free_1.png',
-  'free_2.png',
-  'free_3.png',
-  'free_4.png',
-  'free_5.png',
-  'free_w_1.png',
-  'free_w_2.png',
-  'free_w_3.png',
-  'free_u_1.png',
-  'free_u_2.png',
-  'free_u_3.png',
-  'free_b_1.png',
-  'free_b_2.png',
-  'free_b_3.png',
-  'free_r_1.png',
-  'free_r_2.png',
-  'free_r_3.png',
-  'free_g_1.png',
-  'free_g_2.png',
-  'free_g_3.png',
-  'free_n_1.png',
-  'free_n_2.png',
-  'free_n_3.png',
-  'w_1.png',
-  'w_2.png',
-  'w_3.png',
-  'w_4.png',
-  'w_5.png',
-  'w_6.png',
-  'w_7.png',
-  'w_8.png',
-  'w_9.png',
-  'w_10.png',
-  'u_1.png',
-  'u_2.png',
-  'u_3.png',
-  'u_4.png',
-  'u_5.png',
-  'u_6.png',
-  'u_7.png',
-  'u_8.png',
-  'u_9.png',
-  'u_10.png',
-  'b_1.png',
-  'b_2.png',
-  'b_3.png',
-  'b_4.png',
-  'b_5.png',
-  'b_6.png',
-  'b_7.png',
-  'b_8.png',
-  'b_9.png',
-  'b_10.png',
-  'r_1.png',
-  'r_2.png',
-  'r_3.png',
-  'r_4.png',
-  'r_5.png',
-  'r_6.png',
-  'r_7.png',
-  'r_8.png',
-  'r_9.png',
-  'r_10.png',
-  'g_1.png',
-  'g_2.png',
-  'g_3.png',
-  'g_4.png',
-  'g_5.png',
-  'g_6.png',
-  'g_7.png',
-  'g_8.png',
-  'g_9.png',
-  'g_10.png',
-  'n_1.png',
-  'n_2.png',
-  'n_3.png',
-  'n_4.png',
-  'n_5.png',
-  'n_6.png',
-  'n_7.png',
-  'n_8.png',
-  'n_9.png',
-  'n_10.png',
-  'n_11.png',
-  'o_1.png',
-  'o_2.png',
-  'o_3.png',
-  'o_4.png',
-  'o_5.png',
-  'o_6.png',
-  'o_7.png',
-  'o_8.png',
-  'o_9.png',
-  'o_10.png',
-  'o_11.png',
-  'azorius_1.png',
-  'dimir_1.png',
-  'rakdos_1.png',
-  'gruul_1.png',
-  'selesnya_1.png',
-  'orzhov_1.png',
-  'izzet_1.png',
-  'golgari_1.png',
-  'boros_1.png',
-  'simic_1.png',
-  'bant_1.png',
-  'esper_1.png',
-  'grixis_1.png',
-  'jund_1.png',
-  'naya_1.png',
-  'abzan_1.png',
-  'jeskai_1.png',
-  'sultai_1.png',
-  'mardu_1.png',
-  'temur_1.png',
-  'dune_1.png',
-  'glint_1.png',
-  'ink_1.png',
-  'witch_1.png',
-  'yore_1.png',
-  'yore_2.png',
-  'penta_1.png',
-  'penta_2.png',
-] as const;
 
 const PLAYMAT_COMBINATION_LABELS: Readonly<Record<string, string>> = {
   azorius: 'Azorius',
@@ -188,17 +60,17 @@ export interface PlaymatOption {
   readonly premium: boolean;
 }
 
-export const DEFAULT_PLAYMAT_PATH = `${PLAYMAT_BASE_PATH}${webpFileName(DEFAULT_PLAYMAT_FILE)}`;
-export const PLAYMAT_OPTIONS: readonly PlaymatOption[] = PLAYMAT_FILES.map((fileName) => ({
-  fileName,
-  path: `${PLAYMAT_BASE_PATH}${webpFileName(fileName)}`,
-  label: labelFromFileName(fileName),
-  combinationLabel: combinationLabelFromFileName(fileName),
-  premium: !isFreePlaymatFile(fileName),
+export const DEFAULT_PLAYMAT_PATH = playmatImageUrl(DEFAULT_PLAYMAT_NAME);
+export const PLAYMAT_OPTIONS: readonly PlaymatOption[] = PLAYMAT_NAMES.map((name) => ({
+  fileName: `${name}.webp`,
+  path: playmatImageUrl(name),
+  label: labelFromFileName(name),
+  combinationLabel: combinationLabelFromFileName(name),
+  premium: !isFreePlaymatFile(name),
 }));
 
 export function playmatNameFromPath(path: string): string {
-  return PLAYMAT_OPTIONS.find((playmat) => playmat.path === path)?.fileName.replace(/\.[^.]+$/, '') ?? DEFAULT_PLAYMAT_FILE.replace(/\.[^.]+$/, '');
+  return PLAYMAT_OPTIONS.find((playmat) => playmat.path === path)?.fileName.replace(/\.[^.]+$/, '') ?? DEFAULT_PLAYMAT_NAME;
 }
 
 export function playmatPathFromName(name: string | null | undefined): string {
@@ -358,10 +230,6 @@ function labelFromFileName(fileName: string): string {
 
 function isFreePlaymatFile(fileName: string): boolean {
   return fileName.startsWith('free_');
-}
-
-function webpFileName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, '.webp');
 }
 
 function combinationLabelFromFileName(fileName: string): string | null {

@@ -12,8 +12,7 @@ final class DeckVisualCatalog
 
     public static function isSupportedBackgroundName(string $name): bool
     {
-        return $name === Deck::DEFAULT_BACKGROUND_NAME
-            || self::matchesPlaymatName($name);
+        return self::matchesPlaymatName($name);
     }
 
     public static function isSupportedSleevesName(string $name): bool

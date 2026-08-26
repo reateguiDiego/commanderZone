@@ -16,7 +16,7 @@ describe('GameTableSnapshotSelectors gameplay contract', () => {
     expect(players.map((player) => player.id)).toEqual(['owner-player', 'controller-player', 'focused-player', 'library-player']);
     expect(selectors.focusedPlayer(snapshot, players, null)?.id).toBe('controller-player');
     expect(focused?.id).toBe('focused-player');
-    expect(selectors.gameBackgroundImage(focused)).toBe('/assets/images/play-mat/G_3.webp');
+    expect(selectors.gameBackgroundImage(focused)).toBe('/assets/images/playmat/g_3.webp');
   });
 
   it('uses the owner sleeves for face-down cards even when another player controls them', () => {
@@ -57,15 +57,15 @@ function gameplaySnapshot(): GameSnapshot {
     players: {
       'owner-player': player('owner-player', {
         sleevesName: 'facedown_card',
-        backgroundName: 'U_2',
+        backgroundName: 'u_2',
       }),
       'controller-player': player('controller-player', {
         sleevesName: undefined,
-        backgroundName: 'B_4',
+        backgroundName: 'b_4',
       }),
       'focused-player': player('focused-player', {
         sleevesName: 'facedown_card',
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         zones: {
           library: [],
           hand: [
@@ -87,7 +87,7 @@ function gameplaySnapshot(): GameSnapshot {
       }),
       'library-player': player('library-player', {
         sleevesName: 'facedown_card',
-        backgroundName: 'R_1',
+        backgroundName: 'r_1',
         zones: {
           library: [
             { instanceId: 'library-top', ownerId: 'library-player', controllerId: 'library-player', name: 'Hidden Top', tapped: false, hidden: true, faceDown: true, zone: 'library' },

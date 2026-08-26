@@ -12,8 +12,9 @@ import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-imag
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckFolderSection } from '../models/deck-list.models';
 import { deckEditorIdentifier } from '../utils/deck-route';
+import { DEFAULT_PLAYMAT_NAME } from '../../../core/assets/playmat-assets';
 
-const DEFAULT_DECK_BACKGROUND_NAME = 'back_5';
+const DEFAULT_DECK_BACKGROUND_NAME = DEFAULT_PLAYMAT_NAME;
 const DEFAULT_DECK_SLEEVES_NAME = 'facedown_card';
 
 export type DeckListColorFilter = 'all' | 'W' | 'U' | 'B' | 'R' | 'G' | 'C';

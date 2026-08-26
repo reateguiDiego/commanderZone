@@ -99,7 +99,7 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('battlefield', $bootstrap->zones[$viewer->id().':battlefield']['name']);
         self::assertSame(1, $bootstrap->zoneCounts[$viewer->id().':battlefield']);
         self::assertSame(['U', 'R', 'G'], $bootstrap->players[$viewer->id()]['colorIdentity']);
-        self::assertSame('R_7', $bootstrap->players[$viewer->id()]['backgroundName']);
+        self::assertSame('r_7', $bootstrap->players[$viewer->id()]['backgroundName']);
         self::assertSame('custom-sleeves', $bootstrap->players[$viewer->id()]['sleevesName']);
         self::assertSame(3, $bootstrap->players[$viewer->id()]['mulligan']['bottomSelectionCount'] ?? null);
         self::assertSame('RANDOM_SERVER_SIDE', $bootstrap->players[$viewer->id()]['mulligan']['bottomOrderMode'] ?? null);
@@ -472,7 +472,7 @@ class GameplayV2ContractFactoryTest extends TestCase
                     'handCount' => 1,
                     'deckName' => 'Deck',
                     'colorIdentity' => ['U', 'R', 'G'],
-                    'backgroundName' => 'R_7',
+                    'backgroundName' => 'r_7',
                     'sleevesName' => 'custom-sleeves',
                     'commanderDamage' => [],
                     'counters' => [],

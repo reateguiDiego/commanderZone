@@ -6,12 +6,15 @@ use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
+use App\Domain\Deck\DeckVisualCatalog;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
 use Symfony\Component\Uid\Uuid;
 
 class GameSnapshotFactory
 {
+    private const FALLBACK_PLAYMAT_NAMES = ['free_1', 'free_2', 'free_3', 'free_4', 'free_5', 'free_0'];
+
     public function __construct(
         ?GameRandomizer $randomizer = null,
         ?CompactGameCardStateMapper $compactStateMapper = null,
@@ -36,6 +39,7 @@ class GameSnapshotFactory
     public function fromRoom(Room $room): array
     {
         $players = [];
+        $fallbackPlaymatIndex = 0;
 
         foreach ($room->orderedPlayers() as $roomPlayer) {
             if (!$roomPlayer instanceof RoomPlayer) {
@@ -79,7 +83,7 @@ class GameSnapshotFactory
                 'concededAt' => null,
                 'deckName' => $deck?->name(),
                 'colorIdentity' => $colorIdentity,
-                'backgroundName' => $deck?->backgroundName() ?? Deck::DEFAULT_BACKGROUND_NAME,
+                'backgroundName' => $this->playmatNameForGame($deck?->backgroundName(), $fallbackPlaymatIndex),
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
                 GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
@@ -159,6 +163,19 @@ class GameSnapshotFactory
         }
 
         return $snapshot;
+    }
+
+    private function playmatNameForGame(?string $backgroundName, int &$fallbackPlaymatIndex): string
+    {
+        $candidate = trim($backgroundName ?? Deck::DEFAULT_BACKGROUND_NAME);
+        if (DeckVisualCatalog::isSupportedBackgroundName($candidate)) {
+            return $candidate;
+        }
+
+        $playmat = self::FALLBACK_PLAYMAT_NAMES[$fallbackPlaymatIndex % count(self::FALLBACK_PLAYMAT_NAMES)];
+        ++$fallbackPlaymatIndex;
+
+        return $playmat;
     }
 
     private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array

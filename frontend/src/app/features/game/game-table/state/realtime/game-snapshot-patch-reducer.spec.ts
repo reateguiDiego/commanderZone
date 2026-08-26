@@ -55,7 +55,7 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     const player = result.snapshot.players['player-1'];
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('custom-sleeves');
     expect(player.zones.battlefield[0].position).toEqual({ x: 0.4, y: 0.6, unit: 'ratio' });
     expect(player.zones.battlefield[1].position).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' });
@@ -309,7 +309,7 @@ describe('game snapshot patch reducer', () => {
     expect(result.status).toBe('applied');
     expect(result.snapshot.players['player-1'].zones.library).toEqual([visibleTop]);
     expect(result.snapshot.players['player-1'].zones.hand).toBe(originalHand);
-    expect(result.snapshot.players['player-1'].backgroundName).toBe('G_3');
+    expect(result.snapshot.players['player-1'].backgroundName).toBe('g_3');
     expect(result.snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
   });
 
@@ -329,7 +329,7 @@ describe('game snapshot patch reducer', () => {
     const player = result.snapshot.players['player-1'];
     expect(player.playTopLibraryRevealed).toBe(true);
     expect(player.revealedLibraryTo).toEqual(['player-2']);
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('custom-sleeves');
   });
 
@@ -659,7 +659,7 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1']).toEqual(expect.objectContaining({
       status: 'conceded',
       concededAt: '2026-01-01T00:00:10.000Z',
-      backgroundName: 'G_3',
+      backgroundName: 'g_3',
       sleevesName: 'custom-sleeves',
     }));
     expect(snapshot.players['player-1'].status).toBeUndefined();
@@ -682,13 +682,13 @@ describe('game snapshot patch reducer', () => {
         dungeonMarker: { x: 0.35, y: 0.65 },
       },
       { op: 'player.sleeves.set', playerId: 'player-1', sleevesName: 'new-sleeves' },
-      { op: 'player.background.set', playerId: 'player-1', backgroundName: 'G_7' },
+      { op: 'player.background.set', playerId: 'player-1', backgroundName: 'g_7' },
     ]));
 
     expect(result.status).toBe('applied');
     const player = result.snapshot.players['player-1'];
     expect(player.sleevesName).toBe('new-sleeves');
-    expect(player.backgroundName).toBe('G_7');
+    expect(player.backgroundName).toBe('g_7');
     expect(player.zones.battlefield[0]).toEqual(expect.objectContaining({
       tapped: true,
       faceDown: true,
@@ -1017,7 +1017,7 @@ function snapshotFixture(): GameSnapshot {
         user: { id: 'player-1', email: 'player1@example.test', displayName: 'Player 1', roles: [] },
         deckName: 'Deck 1',
         colorIdentity: ['G'],
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         sleevesName: 'custom-sleeves',
         life: 40,
         zones: {
@@ -1044,7 +1044,7 @@ function snapshotFixture(): GameSnapshot {
       },
       'player-2': {
         user: { id: 'player-2', email: 'player2@example.test', displayName: 'Player 2', roles: [] },
-        backgroundName: 'U_1',
+        backgroundName: 'u_1',
         sleevesName: 'blue-sleeves',
         life: 40,
         zones: {

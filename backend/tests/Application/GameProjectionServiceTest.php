@@ -942,7 +942,7 @@ class GameProjectionServiceTest extends TestCase
 
         $snapshot['players'][$owner->id()] = [
             ...$snapshot['players'][$owner->id()],
-            'backgroundName' => 'U_2',
+            'backgroundName' => 'u_2',
             'sleevesName' => 'facedown_card',
             'colorIdentity' => ['U'],
             'commanderDamage' => [$viewer->id() => 4],
@@ -994,7 +994,7 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('2026-01-01T00:00:00+00:00', $projected['createdAt']);
         self::assertSame('2026-01-01T00:01:00+00:00', $projected['updatedAt']);
 
-        self::assertSame('U_2', $ownerProjection['backgroundName']);
+        self::assertSame('u_2', $ownerProjection['backgroundName']);
         self::assertSame('facedown_card', $ownerProjection['sleevesName']);
         self::assertSame(['U'], $ownerProjection['colorIdentity']);
         self::assertSame([$viewer->id() => 4], $ownerProjection['commanderDamage']);

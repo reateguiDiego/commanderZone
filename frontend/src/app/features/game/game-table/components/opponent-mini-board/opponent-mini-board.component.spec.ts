@@ -20,7 +20,7 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('player', playerView());
     fixture.componentRef.setInput('colorAccent', () => '#d7b46a');
     fixture.componentRef.setInput('deckLabel', (player: PlayerView | null) => player?.state.user.displayName ?? '');
-    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/backgrounds/sunrise/bg-5.webp');
+    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/playmat/free_0.webp');
     fixture.componentRef.setInput('battlefieldSize', { width: 900, height: 520 });
     fixture.componentRef.setInput('zoneCount', (player: PlayerView, zone: keyof PlayerView['state']['zones']) => player.state.zones[zone].length);
     fixture.componentRef.setInput('cardPosition', () => ({ x: 0, y: 0 }));

@@ -323,7 +323,7 @@ class GameDisconnectVoteServiceTest extends TestCase
             ],
             'commanderDamage' => [],
             'counters' => [],
-            'backgroundName' => 'G_3',
+            'backgroundName' => 'g_3',
             'sleevesName' => 'default',
         ];
     }

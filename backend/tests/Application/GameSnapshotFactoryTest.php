@@ -144,6 +144,31 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertSame('grixis_1', $snapshot['players']['guest-id']['sleevesName']);
     }
 
+    public function testReplacesObsoleteDeckPlaymatsWithDistinctFallbacksAtGameCreation(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $this->setPrivateProperty($owner, 'id', 'player-1');
+        $room = new Room($owner);
+
+        for ($index = 1; $index <= 6; ++$index) {
+            $player = $index === 1 ? $owner : new User(sprintf('player-%d@example.test', $index), sprintf('Player %d', $index));
+            $this->setPrivateProperty($player, 'id', sprintf('player-%d', $index));
+            $deck = new Deck($player, sprintf('Deck %d', $index));
+            $deck->setBackgroundName(sprintf('G_%d', $index));
+            $room->addPlayer(new RoomPlayer($room, $player, $deck));
+        }
+
+        $snapshot = (new GameSnapshotFactory())->fromRoom($room);
+
+        self::assertSame(
+            ['free_1', 'free_2', 'free_3', 'free_4', 'free_5', 'free_0'],
+            array_values(array_map(
+                static fn (array $player): string => $player['backgroundName'],
+                $snapshot['players'],
+            )),
+        );
+    }
+
     public function testInitialCommanderDamageIsKeyedByEachCommanderInstance(): void
     {
         $owner = new User('owner@example.test', 'Owner');

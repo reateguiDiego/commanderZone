@@ -1544,7 +1544,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(player.playTopLibraryRevealed).toBe(true);
     expect(player.revealedLibraryTo).toEqual(['all']);
     expect(player.zones.library.map((entry) => entry.instanceId)).toEqual(['library-visible']);
-    expect(player.backgroundName).toBe('G_3');
+    expect(player.backgroundName).toBe('g_3');
     expect(player.sleevesName).toBe('default');
     expect(refetchSpy).not.toHaveBeenCalled();
   });
@@ -1591,7 +1591,7 @@ describe('GameTableWebsocketGameplayService', () => {
           ...snapshotState.players,
           'player-1': {
             ...snapshotState.players['player-1'],
-            backgroundName: 'R_1',
+            backgroundName: 'r_1',
             sleevesName: 'custom-sleeves',
             zones: {
               ...snapshotState.players['player-1'].zones,
@@ -1618,7 +1618,7 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).toHaveBeenCalledTimes(1);
     expect(refetchSpy).toHaveBeenCalledWith(true);
     expect(snapshotState.version).toBe(8);
-    expect(snapshotState.players['player-1'].backgroundName).toBe('R_1');
+    expect(snapshotState.players['player-1'].backgroundName).toBe('r_1');
     expect(snapshotState.players['player-1'].sleevesName).toBe('custom-sleeves');
     expect(snapshotState.players['player-1'].zones.battlefield[0]?.position).toEqual({ x: 0.42, y: 0.24, unit: 'ratio' });
   });
@@ -2256,7 +2256,7 @@ function snapshot(): GameSnapshot {
     players: {
       'player-1': {
         user: { id: 'player-1', email: 'player1@example.test', displayName: 'Player 1', roles: [] },
-        backgroundName: 'G_3',
+        backgroundName: 'g_3',
         sleevesName: 'default',
         life: 40,
         zones: {
@@ -2297,7 +2297,7 @@ function snapshot(): GameSnapshot {
       },
       'player-2': {
         user: { id: 'player-2', email: 'player2@example.test', displayName: 'Player 2', roles: [] },
-        backgroundName: 'U_1',
+        backgroundName: 'u_1',
         sleevesName: 'default',
         life: 40,
         zones: {

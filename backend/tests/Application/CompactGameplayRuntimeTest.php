@@ -734,7 +734,7 @@ class CompactGameplayRuntimeTest extends TestCase
             ],
             'commanderDamage' => [],
             'counters' => [],
-            'backgroundName' => 'G_1',
+            'backgroundName' => 'g_1',
             'sleevesName' => 'default',
         ];
     }
