@@ -191,7 +191,7 @@ Both are also reusable workflows (`workflow_call`) so the release pipeline can i
 
 Deploy order is backend first, then frontend. If frontend deploy fails after backend deploy succeeded, the release workflow fails and remains visible for follow-up (no automatic rollback).
 
-### Backend deploy guardrail
+### Backend deploy guardrail 
 
 `backend-deploy.yml` now runs via `workflow_call` (from the main release workflow) or manual dispatch.
 
