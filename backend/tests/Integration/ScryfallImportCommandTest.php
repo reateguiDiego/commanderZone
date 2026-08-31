@@ -22,11 +22,25 @@ class ScryfallImportCommandTest extends ApiTestCase
         $this->seedCard($scryfallId, 'Existing Ruling Card', ['has_rulings' => true]);
         $cards = [$this->scryfallCardData($scryfallId, 'Existing Ruling Card')];
         $httpClient = new MockHttpClient([
+<<<<<<< ours
+<<<<<<< ours
             new MockResponse(json_encode(['data' => []], JSON_THROW_ON_ERROR)),
             new MockResponse(json_encode(['data' => [[
                 'type' => 'all_cards',
                 'download_uri' => 'https://data.scryfall.test/all-cards.json',
             ]]], JSON_THROW_ON_ERROR)),
+=======
+=======
+>>>>>>> theirs
+            new MockResponse(json_encode(['object' => 'error'], JSON_THROW_ON_ERROR), ['http_code' => 404]),
+            new MockResponse(json_encode([
+                'type' => 'all_cards',
+                'download_uri' => 'https://data.scryfall.test/all-cards.json',
+            ], JSON_THROW_ON_ERROR)),
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
             new MockResponse(json_encode($cards, JSON_THROW_ON_ERROR)),
         ]);
         $command = new ScryfallSyncCommand(

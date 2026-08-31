@@ -62,16 +62,31 @@ final class ScryfallBulkDataClient
 
     private function downloadUriForType(string $bulkType): string
     {
-        $bulkResponse = $this->httpClient->request('GET', 'https://api.scryfall.com/bulk-data', [
+        $response = $this->httpClient->request('GET', sprintf(
+            'https://api.scryfall.com/bulk-data/%s',
+            rawurlencode($bulkType),
+        ), [
             'headers' => $this->headers(),
-        ])->toArray();
+        ]);
 
-        foreach ($bulkResponse['data'] ?? [] as $bulkData) {
-            if (($bulkData['type'] ?? null) === $bulkType && is_string($bulkData['download_uri'] ?? null)) {
-                return $bulkData['download_uri'];
-            }
+        if ($response->getStatusCode() === 404) {
+            throw new ScryfallBulkDataTypeNotFound($bulkType);
         }
 
+<<<<<<< ours
+<<<<<<< ours
+=======
+=======
+>>>>>>> theirs
+        $bulkData = $response->toArray();
+        if (is_string($bulkData['download_uri'] ?? null) && $bulkData['download_uri'] !== '') {
+            return $bulkData['download_uri'];
+        }
+
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
         throw new ScryfallBulkDataTypeNotFound($bulkType);
     }
 
