@@ -20,10 +20,10 @@ class ScryfallBulkDataClientTest extends TestCase
         self::assertIsString($compressedCards);
 
         $httpClient = new MockHttpClient([
-            new MockResponse(json_encode(['data' => [[
+            new MockResponse(json_encode([
                 'type' => 'all_cards',
                 'jsonl_download_uri' => 'https://data.scryfall.test/all-cards.jsonl.gz',
-            ]]], JSON_THROW_ON_ERROR)),
+            ], JSON_THROW_ON_ERROR)),
             new MockResponse($compressedCards),
         ]);
         $client = new ScryfallBulkDataClient($httpClient, 'test-agent');

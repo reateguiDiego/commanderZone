@@ -81,22 +81,24 @@ final class ScryfallBulkDataClient
      */
     private function bulkDownloadForType(string $bulkType): array
     {
-        $bulkResponse = $this->httpClient->request('GET', 'https://api.scryfall.com/bulk-data', [
+        $response = $this->httpClient->request('GET', sprintf(
+            'https://api.scryfall.com/bulk-data/%s',
+            rawurlencode($bulkType),
+        ), [
             'headers' => $this->headers(),
-        ])->toArray();
+        ]);
 
-        foreach ($bulkResponse['data'] ?? [] as $bulkData) {
-            if (($bulkData['type'] ?? null) !== $bulkType) {
-                continue;
-            }
+        if ($response->getStatusCode() === 404) {
+            throw new ScryfallBulkDataTypeNotFound($bulkType);
+        }
 
-            if (is_string($bulkData['download_uri'] ?? null) && $bulkData['download_uri'] !== '') {
-                return ['uri' => $bulkData['download_uri'], 'format' => 'json_array'];
-            }
+        $bulkData = $response->toArray();
+        if (is_string($bulkData['download_uri'] ?? null) && $bulkData['download_uri'] !== '') {
+            return ['uri' => $bulkData['download_uri'], 'format' => 'json_array'];
+        }
 
-            if (is_string($bulkData['jsonl_download_uri'] ?? null) && $bulkData['jsonl_download_uri'] !== '') {
-                return ['uri' => $bulkData['jsonl_download_uri'], 'format' => 'jsonl_gzip'];
-            }
+        if (is_string($bulkData['jsonl_download_uri'] ?? null) && $bulkData['jsonl_download_uri'] !== '') {
+            return ['uri' => $bulkData['jsonl_download_uri'], 'format' => 'jsonl_gzip'];
         }
 
         throw new ScryfallBulkDataTypeNotFound($bulkType);
