@@ -161,8 +161,10 @@ jobs:
             exit 1
           fi
 
-          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
-          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup
+          # `bash -s` receives this deployment script through stdin. Prevent
+          # Compose exec from consuming the remaining worker-start commands.
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup </dev/null
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup </dev/null
 
           # These workers own the durable all-disconnected lifecycle: the
           # sweeper transitions hot grace -> hibernation -> expiry, and the
