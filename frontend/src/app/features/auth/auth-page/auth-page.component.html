@@ -108,9 +108,11 @@
           </label>
           <a class="secondary-link" routerLink="/auth/password-reset">{{ 'auth.authPage.forgotPassword' | runtimeTranslate }}</a>
 
-          @if (authErrorMessage(); as authError) {
-            <p class="notice error">{{ authError | runtimeTranslate }}</p>
-          }
+          <div class="auth-feedback" aria-live="polite">
+            @if (authErrorMessage(); as authError) {
+              <p class="auth-feedback__message">{{ authError | runtimeTranslate }}</p>
+            }
+          </div>
           @if (loginLockoutWarningVisible()) {
             <p class="app-disclaimer-callout" role="alert" aria-live="polite">
               <span>{{ 'auth.authPage.loginLockoutWarning' | runtimeTranslate: loginLockoutWarningParams() }}</span>
@@ -229,9 +231,11 @@
             }
           </label>
 
-          @if (authErrorMessage(); as authError) {
-            <p class="notice error">{{ authError | runtimeTranslate }}</p>
-          }
+          <div class="auth-feedback" aria-live="polite">
+            @if (authErrorMessage(); as authError) {
+              <p class="auth-feedback__message">{{ authError | runtimeTranslate }}</p>
+            }
+          </div>
 
           <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitRegister()">
             <lucide-icon name="user-plus" size="18" />

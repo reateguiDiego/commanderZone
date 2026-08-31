@@ -51,6 +51,20 @@ describe('RoomBrowserComponent', () => {
     expect(fixture.nativeElement.querySelector('app-pagination')).toBeNull();
     expect(renderedRoomNames(fixture.nativeElement)).toEqual(['Room 01']);
   });
+
+  it('only renders join for public rooms that are open', () => {
+    const fixture = TestBed.createComponent(RoomBrowserComponent);
+    fixture.componentRef.setInput('rooms', [
+      room(1, { name: 'Public open' }),
+      room(2, { name: 'Public full', maxPlayers: 2, players: [roomPlayer(1), roomPlayer(2)] }),
+      room(3, { name: 'Public started', status: 'started' }),
+      room(4, { name: 'Private open', visibility: 'private' }),
+    ]);
+
+    fixture.detectChanges();
+
+    expect(roomNamesWithJoinAction(fixture.nativeElement)).toEqual(['Public open']);
+  });
 });
 
 function renderedRoomNames(root: HTMLElement): string[] {
@@ -59,11 +73,18 @@ function renderedRoomNames(root: HTMLElement): string[] {
     .filter(Boolean);
 }
 
+function roomNamesWithJoinAction(root: HTMLElement): string[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('app-room-row'))
+    .filter((roomRow) => roomRow.querySelector('[data-testid="room-row-join"]') !== null)
+    .map((roomRow) => roomRow.querySelector<HTMLElement>('.room-col-main strong')?.textContent?.trim() ?? '')
+    .filter(Boolean);
+}
+
 function rooms(count: number): Room[] {
   return Array.from({ length: count }, (_, index) => room(index + 1));
 }
 
-function room(number: number): Room {
+function room(number: number, overrides: Partial<Room> = {}): Room {
   return {
     id: `room-${number}`,
     name: `Room ${String(number).padStart(2, '0')}`,
@@ -79,6 +100,16 @@ function room(number: number): Room {
     firstMulliganFree: true,
     players: [],
     gameId: null,
+    ...overrides,
+  };
+}
+
+function roomPlayer(number: number): Room['players'][number] {
+  return {
+    id: `player-${number}`,
+    user: user(`player-${number}`),
+    deckId: null,
+    turnRoll: null,
   };
 }
 

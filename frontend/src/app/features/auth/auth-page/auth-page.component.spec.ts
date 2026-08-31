@@ -157,6 +157,21 @@ describe('AuthPageComponent', () => {
     expect(identifierInput.readOnly).toBe(false);
   });
 
+  it('keeps a dedicated feedback slot in the login form when an authentication error is shown', async () => {
+    const fixture = await create('auth/login');
+    const auth = fixture.componentInstance.auth as unknown as AuthStoreMock;
+    fixture.detectChanges();
+
+    const feedback = fixture.nativeElement.querySelector('.auth-feedback') as HTMLElement | null;
+    expect(feedback).not.toBeNull();
+    expect(feedback?.textContent?.trim()).toBe('');
+
+    auth.error.set('Could not login.');
+    fixture.detectChanges();
+
+    expect(feedback?.querySelector('.auth-feedback__message')?.textContent).toContain('Could not login.');
+  });
+
   it('renders disabled Google icon button when Google has no client id configured', async () => {
     const googleIdentity = {
       isConfigured: vi.fn().mockReturnValue(false),

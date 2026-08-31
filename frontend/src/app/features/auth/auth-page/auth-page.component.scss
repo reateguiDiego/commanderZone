@@ -304,8 +304,14 @@ input:focus {
   margin-top: 0.2rem;
 }
 
-.notice {
+.auth-feedback {
+  min-block-size: 1.25rem;
+}
+
+.auth-feedback__message {
   margin: 0;
+  color: var(--cz-danger);
+  line-height: 1.25rem;
 }
 
 .secondary-link {

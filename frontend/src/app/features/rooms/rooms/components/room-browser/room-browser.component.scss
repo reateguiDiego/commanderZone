@@ -68,7 +68,8 @@
   z-index: 3000;
 }
 
-.rooms-table-toolbar app-format-select.visibility-filter-select {
+.rooms-table-toolbar app-format-select.visibility-filter-select,
+.rooms-table-toolbar app-format-select.status-filter-select {
   --format-select-menu-right: auto;
   --format-select-menu-width: max(100%, 10rem);
   --format-select-menu-overflow-x: hidden;

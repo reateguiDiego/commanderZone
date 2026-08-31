@@ -201,12 +201,13 @@ describe('WaitingRoomComponent', () => {
     fixture.detectChanges();
 
     const playerCard = renderedPlayerCards(fixture)[0] ?? null;
+    const deckArtImages = playerCard?.querySelectorAll<HTMLImageElement>('.player-dual-deck-art-image') ?? [];
 
     expect(playerCard).not.toBeNull();
     expect(playerCard?.classList.contains('has-dual-deck-art')).toBe(true);
-    expect(playerCard?.style.getPropertyValue('--player-deck-art')).toContain('atraxa-art.jpg');
-    expect(playerCard?.style.getPropertyValue('--player-deck-secondary-art')).toContain('silas-art.jpg');
-    expect(playerCard?.querySelectorAll('.player-dual-deck-art-pane')).toHaveLength(2);
+    expect(deckArtImages).toHaveLength(2);
+    expect(deckArtImages[0]?.src).toContain('atraxa-art.jpg');
+    expect(deckArtImages[1]?.src).toContain('silas-art.jpg');
   });
 
   it('renders the selected deck bracket for every player in the waiting room', async () => {
