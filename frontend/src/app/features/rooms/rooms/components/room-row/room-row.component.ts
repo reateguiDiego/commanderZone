@@ -80,8 +80,12 @@ export class RoomRowComponent {
     return this.isRoomWaiting(room) && !this.isRoomStarted(room) && !this.isRoomFull(room);
   }
 
+  canShowJoinRoom(room: Room): boolean {
+    return room.visibility === 'public' && this.isRoomOpen(room);
+  }
+
   canJoinRoom(room: Room): boolean {
-    return !this.actionsLocked() && room.visibility === 'public' && !room.gameId;
+    return !this.actionsLocked() && this.canShowJoinRoom(room);
   }
 
   isCurrentUserInRoom(room: Room): boolean {

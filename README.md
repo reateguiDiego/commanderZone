@@ -49,7 +49,7 @@ php bin/phpunit
 0 4 * * * cd /srv/commanderzone/backend && /usr/bin/php bin/console app:scryfall:prices-update --env=prod --no-debug >> var/log/scryfall-prices.log 2>&1
 ```
 
-For a local fixture or a manually downloaded Scryfall file, pass `--cards-file=/path/to/all-cards.json`. `--batch-size` (default `2000`) and `--limit` are available for controlled runs.
+For a local fixture or a manually downloaded Scryfall file, pass `--cards-file=/path/to/all-cards.json` or Scryfall's current `all-cards.jsonl.gz` file. `--batch-size` (default `2000`) and `--limit` are available for controlled runs.
 
 ## Backend test environment (reproducible)
 

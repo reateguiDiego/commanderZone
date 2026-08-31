@@ -31,12 +31,16 @@ final class ScryfallBulkDataClient
             throw new \RuntimeException(sprintf('File "%s" does not exist.', $file));
         }
 
+        if (str_ends_with(strtolower($file), '.jsonl.gz')) {
+            return $this->loadGzipJsonLines($file);
+        }
+
         return Items::fromFile($file, ['decoder' => new ExtJsonDecoder(true)]);
     }
 
     private function downloadBulkItems(string $bulkType): iterable
     {
-        $downloadUri = $this->downloadUriForType($bulkType);
+        $bulkDownload = $this->bulkDownloadForType($bulkType);
         $temporaryFile = tempnam(sys_get_temp_dir(), sprintf('scryfall-%s-', str_replace('_', '-', $bulkType)));
         if ($temporaryFile === false) {
             throw new \RuntimeException('Could not create temporary file for Scryfall bulk download.');
@@ -47,32 +51,84 @@ final class ScryfallBulkDataClient
             throw new \RuntimeException('Could not open temporary file for Scryfall bulk download.');
         }
 
-        $response = $this->httpClient->request('GET', $downloadUri, ['headers' => $this->headers()]);
-        foreach ($this->httpClient->stream($response) as $chunk) {
-            fwrite($handle, $chunk->getContent());
-        }
-        fclose($handle);
-
         try {
+            $response = $this->httpClient->request('GET', $bulkDownload['uri'], ['headers' => $this->headers()]);
+            foreach ($this->httpClient->stream($response) as $chunk) {
+                if (fwrite($handle, $chunk->getContent()) === false) {
+                    throw new \RuntimeException('Could not write the Scryfall bulk download.');
+                }
+            }
+            fclose($handle);
+            $handle = null;
+
+            if ($bulkDownload['format'] === 'jsonl_gzip') {
+                yield from $this->loadGzipJsonLines($temporaryFile);
+
+                return;
+            }
+
             yield from Items::fromFile($temporaryFile, ['decoder' => new ExtJsonDecoder(true)]);
         } finally {
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
             @unlink($temporaryFile);
         }
     }
 
-    private function downloadUriForType(string $bulkType): string
+    /**
+     * @return array{uri:string,format:'json_array'|'jsonl_gzip'}
+     */
+    private function bulkDownloadForType(string $bulkType): array
     {
         $bulkResponse = $this->httpClient->request('GET', 'https://api.scryfall.com/bulk-data', [
             'headers' => $this->headers(),
         ])->toArray();
 
         foreach ($bulkResponse['data'] ?? [] as $bulkData) {
-            if (($bulkData['type'] ?? null) === $bulkType && is_string($bulkData['download_uri'] ?? null)) {
-                return $bulkData['download_uri'];
+            if (($bulkData['type'] ?? null) !== $bulkType) {
+                continue;
+            }
+
+            if (is_string($bulkData['download_uri'] ?? null) && $bulkData['download_uri'] !== '') {
+                return ['uri' => $bulkData['download_uri'], 'format' => 'json_array'];
+            }
+
+            if (is_string($bulkData['jsonl_download_uri'] ?? null) && $bulkData['jsonl_download_uri'] !== '') {
+                return ['uri' => $bulkData['jsonl_download_uri'], 'format' => 'jsonl_gzip'];
             }
         }
 
         throw new ScryfallBulkDataTypeNotFound($bulkType);
+    }
+
+    /**
+     * @return iterable<array<string,mixed>>
+     */
+    private function loadGzipJsonLines(string $file): iterable
+    {
+        $handle = gzopen($file, 'rb');
+        if ($handle === false) {
+            throw new \RuntimeException(sprintf('Could not open Scryfall JSONL gzip file "%s".', $file));
+        }
+
+        try {
+            while (($line = gzgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $item = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($item)) {
+                    throw new \UnexpectedValueException('Scryfall JSONL entries must be JSON objects.');
+                }
+
+                yield $item;
+            }
+        } finally {
+            gzclose($handle);
+        }
     }
 
     /**

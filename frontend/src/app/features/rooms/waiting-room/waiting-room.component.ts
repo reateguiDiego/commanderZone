@@ -394,7 +394,7 @@ export class WaitingRoomComponent implements OnDestroy {
     this.rollingTurn.set(true);
     try {
       const response = await firstValueFrom(this.roomsApi.rollTurn(room.id, true));
-      this.setCurrentRoom(response.room);
+      this.setCurrentRoom(response.room, { animatePlayerOrder: true });
       this.syncSelectedDeckFromRoom(response.room);
       this.rollModalOpen.set(false);
     } catch (error) {
@@ -707,18 +707,6 @@ export class WaitingRoomComponent implements OnDestroy {
 
   hasDualPlayerDeckArt(player: RoomPlayer): boolean {
     return !!this.playerDeckArt(player) && !!this.playerSecondaryDeckArt(player);
-  }
-
-  playerDeckBackground(player: RoomPlayer): string | null {
-    const imageUrl = this.playerDeckArt(player);
-
-    return imageUrl ? `url("${imageUrl}")` : null;
-  }
-
-  playerSecondaryDeckBackground(player: RoomPlayer): string | null {
-    const imageUrl = this.playerSecondaryDeckArt(player);
-
-    return imageUrl ? `url("${imageUrl}")` : null;
   }
 
   playerDeckColorIdentity(player: RoomPlayer): readonly string[] {
@@ -1065,12 +1053,15 @@ export class WaitingRoomComponent implements OnDestroy {
     return this.auth.user()?.id ?? null;
   }
 
-  private setCurrentRoom(room: Room | null): void {
+  private setCurrentRoom(
+    room: Room | null,
+    options: { readonly animatePlayerOrder?: boolean } = {},
+  ): void {
     const previousRoom = this.currentRoom();
     const previousOrder = previousRoom ? this.turnOrderPlayers(previousRoom).map((player) => player.id).join('|') : '';
     const nextSeatOrderIds = this.nextSeatOrderIds(room);
     const nextOrder = room ? this.playersBySeatOrder(room, nextSeatOrderIds).map((player) => player.id).join('|') : '';
-    const playOrderFlip = this.shouldAnimatePlayerOrder(previousOrder, nextOrder, room)
+    const playOrderFlip = options.animatePlayerOrder && this.shouldAnimatePlayerOrder(previousOrder, nextOrder, room)
       ? this.preparePlayerOrderFlip()
       : () => undefined;
 
@@ -1477,7 +1468,7 @@ export class WaitingRoomComponent implements OnDestroy {
       return;
     }
 
-    this.setCurrentRoom(event.room);
+    this.setCurrentRoom(event.room, { animatePlayerOrder: event.type === 'room.player.rolled' });
     this.syncSelectedDeckFromRoom(event.room);
     if (event.room.status === 'waiting' && this.isCurrentUserInRoom(event.room) && this.inviteModalOpen()) {
       await this.loadSentInvites(event.room.id, true);
