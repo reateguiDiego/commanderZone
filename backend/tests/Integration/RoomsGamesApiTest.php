@@ -11,7 +11,6 @@ use App\Application\Room\Lifecycle\WaitingRoomLifecycleSweeper;
 use App\Domain\Card\Card;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
-use App\Domain\Game\GameSnapshotCompact;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\User\User;
@@ -1328,17 +1327,6 @@ class RoomsGamesApiTest extends ApiTestCase
         $roomId = $fixture['roomId'];
         $game = $this->entityManager->getRepository(Game::class)->find($gameId);
         self::assertInstanceOf(Game::class, $game);
-        $compactSnapshot = [
-            'gameId' => $gameId,
-            'version' => max(1, (int) ($game->snapshot()['version'] ?? 1)),
-        ];
-        $this->entityManager->persist(new GameSnapshotCompact(
-            $game,
-            $compactSnapshot['version'],
-            $compactSnapshot,
-            hash('sha256', json_encode($compactSnapshot, JSON_THROW_ON_ERROR)),
-        ));
-        $this->entityManager->flush();
         self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
             ['gameId' => $gameId],

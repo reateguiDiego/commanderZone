@@ -17,15 +17,16 @@ describe('AdminNotificationsPanelComponent', () => {
     displayName: 'CommanderZone',
     publicProfilePath: '/community/users/CommanderZone',
     email: 'cz@test.com',
-    authIdentities: [],
+    authProviders: [],
     roles: [ROLE_USER],
     authorizationRole: ROLE_USER,
     premiumTier: 'none',
     lastConnectedAt: null,
     presenceStatus: 'offline',
     isOnline: false,
-    activeRoomsCount: 0,
     activeSessionsCount: 0,
+    deckCounts: { total: 0, privateCount: 0, publicCount: 0 },
+    localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: '2026-07-01T10:00:00+00:00',
   };
 

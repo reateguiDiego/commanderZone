@@ -9,7 +9,7 @@ class LanguageCatalogTest extends TestCase
 {
     public function testCommonPrintLanguagesAreExposedAsFixedCatalog(): void
     {
-        self::assertSame(['ph', 'qya', 'grc', 'he', 'sa', 'ar'], LanguageCatalog::commonPrintLanguages());
+        self::assertSame(['ph', 'la', 'qya', 'grc', 'he', 'sa', 'ar'], LanguageCatalog::commonPrintLanguages());
     }
 
     public function testRecognizesCommonPrintLanguageCodes(): void

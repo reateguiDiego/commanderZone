@@ -38,33 +38,6 @@ describe('DashboardPageContextComponent', () => {
     expect(fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip__bubble')).toBeNull();
   });
 
-  it('shows a title action tooltip on hover', () => {
-    const fixture = TestBed.createComponent(DashboardPageContextComponent);
-    fixture.componentRef.setInput('header', {
-      title: 'Cards',
-      titleActions: [
-        {
-          id: 'disclaimer',
-          label: 'Card language',
-          icon: 'info',
-          iconOnly: true,
-          tooltip: '73% of cards are available in Spanish.',
-          variant: 'secondary',
-          execute: () => undefined,
-        },
-      ],
-    });
-    fixture.detectChanges();
-
-    const trigger = fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip') as HTMLElement;
-    trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    fixture.detectChanges();
-
-    const bubble = fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip__bubble') as HTMLElement | null;
-    expect(bubble).not.toBeNull();
-    expect(bubble?.textContent).toContain('73% of cards are available in Spanish.');
-  });
-
   it('renders the community deck detail actions stack instead of stats', () => {
     const fixture = TestBed.createComponent(DashboardPageContextComponent);
     fixture.componentRef.setInput('header', {

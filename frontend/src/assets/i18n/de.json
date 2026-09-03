@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Benutzerübersicht",
       "summary": {
-        "total": "Benutzer insgesamt"
+        "total": "Benutzer insgesamt",
+        "totalDecks": "Decks insgesamt",
+        "tier0": "Stufe 0"
       },
       "loading": "Benutzer werden geladen...",
       "noUsersMatch": "Kein Benutzer entspricht den aktuellen Filtern.",
       "filters": {
         "ariaLabel": "Benutzerfilter",
         "search": "Benutzer suchen",
+        "reset": "Zurücksetzen",
         "role": "Rollenfilter",
         "premium": "Premiumfilter",
         "status": "Statusfilter",
-        "allRoles": "Alle Rollen",
-        "allPremium": "Alle Premiumstufen",
-        "allStatus": "Alle Status"
+        "mobileToggle": "Filter und Sortierung"
       },
       "columns": {
         "auth": "Anmeldung",
         "lastConnectedAt": "Letzte Verbindung",
-        "role": "Rolle"
+        "role": "Rolle",
+        "localization": "Standort"
       },
       "roles": {
         "user": "Benutzer"
@@ -71,23 +73,56 @@
         "notSorted": "Nicht sortiert",
         "ascending": "Aufsteigend",
         "descending": "Absteigend",
-        "ariaLabel": "Nach {{ field }} sortieren. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "Nach {{ field }} sortieren. {{ direction }}.",
+        "mobileAriaLabel": "Benutzersortierung",
+        "sortBy": "Sortieren nach",
+        "directionAriaLabel": "Sortierrichtung ändern. Aktuelle Richtung: {{ direction }}."
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Bestätigt",
-      "unverified": "Nicht bestätigt",
-      "lastUsed": "Zuletzt verwendet",
       "local": "Lokal",
       "never": "Nie",
+      "lastConnectedToday": "Heute",
+      "lastConnectedYesterday": "Gestern",
+      "lastConnectedAgo": "vor {{ count }} Tagen",
+      "countries": {
+        "open": "Länder anzeigen",
+        "title": "Länder",
+        "ariaLabel": "Länderübersicht",
+        "tableAriaLabel": "Benutzer nach Land",
+        "percentage": "Prozentsatz",
+        "close": "Länderübersicht schließen"
+      },
+      "status": {
+        "active": "Online oder im Spiel",
+        "recentlyConnected": "Online letzte 7 Tage",
+        "recentlyCreated": "Neue Benutzer letzte 7 Tage",
+        "neverConnected": "Nie verbunden"
+      },
+      "localization": {
+        "country": "Land",
+        "language": "Sprache",
+        "ariaLabel": "Benutzerstandorte",
+        "tableAriaLabel": "Zusammenfassung der Benutzerstandorte",
+        "close": "Standorte schließen",
+        "viewLabel": "Standortdaten",
+        "activeUsers": "Aktive Benutzer",
+        "continents": "Kontinent",
+        "views": {
+          "countriesAll": "Länder · alle Benutzer",
+          "countriesActive": "Länder · aktive Benutzer",
+          "continentsAll": "Kontinente · alle Benutzer",
+          "continentsActive": "Kontinente · aktive Benutzer",
+          "languagesAll": "Sprachen · alle Benutzer",
+          "languagesActive": "Sprachen · aktive Benutzer"
+        }
+      },
       "authorizationRole": "Berechtigungsrolle",
       "premiumTier": "Premiumstufe",
       "onlineNow": "Jetzt online",
       "offlineNow": "Jetzt offline",
       "activeSessions": "{{ count }} aktive Sitzung(en)",
       "closeSessions": "Sitzungen schließen",
-      "activeRooms": "{{ count }} aktiver Raum/Räume",
-      "removeRooms": "Aus Räumen entfernen",
-      "permanentAction": "Dauerhafte Aktion",
       "deleteUser": "Benutzer löschen",
       "viewProfile": "Profil anzeigen",
       "viewProfileFor": "Profil von {{ name }} anzeigen",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "{{ first }}–{{ last }} von {{ total }}",
         "page": "Seite {{ current }} von {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "Es werden {{ active }} aktive von {{ total }} Nutzern angezeigt",
+        "filteredOfTotal": "Es werden {{ count }} von {{ total }} Nutzern angezeigt"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Sitzungen schließen bestätigen",
           "message": "{{ count }} aktive Sitzung(en) von {{ name }} schließen?"
-        },
-        "removeRooms": {
-          "title": "Aus Räumen entfernen bestätigen",
-          "message": "{{ name }} aus {{ count }} aktivem Raum/aktiven Räumen entfernen?"
         },
         "deleteUser": {
           "title": "Löschen des Benutzers bestätigen",

@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Users summary",
       "summary": {
-        "total": "Total users"
+        "total": "Utenti totali",
+        "totalDecks": "Mazzi totali",
+        "tier0": "Livello 0"
       },
       "loading": "Loading users...",
       "noUsersMatch": "No users match the current filters.",
       "filters": {
         "ariaLabel": "User filters",
         "search": "Search users",
+        "reset": "Reimposta",
         "role": "Role filter",
         "premium": "Premium filter",
         "status": "Status filter",
-        "allRoles": "All roles",
-        "allPremium": "All premium tiers",
-        "allStatus": "All statuses"
+        "mobileToggle": "Filtri e ordinamento"
       },
       "columns": {
         "auth": "Authentication",
         "lastConnectedAt": "Last connection",
-        "role": "Role"
+        "role": "Role",
+        "localization": "Posizione"
       },
       "roles": {
         "user": "User"
@@ -71,23 +73,56 @@
         "notSorted": "Not sorted",
         "ascending": "Ascending",
         "descending": "Descending",
-        "ariaLabel": "Sort by {{ field }}. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "Ordina per {{ field }}. {{ direction }}.",
+        "mobileAriaLabel": "Ordinamento utenti",
+        "sortBy": "Ordina per",
+        "directionAriaLabel": "Cambia direzione di ordinamento. Direzione attuale: {{ direction }}."
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Verified",
-      "unverified": "Unverified",
-      "lastUsed": "Last used",
       "local": "Local",
       "never": "Never",
+      "lastConnectedToday": "Oggi",
+      "lastConnectedYesterday": "Ieri",
+      "lastConnectedAgo": "{{ count }} giorni fa",
+      "countries": {
+        "open": "Vedi paesi",
+        "title": "Paesi",
+        "ariaLabel": "Riepilogo paesi",
+        "tableAriaLabel": "Utenti per paese",
+        "percentage": "Percentuale",
+        "close": "Chiudi riepilogo paesi"
+      },
+      "status": {
+        "active": "Online o in partita",
+        "recentlyConnected": "Online ultimi 7 giorni",
+        "recentlyCreated": "Nuovi utenti ultimi 7 giorni",
+        "neverConnected": "Mai connesso"
+      },
+      "localization": {
+        "country": "Paese",
+        "language": "Lingua",
+        "ariaLabel": "Posizioni degli utenti",
+        "tableAriaLabel": "Riepilogo delle posizioni degli utenti",
+        "close": "Chiudi posizioni",
+        "viewLabel": "Dati di posizione",
+        "activeUsers": "Utenti attivi",
+        "continents": "Continente",
+        "views": {
+          "countriesAll": "Paesi · tutti gli utenti",
+          "countriesActive": "Paesi · utenti attivi",
+          "continentsAll": "Continenti · tutti gli utenti",
+          "continentsActive": "Continenti · utenti attivi",
+          "languagesAll": "Lingue · tutti gli utenti",
+          "languagesActive": "Lingue · utenti attivi"
+        }
+      },
       "authorizationRole": "Authorization role",
       "premiumTier": "Premium tier",
       "onlineNow": "Online now",
       "offlineNow": "Offline now",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
-      "activeRooms": "{{ count }} active room(s)",
-      "removeRooms": "Remove from rooms",
-      "permanentAction": "Permanent action",
       "deleteUser": "Delete user",
       "viewProfile": "View profile",
       "viewProfileFor": "View profile for {{ name }}",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "Showing {{ first }}–{{ last }} of {{ total }}",
         "page": "Page {{ current }} of {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "Visualizzati {{ active }} utenti attivi su {{ total }}",
+        "filteredOfTotal": "Visualizzati {{ count }} utenti su {{ total }}"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Confirm session closure",
           "message": "Close {{ count }} active session(s) for {{ name }}?"
-        },
-        "removeRooms": {
-          "title": "Confirm room removal",
-          "message": "Remove {{ name }} from {{ count }} active room(s)?"
         },
         "deleteUser": {
           "title": "Confirm user deletion",

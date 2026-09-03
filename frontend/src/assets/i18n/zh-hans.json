@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Users summary",
       "summary": {
-        "total": "Total users"
+        "total": "用户总数",
+        "totalDecks": "套牌总数",
+        "tier0": "等级 0"
       },
       "loading": "Loading users...",
       "noUsersMatch": "No users match the current filters.",
       "filters": {
         "ariaLabel": "User filters",
         "search": "Search users",
+        "reset": "重置",
         "role": "Role filter",
         "premium": "Premium filter",
         "status": "Status filter",
-        "allRoles": "All roles",
-        "allPremium": "All premium tiers",
-        "allStatus": "All statuses"
+        "mobileToggle": "筛选和排序"
       },
       "columns": {
         "auth": "Authentication",
         "lastConnectedAt": "Last connection",
-        "role": "Role"
+        "role": "Role",
+        "localization": "位置"
       },
       "roles": {
         "user": "User"
@@ -71,23 +73,56 @@
         "notSorted": "Not sorted",
         "ascending": "Ascending",
         "descending": "Descending",
-        "ariaLabel": "Sort by {{ field }}. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "按 {{ field }} 排序。{{ direction }}。",
+        "mobileAriaLabel": "用户排序",
+        "sortBy": "排序方式",
+        "directionAriaLabel": "更改排序方向。当前方向：{{ direction }}。"
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Verified",
-      "unverified": "Unverified",
-      "lastUsed": "Last used",
       "local": "Local",
       "never": "Never",
+      "lastConnectedToday": "今天",
+      "lastConnectedYesterday": "昨天",
+      "lastConnectedAgo": "{{ count }} 天前",
+      "countries": {
+        "open": "查看国家",
+        "title": "国家",
+        "ariaLabel": "国家概览",
+        "tableAriaLabel": "按国家统计用户",
+        "percentage": "百分比",
+        "close": "关闭国家概览"
+      },
+      "status": {
+        "active": "在线或游戏中",
+        "recentlyConnected": "过去 7 天在线",
+        "recentlyCreated": "过去 7 天新用户",
+        "neverConnected": "从未连接"
+      },
+      "localization": {
+        "country": "国家",
+        "language": "语言",
+        "ariaLabel": "用户位置",
+        "tableAriaLabel": "用户位置摘要",
+        "close": "关闭位置",
+        "viewLabel": "位置数据",
+        "activeUsers": "活跃用户",
+        "continents": "大洲",
+        "views": {
+          "countriesAll": "国家 · 所有用户",
+          "countriesActive": "国家 · 活跃用户",
+          "continentsAll": "大洲 · 所有用户",
+          "continentsActive": "大洲 · 活跃用户",
+          "languagesAll": "语言 · 所有用户",
+          "languagesActive": "语言 · 活跃用户"
+        }
+      },
       "authorizationRole": "Authorization role",
       "premiumTier": "Premium tier",
       "onlineNow": "Online now",
       "offlineNow": "Offline now",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
-      "activeRooms": "{{ count }} active room(s)",
-      "removeRooms": "Remove from rooms",
-      "permanentAction": "Permanent action",
       "deleteUser": "Delete user",
       "viewProfile": "View profile",
       "viewProfileFor": "View profile for {{ name }}",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "Showing {{ first }}–{{ last }} of {{ total }}",
         "page": "Page {{ current }} of {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "显示 {{ total }} 位用户中的 {{ active }} 位活跃用户",
+        "filteredOfTotal": "显示 {{ total }} 位用户中的 {{ count }} 位"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Confirm session closure",
           "message": "Close {{ count }} active session(s) for {{ name }}?"
-        },
-        "removeRooms": {
-          "title": "Confirm room removal",
-          "message": "Remove {{ name }} from {{ count }} active room(s)?"
         },
         "deleteUser": {
           "title": "Confirm user deletion",

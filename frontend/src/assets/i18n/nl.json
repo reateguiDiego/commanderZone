@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Gebruikersoverzicht",
       "summary": {
-        "total": "Totaal aantal gebruikers"
+        "total": "Totaal aantal gebruikers",
+        "totalDecks": "Totaal decks",
+        "tier0": "Tier 0"
       },
       "loading": "Gebruikers laden...",
       "noUsersMatch": "Geen gebruikers komen overeen met de huidige filters.",
       "filters": {
         "ariaLabel": "Gebruikersfilters",
         "search": "Gebruikers zoeken",
+        "reset": "Resetten",
         "role": "Rolfilter",
         "premium": "Premiumfilter",
         "status": "Statusfilter",
-        "allRoles": "Alle rollen",
-        "allPremium": "Alle premiumniveaus",
-        "allStatus": "Alle statussen"
+        "mobileToggle": "Filters en sortering"
       },
       "columns": {
         "auth": "Authenticatie",
         "lastConnectedAt": "Laatst verbonden",
-        "role": "Rol"
+        "role": "Rol",
+        "localization": "Locatie"
       },
       "roles": {
         "user": "Gebruiker"
@@ -71,23 +73,56 @@
         "notSorted": "Niet gesorteerd",
         "ascending": "Oplopend",
         "descending": "Aflopend",
-        "ariaLabel": "Sorteer op {{ field }}. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "Sorteer op {{ field }}. {{ direction }}.",
+        "mobileAriaLabel": "Gebruikers sorteren",
+        "sortBy": "Sorteer op",
+        "directionAriaLabel": "Sorteerrichting wijzigen. Huidige richting: {{ direction }}."
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Geverifieerd",
-      "unverified": "Niet geverifieerd",
-      "lastUsed": "Laatst gebruikt",
       "local": "Lokaal",
       "never": "Nooit",
+      "lastConnectedToday": "Vandaag",
+      "lastConnectedYesterday": "Gisteren",
+      "lastConnectedAgo": "{{ count }} dagen geleden",
+      "countries": {
+        "open": "Landen bekijken",
+        "title": "Landen",
+        "ariaLabel": "Landenoverzicht",
+        "tableAriaLabel": "Gebruikers per land",
+        "percentage": "Percentage",
+        "close": "Landenoverzicht sluiten"
+      },
+      "status": {
+        "active": "Online of in spel",
+        "recentlyConnected": "Online laatste 7 dagen",
+        "recentlyCreated": "Nieuwe gebruikers laatste 7 dagen",
+        "neverConnected": "Nooit verbonden"
+      },
+      "localization": {
+        "country": "Land",
+        "language": "Taal",
+        "ariaLabel": "Gebruikerslocaties",
+        "tableAriaLabel": "Overzicht van gebruikerslocaties",
+        "close": "Locaties sluiten",
+        "viewLabel": "Locatiegegevens",
+        "activeUsers": "Actieve gebruikers",
+        "continents": "Continent",
+        "views": {
+          "countriesAll": "Landen · alle gebruikers",
+          "countriesActive": "Landen · actieve gebruikers",
+          "continentsAll": "Continenten · alle gebruikers",
+          "continentsActive": "Continenten · actieve gebruikers",
+          "languagesAll": "Talen · alle gebruikers",
+          "languagesActive": "Talen · actieve gebruikers"
+        }
+      },
       "authorizationRole": "Autorisatierol",
       "premiumTier": "Premiumniveau",
       "onlineNow": "Nu online",
       "offlineNow": "Nu offline",
       "activeSessions": "{{ count }} actieve sessie(s)",
       "closeSessions": "Sessies sluiten",
-      "activeRooms": "{{ count }} actieve kamer(s)",
-      "removeRooms": "Uit kamers verwijderen",
-      "permanentAction": "Permanente actie",
       "deleteUser": "Gebruiker verwijderen",
       "viewProfile": "Profiel bekijken",
       "viewProfileFor": "Profiel van {{ name }} bekijken",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "{{ first }}–{{ last }} van {{ total }} weergeven",
         "page": "Pagina {{ current }} van {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "{{ active }} actieve gebruikers van {{ total }} weergegeven",
+        "filteredOfTotal": "{{ count }} van {{ total }} gebruikers weergegeven"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Sessies sluiten bevestigen",
           "message": "{{ count }} actieve sessie(s) van {{ name }} sluiten?"
-        },
-        "removeRooms": {
-          "title": "Verwijderen uit kamers bevestigen",
-          "message": "{{ name }} uit {{ count }} actieve kamer(s) verwijderen?"
         },
         "deleteUser": {
           "title": "Gebruiker verwijderen bevestigen",

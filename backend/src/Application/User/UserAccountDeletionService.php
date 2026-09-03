@@ -58,27 +58,6 @@ class UserAccountDeletionService
         return $roomRemovalResult;
     }
 
-    public function removeFromRooms(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
-    {
-        $rooms = $this->roomsForUser($user, $entityManager);
-        $this->concedeRuntimeGamesBeforeRemoval($rooms, $user, $entityManager);
-
-        try {
-            $entityManager->beginTransaction();
-            $result = $this->removeFromRoomsInOpenTransaction($rooms, $user, $entityManager);
-            $entityManager->flush();
-            $entityManager->commit();
-        } catch (\Throwable $exception) {
-            if ($entityManager->getConnection()->isTransactionActive()) {
-                $entityManager->rollback();
-            }
-
-            throw $exception;
-        }
-
-        return $result;
-    }
-
     /**
      * @param list<Room> $rooms
      */

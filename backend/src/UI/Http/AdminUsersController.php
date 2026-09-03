@@ -5,15 +5,19 @@ namespace App\UI\Http;
 use App\Application\Auth\RefreshSessionService;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Application\Friendship\FriendPresenceService;
+use App\Application\User\AdminUserLocalizationSummaryFactory;
 use App\Application\User\UserAccountDeletionResult;
 use App\Application\User\UserAccountDeletionService;
 use App\Domain\Auth\RefreshSession;
-use App\Domain\Room\Room;
+use App\Domain\Deck\Deck;
 use App\Domain\User\Role;
 use App\Domain\User\User;
+use App\Domain\User\UserDailyVisit;
 use App\Infrastructure\Realtime\GameEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,18 +28,23 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class AdminUsersController extends ApiController
 {
     private const IMPERSONATION_JWT_TTL_SECONDS = 900;
+    private const DEFAULT_USERS_PAGE_SIZE = 30;
+    private const MAX_USERS_PAGE_SIZE = 100;
 
     #[Route('/admin/users', methods: ['GET'])]
     public function list(
+        Request $request,
         #[CurrentUser] User $actor,
         EntityManagerInterface $entityManager,
         FriendPresenceService $presence,
+        AdminUserLocalizationSummaryFactory $localizationSummaryFactory,
     ): JsonResponse
     {
         if (!$this->canAccessAdmin($actor)) {
             return $this->fail('Admin access is required.', 403);
         }
 
+        $criteria = $this->listCriteria($request);
         $users = $entityManager->getRepository(User::class)->createQueryBuilder('user')
             ->leftJoin('user.roles', 'role')
             ->addSelect('role')
@@ -43,10 +52,41 @@ class AdminUsersController extends ApiController
             ->getQuery()
             ->getResult();
 
+        $adminUsers = array_values(array_filter($users, static fn (mixed $user): bool => $user instanceof User));
+        $presenceStatusesByUserId = $presence->statusesFor($adminUsers);
+        $deckCountsByUserId = $this->deckCountsByUserId($adminUsers, $entityManager);
+        $localizationByUserId = $this->localizationByUserId($adminUsers, $entityManager);
+        $filteredUsers = $this->filterAdminUsers($adminUsers, $criteria, $presenceStatusesByUserId);
+        $this->sortAdminUsers($filteredUsers, $criteria['sort'], $criteria['direction'], $deckCountsByUserId);
+
+        $total = count($filteredUsers);
+        $limit = $criteria['paginate'] ? $criteria['limit'] : max(1, $total);
+        $totalPages = max(1, (int) ceil($total / $limit));
+        $page = min($criteria['page'], $totalPages);
+        $pageUsers = array_slice($filteredUsers, ($page - 1) * $limit, $limit);
+        $authProvidersByUserId = $this->authProvidersByUserId($pageUsers, $entityManager);
+        $activeSessionsByUserId = $this->activeSessionCountsByUserId($pageUsers, $entityManager);
+
         return $this->json([
             'users' => array_map(
-                fn (User $user): array => $this->adminUserArray($user, $entityManager, $presence),
-                array_values(array_filter($users, static fn (mixed $user): bool => $user instanceof User)),
+                fn (User $user): array => $this->adminUserArray(
+                    $user,
+                    $authProvidersByUserId[$user->id()] ?? [],
+                    $deckCountsByUserId[$user->id()] ?? $this->emptyDeckCounts(),
+                    $localizationByUserId[$user->id()] ?? $this->emptyLocalization($user),
+                    $presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE,
+                    $activeSessionsByUserId[$user->id()] ?? 0,
+                ),
+                $pageUsers,
+            ),
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'totalPages' => $totalPages,
+            'summary' => $this->usersSummary($adminUsers, $presenceStatusesByUserId, $deckCountsByUserId),
+            'countries' => $this->countriesSummary($adminUsers, $localizationByUserId),
+            'localizationSummary' => $localizationSummaryFactory->create(
+                $this->localizationSummaryInput($adminUsers, $localizationByUserId, $presenceStatusesByUserId),
             ),
         ]);
     }
@@ -116,7 +156,14 @@ class AdminUsersController extends ApiController
             return $this->fail('Only one owner user is allowed.', 409);
         }
 
-        return $this->json(['user' => $this->adminUserArray($target, $entityManager, $presence)]);
+        return $this->json(['user' => $this->adminUserArray(
+            $target,
+            $this->authProvidersForUser($target, $entityManager),
+            $this->deckCountsForUser($target, $entityManager),
+            $this->localizationForUser($target, $entityManager),
+            $presence->statusFor($target),
+            $this->activeSessionsCount($target, $entityManager),
+        )]);
     }
 
     #[Route('/admin/users/{id}', methods: ['DELETE'])]
@@ -178,39 +225,14 @@ class AdminUsersController extends ApiController
 
         $refreshSessions->revokeAllActiveSessionsForUser($target);
 
-        return $this->json(['user' => $this->adminUserArray($target, $entityManager, $presence)]);
-    }
-
-    #[Route('/admin/users/{id}/rooms/leave', methods: ['POST'])]
-    public function leaveRooms(
-        string $id,
-        #[CurrentUser] User $actor,
-        EntityManagerInterface $entityManager,
-        UserAccountDeletionService $accountDeletion,
-        RoomEventPublisher $roomEventPublisher,
-        GameEventPublisher $gameEventPublisher,
-        FriendPresenceService $presence,
-    ): JsonResponse {
-        if (!$this->canAccessAdmin($actor)) {
-            return $this->fail('Admin access is required.', 403);
-        }
-        if (!$this->canManageAdminActions($actor)) {
-            return $this->fail('Admin or owner access is required for this action.', 403);
-        }
-
-        $target = $this->targetUser($id, $entityManager);
-        if (!$target instanceof User) {
-            return $this->fail('User not found.', 404);
-        }
-        $permissionError = $this->validateActorCanManagePremiumAndPresenceTarget($actor, $target);
-        if ($permissionError instanceof JsonResponse) {
-            return $permissionError;
-        }
-
-        $result = $accountDeletion->removeFromRooms($target, $entityManager);
-        $this->publishRoomRemovalResult($result, $roomEventPublisher, $gameEventPublisher);
-
-        return $this->json(['user' => $this->adminUserArray($target, $entityManager, $presence)]);
+        return $this->json(['user' => $this->adminUserArray(
+            $target,
+            $this->authProvidersForUser($target, $entityManager),
+            $this->deckCountsForUser($target, $entityManager),
+            $this->localizationForUser($target, $entityManager),
+            $presence->statusFor($target),
+            $this->activeSessionsCount($target, $entityManager),
+        )]);
     }
 
     #[Route('/admin/users/{id}/impersonate', methods: ['POST'])]
@@ -398,90 +420,551 @@ class AdminUsersController extends ApiController
      *   displayName: string,
      *   publicProfilePath: string|null,
      *   email: string,
-     *   authIdentities: list<array{provider:string, providerUserId:string, providerEmail:string, providerEmailVerified:bool, createdAt:string, lastUsedAt:string|null}>,
+     *   authProviders: list<string>,
      *   roles: list<string>,
      *   authorizationRole: string,
      *   premiumTier: string,
      *   lastConnectedAt: string|null,
      *   presenceStatus: string,
      *   isOnline: bool,
-     *   activeRoomsCount: int,
      *   activeSessionsCount: int,
+     *   deckCounts: array{total:int, privateCount:int, publicCount:int},
+     *   localization: array{countryCode:string|null, countryName:string|null, appLanguage:string},
      *   createdAt: string
      * }
      */
-    private function adminUserArray(User $user, EntityManagerInterface $entityManager, FriendPresenceService $presence): array
+    private function adminUserArray(
+        User $user,
+        array $authProviders,
+        array $deckCounts,
+        array $localization,
+        string $presenceStatus,
+        int $activeSessionsCount,
+    ): array
     {
-        $presenceStatus = $presence->statusFor($user);
-
         return [
             'id' => $user->id(),
             'displayName' => $user->displayName(),
             'publicProfilePath' => $user->publicPath(),
             'email' => $user->email(),
-            'authIdentities' => $this->authIdentities($user, $entityManager),
+            'authProviders' => $authProviders,
             'roles' => $user->getRoles(),
             'authorizationRole' => $this->authorizationRole($user),
             'premiumTier' => $user->premiumTier(),
             'lastConnectedAt' => $user->lastSeenAt()?->format(DATE_ATOM),
             'presenceStatus' => $presenceStatus,
             'isOnline' => $presenceStatus !== FriendPresenceService::STATUS_OFFLINE,
-            'activeRoomsCount' => $this->activeRoomsCount($user, $entityManager),
-            'activeSessionsCount' => $this->activeSessionsCount($user, $entityManager),
+            'activeSessionsCount' => $activeSessionsCount,
+            'deckCounts' => $deckCounts,
+            'localization' => $localization,
             'createdAt' => $user->createdAt()->format(DATE_ATOM),
         ];
     }
 
     /**
-     * @return list<array{provider:string, providerUserId:string, providerEmail:string, providerEmailVerified:bool, createdAt:string, lastUsedAt:string|null}>
+     * @return list<string>
      */
-    private function authIdentities(User $user, EntityManagerInterface $entityManager): array
+    private function authProvidersForUser(User $user, EntityManagerInterface $entityManager): array
     {
-        $rows = $entityManager->getConnection()->fetchAllAssociative(
+        $providers = $entityManager->getConnection()->fetchFirstColumn(
             <<<'SQL'
-SELECT provider, provider_user_id, provider_email, provider_email_verified, created_at, last_used_at
+SELECT DISTINCT provider
 FROM auth_identity
 WHERE user_id = :userId
-ORDER BY created_at ASC, provider ASC
+ORDER BY provider ASC
 SQL,
             ['userId' => $user->id()],
         );
 
-        return array_map(
-            fn (array $row): array => [
-                'provider' => strtoupper($this->stringFallback($row['provider'] ?? null, 'GOOGLE')),
-                'providerUserId' => $this->stringFallback($row['provider_user_id'] ?? null, 'GOOGLE'),
-                'providerEmail' => $this->stringFallback($row['provider_email'] ?? null, 'GOOGLE'),
-                'providerEmailVerified' => $this->boolValue($row['provider_email_verified'] ?? false),
-                'createdAt' => $this->dateTimeAtom($row['created_at'] ?? null) ?? 'GOOGLE',
-                'lastUsedAt' => $this->dateTimeAtom($row['last_used_at'] ?? null),
-            ],
-            $rows,
-        );
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $provider): ?string => $this->normalizeAuthProvider($provider),
+            $providers,
+        ))));
     }
 
-    private function stringFallback(mixed $value, string $fallback): string
+    /**
+     * @param list<User> $users
+     * @return array<string, list<string>>
+     */
+    private function authProvidersByUserId(array $users, EntityManagerInterface $entityManager): array
     {
-        if (!is_string($value)) {
-            return $fallback;
+        if ($users === []) {
+            return [];
         }
 
-        $trimmed = trim($value);
+        $providersByUserId = [];
+        foreach ($users as $user) {
+            $providersByUserId[$user->id()] = [];
+        }
 
-        return $trimmed === '' ? $fallback : $trimmed;
+        $rows = $entityManager->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+SELECT DISTINCT user_id, provider
+FROM auth_identity
+WHERE user_id IN (:userIds)
+ORDER BY user_id ASC, provider ASC
+SQL,
+            ['userIds' => array_keys($providersByUserId)],
+            ['userIds' => ArrayParameterType::STRING],
+        );
+
+        foreach ($rows as $row) {
+            $userId = $row['user_id'] ?? null;
+            $provider = $row['provider'] ?? null;
+            if (!is_string($userId) || !array_key_exists($userId, $providersByUserId) || !is_string($provider)) {
+                continue;
+            }
+
+            $normalizedProvider = $this->normalizeAuthProvider($provider);
+            if ($normalizedProvider === null) {
+                continue;
+            }
+
+            $providersByUserId[$userId][$normalizedProvider] = true;
+        }
+
+        foreach ($providersByUserId as $userId => $providers) {
+            $providersByUserId[$userId] = array_keys($providers);
+        }
+
+        return $providersByUserId;
     }
 
-    private function activeRoomsCount(User $user, EntityManagerInterface $entityManager): int
+    private function normalizeAuthProvider(mixed $provider): ?string
     {
-        return (int) $entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->select('COUNT(DISTINCT room.id)')
-            ->innerJoin('room.players', 'player')
-            ->where('room.status != :archived')
-            ->andWhere('player.user = :user')
-            ->setParameter('archived', Room::STATUS_ARCHIVED)
-            ->setParameter('user', $user)
+        if (!is_string($provider)) {
+            return null;
+        }
+
+        $normalizedProvider = trim($provider);
+
+        return $normalizedProvider === '' ? null : ucfirst(strtolower($normalizedProvider));
+    }
+
+    /**
+     * @param list<User> $users
+     * @return array<string, array{total:int, privateCount:int, publicCount:int}>
+     */
+    private function deckCountsByUserId(array $users, EntityManagerInterface $entityManager): array
+    {
+        if ($users === []) {
+            return [];
+        }
+
+        $countsByUserId = [];
+        foreach ($users as $user) {
+            $countsByUserId[$user->id()] = $this->emptyDeckCounts();
+        }
+
+        $rows = $entityManager->getRepository(Deck::class)->createQueryBuilder('deck')
+            ->select('IDENTITY(deck.owner) AS ownerId, deck.visibility AS visibility, COUNT(deck.id) AS deckCount')
+            ->where('deck.owner IN (:users)')
+            ->setParameter('users', $users)
+            ->groupBy('ownerId')
+            ->addGroupBy('deck.visibility')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getArrayResult();
+
+        foreach ($rows as $row) {
+            $userId = $row['ownerId'] ?? null;
+            $visibility = $row['visibility'] ?? null;
+            if (!is_string($userId) || !isset($countsByUserId[$userId]) || !is_string($visibility)) {
+                continue;
+            }
+
+            $count = (int) ($row['deckCount'] ?? 0);
+            if ($visibility === Deck::VISIBILITY_PUBLIC) {
+                $countsByUserId[$userId]['publicCount'] = $count;
+            }
+            if ($visibility === Deck::VISIBILITY_PRIVATE) {
+                $countsByUserId[$userId]['privateCount'] = $count;
+            }
+        }
+
+        foreach ($countsByUserId as &$deckCounts) {
+            $deckCounts['total'] = $deckCounts['privateCount'] + $deckCounts['publicCount'];
+        }
+        unset($deckCounts);
+
+        return $countsByUserId;
+    }
+
+    /** @return array{total:int, privateCount:int, publicCount:int} */
+    private function deckCountsForUser(User $user, EntityManagerInterface $entityManager): array
+    {
+        return $this->deckCountsByUserId([$user], $entityManager)[$user->id()] ?? $this->emptyDeckCounts();
+    }
+
+    /** @return array{total:int, privateCount:int, publicCount:int} */
+    private function emptyDeckCounts(): array
+    {
+        return ['total' => 0, 'privateCount' => 0, 'publicCount' => 0];
+    }
+
+    /**
+     * @param list<User> $users
+     * @return array<string, array{countryCode:string|null, countryName:string|null, appLanguage:string}>
+     */
+    private function localizationByUserId(array $users, EntityManagerInterface $entityManager): array
+    {
+        if ($users === []) {
+            return [];
+        }
+
+        $localizationByUserId = [];
+        foreach ($users as $user) {
+            $localizationByUserId[$user->id()] = $this->emptyLocalization($user);
+        }
+
+        $visits = $entityManager->getRepository(UserDailyVisit::class)->createQueryBuilder('visit')
+            ->select('IDENTITY(visit.user) AS userId, visit.countryCode AS countryCode, visit.countryName AS countryName')
+            ->where('visit.user IN (:users)')
+            ->setParameter('users', $users)
+            ->orderBy('visit.firstSeenAt', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+
+        foreach ($visits as $visit) {
+            $userId = $visit['userId'] ?? null;
+            $countryCode = $visit['countryCode'] ?? null;
+            $countryName = $visit['countryName'] ?? null;
+            if (
+                !is_string($userId)
+                || !isset($localizationByUserId[$userId])
+                || !is_string($countryCode)
+                || $localizationByUserId[$userId]['countryName'] !== null
+                || $localizationByUserId[$userId]['countryCode'] !== $countryCode
+                || !is_string($countryName)
+                || trim($countryName) === ''
+            ) {
+                continue;
+            }
+
+            $localizationByUserId[$userId]['countryName'] = trim($countryName);
+        }
+
+        foreach ($localizationByUserId as &$localization) {
+            if ($localization['countryName'] !== null || $localization['countryCode'] === null) {
+                continue;
+            }
+
+            $localization['countryName'] = $this->countryNameForCode($localization['countryCode']);
+        }
+        unset($localization);
+
+        return $localizationByUserId;
+    }
+
+    /** @return array{countryCode:string|null, countryName:string|null, appLanguage:string} */
+    private function localizationForUser(User $user, EntityManagerInterface $entityManager): array
+    {
+        return $this->localizationByUserId([$user], $entityManager)[$user->id()] ?? $this->emptyLocalization($user);
+    }
+
+    /** @return array{countryCode:string|null, countryName:string|null, appLanguage:string} */
+    private function emptyLocalization(User $user): array
+    {
+        return [
+            'countryCode' => $user->lastSeenCountryCode(),
+            'countryName' => null,
+            'appLanguage' => $user->appLanguage(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   query:string,
+     *   role:string|null,
+     *   premiumTier:string|null,
+     *   presence:string,
+     *   sort:string,
+     *   direction:'asc'|'desc',
+     *   paginate:bool,
+     *   page:int,
+     *   limit:int
+     * }
+     */
+    private function listCriteria(Request $request): array
+    {
+        $role = $this->queryString($request, 'role', 'all');
+        $premiumTier = $this->queryString($request, 'premiumTier', 'all');
+        $presence = $this->queryString($request, 'status', 'all');
+        $sort = $this->queryString($request, 'sort', 'createdAt');
+        $direction = $this->queryString($request, 'direction', 'desc');
+
+        return [
+            'query' => $this->queryString($request, 'q'),
+            'role' => $role !== 'all' && Role::isSupported($role) ? $role : null,
+            'premiumTier' => $premiumTier !== 'all' && User::isSupportedPremiumTier($premiumTier) ? $premiumTier : null,
+            'presence' => in_array($presence, [
+                'all',
+                'active',
+                FriendPresenceService::STATUS_ONLINE,
+                FriendPresenceService::STATUS_IN_GAME,
+                FriendPresenceService::STATUS_OFFLINE,
+                'recently_connected',
+                'recently_created',
+                'never_connected',
+            ], true) ? $presence : 'active',
+            'sort' => in_array($sort, ['name', 'email', 'lastConnectedAt', 'createdAt', 'role', 'premium', 'totalDecks'], true)
+                ? $sort
+                : 'createdAt',
+            'direction' => $direction === 'asc' ? 'asc' : 'desc',
+            'paginate' => $request->query->has('page') || $request->query->has('limit'),
+            'page' => $this->positiveQueryInteger($request, 'page', 1),
+            'limit' => min(self::MAX_USERS_PAGE_SIZE, $this->positiveQueryInteger($request, 'limit', self::DEFAULT_USERS_PAGE_SIZE)),
+        ];
+    }
+
+    private function queryString(Request $request, string $name, string $default = ''): string
+    {
+        $value = $request->query->get($name, $default);
+
+        return is_string($value) ? trim($value) : $default;
+    }
+
+    private function positiveQueryInteger(Request $request, string $name, int $default): int
+    {
+        $value = filter_var($request->query->get($name), FILTER_VALIDATE_INT);
+
+        return is_int($value) && $value > 0 ? $value : $default;
+    }
+
+    /**
+     * @param list<User> $users
+     * @param array{query:string, role:string|null, premiumTier:string|null, presence:string, sort:string, direction:'asc'|'desc', paginate:bool, page:int, limit:int} $criteria
+     * @param array<string, string> $presenceStatusesByUserId
+     * @return list<User>
+     */
+    private function filterAdminUsers(array $users, array $criteria, array $presenceStatusesByUserId): array
+    {
+        $query = mb_strtolower($criteria['query']);
+        $now = new \DateTimeImmutable();
+        $recentSince = $now->modify('-7 days');
+
+        return array_values(array_filter($users, function (User $user) use ($criteria, $presenceStatusesByUserId, $query, $now, $recentSince): bool {
+            if ($criteria['role'] !== null && $this->authorizationRole($user) !== $criteria['role']) {
+                return false;
+            }
+            if ($criteria['premiumTier'] !== null && $user->premiumTier() !== $criteria['premiumTier']) {
+                return false;
+            }
+            if (!$this->matchesPresenceFilter(
+                $user,
+                $criteria['presence'],
+                $presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE,
+                $now,
+                $recentSince,
+            )) {
+                return false;
+            }
+            if ($query === '') {
+                return true;
+            }
+
+            return str_contains(mb_strtolower($user->displayName()), $query)
+                || str_contains(mb_strtolower($user->email()), $query);
+        }));
+    }
+
+    private function matchesPresenceFilter(
+        User $user,
+        string $presenceFilter,
+        string $presenceStatus,
+        \DateTimeImmutable $now,
+        \DateTimeImmutable $recentSince,
+    ): bool {
+        return match ($presenceFilter) {
+            'all' => true,
+            'active' => $presenceStatus !== FriendPresenceService::STATUS_OFFLINE,
+            FriendPresenceService::STATUS_ONLINE,
+            FriendPresenceService::STATUS_IN_GAME,
+            FriendPresenceService::STATUS_OFFLINE => $presenceStatus === $presenceFilter,
+            'recently_connected' => $this->isWithinRange($user->lastSeenAt(), $recentSince, $now),
+            'recently_created' => $this->isWithinRange($user->createdAt(), $recentSince, $now),
+            'never_connected' => $user->lastSeenAt() === null,
+            default => false,
+        };
+    }
+
+    private function isWithinRange(?\DateTimeImmutable $date, \DateTimeImmutable $start, \DateTimeImmutable $end): bool
+    {
+        return $date !== null && $date >= $start && $date <= $end;
+    }
+
+    /**
+     * @param list<User> $users
+     * @param array<string, array{total:int, privateCount:int, publicCount:int}> $deckCountsByUserId
+     */
+    private function sortAdminUsers(array &$users, string $sort, string $direction, array $deckCountsByUserId): void
+    {
+        usort($users, function (User $left, User $right) use ($sort, $direction, $deckCountsByUserId): int {
+            $leftValue = $this->adminUserSortValue($left, $sort, $deckCountsByUserId);
+            $rightValue = $this->adminUserSortValue($right, $sort, $deckCountsByUserId);
+            $comparison = is_int($leftValue)
+                ? $leftValue <=> $rightValue
+                : strcasecmp($leftValue, $rightValue);
+
+            if ($comparison === 0) {
+                return strcmp($left->id(), $right->id());
+            }
+
+            return $direction === 'asc' ? $comparison : -$comparison;
+        });
+    }
+
+    /**
+     * @param array<string, array{total:int, privateCount:int, publicCount:int}> $deckCountsByUserId
+     */
+    private function adminUserSortValue(User $user, string $sort, array $deckCountsByUserId): int|string
+    {
+        return match ($sort) {
+            'name' => $user->displayName(),
+            'email' => $user->email(),
+            'lastConnectedAt' => $user->lastSeenAt()?->getTimestamp() ?? PHP_INT_MIN,
+            'role' => $this->roleRank($this->authorizationRole($user)),
+            'premium' => $this->premiumTierRank($user->premiumTier()),
+            'totalDecks' => $deckCountsByUserId[$user->id()]['total'] ?? 0,
+            default => $user->createdAt()->getTimestamp(),
+        };
+    }
+
+    private function premiumTierRank(string $premiumTier): int
+    {
+        return match ($premiumTier) {
+            User::PREMIUM_TIER_1 => 1,
+            User::PREMIUM_TIER_2 => 2,
+            User::PREMIUM_TIER_3 => 3,
+            default => 0,
+        };
+    }
+
+    /**
+     * @param list<User> $users
+     * @param array<string, string> $presenceStatusesByUserId
+     * @param array<string, array{total:int, privateCount:int, publicCount:int}> $deckCountsByUserId
+     * @return array{total:int, online:int, recentlyConnected:int, recentlyCreated:int, neverConnected:int, totalDecks:int, tier0:int, tier1:int, tier2:int, tier3:int}
+     */
+    private function usersSummary(array $users, array $presenceStatusesByUserId, array $deckCountsByUserId): array
+    {
+        $summary = [
+            'total' => 0,
+            'online' => 0,
+            'recentlyConnected' => 0,
+            'recentlyCreated' => 0,
+            'neverConnected' => 0,
+            'totalDecks' => 0,
+            'tier0' => 0,
+            'tier1' => 0,
+            'tier2' => 0,
+            'tier3' => 0,
+        ];
+        $now = new \DateTimeImmutable();
+        $recentSince = $now->modify('-7 days');
+
+        foreach ($users as $user) {
+            $summary['total']++;
+            $summary['online'] += ($presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE) !== FriendPresenceService::STATUS_OFFLINE ? 1 : 0;
+            $summary['recentlyConnected'] += $this->isWithinRange($user->lastSeenAt(), $recentSince, $now) ? 1 : 0;
+            $summary['recentlyCreated'] += $this->isWithinRange($user->createdAt(), $recentSince, $now) ? 1 : 0;
+            $summary['neverConnected'] += $user->lastSeenAt() === null ? 1 : 0;
+            $summary['totalDecks'] += $deckCountsByUserId[$user->id()]['total'] ?? 0;
+
+            match ($user->premiumTier()) {
+                User::PREMIUM_TIER_1 => $summary['tier1']++,
+                User::PREMIUM_TIER_2 => $summary['tier2']++,
+                User::PREMIUM_TIER_3 => $summary['tier3']++,
+                default => $summary['tier0']++,
+            };
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param list<User> $users
+     * @param array<string, array{countryCode:string|null, countryName:string|null, appLanguage:string}> $localizationByUserId
+     * @return list<array{countryCode:string|null, countryName:string|null, userCount:int, share:int}>
+     */
+    private function countriesSummary(array $users, array $localizationByUserId): array
+    {
+        if ($users === []) {
+            return [];
+        }
+
+        $countries = [];
+        foreach ($users as $user) {
+            $localization = $localizationByUserId[$user->id()] ?? $this->emptyLocalization($user);
+            $countryCode = $localization['countryCode'] !== null ? strtoupper(trim($localization['countryCode'])) : null;
+            $countryName = $localization['countryName'] !== null ? trim($localization['countryName']) : null;
+            $countryKey = $countryCode ?? 'unknown';
+
+            if (!isset($countries[$countryKey])) {
+                $countries[$countryKey] = [
+                    'countryCode' => $countryCode,
+                    'countryName' => $countryName === '' ? null : $countryName,
+                    'userCount' => 0,
+                ];
+            }
+
+            $countries[$countryKey]['userCount']++;
+            if ($countries[$countryKey]['countryName'] === null && $countryName !== null && $countryName !== '') {
+                $countries[$countryKey]['countryName'] = $countryName;
+            }
+        }
+
+        $summary = array_map(
+            static fn (array $country): array => [
+                ...$country,
+                'share' => (int) round(($country['userCount'] / count($users)) * 100),
+            ],
+            array_values($countries),
+        );
+
+        usort($summary, static fn (array $left, array $right): int => ($right['userCount'] <=> $left['userCount'])
+            ?: strcasecmp((string) $left['countryName'], (string) $right['countryName']));
+
+        return $summary;
+    }
+
+    /**
+     * @param list<User> $users
+     * @param array<string, array{countryCode:string|null, countryName:string|null, appLanguage:string}> $localizationByUserId
+     * @param array<string, string> $presenceStatusesByUserId
+     * @return list<array{countryCode:string|null, countryName:string|null, appLanguage:string, isActive:bool}>
+     */
+    private function localizationSummaryInput(array $users, array $localizationByUserId, array $presenceStatusesByUserId): array
+    {
+        return array_map(function (User $user) use ($localizationByUserId, $presenceStatusesByUserId): array {
+            $localization = $localizationByUserId[$user->id()] ?? $this->emptyLocalization($user);
+
+            return [
+                'countryCode' => $localization['countryCode'],
+                'countryName' => $localization['countryName'],
+                'appLanguage' => $localization['appLanguage'],
+                'isActive' => ($presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE) !== FriendPresenceService::STATUS_OFFLINE,
+            ];
+        }, $users);
+    }
+
+    private function countryNameForCode(string $countryCode): ?string
+    {
+        $normalizedCode = strtoupper(trim($countryCode));
+        if (preg_match('/^[A-Z]{2}$/', $normalizedCode) !== 1) {
+            return null;
+        }
+
+        try {
+            $countryName = \Locale::getDisplayRegion('und_'.$normalizedCode, 'en');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $trimmedCountryName = trim($countryName);
+
+        return $trimmedCountryName === '' || $trimmedCountryName === $normalizedCode
+            ? null
+            : $trimmedCountryName;
     }
 
     private function activeSessionsCount(User $user, EntityManagerInterface $entityManager): int
@@ -496,6 +979,45 @@ SQL,
             ->setParameter('now', new \DateTimeImmutable())
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * @param list<User> $users
+     * @return array<string, int>
+     */
+    private function activeSessionCountsByUserId(array $users, EntityManagerInterface $entityManager): array
+    {
+        if ($users === []) {
+            return [];
+        }
+
+        $countsByUserId = [];
+        foreach ($users as $user) {
+            $countsByUserId[$user->id()] = 0;
+        }
+
+        $rows = $entityManager->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+SELECT user_id, COUNT(id) AS session_count
+FROM refresh_session
+WHERE user_id IN (:userIds)
+  AND revoked_at IS NULL
+  AND rotated_at IS NULL
+  AND expires_at > :now
+GROUP BY user_id
+SQL,
+            ['userIds' => array_keys($countsByUserId), 'now' => new \DateTimeImmutable()],
+            ['userIds' => ArrayParameterType::STRING, 'now' => Types::DATETIME_IMMUTABLE],
+        );
+
+        foreach ($rows as $row) {
+            $userId = $row['user_id'] ?? null;
+            if (is_string($userId) && array_key_exists($userId, $countsByUserId)) {
+                $countsByUserId[$userId] = (int) ($row['session_count'] ?? 0);
+            }
+        }
+
+        return $countsByUserId;
     }
 
     private function authorizationRole(User $user): string
@@ -521,33 +1043,6 @@ SQL,
             Role::SUPPORT => 2,
             default => 1,
         };
-    }
-
-    private function boolValue(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-        if (is_int($value)) {
-            return $value === 1;
-        }
-        if (is_string($value)) {
-            return in_array(strtolower($value), ['1', 'true', 't', 'yes'], true);
-        }
-
-        return false;
-    }
-
-    private function dateTimeAtom(mixed $value): ?string
-    {
-        if ($value instanceof \DateTimeInterface) {
-            return $value->format(DATE_ATOM);
-        }
-        if (!is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return (new \DateTimeImmutable($value))->format(DATE_ATOM);
     }
 
     private function logImpersonationBlocked(

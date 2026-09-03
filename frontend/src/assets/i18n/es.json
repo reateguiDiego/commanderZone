@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Resumen de usuarios",
       "summary": {
-        "total": "Usuarios totales"
+        "total": "Usuarios totales",
+        "totalDecks": "Total de mazos",
+        "tier0": "Nivel 0"
       },
       "loading": "Cargando usuarios...",
       "noUsersMatch": "Ningún usuario coincide con los filtros actuales.",
       "filters": {
         "ariaLabel": "Filtros de usuario",
         "search": "Buscar usuarios",
+        "reset": "Restablecer",
         "role": "Filtro de rol",
         "premium": "Filtro Premium",
         "status": "Filtro de estado",
-        "allRoles": "Todos los roles",
-        "allPremium": "Todos los niveles Premium",
-        "allStatus": "Todos los estados"
+        "mobileToggle": "Filtros y ordenación"
       },
       "columns": {
         "auth": "Autenticación",
         "lastConnectedAt": "Última conexión",
-        "role": "Rol"
+        "role": "Rol",
+        "localization": "Ubicación"
       },
       "roles": {
         "user": "User"
@@ -71,33 +73,70 @@
         "notSorted": "Not sorted",
         "ascending": "Ascending",
         "descending": "Descending",
-        "ariaLabel": "Sort by {{ field }}. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "Ordenar por {{ field }}. {{ direction }}.",
+        "mobileAriaLabel": "Ordenación de usuarios",
+        "sortBy": "Ordenar por",
+        "directionAriaLabel": "Cambiar dirección de ordenación. Dirección actual: {{ direction }}."
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Verified",
-      "unverified": "Unverified",
-      "lastUsed": "Last used",
       "local": "Local",
-      "never": "Never",
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
-      "activeSessions": "{{ count }} active session(s)",
-      "closeSessions": "Close sessions",
-      "activeRooms": "{{ count }} active room(s)",
-      "removeRooms": "Remove from rooms",
-      "permanentAction": "Permanent action",
-      "deleteUser": "Delete user",
-      "viewProfile": "View profile",
-      "viewProfileFor": "View profile for {{ name }}",
-      "sendMessageTo": "Send message to {{ name }}",
-      "impersonate": "Impersonate",
-      "impersonateUser": "Impersonate {{ name }}",
-      "paginationAriaLabel": "Users pagination",
+      "never": "Nunca",
+      "lastConnectedToday": "Hoy",
+      "lastConnectedYesterday": "Ayer",
+      "lastConnectedAgo": "hace {{ count }} días",
+      "countries": {
+        "open": "Ver países",
+        "title": "Países",
+        "ariaLabel": "Resumen de países",
+        "tableAriaLabel": "Usuarios por país",
+        "percentage": "Porcentaje",
+        "close": "Cerrar resumen de países"
+      },
+      "status": {
+        "active": "En línea o en partida",
+        "recentlyConnected": "En línea últimos 7 días",
+        "recentlyCreated": "Nuevos usuarios últimos 7 días",
+        "neverConnected": "No se ha conectado nunca"
+      },
+      "localization": {
+        "country": "País",
+        "language": "Idioma",
+        "ariaLabel": "Ubicaciones de usuarios",
+        "tableAriaLabel": "Resumen de ubicaciones de usuarios",
+        "close": "Cerrar ubicaciones",
+        "viewLabel": "Datos de ubicación",
+        "activeUsers": "Usuarios activos",
+        "continents": "Continente",
+        "views": {
+          "countriesAll": "Países · todos los usuarios",
+          "countriesActive": "Países · usuarios activos",
+          "continentsAll": "Continentes · todos los usuarios",
+          "continentsActive": "Continentes · usuarios activos",
+          "languagesAll": "Idiomas · todos los usuarios",
+          "languagesActive": "Idiomas · usuarios activos"
+        }
+      },
+      "authorizationRole": "Rol de autorización",
+      "premiumTier": "Nivel Premium",
+      "onlineNow": "En línea ahora",
+      "offlineNow": "Desconectado ahora",
+      "activeSessions": "{{ count }} sesión(es) activa(s)",
+      "closeSessions": "Cerrar sesiones",
+      "deleteUser": "Eliminar usuario",
+      "viewProfile": "Ver perfil",
+      "viewProfileFor": "Ver perfil de {{ name }}",
+      "sendMessageTo": "Enviar mensaje a {{ name }}",
+      "impersonate": "Suplantar",
+      "impersonateUser": "Suplantar a {{ name }}",
+      "paginationAriaLabel": "Paginación de usuarios",
       "pagination": {
-        "showing": "Showing {{ first }}–{{ last }} of {{ total }}",
-        "page": "Page {{ current }} of {{ total }}"
+        "showing": "Mostrando {{ first }}–{{ last }} de {{ total }}",
+        "page": "Página {{ current }} de {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "Mostrando {{ active }} activos de {{ total }} usuarios",
+        "filteredOfTotal": "Mostrando {{ count }} de {{ total }} usuarios"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Confirm session closure",
           "message": "Close {{ count }} active session(s) for {{ name }}?"
-        },
-        "removeRooms": {
-          "title": "Confirm room removal",
-          "message": "Remove {{ name }} from {{ count }} active room(s)?"
         },
         "deleteUser": {
           "title": "Confirm user deletion",
@@ -2301,7 +2336,7 @@
       "userNameAvailable": "Nombre de usuario disponible",
       "userNameNotAvailable": "Nombre de usuario no disponible",
       "roomName": "Nombre de la sala",
-      "all": "Todas",
+      "all": "Todos",
       "open": "Abierto",
       "full": "Llena",
       "started": "Empezada",

@@ -18,30 +18,56 @@ class FriendPresenceService
 
     public function statusFor(User $user): string
     {
-        $lastSeenAt = $user->lastSeenAt();
-        if ($lastSeenAt === null || $lastSeenAt < new \DateTimeImmutable('-5 minutes')) {
-            return self::STATUS_OFFLINE;
-        }
-
-        if ($this->isInStartedRoom($user)) {
-            return self::STATUS_IN_GAME;
-        }
-
-        return self::STATUS_ONLINE;
+        return $this->statusesFor([$user])[$user->id()] ?? self::STATUS_OFFLINE;
     }
 
-    private function isInStartedRoom(User $user): bool
+    /**
+     * @param list<User> $users
+     * @return array<string, string>
+     */
+    public function statusesFor(array $users): array
     {
-        $count = $this->entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->select('COUNT(room.id)')
+        if ($users === []) {
+            return [];
+        }
+
+        $statusesByUserId = [];
+        $activeUsers = [];
+        $activeSince = new \DateTimeImmutable('-5 minutes');
+
+        foreach ($users as $user) {
+            $lastSeenAt = $user->lastSeenAt();
+            if ($lastSeenAt === null || $lastSeenAt < $activeSince) {
+                $statusesByUserId[$user->id()] = self::STATUS_OFFLINE;
+                continue;
+            }
+
+            $statusesByUserId[$user->id()] = self::STATUS_ONLINE;
+            $activeUsers[] = $user;
+        }
+
+        if ($activeUsers === []) {
+            return $statusesByUserId;
+        }
+
+        $rows = $this->entityManager->getRepository(Room::class)->createQueryBuilder('room')
+            ->select('IDENTITY(player.user) AS userId')
             ->innerJoin('room.players', 'player')
             ->where('room.status = :status')
-            ->andWhere('player.user = :user')
+            ->andWhere('player.user IN (:users)')
             ->setParameter('status', Room::STATUS_STARTED)
-            ->setParameter('user', $user)
+            ->setParameter('users', $activeUsers)
+            ->groupBy('userId')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getArrayResult();
 
-        return (int) $count > 0;
+        foreach ($rows as $row) {
+            $userId = $row['userId'] ?? null;
+            if (is_string($userId) && isset($statusesByUserId[$userId])) {
+                $statusesByUserId[$userId] = self::STATUS_IN_GAME;
+            }
+        }
+
+        return $statusesByUserId;
     }
 }

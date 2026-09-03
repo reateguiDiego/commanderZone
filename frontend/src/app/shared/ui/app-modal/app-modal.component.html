@@ -11,6 +11,7 @@
       [class.modal-panel-wide]="size === 'wide'"
       [class.modal-panel-overflow-visible]="panelOverflow === 'visible'"
       [class.modal-panel-has-close-button]="showCloseButton"
+      [style.min-height]="panelMinHeight"
       (click)="$event.stopPropagation()"
     >
       @if (showCloseButton) {

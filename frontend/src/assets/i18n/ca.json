@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "Resum d'usuaris",
       "summary": {
-        "total": "Usuaris totals"
+        "total": "Usuaris totals",
+        "totalDecks": "Total de decks",
+        "tier0": "Nivell 0"
       },
       "loading": "Carregant usuaris...",
       "noUsersMatch": "Cap usuari no coincideix amb els filtres actuals.",
       "filters": {
         "ariaLabel": "Filtres d'usuari",
         "search": "Cerca usuaris",
+        "reset": "Restableix",
         "role": "Filtre de rol",
         "premium": "Filtre Premium",
         "status": "Filtre d'estat",
-        "allRoles": "Tots els rols",
-        "allPremium": "Tots els nivells Premium",
-        "allStatus": "Tots els estats"
+        "mobileToggle": "Filtres i ordenació"
       },
       "columns": {
         "auth": "Autenticació",
         "lastConnectedAt": "Última connexió",
-        "role": "Rol"
+        "role": "Rol",
+        "localization": "Ubicació"
       },
       "roles": {
         "user": "Usuari"
@@ -71,23 +73,56 @@
         "notSorted": "Sense ordenar",
         "ascending": "Ascendent",
         "descending": "Descendent",
-        "ariaLabel": "Ordena per {{ field }}. {{ direction }}."
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "Ordena per {{ field }}. {{ direction }}.",
+        "mobileAriaLabel": "Ordenació d'usuaris",
+        "sortBy": "Ordena per",
+        "directionAriaLabel": "Canvia la direcció d'ordenació. Direcció actual: {{ direction }}."
       },
-      "identityId": "ID {{ id }}",
-      "verified": "Verificat",
-      "unverified": "Sense verificar",
-      "lastUsed": "Últim ús",
       "local": "Local",
       "never": "Mai",
+      "lastConnectedToday": "Avui",
+      "lastConnectedYesterday": "Ahir",
+      "lastConnectedAgo": "fa {{ count }} dies",
+      "countries": {
+        "open": "Veure països",
+        "title": "Països",
+        "ariaLabel": "Resum de països",
+        "tableAriaLabel": "Usuaris per país",
+        "percentage": "Percentatge",
+        "close": "Tanca el resum de països"
+      },
+      "status": {
+        "active": "En línia o en partida",
+        "recentlyConnected": "En línia últims 7 dies",
+        "recentlyCreated": "Usuaris nous últims 7 dies",
+        "neverConnected": "Mai connectat"
+      },
+      "localization": {
+        "country": "País",
+        "language": "Idioma",
+        "ariaLabel": "Ubicacions dels usuaris",
+        "tableAriaLabel": "Resum d'ubicacions dels usuaris",
+        "close": "Tanca les ubicacions",
+        "viewLabel": "Dades d'ubicació",
+        "activeUsers": "Usuaris actius",
+        "continents": "Continent",
+        "views": {
+          "countriesAll": "Països · tots els usuaris",
+          "countriesActive": "Països · usuaris actius",
+          "continentsAll": "Continents · tots els usuaris",
+          "continentsActive": "Continents · usuaris actius",
+          "languagesAll": "Idiomes · tots els usuaris",
+          "languagesActive": "Idiomes · usuaris actius"
+        }
+      },
       "authorizationRole": "Rol d'autorització",
       "premiumTier": "Nivell Premium",
       "onlineNow": "En línia ara",
       "offlineNow": "Desconnectat ara",
       "activeSessions": "{{ count }} sessió(ns) activa(es)",
       "closeSessions": "Tanca les sessions",
-      "activeRooms": "{{ count }} sala(es) activa(es)",
-      "removeRooms": "Expulsa de les sales",
-      "permanentAction": "Acció permanent",
       "deleteUser": "Suprimeix l'usuari",
       "viewProfile": "Mostra el perfil",
       "viewProfileFor": "Mostra el perfil de {{ name }}",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "{{ first }}–{{ last }} de {{ total }}",
         "page": "Pàgina {{ current }} de {{ total }}"
+      },
+      "results": {
+        "activeOfTotal": "Es mostren {{ active }} actius de {{ total }} usuaris",
+        "filteredOfTotal": "Es mostren {{ count }} de {{ total }} usuaris"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "Confirma el tancament de sessions",
           "message": "Vols tancar {{ count }} sessió(ns) activa(es) de {{ name }}?"
-        },
-        "removeRooms": {
-          "title": "Confirma l'expulsió de sales",
-          "message": "Vols expulsar {{ name }} de {{ count }} sala(es) activa(es)?"
         },
         "deleteUser": {
           "title": "Confirma la supressió de l'usuari",

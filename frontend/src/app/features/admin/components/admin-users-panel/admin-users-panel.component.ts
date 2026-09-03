@@ -16,21 +16,53 @@ import {
 } from '../../../../core/auth/user-roles';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { TranslationService } from '../../../../core/localization/translation.service';
+import { LANGUAGE_OPTIONS } from '../../../../core/localization/language-preferences';
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
 import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
-import { AdminUser, AdminUserAuthIdentity, AdminUserPresenceStatus, PremiumTier } from '../../data-access/admin-users.models';
+import {
+  AdminUser,
+  AdminUserPresenceStatus,
+  AdminUsersLocalizationBreakdown,
+  AdminUsersLocalizationDimension,
+  AdminUsersLocalizationItem,
+  AdminUsersLocalizationScope,
+  AdminUsersLocalizationSummary,
+  AdminUsersListQuery,
+  AdminUsersPresenceFilter,
+  AdminUsersSortDirection,
+  AdminUsersSortField,
+  AdminUsersSummary,
+  PremiumTier,
+} from '../../data-access/admin-users.models';
 
-type UserAction = 'delete' | 'impersonate' | 'premium' | 'role' | 'rooms' | 'sessions';
-type SortField = 'createdAt' | 'email' | 'lastConnectedAt' | 'name' | 'premium' | 'role';
-type SortDirection = 'asc' | 'desc';
+type UserAction = 'delete' | 'impersonate' | 'premium' | 'role' | 'sessions';
+type SortField = AdminUsersSortField;
+type SortDirection = AdminUsersSortDirection;
 type SortIconName = 'move-down' | 'move-up';
 type RoleFilter = AuthorizationRole | 'all';
 type PremiumTierFilter = PremiumTier | 'all';
-type PresenceFilter = AdminUserPresenceStatus | 'all';
+type PresenceFilter = AdminUsersPresenceFilter;
+type LocalizationView = 'countries_all' | 'countries_active' | 'continents_all' | 'continents_active' | 'languages_all' | 'languages_active';
+
+const INITIAL_USER_LIST_FILTERS = {
+  query: '',
+  role: 'all' as RoleFilter,
+  premiumTier: 'all' as PremiumTierFilter,
+  presence: 'active' as PresenceFilter,
+  sort: 'createdAt' as SortField,
+  direction: 'desc' as SortDirection,
+};
+
+interface LocalizationViewDefinition {
+  readonly id: LocalizationView;
+  readonly dimension: AdminUsersLocalizationDimension;
+  readonly scope: AdminUsersLocalizationScope;
+  readonly labelKey: string;
+}
 
 interface PendingConfirmation {
   readonly title: string;
@@ -41,13 +73,59 @@ interface PendingConfirmation {
   readonly action: () => void;
 }
 
-interface UsersSummary {
-  readonly total: number;
-  readonly online: number;
-  readonly tier1: number;
-  readonly tier2: number;
-  readonly tier3: number;
-}
+const EMPTY_USERS_SUMMARY: AdminUsersSummary = {
+  total: 0,
+  online: 0,
+  recentlyConnected: 0,
+  recentlyCreated: 0,
+  neverConnected: 0,
+  totalDecks: 0,
+  tier0: 0,
+  tier1: 0,
+  tier2: 0,
+  tier3: 0,
+};
+
+const EMPTY_LOCALIZATION_BREAKDOWN: AdminUsersLocalizationBreakdown = {
+  totalUsers: 0,
+  countries: [],
+  continents: [],
+  languages: [],
+};
+
+const EMPTY_LOCALIZATION_SUMMARY: AdminUsersLocalizationSummary = {
+  all: EMPTY_LOCALIZATION_BREAKDOWN,
+  active: EMPTY_LOCALIZATION_BREAKDOWN,
+};
+
+const LOCALIZATION_VIEW_DEFINITIONS: readonly LocalizationViewDefinition[] = [
+  { id: 'countries_all', dimension: 'countries', scope: 'all', labelKey: 'admin.users.localization.views.countriesAll' },
+  { id: 'countries_active', dimension: 'countries', scope: 'active', labelKey: 'admin.users.localization.views.countriesActive' },
+  { id: 'continents_all', dimension: 'continents', scope: 'all', labelKey: 'admin.users.localization.views.continentsAll' },
+  { id: 'continents_active', dimension: 'continents', scope: 'active', labelKey: 'admin.users.localization.views.continentsActive' },
+  { id: 'languages_all', dimension: 'languages', scope: 'all', labelKey: 'admin.users.localization.views.languagesAll' },
+  { id: 'languages_active', dimension: 'languages', scope: 'active', labelKey: 'admin.users.localization.views.languagesActive' },
+];
+
+const LOCALIZATION_DIMENSION_LABEL_KEYS: Readonly<Record<AdminUsersLocalizationDimension, string>> = {
+  countries: 'admin.users.localization.country',
+  continents: 'admin.users.localization.continents',
+  languages: 'admin.users.localization.language',
+};
+
+const LATIN_LANGUAGE_LABELS: Readonly<Record<string, string>> = {
+  ca: 'Catalan',
+  de: 'German',
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+  it: 'Italian',
+  ja: 'Japanese',
+  nl: 'Dutch',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  zhs: 'Chinese (Simplified)',
+};
 
 export interface AdminMessageRecipientSelection {
   readonly id: string;
@@ -62,12 +140,15 @@ export interface AdminMessageRecipientSelection {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminUsersPanelComponent {
+  private static readonly DAY_MS = 24 * 60 * 60 * 1000;
   private readonly api = inject(AdminUsersApi);
   private readonly auth = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly translation = inject(TranslationService);
+  private listRequestSequence = 0;
   readonly pageSize = 30;
+  readonly dateTimeFormat = 'dd/MM/yyyy HH:mm';
 
   readonly allRoleOptions: readonly FormatSelectOption[] = [
     { id: ROLE_USER, labelKey: 'admin.users.roles.user' },
@@ -77,7 +158,7 @@ export class AdminUsersPanelComponent {
   ];
   readonly roleOptions: readonly FormatSelectOption[] = this.allRoleOptions.filter((option) => option.id !== ROLE_OWNER);
   readonly roleFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'admin.users.filters.allRoles' },
+    { id: 'all', labelKey: 'shared.text.all' },
     ...this.allRoleOptions,
   ];
   readonly premiumTierOptions: readonly FormatSelectOption[] = [
@@ -87,59 +168,154 @@ export class AdminUsersPanelComponent {
     { id: 'tier3', labelKey: 'admin.users.premium.tier3' },
   ];
   readonly premiumTierFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'admin.users.filters.allPremium' },
+    { id: 'all', labelKey: 'shared.text.all' },
     ...this.premiumTierOptions,
   ];
   readonly presenceFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'admin.users.filters.allStatus' },
+    { id: 'all', labelKey: 'shared.text.all' },
+    { id: 'active', labelKey: 'admin.users.status.active' },
     { id: 'online', labelKey: 'shared.text.online' },
     { id: 'in_game', labelKey: 'shared.text.inGame' },
     { id: 'offline', labelKey: 'shared.text.offline' },
+    { id: 'recently_connected', labelKey: 'admin.users.status.recentlyConnected' },
+    { id: 'recently_created', labelKey: 'admin.users.status.recentlyCreated' },
+    { id: 'never_connected', labelKey: 'admin.users.status.neverConnected' },
   ];
+  readonly sortFieldOptions: readonly FormatSelectOption[] = [
+    { id: 'name', labelKey: 'shared.text.name' },
+    { id: 'email', labelKey: 'shared.text.email' },
+    { id: 'lastConnectedAt', labelKey: 'admin.users.columns.lastConnectedAt' },
+    { id: 'createdAt', labelKey: 'shared.text.created' },
+    { id: 'role', labelKey: 'admin.users.columns.role' },
+    { id: 'premium', labelKey: 'shared.text.premium' },
+    { id: 'totalDecks', labelKey: 'admin.users.summary.totalDecks' },
+  ];
+  readonly localizationViewOptions: readonly FormatSelectOption[] = LOCALIZATION_VIEW_DEFINITIONS.map(({ id, labelKey }) => ({ id, labelKey }));
+  readonly languageLabels = Object.fromEntries(LANGUAGE_OPTIONS.map((option) => [option.code, option.label])) as Readonly<Partial<Record<string, string>>>;
   readonly users = signal<readonly AdminUser[]>([]);
+  readonly usersSummary = signal<AdminUsersSummary>(EMPTY_USERS_SUMMARY);
+  readonly localizationSummary = signal<AdminUsersLocalizationSummary>(EMPTY_LOCALIZATION_SUMMARY);
+  readonly totalMatchingUsers = signal(0);
+  readonly totalPages = signal(1);
   readonly isLoading = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly pendingActions = signal<Readonly<Record<string, UserAction | undefined>>>({});
-  readonly searchQuery = signal('');
-  readonly roleFilter = signal<RoleFilter>('all');
-  readonly premiumTierFilter = signal<PremiumTierFilter>('all');
-  readonly presenceFilter = signal<PresenceFilter>('all');
-  readonly sortField = signal<SortField>('createdAt');
-  readonly sortDirection = signal<SortDirection>('desc');
+  readonly searchQuery = signal(INITIAL_USER_LIST_FILTERS.query);
+  readonly appliedSearchQuery = signal(INITIAL_USER_LIST_FILTERS.query);
+  readonly roleFilter = signal<RoleFilter>(INITIAL_USER_LIST_FILTERS.role);
+  readonly appliedRoleFilter = signal<RoleFilter>(INITIAL_USER_LIST_FILTERS.role);
+  readonly premiumTierFilter = signal<PremiumTierFilter>(INITIAL_USER_LIST_FILTERS.premiumTier);
+  readonly appliedPremiumTierFilter = signal<PremiumTierFilter>(INITIAL_USER_LIST_FILTERS.premiumTier);
+  readonly presenceFilter = signal<PresenceFilter>(INITIAL_USER_LIST_FILTERS.presence);
+  readonly appliedPresenceFilter = signal<PresenceFilter>(INITIAL_USER_LIST_FILTERS.presence);
+  readonly sortField = signal<SortField>(INITIAL_USER_LIST_FILTERS.sort);
+  readonly appliedSortField = signal<SortField>(INITIAL_USER_LIST_FILTERS.sort);
+  readonly sortDirection = signal<SortDirection>(INITIAL_USER_LIST_FILTERS.direction);
+  readonly appliedSortDirection = signal<SortDirection>(INITIAL_USER_LIST_FILTERS.direction);
   readonly currentPage = signal(1);
   readonly pendingConfirmation = signal<PendingConfirmation | null>(null);
+  readonly isLocalizationModalOpen = signal(false);
+  readonly localizationView = signal<LocalizationView>('countries_all');
+  readonly isMobileFiltersOpen = signal(false);
   readonly sendMessageRequested = output<AdminMessageRecipientSelection>();
   readonly currentUserId = computed(() => this.auth.user()?.id ?? null);
   readonly currentUserRole = computed(() => authorizationRoleFor(this.auth.user()));
-  readonly usersSummary = computed<UsersSummary>(() => this.summarizeUsers(this.users()));
-  readonly visibleUsers = computed(() => this.sortedUsers(this.filteredUsers()));
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.visibleUsers().length / this.pageSize)));
-  readonly activePage = computed(() => Math.min(this.currentPage(), this.totalPages()));
-  readonly paginatedUsers = computed(() => {
-    const startIndex = (this.activePage() - 1) * this.pageSize;
+  readonly hasPendingSearch = computed(() => this.searchQuery() !== this.appliedSearchQuery()
+    || this.roleFilter() !== this.appliedRoleFilter()
+    || this.premiumTierFilter() !== this.appliedPremiumTierFilter()
+    || this.presenceFilter() !== this.appliedPresenceFilter()
+    || this.sortField() !== this.appliedSortField()
+    || this.sortDirection() !== this.appliedSortDirection());
+  readonly canResetFilters = computed(() => this.searchQuery() !== INITIAL_USER_LIST_FILTERS.query
+    || this.roleFilter() !== INITIAL_USER_LIST_FILTERS.role
+    || this.premiumTierFilter() !== INITIAL_USER_LIST_FILTERS.premiumTier
+    || this.presenceFilter() !== INITIAL_USER_LIST_FILTERS.presence
+    || this.sortField() !== INITIAL_USER_LIST_FILTERS.sort
+    || this.sortDirection() !== INITIAL_USER_LIST_FILTERS.direction);
+  readonly tierShares = computed(() => {
+    const summary = this.usersSummary();
 
-    return this.visibleUsers().slice(startIndex, startIndex + this.pageSize);
+    return {
+      tier0: this.percentageOfUsers(summary.tier0, summary.total),
+      tier1: this.percentageOfUsers(summary.tier1, summary.total),
+      tier2: this.percentageOfUsers(summary.tier2, summary.total),
+      tier3: this.percentageOfUsers(summary.tier3, summary.total),
+    };
   });
-  readonly firstVisibleUserIndex = computed(() => this.visibleUsers().length === 0 ? 0 : ((this.activePage() - 1) * this.pageSize) + 1);
-  readonly lastVisibleUserIndex = computed(() => Math.min(this.activePage() * this.pageSize, this.visibleUsers().length));
+  readonly selectedLocalizationView = computed(() => LOCALIZATION_VIEW_DEFINITIONS.find(({ id }) => id === this.localizationView()) ?? LOCALIZATION_VIEW_DEFINITIONS[0]);
+  readonly selectedLocalizationBreakdown = computed(() => this.localizationSummary()[this.selectedLocalizationView().scope]);
+  readonly selectedLocalizationItems = computed(() => this.selectedLocalizationBreakdown()[this.selectedLocalizationView().dimension]);
+  readonly selectedLocalizationScopeLabelKey = computed(() => this.selectedLocalizationView().scope === 'active'
+    ? 'admin.users.localization.activeUsers'
+    : 'admin.notifications.allUsers');
+  readonly selectedLocalizationDimensionLabelKey = computed(() => LOCALIZATION_DIMENSION_LABEL_KEYS[this.selectedLocalizationView().dimension]);
+  readonly firstVisibleUserIndex = computed(() => this.totalMatchingUsers() === 0 ? 0 : ((this.currentPage() - 1) * this.pageSize) + 1);
+  readonly lastVisibleUserIndex = computed(() => Math.min(this.currentPage() * this.pageSize, this.totalMatchingUsers()));
 
   constructor() {
-    this.loadUsers();
+    this.loadUsers(true);
   }
 
-  loadUsers(): void {
+  loadUsers(useInitialPresenceFallback = false): void {
+    const requestSequence = ++this.listRequestSequence;
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.api.listUsers()
+    this.api.listUsers(this.listQuery())
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.isLoading.set(false)),
+        finalize(() => {
+          if (requestSequence === this.listRequestSequence) {
+            this.isLoading.set(false);
+          }
+        }),
       )
       .subscribe({
-        next: (response) => this.users.set(response.users),
-        error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
+        next: (response) => {
+          if (requestSequence !== this.listRequestSequence) {
+            return;
+          }
+
+          if (useInitialPresenceFallback && this.appliedPresenceFilter() === 'active' && response.total === 0) {
+            this.presenceFilter.set('recently_created');
+            this.appliedPresenceFilter.set('recently_created');
+            this.currentPage.set(1);
+            this.loadUsers();
+
+            return;
+          }
+
+          this.users.set(response.users);
+          this.usersSummary.set(response.summary);
+          this.localizationSummary.set(response.localizationSummary);
+          this.totalMatchingUsers.set(response.total);
+          this.totalPages.set(response.totalPages);
+          this.currentPage.set(response.page);
+        },
+        error: (error: unknown) => {
+          if (requestSequence === this.listRequestSequence) {
+            this.errorMessage.set(this.readErrorMessage(error));
+          }
+        },
       });
+  }
+
+  openLocalizationModal(): void {
+    this.isLocalizationModalOpen.set(true);
+  }
+
+  closeLocalizationModal(): void {
+    this.isLocalizationModalOpen.set(false);
+  }
+
+  changeLocalizationView(value: string): void {
+    if (this.isLocalizationView(value)) {
+      this.localizationView.set(value);
+    }
+  }
+
+  toggleMobileFilters(): void {
+    this.isMobileFiltersOpen.update((isOpen) => !isOpen);
   }
 
   changeAuthorizationRole(user: AdminUser, selectedRole: string): void {
@@ -195,21 +371,6 @@ export class AdminUsersPanelComponent {
     });
   }
 
-  removeFromRooms(user: AdminUser): void {
-    if (user.activeRoomsCount <= 0 || !this.canRemoveFromRooms(user)) {
-      return;
-    }
-
-    this.requestConfirmation({
-      title: 'admin.users.confirmations.removeRooms.title',
-      message: 'admin.users.confirmations.removeRooms.message',
-      messageParams: { count: user.activeRoomsCount, name: user.displayName },
-      primaryLabel: 'admin.users.removeRooms',
-      danger: true,
-      action: () => this.runUserAction(user, 'rooms', () => this.api.removeFromRooms(user.id)),
-    });
-  }
-
   deleteUser(user: AdminUser): void {
     if (!this.canDeleteUser(user)) {
       return;
@@ -255,48 +416,91 @@ export class AdminUsersPanelComponent {
 
   updateSearchQuery(event: Event): void {
     this.searchQuery.set(event.target instanceof HTMLInputElement ? event.target.value : '');
-    this.resetPagination();
+  }
+
+  searchUsers(event?: Event): void {
+    event?.preventDefault();
+    this.appliedSearchQuery.set(this.searchQuery());
+    this.appliedRoleFilter.set(this.roleFilter());
+    this.appliedPremiumTierFilter.set(this.premiumTierFilter());
+    this.appliedPresenceFilter.set(this.presenceFilter());
+    this.appliedSortField.set(this.sortField());
+    this.appliedSortDirection.set(this.sortDirection());
+    this.reloadFirstPage();
+  }
+
+  resetFilters(): void {
+    this.searchQuery.set(INITIAL_USER_LIST_FILTERS.query);
+    this.roleFilter.set(INITIAL_USER_LIST_FILTERS.role);
+    this.premiumTierFilter.set(INITIAL_USER_LIST_FILTERS.premiumTier);
+    this.presenceFilter.set(INITIAL_USER_LIST_FILTERS.presence);
+    this.sortField.set(INITIAL_USER_LIST_FILTERS.sort);
+    this.sortDirection.set(INITIAL_USER_LIST_FILTERS.direction);
   }
 
   changeRoleFilter(value: string): void {
     if (value === 'all' || this.isAuthorizationRole(value)) {
       this.roleFilter.set(value);
-      this.resetPagination();
     }
   }
 
   changePremiumTierFilter(value: string): void {
     if (value === 'all' || this.isPremiumTier(value)) {
       this.premiumTierFilter.set(value);
-      this.resetPagination();
     }
   }
 
   changePresenceFilter(value: string): void {
     if (this.isPresenceFilter(value)) {
       this.presenceFilter.set(value);
-      this.resetPagination();
     }
   }
 
   changeSort(field: SortField): void {
     if (this.sortField() === field) {
       this.sortDirection.update((direction) => direction === 'asc' ? 'desc' : 'asc');
-      this.resetPagination();
+      this.appliedSortField.set(field);
+      this.appliedSortDirection.set(this.sortDirection());
+      this.reloadFirstPage();
       return;
     }
 
     this.sortField.set(field);
-    this.sortDirection.set(field === 'createdAt' || field === 'lastConnectedAt' ? 'desc' : 'asc');
-    this.resetPagination();
+    this.sortDirection.set(this.defaultSortDirection(field));
+    this.appliedSortField.set(field);
+    this.appliedSortDirection.set(this.sortDirection());
+    this.reloadFirstPage();
+  }
+
+  changeMobileSort(value: string): void {
+    if (!this.isSortField(value) || this.sortField() === value) {
+      return;
+    }
+
+    this.sortField.set(value);
+    this.sortDirection.set(this.defaultSortDirection(value));
+  }
+
+  toggleSortDirection(): void {
+    this.sortDirection.update((direction) => direction === 'asc' ? 'desc' : 'asc');
   }
 
   previousPage(): void {
-    this.currentPage.update((page) => Math.max(1, page - 1));
+    if (this.currentPage() <= 1) {
+      return;
+    }
+
+    this.currentPage.update((page) => page - 1);
+    this.loadUsers();
   }
 
   nextPage(): void {
-    this.currentPage.update((page) => Math.min(this.totalPages(), page + 1));
+    if (this.currentPage() >= this.totalPages()) {
+      return;
+    }
+
+    this.currentPage.update((page) => page + 1);
+    this.loadUsers();
   }
 
   sortLabel(field: SortField): string {
@@ -307,9 +511,13 @@ export class AdminUsersPanelComponent {
     return this.translateText(this.sortDirection() === 'asc' ? 'admin.users.sort.ascending' : 'admin.users.sort.descending');
   }
 
+  mobileSortDirectionLabel(): string {
+    return this.translateText(this.sortDirection() === 'asc' ? 'admin.users.sort.asc' : 'admin.users.sort.desc');
+  }
+
   sortAriaLabel(field: SortField): string {
     return this.translateText('admin.users.sort.ariaLabel', {
-      field: this.translateText(`admin.users.columns.${field}`),
+      field: this.sortFieldLabel(field),
       direction: this.sortLabel(field),
     });
   }
@@ -354,16 +562,20 @@ export class AdminUsersPanelComponent {
     return key ? this.translateText(key) : status;
   }
 
-  authIdentityLabel(identity: AdminUserAuthIdentity): string {
-    const provider = identity.provider.trim();
+  lastConnectionDaysAgoLabel(lastConnectedAt: string): string {
+    const timestamp = Date.parse(lastConnectedAt);
+    const elapsedDays = Number.isFinite(timestamp)
+      ? Math.max(0, Math.floor((Date.now() - timestamp) / AdminUsersPanelComponent.DAY_MS))
+      : 0;
 
-    return provider === '' ? 'GOOGLE' : provider.toUpperCase();
-  }
+    if (elapsedDays === 0) {
+      return this.translateText('admin.users.lastConnectedToday');
+    }
+    if (elapsedDays === 1) {
+      return this.translateText('admin.users.lastConnectedYesterday');
+    }
 
-  authIdentityValue(value: string | null | undefined): string {
-    const trimmed = value?.trim();
-
-    return trimmed ? trimmed : 'GOOGLE';
+    return this.translateText('admin.users.lastConnectedAgo', { count: elapsedDays });
   }
 
   isUserBusy(userId: string): boolean {
@@ -374,7 +586,6 @@ export class AdminUsersPanelComponent {
     return !this.canChangeRole(user)
       && !this.canChangePremium(user)
       && !this.canRevokeSessions(user)
-      && !this.canRemoveFromRooms(user)
       && !this.canDeleteUser(user)
       && !this.canImpersonate(user);
   }
@@ -388,10 +599,6 @@ export class AdminUsersPanelComponent {
   }
 
   canRevokeSessions(user: AdminUser): boolean {
-    return this.canChangePremium(user);
-  }
-
-  canRemoveFromRooms(user: AdminUser): boolean {
     return this.canChangePremium(user);
   }
 
@@ -438,91 +645,34 @@ export class AdminUsersPanelComponent {
     return user.id;
   }
 
-  private filteredUsers(): readonly AdminUser[] {
-    const query = this.searchQuery().trim().toLowerCase();
-    const roleFilter = this.roleFilter();
-    const premiumTierFilter = this.premiumTierFilter();
-    const presenceFilter = this.presenceFilter();
-
-    return this.users().filter((user) => {
-      if (roleFilter !== 'all' && user.authorizationRole !== roleFilter) {
-        return false;
-      }
-      if (premiumTierFilter !== 'all' && user.premiumTier !== premiumTierFilter) {
-        return false;
-      }
-      if (presenceFilter !== 'all' && user.presenceStatus !== presenceFilter) {
-        return false;
-      }
-      if (query === '') {
-        return true;
-      }
-
-      return [
-        user.displayName,
-        user.email,
-        ...user.authIdentities.flatMap((identity) => [
-          this.authIdentityLabel(identity),
-          identity.providerEmail,
-          identity.providerUserId,
-          identity.providerEmailVerified
-            ? this.translateText('admin.users.verified')
-            : this.translateText('admin.users.unverified'),
-        ]),
-        this.roleLabel(user.authorizationRole),
-        this.premiumTierLabel(user.premiumTier),
-        this.presenceLabel(user.presenceStatus),
-      ].some((value) => value.toLowerCase().includes(query));
-    });
+  trackLocalizationItem(_index: number, item: AdminUsersLocalizationItem): string {
+    return item.code ?? 'unknown';
   }
 
-  private sortedUsers(users: readonly AdminUser[]): readonly AdminUser[] {
-    const field = this.sortField();
-    const direction = this.sortDirection();
-    const multiplier = direction === 'asc' ? 1 : -1;
-
-    return [...users].sort((left, right) => {
-      const compared = this.sortValue(left, field).localeCompare(
-        this.sortValue(right, field),
-        undefined,
-        { numeric: true, sensitivity: 'base' },
-      );
-
-      return compared * multiplier;
-    });
-  }
-
-  private sortValue(user: AdminUser, field: SortField): string {
-    switch (field) {
-      case 'createdAt':
-        return user.createdAt;
-      case 'email':
-        return user.email;
-      case 'lastConnectedAt':
-        return user.lastConnectedAt ?? '';
-      case 'name':
-        return user.displayName;
-      case 'premium':
-        return this.premiumTierLabel(user.premiumTier);
-      case 'role':
-        return this.roleLabel(user.authorizationRole);
+  localizationItemLabel(item: AdminUsersLocalizationItem): string {
+    if (this.selectedLocalizationView().dimension === 'languages' && item.code !== null) {
+      return LATIN_LANGUAGE_LABELS[item.code] ?? item.code;
     }
+
+    return item.name ?? this.translateText('deckBuilder.advancedAnalysis.status.unknown');
   }
 
-  private summarizeUsers(users: readonly AdminUser[]): UsersSummary {
-    return users.reduce<UsersSummary>((summary, user) => ({
-      total: summary.total + 1,
-      online: summary.online + (user.isOnline ? 1 : 0),
-      tier1: summary.tier1 + (user.premiumTier === 'tier1' ? 1 : 0),
-      tier2: summary.tier2 + (user.premiumTier === 'tier2' ? 1 : 0),
-      tier3: summary.tier3 + (user.premiumTier === 'tier3' ? 1 : 0),
-    }), {
-      total: 0,
-      online: 0,
-      tier1: 0,
-      tier2: 0,
-      tier3: 0,
-    });
+  private sortFieldLabel(field: SortField): string {
+    const key = this.sortFieldOptions.find((option) => option.id === field)?.labelKey;
+
+    return key ? this.translateText(key) : field;
+  }
+
+  private defaultSortDirection(field: SortField): SortDirection {
+    return field === 'createdAt' || field === 'lastConnectedAt' || field === 'totalDecks' ? 'desc' : 'asc';
+  }
+
+  private percentageOfUsers(value: number, total: number): number {
+    return total === 0 ? 0 : Math.round((value / total) * 100);
+  }
+
+  private isLocalizationView(value: string): value is LocalizationView {
+    return LOCALIZATION_VIEW_DEFINITIONS.some((view) => view.id === value);
   }
 
   private updateUser(
@@ -537,8 +687,22 @@ export class AdminUsersPanelComponent {
     this.pendingConfirmation.set(confirmation);
   }
 
-  private resetPagination(): void {
+  private reloadFirstPage(): void {
     this.currentPage.set(1);
+    this.loadUsers();
+  }
+
+  private listQuery(): AdminUsersListQuery {
+    return {
+      query: this.appliedSearchQuery(),
+      role: this.appliedRoleFilter(),
+      premiumTier: this.appliedPremiumTierFilter(),
+      status: this.appliedPresenceFilter(),
+      sort: this.appliedSortField(),
+      direction: this.appliedSortDirection(),
+      page: this.currentPage(),
+      limit: this.pageSize,
+    };
   }
 
   private confirmDeleteUser(user: AdminUser): void {
@@ -550,7 +714,7 @@ export class AdminUsersPanelComponent {
         finalize(() => this.clearPendingAction(user.id)),
       )
       .subscribe({
-        next: () => this.users.update((users) => users.filter((currentUser) => currentUser.id !== user.id)),
+        next: () => this.loadUsers(),
         error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
       });
   }
@@ -585,13 +749,9 @@ export class AdminUsersPanelComponent {
         finalize(() => this.clearPendingAction(user.id)),
       )
       .subscribe({
-        next: (response) => this.replaceUser(response.user),
+        next: () => this.loadUsers(),
         error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
       });
-  }
-
-  private replaceUser(updatedUser: AdminUser): void {
-    this.users.update((users) => users.map((user) => user.id === updatedUser.id ? updatedUser : user));
   }
 
   private setPendingAction(userId: string, action: UserAction): void {
@@ -620,6 +780,10 @@ export class AdminUsersPanelComponent {
 
   private isPresenceFilter(value: string): value is PresenceFilter {
     return this.presenceFilterOptions.some((option) => option.id === value);
+  }
+
+  private isSortField(value: string): value is SortField {
+    return this.sortFieldOptions.some((option) => option.id === value);
   }
 
   private readErrorMessage(error: unknown): string {

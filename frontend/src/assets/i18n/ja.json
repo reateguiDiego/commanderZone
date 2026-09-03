@@ -39,24 +39,26 @@
     "users": {
       "summaryAriaLabel": "ユーザー概要",
       "summary": {
-        "total": "ユーザー総数"
+        "total": "ユーザー総数",
+        "totalDecks": "デッキ総数",
+        "tier0": "ティア 0"
       },
       "loading": "ユーザーを読み込み中...",
       "noUsersMatch": "現在のフィルターに一致するユーザーはいません。",
       "filters": {
         "ariaLabel": "ユーザーフィルター",
         "search": "ユーザーを検索",
+        "reset": "リセット",
         "role": "ロールで絞り込み",
         "premium": "プレミアムで絞り込み",
         "status": "ステータスで絞り込み",
-        "allRoles": "すべてのロール",
-        "allPremium": "すべてのプレミアム階層",
-        "allStatus": "すべてのステータス"
+        "mobileToggle": "フィルターと並べ替え"
       },
       "columns": {
         "auth": "認証",
         "lastConnectedAt": "最終接続",
-        "role": "ロール"
+        "role": "ロール",
+        "localization": "地域"
       },
       "roles": {
         "user": "ユーザー"
@@ -71,23 +73,56 @@
         "notSorted": "未ソート",
         "ascending": "昇順",
         "descending": "降順",
-        "ariaLabel": "{{ field }}で並べ替え。{{ direction }}。"
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "{{ field }}で並べ替え。{{ direction }}。",
+        "mobileAriaLabel": "ユーザーの並べ替え",
+        "sortBy": "並べ替え",
+        "directionAriaLabel": "並べ替え方向を変更。現在: {{ direction }}。"
       },
-      "identityId": "ID: {{ id }}",
-      "verified": "認証済み",
-      "unverified": "未認証",
-      "lastUsed": "最終使用",
       "local": "ローカル",
       "never": "なし",
+      "lastConnectedToday": "今日",
+      "lastConnectedYesterday": "昨日",
+      "lastConnectedAgo": "{{ count }}日前",
+      "countries": {
+        "open": "国を見る",
+        "title": "国",
+        "ariaLabel": "国の概要",
+        "tableAriaLabel": "国別ユーザー",
+        "percentage": "割合",
+        "close": "国の概要を閉じる"
+      },
+      "status": {
+        "active": "オンラインまたは対戦中",
+        "recentlyConnected": "過去7日間オンライン",
+        "recentlyCreated": "過去7日間の新規ユーザー",
+        "neverConnected": "未接続"
+      },
+      "localization": {
+        "country": "国",
+        "language": "言語",
+        "ariaLabel": "ユーザーの場所",
+        "tableAriaLabel": "ユーザーの場所の概要",
+        "close": "場所を閉じる",
+        "viewLabel": "場所のデータ",
+        "activeUsers": "アクティブユーザー",
+        "continents": "大陸",
+        "views": {
+          "countriesAll": "国 · すべてのユーザー",
+          "countriesActive": "国 · アクティブユーザー",
+          "continentsAll": "大陸 · すべてのユーザー",
+          "continentsActive": "大陸 · アクティブユーザー",
+          "languagesAll": "言語 · すべてのユーザー",
+          "languagesActive": "言語 · アクティブユーザー"
+        }
+      },
       "authorizationRole": "認可ロール",
       "premiumTier": "プレミアム階層",
       "onlineNow": "オンライン",
       "offlineNow": "オフライン",
       "activeSessions": "アクティブなセッション: {{ count }}",
       "closeSessions": "セッションを閉じる",
-      "activeRooms": "アクティブなルーム: {{ count }}",
-      "removeRooms": "ルームから削除",
-      "permanentAction": "恒久的な操作",
       "deleteUser": "ユーザーを削除",
       "viewProfile": "プロフィールを表示",
       "viewProfileFor": "{{ name }}のプロフィールを表示",
@@ -98,6 +133,10 @@
       "pagination": {
         "showing": "{{ total }}件中 {{ first }}～{{ last }}件を表示",
         "page": "{{ total }}ページ中 {{ current }}ページ"
+      },
+      "results": {
+        "activeOfTotal": "{{ total }} 人中 {{ active }} 人がアクティブです",
+        "filteredOfTotal": "{{ total }} 人中 {{ count }} 人を表示"
       },
       "confirmations": {
         "changeRole": {
@@ -113,10 +152,6 @@
         "closeSessions": {
           "title": "セッション終了の確認",
           "message": "{{ name }}のアクティブなセッション {{ count }} 件を終了しますか？"
-        },
-        "removeRooms": {
-          "title": "ルームからの削除を確認",
-          "message": "{{ name }}をアクティブなルーム {{ count }} 件から削除しますか？"
         },
         "deleteUser": {
           "title": "ユーザー削除の確認",
