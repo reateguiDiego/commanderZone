@@ -382,10 +382,12 @@ export class AppShellI18nService {
   }
 
   private formatPercentage(value: number): string {
+    const integer = Math.floor(value);
+    const rounded = value - integer > 0.5 ? integer + 1 : integer;
+
     return new Intl.NumberFormat(this.intlLocale(), {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-    }).format(value);
+      maximumFractionDigits: 0,
+    }).format(rounded);
   }
 
   private capitalizeLabel(value: string): string {
