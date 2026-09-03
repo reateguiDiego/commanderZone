@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { MobileViewportSyncService } from '../../services/mobile-viewport-sync.service';
 import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 
 export interface FormatSelectOption {
@@ -29,6 +30,7 @@ export class FormatSelectComponent {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly mobileViewportSync = inject(MobileViewportSyncService);
   private closeAnimationTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly formats = input<readonly FormatSelectOption[]>([]);
@@ -126,6 +128,7 @@ export class FormatSelectComponent {
 
     this.valueChange.emit(option.id);
     this.closeDropdown();
+    this.mobileViewportSync.syncAfterSharedSelectChange();
   }
 
   optionLabel(option: FormatSelectOption): string {

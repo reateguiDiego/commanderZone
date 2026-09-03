@@ -1,16 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MobileViewportSyncService } from '../../services/mobile-viewport-sync.service';
 import { FormatSelectComponent } from './format-select.component';
 
 describe('FormatSelectComponent', () => {
   let fixture: ComponentFixture<FormatSelectComponent>;
+  const mobileViewportSync = { syncAfterSharedSelectChange: vi.fn() };
 
   afterEach(() => {
     vi.useRealTimers();
+    mobileViewportSync.syncAfterSharedSelectChange.mockReset();
   });
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FormatSelectComponent],
+      providers: [{ provide: MobileViewportSyncService, useValue: mobileViewportSync }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(FormatSelectComponent);
@@ -57,6 +61,7 @@ describe('FormatSelectComponent', () => {
 
     expect(options.map((option) => option.textContent?.trim())).toEqual(['All decks', 'Public decks']);
     expect(selectedValues).toEqual(['public']);
+    expect(mobileViewportSync.syncAfterSharedSelectChange).toHaveBeenCalledTimes(1);
   });
 
   it('returns focus to the trigger before hiding the dropdown menu', () => {
