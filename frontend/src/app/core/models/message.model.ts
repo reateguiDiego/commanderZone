@@ -30,6 +30,7 @@ export interface AdminMessageSendPayload {
   readonly recipientId: string;
   readonly subject: string;
   readonly body: string;
+  readonly sendEmail: boolean;
 }
 
 export interface AdminMessageSendResponse {

@@ -46,33 +46,22 @@ describe('AdminNotificationsPanelComponent', () => {
 
     fixture = TestBed.createComponent(AdminNotificationsPanelComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
   });
 
-  it('renders all and user recipients in the autocomplete', () => {
-    const input = fixture.nativeElement.querySelector('input[name="recipient"]') as HTMLInputElement;
-    input.dispatchEvent(new Event('focus'));
-    fixture.detectChanges();
+  it('renders all and user recipients in the shared select', () => {
+    const options = openRecipientOptions(fixture);
 
-    expect(fixture.nativeElement.textContent).toContain('All users');
-    expect(fixture.nativeElement.textContent).toContain('CommanderZone');
-  });
-
-  it('filters recipients by typed text', () => {
-    const input = fixture.nativeElement.querySelector('input[name="recipient"]') as HTMLInputElement;
-    input.value = 'commander';
-    input.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('CommanderZone');
-    expect(fixture.nativeElement.textContent).not.toContain('No users found.');
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['All users', 'CommanderZone']);
   });
 
   it('preselects a recipient from the provided username', () => {
     fixture.componentRef.setInput('preselectedRecipient', { id: 'user-1', name: 'CommanderZone' });
     fixture.detectChanges();
 
-    const input = fixture.nativeElement.querySelector('input[name="recipient"]') as HTMLInputElement;
-    expect(input.value).toBe('CommanderZone');
+    const input = fixture.nativeElement.querySelector('app-format-select input[name="recipient"]') as HTMLInputElement;
+    expect(input.value).toBe('user-1');
   });
 
   it('inserts plain-text formatting snippets and renders them in the preview', () => {
@@ -115,7 +104,25 @@ describe('AdminNotificationsPanelComponent', () => {
       recipientId: 'user-1',
       subject: 'Server notice',
       body: 'Maintenance tonight.',
+      sendEmail: false,
     });
+  });
+
+  it('includes the email delivery flag when the toggle is enabled', () => {
+    selectRecipient(fixture, 'CommanderZone');
+    setInputValue(fixture, 'input[formControlName="subject"]', 'Server notice');
+    setInputValue(fixture, 'textarea[formControlName="body"]', 'Maintenance tonight.');
+
+    const emailToggle = fixture.nativeElement.querySelector('app-toggle button[role="switch"]') as HTMLButtonElement;
+    emailToggle.click();
+    fixture.detectChanges();
+
+    const submit = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Send')) as HTMLButtonElement;
+    submit.click();
+    fixture.detectChanges();
+
+    expect(messagesApi.sendAdminMessage).toHaveBeenCalledWith(expect.objectContaining({ sendEmail: true }));
   });
 });
 
@@ -127,14 +134,19 @@ function clickButton(fixture: ComponentFixture<AdminNotificationsPanelComponent>
 }
 
 function selectRecipient(fixture: ComponentFixture<AdminNotificationsPanelComponent>, name: string): void {
-  const input = fixture.nativeElement.querySelector('input[name="recipient"]') as HTMLInputElement;
-  input.dispatchEvent(new Event('focus'));
-  fixture.detectChanges();
-
-  const option = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.recipient-option'))
+  const option = openRecipientOptions(fixture)
     .find((candidate) => candidate.textContent?.includes(name)) as HTMLButtonElement;
   option.click();
   fixture.detectChanges();
+}
+
+function openRecipientOptions(fixture: ComponentFixture<AdminNotificationsPanelComponent>): HTMLButtonElement[] {
+  const select = (fixture.nativeElement as HTMLElement).querySelector('app-format-select') as HTMLElement;
+  const trigger = select.querySelector('.format-select-trigger') as HTMLButtonElement;
+  trigger.click();
+  fixture.detectChanges();
+
+  return Array.from(select.querySelectorAll('.format-select-option')) as HTMLButtonElement[];
 }
 
 function setInputValue(fixture: ComponentFixture<AdminNotificationsPanelComponent>, selector: string, value: string): void {

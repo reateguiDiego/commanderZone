@@ -41,7 +41,22 @@
         [attr.aria-label]="visibleLabel() | runtimeTranslate"
         [attr.aria-hidden]="!dropdownOpen() ? 'true' : null"
       >
-        @for (option of optionItems(); track option.id) {
+        @if (searchable()) {
+          <div class="format-select-search">
+            <input
+              #searchInput
+              type="search"
+              class="format-select-search-input"
+              [value]="searchQuery()"
+              [placeholder]="searchPlaceholder()"
+              [attr.aria-label]="searchPlaceholder()"
+              (input)="updateSearchQuery($event)"
+              (keydown.escape)="closeDropdown()"
+            />
+          </div>
+        }
+
+        @for (option of visibleOptionItems(); track option.id) {
           <button
             type="button"
             class="format-select-option"

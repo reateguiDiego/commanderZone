@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Destinatari",
       "allUsers": "Tots els usuaris",
+      "sendEmail": "Envia també per correu electrònic",
+      "sendEmailDescription": "El missatge també s'enviarà al correu electrònic del destinatari.",
       "subjectRequired": "Cal un assumpte.",
       "formattingTools": "Eines de formatatge del missatge",
       "tools": {

@@ -4449,6 +4449,10 @@ components:
           type: string
           minLength: 1
           maxLength: 200000
+        sendEmail:
+          type: boolean
+          default: false
+          description: Also deliver the message to each recipient's email address.
     AdminMessageSendResponse:
       type: object
       required: [sent]

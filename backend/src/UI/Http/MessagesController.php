@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Message\AdminMessageMailer;
 use App\Domain\Message\UserMessage;
 use App\Domain\User\Role;
 use App\Domain\User\User;
@@ -15,6 +16,10 @@ class MessagesController extends ApiController
 {
     private const MAX_SUBJECT_LENGTH = 30;
     private const MAX_BODY_LENGTH = 200000;
+
+    public function __construct(private readonly AdminMessageMailer $adminMessageMailer)
+    {
+    }
 
     #[Route('/messages', methods: ['GET'])]
     public function list(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
@@ -67,6 +72,7 @@ class MessagesController extends ApiController
         $recipientId = trim((string) ($payload['recipientId'] ?? ''));
         $subject = trim((string) ($payload['subject'] ?? ''));
         $body = trim((string) ($payload['body'] ?? ''));
+        $sendEmail = $payload['sendEmail'] ?? false;
 
         if ($recipientId === '') {
             return $this->fail('recipientId is required.');
@@ -76,6 +82,9 @@ class MessagesController extends ApiController
         }
         if ($body === '' || mb_strlen($body) > self::MAX_BODY_LENGTH) {
             return $this->fail(sprintf('Message is required and must be %d characters or fewer.', self::MAX_BODY_LENGTH));
+        }
+        if (!is_bool($sendEmail)) {
+            return $this->fail('sendEmail must be a boolean.');
         }
 
         $recipients = $recipientId === 'all'
@@ -90,6 +99,12 @@ class MessagesController extends ApiController
             $entityManager->persist(new UserMessage($actor, $recipient, $subject, $body));
         }
         $entityManager->flush();
+
+        if ($sendEmail) {
+            foreach ($recipients as $recipient) {
+                $this->adminMessageMailer->send($recipient, $subject, $body);
+            }
+        }
 
         return $this->json(['sent' => count($recipients)], 201);
     }

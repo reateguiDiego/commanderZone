@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "送信先",
       "allUsers": "すべてのユーザー",
+      "sendEmail": "メールでも送信する",
+      "sendEmailDescription": "メッセージは受信者のメールアドレスにも送信されます。",
       "subjectRequired": "件名を入力してください。",
       "formattingTools": "メッセージ書式ツール",
       "tools": {

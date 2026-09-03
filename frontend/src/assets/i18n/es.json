@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Destinatario",
       "allUsers": "Todos los usuarios",
+      "sendEmail": "Mandar también por email",
+      "sendEmailDescription": "El mensaje también se enviará al correo electrónico del destinatario.",
       "subjectRequired": "El asunto es obligatorio.",
       "formattingTools": "Herramientas de formato del mensaje",
       "tools": {

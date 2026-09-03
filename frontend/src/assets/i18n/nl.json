@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Ontvanger",
       "allUsers": "Alle gebruikers",
+      "sendEmail": "Ook per e-mail verzenden",
+      "sendEmailDescription": "Het bericht wordt ook naar het e-mailadres van de ontvanger gestuurd.",
       "subjectRequired": "Onderwerp is verplicht.",
       "formattingTools": "Opmaaktools voor berichten",
       "tools": {

@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Recipient",
       "allUsers": "All users",
+      "sendEmail": "同时发送邮件",
+      "sendEmailDescription": "消息也会发送到收件人的电子邮件地址。",
       "subjectRequired": "Subject is required.",
       "formattingTools": "Message formatting tools",
       "tools": {

@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Recipient",
       "allUsers": "All users",
+      "sendEmail": "Invia anche via email",
+      "sendEmailDescription": "Il messaggio verrà inviato anche all'indirizzo email del destinatario.",
       "subjectRequired": "Subject is required.",
       "formattingTools": "Message formatting tools",
       "tools": {

@@ -8,6 +8,8 @@
     "notifications": {
       "recipient": "Recipient",
       "allUsers": "All users",
+      "sendEmail": "Также отправить по электронной почте",
+      "sendEmailDescription": "Сообщение также будет отправлено на адрес электронной почты получателя.",
       "subjectRequired": "Subject is required.",
       "formattingTools": "Message formatting tools",
       "tools": {

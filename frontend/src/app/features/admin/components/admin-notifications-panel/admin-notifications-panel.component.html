@@ -4,40 +4,17 @@
   </header>
 
   <form class="admin-notifications-form" [formGroup]="form" novalidate (ngSubmit)="submit()">
-    <label class="field recipient-field">
-      <span>{{ 'admin.notifications.recipient' | runtimeTranslate }}</span>
-      <input
-        type="text"
-        name="recipient"
-        autocomplete="off"
-        role="combobox"
-        aria-controls="admin-notifications-recipient-options"
-        [attr.aria-expanded]="recipientsOpen()"
-        [formControl]="recipientControl"
-        (focus)="openRecipients()"
-        (blur)="closeRecipients()"
-        (input)="updateRecipientQuery($any($event.target).value)"
-      />
-
-      @if (recipientsOpen()) {
-        <div id="admin-notifications-recipient-options" class="recipient-options" role="listbox">
-          @for (option of filteredRecipients(); track option.id) {
-            <button
-              type="button"
-              role="option"
-              class="recipient-option"
-              [class.is-selected]="selectedRecipient().id === option.id"
-              (mousedown)="$event.preventDefault()"
-              (click)="selectRecipient(option)"
-            >
-              {{ option.name }}
-            </button>
-          } @empty {
-            <span class="recipient-empty">{{ 'shared.text.noUsersFound' | runtimeTranslate }}</span>
-          }
-        </div>
-      }
-    </label>
+    <app-format-select
+      class="recipient-field"
+      labelKey="admin.notifications.recipient"
+      name="recipient"
+      [options]="recipientOptions()"
+      [value]="selectedRecipientId()"
+      [disabled]="loadingUsers()"
+      [searchable]="true"
+      [searchPlaceholder]="'shared.text.search' | runtimeTranslate"
+      (valueChange)="selectRecipient($event)"
+    />
 
     <label class="field">
       <span>{{ 'shared.text.subject' | runtimeTranslate }}</span>
@@ -113,6 +90,14 @@
     @if (sentMessage(); as message) {
       <p class="notice success">{{ message }}</p>
     }
+
+    <app-toggle
+      [label]="'admin.notifications.sendEmail' | runtimeTranslate"
+      [description]="'admin.notifications.sendEmailDescription' | runtimeTranslate"
+      [checked]="sendEmail()"
+      [disabled]="sending()"
+      (checkedChange)="sendEmail.set($event)"
+    />
 
     <button type="submit" czButton="primary" [disabled]="!canSubmit()">
       {{ (sending() ? 'shared.text.sending' : 'admin.notifications.send') | runtimeTranslate }}

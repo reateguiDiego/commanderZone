@@ -2119,6 +2119,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'admin.notifications.title': 'Notifications',
   'admin.notifications.recipient': 'Recipient',
   'admin.notifications.allUsers': 'All users',
+  'admin.notifications.sendEmail': 'Also send by email',
+  'admin.notifications.sendEmailDescription': 'The message will also be sent to the recipient\'s email address.',
   'admin.notifications.noUsersFound': 'No users found.',
   'admin.notifications.subject': 'Subject',
   'admin.notifications.subjectRequired': 'Subject is required.',
