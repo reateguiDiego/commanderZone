@@ -10,7 +10,7 @@
   [showSecondary]="canVote()"
   [primaryDisabled]="pending() || !canVote()"
   [showCloseButton]="true"
-  closeLabel="common.modal.close"
+  closeLabel="shared.text.close"
   [lockBodyScroll]="false"
   (primary)="voteWait.emit()"
   (secondary)="voteExpel.emit()"
@@ -34,14 +34,14 @@
     }
 
     @if (error(); as errorMessage) {
-      <p class="vote-error">{{ errorMessage }}</p>
+      <p class="vote-error">{{ errorMessage | runtimeTranslate }}</p>
     }
 
     <div class="votes-box" [attr.aria-label]="'game.gameDisconnectVoteModal.disconnectVotes' | runtimeTranslate">
       @for (player of players(); track player.playerId) {
         <article class="vote-row">
           <span class="player-name">{{ player.displayName }}</span>
-          <span class="player-status" [attr.data-online]="player.online">{{ player.online ? 'online' : 'offline' }}</span>
+          <span class="player-status" [attr.data-online]="player.online">{{ (player.online ? 'shared.text.online' : 'shared.text.offline') | runtimeTranslate }}</span>
           <strong class="vote-pill" [attr.data-vote]="player.vote ?? 'none'">{{ voteLabel(player.vote) | runtimeTranslate }}</strong>
         </article>
       }

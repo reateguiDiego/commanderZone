@@ -245,7 +245,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
         { targetPlayerId, vote: choice },
       );
       if (!sent) {
-        this.error.set('La conexión de juego no está disponible.');
+        this.error.set('errors.runtime.la-conexion-de-juego-no-esta-disponible');
       }
     } catch (error) {
       this.error.set(this.errorMessage(error));
@@ -256,13 +256,13 @@ export class GameTableDisconnectVoteService implements OnDestroy {
 
   voteLabel(vote: GameDisconnectVoteChoice | null): string {
     if (vote === 'wait') {
-      return 'Esperar';
+      return 'game.gameDisconnectVoteModal.wait';
     }
     if (vote === 'expel') {
-      return 'Expulsar';
+      return 'game.gameDisconnectVoteModal.expel';
     }
 
-    return 'Sin voto';
+    return 'shared.text.noVote';
   }
 
   private voteKey(): string | null {
@@ -330,6 +330,6 @@ export class GameTableDisconnectVoteService implements OnDestroy {
 
   private errorMessage(error: unknown): string {
     const message = gameTableErrorMessage(error);
-    return message === 'Action failed.' ? 'No se pudo guardar tu voto.' : message;
+    return message;
   }
 }

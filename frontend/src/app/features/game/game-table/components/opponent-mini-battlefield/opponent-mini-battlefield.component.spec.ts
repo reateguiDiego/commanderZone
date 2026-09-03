@@ -214,7 +214,7 @@ describe('OpponentMiniBattlefieldComponent', () => {
     const toggle = renderedCard.querySelector('.double-face-toggle') as HTMLElement | null;
 
     expect(toggle).not.toBeNull();
-    expect(toggle?.getAttribute('title')).toBe('Look at other face');
+    expect(toggle?.getAttribute('title')).toBe('View other face');
 
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));

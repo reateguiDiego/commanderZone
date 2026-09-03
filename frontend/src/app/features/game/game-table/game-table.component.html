@@ -12,7 +12,7 @@
 
   <aside class="orientation-lock" data-testid="game-orientation-lock" role="status" aria-live="polite">
     <lucide-icon name="rotate-cw" size="34" aria-hidden="true" />
-    <strong>{{ 'game.gameTable.rotateYourDevice' | runtimeTranslate }}</strong>
+    <strong>{{ 'shared.text.rotateYourDevice' | runtimeTranslate }}</strong>
     <span>{{ 'game.gameTable.gamesCanOnlyBePlayedInLandscape' | runtimeTranslate }}</span>
   </aside>
 
@@ -31,7 +31,7 @@
         (click)="requestUnsupportedViewportLeave($event)"
       >
         <lucide-icon name="door-open" size="16" aria-hidden="true" />
-        <span>{{ 'game.gameTable.leaveRoom' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.leaveRoom' | runtimeTranslate }}</span>
       </button>
     </div>
   </aside>
@@ -134,7 +134,7 @@
                     [class.death-entry]="entry.appearance === 'death'"
                   >
                     <small>{{ logTime(entry.createdAt) }}</small>
-                    <strong>{{ entry.displayName ?? 'System' }}</strong>
+                      <strong>{{ entry.displayName ?? ('game.debug.system' | runtimeTranslate) }}</strong>
                     <span>
                       {{ entry.messagePrefix }}
                       @if (entry.card; as card) {
@@ -154,7 +154,7 @@
                       <span class="chat-message-line">
                         <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
                         @if (message.targetDisplayName) {
-                          <em>to {{ message.targetDisplayName }}</em>
+                          <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
                         }
                         <span class="chat-message-separator">:</span>
                         <span class="chat-message-text">{{ message.message }}</span>
@@ -202,7 +202,7 @@
                         <span class="chat-message-line">
                           <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
                           @if (message.targetDisplayName) {
-                            <em>to {{ message.targetDisplayName }}</em>
+                            <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
                           }
                           <span class="chat-message-separator">:</span>
                           <span class="chat-message-text">{{ message.message }}</span>
@@ -259,7 +259,7 @@
                   <input
                     data-testid="chat-input"
                     name="chatMessage"
-                    [placeholder]="'game.gameTable.message' | runtimeTranslate"
+                    [placeholder]="'shared.text.message' | runtimeTranslate"
                     [ngModel]="store.chatMessage()"
                     (ngModelChange)="store.setChatMessage($event)"
                   />
@@ -571,7 +571,7 @@
         [title]="tableExitTitle()"
         [message]="tableExitMessage()"
         [primaryLabel]="tableExitPrimaryLabel()"
-        secondaryLabel="common.modal.cancel"
+        secondaryLabel="shared.text.cancel"
         [danger]="true"
         [lockBodyScroll]="false"
         (primary)="confirmTableExitAction()"
@@ -623,7 +623,7 @@
           [title]="'game.specialHelpers.dungeonReplacement.title' | runtimeTranslate"
           [message]="'game.specialHelpers.dungeonReplacement.message' | runtimeTranslate:{ currentDungeon: replacement.currentDungeonName, nextDungeon: replacement.card.name }"
           [primaryLabel]="'game.specialHelpers.dungeonReplacement.confirm' | runtimeTranslate"
-          [secondaryLabel]="'game.specialHelpers.dungeonReplacement.cancel' | runtimeTranslate"
+          [secondaryLabel]="'shared.text.cancel' | runtimeTranslate"
           [primaryDisabled]="dungeonReplacementPending()"
           [lockBodyScroll]="false"
           size="compact"
@@ -637,8 +637,8 @@
           [open]="true"
           [title]="'game.specialHelpers.citysBlessingRemoval.title' | runtimeTranslate"
           [message]="'game.specialHelpers.citysBlessingRemoval.message' | runtimeTranslate"
-          [primaryLabel]="'game.specialHelpers.citysBlessingRemoval.confirm' | runtimeTranslate"
-          [secondaryLabel]="'game.specialHelpers.citysBlessingRemoval.cancel' | runtimeTranslate"
+          [primaryLabel]="'shared.text.remove' | runtimeTranslate"
+          [secondaryLabel]="'shared.text.cancel' | runtimeTranslate"
           [lockBodyScroll]="false"
           size="compact"
           (primary)="confirmCitysBlessingRemoval()"
@@ -658,9 +658,10 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.moveCardToAnotherBattlefield' | runtimeTranslate"
-          [message]="'Vas a poner ' + pendingMove.cardName + ' en el battlefield de ' + pendingMove.targetPlayerName + '.'"
-          primaryLabel="Confirmar"
-          secondaryLabel="Cancelar"
+          message="common.ui.moveCardToAnotherBattlefield"
+          [messageParams]="{ card: pendingMove.cardName, player: pendingMove.targetPlayerName }"
+          primaryLabel="shared.text.confirm"
+          secondaryLabel="shared.text.cancel"
           [lockBodyScroll]="false"
           (primary)="confirmPendingBattlefieldMove()"
           (secondary)="cancelPendingBattlefieldMove()"
@@ -671,9 +672,10 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.giveCard' | runtimeTranslate"
-          [message]="'You are giving ' + giveRequest.cardName + ' to ' + giveRequest.targetPlayerName + '. This moves it to their hand.'"
-          primaryLabel="Give card"
-          secondaryLabel="Cancel"
+          message="common.ui.giveCardToPlayer"
+          [messageParams]="{ card: giveRequest.cardName, player: giveRequest.targetPlayerName }"
+          primaryLabel="game.gameTable.giveCard"
+          secondaryLabel="shared.text.cancel"
           [lockBodyScroll]="false"
           (primary)="confirmHandCardGive()"
           (secondary)="cancelHandCardGive()"
@@ -684,12 +686,13 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.moveToHand' | runtimeTranslate"
-          [message]="'Do you want to reveal ' + libraryMoveRequest.cardName + ' while moving it from library to hand?'"
-          primaryLabel="Reveal and move"
-          secondaryLabel="Move hidden"
+          message="common.ui.revealWhileMovingToHand"
+          [messageParams]="{ card: libraryMoveRequest.cardName }"
+          primaryLabel="common.ui.revealAndMove"
+          secondaryLabel="common.ui.moveHidden"
           secondaryVariant="primary"
           [showTertiary]="true"
-          tertiaryLabel="Cancel"
+          tertiaryLabel="shared.text.cancel"
           footerLayout="split"
           size="compact"
           [lockBodyScroll]="false"
@@ -704,11 +707,11 @@
           [open]="true"
           [title]="'game.gameTable.putIntoLibrary' | runtimeTranslate"
           [message]="pendingLibraryMoveMessage(pendingMove)"
-          primaryLabel="Top"
-          secondaryLabel="Bottom"
+          primaryLabel="common.ui.top"
+          secondaryLabel="common.ui.bottom"
           secondaryVariant="primary"
           [showTertiary]="true"
-          tertiaryLabel="Cancelar"
+          tertiaryLabel="shared.text.cancel"
           footerLayout="split"
           size="compact"
           [lockBodyScroll]="false"
@@ -736,12 +739,13 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.moveAllToLibrary' | runtimeTranslate"
-          [message]="'Where do you want to put ' + moveAllRequest.count + ' cards?'"
-          primaryLabel="Top"
-          secondaryLabel="Bottom"
+          message="common.ui.moveAllCardsToLibrary"
+          [messageParams]="{ count: moveAllRequest.count }"
+          primaryLabel="common.ui.top"
+          secondaryLabel="common.ui.bottom"
           secondaryVariant="primary"
           [showTertiary]="true"
-          tertiaryLabel="Cancel"
+          tertiaryLabel="shared.text.cancel"
           footerLayout="split"
           size="compact"
           [lockBodyScroll]="false"
@@ -900,6 +904,6 @@
       />
     }
   } @else if (store.error()) {
-    <p class="notice error">{{ store.error() }}</p>
+    <p class="notice error">{{ store.error()! | runtimeTranslate }}</p>
   }
 </section>

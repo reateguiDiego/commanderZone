@@ -49,8 +49,8 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
   readonly turnIndexes = computed(() => this.players().map((_, index) => index));
   readonly confirmLabelKey = computed(() =>
     this.mode() === 'initial'
-      ? 'tableAssistant.tableAssistantReplayModal.startGame'
-      : 'common.actions.newGame',
+      ? 'shared.text.startGame'
+      : 'shared.text.newGame',
   );
   private formInitialized = false;
   readonly arrangementForm = new FormGroup(

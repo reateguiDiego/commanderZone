@@ -48,6 +48,6 @@ export class GameDisconnectVoteModalComponent {
       return 'game.gameDisconnectVoteModal.expel';
     }
 
-    return 'game.gameDisconnectVoteModal.noVote';
+    return 'shared.text.noVote';
   }
 }

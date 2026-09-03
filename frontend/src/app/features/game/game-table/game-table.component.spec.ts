@@ -4503,7 +4503,7 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.advanceTurnPhase();
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.store.error()).toBe('Only the active turn player can advance the turn.');
+    expect(fixture.componentInstance.store.error()).toBe('errors.runtime.only-the-active-turn-player-can-advance-the-turn');
   });
 
   it('focuses the active turn player when follow turn is enabled', async () => {
@@ -4735,7 +4735,7 @@ describe('GameTableComponent', () => {
     });
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.store.error()).toBe('Maximum 5 different counters per card.');
+    expect(fixture.componentInstance.store.error()).toBe('errors.runtime.maximum-5-different-counters-per-card');
   });
 
   it('removes all visible card counters optimistically from the context menu', async () => {
@@ -6303,7 +6303,7 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.setLife('user-2', 35);
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.store.error()).toBe('You can only change your own life total.');
+    expect(fixture.componentInstance.store.error()).toBe('errors.runtime.you-can-only-change-your-own-life-total');
   });
 
   it('debounces repeated life changes into one absolute command', async () => {

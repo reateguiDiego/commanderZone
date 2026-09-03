@@ -1,10 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
+import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { SUPPORTED_CARD_LANGUAGE_CODES, SupportedCardLanguageCode } from '../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
@@ -40,24 +42,24 @@ import {
 import { DeckAnalysisStore } from '../deck-editor/deck-analysis-panel/deck-analysis-store.token';
 
 const CARD_TYPE_GROUPS = [
-  { id: 'planeswalker', title: 'Planeswalkers', type: 'planeswalker' },
-  { id: 'battle', title: 'Battles', type: 'battle' },
-  { id: 'creature', title: 'Criaturas', type: 'creature' },
-  { id: 'instant', title: 'Instantaneos', type: 'instant' },
-  { id: 'sorcery', title: 'Conjuros', type: 'sorcery' },
-  { id: 'enchantment', title: 'Encantamientos', type: 'enchantment' },
-  { id: 'artifact', title: 'Artefactos', type: 'artifact' },
-  { id: 'land', title: 'Tierras', type: 'land' },
+  { id: 'planeswalker', title: 'shared.text.planeswalkers', type: 'planeswalker' },
+  { id: 'battle', title: 'community.deckViewer.groups.battle', type: 'battle' },
+  { id: 'creature', title: 'shared.text.creatures', type: 'creature' },
+  { id: 'instant', title: 'shared.text.instants', type: 'instant' },
+  { id: 'sorcery', title: 'shared.text.sorceries', type: 'sorcery' },
+  { id: 'enchantment', title: 'shared.text.enchantments', type: 'enchantment' },
+  { id: 'artifact', title: 'shared.text.artifacts', type: 'artifact' },
+  { id: 'land', title: 'shared.text.lands', type: 'land' },
 ] as const;
 
 const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => boolean }> = [
-  { id: 'commander', title: 'Comandante', matcher: (entry) => entry.section === 'commander' },
+  { id: 'commander', title: 'shared.text.commander', matcher: (entry) => entry.section === 'commander' },
   ...CARD_TYPE_GROUPS.map((group) => ({
     id: group.id,
     title: group.title,
     matcher: (entry: DeckCard) => hasMaindeckType(entry, group.type),
   })),
-  { id: 'sideboard', title: 'Banquillo', matcher: (entry) => entry.section === 'sideboard' },
+  { id: 'sideboard', title: 'shared.text.sideboard', matcher: (entry) => entry.section === 'sideboard' },
 ];
 const NON_PLAYABLE_CARD_GROUP_IDS = new Set(['sideboard', 'maybeboard', 'considering']);
 const DECK_TEXT_VIEW_TARGET_COLUMN_WEIGHT = 42;
@@ -75,6 +77,7 @@ interface ToggleCardFaceOptions {
 
 @Injectable()
 export class DeckEditorStore implements DeckAnalysisStore {
+  private readonly translate = inject(TranslateService, { optional: true });
   private readonly decksApi = inject(DecksApi);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
@@ -245,7 +248,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   async load(): Promise<void> {
     const identifier = this.route.snapshot.paramMap.get('slug') ?? this.route.snapshot.paramMap.get('id');
     if (!identifier) {
-      this.error.set('Missing deck slug.');
+      this.error.set('errors.runtime.missing-deck-slug');
       this.loading.set(false);
       return;
     }
@@ -409,10 +412,6 @@ export class DeckEditorStore implements DeckAnalysisStore {
     return `${total > 0 ? Math.round((spells / total) * 100) : 0}%`;
   }
 
-  curveHoverTitle(manaValue: number, label: string): string {
-    return `${label} - Mana value ${this.curveManaValueLabel(manaValue)}`;
-  }
-
   curveHoverItems(manaValue: number, kind: 'permanent' | 'spell'): string[] {
     const entries = (this.deck()?.cards ?? [])
       .filter((entry) => entry.section === 'main')
@@ -425,15 +424,15 @@ export class DeckEditorStore implements DeckAnalysisStore {
 
   showCurveHoverList(event: MouseEvent, manaValue: number): void {
     this.hoverList.set({
-      title: `Mana value ${this.curveManaValueLabel(manaValue)}`,
+      title: this.translateText('deckBuilder.deckManaCurvePanel.manaValue', { value: this.curveManaValueLabel(manaValue) }),
       items: [],
       sections: [
         {
-          title: 'Permanents',
+          title: this.translateText('deckBuilder.deckManaCurvePanel.permanents'),
           items: this.curveHoverItems(manaValue, 'permanent'),
         },
         {
-          title: 'Spells',
+          title: this.translateText('deckBuilder.deckManaCurvePanel.spells'),
           items: this.curveHoverItems(manaValue, 'spell'),
         },
       ],
@@ -1001,23 +1000,33 @@ export class DeckEditorStore implements DeckAnalysisStore {
 
     const remaining = cards.filter((entry) => !assigned.has(entry.id));
     if (remaining.length > 0) {
-      groups.push(this.toCardGroup('other', 'Otros', sortCardsWithinSection(remaining)));
+      groups.push(this.toCardGroup('other', 'community.deckViewer.groups.other', sortCardsWithinSection(remaining)));
     }
 
     return groups;
   }
 
-  private toCardGroup(id: string, title: string, cards: DeckCard[], mdfcLandQuantity = 0): DeckCardGroup {
+  private toCardGroup(id: string, titleKey: string, cards: DeckCard[], mdfcLandQuantity = 0): DeckCardGroup {
     const quantity = cards.reduce((total, entry) => total + entry.quantity, 0);
     const includingMdfc = quantity + mdfcLandQuantity;
 
     return {
       id,
-      title,
+      title: this.translateText(titleKey),
       cards,
       quantity,
-      ...(id === 'land' && mdfcLandQuantity > 0 ? { detail: `${includingMdfc} including MDFC` } : {}),
+      ...(id === 'land' && mdfcLandQuantity > 0
+        ? { detail: this.translateText('community.deckViewer.groups.includingMdfc', { count: includingMdfc }) }
+        : {}),
     };
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translate?.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 
   private buildCardColumns(): DeckCardColumn[] {

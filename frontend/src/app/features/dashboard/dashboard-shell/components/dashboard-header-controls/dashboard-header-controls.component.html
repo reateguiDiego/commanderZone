@@ -9,13 +9,13 @@
   />
 
   @if (canAccessAdmin()) {
-    <app-tooltip class="admin-tooltip" [text]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate">
+    <app-tooltip class="admin-tooltip" [text]="'shared.text.admin' | runtimeTranslate">
       <a
         czButton="icon"
         class="icon-button admin-action"
         routerLink="/admin"
         routerLinkActive="active"
-        [attr.aria-label]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate"
+        [attr.aria-label]="'shared.text.admin' | runtimeTranslate"
         (click)="closeOverlayMenus()"
       >
         <lucide-icon name="shield-check" size="18" aria-hidden="true" />
@@ -25,12 +25,12 @@
 
   @if (device.isDesktop()) {
     <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-      <app-tooltip [text]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate">
+      <app-tooltip [text]="'shared.text.friends' | runtimeTranslate">
         <button czButton="icon"
           class="icon-button friends-action"
           [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
           type="button"
-          [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.friends' | runtimeTranslate"
           [attr.aria-expanded]="friendsOpen()"
           (click)="toggleFriendsDropdown($event)"
         >
@@ -56,13 +56,13 @@
 
   @if (messagesCount() > 0) {
     <div class="messages-dropdown" [class.open]="messagesOpen()" (click)="$event.stopPropagation()">
-      <app-tooltip [text]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate">
+      <app-tooltip [text]="'shared.text.messages' | runtimeTranslate">
         <button
           czButton="icon"
           class="icon-button messages-action"
           [class.has-notifications]="!messagesOpen() && unreadMessagesCount() > 0"
           type="button"
-          [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.messages' | runtimeTranslate"
           [attr.aria-expanded]="messagesOpen()"
           (click)="toggleMessagesDropdown($event)"
         >

@@ -10,12 +10,12 @@
             <app-game-changer-icon />
           }
         </strong>
-        <small>{{ entry().quantity }} {{ entry().quantity === 1 ? 'copy' : 'copies' }} in {{ entry().section }}</small>
+        <small>{{ 'common.ui.copySummary' | runtimeTranslate: { count: entry().quantity, section: entry().section } }}</small>
       </header>
 
       <section class="card-menu-quantity-panel" [attr.aria-label]="'deckBuilder.deckCardMenu.copyQuantityControls' | runtimeTranslate">
         <label class="card-menu-amount" [title]="'deckBuilder.deckCardMenu.quantityToAddOrRemove' | runtimeTranslate">
-          <span>{{ 'deckBuilder.deckCardMenu.quantity' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.quantity' | runtimeTranslate }}</span>
           <input
             type="number"
             min="1"
@@ -26,17 +26,17 @@
         </label>
         <div class="card-menu-copy-controls">
           <button class="copy-action add-action" type="button" (click)="store.addCardCopy($event, entry())">
-            <span>{{ 'deckBuilder.deckCardMenu.add' | runtimeTranslate }}</span>
+            <span>{{ 'shared.text.add' | runtimeTranslate }}</span>
           </button>
           <button class="copy-action remove-action" type="button" (click)="store.removeCardCopy($event, entry())">
             <lucide-icon name="minus" size="16" />
-            <span>{{ 'deckBuilder.deckCardMenu.remove' | runtimeTranslate }}</span>
+            <span>{{ 'shared.text.remove' | runtimeTranslate }}</span>
           </button>
         </div>
       </section>
 
       <button class="move-action print-action" type="button" (click)="store.openPrintVersionModal($event, entry())">
-        <span>{{ 'deckBuilder.deckCardMenu.selectPrintVersion' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.selectPrintVersion' | runtimeTranslate }}</span>
       </button>
 
       @if (entry().section !== 'main') {

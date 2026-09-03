@@ -95,7 +95,7 @@ export class PasswordResetPageComponent {
         this.resetError.set('auth.passwordResetPage.invalidOrExpiredLink');
       }
       if (!this.passwordsMatch()) {
-        this.resetError.set('auth.passwordResetPage.passwordsDoNotMatch');
+        this.resetError.set('shared.text.passwordsDoNotMatch');
       }
       return;
     }

@@ -30,7 +30,7 @@ export type TableAssistantTrackerId =
 
 export interface TableAssistantTrackerDefinition {
   id: TableAssistantTrackerId;
-  label: string;
+  labelKey: string;
   scope: 'player' | 'global' | 'special';
   defaultEnabled: boolean;
 }

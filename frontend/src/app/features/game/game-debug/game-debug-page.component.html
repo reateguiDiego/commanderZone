@@ -1,16 +1,16 @@
 <main class="debug-page">
   <header class="debug-header">
     <div>
-      <p>Game debug</p>
-      <h1>WebSocket</h1>
+      <p>{{ 'game.debug.eyebrow' | runtimeTranslate }}</p>
+      <h1>{{ 'game.debug.title' | runtimeTranslate }}</h1>
       <span>{{ gameId }}</span>
     </div>
     <div class="debug-actions">
       <span class="debug-connection-status" [class.is-connected]="debugWebsocket.status() === 'connected'">
-        Debug live WS: {{ debugLiveStatusLabel() }}
+        {{ 'game.debug.liveWebsocketStatus' | runtimeTranslate: { status: debugLiveStatusLabel() } }}
       </span>
       <button type="button" [disabled]="loading()" (click)="openDebug()">
-        Reiniciar
+        {{ 'game.debug.reset' | runtimeTranslate }}
       </button>
     </div>
   </header>
@@ -20,110 +20,110 @@
   }
 
   @if (error(); as errorMessage) {
-    <p class="debug-error">{{ errorMessage }}</p>
+    <p class="debug-error">{{ errorMessage | runtimeTranslate }}</p>
   }
 
   @if (report(); as currentReport) {
     @if (debugWebsocket.status() !== 'connected') {
       <p class="debug-warning">
-        La pestaña debug esta abierta, pero el WebSocket de debug no esta conectado ahora mismo. La partida puede seguir jugando normal.
+        {{ 'game.debug.websocketDisconnectedWarning' | runtimeTranslate }}
       </p>
     }
 
     <section class="debug-summary-grid">
       <article data-testid="debug-http-metrics-status">
-        <span>Metricas HTTP</span>
-        <strong>{{ httpMetricsStatus() }}</strong>
-        <small>GET /games/{{ gameId }}/debug/health</small>
+        <span>{{ 'game.debug.httpMetrics' | runtimeTranslate }}</span>
+        <strong>{{ httpMetricsStatusKey() | runtimeTranslate }}</strong>
+        <small>{{ 'game.debug.healthEndpoint' | runtimeTranslate: { gameId } }}</small>
       </article>
       <article data-testid="debug-live-ws-status">
-        <span>Debug live WS PHP</span>
+        <span>{{ 'game.debug.liveWebsocketPhp' | runtimeTranslate }}</span>
         <strong>{{ debugLiveStatusLabel() }}</strong>
-        <small>{{ debugWebsocket.displayUrl() ?? 'sin endpoint configurado' }}</small>
+        <small>{{ debugWebsocket.displayUrl() ?? ('game.debug.noEndpointConfigured' | runtimeTranslate) }}</small>
       </article>
       <article data-testid="debug-gameplay-runtime-status">
-        <span>Gameplay runtime_ws</span>
-        <strong>{{ gameplayRuntimeObservationStatus() }}</strong>
-        <small>observacion local via BroadcastChannel, sin usar refetch de comandos</small>
+        <span>{{ 'game.debug.gameplayRuntime' | runtimeTranslate }}</span>
+        <strong>{{ gameplayRuntimeObservationStatusKey() | runtimeTranslate }}</strong>
+        <small>{{ 'game.debug.gameplayRuntimeDescription' | runtimeTranslate }}</small>
       </article>
       <article>
-        <span>Acciones</span>
+        <span>{{ 'shared.text.actions' | runtimeTranslate }}</span>
         <strong>{{ currentReport.health.actions.total }}</strong>
-        <small>desde reinicio debug</small>
+        <small>{{ 'game.debug.sinceDebugReset' | runtimeTranslate }}</small>
       </article>
       <article>
-        <span>Cliente -&gt; servidor</span>
+        <span>{{ 'game.debug.clientToServer' | runtimeTranslate }}</span>
         <strong>{{ currentReport.health.traffic.incoming.messages }}</strong>
-        <small>{{ averageJsonCharacters(currentReport.health.traffic.incoming) }} caracteres del JSON de media / mensaje</small>
+        <small>{{ 'game.debug.averageJsonCharactersPerMessage' | runtimeTranslate: { value: averageJsonCharacters(currentReport.health.traffic.incoming) } }}</small>
       </article>
       <article>
-        <span>Servidor -&gt; cliente</span>
+        <span>{{ 'game.debug.serverToClient' | runtimeTranslate }}</span>
         <strong>{{ currentReport.health.traffic.outgoing.messages }}</strong>
-        <small>{{ averageJsonCharacters(currentReport.health.traffic.outgoing) }} caracteres del JSON de media / mensaje</small>
+        <small>{{ 'game.debug.averageJsonCharactersPerMessage' | runtimeTranslate: { value: averageJsonCharacters(currentReport.health.traffic.outgoing) } }}</small>
       </article>
       <article>
-        <span>Errores</span>
+        <span>{{ 'shared.text.errors' | runtimeTranslate }}</span>
         <strong>{{ currentReport.health.errors.total }}</strong>
       </article>
       <article>
-        <span>Media comando</span>
+        <span>{{ 'game.debug.averageCommand' | runtimeTranslate }}</span>
         <strong>{{ formatMs(currentReport.health.performance.commands.avgMs) }}</strong>
-        <small>max {{ formatMs(currentReport.health.performance.commands.maxMs) }}</small>
+        <small>{{ 'game.debug.maximum' | runtimeTranslate }} {{ formatMs(currentReport.health.performance.commands.maxMs) }}</small>
       </article>
       <article>
-        <span>Conexiones</span>
+        <span>{{ 'game.debug.connections' | runtimeTranslate }}</span>
         <strong>{{ currentReport.health.websocket.connections.total }}</strong>
-        <small>{{ currentReport.health.websocket.connections.transitions.offline }} desconexiones</small>
+        <small>{{ 'game.debug.disconnections' | runtimeTranslate: { count: currentReport.health.websocket.connections.transitions.offline } }}</small>
       </article>
     </section>
 
     <section class="debug-section">
-      <h2>Cola gameplay local</h2>
+      <h2>{{ 'game.debug.localGameplayQueue' | runtimeTranslate }}</h2>
       @if (queueMetrics(); as queue) {
         <div class="debug-summary-grid">
           <article>
-            <span>Depth</span>
+            <span>{{ 'game.debug.queueDepth' | runtimeTranslate }}</span>
             <strong>{{ queue.queueDepth }}</strong>
-            <small>in-flight: {{ queue.inFlight ? 'si' : 'no' }}</small>
+            <small>{{ 'game.debug.inFlight' | runtimeTranslate }}: {{ (queue.inFlight ? 'shared.text.yes' : 'shared.text.no') | runtimeTranslate }}</small>
           </article>
           <article>
-            <span>Rates (60s)</span>
+            <span>{{ 'game.debug.queueRates' | runtimeTranslate }}</span>
             <strong>{{ queue.enqueueRate }} / {{ queue.drainRate }}</strong>
-            <small>enqueue/s - drain/s</small>
+            <small>{{ 'game.debug.queueRatesDescription' | runtimeTranslate }}</small>
           </article>
           <article>
-            <span>Enqueue/Drain</span>
+            <span>{{ 'game.debug.enqueueDrain' | runtimeTranslate }}</span>
             <strong>{{ queue.enqueueTotal }} / {{ queue.drainTotal }}</strong>
-            <small>acumulado local</small>
+            <small>{{ 'game.debug.localAccumulated' | runtimeTranslate }}</small>
           </article>
           <article>
-            <span>Drops/Retry/Resync</span>
+            <span>{{ 'game.debug.dropsRetryResync' | runtimeTranslate }}</span>
             <strong>{{ queue.dropTotal }} / {{ queue.retryTotal }} / {{ queue.resyncTotal }}</strong>
-            <small>salud de cola local</small>
+            <small>{{ 'game.debug.localQueueHealth' | runtimeTranslate }}</small>
           </article>
           <article>
-            <span>Rejected/Circuit/QueueFull</span>
+            <span>{{ 'game.debug.rejectedCircuitQueueFull' | runtimeTranslate }}</span>
             <strong>{{ queue.rejectedTotal }} / {{ queue.circuitBlockedTotal }} / {{ queue.queueFullTotal }}</strong>
-            <small>proteccion anti-loop local</small>
+            <small>{{ 'game.debug.localAntiLoopProtection' | runtimeTranslate }}</small>
           </article>
         </div>
       } @else {
-        <p class="debug-empty">Sin metricas locales de cola (abre la partida y genera actividad).</p>
+        <p class="debug-empty">{{ 'game.debug.noLocalQueueMetrics' | runtimeTranslate }}</p>
       }
     </section>
 
     <section class="debug-section">
-      <h2>Dead-letter local (ultimos 100)</h2>
+      <h2>{{ 'game.debug.localDeadLetter' | runtimeTranslate }}</h2>
       @if (deadLetterEvents().length > 0) {
         <div class="debug-table-wrap">
           <table class="debug-table">
             <thead>
               <tr>
-                <th>At</th>
-                <th>Comando</th>
-                <th>Motivo</th>
-                <th>Retry</th>
-                <th>Detalle</th>
+                <th>{{ 'game.debug.at' | runtimeTranslate }}</th>
+                <th>{{ 'game.debug.command' | runtimeTranslate }}</th>
+                <th>{{ 'shared.text.reason' | runtimeTranslate }}</th>
+                <th>{{ 'shared.text.retry' | runtimeTranslate }}</th>
+                <th>{{ 'game.debug.detail' | runtimeTranslate }}</th>
               </tr>
             </thead>
             <tbody>
@@ -140,36 +140,36 @@
           </table>
         </div>
       } @else {
-        <p class="debug-empty">Sin eventos dead-letter.</p>
+        <p class="debug-empty">{{ 'game.debug.noDeadLetterEvents' | runtimeTranslate }}</p>
       }
     </section>
 
     <section class="debug-section debug-columns">
       <article>
-        <h2>Keepalive cliente -&gt; servidor</h2>
-        <p><span>Mensajes</span><strong>{{ currentReport.health.traffic.keepalive.incoming.messages }}</strong></p>
-        <p><span>Media caracteres JSON / mensaje</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.incoming) }}</strong></p>
+        <h2>{{ 'game.debug.clientToServerKeepalive' | runtimeTranslate }}</h2>
+        <p><span>{{ 'shared.text.messages' | runtimeTranslate }}</span><strong>{{ currentReport.health.traffic.keepalive.incoming.messages }}</strong></p>
+        <p><span>{{ 'game.debug.averageJsonCharacters' | runtimeTranslate }}</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.incoming) }}</strong></p>
       </article>
       <article>
-        <h2>Keepalive servidor -&gt; cliente</h2>
-        <p><span>Mensajes</span><strong>{{ currentReport.health.traffic.keepalive.outgoing.messages }}</strong></p>
-        <p><span>Media caracteres JSON / mensaje</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.outgoing) }}</strong></p>
+        <h2>{{ 'game.debug.serverToClientKeepalive' | runtimeTranslate }}</h2>
+        <p><span>{{ 'shared.text.messages' | runtimeTranslate }}</span><strong>{{ currentReport.health.traffic.keepalive.outgoing.messages }}</strong></p>
+        <p><span>{{ 'game.debug.averageJsonCharacters' | runtimeTranslate }}</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.outgoing) }}</strong></p>
       </article>
     </section>
 
     <section class="debug-section">
-      <h2>Jugadores</h2>
+      <h2>{{ 'shared.text.players' | runtimeTranslate }}</h2>
       <div class="debug-player-list">
         @for (player of currentReport.context.players; track player.playerId) {
           <article>
             <strong>{{ player.displayName }}</strong>
             <span>{{ playerDeck(player) }}</span>
             <div class="debug-player-metrics">
-              <small>Estado: {{ playerStatus(player) }}</small>
-              <small>Conexiones: {{ playerConnections(player) }}</small>
-              <small>Perdidas: {{ playerDisconnects(player) }}</small>
+              <small>{{ 'shared.text.status' | runtimeTranslate }}: {{ playerStatus(player) }}</small>
+              <small>{{ 'game.debug.connections' | runtimeTranslate }}: {{ playerConnections(player) }}</small>
+              <small>{{ 'game.debug.disconnectionsLabel' | runtimeTranslate }}: {{ playerDisconnects(player) }}</small>
               @if (playerLastDisconnectedAt(player); as lastDisconnectedAt) {
-                <small>Ultima perdida: {{ lastDisconnectedAt }}</small>
+                <small>{{ 'game.debug.lastDisconnection' | runtimeTranslate }}: {{ lastDisconnectedAt }}</small>
               }
             </div>
           </article>
@@ -178,7 +178,7 @@
     </section>
 
     <section class="debug-section">
-      <h2>Acciones recientes</h2>
+      <h2>{{ 'game.debug.recentActions' | runtimeTranslate }}</h2>
       @if (actions().length > 0) {
         <div class="debug-table-wrap">
           <table class="debug-table">
@@ -186,37 +186,37 @@
               <tr>
                 <th [attr.aria-sort]="actionAriaSort('action')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('action')">
-                    Accion <span>{{ actionSortLabel('action') }}</span>
+                    {{ 'shared.text.action' | runtimeTranslate }} <span>{{ actionSortLabel('action') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('player')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('player')">
-                    Jugador <span>{{ actionSortLabel('player') }}</span>
+                    {{ 'shared.text.player' | runtimeTranslate }} <span>{{ actionSortLabel('player') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('incoming')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('incoming')">
-                    Cliente -&gt; servidor <span>{{ actionSortLabel('incoming') }}</span>
+                    {{ 'game.debug.clientToServer' | runtimeTranslate }} <span>{{ actionSortLabel('incoming') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('outgoing')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('outgoing')">
-                    Servidor -&gt; cliente <span>{{ actionSortLabel('outgoing') }}</span>
+                    {{ 'game.debug.serverToClient' | runtimeTranslate }} <span>{{ actionSortLabel('outgoing') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('operations')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('operations')">
-                    Ops <span>{{ actionSortLabel('operations') }}</span>
+                    {{ 'game.debug.operations' | runtimeTranslate }} <span>{{ actionSortLabel('operations') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('snapshotGrowth')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('snapshotGrowth')">
-                    Crec. lineas snapshot local <span>{{ actionSortLabel('snapshotGrowth') }}</span>
+                    {{ 'game.debug.localSnapshotGrowth' | runtimeTranslate }} <span>{{ actionSortLabel('snapshotGrowth') }}</span>
                   </button>
                 </th>
                 <th [attr.aria-sort]="actionAriaSort('duration')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('duration')">
-                    Tiempo <span>{{ actionSortLabel('duration') }}</span>
+                    {{ 'game.debug.time' | runtimeTranslate }} <span>{{ actionSortLabel('duration') }}</span>
                   </button>
                 </th>
               </tr>
@@ -226,11 +226,8 @@
                 <tr>
                   <td>{{ action.action }}</td>
                   <td>{{ playerLabel(action.userId) }}</td>
-                  <td>{{ action.incoming?.characters ?? 0 }} caracteres del JSON</td>
-                  <td>
-                    {{ action.outgoing?.messages ?? 0 }} msg /
-                    {{ action.outgoing?.characters ?? 0 }} caracteres del JSON
-                  </td>
+                  <td>{{ 'game.debug.jsonCharacters' | runtimeTranslate: { count: action.incoming?.characters ?? 0 } }}</td>
+                  <td>{{ 'game.debug.outgoingTrafficSummary' | runtimeTranslate: { messages: action.outgoing?.messages ?? 0, characters: action.outgoing?.characters ?? 0 } }}</td>
                   <td>{{ operationTypes(action) }}</td>
                   <td [title]="snapshotGrowthTitle(action)">{{ snapshotGrowthLabel(action) }}</td>
                   <td>{{ formatMs(action.durationMs) }}</td>
@@ -240,18 +237,18 @@
           </table>
         </div>
       } @else {
-        <p class="debug-empty">Aun no hay acciones registradas.</p>
+        <p class="debug-empty">{{ 'game.debug.noRecordedActions' | runtimeTranslate }}</p>
       }
     </section>
 
     <section class="debug-section">
-      <h2>Errores</h2>
+      <h2>{{ 'shared.text.errors' | runtimeTranslate }}</h2>
       @if (errors().length > 0) {
         <div class="debug-error-list">
           @for (item of errors(); track item.at ?? item.code ?? $index) {
             <article>
               <strong>{{ item.code ?? 'UNKNOWN_ERROR' }}</strong>
-              <span>{{ item.message ?? 'Sin mensaje' }}</span>
+              <span>{{ errorDescription(item.message) }}</span>
               @if (item.at) {
                 <small>{{ item.at }}</small>
               }
@@ -259,25 +256,25 @@
           }
         </div>
       } @else {
-        <p class="debug-empty">Sin errores registrados.</p>
+        <p class="debug-empty">{{ 'game.debug.noRecordedErrors' | runtimeTranslate }}</p>
       }
     </section>
 
     <section class="debug-section debug-columns">
       <article>
-        <h2>Acciones por tipo</h2>
+        <h2>{{ 'game.debug.actionsByType' | runtimeTranslate }}</h2>
         @for (entry of recordEntries(currentReport.health.actions.byType); track entry.key) {
           <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
         }
       </article>
       <article>
-        <h2>Mensajes servidor -&gt; cliente</h2>
+        <h2>{{ 'game.debug.serverMessages' | runtimeTranslate }}</h2>
         @for (entry of recordEntries(currentReport.health.traffic.outgoing.byKind); track entry.key) {
           <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
         }
       </article>
       <article>
-        <h2>Errores por codigo</h2>
+        <h2>{{ 'game.debug.errorsByCode' | runtimeTranslate }}</h2>
         @for (entry of recordEntries(currentReport.health.errors.byCode); track entry.key) {
           <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
         }
@@ -285,7 +282,7 @@
     </section>
 
     <details class="debug-json">
-      <summary>JSON sanitizado</summary>
+      <summary>{{ 'game.debug.sanitizedJson' | runtimeTranslate }}</summary>
       <pre>{{ reportJson() }}</pre>
     </details>
   }

@@ -86,8 +86,8 @@ export class CardAdvancedSearchFormComponent {
   readonly colorChoices = CARD_COLOR_CHOICES;
   readonly manaCostSymbols = CARD_MANA_COST_SYMBOLS;
   readonly colorModeTabs: readonly TabListItem[] = [
-    { id: 'any', label: 'deckBuilder.cards.cardSearch.form.colorModeAny' },
-    { id: 'all', label: 'deckBuilder.cards.cardSearch.form.colorModeAll' },
+    { id: 'any', label: 'shared.text.any' },
+    { id: 'all', label: 'shared.text.all' },
     { id: 'exact', label: 'deckBuilder.cards.cardSearch.form.colorModeExact' },
   ];
   readonly filterOrder: readonly CardSearchFilterKey[] = ['name', 'text', 'types', 'subtypes', 'sets', 'rarities', 'colors', 'costs', 'stats', 'formats'];

@@ -42,15 +42,15 @@ export class RoomBrowserComponent {
   readonly formatFilter = signal('all');
   readonly page = signal(1);
   readonly visibilityFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'rooms.roomBrowser.publicAndPrivate' },
-    { id: 'public', labelKey: 'rooms.roomBrowser.publicOnly' },
-    { id: 'private', labelKey: 'rooms.roomBrowser.privateOnly' },
+    { id: 'all', labelKey: 'shared.text.all' },
+    { id: 'public', labelKey: 'shared.text.public' },
+    { id: 'private', labelKey: 'shared.text.private' },
   ];
   readonly statusFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'rooms.roomBrowser.publicAndPrivate' },
-    { id: 'open', labelKey: 'rooms.roomBrowser.open' },
-    { id: 'full', labelKey: 'rooms.roomBrowser.full' },
-    { id: 'started', labelKey: 'rooms.roomBrowser.started' },
+    { id: 'all', labelKey: 'shared.text.all' },
+    { id: 'open', labelKey: 'shared.text.open' },
+    { id: 'full', labelKey: 'shared.text.full' },
+    { id: 'started', labelKey: 'shared.text.started' },
   ];
 
   readonly filteredRooms = computed(() => {

@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { LucideAngularModule } from 'lucide-angular';
+import { TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -74,6 +75,7 @@ export class WaitingRoomComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly pageHeader = inject(PageHeaderStore);
+  private readonly translation = inject(TranslateService, { optional: true });
   private presenceHandle?: number;
   private roomSyncInFlight = false;
   private presenceInFlight = false;
@@ -208,7 +210,7 @@ export class WaitingRoomComponent implements OnDestroy {
       await firstValueFrom(this.roomsApi.invite(room.id, userId));
       await this.loadSentInvites(room.id);
     } catch {
-      this.error.set('Could not send invite.');
+      this.error.set('errors.runtime.could-not-send-invite');
     } finally {
       this.invitingUserIds.set(this.invitingUserIds().filter((id) => id !== userId));
     }
@@ -311,7 +313,7 @@ export class WaitingRoomComponent implements OnDestroy {
       this.roomPendingLeave.set(null);
       await this.router.navigate(['/rooms']);
     } catch {
-      this.error.set('Could not leave room.');
+      this.error.set('errors.runtime.could-not-leave-room');
     }
   }
 
@@ -354,7 +356,7 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   rollModalTitle(): string {
-    return this.currentTieBreakPrompt() ? 'rooms.waitingRoom.tieBreakRoll' : 'rooms.waitingRoomDeckSelector.rollDice';
+    return this.currentTieBreakPrompt() ? 'rooms.waitingRoom.tieBreakRoll' : 'shared.text.rollDice';
   }
 
   rollModalMessage(): string {
@@ -516,7 +518,7 @@ export class WaitingRoomComponent implements OnDestroy {
 
     const legalDecks = this.legalDeckOptions();
     if (legalDecks.length === 0) {
-      this.error.set('No legal Commander decks available.');
+      this.error.set('errors.runtime.no-legal-commander-decks-available');
       return;
     }
 
@@ -560,7 +562,7 @@ export class WaitingRoomComponent implements OnDestroy {
       this.roomPendingDelete.set(null);
       await this.router.navigate(['/rooms']);
     } catch {
-      this.error.set('Could not delete room.');
+      this.error.set('errors.runtime.could-not-delete-room');
     } finally {
       this.deletingRoomId.set(null);
     }
@@ -675,10 +677,10 @@ export class WaitingRoomComponent implements OnDestroy {
 
   deckName(deckId: string | null): string {
     if (!deckId) {
-      return 'No deck selected';
+      return 'shared.text.selectADeck';
     }
 
-    return this.decks().find((deck) => deck.id === deckId)?.name ?? 'Selected deck';
+    return this.decks().find((deck) => deck.id === deckId)?.name ?? 'rooms.waitingRoomDeckSelector.deckSelection';
   }
 
   playerDeck(player: RoomPlayer): Deck | null {
@@ -687,7 +689,7 @@ export class WaitingRoomComponent implements OnDestroy {
 
   playerDeckName(player: RoomPlayer): string {
     if (!player.deckId) {
-      return 'Deck pending';
+      return 'game.opponentMiniBoard.deckPending';
     }
 
     return this.playerDeck(player)?.name ?? this.deckName(player.deckId);
@@ -848,7 +850,7 @@ export class WaitingRoomComponent implements OnDestroy {
       const response = await firstValueFrom(this.decksApi.list(undefined, true));
       this.decks.set(response.data);
     } catch {
-      this.error.set('Could not load decks.');
+      this.error.set('errors.runtime.could-not-load-decks');
     }
   }
 
@@ -874,7 +876,7 @@ export class WaitingRoomComponent implements OnDestroy {
         this.copiedFeedbackHandle = undefined;
       }, 5000);
     } catch {
-      this.error.set('Could not copy to clipboard.');
+      this.error.set('errors.runtime.could-not-copy-to-clipboard');
     }
   }
 
@@ -883,7 +885,7 @@ export class WaitingRoomComponent implements OnDestroy {
       const response = await firstValueFrom(this.friendsApi.list());
       this.friends.set(response.data.map((friendship) => friendship.friend).filter((friend): friend is FriendUser => !!friend));
     } catch {
-      this.error.set('Could not load friends.');
+      this.error.set('errors.runtime.could-not-load-friends');
     }
   }
 
@@ -929,7 +931,7 @@ export class WaitingRoomComponent implements OnDestroy {
         return;
       }
 
-      this.error.set('Could not load room state.');
+      this.error.set('errors.runtime.could-not-load-room-state');
     }
   }
 
@@ -1166,7 +1168,7 @@ export class WaitingRoomComponent implements OnDestroy {
           ? [
             {
               id: 'invite-friends',
-              label: 'rooms.waiting.header.inviteFriends',
+              label: 'shared.text.inviteFriends',
               icon: 'user-plus',
               tooltip: this.isRoomFull(room) ? 'Room is full' : 'Invite friends',
               disabled: this.isRoomFull(room),
@@ -1386,17 +1388,24 @@ export class WaitingRoomComponent implements OnDestroy {
 
   private tiePromptNames(names: readonly string[]): string {
     const cleanNames = names.filter((name) => name.trim().length > 0);
-    if (cleanNames.length === 0) {
-      return 'otro jugador';
-    }
-    if (cleanNames.length === 1) {
-      return cleanNames[0] ?? 'otro jugador';
-    }
-    if (cleanNames.length === 2) {
-      return `${cleanNames[0]} y ${cleanNames[1]}`;
-    }
 
-    return `${cleanNames[0]} y ${cleanNames.length - 1} jugadores mas`;
+    return cleanNames.length > 0
+      ? this.formatPlayerNames(cleanNames)
+      : this.translateText('rooms.waitingRoom.thisPlayer');
+  }
+
+  private formatPlayerNames(names: readonly string[]): string {
+    const language = this.translation?.currentLang || this.translation?.defaultLang || 'es';
+
+    return new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(names);
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation?.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 
   private isCompanionSlotForCenteredOddPlayer(room: Room, seatIndex: number): boolean {

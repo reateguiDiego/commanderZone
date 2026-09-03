@@ -47,8 +47,8 @@ export class OnboardingPageComponent {
     const linkCopied = this.copied();
 
     return [
-      step('import', 1, 'onboarding.steps.import.title', 'onboarding.steps.import.description', imported ? 'complete' : 'active'),
-      step('room', 2, 'onboarding.steps.room.title', 'onboarding.steps.room.description', room ? 'complete' : imported ? 'active' : 'upcoming'),
+      step('import', 1, 'shared.text.importDecklist', 'onboarding.steps.import.description', imported ? 'complete' : 'active'),
+      step('room', 2, 'shared.text.createRoom', 'onboarding.steps.room.description', room ? 'complete' : imported ? 'active' : 'upcoming'),
       step('share', 3, 'onboarding.steps.share.title', 'onboarding.steps.share.description', linkCopied ? 'complete' : room ? 'active' : 'upcoming'),
       step('play', 4, 'onboarding.steps.play.title', 'onboarding.steps.play.description', room ? 'active' : 'upcoming'),
     ];

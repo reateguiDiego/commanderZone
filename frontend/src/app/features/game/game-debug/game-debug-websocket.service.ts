@@ -89,7 +89,7 @@ export class GameDebugWebsocketService implements OnDestroy {
       if (!url) {
         this.status.set('unavailable');
         this.displayUrl.set(null);
-        this.emitError('Debug live WS no esta configurado. Las metricas HTTP siguen disponibles.');
+        this.emitError('game.debug.websocketUnavailable');
         return;
       }
 
@@ -97,7 +97,7 @@ export class GameDebugWebsocketService implements OnDestroy {
       this.displayUrl.set(url.displayUrl);
     } catch (error) {
       this.status.set('error');
-      this.emitError('No se pudo crear el ticket WebSocket de debug. Las metricas HTTP siguen disponibles.');
+      this.emitError('game.debug.websocketTicketError');
       throw error;
     }
 
@@ -110,7 +110,7 @@ export class GameDebugWebsocketService implements OnDestroy {
       socket = new WebSocket(websocketUrl);
     } catch (error) {
       this.status.set('error');
-      this.emitError('No se pudo abrir el WebSocket de debug. Revisa GAME_WEBSOCKET_PUBLIC_URL o el proxy ws-game.');
+      this.emitError('game.debug.websocketOpenError');
       throw error;
     }
 
@@ -129,7 +129,7 @@ export class GameDebugWebsocketService implements OnDestroy {
     socket.onerror = () => {
       if (this.socket === socket) {
         this.status.set('error');
-        this.emitError('Error en el WebSocket de debug. Revisa GAME_WEBSOCKET_PUBLIC_URL o el proxy ws-game.');
+        this.emitError('game.debug.websocketConnectionError');
       }
     };
     socket.onclose = () => {
@@ -196,7 +196,7 @@ export class GameDebugWebsocketService implements OnDestroy {
 
   private handleMessage(data: unknown): void {
     if (typeof data !== 'string') {
-      this.emitError('El WebSocket de debug ha recibido un mensaje no textual.');
+      this.emitError('game.debug.websocketNonTextMessage');
       return;
     }
 
@@ -204,12 +204,12 @@ export class GameDebugWebsocketService implements OnDestroy {
     try {
       parsed = JSON.parse(data);
     } catch {
-      this.emitError('El WebSocket de debug ha recibido JSON invalido.');
+      this.emitError('game.debug.websocketInvalidJson');
       return;
     }
 
     if (!this.isDebugServerMessage(parsed)) {
-      this.emitError('El WebSocket de debug ha recibido un mensaje no soportado.');
+      this.emitError('game.debug.websocketUnsupportedMessage');
       return;
     }
 

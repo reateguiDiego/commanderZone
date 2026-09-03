@@ -24,8 +24,8 @@ export interface AppThemeFunctionalColors {
 
 export interface AppTheme {
   readonly id: AppThemeId;
-  readonly label: string;
-  readonly description: string;
+  readonly labelKey: string;
+  readonly descriptionKey: string;
   readonly palette: AppThemePalette;
   readonly functional: AppThemeFunctionalColors;
 }
@@ -35,8 +35,8 @@ export const DEFAULT_APP_THEME_ID: AppThemeId = 'sunrise';
 export const APP_THEMES: readonly AppTheme[] = [
   {
     id: 'sunrise',
-    label: 'Sunrise',
-    description: 'Pure black, grayscale, and bright gold highlights.',
+    labelKey: 'settings.themeSettingsPanel.themes.sunrise.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.sunrise.description',
     palette: {
       bg: '#000000',
       surface: '#101010',
@@ -54,8 +54,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   },
   {
     id: 'arcade-neon-clash',
-    label: 'Arcade Neon Clash',
-    description: 'Competitive neon with electric highlights.',
+    labelKey: 'settings.themeSettingsPanel.themes.arcadeNeonClash.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.arcadeNeonClash.description',
     palette: {
       bg: '#080B1F',
       surface: '#171A3A',
@@ -73,8 +73,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   },
   {
     id: 'candy-summoners',
-    label: 'Candy Summoners',
-    description: 'Bright candy pastels with stronger contrast.',
+    labelKey: 'settings.themeSettingsPanel.themes.candySummoners.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.candySummoners.description',
     palette: {
       bg: '#CBB8E8',
       surface: '#E8A6C8',
@@ -92,8 +92,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   },
   {
     id: 'treasure-tavern',
-    label: 'Treasure Tavern',
-    description: 'Warm fantasy tavern colors with leather, wine, treasure gold, and emerald loot.',
+    labelKey: 'settings.themeSettingsPanel.themes.treasureTavern.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.treasureTavern.description',
     palette: {
       bg: '#3A1F0B',
       surface: '#5A3212',
@@ -111,8 +111,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   },
   {
     id: 'cyber-duel-arena',
-    label: 'Cyber Duel Arena',
-    description: 'Serious PvP colors with plasma and energy accents.',
+    labelKey: 'settings.themeSettingsPanel.themes.cyberDuelArena.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.cyberDuelArena.description',
     palette: {
       bg: '#050A12',
       surface: '#111827',
@@ -130,8 +130,8 @@ export const APP_THEMES: readonly AppTheme[] = [
   },
   {
     id: 'mystic-grove',
-    label: 'Mystic Grove',
-    description: 'Magical nature colors with emerald and spell-light.',
+    labelKey: 'settings.themeSettingsPanel.themes.mysticGrove.label',
+    descriptionKey: 'settings.themeSettingsPanel.themes.mysticGrove.description',
     palette: {
       bg: '#081C15',
       surface: '#12372A',

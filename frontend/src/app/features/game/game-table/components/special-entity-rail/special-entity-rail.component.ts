@@ -61,7 +61,7 @@ export class SpecialEntityRailComponent {
 
   cardLabel(entity: GameSpecialEntity): string {
     if (entity.template === 'initiative') {
-      return 'The Initiative';
+      return 'game.specialHelpers.labels.initiative';
     }
 
     return entity.card?.name ?? '';

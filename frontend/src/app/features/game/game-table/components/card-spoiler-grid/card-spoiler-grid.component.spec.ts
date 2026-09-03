@@ -164,8 +164,8 @@ describe('CardSpoilerGridComponent', () => {
 
     expect(regularCard.querySelector('.double-face-toggle')).toBeNull();
     expect(toggle).not.toBeNull();
-    expect(toggle?.getAttribute('title')).toBe('Look at other face');
-    expect(toggle?.getAttribute('aria-label')).toBe('Look at other face');
+    expect(toggle?.getAttribute('title')).toBe('View other face');
+    expect(toggle?.getAttribute('aria-label')).toBe('View other face');
     expect(toggle?.querySelector('lucide-icon[name="rotate-cw"]')).not.toBeNull();
     expect(doubleFaced.querySelector('img')?.getAttribute('src')).toBe('/face-0.jpg');
 

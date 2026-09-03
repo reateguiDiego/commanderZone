@@ -77,7 +77,7 @@ describe('RoomsComponent', () => {
     expect(header?.stats?.map((stat) => stat.label)).toEqual([
       'Total rooms',
       'Open rooms',
-      'Started games',
+      'Games in progress',
       'Total players',
       'Public rooms',
       'Private rooms',
@@ -129,7 +129,7 @@ describe('RoomsComponent', () => {
     expect(header?.stats?.map((stat) => [stat.label, stat.value])).toEqual([
       ['Total rooms', 3],
       ['Open rooms', 1],
-      ['Started games', 1],
+      ['Games in progress', 1],
       ['Total players', 5],
       ['Public rooms', 2],
       ['Private rooms', 1],

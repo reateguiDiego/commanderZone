@@ -34,7 +34,7 @@ export class GameTableCountersState {
 
   async changePlayerCounter(playerId: string, key: string, delta: number): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.core.error.set('You can only change your own player counters.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-player-counters');
       return;
     }
 
@@ -54,14 +54,14 @@ export class GameTableCountersState {
   async changeCommanderCastCount(playerId: string, commanderInstanceId: string, delta: number): Promise<void> {
     const player = this.playersStore.players().find((candidate) => candidate.id === playerId);
     if (!player || !this.canControlPlayer(playerId)) {
-      this.core.error.set('You can only change your own commander cast count.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-commander-cast-count');
       return;
     }
 
     const commander = this.playersStore.commandZoneCards(player).find((card) => card.instanceId === commanderInstanceId)
       ?? Object.values(player.state.zones).flat().find((card) => card.instanceId === commanderInstanceId && card.isCommander === true);
     if (!commander) {
-      this.core.error.set('Commander card was not found.');
+      this.core.error.set('errors.runtime.commander-card-was-not-found');
       return;
     }
 
@@ -92,13 +92,13 @@ export class GameTableCountersState {
       return;
     }
     if (!this.canControlPlayer(menu.playerId)) {
-      this.core.error.set('You can only change your own cards.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-cards');
       this.uiState.closeContextMenu();
       return;
     }
     const targets = this.actionTargets(menu, selectedCards, 'battlefield');
     if (targets.some((item) => !this.cardsState.canAddCardCounter(item.card, key))) {
-      this.core.error.set('Maximum 5 different counters per card.');
+      this.core.error.set('errors.runtime.maximum-5-different-counters-per-card');
       this.uiState.closeContextMenu();
       return;
     }
@@ -134,7 +134,7 @@ export class GameTableCountersState {
       return;
     }
     if (!this.canControlPlayer(menu.playerId)) {
-      this.core.error.set('You can only change your own cards.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-cards');
       this.uiState.closeContextMenu();
       return;
     }
@@ -173,7 +173,7 @@ export class GameTableCountersState {
       return;
     }
     if (!this.canControlPlayer(menu.playerId)) {
-      this.core.error.set('You can only change your own cards.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-cards');
       this.uiState.closeContextMenu();
       return;
     }
@@ -200,11 +200,11 @@ export class GameTableCountersState {
     delta = 1,
   ): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.core.error.set('You can only change your own cards.');
+      this.core.error.set('errors.runtime.you-can-only-change-your-own-cards');
       return;
     }
     if (!this.cardsState.canAddCardCounter(card, key)) {
-      this.core.error.set('Maximum 5 different counters per card.');
+      this.core.error.set('errors.runtime.maximum-5-different-counters-per-card');
       return;
     }
 

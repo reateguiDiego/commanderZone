@@ -257,9 +257,9 @@ describe('DashboardPageContextComponent', () => {
       'bracket.explanation.metagame',
       'bracket.explanation.manaEfficiency',
       'bracket.explanation.warning',
-      'bracket.confidence.high',
-      'bracket.confidence.medium',
-      'bracket.confidence.low',
+      'shared.text.high',
+      'shared.text.medium',
+      'shared.text.low',
     ];
 
     expect(requiredKeys.every((key) => RUNTIME_TRANSLATION_FALLBACKS[key])).toBe(true);

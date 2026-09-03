@@ -9,14 +9,14 @@ import { CzButtonDirective } from '../../../../../shared/ui/button/button.direct
 import { FormatSelectComponent, type FormatSelectOption } from '../../../../../shared/components/format-select/format-select.component';
 
 const CARD_TYPE_OPTIONS: readonly FormatSelectOption[] = [
-  { id: '', labelKey: 'game.zoneModal.allTypes' },
-  { id: 'creature', labelKey: 'game.zoneModal.creatures' },
-  { id: 'instant', labelKey: 'game.zoneModal.instants' },
-  { id: 'sorcery', labelKey: 'game.zoneModal.sorceries' },
-  { id: 'artifact', labelKey: 'game.zoneModal.artifacts' },
-  { id: 'enchantment', labelKey: 'game.zoneModal.enchantments' },
-  { id: 'planeswalker', labelKey: 'game.zoneModal.planeswalkers' },
-  { id: 'land', labelKey: 'game.zoneModal.lands' },
+  { id: '', labelKey: 'shared.text.allTypes' },
+  { id: 'creature', labelKey: 'shared.text.creatures' },
+  { id: 'instant', labelKey: 'shared.text.instants' },
+  { id: 'sorcery', labelKey: 'shared.text.sorceries' },
+  { id: 'artifact', labelKey: 'shared.text.artifacts' },
+  { id: 'enchantment', labelKey: 'shared.text.enchantments' },
+  { id: 'planeswalker', labelKey: 'shared.text.planeswalkers' },
+  { id: 'land', labelKey: 'shared.text.lands' },
 ];
 
 @Component({

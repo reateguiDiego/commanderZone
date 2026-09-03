@@ -132,7 +132,7 @@ export class TableAssistantSetupComponent implements OnDestroy {
   }
 
   colorLabel(colorId: string | undefined): string {
-    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).label;
+    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).labelKey;
   }
 
   colorManaSymbols(colorId: string | undefined): readonly string[] {

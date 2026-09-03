@@ -50,10 +50,10 @@
               <small>
                 @switch (part.kind) {
                   @case ('fixed') {
-                    Fixed
+                    {{ 'common.ui.fixed' | runtimeTranslate }}
                   }
                   @case ('variable') {
-                    Manual
+                    {{ 'common.ui.manual' | runtimeTranslate }}
                   }
                 }
               </small>
@@ -78,7 +78,7 @@
                     [value]="selectedProductionAmount(part)"
                     [min]="1"
                     [max]="99"
-                    ariaLabel="mana quantity"
+                    ariaLabel="common.ui.manaQuantity"
                     testIdPrefix="mana-production-quantity"
                     (valueChanged)="updateProductionAmount(part, $event)"
                   />
@@ -125,7 +125,7 @@
               [value]="amount()"
               [min]="1"
               [max]="99"
-              ariaLabel="mana quantity"
+              ariaLabel="common.ui.manaQuantity"
               testIdPrefix="mana-action-quantity"
               (valueChanged)="updateAmount($event)"
             />
@@ -148,7 +148,7 @@
     [style.max-height.px]="popoverLayout.maxHeight"
     [style.--mana-action-arrow-left]="popoverLayout.arrowLeft + 'px'"
     role="dialog"
-    [attr.aria-label]="suggestion().cardName + ' mana action'"
+    [attr.aria-label]="'common.ui.manaActionForCard' | runtimeTranslate: { card: suggestion().cardName }"
     (click)="stopPopoverPointer($event)"
     (contextmenu)="stopPopoverPointer($event)"
   >
@@ -160,7 +160,7 @@
       <ng-container [ngTemplateOutlet]="manaActionContent" />
 
       <footer class="mana-popover-actions">
-        <button type="button" class="secondary-button" (click)="cancelled.emit()">{{ 'game.manaActionDialog.cancel' | runtimeTranslate }}</button>
+        <button type="button" class="secondary-button" (click)="cancelled.emit()">{{ 'shared.text.cancel' | runtimeTranslate }}</button>
         <button type="button" class="primary-button" [disabled]="primaryDisabled()" (click)="confirm()">
           {{ confirmLabel() }}
         </button>
@@ -171,7 +171,7 @@
   <app-modal
     [open]="true"
     [title]="suggestion().cardName"
-    secondaryLabel="Cancel"
+    secondaryLabel="shared.text.cancel"
     [primaryLabel]="confirmLabel()"
     [primaryDisabled]="primaryDisabled()"
     [lockBodyScroll]="false"

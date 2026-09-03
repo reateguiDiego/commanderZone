@@ -15,6 +15,8 @@ import {
   isLowerAuthorizationRole,
 } from '../../../../core/auth/user-roles';
 import { AuthStore } from '../../../../core/auth/auth.store';
+import { TranslationService } from '../../../../core/localization/translation.service';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
 import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
@@ -33,6 +35,7 @@ type PresenceFilter = AdminUserPresenceStatus | 'all';
 interface PendingConfirmation {
   readonly title: string;
   readonly message: string;
+  readonly messageParams?: Record<string, unknown>;
   readonly primaryLabel: string;
   readonly danger: boolean;
   readonly action: () => void;
@@ -53,7 +56,7 @@ export interface AdminMessageRecipientSelection {
 
 @Component({
   selector: 'app-admin-users-panel',
-  imports: [DatePipe, FormatSelectComponent, AppModalComponent, CzButtonDirective, LucideAngularModule, TooltipComponent],
+  imports: [DatePipe, RuntimeTranslatePipe, FormatSelectComponent, AppModalComponent, CzButtonDirective, LucideAngularModule, TooltipComponent],
   templateUrl: './admin-users-panel.component.html',
   styleUrl: './admin-users-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,34 +66,35 @@ export class AdminUsersPanelComponent {
   private readonly auth = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
+  private readonly translation = inject(TranslationService);
   readonly pageSize = 30;
 
   readonly allRoleOptions: readonly FormatSelectOption[] = [
-    { id: ROLE_USER, name: 'User' },
-    { id: ROLE_SUPPORT, name: 'Support' },
-    { id: ROLE_ADMIN, name: 'Admin' },
-    { id: ROLE_OWNER, name: 'Owner' },
+    { id: ROLE_USER, labelKey: 'admin.users.roles.user' },
+    { id: ROLE_SUPPORT, labelKey: 'shared.text.support' },
+    { id: ROLE_ADMIN, labelKey: 'shared.text.admin' },
+    { id: ROLE_OWNER, labelKey: 'shared.text.owner' },
   ];
   readonly roleOptions: readonly FormatSelectOption[] = this.allRoleOptions.filter((option) => option.id !== ROLE_OWNER);
   readonly roleFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', name: 'All roles' },
+    { id: 'all', labelKey: 'admin.users.filters.allRoles' },
     ...this.allRoleOptions,
   ];
   readonly premiumTierOptions: readonly FormatSelectOption[] = [
-    { id: 'none', name: 'None' },
-    { id: 'tier1', name: 'Tier 1' },
-    { id: 'tier2', name: 'Tier 2' },
-    { id: 'tier3', name: 'Tier 3' },
+    { id: 'none', labelKey: 'admin.users.premium.none' },
+    { id: 'tier1', labelKey: 'admin.users.premium.tier1' },
+    { id: 'tier2', labelKey: 'admin.users.premium.tier2' },
+    { id: 'tier3', labelKey: 'admin.users.premium.tier3' },
   ];
   readonly premiumTierFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', name: 'All premium' },
+    { id: 'all', labelKey: 'admin.users.filters.allPremium' },
     ...this.premiumTierOptions,
   ];
   readonly presenceFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', name: 'All status' },
-    { id: 'online', name: 'Online' },
-    { id: 'in_game', name: 'In game' },
-    { id: 'offline', name: 'Offline' },
+    { id: 'all', labelKey: 'admin.users.filters.allStatus' },
+    { id: 'online', labelKey: 'shared.text.online' },
+    { id: 'in_game', labelKey: 'shared.text.inGame' },
+    { id: 'offline', labelKey: 'shared.text.offline' },
   ];
   readonly users = signal<readonly AdminUser[]>([]);
   readonly isLoading = signal(false);
@@ -144,9 +148,14 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm role change',
-      message: `Change ${user.displayName}'s role from ${this.roleLabel(user.authorizationRole)} to ${this.roleLabel(selectedRole)}?`,
-      primaryLabel: 'Change role',
+      title: 'admin.users.confirmations.changeRole.title',
+      message: 'admin.users.confirmations.changeRole.message',
+      messageParams: {
+        name: user.displayName,
+        previousRole: this.roleLabel(user.authorizationRole),
+        role: this.roleLabel(selectedRole),
+      },
+      primaryLabel: 'admin.users.confirmations.changeRole.confirm',
       danger: user.authorizationRole === ROLE_OWNER,
       action: () => this.updateUser(user, 'role', { authorizationRole: selectedRole }),
     });
@@ -158,9 +167,14 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm premium change',
-      message: `Change ${user.displayName}'s premium tier from ${this.premiumTierLabel(user.premiumTier)} to ${this.premiumTierLabel(selectedTier)}?`,
-      primaryLabel: 'Change premium',
+      title: 'admin.users.confirmations.changePremium.title',
+      message: 'admin.users.confirmations.changePremium.message',
+      messageParams: {
+        name: user.displayName,
+        previousTier: this.premiumTierLabel(user.premiumTier),
+        tier: this.premiumTierLabel(selectedTier),
+      },
+      primaryLabel: 'admin.users.confirmations.changePremium.confirm',
       danger: false,
       action: () => this.updateUser(user, 'premium', { premiumTier: selectedTier }),
     });
@@ -172,9 +186,10 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm session closure',
-      message: `Close ${user.activeSessionsCount} active session(s) for ${user.displayName}?`,
-      primaryLabel: 'Close sessions',
+      title: 'admin.users.confirmations.closeSessions.title',
+      message: 'admin.users.confirmations.closeSessions.message',
+      messageParams: { count: user.activeSessionsCount, name: user.displayName },
+      primaryLabel: 'admin.users.closeSessions',
       danger: true,
       action: () => this.runUserAction(user, 'sessions', () => this.api.revokeSessions(user.id)),
     });
@@ -186,9 +201,10 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm room removal',
-      message: `Remove ${user.displayName} from ${user.activeRoomsCount} active room(s)?`,
-      primaryLabel: 'Remove from rooms',
+      title: 'admin.users.confirmations.removeRooms.title',
+      message: 'admin.users.confirmations.removeRooms.message',
+      messageParams: { count: user.activeRoomsCount, name: user.displayName },
+      primaryLabel: 'admin.users.removeRooms',
       danger: true,
       action: () => this.runUserAction(user, 'rooms', () => this.api.removeFromRooms(user.id)),
     });
@@ -200,9 +216,10 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm user deletion',
-      message: `Delete ${user.displayName}? This cannot be undone.`,
-      primaryLabel: 'Delete user',
+      title: 'admin.users.confirmations.deleteUser.title',
+      message: 'admin.users.confirmations.deleteUser.message',
+      messageParams: { name: user.displayName },
+      primaryLabel: 'admin.users.deleteUser',
       danger: true,
       action: () => this.confirmDeleteUser(user),
     });
@@ -227,9 +244,10 @@ export class AdminUsersPanelComponent {
     }
 
     this.requestConfirmation({
-      title: 'Confirm impersonation',
-      message: `Impersonate ${user.displayName}? You will act as this user until you stop impersonating.`,
-      primaryLabel: 'Impersonate',
+      title: 'admin.users.confirmations.impersonate.title',
+      message: 'admin.users.confirmations.impersonate.message',
+      messageParams: { name: user.displayName },
+      primaryLabel: 'admin.users.impersonate',
       danger: false,
       action: () => this.confirmImpersonateUser(user),
     });
@@ -283,10 +301,17 @@ export class AdminUsersPanelComponent {
 
   sortLabel(field: SortField): string {
     if (this.sortField() !== field) {
-      return 'Not sorted';
+      return this.translateText('admin.users.sort.notSorted');
     }
 
-    return this.sortDirection() === 'asc' ? 'Ascending' : 'Descending';
+    return this.translateText(this.sortDirection() === 'asc' ? 'admin.users.sort.ascending' : 'admin.users.sort.descending');
+  }
+
+  sortAriaLabel(field: SortField): string {
+    return this.translateText('admin.users.sort.ariaLabel', {
+      field: this.translateText(`admin.users.columns.${field}`),
+      direction: this.sortLabel(field),
+    });
   }
 
   sortIcon(field: SortField): SortIconName | null {
@@ -312,15 +337,21 @@ export class AdminUsersPanelComponent {
   }
 
   roleLabel(role: AuthorizationRole): string {
-    return this.allRoleOptions.find((option) => option.id === role)?.name ?? role;
+    const key = this.allRoleOptions.find((option) => option.id === role)?.labelKey;
+
+    return key ? this.translateText(key) : role;
   }
 
   premiumTierLabel(tier: PremiumTier): string {
-    return this.premiumTierOptions.find((option) => option.id === tier)?.name ?? tier;
+    const key = this.premiumTierOptions.find((option) => option.id === tier)?.labelKey;
+
+    return key ? this.translateText(key) : tier;
   }
 
   presenceLabel(status: AdminUserPresenceStatus): string {
-    return this.presenceFilterOptions.find((option) => option.id === status)?.name ?? status;
+    const key = this.presenceFilterOptions.find((option) => option.id === status)?.labelKey;
+
+    return key ? this.translateText(key) : status;
   }
 
   authIdentityLabel(identity: AdminUserAuthIdentity): string {
@@ -434,7 +465,9 @@ export class AdminUsersPanelComponent {
           this.authIdentityLabel(identity),
           identity.providerEmail,
           identity.providerUserId,
-          identity.providerEmailVerified ? 'verified' : 'unverified',
+          identity.providerEmailVerified
+            ? this.translateText('admin.users.verified')
+            : this.translateText('admin.users.unverified'),
         ]),
         this.roleLabel(user.authorizationRole),
         this.premiumTierLabel(user.premiumTier),
@@ -594,6 +627,14 @@ export class AdminUsersPanelComponent {
       return error.error.error;
     }
 
-    return 'The admin users action could not be completed.';
+    return this.translateText('admin.users.errors.actionFailed');
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 }

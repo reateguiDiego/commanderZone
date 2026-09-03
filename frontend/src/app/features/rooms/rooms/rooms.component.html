@@ -6,7 +6,7 @@
       }
 
       @if (error()) {
-        <p class="notice error">{{ error() }}</p>
+        <p class="notice error">{{ error()! | runtimeTranslate }}</p>
       }
 
       @if (incomingInvites().length > 0) {
@@ -53,16 +53,16 @@
 
   <app-modal
     [open]="roomPendingDelete() !== null"
-    [title]="'rooms.rooms.deleteRoom' | runtimeTranslate"
+    [title]="'shared.text.deleteRoom' | runtimeTranslate"
     message="common.modal.cannotBeUndone"
     primaryLabel="common.actions.delete"
-    secondaryLabel="common.modal.cancel"
+    secondaryLabel="shared.text.cancel"
     [danger]="true"
     (primary)="confirmDeleteRoom()"
     (secondary)="cancelDeleteRoom()"
   >
     @if (roomPendingDelete(); as room) {
-      <p class="notice">Sala {{ room.name }}</p>
+      <p class="notice">{{ 'common.ui.roomNotice' | runtimeTranslate: { name: room.name } }}</p>
     }
   </app-modal>
 
@@ -71,7 +71,7 @@
     [title]="'rooms.rooms.deckRequired' | runtimeTranslate"
     message="rooms.rooms.validDeckRequiredToCreate"
     primaryLabel="common.actions.understood"
-    secondaryLabel="common.modal.close"
+    secondaryLabel="shared.text.close"
     (primary)="closeCreateDeckRequiredModal()"
     (secondary)="closeCreateDeckRequiredModal()"
   />

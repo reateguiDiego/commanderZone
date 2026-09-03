@@ -258,7 +258,7 @@ export class ContextMenuComponent {
         value: 'citys-blessing',
         label: this.playerHasCitysBlessing()(this.menu().playerId)
           ? 'game.contextMenu.labels.removeCitysBlessing'
-          : 'game.contextMenu.labels.addCitysBlessing',
+          : 'shared.text.citysBlessing',
         icon: 'ms-ability-ascend',
         iconKind: 'mana',
         preserveCase: true,
@@ -915,7 +915,7 @@ export class ContextMenuComponent {
       },
       {
         value: 'hand',
-        label: 'game.contextMenu.labels.hand',
+        label: 'shared.text.hand',
         icon: this.zoneIcon('hand'),
         disabled: targetPlayers.length === 0,
         children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}` })),
@@ -960,7 +960,7 @@ export class ContextMenuComponent {
     })));
 
     return playerItems.length > 1
-      ? [{ value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' }, ...playerItems]
+      ? [{ value: 'all', label: 'shared.text.all', icon: 'users' }, ...playerItems]
       : playerItems;
   }
 
@@ -994,11 +994,11 @@ export class ContextMenuComponent {
       allRevealed
         ? {
             value: 'stop:all',
-            label: `${this.displayLabel('game.contextMenu.labels.stopRevealing')}: ${this.displayLabel('game.contextMenu.labels.all')}`,
+            label: `${this.displayLabel('game.contextMenu.labels.stopRevealing')}: ${this.displayLabel('shared.text.all')}`,
             icon: 'eye-off',
             preserveCase: true,
           }
-        : { value: 'reveal:all', label: 'game.contextMenu.labels.all', icon: 'users' },
+        : { value: 'reveal:all', label: 'shared.text.all', icon: 'users' },
       ...targetPlayers.map(itemFor),
     ];
   }
@@ -1015,7 +1015,7 @@ export class ContextMenuComponent {
     const targetPlayers = [sourcePlayer, ...otherPlayers];
 
     return [
-      { value: 'play:all', label: 'game.contextMenu.labels.all', icon: 'users' },
+      { value: 'play:all', label: 'shared.text.all', icon: 'users' },
       ...targetPlayers.map((player) => ({
         value: `play:${player.id}`,
         label: this.playerLabel(player),

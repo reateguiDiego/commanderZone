@@ -52,7 +52,7 @@ describe('AdminNotificationsPanelComponent', () => {
     input.dispatchEvent(new Event('focus'));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Todos');
+    expect(fixture.nativeElement.textContent).toContain('All users');
     expect(fixture.nativeElement.textContent).toContain('CommanderZone');
   });
 

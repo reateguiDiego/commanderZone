@@ -1,9 +1,9 @@
-<app-tooltip text="Game Changer" placement="top" align="center">
+<app-tooltip [text]="'common.ui.gameChanger' | runtimeTranslate" placement="top" align="center">
   <img
     class="game-changer-icon"
     src="assets/icons/card-types/game-changers.png"
-    alt="Game Changer"
-    title="Game Changer"
+    [alt]="'common.ui.gameChanger' | runtimeTranslate"
+    [title]="'common.ui.gameChanger' | runtimeTranslate"
     loading="lazy"
     decoding="async"
   />

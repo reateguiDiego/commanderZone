@@ -1,4 +1,4 @@
-<section appPrettyScroll class="friends-menu" [attr.aria-label]="'navigation.friends.friendsDropdown.friends' | runtimeTranslate">
+<section appPrettyScroll class="friends-menu" [attr.aria-label]="'shared.text.friends' | runtimeTranslate">
   <app-tab-list
     class="friends-tabs"
     variant="underline"
@@ -10,7 +10,7 @@
   />
 
   @if (store.error()) {
-    <p class="dropdown-notice error">{{ store.error() }}</p>
+    <p class="dropdown-notice error">{{ store.error()! | runtimeTranslate }}</p>
   }
 
   @if (currentTab() === 'requests') {
@@ -42,12 +42,12 @@
                   </span>
 
                   <span class="action-pair">
-                    <app-tooltip text="Accept request">
+                    <app-tooltip [text]="'shared.text.accept' | runtimeTranslate">
                       <button class="icon-action accept-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
                         <lucide-icon name="check" size="15" />
                       </button>
                     </app-tooltip>
-                    <app-tooltip text="Decline request">
+                    <app-tooltip [text]="'rooms.roomInvitesPanel.decline' | runtimeTranslate">
                       <button class="icon-action reject-action" type="button" [disabled]="store.loading()" (click)="declineIncoming(row)">
                         <lucide-icon name="x" size="15" />
                       </button>
@@ -70,13 +70,13 @@
         @if (hasSentRequests()) {
           <button class="section-toggle" type="button" [attr.aria-expanded]="sentRequestsOpen()" (click)="toggleSentRequests()">
             <span class="section-label">
-              {{ 'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate }} ({{ sentRequestRows().length }})
+              {{ 'shared.text.sent' | runtimeTranslate }} ({{ sentRequestRows().length }})
             </span>
             <lucide-icon [name]="sentRequestsOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
           </button>
 
           @if (sentRequestsOpen()) {
-            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate">
+            <div class="friend-table" [attr.aria-label]="'shared.text.sent' | runtimeTranslate">
               @for (row of sentRequestRows(); track row.id) {
                 <div class="friend-table-row request-row pending-row interactive-row">
                   <span class="row-main">
@@ -106,7 +106,7 @@
         } @else {
           <div class="section-heading">
             <span class="section-label">
-              {{ 'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate }} (0)
+              {{ 'shared.text.sent' | runtimeTranslate }} (0)
             </span>
           </div>
         }
@@ -131,7 +131,7 @@
               <span class="invitation-room">
                 <span class="invitation-room-name">{{ row.roomName }}</span>
                 <span class="invitation-detail">{{ row.detail }}</span>
-                <span class="invitation-stat" aria-label="Room occupancy">
+                <span class="invitation-stat" [attr.aria-label]="'common.ui.roomOccupancy' | runtimeTranslate">
                   <strong>{{ row.roomPlayerCount ?? 0 }}/{{ row.roomMaxPlayers ?? 0 }}</strong>
                   {{ 'navigation.friends.friendsDropdown.seats' | runtimeTranslate }}
                   <span aria-hidden="true">&middot;</span>
@@ -143,12 +143,12 @@
           </div>
 
           <span class="action-pair invitation-actions">
-            <app-tooltip text="Aceptar invitacion">
+            <app-tooltip [text]="'shared.text.accept' | runtimeTranslate">
               <button class="icon-action accept-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
                 <lucide-icon name="check" size="15" />
               </button>
             </app-tooltip>
-            <app-tooltip text="Rechazar invitacion">
+            <app-tooltip [text]="'rooms.roomInvitesPanel.decline' | runtimeTranslate">
               <button class="icon-action reject-action" type="button" [disabled]="store.loading()" (click)="declineIncoming(row)">
                 <lucide-icon name="x" size="15" />
               </button>
@@ -191,7 +191,7 @@
             </span>
 
             @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
-              <app-tooltip [text]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate">
+              <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
                 <button class="add-friend-action" type="button" [disabled]="store.loading()" (click)="store.sendRequest(result.id)">
                   <lucide-icon name="user-plus" size="17" />
                 </button>
@@ -201,7 +201,7 @@
             }
           </div>
         } @empty {
-          <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noUsersFound' | runtimeTranslate }}</p>
+          <p class="dropdown-notice">{{ 'shared.text.noUsersFound' | runtimeTranslate }}</p>
         }
       } @else {
         <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.searchHint' | runtimeTranslate }}</p>
@@ -213,13 +213,13 @@
         @if (hasOnlineFriends()) {
           <button class="section-toggle" type="button" [attr.aria-expanded]="onlineOpen()" (click)="toggleOnline()">
             <span class="section-label">
-              {{ 'navigation.friends.friendsDropdown.online' | runtimeTranslate }} ({{ onlineFriendsRows().length }})
+              {{ 'shared.text.online' | runtimeTranslate }} ({{ onlineFriendsRows().length }})
             </span>
             <lucide-icon [name]="onlineOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
           </button>
 
           @if (onlineOpen()) {
-            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.online' | runtimeTranslate">
+            <div class="friend-table" [attr.aria-label]="'shared.text.online' | runtimeTranslate">
               @for (row of onlineFriendsRows(); track row.id) {
                 <div class="friend-table-row friend-row interactive-row">
                   <span class="row-main">
@@ -246,7 +246,7 @@
         } @else {
           <div class="section-heading">
             <span class="section-label">
-              {{ 'navigation.friends.friendsDropdown.online' | runtimeTranslate }} (0)
+              {{ 'shared.text.online' | runtimeTranslate }} (0)
             </span>
           </div>
         }

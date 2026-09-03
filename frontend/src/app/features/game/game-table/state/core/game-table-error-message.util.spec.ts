@@ -7,18 +7,18 @@ describe('gameTableErrorMessage', () => {
         code: 'BASE_VERSION_MISMATCH',
         error: 'Need resync',
       },
-    })).toBe('Sincronizando mesa... reintenta.');
+    })).toBe('game.gameTable.reloadRequiredMessage');
   });
 
   it('maps queue/circuit pressure errors to a saturation message', () => {
     expect(gameTableErrorMessage(new Error('Action temporarily blocked after repeated command rejections.')))
-      .toBe('Accion temporalmente limitada para evitar saturacion.');
+      .toBe('errors.runtime.no-se-pudo-aplicar-la-accion');
     expect(gameTableErrorMessage({
       error: {
         code: 'QUEUE_FULL',
         error: 'queue full',
       },
-    })).toBe('Accion temporalmente limitada para evitar saturacion.');
+    })).toBe('errors.runtime.no-se-pudo-aplicar-la-accion');
   });
 
   it('maps command rejected messages to an actionable validation message', () => {
@@ -27,12 +27,12 @@ describe('gameTableErrorMessage', () => {
         code: 'COMMAND_REJECTED',
         error: 'Denied',
       },
-    })).toBe('La accion ya no es valida en el estado actual.');
+    })).toBe('errors.runtime.no-se-pudo-aplicar-la-accion');
   });
 
   it('does not expose a stale disconnect-vote payload error to players', () => {
     expect(gameTableErrorMessage(new Error('invalid payload field: disconnectVote')))
-      .toBe('La votacion ya no esta disponible porque el jugador se ha reconectado.');
+      .toBe('game.gameDisconnectVoteModal.targetPlayerBackOnline');
   });
 
   it('falls back to server detail or generic error text', () => {
@@ -41,6 +41,6 @@ describe('gameTableErrorMessage', () => {
         detail: 'Specific detail',
       },
     })).toBe('Specific detail');
-    expect(gameTableErrorMessage({})).toBe('Action failed.');
+    expect(gameTableErrorMessage({})).toBe('errors.runtime.no-se-pudo-aplicar-la-accion');
   });
 });

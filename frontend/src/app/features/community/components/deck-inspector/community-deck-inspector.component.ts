@@ -11,7 +11,7 @@ type CommunityDeckInspectorTab = 'analysis' | 'considering' | 'validation';
 
 const COMMUNITY_INSPECTOR_TABS: ReadonlyArray<TabListItem> = [
   { id: 'analysis', label: 'deckBuilder.deckEditor.analysis', icon: 'bar-chart-3' },
-  { id: 'considering', label: 'deckBuilder.deckEditor.considering', icon: 'layers-3' },
+  { id: 'considering', label: 'shared.text.considering', icon: 'layers-3' },
   { id: 'validation', label: 'deckBuilder.deckEditor.validation', icon: 'shield-check' },
 ];
 
@@ -61,6 +61,6 @@ export class CommunityDeckInspectorComponent {
   issueSeverityKey(issue: ClientCommanderIssue): string {
     return issue.severity === 'error'
       ? 'community.detail.readonly.validation.error'
-      : 'community.detail.readonly.validation.warning';
+      : 'shared.text.warning';
   }
 }

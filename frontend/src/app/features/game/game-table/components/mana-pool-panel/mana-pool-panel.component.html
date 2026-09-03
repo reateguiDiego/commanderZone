@@ -24,8 +24,8 @@
           class="mana-value-button"
           [class.mana-empty]="value(color) === 0"
           [attr.data-mana-pool-color]="color"
-          [title]="manaTypeName(color)"
-          [attr.aria-label]="manaTypeName(color)"
+          [title]="manaTypeName(color) | runtimeTranslate"
+          [attr.aria-label]="manaTypeName(color) | runtimeTranslate"
           (pointerdown)="activateControls(color, $event)"
         >
           <app-mana-symbols [symbols]="[color]" size="small" [costBackground]="false" />
@@ -35,8 +35,8 @@
           <button
             type="button"
             class="step-button step-button--add"
-            [title]="'Add ' + manaTypeName(color)"
-            [attr.aria-label]="'Add ' + manaTypeName(color)"
+            [title]="'common.ui.addMana' | runtimeTranslate: { mana: manaTypeName(color) | runtimeTranslate }"
+            [attr.aria-label]="'common.ui.addMana' | runtimeTranslate: { mana: manaTypeName(color) | runtimeTranslate }"
             [disabled]="!canAdd(color)"
             (click)="colorAdded.emit(color)"
           >
@@ -46,8 +46,8 @@
             <button
               type="button"
               class="step-button step-button--remove"
-              [title]="'Remove ' + manaTypeName(color)"
-              [attr.aria-label]="'Remove ' + manaTypeName(color)"
+              [title]="'common.ui.removeMana' | runtimeTranslate: { mana: manaTypeName(color) | runtimeTranslate }"
+              [attr.aria-label]="'common.ui.removeMana' | runtimeTranslate: { mana: manaTypeName(color) | runtimeTranslate }"
               (click)="colorRemoved.emit(color)"
             >
               <lucide-icon name="minus" size="15" aria-hidden="true" />

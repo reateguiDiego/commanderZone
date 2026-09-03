@@ -1,14 +1,14 @@
 @if (open() && card()) {
   <app-modal
     [open]="true"
-    [title]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate"
-    [ariaLabel]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate"
-    [primaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.confirm' | runtimeTranslate"
-    [secondaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
+    [title]="'shared.text.addCard' | runtimeTranslate"
+    [ariaLabel]="'shared.text.addCard' | runtimeTranslate"
+    [primaryLabel]="'shared.text.addCard' | runtimeTranslate"
+    [secondaryLabel]="'shared.text.cancel' | runtimeTranslate"
     [primaryDisabled]="!canAddToDeck()"
     [footerNotice]="errorKey() ? (errorKey()! | runtimeTranslate) : ''"
     [showCloseButton]="true"
-    [closeLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
+    [closeLabel]="'shared.text.cancel' | runtimeTranslate"
     size="compact"
     panelOverflow="visible"
     (primary)="addSelectedCardToDeck()"
@@ -73,7 +73,7 @@
         />
 
         <label class="card-modal-field card-modal-field--quantity">
-          <span>{{ 'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.quantity' | runtimeTranslate }}</span>
           <span class="quantity-stepper">
             <button
               type="button"
@@ -92,7 +92,7 @@
               min="1"
               max="99"
               [value]="selectedDeckQuantity()"
-              [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate"
+              [attr.aria-label]="'shared.text.quantity' | runtimeTranslate"
               (input)="selectDeckQuantity($event)"
             />
             <button

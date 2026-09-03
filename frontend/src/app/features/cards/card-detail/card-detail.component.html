@@ -4,7 +4,7 @@
   @if (loading()) {
     <app-global-loader />
   } @else if (error()) {
-    <p class="notice error">{{ error() }}</p>
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
   } @else if (card(); as card) {
     <article class="detail-layout">
       <div class="detail-image">
@@ -18,20 +18,20 @@
         <span class="eyebrow">{{ card.set || 'MTG' }} #{{ card.collectorNumber || '-' }}</span>
         <h2>{{ card.name }}</h2>
         <p class="mana-line">
-          <app-mana-symbols [value]="card.manaCost" fallback="No mana cost" />
+          <app-mana-symbols [value]="card.manaCost" [fallback]="'common.ui.noManaCost' | runtimeTranslate" />
         </p>
         <p>{{ card.typeLine }}</p>
         <p class="oracle">
-          <app-mana-text [text]="card.oracleText || 'No oracle text available.'" />
+          <app-mana-text [text]="card.oracleText || ('shared.text.noOracleTextAvailable' | runtimeTranslate)" />
         </p>
         <p>
           {{ 'deckBuilder.cards.cardDetail.colorIdentity' | runtimeTranslate }}
-          <app-mana-symbols [symbols]="card.colorIdentity" fallback="Colorless" />
+          <app-mana-symbols [symbols]="card.colorIdentity" [fallback]="'shared.text.colorless' | runtimeTranslate" />
         </p>
         <p>
           {{ 'deckBuilder.cards.cardDetail.commander' | runtimeTranslate }}
           <strong [class.ok]="card.commanderLegal" [class.bad]="!card.commanderLegal">
-            {{ card.commanderLegal ? 'Legal' : 'Not legal' }}
+            {{ (card.commanderLegal ? 'common.ui.legal' : 'common.ui.notLegal') | runtimeTranslate }}
           </strong>
         </p>
       </div>

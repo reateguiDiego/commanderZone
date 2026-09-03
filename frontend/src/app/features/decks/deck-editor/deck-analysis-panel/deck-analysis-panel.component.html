@@ -1,7 +1,7 @@
 @if (advancedAnalysisLink(); as link) {
   <div class="analysis-advanced-cta">
     <div class="analysis-advanced-copy">
-      <strong>{{ 'deckBuilder.advancedAnalysis.title' | runtimeTranslate }}</strong>
+      <strong>{{ 'shared.text.advancedAnalysis' | runtimeTranslate }}</strong>
       <span>{{ 'deckBuilder.advancedAnalysis.description' | runtimeTranslate }}</span>
     </div>
     <a
@@ -12,7 +12,7 @@
       [attr.aria-label]="advancedAnalysisAriaLabel() | runtimeTranslate"
     >
       <lucide-icon name="bar-chart-3" size="17" />
-      {{ 'deckBuilder.advancedAnalysis.openButton' | runtimeTranslate }}
+      {{ 'shared.text.advancedAnalysis' | runtimeTranslate }}
     </a>
   </div>
 }

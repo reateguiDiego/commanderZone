@@ -36,11 +36,11 @@ export class SettingsDisplayNameStyleEditorComponent {
   readonly tierTabItems: readonly TabListItem[] = [
     {
       id: 'basic',
-      label: 'settings.settingsDisplayNameStyleEditor.basic',
+      label: 'shared.text.basic',
     },
     {
       id: 'premium',
-      label: 'settings.settingsDisplayNameStyleEditor.premium',
+      label: 'shared.text.premium',
     },
   ];
   readonly selectedPresetId = signal<string | null>(null);

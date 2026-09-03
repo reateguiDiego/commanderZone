@@ -9,13 +9,14 @@ import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { MessagesStore } from '../../messages/data-access/messages.store';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, CzButtonDirective],
+  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, CzButtonDirective, RuntimeTranslatePipe],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,7 +34,7 @@ export class DashboardShellComponent implements OnDestroy {
   readonly friendsOpen = signal(false);
   readonly messagesOpen = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
-  readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? 'Player');
+  readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? runtimeTranslationFallback('shared.text.player'));
   readonly canAccessAdmin = computed(() => userCanAccessAdmin(this.auth.user()));
   private roomInviteSubscription?: Subscription;
   private friendSubscription?: Subscription;

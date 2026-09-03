@@ -35,11 +35,11 @@ export class DeckViewerComponent {
   readonly viewModeMenuOpen = signal(false);
   readonly viewMode = signal<DeckEditorViewMode>(this.resolveInitialViewMode());
   readonly viewModeOptions: ReadonlyArray<{ value: DeckEditorViewMode; label: string }> = [
-    { value: 'text', label: 'community.deckViewer.viewMode.text' },
-    { value: 'spoiler', label: 'community.deckViewer.viewMode.spoiler' },
+    { value: 'text', label: 'shared.text.text' },
+    { value: 'spoiler', label: 'shared.text.spoiler' },
   ];
   readonly selectedViewModeLabel = computed(() => (
-    this.viewModeOptions.find((option) => option.value === this.viewMode())?.label ?? 'community.deckViewer.viewMode.text'
+    this.viewModeOptions.find((option) => option.value === this.viewMode())?.label ?? 'shared.text.text'
   ));
 
   @HostListener('document:click')

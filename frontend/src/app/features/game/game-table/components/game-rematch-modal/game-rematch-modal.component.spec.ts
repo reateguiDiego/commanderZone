@@ -51,7 +51,7 @@ describe('GameRematchModalComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Legendary victory');
-    expect(fixture.nativeElement.textContent).toContain('The table is yours.');
+    expect(fixture.nativeElement.textContent).toContain('You claimed the table.');
     expect(fixture.nativeElement.textContent).not.toContain('Premium finish');
   });
 
@@ -109,7 +109,7 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('missingPlayerNames', ['Defeated', 'Pending']);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Defeated and Pending have 42s to vote.');
+    expect(fixture.nativeElement.textContent).toContain('Waiting on Defeated and Pending — 42s remaining.');
   });
 
   it('shows the shared server deadline after the current player voted', () => {
@@ -118,6 +118,6 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('missingPlayerNames', ['Defeated']);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Defeated have 18s to vote.');
+    expect(fixture.nativeElement.textContent).toContain('Waiting on Defeated — 18s remaining.');
   });
 });

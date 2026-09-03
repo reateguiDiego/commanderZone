@@ -22,6 +22,6 @@ describe('CardDetailComponent', () => {
   it('shows a missing id error without a route id', () => {
     const fixture = TestBed.createComponent(CardDetailComponent);
 
-    expect(fixture.componentInstance.error()).toBe('Missing card id.');
+    expect(fixture.componentInstance.error()).toBe('errors.runtime.missing-card-id');
   });
 });

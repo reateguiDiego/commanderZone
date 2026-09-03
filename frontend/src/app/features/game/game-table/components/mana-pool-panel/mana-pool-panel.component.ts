@@ -8,12 +8,12 @@ import { ManaPoolColor } from '../../utils/mana-source-detector';
 const IDENTITY_MANA_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_POOL_COLORS: readonly ManaPoolColor[] = [...IDENTITY_MANA_COLORS, 'C'];
 const MANA_TYPE_NAMES: Readonly<Record<ManaPoolColor, string>> = {
-  W: 'White mana',
-  U: 'Blue mana',
-  B: 'Black mana',
-  R: 'Red mana',
-  G: 'Green mana',
-  C: 'Colorless mana',
+  W: 'common.ui.whiteMana',
+  U: 'common.ui.blueMana',
+  B: 'common.ui.blackMana',
+  R: 'common.ui.redMana',
+  G: 'common.ui.greenMana',
+  C: 'common.ui.colorlessMana',
 };
 const BACKGROUND_CONTRAST_MANA_COLOR: Readonly<Record<ManaPoolColor, ManaPoolColor>> = {
   W: 'B',

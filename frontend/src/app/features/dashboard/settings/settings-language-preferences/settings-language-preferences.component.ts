@@ -42,7 +42,7 @@ export class SettingsLanguagePreferencesComponent {
     }
 
     return this.passwordChangeSent()
-      ? 'settings.dashboardSettingsModal.passwordResetEmailSentShort'
+      ? 'shared.text.sent'
       : 'settings.dashboardSettingsModal.changePassword';
   });
   readonly selectedCardLanguageCoverage = computed(() =>

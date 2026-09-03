@@ -100,11 +100,11 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     );
     expect(element.textContent).toContain('Archetype confidence');
     expect(element.querySelector('lucide-icon[name="info"]')).not.toBeNull();
-    expect(element.textContent).toContain('Primary tribe');
+    expect(element.textContent).toContain('Primary creature type');
     expect(element.textContent).toContain('Elf');
     const summaryLabels = Array.from(element.querySelectorAll('.advanced-analysis-summary > .advanced-analysis-stats > div > dt > span'))
       .map((label) => label.textContent?.trim());
-    expect(summaryLabels.indexOf('Primary tribe')).toBe(summaryLabels.indexOf('Archetype confidence') + 1);
+    expect(summaryLabels.indexOf('Primary creature type')).toBe(summaryLabels.indexOf('Archetype confidence') + 1);
     expect(element.textContent).toContain('High');
     expect(element.textContent).not.toContain('Power band');
     expect(element.textContent).not.toContain('Power confidence');
@@ -223,7 +223,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).toContain('Consistency');
     expect(element.textContent).toContain('Keepable hands');
     expect(element.textContent).toContain('Mana');
-    expect(element.textContent).toContain('Colored sources');
+    expect(element.textContent).toContain('Colored mana sources');
     const manaHealthCard = Array.from(healthCards)
       .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana') as HTMLElement | undefined;
     expect(manaHealthCard?.querySelector('app-mana-symbols')).not.toBeNull();
@@ -332,7 +332,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const normalizedText = text.toLowerCase();
 
     expect(text).toContain('Monte Carlo');
-    expect(text).toContain('Simulates opening hands and card access, not match outcomes.');
+    expect(text).toContain('Simulates opening hands and card access, not game outcomes.');
     expect(text).toContain('Simulation runs');
     expect(text).toContain('100000');
     expect(text).toContain('Opening hand');
@@ -386,13 +386,13 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(text).not.toContain('Mana data version');
     expect(text).toContain('Mana sources by color');
     expect(text).toContain('White');
-    expect(text).toContain('Untapped sources');
+    expect(text).toContain('Untapped mana sources');
     expect(text).toContain('Mana base and acceleration');
-    expect(text).toContain('Typed lands');
+    expect(text).toContain('Lands with basic land types');
     expect(text).not.toContain('Land cycles');
     expect(text).not.toContain('Shocklands');
     expect(text).not.toContain('Triomes');
-    expect(text).toContain('Color demand');
+    expect(text).toContain('Colored mana requirements');
     expect(text).not.toContain('Fetchland coverage');
     expect(text).not.toContain('Fetchlands are analyzed as mana fixing, not generic tutors.');
     expect(text).not.toContain('Bloodstained Mire');
@@ -414,9 +414,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const baseAndAccelerationText = baseAndAccelerationCard?.textContent ?? '';
     expect(baseAndAccelerationText).not.toContain('Total lands');
     expect(baseAndAccelerationText).toContain('Average mana value');
-    expect(baseAndAccelerationText).toContain('Colored source health');
+    expect(baseAndAccelerationText).toContain('Colored mana coverage');
     const coloredSourceHealthValue = Array.from(baseAndAccelerationCard?.querySelectorAll('dl div') ?? [])
-      .find((stat) => stat.querySelector('dt')?.textContent?.trim() === 'Colored source health')
+      .find((stat) => stat.querySelector('dt')?.textContent?.trim() === 'Colored mana coverage')
       ?.querySelector('dd');
     expect(coloredSourceHealthValue?.classList.contains('advanced-analysis-mana-stat-value--warning')).toBe(true);
     expect(baseAndAccelerationText).not.toContain('Permanent ramp');
@@ -434,8 +434,8 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const forestCard = Array.from(baseAndAccelerationCard?.querySelectorAll('.spoiler-card') ?? [])
       .find((card) => card.querySelector('.spoiler-card-name')?.textContent?.trim() === 'Forest');
     const forestBadgesText = forestCard?.querySelector('.spoiler-card-functional-badges')?.textContent ?? '';
-    expect(forestBadgesText).toContain('Basics');
-    expect(forestBadgesText).toContain('Typed lands');
+    expect(forestBadgesText).toContain('Basic lands');
+    expect(forestBadgesText).toContain('Lands with basic land types');
     const colorFixingGroup = Array.from(baseAndAccelerationCard?.querySelectorAll('.advanced-analysis-mana-functional-group') ?? [])
       .find((group) => group.querySelector('h4')?.textContent?.trim() === 'Color fixing');
     expect(colorFixingGroup?.textContent).not.toContain('Charcoal Diamond');
@@ -501,11 +501,11 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
       .map((header) => header.textContent?.trim());
     expect(demandHeaders).toEqual([
       'Color',
-      'Early color demand',
-      'Total color demand',
-      'Color demand share',
+      'Early colored mana requirements',
+      'Total colored mana requirements',
+      'Share of colored mana requirements',
       'Sources for this color',
-      'Share of color sources',
+      'Share of colored mana sources',
     ]);
     const demandText = demandGrid?.textContent ?? '';
     expect(demandText).toContain('White');
@@ -858,7 +858,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     expect(tutors?.textContent).toContain('True tutors');
     expect(tutors?.textContent).toContain('Ramp search');
-    expect(tutors?.textContent).toContain('Ramp search and opponent tutors are separated from true tutors.');
+    expect(tutors?.textContent).toContain('Land tutors and opponent tutors are separated from true tutors.');
     expect(tutors?.textContent).not.toContain('Permanent ramp');
     expect(wipes?.textContent).toContain('Board wipes');
     expect(wipes?.textContent).toContain('Mass bounce');
@@ -1010,7 +1010,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.querySelector('.advanced-analysis-typal-identity')).toBeNull();
-    expect(element.textContent).not.toContain('Primary tribe');
+    expect(element.textContent).not.toContain('Primary creature type');
     expect(element.querySelectorAll('.advanced-analysis-health-card')).toHaveLength(11);
   });
 
@@ -1173,7 +1173,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Card resolution');
+    expect(element.textContent).toContain('Card matching');
     expect(element.textContent).toContain('2 unmatched cards');
     expect(element.textContent).toContain('2x Unknown Card');
     expect(element.textContent).toContain('Mainboard');

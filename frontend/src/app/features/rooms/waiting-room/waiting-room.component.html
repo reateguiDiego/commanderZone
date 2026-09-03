@@ -1,6 +1,6 @@
 <section class="waiting-page">
   @if (error()) {
-    <p class="notice error">{{ error() }}</p>
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
   }
   @if (mercureUnavailable()) {
     <p class="notice realtime-warning" role="status">{{ 'rooms.waitingRoom.realtimeUnavailable' | runtimeTranslate }}</p>
@@ -21,15 +21,15 @@
                       <span>{{ 'rooms.waitingRoom.setup' | runtimeTranslate }}</span>
                     </button>
                   }
-                  <button class="secondary-button compact icon-action" type="button" [title]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate" [attr.aria-label]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate" (click)="requestLeaveRoom(room)">
+                  <button class="secondary-button compact icon-action" type="button" [title]="'shared.text.leaveRoom' | runtimeTranslate" [attr.aria-label]="'shared.text.leaveRoom' | runtimeTranslate" (click)="requestLeaveRoom(room)">
                     <lucide-icon name="log-out" size="16" />
                   </button>
                   @if (canDeleteRoom(room)) {
                     <button
                       class="danger-button compact icon-action"
                       type="button"
-                      [title]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
-                      [attr.aria-label]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
+                      [title]="'shared.text.deleteRoom' | runtimeTranslate"
+                      [attr.aria-label]="'shared.text.deleteRoom' | runtimeTranslate"
                       [disabled]="deletingRoomId() === room.id"
                       (click)="requestDeleteRoom(room)"
                     >
@@ -123,7 +123,7 @@
               </span>
               <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
                 <lucide-icon name="play" size="18" />
-                <span>{{ 'rooms.waitingRoom.start' | runtimeTranslate }}</span>
+                <span>{{ 'shared.text.start' | runtimeTranslate }}</span>
               </button>
             </div>
           }
@@ -163,8 +163,8 @@
       [title]="rollModalTitle()"
       [message]="rollModalMessage()"
       [messageParams]="rollModalMessageParams()"
-      primaryLabel="common.actions.roll"
-      secondaryLabel="common.modal.cancel"
+      primaryLabel="shared.text.roll"
+      secondaryLabel="shared.text.cancel"
       (primary)="rollTurnOrder()"
       (secondary)="closeRollModal()"
     >
@@ -178,9 +178,9 @@
 
     <app-modal
       [open]="inviteModalOpen()"
-      [title]="'rooms.waitingRoom.inviteFriends' | runtimeTranslate"
+      [title]="'shared.text.inviteFriends' | runtimeTranslate"
       message="rooms.waitingRoom.chooseAcceptedFriendsToInvite"
-      secondaryLabel="common.modal.close"
+      secondaryLabel="shared.text.close"
       size="narrow"
       [showPrimary]="false"
       (secondary)="closeInviteModal()"
@@ -203,7 +203,7 @@
                   [class.friend-presence-online]="friend.presence === 'online' || friend.presence === 'in_game'"
                   [class.friend-presence-offline]="!friend.presence || friend.presence === 'offline'"
                 >
-                  {{ friend.presence || ('navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate) }}
+                  {{ friend.presence || ('shared.text.offline' | runtimeTranslate) }}
                 </small>
               </span>
               @if (isFriendInCurrentRoom(friend.id)) {
@@ -220,7 +220,7 @@
                   [disabled]="!canInviteFriend(room, friend.id)"
                   (click)="inviteFriend(friend.id)"
                 >
-                  {{ (isInviting(friend.id) ? 'common.actions.sending' : 'common.actions.invite') | runtimeTranslate }}
+                  {{ (isInviting(friend.id) ? 'shared.text.sending' : 'common.actions.invite') | runtimeTranslate }}
                 </button>
               }
             </div>
@@ -234,41 +234,41 @@
 
   <app-modal
     [open]="roomPendingLeave() !== null"
-    [title]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate"
+    [title]="'shared.text.leaveRoom' | runtimeTranslate"
     message="rooms.waitingRoom.leaveRoomConfirmation"
-    primaryLabel="rooms.waitingRoom.leaveRoom"
-    secondaryLabel="common.modal.cancel"
+    primaryLabel="shared.text.leaveRoom"
+    secondaryLabel="shared.text.cancel"
     [danger]="true"
     (primary)="confirmLeaveRoom()"
     (secondary)="cancelLeaveRoom()"
   >
     @if (roomPendingLeave(); as room) {
-      <p class="notice">Room {{ room.name }}</p>
+      <p class="notice">{{ 'common.ui.roomNotice' | runtimeTranslate: { name: room.name } }}</p>
     }
   </app-modal>
 
   <app-modal
     [open]="roomPendingDelete() !== null"
-    [title]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
+    [title]="'shared.text.deleteRoom' | runtimeTranslate"
     message="common.modal.cannotBeUndone"
-    primaryLabel="rooms.waitingRoom.deleteRoom"
-    secondaryLabel="common.modal.cancel"
+    primaryLabel="shared.text.deleteRoom"
+    secondaryLabel="shared.text.cancel"
     [danger]="true"
     (primary)="confirmDeleteRoom()"
     (secondary)="cancelDeleteRoom()"
   >
     @if (roomPendingDelete(); as room) {
-      <p class="notice">Room {{ room.name }}</p>
+      <p class="notice">{{ 'common.ui.roomNotice' | runtimeTranslate: { name: room.name } }}</p>
     }
   </app-modal>
 
   <app-modal
     [open]="playerPendingKick() !== null"
-    [title]="'rooms.waitingRoom.kickPlayer' | runtimeTranslate"
+    [title]="'shared.text.kickPlayer' | runtimeTranslate"
     message="rooms.waitingRoom.kickPlayerConfirmation"
     [messageParams]="kickPlayerMessageParams()"
-    primaryLabel="common.actions.confirm"
-    secondaryLabel="common.modal.cancel"
+    primaryLabel="shared.text.confirm"
+    secondaryLabel="shared.text.cancel"
     [danger]="true"
     (primary)="confirmKickPlayer()"
     (secondary)="cancelKickPlayer()"
@@ -276,10 +276,10 @@
 
   <app-modal
     [open]="invalidDeckSelection() !== null"
-    [title]="'rooms.waitingRoom.invalidDeck' | runtimeTranslate"
+    [title]="'shared.text.invalidDeck' | runtimeTranslate"
     message="rooms.waitingRoom.invalidDeckSelectionMessage"
     [messageParams]="invalidDeckMessageParams()"
-    primaryLabel="common.actions.accept"
+    primaryLabel="shared.text.accept"
     [showSecondary]="false"
     [danger]="true"
     (primary)="closeInvalidDeckModal()"

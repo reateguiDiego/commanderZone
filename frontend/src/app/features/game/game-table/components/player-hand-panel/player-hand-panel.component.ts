@@ -1,4 +1,5 @@
 import { AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerView } from '../../game-table.store';
@@ -73,7 +74,7 @@ interface ResolvedHandPointerDrag {
 
 @Component({
   selector: 'app-player-hand-panel',
-  imports: [GameCardViewComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, GameCardViewComponent, PrettyScrollDirective],
   templateUrl: './player-hand-panel.component.html',
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

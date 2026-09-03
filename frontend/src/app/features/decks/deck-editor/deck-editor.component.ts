@@ -66,20 +66,20 @@ export class DeckEditorComponent implements OnDestroy {
   readonly shareCopied = signal(false);
   readonly viewModeMenuOpen = signal(false);
   readonly viewModeOptions: ReadonlyArray<{ value: DeckEditorViewMode; labelKey: string }> = [
-    { value: 'text', labelKey: 'deckBuilder.deckEditor.text' },
-    { value: 'spoiler', labelKey: 'deckBuilder.deckEditor.spoiler' },
+    { value: 'text', labelKey: 'shared.text.text' },
+    { value: 'spoiler', labelKey: 'shared.text.spoiler' },
   ];
   readonly tabItems = computed<readonly TabListItem[]>(() => {
     const items: TabListItem[] = [
       ...(this.store.canShowAnalysisTab()
         ? [{ id: 'analysis', label: 'deckBuilder.deckEditor.analysis', icon: 'bar-chart-3' } satisfies TabListItem]
         : []),
-      { id: 'considering', label: 'deckBuilder.deckEditor.considering', icon: 'layers-3' },
+      { id: 'considering', label: 'shared.text.considering', icon: 'layers-3' },
       { id: 'validation', label: 'deckBuilder.deckEditor.validation', icon: 'shield-check' },
     ];
 
     if (this.store.hasMissingContent()) {
-      items.push({ id: 'missing', label: 'deckBuilder.deckEditor.missing', icon: 'search-x' });
+      items.push({ id: 'missing', label: 'shared.text.missing', icon: 'search-x' });
     }
 
     items.push({ id: 'history', label: 'deckBuilder.deckEditor.history', icon: 'history' });
@@ -88,7 +88,7 @@ export class DeckEditorComponent implements OnDestroy {
   });
   readonly selectedViewModeLabelKey = computed(() => (
     this.viewModeOptions.find((option) => option.value === this.store.viewMode())?.labelKey
-    ?? 'deckBuilder.deckEditor.text'
+    ?? 'shared.text.text'
   ));
   private readonly pageHeader = inject(PageHeaderStore);
   private readonly router = inject(Router);
@@ -141,7 +141,7 @@ export class DeckEditorComponent implements OnDestroy {
         titleWarning: this.store.hasDeckIssues()
           ? {
             icon: 'triangle-alert',
-            label: 'deckBuilder.deckEditor.header.deckWarnings',
+            label: 'shared.text.deckWarnings',
             tooltip: this.store.deckIssueTooltip(),
             tone: 'danger',
           }

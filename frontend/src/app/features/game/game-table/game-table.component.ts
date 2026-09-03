@@ -1,10 +1,12 @@
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { RuntimeLanguageSelectorService } from '../../../core/localization/runtime-language-selector.service';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
@@ -580,6 +582,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly manaComets = inject(GameTableManaCometService);
   private readonly notificationSound = inject(GameTableNotificationSoundService);
   private readonly realtimeAnimations = inject(GameTableRealtimeAnimationBusService);
+  private readonly translation = inject(TranslateService, { optional: true });
+  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService, { optional: true });
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
@@ -825,6 +829,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return previewCard ? buildCardPreviewCardStateInfo(previewCard) : null;
   });
   readonly hoveredPreviewRevealLabel = computed(() => {
+    this.runtimeLanguageSelector?.selectedLanguage();
     const previewCard = this.hoveredPreviewCard();
 
     return previewCard ? this.revealLabelForCard(previewCard, this.hoveredPreviewZone()) : null;
@@ -3605,7 +3610,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async createMonarch(playerId: string): Promise<void> {
     if (!this.store.players().some((player) => player.id === playerId)) {
-      this.store.error.set('Could not find target player for monarch.');
+      this.store.error.set('errors.runtime.could-not-find-target-player-for-monarch');
       this.store.closeContextMenu();
       return;
     }
@@ -3616,7 +3621,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async createInitiative(playerId: string): Promise<void> {
     if (!this.store.players().some((player) => player.id === playerId)) {
-      this.store.error.set('Could not find target player for initiative.');
+      this.store.error.set('errors.runtime.could-not-find-target-player-for-initiative');
       this.store.closeContextMenu();
       return;
     }
@@ -3632,7 +3637,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async createTheRing(playerId: string): Promise<void> {
     if (!this.store.players().some((player) => player.id === playerId)) {
-      this.store.error.set('Could not find target player for The Ring.');
+      this.store.error.set('errors.runtime.could-not-find-target-player-for-the-ring');
       this.store.closeContextMenu();
       return;
     }
@@ -3833,7 +3838,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       defaultValue: 1,
       min: 1,
       max,
-      confirmLabel: 'game.numberAction.drawCards.confirm',
+      confirmLabel: 'shared.text.draw',
     });
   }
 
@@ -3919,7 +3924,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private async createCitysBlessing(playerId: string): Promise<void> {
     if (!this.store.players().some((player) => player.id === playerId)) {
-      this.store.error.set("Could not find target player for city's blessing.");
+      this.store.error.set('errors.runtime.could-not-find-target-player-for-citys-blessing');
       this.store.closeContextMenu();
       return;
     }
@@ -4094,7 +4099,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       defaultValue: 1,
       min: 1,
       max,
-      confirmLabel: 'game.numberAction.viewTopCards.confirm',
+      confirmLabel: 'shared.text.view',
     });
   }
 
@@ -4114,7 +4119,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       defaultValue: 1,
       min: 1,
       max,
-      confirmLabel: 'game.numberAction.revealTopCards.confirm',
+      confirmLabel: 'shared.text.reveal',
     });
   }
 
@@ -4124,7 +4129,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private libraryMoveTopDestinationLabel(toZone: GameZoneName, targetPlayerId?: string, position?: 'top' | 'bottom'): string {
     if (toZone === 'library' && position === 'bottom') {
-      return 'the bottom of your library';
+      return 'game.contextMenu.labels.bottomOfLibrary';
     }
     if (targetPlayerId) {
       return `${this.store.playerDisplayName(targetPlayerId)} ${this.store.zoneTitle(toZone).toLowerCase()}`;
@@ -4188,10 +4193,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     const players = this.store.players();
     const recipientsLabel = recipients.includes('all') || recipients.length === players.length
-      ? 'everyone'
+      ? this.translateText('game.chat.allPlayers')
       : recipients.map((playerId) => this.playerName(playerId)).join(', ');
 
-    return `Revealed to ${recipientsLabel}`;
+    return `${this.translateText('common.ui.revealed')} ${this.translateText('common.ui.messageTarget', { name: recipientsLabel })}`;
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation?.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 
   private revealRecipientsForCard(card: GameCardInstance, zone: GameZoneName | null): readonly string[] {
@@ -4700,10 +4713,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private rematchErrorMessage(error: unknown): string {
     if (typeof error === 'object' && error !== null && 'error' in error) {
       const response = (error as { error?: { error?: string; detail?: string } }).error;
-      return response?.error ?? response?.detail ?? 'No se pudo guardar la votacion.';
+      return response?.error ?? response?.detail ?? 'errors.runtime.no-se-pudo-aplicar-la-accion';
     }
 
-    return 'No se pudo guardar la votacion.';
+    return 'errors.runtime.no-se-pudo-aplicar-la-accion';
   }
 
   private clearRematchToastTimer(): void {

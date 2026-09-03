@@ -24,8 +24,8 @@
           <strong>{{ profile.label }}</strong>
         </div>
         <div class="mana-balance-metrics">
-          <span>{{ profile.sourceCount }} sources</span>
-          <strong>{{ profile.sourcePercent }}% available</strong>
+          <span>{{ 'common.ui.sourceCount' | runtimeTranslate: { count: profile.sourceCount } }}</span>
+          <strong>{{ 'common.ui.availablePercentage' | runtimeTranslate: { percent: profile.sourcePercent } }}</strong>
         </div>
         <div class="mana-balance-bars">
           <div class="mana-balance-bar source-bar">
@@ -36,8 +36,8 @@
           </div>
         </div>
         <div class="mana-balance-notes">
-          <small>{{ profile.demandCount }} symbols in costs</small>
-          <small>{{ profile.demandPercent }}% of color needs</small>
+          <small>{{ 'common.ui.symbolsInCosts' | runtimeTranslate: { count: profile.demandCount } }}</small>
+          <small>{{ 'common.ui.colorNeedsPercentage' | runtimeTranslate: { percent: profile.demandPercent } }}</small>
         </div>
       </div>
     }

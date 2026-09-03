@@ -1,7 +1,7 @@
 <section class="landing-page">
   <nav class="landing-nav" [attr.aria-label]="'onboarding.accountActions' | runtimeTranslate">
     <a class="brand-mark" routerLink="/">
-      <img [src]="themeAssets.czLogoUrl()" alt="CommanderZone" />
+      <img [src]="themeAssets.czLogoUrl()" [alt]="'shared.text.commanderzone' | runtimeTranslate" />
     </a>
     <div class="landing-auth-actions">
       <a czButton="secondary" czButtonSize="sm" class="secondary-button compact" routerLink="/auth/login">{{ 'auth.authPage.login' | runtimeTranslate }}</a>
@@ -11,7 +11,7 @@
 
   <main class="landing-hero">
     <section class="landing-copy">
-      <span class="eyebrow">{{ 'onboarding.hero.eyebrow' | runtimeTranslate }}</span>
+      <span class="eyebrow">{{ 'shared.text.manualCommanderTable' | runtimeTranslate }}</span>
       <h1>{{ 'onboarding.hero.title' | runtimeTranslate }}</h1>
       <p>
         {{ 'onboarding.hero.description' | runtimeTranslate }}
@@ -21,7 +21,7 @@
     <section class="table-preview" [attr.aria-label]="'onboarding.preview.ariaLabel' | runtimeTranslate">
       <div class="preview-orbit">
         <article class="preview-card host-card">
-          <span>{{ 'rooms.roomBrowser.host' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.host' | runtimeTranslate }}</span>
           <strong>{{ previewCardName() }}</strong>
           <small>{{ 'onboarding.preview.ready' | runtimeTranslate }}</small>
         </article>
@@ -32,7 +32,7 @@
         </article>
         <article class="preview-card action-card">
           <img src="/assets/icons/chance/dice_20.png" alt="" />
-          <small>{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }}</small>
+          <small>{{ 'shared.text.turnOrder' | runtimeTranslate }}</small>
         </article>
       </div>
       <div class="preview-core">

@@ -143,11 +143,11 @@ export class CardSearchComponent implements OnInit, OnDestroy {
     return actions;
   });
   readonly viewTabs: readonly TabListItem[] = [
-    { id: 'list', label: 'deckBuilder.cards.cardSearch.view.list', icon: 'list' },
-    { id: 'spoiler', label: 'deckBuilder.cards.cardSearch.view.spoiler', icon: 'image' },
+    { id: 'list', label: 'shared.text.list', icon: 'list' },
+    { id: 'spoiler', label: 'shared.text.spoiler', icon: 'image' },
   ];
   readonly sortOptions: readonly FormatSelectOption[] = [
-    { id: 'colors', labelKey: 'deckBuilder.cards.cardSearch.sort.colors' },
+    { id: 'colors', labelKey: 'shared.text.colors' },
     { id: 'name_asc', labelKey: 'deckBuilder.cards.cardSearch.sort.nameAsc' },
     { id: 'name_desc', labelKey: 'deckBuilder.cards.cardSearch.sort.nameDesc' },
     { id: 'mana_value_desc', labelKey: 'deckBuilder.cards.cardSearch.sort.manaValueDesc' },
@@ -158,7 +158,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   private readonly syncPageHeader = effect(() => {
     const titleActions = this.titleActions();
     this.pageHeader.set({
-      title: 'deckBuilder.cards.cardSearch.header.title',
+      title: 'shared.text.cards',
       description: 'deckBuilder.cards.cardSearch.header.description',
       context: 'cards',
       heroRule: true,
@@ -345,7 +345,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
         total: response.total ?? ((page - 1) * CARD_SEARCH_PAGE_SIZE) + response.data.length,
       });
     } catch {
-      this.error.set('Could not search cards.');
+      this.error.set('errors.runtime.could-not-search-cards');
       this.hasMore.set(false);
       this.totalResults.set(0);
     } finally {
@@ -399,26 +399,26 @@ export class CardSearchComponent implements OnInit, OnDestroy {
     const pills: CardSearchFilterPill[] = [];
     const options = this.options();
 
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.name', request.query);
+    this.pushPill(pills, 'shared.text.name', request.query);
     this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.rules', [filters.oracleTextA, filters.oracleTextB].filter(Boolean).join(filters.oracleTextMode === 'or' ? ' OR ' : ' AND '));
     this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.rules', filters.oracleTextExact ? 'deckBuilder.cards.cardSearch.form.textExact' : null);
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', this.optionNames(options?.types, filters.types));
-    this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', filters.basic ? 'deckBuilder.cards.cardSearch.form.basic' : null);
-    this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', filters.legendary ? 'deckBuilder.cards.cardSearch.form.legendary' : null);
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.subtypes', this.optionNames(options?.subtypes, filters.subtypes));
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.sets', this.optionNames(options?.sets, filters.sets));
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.rarity', this.optionNames(options?.rarities, filters.rarities));
-    this.pushManaSymbolsPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.colors', filters.colors);
+    this.pushPill(pills, 'shared.text.types', this.optionNames(options?.types, filters.types));
+    this.pushPillKey(pills, 'shared.text.types', filters.basic ? 'shared.text.basic' : null);
+    this.pushPillKey(pills, 'shared.text.types', filters.legendary ? 'deckBuilder.cards.cardSearch.form.legendary' : null);
+    this.pushPill(pills, 'shared.text.subtypes', this.optionNames(options?.subtypes, filters.subtypes));
+    this.pushPill(pills, 'shared.text.sets', this.optionNames(options?.sets, filters.sets));
+    this.pushPill(pills, 'shared.text.rarity', this.optionNames(options?.rarities, filters.rarities));
+    this.pushManaSymbolsPill(pills, 'shared.text.colors', filters.colors);
     this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.cardKind', [
       filters.artifact ? 'Artifact' : '',
       filters.multicolor ? 'Multicolor' : '',
       filters.land ? 'Land' : '',
     ].filter(Boolean).join(', '));
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.manaValue', this.rangeLabel(filters.manaValueMin, filters.manaValueMax));
-    this.pushManaValuePill(pills, 'deckBuilder.cards.cardSearch.summary.filters.manaCost', filters.manaCost);
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.power', this.rangeLabel(filters.powerMin, filters.powerMax));
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.toughness', this.rangeLabel(filters.toughnessMin, filters.toughnessMax));
-    this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.formats', this.optionNames(options?.formats, filters.formats));
+    this.pushPill(pills, 'shared.text.manaValue', this.rangeLabel(filters.manaValueMin, filters.manaValueMax));
+    this.pushManaValuePill(pills, 'shared.text.manaCost', filters.manaCost);
+    this.pushPill(pills, 'shared.text.power', this.rangeLabel(filters.powerMin, filters.powerMax));
+    this.pushPill(pills, 'shared.text.toughness', this.rangeLabel(filters.toughnessMin, filters.toughnessMax));
+    this.pushPill(pills, 'shared.text.formats', this.optionNames(options?.formats, filters.formats));
 
     return pills;
   }

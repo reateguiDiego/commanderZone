@@ -24,7 +24,7 @@ export class DeckAnalysisPanelComponent {
   readonly store = inject(DECK_ANALYSIS_STORE);
   readonly advancedAnalysisLink = input<readonly string[] | null>(null);
   readonly advancedAnalysisState = input<AdvancedAnalysisRouteState | null>(null);
-  readonly advancedAnalysisAriaLabel = input('deckBuilder.advancedAnalysis.openButton');
+  readonly advancedAnalysisAriaLabel = input('shared.text.advancedAnalysis');
   readonly hasAnalysisData = computed(() => this.store.analysis().mainDeckCards > 0);
   private readonly collapsedPanels = signal<ReadonlySet<AnalysisTogglePanel>>(new Set());
 

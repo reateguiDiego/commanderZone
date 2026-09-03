@@ -29,7 +29,7 @@
   <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? (lockedRoomTooltip | runtimeTranslate) : null" [stretch]="true">
     <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
       <lucide-icon name="plus" size="17" />
-      {{ 'rooms.roomCreatePanel.createRoom' | runtimeTranslate }}
+      {{ 'shared.text.createRoom' | runtimeTranslate }}
     </button>
   </app-tooltip>
 </aside>

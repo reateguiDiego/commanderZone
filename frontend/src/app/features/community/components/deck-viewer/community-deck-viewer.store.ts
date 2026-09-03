@@ -14,24 +14,24 @@ import { DeckAnalysisService } from '../../../decks/services/deck-analysis.servi
 import { normalizedCardTypeLine, resolveCardTypeLine, resolvedDeckCardTypeLine } from '../../../decks/utils/deck-card-type-line';
 
 const CARD_TYPE_GROUPS = [
-  { id: 'planeswalker', title: 'community.deckViewer.groups.planeswalker', type: 'planeswalker' },
+  { id: 'planeswalker', title: 'shared.text.planeswalkers', type: 'planeswalker' },
   { id: 'battle', title: 'community.deckViewer.groups.battle', type: 'battle' },
-  { id: 'creature', title: 'community.deckViewer.groups.creature', type: 'creature' },
-  { id: 'instant', title: 'community.deckViewer.groups.instant', type: 'instant' },
-  { id: 'sorcery', title: 'community.deckViewer.groups.sorcery', type: 'sorcery' },
-  { id: 'enchantment', title: 'community.deckViewer.groups.enchantment', type: 'enchantment' },
-  { id: 'artifact', title: 'community.deckViewer.groups.artifact', type: 'artifact' },
-  { id: 'land', title: 'community.deckViewer.groups.land', type: 'land' },
+  { id: 'creature', title: 'shared.text.creatures', type: 'creature' },
+  { id: 'instant', title: 'shared.text.instants', type: 'instant' },
+  { id: 'sorcery', title: 'shared.text.sorceries', type: 'sorcery' },
+  { id: 'enchantment', title: 'shared.text.enchantments', type: 'enchantment' },
+  { id: 'artifact', title: 'shared.text.artifacts', type: 'artifact' },
+  { id: 'land', title: 'shared.text.lands', type: 'land' },
 ] as const;
 
 const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => boolean }> = [
-  { id: 'commander', title: 'community.deckViewer.groups.commander', matcher: (entry) => entry.section === 'commander' },
+  { id: 'commander', title: 'shared.text.commander', matcher: (entry) => entry.section === 'commander' },
   ...CARD_TYPE_GROUPS.map((group) => ({
     id: group.id,
     title: group.title,
     matcher: (entry: DeckCard) => hasMaindeckType(entry, group.type),
   })),
-  { id: 'sideboard', title: 'community.deckViewer.groups.sideboard', matcher: (entry) => entry.section === 'sideboard' },
+  { id: 'sideboard', title: 'shared.text.sideboard', matcher: (entry) => entry.section === 'sideboard' },
 ];
 
 const DECK_TEXT_VIEW_TARGET_COLUMN_WEIGHT = 42;

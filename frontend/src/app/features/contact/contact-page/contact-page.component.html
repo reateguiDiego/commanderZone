@@ -7,8 +7,8 @@
   <section class="contact-shell">
     <section class="contact-intro">
       <header class="contact-header">
-        <img class="contact-logo" [src]="logoUrl()" alt="CommanderZone" width="256" height="124" decoding="async" />
-        <h1>{{ 'contactPage.hero.title' | runtimeTranslate }}</h1>
+        <img class="contact-logo" [src]="logoUrl()" [alt]="'shared.text.commanderzone' | runtimeTranslate" width="256" height="124" decoding="async" />
+        <h1>{{ 'shared.text.contactUs' | runtimeTranslate }}</h1>
         <p>{{ 'contactPage.hero.description' | runtimeTranslate }}</p>
       </header>
 
@@ -27,7 +27,7 @@
     <section class="contact-form-panel">
       <form class="contact-form" [formGroup]="contactForm" novalidate (ngSubmit)="submit()">
         <label>
-          {{ 'contactPage.form.nameLabel' | runtimeTranslate }}
+          {{ 'shared.text.name' | runtimeTranslate }}
         <input
           type="text"
           formControlName="name"
@@ -46,7 +46,7 @@
       </label>
 
         <label>
-          {{ 'contactPage.form.emailLabel' | runtimeTranslate }}
+          {{ 'shared.text.email' | runtimeTranslate }}
         <input
           type="email"
           formControlName="email"
@@ -55,12 +55,12 @@
           [placeholder]="'contactPage.form.emailPlaceholder' | runtimeTranslate"
         />
         @if (fieldInvalid('email')) {
-          <span class="field-error">{{ 'contactPage.form.emailError' | runtimeTranslate }}</span>
+          <span class="field-error">{{ 'shared.text.enterAValidEmail' | runtimeTranslate }}</span>
         }
       </label>
 
         <label>
-          {{ 'contactPage.form.subjectLabel' | runtimeTranslate }}
+          {{ 'shared.text.subject' | runtimeTranslate }}
         <input
           type="text"
           formControlName="subject"
@@ -78,7 +78,7 @@
       </label>
 
         <label>
-          {{ 'contactPage.form.messageLabel' | runtimeTranslate }}
+          {{ 'shared.text.message' | runtimeTranslate }}
         <textarea
           formControlName="message"
           rows="7"
@@ -103,7 +103,7 @@
         }
 
         <button czButton="primary" class="primary-button" type="submit" [disabled]="!canSubmit()">
-          {{ (submitting() ? 'contactPage.form.submitting' : 'contactPage.form.submit') | runtimeTranslate }}
+          {{ (submitting() ? 'shared.text.sending' : 'shared.text.sendMessage') | runtimeTranslate }}
         </button>
       </form>
     </section>

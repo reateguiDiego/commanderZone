@@ -37,7 +37,7 @@
       <div class="spoiler-section-body" [class.collapsed]="store.isGroupCollapsed(group.id)">
         <div class="spoiler-section-body-inner">
           @if (group.id === 'commander' && group.cards.length === 0) {
-            <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardSpoilerView.noCommanderAssignedYet' | runtimeTranslate }}</p>
+            <p class="notice warning compact-notice">{{ 'deckBuilder.deckEditor.noCommanderAssignedYet' | runtimeTranslate }}</p>
           } @else if (group.cards.length === 0) {
             <p class="spoiler-section-empty">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
           } @else {
@@ -74,7 +74,7 @@
                       <button
                         class="face-toggle-button"
                         type="button"
-                        [title]="'deckBuilder.deckCardSpoilerView.flipFace' | runtimeTranslate"
+                        [title]="'shared.text.flipFace' | runtimeTranslate"
                         (pointerdown)="stopFaceTogglePointer($event)"
                         (contextmenu)="stopFaceToggleContextMenu($event)"
                         (click)="toggleCardFace($event, entry.card)"

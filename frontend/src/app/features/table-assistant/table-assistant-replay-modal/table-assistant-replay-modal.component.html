@@ -46,11 +46,11 @@
             </div>
 
             <div class="seat-field">
-              <span>{{ 'tableAssistant.tableAssistantReplayModal.player' | runtimeTranslate }}</span>
+              <span>{{ 'shared.text.player' | runtimeTranslate }}</span>
               <app-format-select
                 name="seatPlayer"
                 [labelHidden]="true"
-                labelKey="tableAssistant.tableAssistantReplayModal.player"
+                labelKey="shared.text.player"
                 [options]="seatPlayerOptions(index)"
                 [value]="seatValue(index)"
                 (click)="$event.stopPropagation()"

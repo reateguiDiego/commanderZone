@@ -1,14 +1,14 @@
 <main class="table-assistant-page">
   <p class="table-assistant-work-in-progress app-disclaimer-callout" role="status" aria-live="polite">
-    We are still working on this page. It is currently provisional, and some details may change. Sorry for the inconvenience.
+    {{ 'common.ui.workInProgress' | runtimeTranslate }}
   </p>
 
   @if (setupOpen()) {
     <app-table-assistant-setup (cancelled)="handleSetupDestroyed()" />
   } @else {
-    <section class="assistant-overview" [attr.aria-label]="'tableAssistant.tableAssistantPage.title' | runtimeTranslate">
+    <section class="assistant-overview" [attr.aria-label]="'shared.text.tableAssistant' | runtimeTranslate">
       <div class="overview-copy">
-        <span class="eyebrow">{{ 'tableAssistant.tableAssistantPage.manualCommanderTable' | runtimeTranslate }}</span>
+        <span class="eyebrow">{{ 'shared.text.manualCommanderTable' | runtimeTranslate }}</span>
         <h2>{{ 'tableAssistant.tableAssistantPage.physicalGameTrackingDescription' | runtimeTranslate }}</h2>
         <p>
           {{ 'tableAssistant.tableAssistantPage.setupDescription' | runtimeTranslate }}

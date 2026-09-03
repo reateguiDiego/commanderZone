@@ -20,7 +20,7 @@ export class ChatRecipientSelectComponent {
   readonly selectedRecipient = computed(() =>
     this.recipients().find((recipient) => this.optionValue(recipient) === this.selectedValue()) ?? this.recipients()[0] ?? null
   );
-  readonly selectedRecipientLabel = computed(() => this.selectedRecipient()?.label ?? 'Todos');
+  readonly selectedRecipientLabel = computed(() => this.recipientLabel(this.selectedRecipient()));
 
   toggleOpen(event: MouseEvent): void {
     event.preventDefault();
@@ -37,6 +37,10 @@ export class ChatRecipientSelectComponent {
 
   optionValue(recipient: ChatRecipientOption): string {
     return recipient.playerId ?? 'all';
+  }
+
+  recipientLabel(recipient: ChatRecipientOption | null): string {
+    return recipient?.labelKey ?? recipient?.label ?? 'game.chat.allPlayers';
   }
 
   @HostListener('document:mousedown', ['$event'])

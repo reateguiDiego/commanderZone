@@ -4,6 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { MessagesApi } from '../../../../core/api/messages.api';
+import { TranslationService } from '../../../../core/localization/translation.service';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { MessageBodyComponent } from '../../../../shared/ui/message-body/message-body.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
@@ -22,7 +24,7 @@ type MessageSnippet = 'heading' | 'image' | 'link' | 'list' | 'separator';
 
 @Component({
   selector: 'app-admin-notifications-panel',
-  imports: [ReactiveFormsModule, LucideAngularModule, CzButtonDirective, MessageBodyComponent],
+  imports: [ReactiveFormsModule, LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective, MessageBodyComponent],
   templateUrl: './admin-notifications-panel.component.html',
   styleUrl: './admin-notifications-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,25 +35,29 @@ export class AdminNotificationsPanelComponent {
   private readonly adminUsersApi = inject(AdminUsersApi);
   private readonly formBuilder = inject(FormBuilder);
   private readonly messagesApi = inject(MessagesApi);
+  private readonly translation = inject(TranslationService);
 
   readonly preselectedRecipient = input<RecipientOption | null>(null);
   readonly users = signal<readonly AdminUser[]>([]);
   readonly recipientsOpen = signal(false);
-  readonly recipientQuery = signal('Todos');
-  readonly selectedRecipient = signal<RecipientOption>({ id: ALL_RECIPIENT_ID, name: 'Todos' });
-  readonly recipientControl = this.formBuilder.nonNullable.control('Todos');
+  readonly recipientQuery = signal(this.translateText('admin.notifications.allUsers'));
+  readonly selectedRecipient = signal<RecipientOption>({
+    id: ALL_RECIPIENT_ID,
+    name: this.translateText('admin.notifications.allUsers'),
+  });
+  readonly recipientControl = this.formBuilder.nonNullable.control(this.translateText('admin.notifications.allUsers'));
   readonly loadingUsers = signal(false);
   readonly sending = signal(false);
   readonly sentMessage = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly bodyPreview = signal('');
   readonly recipientOptions = computed<readonly RecipientOption[]>(() => [
-    { id: ALL_RECIPIENT_ID, name: 'Todos' },
+    { id: ALL_RECIPIENT_ID, name: this.translateText('admin.notifications.allUsers') },
     ...this.users().map((user) => ({ id: user.id, name: user.displayName })),
   ]);
   readonly filteredRecipients = computed(() => {
     const query = this.recipientQuery().trim().toLowerCase();
-    if (query === '' || query === 'todos') {
+    if (query === '' || query === this.translateText('admin.notifications.allUsers').toLowerCase()) {
       return this.recipientOptions();
     }
 
@@ -76,7 +82,7 @@ export class AdminNotificationsPanelComponent {
       const response = await firstValueFrom(this.adminUsersApi.listUsers());
       this.users.set(response.users);
     } catch (error: unknown) {
-      this.errorMessage.set(this.resolveError(error, 'Could not load users.'));
+      this.errorMessage.set(this.resolveError(error, 'admin.notifications.errors.loadUsers'));
     } finally {
       this.loadingUsers.set(false);
     }
@@ -108,21 +114,21 @@ export class AdminNotificationsPanelComponent {
     }
 
     if (!file.type.startsWith('image/')) {
-      this.errorMessage.set('Please choose an image file.');
+      this.errorMessage.set(this.translateText('admin.notifications.errors.invalidImageType'));
       return;
     }
 
     try {
       const imageDataUrl = await this.compressedImageDataUrl(file);
       if (imageDataUrl.length > MAX_UPLOADED_IMAGE_DATA_URL_LENGTH) {
-        this.errorMessage.set('Uploaded image is too large for a message. Use a smaller image.');
+        this.errorMessage.set(this.translateText('admin.notifications.errors.imageTooLarge'));
         return;
       }
 
       this.insertTextAtCursor(`![](${imageDataUrl})\n`);
       this.errorMessage.set(null);
     } catch {
-      this.errorMessage.set('Could not read the uploaded image.');
+      this.errorMessage.set(this.translateText('admin.notifications.errors.readImage'));
     }
   }
 
@@ -166,11 +172,11 @@ export class AdminNotificationsPanelComponent {
         subject: this.form.controls.subject.value.trim(),
         body: this.form.controls.body.value.trim(),
       }));
-      this.sentMessage.set(`Message sent to ${response.sent} user(s).`);
+      this.sentMessage.set(this.translateText('admin.notifications.messageSent', { count: response.sent }));
       this.form.reset({ subject: '', body: '' });
       this.bodyPreview.set('');
     } catch (error: unknown) {
-      this.errorMessage.set(this.resolveError(error, 'Could not send message.'));
+      this.errorMessage.set(this.resolveError(error, 'admin.notifications.errors.sendMessage'));
     } finally {
       this.sending.set(false);
     }
@@ -194,24 +200,24 @@ export class AdminNotificationsPanelComponent {
     return field === 'subject' ? MAX_SUBJECT_LENGTH : MAX_BODY_LENGTH;
   }
 
-  private resolveError(error: unknown, fallback: string): string {
+  private resolveError(error: unknown, fallbackKey: string): string {
     if (error instanceof HttpErrorResponse && typeof error.error?.error === 'string') {
       return error.error.error;
     }
 
-    return fallback;
+    return this.translateText(fallbackKey);
   }
 
   private messageSnippet(snippet: MessageSnippet): string {
     switch (snippet) {
       case 'heading':
-        return '## Title\n';
+        return `## ${this.translateText('shared.text.title')}\n`;
       case 'image':
-        return '![Image description](https://example.com/image.png)\n';
+        return `![${this.translateText('admin.notifications.snippets.imageDescription')}](https://example.com/image.png)\n`;
       case 'link':
-        return '[Link text](https://example.com)\n';
+        return `[${this.translateText('admin.notifications.snippets.linkText')}](https://example.com)\n`;
       case 'list':
-        return '- List item\n';
+        return `- ${this.translateText('admin.notifications.snippets.listItem')}\n`;
       case 'separator':
         return '---\n';
     }
@@ -234,7 +240,7 @@ export class AdminNotificationsPanelComponent {
     ].join('');
 
     if (nextBody.length > MAX_BODY_LENGTH) {
-      this.errorMessage.set(`Message is too long. Maximum length is ${MAX_BODY_LENGTH} characters.`);
+      this.errorMessage.set(this.translateText('admin.notifications.errors.messageTooLong', { count: MAX_BODY_LENGTH }));
       return;
     }
 
@@ -295,5 +301,13 @@ export class AdminNotificationsPanelComponent {
     }
 
     this.selectRecipient(option);
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 }

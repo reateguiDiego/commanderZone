@@ -201,7 +201,7 @@
     }
     @if (isCurrentPlayer()(activeMenu.playerId)) {
       <app-context-submenu
-        label="game.contextMenu.labels.view"
+        label="shared.text.view"
         icon="library"
         [items]="libraryViewMenuItems()"
         [expanded]="isSubmenuExpanded('libraryView')"
@@ -243,7 +243,7 @@
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.rollDice') }}</span>
+            <span>{{ displayLabel('shared.text.rollDice') }}</span>
           </span>
         </button>
         @if (canShowManaPool()) {
@@ -293,7 +293,7 @@
       <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: activeMenu.zone })">
         <span class="menu-item-label">
           <lucide-icon name="eye" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('game.contextMenu.labels.view') }}</span>
+          <span>{{ displayLabel('shared.text.view') }}</span>
         </span>
       </button>
     }
@@ -302,7 +302,7 @@
       @if (canControlMonarchCard()) {
         @if (canGiveMonarchToPlayer()) {
           <app-context-submenu
-            label="Give to"
+            label="shared.text.giveTo"
             icon="gift"
             [items]="giveMonarchToPlayerMenuItems()"
             [expanded]="isSubmenuExpanded('giveMonarchToPlayer')"
@@ -316,7 +316,7 @@
         <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeMonarch' })">
           <span class="menu-item-label">
             <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
+            <span>{{ displayLabel('shared.text.remove') }}</span>
           </span>
         </button>
       }
@@ -324,7 +324,7 @@
       @if (canControlInitiativeCard()) {
         @if (canGiveInitiativeToPlayer()) {
           <app-context-submenu
-            label="Give to"
+            label="shared.text.giveTo"
             icon="gift"
             [items]="giveInitiativeToPlayerMenuItems()"
             [expanded]="isSubmenuExpanded('giveInitiativeToPlayer')"
@@ -338,7 +338,7 @@
         <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeInitiative' })">
           <span class="menu-item-label">
             <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
+            <span>{{ displayLabel('shared.text.remove') }}</span>
           </span>
         </button>
       } @else {
@@ -378,7 +378,7 @@
         <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
           <span class="menu-item-label">
             <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
+            <span>{{ displayLabel('shared.text.remove') }}</span>
           </span>
         </button>
       } @else {
@@ -401,7 +401,7 @@
           <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeDayNight' })">
             <span class="menu-item-label">
               <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Remove') }}</span>
+              <span>{{ displayLabel('shared.text.remove') }}</span>
             </span>
           </button>
         }
@@ -409,7 +409,7 @@
         <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
           <span class="menu-item-label">
             <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
+            <span>{{ displayLabel('shared.text.remove') }}</span>
           </span>
         </button>
       } @else if (showsBattlefieldCardActions()) {
@@ -433,12 +433,12 @@
           <button type="button" (click)="actionSelected.emit({ type: 'addVenture', kind: ventureKind })">
             <span class="menu-item-label">
               <lucide-icon name="dices" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Add venture') }}</span>
+              <span>{{ displayLabel('common.ui.addVenture') }}</span>
             </span>
           </button>
         }
         <app-context-submenu
-          label="game.contextMenu.labels.counters"
+          label="shared.text.counters"
           icon="counter-pill"
           [items]="counterMenuItems()"
           [expanded]="isSubmenuExpanded('counters')"
@@ -449,7 +449,7 @@
         <button type="button" (click)="actionSelected.emit({ type: 'drawArrow' })">
           <span class="menu-item-label">
             <lucide-icon name="send" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.drawArrow') }}</span>
+            <span>{{ displayLabel('shared.text.drawArrow') }}</span>
           </span>
         </button>
         @if (canUseManaAssistant()) {
@@ -616,7 +616,7 @@
           </button>
           @if (!activeMenu.fromFixedZoneModal) {
             <app-context-submenu
-              label="game.contextMenu.labels.giveTo"
+              label="shared.text.giveTo"
               icon="gift"
               [items]="giveToPlayerMenuItems()"
               [expanded]="isSubmenuExpanded('giveToPlayer')"
@@ -628,7 +628,7 @@
         }
         @if (canGiveFixedZoneCard()) {
           <app-context-submenu
-            label="game.contextMenu.labels.giveTo"
+            label="shared.text.giveTo"
             icon="gift"
             [items]="giveToDestinationMenuItems()"
             [expanded]="isSubmenuExpanded('giveToPlayer')"
@@ -658,7 +658,7 @@
           @if (isRevealedHandCard()) {
             <button type="button" (click)="actionSelected.emit({ type: 'stopRevealCard' })"><span class="menu-item-label"><lucide-icon name="eye-off" size="17" aria-hidden="true" /><span>{{ displayLabel('game.contextMenu.labels.stopRevealing') }}</span></span></button>
           } @else {
-            <app-context-submenu label="game.contextMenu.labels.reveal" icon="eye" [items]="revealToMenuItems()" [expanded]="isSubmenuExpanded('revealTo')" direction="up" (toggled)="toggleSubmenu($event, 'revealTo')" (itemSelected)="selectRevealTarget($event)" />
+            <app-context-submenu label="shared.text.reveal" icon="eye" [items]="revealToMenuItems()" [expanded]="isSubmenuExpanded('revealTo')" direction="up" (toggled)="toggleSubmenu($event, 'revealTo')" (itemSelected)="selectRevealTarget($event)" />
           }
         }
       }

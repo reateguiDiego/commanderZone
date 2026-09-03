@@ -13,7 +13,7 @@ import { TextFitDirective } from '../../ui/text-fit/text-fit.directive';
 })
 export class VisibilityChoiceComponent {
   @Input({ required: true }) value: DeckVisibility | null = null;
-  @Input() label = 'common.visibility.visibilityChoice.label';
+  @Input() label = 'shared.text.visibility';
   @Input() required = false;
   @Input() publicSubtitle = 'common.visibility.visibilityChoice.publicSubtitle';
   @Input() privateSubtitle = 'common.visibility.visibilityChoice.privateSubtitle';

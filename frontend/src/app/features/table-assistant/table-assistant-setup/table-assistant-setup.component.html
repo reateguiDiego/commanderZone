@@ -1,7 +1,7 @@
 <form class="setup-panel" [attr.aria-label]="'tableAssistant.tableAssistantSetup.configureTableAssistant' | runtimeTranslate" novalidate (ngSubmit)="createRoom()">
   <div class="setup-header">
     <div>
-      <span class="eyebrow">{{ 'tableAssistant.tableAssistantSetup.newGame' | runtimeTranslate }}</span>
+      <span class="eyebrow">{{ 'shared.text.newGame' | runtimeTranslate }}</span>
       <h2>{{ 'tableAssistant.tableAssistantSetup.configureTable' | runtimeTranslate }}</h2>
       <p>{{ 'tableAssistant.tableAssistantSetup.setupDescription' | runtimeTranslate }}</p>
     </div>
@@ -13,17 +13,17 @@
 
   <div class="setup-grid">
     <section class="setup-section players-section">
-      <h3>{{ 'tableAssistant.tableAssistantSetup.players' | runtimeTranslate }}</h3>
+      <h3>{{ 'shared.text.players' | runtimeTranslate }}</h3>
       <div class="setup-number-controls">
         <app-game-setup-seats-control
-          label="tableAssistant.tableAssistantSetup.players"
+          label="shared.text.players"
           [value]="playerCount()"
           [options]="playerCountOptions"
           (valueChange)="setPlayerCount($event)"
         />
         <app-game-setup-life-control
-          label="tableAssistant.tableAssistantSetup.initialLife"
-          summary="tableAssistant.tableAssistantSetup.initialTotal"
+          label="shared.text.startingLifeTotal"
+          summary="shared.text.startingTotal"
           [value]="initialLife()"
           (valueChange)="setInitialLife($event)"
         />
@@ -36,7 +36,7 @@
             <input [name]="'playerName' + playerIndex" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerNameAria' | runtimeTranslate: { index: playerIndex + 1 }" [placeholder]="'tableAssistant.tableAssistantSetup.playerNamePlaceholder' | runtimeTranslate: { index: playerIndex + 1 }" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
             <span class="color-picker" [style.--selected-gradient]="colorGradient(playerColors()[playerIndex])" [style.--selected-accent]="colorAccent(playerColors()[playerIndex])">
               <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerColorAria' | runtimeTranslate: { index: playerIndex + 1 }" (click)="toggleColorPicker(playerIndex)">
-                <span>{{ colorLabel(playerColors()[playerIndex]) }}</span>
+                <span>{{ colorLabel(playerColors()[playerIndex]) | runtimeTranslate }}</span>
                 <span class="mana-symbols" aria-hidden="true">
                   <app-mana-symbols
                     [symbols]="colorManaSymbols(playerColors()[playerIndex])"
@@ -49,7 +49,7 @@
                 <div class="color-picker-list" role="listbox" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerColorsAria' | runtimeTranslate: { index: playerIndex + 1 }">
                   @for (color of colorOptions; track color.id) {
                     <button class="color-option" type="button" role="option" [class.selected]="playerColors()[playerIndex] === color.id" [style.--option-gradient]="color.gradient" [style.--option-accent]="color.accent" [attr.aria-selected]="playerColors()[playerIndex] === color.id" (mousedown)="$event.preventDefault(); selectPlayerColor(playerIndex, color.id)" (click)="selectPlayerColor(playerIndex, color.id)">
-                      <span>{{ color.label }}</span>
+                      <span>{{ color.labelKey | runtimeTranslate }}</span>
                       <span class="mana-symbols" aria-hidden="true">
                         <app-mana-symbols
                           [symbols]="color.manaSymbols"
@@ -83,7 +83,7 @@
 
   <div class="setup-actions">
     <button czButton="primary" class="primary-button" type="submit" [disabled]="!canCreateRoom()">
-      {{ (creating() ? 'tableAssistant.tableAssistantSetup.creatingRoom' : 'tableAssistant.tableAssistantSetup.createRoom') | runtimeTranslate }}
+      {{ (creating() ? 'tableAssistant.tableAssistantSetup.creatingRoom' : 'shared.text.createRoom') | runtimeTranslate }}
     </button>
   </div>
 </form>

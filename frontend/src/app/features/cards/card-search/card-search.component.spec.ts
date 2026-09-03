@@ -198,9 +198,9 @@ describe('CardSearchComponent', () => {
     expect(fixture.componentInstance.totalResults()).toBe(1241);
     expect(fixture.componentInstance.totalPages()).toBe(63);
     expect(fixture.componentInstance.filterPills()).toEqual([{
-      labelKey: 'deckBuilder.cards.cardSearch.summary.filters.name',
+      labelKey: 'shared.text.name',
       value: 'sol ring',
-      track: 'deckBuilder.cards.cardSearch.summary.filters.name:sol ring',
+      track: 'shared.text.name:sol ring',
     }]);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.cards-main .cards-view-actions')).not.toBeNull();

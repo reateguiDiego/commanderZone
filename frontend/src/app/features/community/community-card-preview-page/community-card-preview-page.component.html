@@ -18,7 +18,7 @@
         <div class="community-preview-toolbar__filters">
           <app-format-select
             name="communityPreviewType"
-            labelKey="deckBuilder.cards.cardSearch.form.types"
+            labelKey="shared.text.types"
             [options]="typeOptions"
             [value]="selectedType()"
             (valueChange)="selectType($event)"
@@ -26,14 +26,14 @@
 
           <app-format-select
             name="communityPreviewColor"
-            labelKey="deckBuilder.deckList.colorFilter.label"
+            labelKey="shared.text.color"
             [options]="colorOptions"
             [value]="selectedColor()"
             (valueChange)="selectColor($event)"
           />
 
           <button type="button" czButton="primary" czButtonSize="sm" class="community-preview-toolbar__search" (click)="searchPreview()">
-            {{ 'community.deckList.searchButton' | runtimeTranslate }}
+            {{ 'shared.text.search' | runtimeTranslate }}
           </button>
         </div>
 
@@ -51,7 +51,7 @@
 
       <section class="community-preview-summary">
         <div class="community-preview-summary__copy">
-          <span>{{ 'navigation.dashboard.dashboardTopCommanders.communityPopularity' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.basedOnGamesPlayedByTheCommunity' | runtimeTranslate }}</span>
           <strong>{{ 'community.preview.summary.topHundred' | runtimeTranslate }}</strong>
         </div>
       </section>

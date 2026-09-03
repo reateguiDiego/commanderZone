@@ -14,15 +14,15 @@
       <div class="cards-aside-actions" [attr.aria-label]="'deckBuilder.cards.cardSearch.actionsAriaLabel' | runtimeTranslate">
         <button type="button" class="cards-aside-close" czButton="secondary" czButtonSize="sm" (click)="collapseFilters()">
           <lucide-icon name="x" size="16" aria-hidden="true" />
-          <span>{{ 'deckBuilder.cards.cardSearch.close' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.close' | runtimeTranslate }}</span>
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasClearableState()" (click)="advancedSearchForm.clear()">
           <lucide-icon name="rotate-ccw" size="16" aria-hidden="true" />
-          <span>{{ 'deckBuilder.cards.cardSearch.clear' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.clear' | runtimeTranslate }}</span>
         </button>
         <button type="button" czButton="primary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
           <lucide-icon name="search" size="16" aria-hidden="true" />
-          <span>{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
         </button>
       </div>
     </aside>
@@ -77,12 +77,12 @@
       }
 
       @if (results().length > 0) {
-        <section class="cards-view-actions" aria-label="Card result presentation">
+        <section class="cards-view-actions" [attr.aria-label]="'common.ui.cardResultPresentation' | runtimeTranslate">
           <label class="cards-sort">
             <app-format-select
               class="cards-sort-select"
               name="cardsSort"
-              [labelKey]="'deckBuilder.cards.cardSearch.sort.label'"
+              [labelKey]="'shared.text.sort'"
               [labelHidden]="true"
               [options]="sortOptions"
               [value]="advancedSearchForm.model.sort"

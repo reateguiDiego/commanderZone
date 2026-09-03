@@ -18,10 +18,10 @@
   <div class="advanced-analysis-combo-grid">
     <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
       <div class="advanced-analysis-combo-panel__header">
-        <h3>{{ 'deckBuilder.advancedAnalysis.combos.completeTitle' | runtimeTranslate }}</h3>
+        <h3>{{ 'shared.text.completeCombos' | runtimeTranslate }}</h3>
         @if (hiddenCompleteCount() > 0) {
           <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompleteAria' | runtimeTranslate" (click)="showAllComplete.emit()">
-            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+            {{ 'shared.text.viewMore' | runtimeTranslate }}
           </button>
         }
       </div>
@@ -71,7 +71,7 @@
         <h3>{{ 'deckBuilder.advancedAnalysis.combos.partialTitle' | runtimeTranslate }}</h3>
         @if (hiddenPartialCount() > 0) {
           <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMorePartialAria' | runtimeTranslate" (click)="showAllPartial.emit()">
-            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+            {{ 'shared.text.viewMore' | runtimeTranslate }}
           </button>
         }
       </div>
@@ -121,7 +121,7 @@
         <h3>{{ 'deckBuilder.advancedAnalysis.combos.completersTitle' | runtimeTranslate }}</h3>
         @if (hiddenCompleterCount() > 0) {
           <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompletersAria' | runtimeTranslate" (click)="showAllCompleters.emit()">
-            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+            {{ 'shared.text.viewMore' | runtimeTranslate }}
           </button>
         }
       </div>

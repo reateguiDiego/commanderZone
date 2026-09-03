@@ -1,9 +1,9 @@
 <div class="app-frame" [class.room-focus]="roomFocus()" [class.has-impersonation-banner]="auth.isImpersonating()">
   @if (auth.impersonation(); as impersonation) {
     <div class="impersonation-banner" role="status">
-      <span>Impersonating {{ impersonation.targetDisplayName }}</span>
+      <span>{{ 'common.ui.impersonating' | runtimeTranslate: { name: impersonation.targetDisplayName } }}</span>
       <button type="button" czButton="secondary" czButtonSize="sm" (click)="stopImpersonation()">
-        Stop
+        {{ 'common.ui.stop' | runtimeTranslate }}
       </button>
     </div>
   }

@@ -15,33 +15,33 @@
     <div class="rooms-table-content">
       <div class="rooms-table-toolbar">
         <label class="filter-field">
-          <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.roomName' | runtimeTranslate }}</span>
           <input name="roomNameFilter" [placeholder]="'rooms.roomBrowser.searchRoom' | runtimeTranslate" [ngModel]="roomNameFilter()" (ngModelChange)="setRoomNameFilter($event)" />
         </label>
         <label class="filter-field">
-          <span>{{ 'rooms.roomBrowser.owner' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.owner' | runtimeTranslate }}</span>
           <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="setRoomOwnerFilter($event)" />
         </label>
         <div class="filter-pair">
           <div class="filter-field">
-            <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
+            <span>{{ 'shared.text.visibility' | runtimeTranslate }}</span>
             <app-format-select
               class="visibility-filter-select"
               name="roomVisibilityFilter"
               [labelHidden]="true"
-              labelKey="rooms.roomBrowser.visibility"
+              labelKey="shared.text.visibility"
               [options]="visibilityFilterOptions"
               [value]="visibilityFilter()"
               (valueChange)="setVisibilityFilter($event)"
             />
           </div>
           <div class="filter-field">
-            <span>{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
+            <span>{{ 'shared.text.status' | runtimeTranslate }}</span>
             <app-format-select
               class="status-filter-select"
               name="roomStatusFilter"
               [labelHidden]="true"
-              labelKey="rooms.roomBrowser.status"
+              labelKey="shared.text.status"
               [options]="statusFilterOptions"
               [value]="statusFilter()"
               (valueChange)="setStatusFilter($event)"
@@ -51,8 +51,8 @@
         <app-format-select
           class="format-filter-select"
           name="roomFormatFilter"
-          labelKey="rooms.roomBrowser.format"
-          allLabel="rooms.roomBrowser.publicAndPrivate"
+          labelKey="shared.text.format"
+          allLabel="shared.text.all"
           [formats]="formats()"
           [value]="formatFilter()"
           (valueChange)="setFormatFilter($event)"
@@ -69,13 +69,13 @@
       </div>
 
       <div class="rooms-table-head">
-        <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
-        <span>{{ 'rooms.roomBrowser.host' | runtimeTranslate }}</span>
-        <span>{{ 'rooms.roomBrowser.format' | runtimeTranslate }}</span>
-        <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
-        <span class="centered-col">{{ 'rooms.roomBrowser.players' | runtimeTranslate }}</span>
-        <span class="centered-col">{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
-        <span class="rooms-actions-title">{{ 'rooms.roomBrowser.action' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.roomName' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.host' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.format' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.visibility' | runtimeTranslate }}</span>
+        <span class="centered-col">{{ 'shared.text.players' | runtimeTranslate }}</span>
+        <span class="centered-col">{{ 'shared.text.status' | runtimeTranslate }}</span>
+        <span class="rooms-actions-title">{{ 'shared.text.action' | runtimeTranslate }}</span>
       </div>
 
       <div appPrettyScroll class="dense-list compact-list room-list">

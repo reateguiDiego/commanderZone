@@ -8,7 +8,7 @@
     (ngSubmit)="confirm()"
   >
     <header class="dialog-header">
-      <span class="dialog-kicker">{{ 'game.arrowTargetDialog.drawArrow' | runtimeTranslate }}</span>
+      <span class="dialog-kicker">{{ 'shared.text.drawArrow' | runtimeTranslate }}</span>
       <h2>{{ 'game.arrowTargetDialog.chooseTargetBoard' | runtimeTranslate }}</h2>
       <p>{{ 'game.arrowTargetDialog.theSelectedBattlefieldOpensBehindThisPanel' | runtimeTranslate }}</p>
     </header>
@@ -65,7 +65,7 @@
         data-testid="arrow-target-cancel"
         (click)="cancelled.emit()"
       >
-        {{ 'game.arrowTargetDialog.cancel' | runtimeTranslate }}
+        {{ 'shared.text.cancel' | runtimeTranslate }}
       </button>
       <button
         type="button"

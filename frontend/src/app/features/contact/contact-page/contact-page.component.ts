@@ -152,7 +152,7 @@ export class ContactPageComponent {
     this.clearMetadata();
     this.document.documentElement.lang = this.activeLocale();
     this.document.documentElement.dir = 'ltr';
-    this.title.setTitle(this.translation.instant('contactPage.meta.title') as string);
+    this.title.setTitle(this.translation.instant('shared.text.contactUs') as string);
     this.meta.updateTag({
       name: 'description',
       content: this.translation.instant('contactPage.meta.description') as string,

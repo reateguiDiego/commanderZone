@@ -64,15 +64,15 @@
           <div class="attachment-preview-column card-state-column">
             @if (stateInfo.powerToughness; as powerToughness) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
-                <span class="power-toughness-overlay preview-power-toughness" [attr.aria-label]="'game.cardPreviewOverlay.powerAndToughness' | runtimeTranslate">
+                <span class="attachment-preview-label">{{ 'shared.text.current' | runtimeTranslate }}</span>
+                <span class="power-toughness-overlay preview-power-toughness" [attr.aria-label]="'shared.text.powerAndToughness' | runtimeTranslate">
                   <span>{{ powerToughness.power }}</span>
                   <span>{{ powerToughness.toughness }}</span>
                 </span>
               </div>
             } @else if (stateInfo.battle !== null) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <span class="attachment-preview-label">{{ 'shared.text.current' | runtimeTranslate }}</span>
                 <app-battle-counter
                   class="preview-battle-counter"
                   [inline]="true"
@@ -83,7 +83,7 @@
               </div>
             } @else if (stateInfo.saga !== null) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <span class="attachment-preview-label">{{ 'shared.text.current' | runtimeTranslate }}</span>
                 <app-saga-counter
                   class="preview-saga-counter"
                   [inline]="true"
@@ -94,7 +94,7 @@
               </div>
             } @else if (stateInfo.loyalty !== null) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <span class="attachment-preview-label">{{ 'shared.text.current' | runtimeTranslate }}</span>
                 <app-loyalty-counter
                   class="preview-loyalty-counter"
                   [inline]="true"
@@ -107,7 +107,7 @@
 
             @if (stateInfo.counters.length > 0) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.counters' | runtimeTranslate }}</span>
+                <span class="attachment-preview-label">{{ 'shared.text.counters' | runtimeTranslate }}</span>
                 <app-card-marker-rail
                   class="preview-card-marker-rail"
                   [inline]="true"
@@ -124,7 +124,7 @@
             <div class="attachment-preview-row">
               <span class="attachment-preview-label attachment-preview-label-with-icon">
                 <lucide-icon name="eye" size="11" strokeWidth="2.6" aria-hidden="true" />
-                <span>Revealed</span>
+                <span>{{ 'common.ui.revealed' | runtimeTranslate }}</span>
               </span>
               <app-tooltip [text]="revealLabel" placement="bottom" align="start">
                 <span class="preview-reveal-counter" [attr.aria-label]="revealLabel">{{ revealLabel }}</span>

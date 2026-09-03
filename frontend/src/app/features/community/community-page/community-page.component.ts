@@ -68,7 +68,7 @@ export class CommunityPageComponent implements OnDestroy {
   readonly featuredDecks = computed(() => this.home()?.decks.slice(0, 6) ?? []);
   readonly publicDeckCount = computed(() => this.home()?.publicDeckCount ?? 0);
   readonly commandersTitleKey = computed(() => this.device.isMobileLayout()
-    ? 'community.home.mobileCommandersTitle'
+    ? 'shared.text.topCommanders'
     : 'community.home.commandersTitle');
   readonly cardsTitleKey = computed(() => this.device.isMobileLayout()
     ? 'community.home.mobileCardsTitle'

@@ -1,5 +1,6 @@
-import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../../core/localization/runtime-translate.pipe';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { GameRematchVote } from '../../../../../core/models/game.model';
@@ -21,6 +22,8 @@ export interface RematchPlayerVoteView {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameRematchModalComponent {
+  private readonly translation = inject(TranslateService, { optional: true });
+
   readonly open = input(false);
   readonly winner = input(false);
   readonly players = input<readonly RematchPlayerVoteView[]>([]);
@@ -51,9 +54,9 @@ export class GameRematchModalComponent {
       case 'play_again':
         return 'game.gameRematchModal.playAgain';
       case 'leave_room':
-        return 'game.gameRematchModal.leaveRoom';
+        return 'shared.text.leaveRoom';
       default:
-        return 'game.gameRematchModal.noVote';
+        return 'shared.text.noVote';
     }
   }
 
@@ -76,16 +79,21 @@ export class GameRematchModalComponent {
 
   private missingPlayersLabel(): string {
     const names = this.missingPlayerNames().filter((name) => name.trim().length > 0);
+
     if (names.length === 0) {
-      return 'pending players';
-    }
-    if (names.length === 1) {
-      return names[0] ?? 'the pending player';
-    }
-    if (names.length === 2) {
-      return `${names[0]} and ${names[1]}`;
+      return this.translateText('shared.text.player');
     }
 
-    return `${names[0]} and ${names.length - 1} more`;
+    const language = this.translation?.currentLang || this.translation?.defaultLang || 'en';
+
+    return new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(names);
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation?.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 }

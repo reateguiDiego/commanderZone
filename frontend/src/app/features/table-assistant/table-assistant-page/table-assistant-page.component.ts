@@ -58,11 +58,11 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
 
   private setHeader(): void {
     this.pageHeader.set({
-      title: 'tableAssistant.page.header.title',
+      title: 'shared.text.tableAssistant',
       actions: [
         {
           id: 'start-table-assistant',
-          label: 'tableAssistant.page.header.startGame',
+          label: 'shared.text.startGame',
           icon: 'play',
           disabled: this.setupOpen(),
           variant: 'primary',

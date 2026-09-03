@@ -6,8 +6,9 @@ export type ClientCommanderIssueSeverity = 'error' | 'warning';
 
 export interface ClientCommanderIssue {
   severity: ClientCommanderIssueSeverity;
-  title: string;
-  detail: string;
+  titleKey: string;
+  detailKey: string;
+  detailParams?: Readonly<Record<string, string | number>>;
   cards: string[];
 }
 
@@ -33,8 +34,8 @@ export class ClientCommanderValidationService {
     if (commanders.length > 2) {
       issues.push({
         severity: 'error',
-        title: 'Too many commanders',
-        detail: 'Commander decks can use one commander, or a legal two-card pairing.',
+        titleKey: 'deckBuilder.clientCommanderValidation.tooManyCommanders.title',
+        detailKey: 'deckBuilder.clientCommanderValidation.tooManyCommanders.detail',
         cards: commanders.map((entry) => entry.card.name),
       });
     }
@@ -42,8 +43,8 @@ export class ClientCommanderValidationService {
     if (commanders.length === 2 && !this.looksLikeLegalPair(commanders)) {
       issues.push({
         severity: 'warning',
-        title: 'Commander pair needs review',
-        detail: 'The pair does not expose obvious partner/background wording in the available oracle text.',
+        titleKey: 'deckBuilder.clientCommanderValidation.commanderPairNeedsReview.title',
+        detailKey: 'deckBuilder.clientCommanderValidation.commanderPairNeedsReview.detail',
         cards: commanders.map((entry) => entry.card.name),
       });
     }
@@ -55,12 +56,20 @@ export class ClientCommanderValidationService {
     return (deck.cards ?? [])
       .filter((entry) => this.isPlayable(entry))
       .filter((entry) => !entry.card.commanderLegal || ['banned', 'not_legal'].includes(entry.card.legalities['commander'] ?? ''))
-      .map((entry) => ({
-        severity: 'error' as const,
-        title: 'Commander legality issue',
-        detail: `${entry.card.name} is marked as ${entry.card.legalities['commander'] ?? 'not legal'} in Commander.`,
-        cards: [entry.card.name],
-      }));
+      .map((entry) => {
+        const status = entry.card.legalities['commander'];
+        const isBanned = status === 'banned';
+
+        return {
+          severity: 'error' as const,
+          titleKey: 'deckBuilder.clientCommanderValidation.commanderLegalityIssue.title',
+          detailKey: isBanned
+            ? 'deckBuilder.clientCommanderValidation.commanderLegalityIssue.bannedDetail'
+            : 'deckBuilder.clientCommanderValidation.commanderLegalityIssue.notLegalDetail',
+          detailParams: { card: entry.card.name },
+          cards: [entry.card.name],
+        };
+      });
   }
 
   private singletonIssues(deck: Deck): ClientCommanderIssue[] {
@@ -82,8 +91,9 @@ export class ClientCommanderValidationService {
       if (entry.quantity > 1) {
         issues.push({
           severity: 'error',
-          title: 'Singleton violation',
-          detail: `${entry.card.name} appears ${entry.quantity} times in the main deck.`,
+          titleKey: 'deckBuilder.clientCommanderValidation.singletonViolation.title',
+          detailKey: 'deckBuilder.clientCommanderValidation.singletonViolation.detail',
+          detailParams: { card: entry.card.name, quantity: entry.quantity },
           cards: [entry.card.name],
         });
       }
@@ -104,8 +114,9 @@ export class ClientCommanderValidationService {
       .filter((entry) => entry.section === 'main' && entry.card.colorIdentity.some((color) => !allowed.has(color)))
       .map((entry) => ({
         severity: 'error' as const,
-        title: 'Color identity issue',
-        detail: `${entry.card.name} includes colors outside the command zone identity.`,
+        titleKey: 'deckBuilder.clientCommanderValidation.colorIdentityIssue.title',
+        detailKey: 'deckBuilder.clientCommanderValidation.colorIdentityIssue.detail',
+        detailParams: { card: entry.card.name },
         cards: [entry.card.name],
       }));
   }

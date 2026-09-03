@@ -43,7 +43,7 @@
           @if (rulesText()) {
             <app-mana-text class="card-details-modal__rules" [text]="rulesText()" />
           } @else {
-            <p class="card-details-modal__notice">{{ 'deckBuilder.cards.cardSearch.details.noOracleText' | runtimeTranslate }}</p>
+            <p class="card-details-modal__notice">{{ 'shared.text.noOracleTextAvailable' | runtimeTranslate }}</p>
           }
         </section>
 

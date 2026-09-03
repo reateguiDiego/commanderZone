@@ -33,7 +33,7 @@ export class GameTablePlayersStore {
   focusPlayer(playerId: string): boolean {
     const resolvedPlayerId = this.resolvePlayerId(playerId);
     if (!resolvedPlayerId) {
-      this.core.error.set('Could not open that battlefield.');
+      this.core.error.set('errors.runtime.could-not-open-that-battlefield');
       this.uiState.closeContextMenu();
 
       return false;

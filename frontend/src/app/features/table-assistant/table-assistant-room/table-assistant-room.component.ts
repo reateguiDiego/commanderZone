@@ -314,7 +314,7 @@ export class TableAssistantRoomComponent {
   }
 
   trackerLabel(trackerId: TableAssistantTrackerId): string {
-    return TABLE_ASSISTANT_TRACKERS.find((tracker) => tracker.id === trackerId)?.label ?? trackerId;
+    return TABLE_ASSISTANT_TRACKERS.find((tracker) => tracker.id === trackerId)?.labelKey ?? trackerId;
   }
 
   displayPlayerName(player: TableAssistantPlayer): string {
@@ -391,7 +391,7 @@ export class TableAssistantRoomComponent {
   private async load(): Promise<void> {
     const roomId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!roomId) {
-      this.error.set('Falta el identificador de sala.');
+      this.error.set('errors.runtime.falta-el-identificador-de-sala');
       this.loading.set(false);
       return;
     }
@@ -402,7 +402,7 @@ export class TableAssistantRoomComponent {
       await this.joinAsParticipantIfNeeded(roomId);
       this.sync.connect(roomId, (room) => this.applyRoom(room));
     } catch {
-      this.error.set('No se pudo cargar la sala.');
+      this.error.set('errors.runtime.no-se-pudo-cargar-la-sala');
     } finally {
       this.loading.set(false);
     }
@@ -428,7 +428,7 @@ export class TableAssistantRoomComponent {
       this.applyRoom(response.tableAssistantRoom);
       return response.applied;
     } catch {
-      this.error.set('No se pudo aplicar la accion.');
+      this.error.set('errors.runtime.no-se-pudo-aplicar-la-accion');
       return false;
     }
   }
@@ -458,7 +458,7 @@ export class TableAssistantRoomComponent {
       this.applyProjectedRoom(baseRoom, actionWithId, response.tableAssistantRoom);
       return true;
     } catch {
-      this.error.set('No se pudo aplicar la accion.');
+      this.error.set('errors.runtime.no-se-pudo-aplicar-la-accion');
       return false;
     }
   }

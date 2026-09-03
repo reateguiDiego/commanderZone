@@ -71,7 +71,7 @@ describe('DeckListCardComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.querySelector('.deck-commander-colors')).toBeNull();
-    expect(element.textContent).not.toContain('deckBuilder.deckList.colorFilter.colorless');
+    expect(element.textContent).not.toContain('shared.text.colorless');
   });
 
   it('renders a generic mana symbol for a colorless commander identity', () => {

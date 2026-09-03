@@ -18,14 +18,14 @@
         (input)="updateValueFromInput($event)"
         autofocus
       />
-      <div class="number-stepper" [attr.aria-label]="'game.numberActionDialog.adjustValue' | runtimeTranslate">
+      <div class="number-stepper" [attr.aria-label]="'shared.text.adjustValue' | runtimeTranslate">
         <button
           class="number-stepper-button"
           type="button"
           czButton="icon"
           czButtonSize="sm"
           data-testid="number-action-increase"
-          [attr.aria-label]="'game.numberActionDialog.increaseValue' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.increaseValue' | runtimeTranslate"
           [disabled]="!canStepUp()"
           (click)="step(1)"
         >
@@ -37,7 +37,7 @@
           czButton="icon"
           czButtonSize="sm"
           data-testid="number-action-decrease"
-          [attr.aria-label]="'game.numberActionDialog.decreaseValue' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.decreaseValue' | runtimeTranslate"
           [disabled]="!canStepDown()"
           (click)="step(-1)"
         >

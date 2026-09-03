@@ -42,13 +42,13 @@ export class DeckListStore {
   readonly maxFolderNameLength = 20;
   readonly maxDeckSearchLength = 20;
   readonly colorFilterOptions: readonly DeckColorFilterOption[] = [
-    { value: 'all', labelKey: 'deckBuilder.deckList.colorFilter.any' },
-    { value: 'W', labelKey: 'deckBuilder.deckList.colorFilter.white' },
-    { value: 'U', labelKey: 'deckBuilder.deckList.colorFilter.blue' },
-    { value: 'B', labelKey: 'deckBuilder.deckList.colorFilter.black' },
-    { value: 'R', labelKey: 'deckBuilder.deckList.colorFilter.red' },
-    { value: 'G', labelKey: 'deckBuilder.deckList.colorFilter.green' },
-    { value: 'C', labelKey: 'deckBuilder.deckList.colorFilter.colorless' },
+    { value: 'all', labelKey: 'shared.text.any' },
+    { value: 'W', labelKey: 'shared.text.white' },
+    { value: 'U', labelKey: 'shared.text.blue' },
+    { value: 'B', labelKey: 'shared.text.black' },
+    { value: 'R', labelKey: 'shared.text.red' },
+    { value: 'G', labelKey: 'shared.text.green' },
+    { value: 'C', labelKey: 'shared.text.colorless' },
   ];
 
   private readonly decksApi = inject(DecksApi);
@@ -229,7 +229,7 @@ export class DeckListStore {
         this.newDeckFormatId = this.formats()[0].id;
       }
     } catch {
-      this.error.set('Could not load decks.');
+      this.error.set('errors.runtime.could-not-load-decks');
     } finally {
       this.loading.set(false);
     }
@@ -420,7 +420,7 @@ export class DeckListStore {
         this.createdDeckFileLoading.set(false);
       },
       () => {
-        this.error.set('Could not load deck file.');
+        this.error.set('errors.runtime.could-not-load-deck-file');
       },
     );
   }
@@ -504,7 +504,7 @@ export class DeckListStore {
       this.folders.set([response.folder, ...this.folders()]);
       this.closeFolderCreateModal();
     } catch {
-      this.error.set('Could not create folder.');
+      this.error.set('errors.runtime.could-not-create-folder');
     }
   }
 
@@ -534,7 +534,7 @@ export class DeckListStore {
       this.folders.set(this.folders().map((candidate) => candidate.id === folder.id ? response.folder : candidate));
       this.closeFolderRenameModal();
     } catch {
-      this.error.set('Could not rename folder.');
+      this.error.set('errors.runtime.could-not-rename-folder');
     }
   }
 
@@ -562,7 +562,7 @@ export class DeckListStore {
       this.folderDeleteModalOpen.set(false);
       this.folderTarget.set(null);
     } catch {
-      this.error.set('Could not delete folder.');
+      this.error.set('errors.runtime.could-not-delete-folder');
     }
   }
 
