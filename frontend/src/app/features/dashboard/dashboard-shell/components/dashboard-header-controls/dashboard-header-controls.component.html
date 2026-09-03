@@ -9,44 +9,40 @@
   />
 
   @if (canAccessAdmin()) {
-    <app-tooltip class="admin-tooltip" [text]="'shared.text.admin' | runtimeTranslate">
-      <a
-        czButton="icon"
-        class="icon-button admin-action"
-        routerLink="/admin"
-        routerLinkActive="active"
-        [attr.aria-label]="'shared.text.admin' | runtimeTranslate"
-        (click)="closeOverlayMenus()"
-      >
-        <lucide-icon name="shield-check" size="18" aria-hidden="true" />
-      </a>
-    </app-tooltip>
+    <a
+      czButton="icon"
+      class="icon-button admin-action"
+      routerLink="/admin"
+      routerLinkActive="active"
+      [attr.aria-label]="'shared.text.admin' | runtimeTranslate"
+      (click)="closeOverlayMenus()"
+    >
+      <lucide-icon name="shield-check" size="18" aria-hidden="true" />
+    </a>
   }
 
   @if (device.isDesktop()) {
     <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-      <app-tooltip [text]="'shared.text.friends' | runtimeTranslate">
-        <button czButton="icon"
-          class="icon-button friends-action"
-          [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
-          type="button"
-          [attr.aria-label]="'shared.text.friends' | runtimeTranslate"
-          [attr.aria-expanded]="friendsOpen()"
-          (click)="toggleFriendsDropdown($event)"
-        >
-          <lucide-icon name="users" size="18" />
-          @if (!friendsOpen()) {
-            <span class="online-count-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">
-              {{ onlineFriendsCount() }}
-            </span>
-          }
-          @if (!friendsOpen() && pendingNotificationsCount() > 0) {
-            <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
-              {{ pendingNotificationsCount() }}
-            </span>
-          }
-        </button>
-      </app-tooltip>
+      <button czButton="icon"
+        class="icon-button friends-action"
+        [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
+        type="button"
+        [attr.aria-label]="'shared.text.friends' | runtimeTranslate"
+        [attr.aria-expanded]="friendsOpen()"
+        (click)="toggleFriendsDropdown($event)"
+      >
+        <lucide-icon name="users" size="18" />
+        @if (!friendsOpen()) {
+          <span class="online-count-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">
+            {{ onlineFriendsCount() }}
+          </span>
+        }
+        @if (!friendsOpen() && pendingNotificationsCount() > 0) {
+          <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
+            {{ pendingNotificationsCount() }}
+          </span>
+        }
+      </button>
 
       @if (friendsOpen()) {
         <app-friends-dropdown />
@@ -56,22 +52,20 @@
 
   @if (messagesCount() > 0) {
     <div class="messages-dropdown" [class.open]="messagesOpen()" (click)="$event.stopPropagation()">
-      <app-tooltip [text]="'shared.text.messages' | runtimeTranslate">
-        <button
-          czButton="icon"
-          class="icon-button messages-action"
-          [class.has-notifications]="!messagesOpen() && unreadMessagesCount() > 0"
-          type="button"
-          [attr.aria-label]="'shared.text.messages' | runtimeTranslate"
-          [attr.aria-expanded]="messagesOpen()"
-          (click)="toggleMessagesDropdown($event)"
-        >
-          <lucide-icon name="message-square" size="18" />
-          @if (!messagesOpen() && unreadMessagesCount() > 0) {
-            <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.unreadMessages' | runtimeTranslate">{{ unreadMessagesCount() }}</span>
-          }
-        </button>
-      </app-tooltip>
+      <button
+        czButton="icon"
+        class="icon-button messages-action"
+        [class.has-notifications]="!messagesOpen() && unreadMessagesCount() > 0"
+        type="button"
+        [attr.aria-label]="'shared.text.messages' | runtimeTranslate"
+        [attr.aria-expanded]="messagesOpen()"
+        (click)="toggleMessagesDropdown($event)"
+      >
+        <lucide-icon name="message-square" size="18" />
+        @if (!messagesOpen() && unreadMessagesCount() > 0) {
+          <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.unreadMessages' | runtimeTranslate">{{ unreadMessagesCount() }}</span>
+        }
+      </button>
 
       @if (messagesOpen()) {
         <app-messages-dropdown />

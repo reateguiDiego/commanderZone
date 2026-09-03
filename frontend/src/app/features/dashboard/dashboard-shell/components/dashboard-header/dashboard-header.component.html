@@ -1,4 +1,4 @@
-<header class="topbar">
+<header class="topbar" [class.topbar--admin]="canAccessAdmin()">
   <div class="header-menu">
     <a class="brand" routerLink="/dashboard" [attr.aria-label]="'navigation.dashboard.dashboardShell.commanderzoneDashboard' | runtimeTranslate">
       <span class="brand-mark">

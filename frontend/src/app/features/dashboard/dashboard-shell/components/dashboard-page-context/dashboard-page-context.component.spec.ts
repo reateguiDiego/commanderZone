@@ -38,7 +38,7 @@ describe('DashboardPageContextComponent', () => {
     expect(fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip__bubble')).toBeNull();
   });
 
-  it('shows a title action tooltip on click when configured in click mode', () => {
+  it('shows a title action tooltip on hover', () => {
     const fixture = TestBed.createComponent(DashboardPageContextComponent);
     fixture.componentRef.setInput('header', {
       title: 'Cards',
@@ -49,7 +49,6 @@ describe('DashboardPageContextComponent', () => {
           icon: 'info',
           iconOnly: true,
           tooltip: '73% of cards are available in Spanish.',
-          tooltipTriggerMode: 'click',
           variant: 'secondary',
           execute: () => undefined,
         },
@@ -57,8 +56,8 @@ describe('DashboardPageContextComponent', () => {
     });
     fixture.detectChanges();
 
-    const button = fixture.nativeElement.querySelector('.page-header-title-actions button[data-action-id=\"disclaimer\"]') as HTMLButtonElement;
-    button.click();
+    const trigger = fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip') as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     fixture.detectChanges();
 
     const bubble = fixture.nativeElement.querySelector('.page-header-title-actions .cz-tooltip__bubble') as HTMLElement | null;

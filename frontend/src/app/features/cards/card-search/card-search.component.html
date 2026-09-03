@@ -1,6 +1,10 @@
 <section class="page-stack">
   <app-card-search-help class="cards-header-help-popover" [triggerVisible]="false" [open]="searchHelpOpen()" (openChange)="searchHelpOpen.set($event)" />
 
+  @if (filtersExpanded()) {
+    <div class="cards-filters-backdrop" aria-hidden="true"></div>
+  }
+
   <div class="cards-shell">
     <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" [attr.aria-label]="'deckBuilder.cards.cardSearch.filtersAriaLabel' | runtimeTranslate">
       <app-card-advanced-search-form

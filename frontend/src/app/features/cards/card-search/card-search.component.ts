@@ -15,6 +15,7 @@ import { CardPrintingsModalComponent } from '../../../shared/components/card-pri
 import { FormatSelectComponent, FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { CardsMainLayoutComponent } from '../../../shared/components/cards-main-layout/cards-main-layout.component';
+import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { PaginationComponent } from '../../../shared/ui/pagination/pagination.component';
@@ -26,6 +27,7 @@ import { CardSearchResultActionEvent, CardSearchResultsComponent } from './compo
 
 const CARD_SEARCH_PAGE_SIZE = 20;
 const CARD_SEARCH_PAGE_CACHE_LIMIT = 12;
+const CARD_FILTERS_MODAL_MAX_WIDTH = 921;
 
 interface CardSearchFilterPill {
   labelKey: string;
@@ -70,6 +72,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   private readonly i18n = inject(AppShellI18nService);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly pageHeader = inject(PageHeaderStore);
+  private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly device = inject(DeviceProfileService);
 
   readonly results = signal<Card[]>([]);
@@ -123,7 +126,6 @@ export class CardSearchComponent implements OnInit, OnDestroy {
         icon: 'info',
         iconOnly: true,
         tooltip: disclaimer,
-        tooltipTriggerMode: 'click',
         tooltipPlacement: 'bottom',
         tooltipAlign: 'end',
         variant: 'secondary',
@@ -165,6 +167,10 @@ export class CardSearchComponent implements OnInit, OnDestroy {
       titleActions,
     }, this);
   });
+  private filtersScrollLocked = false;
+  private readonly syncFiltersScrollLock = effect(() => {
+    this.setFiltersScrollLock(this.filtersExpanded() && this.device.profile().width <= CARD_FILTERS_MODAL_MAX_WIDTH);
+  });
 
   ngOnInit(): void {
     void this.loadOptions();
@@ -172,6 +178,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.setFiltersScrollLock(false);
     this.pageHeader.clear(this);
   }
 
@@ -312,6 +319,20 @@ export class CardSearchComponent implements OnInit, OnDestroy {
 
   collapseFilters(): void {
     this.filtersExpanded.set(false);
+  }
+
+  private setFiltersScrollLock(shouldLock: boolean): void {
+    if (shouldLock === this.filtersScrollLocked) {
+      return;
+    }
+
+    this.filtersScrollLocked = shouldLock;
+    if (shouldLock) {
+      this.bodyScrollLock.lock();
+      return;
+    }
+
+    this.bodyScrollLock.unlock();
   }
 
   private async runSearch(request: CardAdvancedSearchSubmit, page: number): Promise<void> {

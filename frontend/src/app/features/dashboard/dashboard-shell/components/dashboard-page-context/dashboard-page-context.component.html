@@ -26,13 +26,13 @@
                     <div class="page-header-action-item">
                       <app-tooltip
                         [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-                        [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
                         [placement]="action.tooltipPlacement ?? 'top'"
                         [align]="action.tooltipAlign ?? 'center'"
                       >
                         <button
                           [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
                           [czButtonTone]="action.tone ?? 'default'"
+                          [czButtonActive]="action.id === 'like-deck' && action.variant === 'primary'"
                           czButtonSize="sm"
                           class="compact"
                           type="button"
@@ -41,6 +41,7 @@
                           [class.secondary-button]="action.variant === 'secondary'"
                           [attr.data-action-id]="action.id"
                           [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                          [attr.aria-pressed]="action.id === 'like-deck' ? action.variant === 'primary' : null"
                           [disabled]="action.disabled"
                           (click)="action.execute()"
                         >
@@ -83,7 +84,6 @@
           @for (action of headerState.titleActions; track action.id) {
             <app-tooltip
               [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-              [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
               [placement]="action.tooltipPlacement ?? 'top'"
               [align]="action.tooltipAlign ?? 'center'"
             >
@@ -183,13 +183,13 @@
                   <div class="page-header-action-item">
                     <app-tooltip
                       [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-                      [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
                       [placement]="action.tooltipPlacement ?? 'top'"
                       [align]="action.tooltipAlign ?? 'center'"
                     >
                       <button
                         [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
                         [czButtonTone]="action.tone ?? 'default'"
+                        [czButtonActive]="action.id === 'like-deck' && action.variant === 'primary'"
                         czButtonSize="sm"
                         class="compact"
                         type="button"
@@ -198,6 +198,7 @@
                         [class.secondary-button]="action.variant === 'secondary'"
                         [attr.data-action-id]="action.id"
                         [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                        [attr.aria-pressed]="action.id === 'like-deck' ? action.variant === 'primary' : null"
                         [disabled]="action.disabled"
                         (click)="action.execute()"
                       >
@@ -276,14 +277,14 @@
               @for (action of visibleActions(); track action.id) {
                 <div class="page-header-action-item">
                   <app-tooltip
-                    [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-                    [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
-                    [placement]="action.tooltipPlacement ?? 'top'"
+                  [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                  [placement]="action.tooltipPlacement ?? 'top'"
                     [align]="action.tooltipAlign ?? 'center'"
                   >
                     <button
                       [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
                       [czButtonTone]="action.tone ?? 'default'"
+                      [czButtonActive]="action.id === 'like-deck' && action.variant === 'primary'"
                       czButtonSize="sm"
                       class="compact"
                       type="button"
@@ -292,6 +293,7 @@
                       [class.secondary-button]="action.variant === 'secondary'"
                       [attr.data-action-id]="action.id"
                       [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                      [attr.aria-pressed]="action.id === 'like-deck' ? action.variant === 'primary' : null"
                       [disabled]="action.disabled"
                       (click)="action.execute()"
                     >

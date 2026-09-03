@@ -2,11 +2,8 @@
   class="cz-tooltip"
   [class.cz-tooltip--enabled]="!!text()"
   [class.cz-tooltip--stretch]="stretch()"
-  (mouseenter)="handleMouseEnter()"
-  (mouseleave)="handleMouseLeave()"
-  (focusin)="handleFocusIn()"
-  (focusout)="handleFocusOut($event)"
-  (click)="handleClick($event)"
+  (pointerenter)="handlePointerEnter($event)"
+  (pointerleave)="handlePointerLeave($event)"
 >
   <span #trigger class="cz-tooltip__trigger">
     <ng-content />

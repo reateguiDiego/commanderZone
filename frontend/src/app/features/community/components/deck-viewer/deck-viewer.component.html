@@ -5,44 +5,20 @@
         <app-bracket-pill class="deck-summary-bracket-pill" [bracket]="bracketEstimate" />
       }
       <div class="deck-summary-counts">
-        <strong>{{ 'shared.text.countCards' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
-        <span>{{ 'shared.text.countSections' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+        <strong>{{
+          'shared.text.countCards' | runtimeTranslate: { count: store.playableCardCount() }
+        }}</strong>
+        <span>{{
+          'shared.text.countSections' | runtimeTranslate: { count: store.playableSectionCount() }
+        }}</span>
       </div>
     </div>
 
-    <div class="view-mode-select" [class.is-open]="viewModeMenuOpen()" (click)="$event.stopPropagation()">
-      <span id="community-deck-view-mode-label" class="sr-only">{{ 'community.deckViewer.viewMode.label' | runtimeTranslate }}</span>
-      <button
-        class="view-mode-trigger"
-        type="button"
-        aria-haspopup="listbox"
-        aria-labelledby="community-deck-view-mode-label community-deck-view-mode-value"
-        [attr.aria-expanded]="viewModeMenuOpen()"
-        (click)="toggleViewModeMenu($event)"
-      >
-        <span id="community-deck-view-mode-value">{{ selectedViewModeLabel() | runtimeTranslate }}</span>
-        <lucide-icon name="chevron-down" size="16" aria-hidden="true" />
-      </button>
-      @if (viewModeMenuOpen()) {
-        <div class="view-mode-menu" role="listbox" aria-labelledby="community-deck-view-mode-label">
-          @for (option of viewModeOptions; track option.value) {
-            <button
-              class="view-mode-option"
-              type="button"
-              role="option"
-              [class.is-selected]="viewMode() === option.value"
-              [attr.aria-selected]="viewMode() === option.value"
-              (click)="selectViewMode(option.value, $event)"
-            >
-              <span>{{ option.label | runtimeTranslate }}</span>
-              @if (viewMode() === option.value) {
-                <span class="view-mode-selected-mark" aria-hidden="true"></span>
-              }
-            </button>
-          }
-        </div>
-      }
-    </div>
+    <app-deck-view-mode-select
+      idPrefix="deck-view-mode"
+      [value]="viewMode()"
+      (valueChange)="selectViewMode($event)"
+    />
   </div>
 
   @if (viewMode() === 'text') {

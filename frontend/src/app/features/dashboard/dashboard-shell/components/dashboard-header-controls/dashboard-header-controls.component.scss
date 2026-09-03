@@ -33,11 +33,6 @@ app-player-info {
   max-width: 18.4rem;
 }
 
-.admin-tooltip {
-  flex: 0 0 auto;
-  line-height: 0;
-}
-
 .friends-dropdown,
 .messages-dropdown {
   position: relative;
@@ -47,6 +42,7 @@ app-player-info {
 .admin-action,
 .friends-action,
 .messages-action {
+  flex: 0 0 auto;
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -241,7 +237,7 @@ app-player-info {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 
-  .user-strip.has-admin .admin-tooltip {
+  .user-strip.has-admin .admin-action {
     grid-column: 2;
     grid-row: 1;
   }
@@ -258,7 +254,7 @@ app-player-info {
     grid-column: 5;
   }
 
-  .user-strip.has-admin.friends-hidden .admin-tooltip {
+  .user-strip.has-admin.friends-hidden .admin-action {
     grid-column: 2;
   }
 

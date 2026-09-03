@@ -1,0 +1,34 @@
+<div class="view-mode-select" [class.is-open]="menuOpen()" (click)="$event.stopPropagation()">
+  <span [id]="labelId()" class="sr-only">{{ labelKey() | runtimeTranslate }}</span>
+  <button
+    class="view-mode-trigger"
+    type="button"
+    aria-haspopup="listbox"
+    [attr.aria-labelledby]="labelId() + ' ' + valueId()"
+    [attr.aria-expanded]="menuOpen()"
+    (click)="toggleMenu($event)"
+  >
+    <span [id]="valueId()">{{ selectedLabelKey() | runtimeTranslate }}</span>
+    <lucide-icon name="chevron-down" size="16" aria-hidden="true" />
+  </button>
+
+  @if (menuOpen()) {
+    <div class="view-mode-menu" role="listbox" [attr.aria-labelledby]="labelId()">
+      @for (option of options; track option.value) {
+        <button
+          class="view-mode-option"
+          type="button"
+          role="option"
+          [class.is-selected]="value() === option.value"
+          [attr.aria-selected]="value() === option.value"
+          (click)="select(option.value, $event)"
+        >
+          <span>{{ option.labelKey | runtimeTranslate }}</span>
+          @if (value() === option.value) {
+            <span class="view-mode-selected-mark" aria-hidden="true"></span>
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

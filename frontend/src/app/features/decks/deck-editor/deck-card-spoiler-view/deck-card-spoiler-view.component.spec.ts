@@ -1,9 +1,16 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
+import {
+  ChevronDown,
+  ChevronRight,
+  LucideAngularModule,
+  RotateCw,
+  TriangleAlert,
+} from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
 import { CardMenuState } from '../../models/deck-editor.models';
+import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view.component';
 
@@ -13,7 +20,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -22,7 +31,57 @@ describe('DeckCardSpoilerViewComponent', () => {
     fixture.detectChanges();
 
     expect(store.ensureCardImages).toHaveBeenCalledOnce();
-    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://img.test/card.jpg');
+    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe(
+      'https://img.test/card.jpg',
+    );
+  });
+
+  it('queues mobile spoiler images in nearby batches', async () => {
+    const store = storeStub({ groupCards: 25 });
+    const originalIntersectionObserver = window.IntersectionObserver;
+    MobileImageIntersectionObserver.latest = null;
+    Object.defineProperty(window, 'IntersectionObserver', {
+      configurable: true,
+      value: MobileImageIntersectionObserver,
+    });
+
+    try {
+      await TestBed.configureTestingModule({
+        imports: [DeckCardSpoilerViewComponent],
+        providers: [
+          importProvidersFrom(
+            LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+          ),
+          { provide: DECK_VIEW_STORE, useValue: store },
+          {
+            provide: DeviceProfileService,
+            useValue: {
+              isDesktopLayout: () => false,
+              hasHover: () => false,
+            },
+          },
+        ],
+      }).compileComponents();
+
+      const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+      fixture.detectChanges();
+
+      const cards = store.cardGroups()[0].cards;
+      expect(store.ensureCardImages).toHaveBeenLastCalledWith(cards.slice(0, 12));
+
+      const renderedCards = (fixture.nativeElement as HTMLElement).querySelectorAll(
+        '.spoiler-card',
+      ) as NodeListOf<HTMLElement>;
+      MobileImageIntersectionObserver.triggerLatest(renderedCards[8]);
+      fixture.detectChanges();
+
+      expect(store.ensureCardImages).toHaveBeenLastCalledWith(cards.slice(0, 24));
+    } finally {
+      Object.defineProperty(window, 'IntersectionObserver', {
+        configurable: true,
+        value: originalIntersectionObserver,
+      });
+    }
   });
 
   it('renders the game changer icon next to a game changer spoiler card name', async () => {
@@ -30,7 +89,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -38,7 +99,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
     fixture.detectChanges();
 
-    const icon = fixture.nativeElement.querySelector('.spoiler-card-name app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+    const icon = fixture.nativeElement.querySelector(
+      '.spoiler-card-name app-game-changer-icon img.game-changer-icon',
+    ) as HTMLImageElement | null;
 
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute('src')).toBe('assets/icons/card-types/game-changers.png');
@@ -51,7 +114,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -59,7 +124,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
     fixture.detectChanges();
 
-    const toggle = fixture.nativeElement.querySelector('.spoiler-section-toggle') as HTMLButtonElement | null;
+    const toggle = fixture.nativeElement.querySelector(
+      '.spoiler-section-toggle',
+    ) as HTMLButtonElement | null;
     const firstChild = toggle?.firstElementChild;
     const secondChild = firstChild?.nextElementSibling;
 
@@ -73,7 +140,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -88,11 +157,17 @@ describe('DeckCardSpoilerViewComponent', () => {
   });
 
   it('renders generic mana for a colorless commander identity', async () => {
-    const store = storeStub({ groupId: 'commander', groupTitle: 'Comandante', deckColorIdentitySymbols: ['1'] });
+    const store = storeStub({
+      groupId: 'commander',
+      groupTitle: 'Comandante',
+      deckColorIdentitySymbols: ['1'],
+    });
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -100,7 +175,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.commander-colors .ms-1')).not.toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.commander-colors .ms-1'),
+    ).not.toBeNull();
   });
 
   it('flips card faces without opening the card menu preview flow', async () => {
@@ -108,7 +185,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -122,7 +201,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     button.click();
 
     expect(cardEntry).toBeDefined();
-    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, { updatePreview: false });
+    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, {
+      updatePreview: false,
+    });
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
@@ -131,7 +212,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -161,7 +244,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -176,7 +261,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
     expect(cardEntry).toBeDefined();
-    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, { updatePreview: false });
+    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, {
+      updatePreview: false,
+    });
   });
 
   it('suppresses contextmenu interactions from the spoiler face toggle', async () => {
@@ -184,7 +271,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -208,7 +297,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -230,7 +321,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -238,7 +331,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
     fixture.detectChanges();
 
-    const toggle = fixture.nativeElement.querySelector('.spoiler-section-toggle') as HTMLButtonElement;
+    const toggle = fixture.nativeElement.querySelector(
+      '.spoiler-section-toggle',
+    ) as HTMLButtonElement;
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
@@ -247,7 +342,9 @@ describe('DeckCardSpoilerViewComponent', () => {
 
     expect(store.toggleGroup).toHaveBeenCalledWith('creature');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(fixture.nativeElement.querySelector('.spoiler-section-body')?.classList.contains('collapsed')).toBe(true);
+    expect(
+      fixture.nativeElement.querySelector('.spoiler-section-body')?.classList.contains('collapsed'),
+    ).toBe(true);
   });
 
   it('renders battle cards with the rotated spoiler treatment used in cards', async () => {
@@ -255,7 +352,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -264,7 +363,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     fixture.detectChanges();
 
     const frame = fixture.nativeElement.querySelector('.spoiler-image-frame') as HTMLElement | null;
-    const image = fixture.nativeElement.querySelector('.spoiler-image-frame img') as HTMLImageElement | null;
+    const image = fixture.nativeElement.querySelector(
+      '.spoiler-image-frame img',
+    ) as HTMLImageElement | null;
 
     expect(frame?.classList.contains('spoiler-image-frame--battle')).toBe(true);
     expect(image?.classList.contains('card-image--battle')).toBe(true);
@@ -275,7 +376,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -293,7 +396,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -311,7 +416,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -332,7 +439,9 @@ describe('DeckCardSpoilerViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert }),
+        ),
         { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
@@ -344,24 +453,28 @@ describe('DeckCardSpoilerViewComponent', () => {
     fixture.detectChanges();
 
     const frame = fixture.nativeElement.querySelector('.spoiler-image-frame') as HTMLElement | null;
-    const image = fixture.nativeElement.querySelector('.spoiler-image-frame img') as HTMLImageElement | null;
+    const image = fixture.nativeElement.querySelector(
+      '.spoiler-image-frame img',
+    ) as HTMLImageElement | null;
 
     expect(frame?.classList.contains('spoiler-image-frame--battle')).toBe(false);
     expect(image?.classList.contains('card-image--battle')).toBe(false);
   });
 });
 
-function storeStub(options: {
-  hasAlternateFace?: boolean;
-  resetCardFace?: boolean;
-  cardTypeLine?: string;
-  groupCards?: number;
-  groupId?: string;
-  groupTitle?: string;
-  cardName?: string;
-  isGameChanger?: boolean;
-  deckColorIdentitySymbols?: readonly string[];
-} = {}) {
+function storeStub(
+  options: {
+    hasAlternateFace?: boolean;
+    resetCardFace?: boolean;
+    cardTypeLine?: string;
+    groupCards?: number;
+    groupId?: string;
+    groupTitle?: string;
+    cardName?: string;
+    isGameChanger?: boolean;
+    deckColorIdentitySymbols?: readonly string[];
+  } = {},
+) {
   const entries = Array.from({ length: options.groupCards ?? 1 }, (_, index) => ({
     id: `deck-card-${index + 1}`,
     quantity: 1,
@@ -373,7 +486,14 @@ function storeStub(options: {
 
   return {
     visibleTypeLine,
-    cardGroups: signal([{ id: options.groupId ?? 'creature', title: options.groupTitle ?? 'Criaturas', quantity: entries.length, cards: entries }]),
+    cardGroups: signal([
+      {
+        id: options.groupId ?? 'creature',
+        title: options.groupTitle ?? 'Criaturas',
+        quantity: entries.length,
+        cards: entries,
+      },
+    ]),
     cardMenu: signal<CardMenuState | null>(null),
     toggleGroup: vi.fn((groupId: string) => {
       const next = new Set(collapsedGroups());
@@ -428,4 +548,50 @@ function card(typeLine = 'Creature', index = 1, cardName?: string, isGameChanger
     collectorNumber: null,
     isGameChanger,
   };
+}
+
+class MobileImageIntersectionObserver {
+  static latest: MobileImageIntersectionObserver | null = null;
+
+  private readonly observed = new Set<Element>();
+
+  constructor(private readonly callback: IntersectionObserverCallback) {
+    MobileImageIntersectionObserver.latest = this;
+  }
+
+  observe(element: Element): void {
+    this.observed.add(element);
+  }
+
+  unobserve(element: Element): void {
+    this.observed.delete(element);
+  }
+
+  disconnect(): void {
+    this.observed.clear();
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+
+  trigger(target: Element): void {
+    this.callback(
+      [
+        {
+          target,
+          isIntersecting: true,
+        } as IntersectionObserverEntry,
+      ],
+      this as unknown as IntersectionObserver,
+    );
+  }
+
+  static triggerLatest(target: Element): void {
+    this.latest?.trigger(target);
+  }
+
+  readonly root = null;
+  readonly rootMargin = '720px 0px';
+  readonly thresholds = [0];
 }
