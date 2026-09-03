@@ -101,9 +101,9 @@ describe('AdminPageComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const recipientInput = fixture.nativeElement.querySelector('input[name="recipient"]') as HTMLInputElement | null;
+    const recipientLabel = fixture.nativeElement.querySelector('.format-select-trigger-label') as HTMLElement | null;
     expect(fixture.nativeElement.textContent).toContain('Notifications');
-    expect(recipientInput?.value).toBe('Admin User');
+    expect(recipientLabel?.textContent?.trim()).toBe('Admin User');
 
     setInputValue(fixture.nativeElement, 'input[formControlName="subject"]', 'Notice');
     setInputValue(fixture.nativeElement, 'textarea[formControlName="body"]', 'Hello');
@@ -114,6 +114,7 @@ describe('AdminPageComponent', () => {
       recipientId: 'user-1',
       subject: 'Notice',
       body: 'Hello',
+      sendEmail: false,
     });
   });
 });

@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Application\Game\Lifecycle\GameLifecycleHandoff;
 use App\Application\Game\Lifecycle\GameLifecycleProjector;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\GameRematchLifecycleSweeper;
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Application\Game\Runtime\GameRuntimeStopWorker;
@@ -11,6 +12,7 @@ use App\Application\Room\Lifecycle\WaitingRoomLifecycleSweeper;
 use App\Domain\Card\Card;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
+use App\Domain\Game\GameSnapshotCompact;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\User\User;
@@ -1327,6 +1329,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $roomId = $fixture['roomId'];
         $game = $this->entityManager->getRepository(Game::class)->find($gameId);
         self::assertInstanceOf(Game::class, $game);
+        $this->persistCompactRuntimeSnapshot($game);
         self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
             ['gameId' => $gameId],
@@ -3718,6 +3721,28 @@ SQL,
         self::assertSame('PLAYING', $snapshot['gamePhase'] ?? null);
 
         return $snapshot;
+    }
+
+    private function persistCompactRuntimeSnapshot(Game $game): void
+    {
+        $existingSnapshots = (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $game->id()],
+        );
+        if ($existingSnapshots > 0) {
+            return;
+        }
+
+        $snapshot = (new CompactGameCardStateMapper())->compactSnapshot($game->snapshot(), $game->id(), $game->status());
+        unset($snapshot['cardCatalog']);
+
+        $this->entityManager->persist(new GameSnapshotCompact(
+            $game,
+            max(1, (int) ($snapshot['version'] ?? 1)),
+            $snapshot,
+            hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR)),
+        ));
+        $this->entityManager->flush();
     }
 
     private function roomCode(string $roomId): string
