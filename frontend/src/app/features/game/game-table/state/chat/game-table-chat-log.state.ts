@@ -358,7 +358,7 @@ export class GameTableChatLogState {
     return commander?.name
       ?? this.stringParam(params, 'commanderName')
       ?? entry.refs?.cards?.[commanderInstanceId ?? '']?.name
-      ?? this.translateRuntime('gameLog.commander.unknown');
+      ?? this.translateRuntime('shared.text.commander');
   }
 
   private playerLabelParam(

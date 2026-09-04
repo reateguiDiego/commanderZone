@@ -61,7 +61,7 @@
       @if (entity.card; as card) {
         <article
           class="special-entity-pill special-entity-pill-card-backed"
-          [attr.aria-label]="tooltipFor(entity, cardLabel(entity))"
+          [attr.aria-label]="tooltipFor(entity, cardLabel(entity) | runtimeTranslate)"
           (mouseenter)="previewRequested.emit(entity)"
           (mouseleave)="previewHidden.emit()"
           (contextmenu)="requestEntityContext($event, entity)"
@@ -70,7 +70,7 @@
             <i class="special-entity-mana-icon" [appMtgIcon]="mechanicIcon(entity)" mtgIconKind="mechanic"></i>
           </span>
           <span class="special-entity-pill-copy" aria-hidden="true">
-            {{ tooltipFor(entity, cardLabel(entity)) }}
+            {{ tooltipFor(entity, cardLabel(entity) | runtimeTranslate) }}
           </span>
         </article>
       }

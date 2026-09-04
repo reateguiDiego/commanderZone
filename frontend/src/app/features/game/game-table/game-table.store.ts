@@ -803,7 +803,7 @@ export class GameTableStore implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only change your own cards.');
+      this.error.set('errors.runtime.you-can-only-change-your-own-cards');
       return;
     }
 
@@ -862,7 +862,7 @@ export class GameTableStore implements OnDestroy {
 
   async changeLife(playerId: string, delta: number, options: { debounce?: boolean } = {}): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only change your own life total.');
+      this.error.set('errors.runtime.you-can-only-change-your-own-life-total');
       return;
     }
 
@@ -882,7 +882,7 @@ export class GameTableStore implements OnDestroy {
 
   async setLife(playerId: string, value: string | number): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only change your own life total.');
+      this.error.set('errors.runtime.you-can-only-change-your-own-life-total');
       return;
     }
 
@@ -894,7 +894,7 @@ export class GameTableStore implements OnDestroy {
 
   async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, commanderInstanceId: string, delta: number): Promise<void> {
     if (!this.canControlPlayer(targetPlayerId)) {
-      this.error.set('You can only change your own commander damage.');
+      this.error.set('errors.runtime.you-can-only-change-your-own-commander-damage');
       return;
     }
 
@@ -937,7 +937,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canAdvanceTurnPhase()) {
-      this.error.set('Only the active turn player can advance the turn.');
+      this.error.set('errors.runtime.only-the-active-turn-player-can-advance-the-turn');
       return;
     }
 
@@ -949,7 +949,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canAdvanceTurnPhase()) {
-      this.error.set('Only the active turn player can pass the turn.');
+      this.error.set('errors.runtime.only-the-active-turn-player-can-pass-the-turn');
       return;
     }
 
@@ -1074,7 +1074,7 @@ export class GameTableStore implements OnDestroy {
     options: { position?: 'top' | 'bottom'; randomOrder?: boolean; targetPlayerId?: string } = {},
   ): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only move your own cards.');
+      this.error.set('errors.runtime.you-can-only-move-your-own-cards');
       return;
     }
 
@@ -1098,7 +1098,7 @@ export class GameTableStore implements OnDestroy {
 
   async selectRandomZoneCard(playerId: string, zone: GameZoneName): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only select random cards from your own zones.');
+      this.error.set('errors.runtime.you-can-only-select-random-cards-from-your-own-zones');
       return;
     }
 
@@ -1338,7 +1338,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canControlPlayer(menu.playerId)) {
-      this.error.set('You can only move your own cards.');
+      this.error.set('errors.runtime.you-can-only-move-your-own-cards');
       this.closeContextMenu();
       return;
     }
@@ -1421,7 +1421,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canControlOwnedCard(menu.playerId, menu.card)) {
-      this.error.set('You can only detach cards you control.');
+      this.error.set('errors.runtime.you-can-only-detach-cards-you-control');
       this.closeContextMenu();
       return;
     }
@@ -1435,7 +1435,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canControlOwnedCard(menu.playerId, menu.card)) {
-      this.error.set('You can only detach cards from permanents you control.');
+      this.error.set('errors.runtime.you-can-only-detach-cards-from-permanents-you-control');
       this.closeContextMenu();
       return;
     }
@@ -1523,7 +1523,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
     if (!this.canControlPlayer(menu.playerId)) {
-      this.error.set('You can only change your own cards.');
+      this.error.set('errors.runtime.you-can-only-change-your-own-cards');
       this.closeContextMenu();
       return;
     }
@@ -1653,7 +1653,7 @@ export class GameTableStore implements OnDestroy {
 
   async moveBattlefieldCard(playerId: string, card: GameCardInstance, event: DragEvent): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only move your own cards.');
+      this.error.set('errors.runtime.you-can-only-move-your-own-cards');
       return;
     }
     const position = this.drag.dropPosition(event, 'battlefield');
@@ -1671,7 +1671,7 @@ export class GameTableStore implements OnDestroy {
 
   async changeDungeonMarker(playerId: string, card: GameCardInstance, marker: GameCardDungeonMarker): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
-      this.error.set('You can only update your own dungeon marker.');
+      this.error.set('errors.runtime.you-can-only-update-your-own-dungeon-marker');
       return;
     }
 

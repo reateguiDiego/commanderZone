@@ -23,19 +23,62 @@ paths:
     get:
       tags: [Admin]
       summary: List users for the admin panel.
+      parameters:
+        - name: q
+          in: query
+          description: Filter by display name or email.
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [all, ROLE_USER, ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER]
+            default: all
+        - name: premiumTier
+          in: query
+          schema:
+            type: string
+            enum: [all, none, tier1, tier2, tier3]
+            default: all
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, online, in_game, offline, recently_connected, recently_created, never_connected]
+            default: all
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, email, lastConnectedAt, createdAt, role, premium, totalDecks]
+            default: createdAt
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
       responses:
         '200':
           description: Admin users list.
           content:
             application/json:
               schema:
-                type: object
-                required: [users]
-                properties:
-                  users:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/AdminUser'
+                $ref: '#/components/schemas/AdminUsersListResponse'
         '403':
           $ref: '#/components/responses/Error'
   /admin/users/{id}:
@@ -94,23 +137,6 @@ paths:
                 $ref: '#/components/schemas/AdminUserResponse'
         '400':
           $ref: '#/components/responses/Error'
-        '403':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-  /admin/users/{id}/rooms/leave:
-    post:
-      tags: [Admin]
-      summary: Remove a user from every active room they own or joined.
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '200':
-          description: User removed from rooms.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminUserResponse'
         '403':
           $ref: '#/components/responses/Error'
         '404':
@@ -4177,7 +4203,7 @@ components:
           format: date-time
     AdminUser:
       type: object
-      required: [id, displayName, publicProfilePath, email, authIdentities, roles, authorizationRole, premiumTier, lastConnectedAt, presenceStatus, isOnline, activeRoomsCount, activeSessionsCount, createdAt]
+      required: [id, displayName, publicProfilePath, email, authProviders, roles, authorizationRole, premiumTier, lastConnectedAt, presenceStatus, isOnline, activeSessionsCount, deckCounts, localization, createdAt]
       properties:
         id:
           type: string
@@ -4191,10 +4217,11 @@ components:
         email:
           type: string
           format: email
-        authIdentities:
+        authProviders:
           type: array
           items:
-            $ref: '#/components/schemas/AdminUserAuthIdentity'
+            type: string
+          description: Authentication provider names only; no external identity data is exposed.
         roles:
           type: array
           items:
@@ -4213,36 +4240,160 @@ components:
           enum: [online, in_game, offline]
         isOnline:
           type: boolean
-        activeRoomsCount:
-          type: integer
-          minimum: 0
         activeSessionsCount:
           type: integer
           minimum: 0
+        deckCounts:
+          type: object
+          required: [total, privateCount, publicCount]
+          properties:
+            total:
+              type: integer
+              minimum: 0
+            privateCount:
+              type: integer
+              minimum: 0
+            publicCount:
+              type: integer
+              minimum: 0
+        localization:
+          type: object
+          required: [countryCode, countryName, appLanguage]
+          properties:
+            countryCode:
+              type: [string, 'null']
+              description: Last seen ISO 3166-1 alpha-2 country code.
+            countryName:
+              type: [string, 'null']
+              description: Last seen country name, when the geolocation source resolved it.
+            appLanguage:
+              type: string
+              description: User-selected CommanderZone interface language code.
         createdAt:
           type: string
           format: date-time
-    AdminUserAuthIdentity:
+    AdminUsersSummary:
       type: object
-      required: [provider, providerUserId, providerEmail, providerEmailVerified, createdAt, lastUsedAt]
+      required: [total, online, recentlyConnected, recentlyCreated, neverConnected, totalDecks, tier0, tier1, tier2, tier3]
       properties:
-        provider:
-          type: string
-          example: GOOGLE
-        providerUserId:
-          type: string
-          description: External provider user identifier. Google identities use the Google subject.
-        providerEmail:
-          type: string
-          example: player@gmail.com
-        providerEmailVerified:
-          type: boolean
-        createdAt:
-          type: string
-          description: Provider identity creation timestamp, or GOOGLE when unavailable.
-        lastUsedAt:
+        total:
+          type: integer
+          minimum: 0
+        online:
+          type: integer
+          minimum: 0
+        recentlyConnected:
+          type: integer
+          minimum: 0
+        recentlyCreated:
+          type: integer
+          minimum: 0
+        neverConnected:
+          type: integer
+          minimum: 0
+        totalDecks:
+          type: integer
+          minimum: 0
+        tier0:
+          type: integer
+          minimum: 0
+        tier1:
+          type: integer
+          minimum: 0
+        tier2:
+          type: integer
+          minimum: 0
+        tier3:
+          type: integer
+          minimum: 0
+    AdminUsersCountrySummary:
+      type: object
+      required: [countryCode, countryName, userCount, share]
+      properties:
+        countryCode:
           type: [string, 'null']
-          format: date-time
+        countryName:
+          type: [string, 'null']
+        userCount:
+          type: integer
+          minimum: 0
+        share:
+          type: integer
+          minimum: 0
+          maximum: 100
+    AdminUsersLocalizationItem:
+      type: object
+      required: [code, name, userCount, share]
+      properties:
+        code:
+          type: [string, 'null']
+          description: ISO country code, continent code, or application language code depending on the selected dimension.
+        name:
+          type: [string, 'null']
+          description: Human-readable country or continent name. Language labels are resolved by the client from the language code.
+        userCount:
+          type: integer
+          minimum: 0
+        share:
+          type: integer
+          minimum: 0
+          maximum: 100
+    AdminUsersLocalizationBreakdown:
+      type: object
+      required: [totalUsers, countries, continents, languages]
+      properties:
+        totalUsers:
+          type: integer
+          minimum: 0
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUsersLocalizationItem'
+        continents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUsersLocalizationItem'
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUsersLocalizationItem'
+    AdminUsersLocalizationSummary:
+      type: object
+      required: [all, active]
+      properties:
+        all:
+          $ref: '#/components/schemas/AdminUsersLocalizationBreakdown'
+        active:
+          description: Users currently online or in game.
+          $ref: '#/components/schemas/AdminUsersLocalizationBreakdown'
+    AdminUsersListResponse:
+      type: object
+      required: [users, page, limit, total, totalPages, summary, countries, localizationSummary]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 1
+        summary:
+          $ref: '#/components/schemas/AdminUsersSummary'
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUsersCountrySummary'
+        localizationSummary:
+          $ref: '#/components/schemas/AdminUsersLocalizationSummary'
     AdminUserResponse:
       type: object
       required: [user]
@@ -4298,6 +4449,16 @@ components:
           type: string
           minLength: 1
           maxLength: 200000
+        delivery:
+          type: string
+          enum: [internal, email, both]
+          default: internal
+          description: Choose internal message delivery, email delivery, or both channels.
+        sendEmail:
+          type: boolean
+          default: false
+          deprecated: true
+          description: 'Legacy equivalent of `delivery: both` when true, otherwise `delivery: internal`.'
     AdminMessageSendResponse:
       type: object
       required: [sent]

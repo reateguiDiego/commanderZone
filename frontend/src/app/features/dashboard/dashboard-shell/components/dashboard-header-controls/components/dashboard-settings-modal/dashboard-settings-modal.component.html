@@ -87,24 +87,24 @@
 
             <div class="settings-account-row">
               <label>
-                {{ 'settings.dashboardSettingsModal.email' | runtimeTranslate }}
+                {{ 'shared.text.email' | runtimeTranslate }}
                 <input type="email" autocomplete="email" formControlName="email" />
                 <span class="field-feedback">
                   @if (emailInvalid()) {
-                    <span class="field-error">{{ 'settings.dashboardSettingsModal.enterValidEmail' | runtimeTranslate }}</span>
+                    <span class="field-error">{{ 'shared.text.enterAValidEmail' | runtimeTranslate }}</span>
                   }
                   @if (emailAvailabilityVisible()) {
                     @if (emailAvailability() === 'checking') {
-                      <span class="availability muted">{{ 'settings.dashboardSettingsModal.checkingEmail' | runtimeTranslate }}</span>
+                      <span class="availability muted">{{ 'shared.text.checkingEmail' | runtimeTranslate }}</span>
                     }
                     @if (emailAvailability() === 'available') {
-                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.emailAvailable' | runtimeTranslate }}</span>
+                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'shared.text.emailAvailable' | runtimeTranslate }}</span>
                     }
                     @if (emailAvailability() === 'taken') {
-                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.emailAlreadyRegistered' | runtimeTranslate }}</span>
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'shared.text.emailAlreadyRegistered' | runtimeTranslate }}</span>
                     }
                     @if (emailAvailability() === 'error') {
-                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.couldNotCheckNow' | runtimeTranslate }}</span>
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'shared.text.couldNotCheckRightNow' | runtimeTranslate }}</span>
                     }
                   }
                 </span>
@@ -112,26 +112,26 @@
 
               <label class="user-name-field">
                 <span class="field-label-row">
-                  <span>{{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}</span>
+                  <span>{{ 'shared.text.userName' | runtimeTranslate }}</span>
                   <span class="character-counter">{{ userNameCharacterCount() }}/{{ userNameMaxLength }}</span>
                 </span>
                 <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
                 <span class="field-feedback">
                   @if (displayNameInvalid()) {
-                    <span class="field-error">{{ 'settings.dashboardSettingsModal.usernameLengthRequirement' | runtimeTranslate }}</span>
+                    <span class="field-error">{{ 'shared.text.userNameMustBeBetween2And20Characters' | runtimeTranslate }}</span>
                   }
                   @if (userNameAvailabilityVisible()) {
                     @if (userNameAvailability() === 'checking') {
-                      <span class="availability muted">{{ 'settings.dashboardSettingsModal.checkingAvailability' | runtimeTranslate }}</span>
+                      <span class="availability muted">{{ 'shared.text.checkingAvailability' | runtimeTranslate }}</span>
                     }
                     @if (userNameAvailability() === 'available') {
-                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.usernameAvailable' | runtimeTranslate }}</span>
+                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'shared.text.userNameAvailable' | runtimeTranslate }}</span>
                     }
                     @if (userNameAvailability() === 'taken') {
-                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.usernameUnavailable' | runtimeTranslate }}</span>
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'shared.text.userNameNotAvailable' | runtimeTranslate }}</span>
                     }
                     @if (userNameAvailability() === 'error') {
-                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.couldNotCheckNow' | runtimeTranslate }}</span>
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'shared.text.couldNotCheckRightNow' | runtimeTranslate }}</span>
                     }
                   }
                 </span>
@@ -172,10 +172,10 @@
                   <span>{{ 'settings.dashboardSettingsModal.areYouSureYouWantToPermanently' | runtimeTranslate }}</span>
                   <div class="delete-actions">
                     <button czButton="secondary" type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
-                      {{ 'settings.dashboardSettingsModal.cancel' | runtimeTranslate }}
+                      {{ 'shared.text.cancel' | runtimeTranslate }}
                     </button>
                     <button czButton="primary" czButtonTone="danger" czButtonSize="sm" type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
-                      {{ deleteInProgress() ? 'Deleting...' : 'Delete account' }}
+                      {{ (deleteInProgress() ? 'common.ui.deleting' : 'settings.dashboardSettingsModal.deleteAccount') | runtimeTranslate }}
                     </button>
                   </div>
                 </div>

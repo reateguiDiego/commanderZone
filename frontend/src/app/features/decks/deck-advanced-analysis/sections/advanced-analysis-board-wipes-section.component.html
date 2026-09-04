@@ -43,7 +43,7 @@
               [attr.aria-label]="'deckBuilder.advancedAnalysis.boardWipes.viewMoreDetailsAria' | runtimeTranslate"
               (click)="showAllDetails.emit()"
             >
-              {{ 'deckBuilder.advancedAnalysis.boardWipes.viewMore' | runtimeTranslate }}
+              {{ 'shared.text.viewMore' | runtimeTranslate }}
             </button>
           }
         </div>
@@ -59,7 +59,7 @@
               <li>
                 <div>
                   <strong>{{ item.name }}</strong>
-                  <small>{{ 'deckBuilder.advancedAnalysis.boardWipes.manaValue' | runtimeTranslate }}: {{ item.manaValue }}</small>
+                  <small>{{ 'shared.text.manaValue' | runtimeTranslate }}: {{ item.manaValue }}</small>
                 </div>
                 @if (item.badges.length > 0) {
                   <div class="advanced-analysis-board-wipe-badges">

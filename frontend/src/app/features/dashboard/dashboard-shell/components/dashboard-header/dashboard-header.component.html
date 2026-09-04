@@ -1,4 +1,4 @@
-<header class="topbar">
+<header class="topbar" [class.topbar--admin]="canAccessAdmin()">
   <div class="header-menu">
     <a class="brand" routerLink="/dashboard" [attr.aria-label]="'navigation.dashboard.dashboardShell.commanderzoneDashboard' | runtimeTranslate">
       <span class="brand-mark">
@@ -9,17 +9,17 @@
     <nav class="nav-list" [attr.aria-label]="'navigation.dashboard.dashboardShell.primary' | runtimeTranslate">
       <a routerLink="/decks" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_decks_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
-        <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.decks' | runtimeTranslate }}</span>
+        <span class="nav-label">{{ 'shared.text.decks' | runtimeTranslate }}</span>
       </a>
       @if (device.isDesktop() && device.isDesktopLayout()) {
         <a routerLink="/rooms" routerLinkActive="active">
           <img class="nav-icon" src="/assets/icons/CZ/CZ_rooms_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
-          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.rooms' | runtimeTranslate }}</span>
+          <span class="nav-label">{{ 'shared.text.rooms' | runtimeTranslate }}</span>
         </a>
       }
       <a routerLink="/cards" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_cards_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
-        <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.cards' | runtimeTranslate }}</span>
+        <span class="nav-label">{{ 'shared.text.cards' | runtimeTranslate }}</span>
       </a>
       <a routerLink="/community" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_comunity_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
@@ -27,7 +27,7 @@
       </a>
       <a routerLink="/table-assistant" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_table_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
-        <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.tableAssistant' | runtimeTranslate }}</span>
+        <span class="nav-label">{{ 'shared.text.tableAssistant' | runtimeTranslate }}</span>
       </a>
     </nav>
   </div>

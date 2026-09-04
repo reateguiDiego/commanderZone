@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Application\Game\Lifecycle\GameLifecycleHandoff;
 use App\Application\Game\Lifecycle\GameLifecycleProjector;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\GameRematchLifecycleSweeper;
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Application\Game\Runtime\GameRuntimeStopWorker;
@@ -1328,17 +1329,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $roomId = $fixture['roomId'];
         $game = $this->entityManager->getRepository(Game::class)->find($gameId);
         self::assertInstanceOf(Game::class, $game);
-        $compactSnapshot = [
-            'gameId' => $gameId,
-            'version' => max(1, (int) ($game->snapshot()['version'] ?? 1)),
-        ];
-        $this->entityManager->persist(new GameSnapshotCompact(
-            $game,
-            $compactSnapshot['version'],
-            $compactSnapshot,
-            hash('sha256', json_encode($compactSnapshot, JSON_THROW_ON_ERROR)),
-        ));
-        $this->entityManager->flush();
+        $this->persistCompactRuntimeSnapshot($game);
         self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
             ['gameId' => $gameId],
@@ -3730,6 +3721,28 @@ SQL,
         self::assertSame('PLAYING', $snapshot['gamePhase'] ?? null);
 
         return $snapshot;
+    }
+
+    private function persistCompactRuntimeSnapshot(Game $game): void
+    {
+        $existingSnapshots = (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_snapshot_compact WHERE game_id = :gameId',
+            ['gameId' => $game->id()],
+        );
+        if ($existingSnapshots > 0) {
+            return;
+        }
+
+        $snapshot = (new CompactGameCardStateMapper())->compactSnapshot($game->snapshot(), $game->id(), $game->status());
+        unset($snapshot['cardCatalog']);
+
+        $this->entityManager->persist(new GameSnapshotCompact(
+            $game,
+            max(1, (int) ($snapshot['version'] ?? 1)),
+            $snapshot,
+            hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR)),
+        ));
+        $this->entityManager->flush();
     }
 
     private function roomCode(string $roomId): string

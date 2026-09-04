@@ -3,7 +3,7 @@
     <div class="filter-panel__header">
       <div class="filter-panel__title">
         <span class="filter-panel__kicker">01</span>
-        <h3>{{ 'deckBuilder.cards.cardSearch.form.name' | runtimeTranslate }}</h3>
+        <h3>{{ 'shared.text.name' | runtimeTranslate }}</h3>
       </div>
       <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('name')" (checkedChange)="setFilterEnabled('name', $event)" />
     </div>
@@ -87,7 +87,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">03</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.types' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.types' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('types')" (checkedChange)="setFilterEnabled('types', $event)" />
       </div>
@@ -128,7 +128,7 @@
             @if (landTypeSelected()) {
               <app-compact-checkbox
                 name="basic"
-                [label]="'deckBuilder.cards.cardSearch.form.basic' | runtimeTranslate"
+                [label]="'shared.text.basic' | runtimeTranslate"
                 [disabled]="!filterEnabled('types')"
                 [checked]="model.basic"
                 (checkedChange)="model.basic = $event"
@@ -143,7 +143,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">04</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.subtypes' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.subtypes' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('subtypes')" (checkedChange)="setFilterEnabled('subtypes', $event)" />
       </div>
@@ -172,7 +172,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">05</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.sets' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.sets' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('sets')" (checkedChange)="setFilterEnabled('sets', $event)" />
       </div>
@@ -201,7 +201,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">06</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.rarity' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.rarity' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('rarities')" (checkedChange)="setFilterEnabled('rarities', $event)" />
       </div>
@@ -234,7 +234,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">07</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.colors' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.colors' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('colors')" (checkedChange)="setFilterEnabled('colors', $event)" />
       </div>
@@ -273,20 +273,20 @@
               type="button"
               class="icon-choice"
               [class.is-selected]="model.artifact"
-              [class.icon-choice--compact-text]="iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate)"
+              [class.icon-choice--compact-text]="iconChoiceNeedsCompactLabel('shared.text.artifact' | runtimeTranslate)"
               [disabled]="!filterEnabled('colors')"
               [attr.aria-pressed]="model.artifact"
-              [title]="'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate"
+              [title]="'shared.text.artifact' | runtimeTranslate"
               (click)="model.artifact = !model.artifact"
             >
               <i class="icon-choice__icon" appMtgIcon="artifact" mtgIconKind="mechanic" aria-hidden="true"></i>
               <span
                 czTextFit
                 czTextFitMinScale="0.68"
-                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate)"
-                [style.font-size]="iconChoiceLabelFontSize('deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate)"
+                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('shared.text.artifact' | runtimeTranslate)"
+                [style.font-size]="iconChoiceLabelFontSize('shared.text.artifact' | runtimeTranslate)"
               >
-                {{ 'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate }}
+                {{ 'shared.text.artifact' | runtimeTranslate }}
               </span>
             </button>
             <button
@@ -313,20 +313,20 @@
               type="button"
               class="icon-choice"
               [class.is-selected]="model.land"
-              [class.icon-choice--compact-text]="iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.land' | runtimeTranslate)"
+              [class.icon-choice--compact-text]="iconChoiceNeedsCompactLabel('shared.text.land' | runtimeTranslate)"
               [disabled]="!filterEnabled('colors')"
               [attr.aria-pressed]="model.land"
-              [title]="'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate"
+              [title]="'shared.text.land' | runtimeTranslate"
               (click)="model.land = !model.land"
             >
               <i class="icon-choice__icon" appMtgIcon="land" mtgIconKind="mechanic" aria-hidden="true"></i>
               <span
                 czTextFit
                 czTextFitMinScale="0.68"
-                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.land' | runtimeTranslate)"
-                [style.font-size]="iconChoiceLabelFontSize('deckBuilder.cards.cardSearch.form.land' | runtimeTranslate)"
+                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('shared.text.land' | runtimeTranslate)"
+                [style.font-size]="iconChoiceLabelFontSize('shared.text.land' | runtimeTranslate)"
               >
-                {{ 'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate }}
+                {{ 'shared.text.land' | runtimeTranslate }}
               </span>
             </button>
           </div>
@@ -338,7 +338,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">08</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.costs' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.costs' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('costs')" (checkedChange)="setFilterEnabled('costs', $event)" />
       </div>
@@ -354,7 +354,7 @@
               <input name="manaValueMax" type="number" min="0" max="99" step="1" [disabled]="!filterEnabled('costs')" [(ngModel)]="model.manaValueMax" />
             </label>
             <div class="field mana-cost-field">
-              <span>{{ 'deckBuilder.cards.cardSearch.form.manaCost' | runtimeTranslate }}</span>
+              <span>{{ 'shared.text.manaCost' | runtimeTranslate }}</span>
               <div class="mana-cost-entry" [class.is-disabled]="!filterEnabled('costs')">
                 <div class="mana-cost-display" [class.is-empty]="!model.manaCost" aria-live="polite">
                   <app-mana-symbols [value]="manaCostSymbolValue()" fallback="" />
@@ -383,7 +383,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">09</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.powerToughness' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.powerAndToughness' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('stats')" (checkedChange)="setFilterEnabled('stats', $event)" />
       </div>
@@ -435,7 +435,7 @@
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">10</span>
-          <h3>{{ 'deckBuilder.cards.cardSearch.form.formats' | runtimeTranslate }}</h3>
+          <h3>{{ 'shared.text.formats' | runtimeTranslate }}</h3>
         </div>
         <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('formats')" (checkedChange)="setFilterEnabled('formats', $event)" />
       </div>

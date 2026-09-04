@@ -149,7 +149,7 @@ describe('GameTableCountersState', () => {
 
     await state.changeCardCounterForCard('player-1', 'battlefield', card(), 'shield', 1);
 
-    expect(errorSignal()).toBe('Maximum 5 different counters per card.');
+    expect(errorSignal()).toBe('errors.runtime.maximum-5-different-counters-per-card');
     expect(queueCardCounter).not.toHaveBeenCalled();
   });
 

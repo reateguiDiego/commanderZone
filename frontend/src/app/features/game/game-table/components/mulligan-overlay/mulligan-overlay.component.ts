@@ -93,8 +93,8 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
     if (typeof firstMulliganFree === 'boolean') {
       return firstMulliganFree
-        ? 'game.mulliganOverlay.firstMulliganFree'
-        : 'game.mulliganOverlay.firstMulliganNotFree';
+        ? 'shared.text.firstMulliganIsFree'
+        : 'shared.text.firstMulliganIsNotFree';
     }
 
     if (!mulligan || mulligan.mulligansTaken <= 0) {
@@ -102,8 +102,8 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     }
 
     return mulligan.mulligansTaken > mulligan.effectiveMulligans
-      ? 'game.mulliganOverlay.firstMulliganFree'
-      : 'game.mulliganOverlay.firstMulliganNotFree';
+      ? 'shared.text.firstMulliganIsFree'
+      : 'shared.text.firstMulliganIsNotFree';
   });
   readonly otherPlayers = computed(() => {
     const currentPlayerId = this.currentPlayerId();
@@ -173,10 +173,10 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   ruleLabelKey(rule: MulliganRule = this.rule()): string {
     const labels: Record<MulliganRule, string> = {
-      LONDON: 'game.mulliganOverlay.rules.london',
-      VANCOUVER: 'game.mulliganOverlay.rules.vancouver',
-      PARIS: 'game.mulliganOverlay.rules.paris',
-      GENEROUS: 'game.mulliganOverlay.rules.generous',
+      LONDON: 'shared.text.london',
+      VANCOUVER: 'shared.text.vancouver',
+      PARIS: 'shared.text.paris',
+      GENEROUS: 'shared.text.generous',
     };
 
     return labels[rule];
@@ -359,7 +359,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private descriptionKeyForRule(rule: MulliganRule): string {
-    return `rooms.roomSetupControls.mulliganDescriptions.${rule.toLowerCase()}`;
+    return `shared.text.mulliganDescriptions.${rule.toLowerCase()}`;
   }
 
   private normalizeStatus(status: MulliganStatusCandidate): MulliganPlayerStatus {

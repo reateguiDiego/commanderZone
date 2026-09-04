@@ -136,7 +136,7 @@ describe('GameTableDisconnectVoteService', () => {
 
     await service.vote('wait');
 
-    expect(service.error()).toBe('La votacion ya no esta disponible porque el jugador se ha reconectado.');
+    expect(service.error()).toBe('game.gameDisconnectVoteModal.targetPlayerBackOnline');
   });
 });
 

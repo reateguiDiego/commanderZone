@@ -94,8 +94,8 @@ export class CreatePlaymatSpoilerComponent implements AfterViewInit, OnDestroy {
   readonly playmatGrid = viewChild<ElementRef<HTMLElement>>('playmatGrid');
   readonly activeTier = signal<PlaymatTierTab>('free');
   readonly tierTabItems: readonly TabListItem[] = [
-    { id: 'free', label: 'deckBuilder.deckList.cosmetics.free' },
-    { id: 'premium', label: 'deckBuilder.deckList.cosmetics.premium' },
+    { id: 'free', label: 'shared.text.free' },
+    { id: 'premium', label: 'shared.text.premium' },
   ];
   readonly hoverPreview = signal<PlaymatHoverPreview | null>(null);
   readonly playmats = computed(() => {

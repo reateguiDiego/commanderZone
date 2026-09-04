@@ -1,7 +1,7 @@
 <section class="deck-list-page">
   <header class="deck-page-hero">
     <div class="deck-page-copy">
-      <h1>{{ 'deckBuilder.deckList.header.title' | runtimeTranslate }}</h1>
+      <h1>{{ 'shared.text.decks' | runtimeTranslate }}</h1>
       <p>{{ 'deckBuilder.deckList.header.description' | runtimeTranslate }}</p>
       <app-hero-rule />
     </div>
@@ -20,14 +20,14 @@
             <lucide-icon name="globe" size="18" />
             <strong>{{ store.publicDeckCount() }}</strong>
           </div>
-          <span>{{ 'deckBuilder.deckList.stats.public' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.public' | runtimeTranslate }}</span>
         </div>
         <div class="deck-stat-summary-item">
           <div class="deck-stat-summary-metric">
             <lucide-icon name="lock" size="18" />
             <strong>{{ store.privateDeckCount() }}</strong>
           </div>
-          <span>{{ 'deckBuilder.deckList.stats.private' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.private' | runtimeTranslate }}</span>
         </div>
       </article>
       @if (store.manaColorStats().length > 0) {
@@ -53,18 +53,18 @@
         @if (!store.currentFolder()) {
           <button czButton="secondary" czButtonSize="sm" class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
             <lucide-icon name="folder-plus" size="18" />
-            {{ 'deckBuilder.deckList.header.createFolder' | runtimeTranslate }}
+            {{ 'shared.text.createFolder' | runtimeTranslate }}
           </button>
         }
       </div>
 
       <div class="deck-filters" [class.search-open]="searchPanelOpen()">
-        <app-tooltip [text]="'deckBuilder.deckList.searchDecks' | runtimeTranslate">
+        <app-tooltip [text]="'shared.text.searchDecks' | runtimeTranslate">
           <button
             czButton="icon"
             class="icon-button deck-search-toggle"
             type="button"
-            [attr.aria-label]="'deckBuilder.deckList.searchDecks' | runtimeTranslate"
+            [attr.aria-label]="'shared.text.searchDecks' | runtimeTranslate"
             [attr.aria-expanded]="searchPanelOpen()"
             (click)="toggleSearchPanel(deckSearchInput)"
           >
@@ -78,7 +78,7 @@
             #deckSearchInput
             name="deckSearch"
             type="search"
-            [placeholder]="'deckBuilder.deckList.searchDecksPlaceholder' | runtimeTranslate"
+            [placeholder]="'shared.text.searchDecksLabel' | runtimeTranslate"
             [maxlength]="store.maxDeckSearchLength"
             [ngModel]="store.searchQuery()"
             (ngModelChange)="store.setSearchQuery($event)"
@@ -88,7 +88,7 @@
         <div class="deck-filter-field">
           <app-format-select
             name="deckColorFilter"
-            labelKey="deckBuilder.deckList.colorFilter.label"
+            labelKey="shared.text.color"
             [labelHidden]="true"
             [options]="colorFilterOptions()"
             [value]="store.colorFilter()"
@@ -99,7 +99,7 @@
         <div class="deck-filter-field">
           <app-format-select
             name="deckSortMode"
-            labelKey="deckBuilder.deckList.sortMode.label"
+            labelKey="shared.text.sort"
             [labelHidden]="true"
             [options]="sortModeOptions"
             [value]="store.sortMode()"
@@ -112,7 +112,7 @@
     @if (store.loading()) {
       <app-global-loader />
     } @else if (store.error()) {
-      <p class="notice error">{{ store.error() }}</p>
+      <p class="notice error">{{ store.error()! | runtimeTranslate }}</p>
     } @else if (store.decks().length === 0 && store.folders().length === 0) {
       <p class="notice">{{ 'deckBuilder.deckList.yourDeckListFeelsALittleEmpty' | runtimeTranslate }}</p>
     } @else if (!store.currentFolder()) {
@@ -131,7 +131,7 @@
                   >
                     <div class="deck-card-topline">
                       <strong>{{ item.folder.name }}</strong>
-                      <span class="folder-deck-count">{{ store.folderDeckCount(item.folder.id) }} mazos</span>
+                      <span class="folder-deck-count">{{ 'common.ui.deckCount' | runtimeTranslate: { count: store.folderDeckCount(item.folder.id) } }}</span>
                     </div>
 
                     <div class="deck-card-footer">
@@ -270,7 +270,7 @@
     [showPrimary]="activeCosmeticEditor() === null"
     [showSecondary]="activeCosmeticEditor() === null && !store.createFormLocked() && !store.createSubmitting()"
     [showBackButton]="activeCosmeticEditor() !== null"
-    secondaryLabel="common.modal.cancel"
+    secondaryLabel="shared.text.cancel"
     (back)="closeCosmeticEditor()"
     (primary)="submitCreateModal()"
     (secondary)="cancelCreateFlow()"
@@ -308,7 +308,7 @@
           <div class="create-name-row">
             <label>
               <span class="field-label">
-                {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
+                {{ 'shared.text.deckName' | runtimeTranslate }}
                 <span class="required-mark" aria-hidden="true">*</span>
               </span>
               <input
@@ -363,7 +363,7 @@
           }
 
           <div class="create-cosmetics-row">
-            <div class="create-cosmetics-previews" aria-label="Deck visual previews">
+            <div class="create-cosmetics-previews" [attr.aria-label]="'common.ui.deckVisualPreviews' | runtimeTranslate">
               <app-tooltip [text]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate" [stretch]="true">
                 <button
                   class="create-cosmetics-preview"
@@ -413,14 +413,14 @@
 
           @if (!store.newDeckCreateEmpty && store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
-              <label class="field-label" for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
+              <label class="field-label" for="commanderSearch">{{ 'shared.text.commander' | runtimeTranslate }}</label>
               <div
                 class="commander-autocomplete-shell"
                 [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
               >
                 <app-card-autocomplete
                   [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
-                  actionLabel="common.actions.select"
+                  actionLabel="shared.text.select"
                   [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
                   [filters]="{ commanderCandidate: true }"
                   [clearOnSelect]="true"
@@ -473,7 +473,7 @@
             <div class="form-stack">
               <div class="import-decklist-heading">
                 <span class="field-label">
-                  {{ 'deckBuilder.deckList.importDecklist' | runtimeTranslate }}
+                  {{ 'shared.text.importDecklist' | runtimeTranslate }}
                   <span class="required-mark" aria-hidden="true">*</span>
                 </span>
                 <button
@@ -523,9 +523,9 @@
 
   <app-modal
     [open]="store.folderCreateModalOpen()"
-    [title]="'deckBuilder.deckList.createFolder' | runtimeTranslate"
+    [title]="'shared.text.createFolder' | runtimeTranslate"
     primaryLabel="common.actions.create"
-    secondaryLabel="common.modal.cancel"
+    secondaryLabel="shared.text.cancel"
     [primaryDisabled]="store.newFolderName.trim() === '' || store.isNewFolderNameTooLong()"
     (primary)="store.createFolder()"
     (secondary)="store.closeFolderCreateModal()"
@@ -554,8 +554,8 @@
   <app-modal
     [open]="store.deckEditModalOpen()"
     [title]="editModalTitle()"
-    primaryLabel="common.actions.save"
-    secondaryLabel="common.modal.cancel"
+    primaryLabel="shared.text.save"
+    secondaryLabel="shared.text.cancel"
     [showPrimary]="editPlaymatEditorOpen() === false && editSleeveEditorOpen() === false"
     [showSecondary]="editPlaymatEditorOpen() === false && editSleeveEditorOpen() === false"
     [showBackButton]="editPlaymatEditorOpen() || editSleeveEditorOpen()"
@@ -581,7 +581,7 @@
     } @else {
     <div class="form-stack deck-modal-form">
       <label>
-        {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
+        {{ 'shared.text.deckName' | runtimeTranslate }}
         <input name="editDeckName" [maxlength]="store.maxDeckNameLength" [(ngModel)]="store.editDeckName" />
         <small class="field-hint" [class.error-text]="store.isEditDeckNameTooLong()">
           {{ 'deckBuilder.deckList.maximumCharacters' | runtimeTranslate: { count: store.maxDeckNameLength } }} {{ store.editDeckNameHelp() }}
@@ -605,7 +605,7 @@
       />
 
       <div class="create-cosmetics-row">
-        <div class="create-cosmetics-previews" aria-label="Deck visual previews">
+        <div class="create-cosmetics-previews" [attr.aria-label]="'common.ui.deckVisualPreviews' | runtimeTranslate">
           <app-tooltip [text]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate" [stretch]="true">
             <button
               class="create-cosmetics-preview"
@@ -663,8 +663,8 @@
   <app-modal
     [open]="store.folderRenameModalOpen()"
     [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate"
-    primaryLabel="common.actions.save"
-    secondaryLabel="common.modal.cancel"
+    primaryLabel="shared.text.save"
+    secondaryLabel="shared.text.cancel"
     [primaryDisabled]="!store.canSaveFolderRename()"
     (primary)="store.renameFolder()"
     (secondary)="store.closeFolderRenameModal()"
@@ -689,7 +689,7 @@
     [open]="store.folderDeleteModalOpen()"
     [title]="store.folderDeleteModalTitle()"
     primaryLabel="common.actions.delete"
-    secondaryLabel="common.modal.cancel"
+    secondaryLabel="shared.text.cancel"
     size="narrow"
     [danger]="true"
     (primary)="store.confirmDeleteFolder()"
@@ -701,7 +701,7 @@
     [title]="store.deleteModalTitle()"
     [message]="store.deleteModalMessage()"
     [primaryLabel]="store.deleteModalPrimaryLabel()"
-    secondaryLabel="common.modal.cancel"
+    secondaryLabel="shared.text.cancel"
     size="narrow"
     [danger]="store.deleteModalIsDanger()"
     [showSecondary]="store.deleteModalShowsSecondary()"

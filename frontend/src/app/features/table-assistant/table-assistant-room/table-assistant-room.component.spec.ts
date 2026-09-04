@@ -362,7 +362,7 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Vida manual');
     expect(fixture.nativeElement.textContent).not.toContain('Eliminar');
     expect(
-      fixture.nativeElement.querySelector('[aria-label="Aumentar Poison de Jugador 1"]')?.disabled,
+      fixture.nativeElement.querySelector('[aria-label="Increase Poison for Jugador 1"]')?.disabled,
     ).toBe(true);
   });
 

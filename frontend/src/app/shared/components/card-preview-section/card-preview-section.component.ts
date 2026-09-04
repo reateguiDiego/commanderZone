@@ -22,7 +22,7 @@ import { primaryCardPreviewTypeLabel, resolveCardPreviewTypeIcon } from '../../u
 export class CardPreviewSectionComponent {
   readonly title = input.required<string>();
   readonly subtitle = input<string | null>(null);
-  readonly viewMoreLabel = input('shared.cardPreview.viewMore');
+  readonly viewMoreLabel = input('shared.text.viewMore');
   readonly viewMoreLink = input<string | readonly unknown[] | null>(null);
   readonly footerNote = input<string | null>(null);
   readonly items = input<readonly CardPreviewItem[]>([]);

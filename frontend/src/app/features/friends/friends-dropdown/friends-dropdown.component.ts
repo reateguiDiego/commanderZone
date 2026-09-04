@@ -58,7 +58,7 @@ export class FriendsDropdownComponent {
     const items: TabListItem[] = [
       {
         id: 'friends',
-        label: 'navigation.friends.friendsDropdown.friends',
+        label: 'shared.text.friends',
       },
     ];
 
@@ -82,10 +82,10 @@ export class FriendsDropdownComponent {
 
     items.push({
       id: 'search',
-      label: 'navigation.friends.friendsDropdown.searchTab',
+      label: 'shared.text.search',
       icon: 'search',
-      ariaLabel: 'navigation.friends.friendsDropdown.searchTab',
-      title: 'navigation.friends.friendsDropdown.searchTab',
+      ariaLabel: 'shared.text.search',
+      title: 'shared.text.search',
       alignEnd: true,
       labelHidden: true,
     });
@@ -170,14 +170,14 @@ export class FriendsDropdownComponent {
 
   friendStatusKey(row: FriendListRow): string {
     if (row.presence === 'online') {
-      return 'navigation.friends.friendsDropdown.onlineStatus';
+      return 'shared.text.online';
     }
 
     if (row.presence === 'in_game') {
-      return 'navigation.friends.friendsDropdown.inGameStatus';
+      return 'shared.text.inGame';
     }
 
-    return 'navigation.friends.friendsDropdown.offlineStatus';
+    return 'shared.text.offline';
   }
 
   friendshipStatusKey(status: FriendshipStatus | null | undefined): string {
@@ -185,13 +185,13 @@ export class FriendsDropdownComponent {
       case 'pending':
         return 'navigation.friends.friendsDropdown.pendingStatus';
       case 'accepted':
-        return 'navigation.friends.friendsDropdown.acceptedStatus';
+        return 'shared.text.friends';
       case 'blocked':
         return 'navigation.friends.friendsDropdown.blockedStatus';
       case 'declined':
         return 'navigation.friends.friendsDropdown.declinedStatus';
       default:
-        return 'navigation.friends.friendsDropdown.sendFriendRequest';
+        return 'shared.text.sendFriendRequest';
     }
   }
 

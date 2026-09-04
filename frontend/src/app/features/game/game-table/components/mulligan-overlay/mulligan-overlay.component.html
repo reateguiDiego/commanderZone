@@ -10,7 +10,7 @@
       <header class="mulligan-header">
         <div class="mulligan-title-group">
           <p class="mulligan-kicker">{{ ruleLabelKey() | runtimeTranslate }}</p>
-          <h1>{{ 'game.mulliganOverlay.title' | runtimeTranslate }}</h1>
+          <h1>{{ 'shared.text.mulligan' | runtimeTranslate }}</h1>
           <section class="mulligan-copy" data-testid="mulligan-rule-copy">
             <p>{{ ruleDescriptionKey() | runtimeTranslate }}</p>
           </section>
@@ -34,8 +34,8 @@
           czButtonTone="danger"
           class="mulligan-close-button"
           data-testid="mulligan-close"
-          [attr.aria-label]="'common.modal.close' | runtimeTranslate"
-          [title]="'common.modal.close' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.close' | runtimeTranslate"
+          [title]="'shared.text.close' | runtimeTranslate"
           (click)="dismiss()"
         >
           <lucide-icon name="x" size="18" aria-hidden="true" />
@@ -75,8 +75,8 @@
                     <button
                       type="button"
                       class="mulligan-face-toggle"
-                      [attr.aria-label]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
-                      [title]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                      [attr.aria-label]="'shared.text.lookAtOtherFace' | runtimeTranslate"
+                      [title]="'shared.text.lookAtOtherFace' | runtimeTranslate"
                       draggable="false"
                       (pointerdown)="stopFaceTogglePointer($event)"
                       (click)="lookAtOtherFace($event, card)"
@@ -137,8 +137,8 @@
                       <button
                         type="button"
                         class="mulligan-face-toggle"
-                        [attr.aria-label]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
-                        [title]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                        [attr.aria-label]="'shared.text.lookAtOtherFace' | runtimeTranslate"
+                        [title]="'shared.text.lookAtOtherFace' | runtimeTranslate"
                         draggable="false"
                         (pointerdown)="stopFaceTogglePointer($event)"
                         (click)="lookAtOtherFace($event, card)"
@@ -177,7 +177,7 @@
                 [disabled]="takeDisabled()"
                 (click)="takeMulligan()"
               >
-                {{ 'game.mulliganOverlay.title' | runtimeTranslate }}
+                {{ 'shared.text.mulligan' | runtimeTranslate }}
               </button>
               <div class="mulligan-keep-stack">
                 @if (bottomSelectionCount() > 0) {

@@ -25,7 +25,7 @@ const VIEWPORT_PANEL_WIDTH = 336;
 export class ExtraActionsMenuComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  readonly label = input('common.extraActions.label');
+  readonly label = input('shared.text.extras');
   readonly ariaLabel = input('common.extraActions.open');
   readonly icon = input('plus');
   readonly menuLabel = input('common.extraActions.menu');

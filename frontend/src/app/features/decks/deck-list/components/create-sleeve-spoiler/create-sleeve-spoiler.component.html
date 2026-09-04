@@ -30,7 +30,7 @@
           decoding="async"
         />
         @if (sleeve.premium) {
-          <span class="create-sleeve-option-pill create-sleeve-option-pill--premium">{{ 'deckBuilder.deckList.cosmetics.premium' | runtimeTranslate }}</span>
+          <span class="create-sleeve-option-pill create-sleeve-option-pill--premium">{{ 'shared.text.premium' | runtimeTranslate }}</span>
         }
         @if (sleeve.combinationName) {
           <span class="create-sleeve-option-pill create-sleeve-option-pill--combination">
@@ -42,7 +42,7 @@
   </div>
 
   <footer class="create-sleeve-spoiler-actions">
-    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'common.actions.select' | runtimeTranslate }}</button>
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'shared.text.select' | runtimeTranslate }}</button>
   </footer>
 </section>
 

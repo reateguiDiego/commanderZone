@@ -145,7 +145,7 @@ describe('DeckEditorComponent', () => {
     await setup();
     const fixture = TestBed.createComponent(DeckEditorComponent);
 
-    expect(fixture.componentInstance.store.error()).toBe('Missing deck slug.');
+    expect(fixture.componentInstance.store.error()).toBe('errors.runtime.missing-deck-slug');
   });
 
   it('navigates to the not found page when the deck API returns 404', async () => {

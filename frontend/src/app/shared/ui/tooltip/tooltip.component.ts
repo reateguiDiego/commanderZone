@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, input, signal, viewChild } from '@angular/core';
+import { DeviceProfileService } from '../../services/device-profile.service';
 import { tooltipTextColorForBackground } from './tooltip-contrast';
 
 interface TooltipPosition {
@@ -6,7 +7,6 @@ interface TooltipPosition {
   readonly top: number;
 }
 
-type TooltipTriggerMode = 'hover' | 'click';
 type TooltipPlacement = 'top' | 'bottom';
 type TooltipAlign = 'start' | 'center' | 'end';
 
@@ -22,12 +22,12 @@ interface TooltipBounds {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TooltipComponent {
+  private readonly device = inject(DeviceProfileService);
   private readonly trigger = viewChild.required<ElementRef<HTMLElement>>('trigger');
   private readonly bubble = viewChild<ElementRef<HTMLElement>>('bubble');
 
   readonly text = input<string | null>(null);
   readonly stretch = input(false);
-  readonly triggerMode = input<TooltipTriggerMode>('hover');
   readonly placement = input<TooltipPlacement>('top');
   readonly align = input<TooltipAlign>('center');
   readonly open = signal(false);
@@ -66,50 +66,16 @@ export class TooltipComponent {
     this.multiline.set(false);
   }
 
-  handleMouseEnter(): void {
-    if (this.triggerMode() !== 'hover') {
+  handlePointerEnter(event: PointerEvent): void {
+    if (!this.device.hasHover() || event.pointerType !== 'mouse') {
       return;
     }
 
     this.show();
   }
 
-  handleMouseLeave(): void {
-    if (this.triggerMode() !== 'hover') {
-      return;
-    }
-
-    this.hide();
-  }
-
-  handleFocusIn(): void {
-    if (this.triggerMode() !== 'hover') {
-      return;
-    }
-
-    this.show();
-  }
-
-  handleClick(event: MouseEvent): void {
-    if (this.triggerMode() !== 'click') {
-      return;
-    }
-
-    const triggerElement = this.trigger().nativeElement;
-    if (!triggerElement.contains(event.target as Node | null)) {
-      return;
-    }
-
-    this.show();
-  }
-
-  handleFocusOut(event: FocusEvent): void {
-    if (this.triggerMode() !== 'hover') {
-      return;
-    }
-
-    const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && this.trigger().nativeElement.contains(nextTarget)) {
+  handlePointerLeave(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') {
       return;
     }
 
@@ -124,20 +90,6 @@ export class TooltipComponent {
     }
 
     this.updatePosition();
-  }
-
-  @HostListener('document:pointerdown', ['$event'])
-  handleDocumentPointerDown(event: PointerEvent): void {
-    if (!this.open() || this.triggerMode() !== 'click') {
-      return;
-    }
-
-    const triggerElement = this.trigger().nativeElement;
-    if (triggerElement.contains(event.target as Node | null)) {
-      return;
-    }
-
-    this.hide();
   }
 
   private updatePosition(): void {

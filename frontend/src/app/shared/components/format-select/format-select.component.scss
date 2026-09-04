@@ -139,6 +139,38 @@
   animation: cz-format-select-menu-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+.format-select-search {
+  position: sticky;
+  z-index: 1;
+  top: -0.35rem;
+  margin: -0.35rem -0.35rem 0.17rem;
+  padding: 0.35rem;
+  background: rgb(var(--cz-bg-rgb) / 98%);
+}
+
+.format-select-search-input {
+  width: 100%;
+  min-height: 2.35rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 30%);
+  border-radius: 8px;
+  padding: 0 0.68rem;
+  background: rgb(var(--cz-surface-rgb) / 72%);
+  color: var(--cz-text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+  outline: none;
+}
+
+.format-select-search-input::placeholder {
+  color: rgb(var(--cz-text-rgb) / 52%);
+}
+
+.format-select-search-input:focus {
+  border-color: rgb(var(--cz-primary-rgb) / 70%);
+  box-shadow: 0 0 0 2px rgb(var(--cz-primary-rgb) / 14%);
+}
+
 .format-select-menu::-webkit-scrollbar-track {
   background:
     linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 68%), rgb(var(--cz-surface-rgb) / 72%));
@@ -286,6 +318,11 @@
     min-height: 2.15rem;
     padding-inline: 0.58rem;
     font-size: 0.74rem;
+  }
+
+  .format-select-search-input {
+    min-height: 2.12rem;
+    font-size: 0.76rem;
   }
 }
 

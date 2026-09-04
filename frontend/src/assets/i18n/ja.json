@@ -1,637 +1,749 @@
 {
+  "admin": {
+    "title": "管理",
+    "navigation": {
+      "sectionsAriaLabel": "管理セクション",
+      "toolsAriaLabel": "管理ツール"
+    },
+    "notifications": {
+      "recipient": "送信先",
+      "allUsers": "すべてのユーザー",
+      "delivery": {
+        "label": "送信方法",
+        "internal": "アプリ内メッセージのみ",
+        "email": "メールのみ",
+        "both": "アプリ内メッセージとメール",
+        "description": {
+          "internal": "受信者はこのメッセージをアプリ内でのみ確認できます。",
+          "email": "受信者はこのメッセージをメールでのみ受け取ります。",
+          "both": "受信者はこのメッセージをアプリ内で確認し、メールでも受け取ります。"
+        }
+      },
+      "subjectRequired": "件名を入力してください。",
+      "formattingTools": "メッセージ書式ツール",
+      "tools": {
+        "link": "リンク",
+        "separator": "区切り線",
+        "imageUrl": "画像 URL"
+      },
+      "formatHelp": "Enter キーで改行します。空行で新しい段落を開始します。",
+      "messageRequired": "メッセージを入力してください。",
+      "overflowWarning": "プレビューより幅の広いコンテンツは、受信者側で横スクロール表示されます。",
+      "preview": "プレビュー",
+      "previewEmpty": "メッセージのプレビューがここに表示されます。",
+      "send": "送信",
+      "messageSent": "{{ count }} 人のユーザーにメッセージを送信しました。",
+      "snippets": {
+        "imageDescription": "画像の説明",
+        "linkText": "リンクテキスト",
+        "listItem": "リスト項目"
+      },
+      "errors": {
+        "loadUsers": "ユーザーを読み込めませんでした。",
+        "invalidImageType": "画像ファイルを選択してください。",
+        "imageTooLarge": "アップロードした画像はメッセージに使用するには大きすぎます。より小さい画像を使用してください。",
+        "readImage": "アップロードした画像を読み取れませんでした。",
+        "sendMessage": "メッセージを送信できませんでした。",
+        "messageTooLong": "メッセージが長すぎます。最大 {{ count }} 文字です。"
+      }
+    },
+    "users": {
+      "summaryAriaLabel": "ユーザー概要",
+      "summary": {
+        "total": "ユーザー総数",
+        "totalDecks": "デッキ総数",
+        "tier0": "ティア 0"
+      },
+      "loading": "ユーザーを読み込み中...",
+      "noUsersMatch": "現在のフィルターに一致するユーザーはいません。",
+      "filters": {
+        "ariaLabel": "ユーザーフィルター",
+        "search": "ユーザーを検索",
+        "reset": "リセット",
+        "role": "ロールで絞り込み",
+        "premium": "プレミアムで絞り込み",
+        "status": "ステータスで絞り込み",
+        "mobileToggle": "フィルターと並べ替え"
+      },
+      "columns": {
+        "auth": "認証",
+        "lastConnectedAt": "最終接続",
+        "role": "ロール",
+        "localization": "地域"
+      },
+      "roles": {
+        "user": "ユーザー"
+      },
+      "premium": {
+        "none": "なし",
+        "tier1": "階層1",
+        "tier2": "階層2",
+        "tier3": "階層3"
+      },
+      "sort": {
+        "notSorted": "未ソート",
+        "ascending": "昇順",
+        "descending": "降順",
+        "asc": "Asc",
+        "desc": "Desc",
+        "ariaLabel": "{{ field }}で並べ替え。{{ direction }}。",
+        "mobileAriaLabel": "ユーザーの並べ替え",
+        "sortBy": "並べ替え",
+        "directionAriaLabel": "並べ替え方向を変更。現在: {{ direction }}。"
+      },
+      "local": "ローカル",
+      "never": "なし",
+      "lastConnectedToday": "今日",
+      "lastConnectedYesterday": "昨日",
+      "lastConnectedAgo": "{{ count }}日前",
+      "countries": {
+        "open": "国を見る",
+        "title": "国",
+        "ariaLabel": "国の概要",
+        "tableAriaLabel": "国別ユーザー",
+        "percentage": "割合",
+        "close": "国の概要を閉じる"
+      },
+      "status": {
+        "active": "オンラインまたは対戦中",
+        "recentlyConnected": "過去7日間オンライン",
+        "recentlyCreated": "過去7日間の新規ユーザー",
+        "neverConnected": "未接続"
+      },
+      "localization": {
+        "country": "国",
+        "language": "言語",
+        "ariaLabel": "ユーザーの場所",
+        "tableAriaLabel": "ユーザーの場所の概要",
+        "close": "場所を閉じる",
+        "viewLabel": "場所のデータ",
+        "activeUsers": "アクティブユーザー",
+        "continents": "大陸",
+        "views": {
+          "countriesAll": "国 · すべてのユーザー",
+          "countriesActive": "国 · アクティブユーザー",
+          "continentsAll": "大陸 · すべてのユーザー",
+          "continentsActive": "大陸 · アクティブユーザー",
+          "languagesAll": "言語 · すべてのユーザー",
+          "languagesActive": "言語 · アクティブユーザー"
+        }
+      },
+      "authorizationRole": "認可ロール",
+      "premiumTier": "プレミアム階層",
+      "onlineNow": "オンライン",
+      "offlineNow": "オフライン",
+      "activeSessions": "アクティブなセッション: {{ count }}",
+      "closeSessions": "セッションを閉じる",
+      "deleteUser": "ユーザーを削除",
+      "viewProfile": "プロフィールを表示",
+      "viewProfileFor": "{{ name }}のプロフィールを表示",
+      "sendMessageTo": "{{ name }}にメッセージを送信",
+      "impersonate": "なりすます",
+      "impersonateUser": "{{ name }}になりすます",
+      "paginationAriaLabel": "ユーザーのページ送り",
+      "pagination": {
+        "showing": "{{ total }}件中 {{ first }}～{{ last }}件を表示",
+        "page": "{{ total }}ページ中 {{ current }}ページ"
+      },
+      "results": {
+        "activeOfTotal": "{{ total }} 人中 {{ active }} 人がアクティブです",
+        "filteredOfTotal": "{{ total }} 人中 {{ count }} 人を表示"
+      },
+      "confirmations": {
+        "changeRole": {
+          "title": "ロール変更の確認",
+          "message": "{{ name }}のロールを{{ previousRole }}から{{ role }}に変更しますか？",
+          "confirm": "ロールを変更"
+        },
+        "changePremium": {
+          "title": "プレミアム階層変更の確認",
+          "message": "{{ name }}のプレミアム階層を{{ previousTier }}から{{ tier }}に変更しますか？",
+          "confirm": "プレミアムを変更"
+        },
+        "closeSessions": {
+          "title": "セッション終了の確認",
+          "message": "{{ name }}のアクティブなセッション {{ count }} 件を終了しますか？"
+        },
+        "deleteUser": {
+          "title": "ユーザー削除の確認",
+          "message": "{{ name }}を削除しますか？ この操作は元に戻せません。"
+        },
+        "impersonate": {
+          "title": "なりすましの確認",
+          "message": "{{ name }}になりすましますか？ なりすましを停止するまで、このユーザーとして操作します。"
+        }
+      },
+      "errors": {
+        "actionFailed": "ユーザー管理操作を完了できませんでした。"
+      }
+    },
+    "reports": {
+      "filtersAriaLabel": "通報フィルター",
+      "columns": {
+        "reporter": "通報者",
+        "reporterEmail": "通報者のメールアドレス",
+        "reportedUser": "通報対象のユーザー",
+        "reportedUserEmail": "通報対象のメールアドレス"
+      },
+      "loading": "通報を読み込み中...",
+      "empty": "ユーザー通報はまだありません。",
+      "noMatch": "現在のフィルターに一致する通報はありません。",
+      "messageReporter": "通報者にメッセージ",
+      "messageReportedUser": "通報対象にメッセージ",
+      "sendMessageToReporter": "通報者 {{ name }}にメッセージを送信",
+      "sendMessageToReportedUser": "通報対象 {{ name }}にメッセージを送信",
+      "errors": {
+        "loadReports": "通報を読み込めませんでした。"
+      }
+    }
+  },
   "common": {
+    "ui": {
+      "userActions": "ユーザー操作",
+      "reportUser": "ユーザーを通報",
+      "copyProfileLink": "プロフィールリンクをコピー",
+      "publicDecks": "公開デッキ",
+      "card": "カード",
+      "decksIncludeItem": "この{{ kind }}を含む公開 CommanderZone デッキは {{ count }} 個です。",
+      "impersonating": "{{ name }}として操作中",
+      "stop": "停止",
+      "averageManaValueWithoutLands": "土地を除く平均マナ総量: {{ value }}",
+      "messageTarget": "{{ name }}へ",
+      "roomNotice": "ルーム {{ name }}",
+      "revealed": "公開済み",
+      "revealedCard": "公開されたカード",
+      "revealedTopLibraryCard": "公開されたライブラリーの一番上のカード",
+      "deckVisualPreviews": "デッキのビジュアルプレビュー",
+      "cardResultPresentation": "カード結果の表示形式",
+      "gameChanger": "ゲームチェンジャー",
+      "commanderDamageFrom": "{{ player }} — {{ commander }}からの統率者ダメージ",
+      "removeCommanderDamageFrom": "{{ player }} — {{ commander }}からの統率者ダメージを減らす",
+      "addCommanderDamageFrom": "{{ player }} — {{ commander }}からの統率者ダメージを増やす",
+      "removeCounter": "{{ counter }}カウンターを取り除く",
+      "addCounter": "{{ counter }}カウンターを置く",
+      "roomOccupancy": "ルームの参加状況",
+      "removeOneLifeFrom": "{{ player }}のライフを1点減らす",
+      "addOneLifeTo": "{{ player }}のライフを1点増やす",
+      "counters": "{{ counter }}カウンター",
+      "noManaCost": "マナ・コストなし",
+      "legal": "使用可能",
+      "notLegal": "使用不可",
+      "copySummary": "{{ section }}に{{ count }}枚",
+      "workInProgress": "このページは現在作業中です。暫定版のため、内容が変更される場合があります。ご不便をおかけして申し訳ありません。",
+      "sourceCount": "{{ count }}個の供給源",
+      "availablePercentage": "{{ percent }}%利用可能",
+      "symbolsInCosts": "コスト内のシンボル: {{ count }}個",
+      "colorNeedsPercentage": "色マナ需要の {{ percent }}%",
+      "deckCount": "{{ count }}個のデッキ",
+      "playerCount": "{{ count }}人のプレイヤー",
+      "fixed": "固定",
+      "manual": "手動",
+      "manaQuantity": "マナの量",
+      "manaActionForCard": "{{ card }}のマナ操作",
+      "moveCardToAnotherBattlefield": "{{ card }}を{{ player }}の戦場に移動しますか？",
+      "giveCardToPlayer": "{{ card }}を{{ player }}に渡します。カードはそのプレイヤーの手札に移動します。",
+      "revealWhileMovingToHand": "{{ card }}をライブラリーから手札へ移動する際に公開しますか？",
+      "revealAndMove": "公開して移動",
+      "moveHidden": "非公開で移動",
+      "top": "一番上",
+      "bottom": "一番下",
+      "leaving": "退出中",
+      "connectedPlayers": "接続中のプレイヤー: {{ count }}人",
+      "emptyZone": "この領域にはカードがありません。いつでも閉じられます。",
+      "moveAllCardsToLibrary": "{{ count }}枚のカードをどこに置きますか？",
+      "saving": "保存中...",
+      "deleting": "削除中...",
+      "copied": "コピーしました",
+      "addMana": "{{ mana }}を加える",
+      "removeMana": "{{ mana }}を減らす",
+      "tokenQuantityFor": "{{ card }}のトークン数",
+      "gameplayCardAddControls": "ゲーム中のカード追加操作",
+      "decreaseTracker": "{{ tracker }}を減らす",
+      "increaseTracker": "{{ tracker }}を増やす",
+      "removeCommanderDamage": "{{ source }}から{{ player }}への統率者ダメージを減らす",
+      "addCommanderDamage": "{{ source }}から{{ player }}への統率者ダメージを増やす",
+      "premiumAvatar": "{{ name }}のプレミアムアバター",
+      "addVenture": "ダンジョン探索を追加",
+      "whiteMana": "白マナ",
+      "blueMana": "青マナ",
+      "blackMana": "黒マナ",
+      "redMana": "赤マナ",
+      "greenMana": "緑マナ",
+      "colorlessMana": "無色マナ",
+      "commanderTax": "統率者税",
+      "storm": "ストーム",
+      "colorAzorius": "アゾリウス",
+      "colorDimir": "ディミーア",
+      "colorRakdos": "ラクドス",
+      "colorGruul": "グルール",
+      "colorSelesnya": "セレズニア",
+      "colorOrzhov": "オルゾフ",
+      "colorIzzet": "イゼット",
+      "colorGolgari": "ゴルガリ",
+      "colorBoros": "ボロス",
+      "colorSimic": "シミック",
+      "colorEsper": "エスパー",
+      "colorGrixis": "グリクシス",
+      "colorJund": "ジャンド",
+      "colorNaya": "ナヤ",
+      "colorBant": "バント",
+      "saved": "保存しました",
+      "decreasePlayerTracker": "{{ player }}の{{ tracker }}を減らす",
+      "increasePlayerTracker": "{{ player }}の{{ tracker }}を増やす"
+    },
     "app": {
       "app": {
-        "loading": "èª­ã¿è¾¼ã¿ä¸­"
-      },
-      "brand": "CommanderZone"
+        "loading": "読み込み中"
+      }
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "å…è²¬äº‹é …",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone ã¯ Fan Content Policy ã«åŸºã¥ã„ã¦è¨±å¯ã•ã‚ŒãŸéžå…¬å¼ãƒ•ã‚¡ãƒ³ã‚³ãƒ³ãƒ†ãƒ³ãƒ„ã§ã™ã€‚ä»¥ä¸‹ã«ã‚ˆã‚‹æ‰¿èªã¾ãŸã¯æŽ¨å¥¨ã‚’å—ã‘ã¦ã„ã¾ã›ã‚“",
+        "disclaimer": "免責事項",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone は Fan Content Policy に基づいて許可された非公式ファンコンテンツです。以下による承認または推奨を受けていません",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": "ã€‚ä½¿ç”¨ã•ã‚Œã¦ã„ã‚‹ç´ æã®ä¸€éƒ¨ã¯ä»¥ä¸‹ã«å¸°å±žã—ã¾ã™",
+        "portionsOfTheMaterialsUsedAreProperty": "。使用されている素材の一部は以下に帰属します",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "Â©Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The GatheringÂ®",
-        "mtg": "MTGÂ®",
-        "llcASubsidiaryOf": "LLC ã¯ä»¥ä¸‹ã®å­ä¼šç¤¾ã§ã™",
+        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The Gathering®",
+        "mtg": "MTG®",
+        "llcASubsidiaryOf": "LLC は以下の子会社です",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "ã€ç±³å›½ãŠã‚ˆã³ãã®ä»–ã®å›½ã«ãŠã„ã¦ã€‚",
-        "allRightsReserved": "ã€‚ç„¡æ–­è»¢è¼‰ã‚’ç¦ã˜ã¾ã™ã€‚",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone ã¯ä¸€éƒ¨ã®",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "çŸ¥çš„è²¡ç”£ã‚’ä»¥ä¸‹ã«å®šã‚ã‚‰ã‚ŒãŸã‚¬ã‚¤ãƒ‰ãƒ©ã‚¤ãƒ³ã«å¾“ã£ã¦è¡¨ç¤ºã¾ãŸã¯å‚ç…§ã™ã‚‹å ´åˆãŒã‚ã‚Šã¾ã™",
+        "inTheUnitedStatesAndOtherCountries": "、米国およびその他の国において。",
+        "allRightsReserved": "。無断転載を禁じます。",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone は一部の",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "知的財産を以下に定められたガイドラインに従って表示または参照する場合があります",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": "ã€‚ã“ã®ã‚µã‚¤ãƒˆã¯è£½å“ã®è²©å£²ã€ãƒˆãƒ¼ãƒŠãƒ¡ãƒ³ãƒˆã®ä¸»å‚¬ã€ãƒ©ãƒ³ã‚­ãƒ³ã‚°ã¾ãŸã¯ç«¶æŠ€ã‚µãƒ¼ãƒ“ã‚¹ã®æä¾›ã‚’è¡Œã„ã¾ã›ã‚“ã€‚ã™ã¹ã¦ã®æ©Ÿèƒ½ã¯ç„¡æ–™ã§æä¾›ã•ã‚Œã€éžå–¶åˆ©ã€æ•™è‚²ã€å¨¯æ¥½ç›®çš„ã§ã®ã¿",
+        "thisSiteDoesNotSellProductsHost": "。このサイトは製品の販売、トーナメントの主催、ランキングまたは競技サービスの提供を行いません。すべての機能は無料で提供され、非営利、教育、娯楽目的でのみ",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£å‘ã‘ã«æä¾›ã•ã‚Œã¦ã„ã¾ã™ã€‚",
-        "forMoreInformationOn": "è©³ç´°ã«ã¤ã„ã¦ã¯ã€",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "ãŠã‚ˆã³ãã®çŸ¥çš„è²¡ç”£ãƒãƒªã‚·ãƒ¼ã«ã¤ã„ã¦ã¯ã€ä»¥ä¸‹ã‚’ã”è¦§ãã ã•ã„:",
-        "ifYouAreTheRightsHolderAnd": "æ¨©åˆ©è€…ã§ã‚ã‚Šã€ã“ã® Web ã‚µã‚¤ãƒˆä¸Šã®ã‚³ãƒ³ãƒ†ãƒ³ãƒ„ãŒæ¨©åˆ©ã‚’ä¾µå®³ã—ã¦ã„ã‚‹ã¨è€ƒãˆã‚‹å ´åˆã¯ã€è§£æ±ºã®ãŸã‚ç›´æŽ¥ãŠå•ã„åˆã‚ã›ãã ã•ã„ã€‚",
-        "copyrightYears": "Â© 1993-{{ currentYear }} Wizards of the Coast LLC",
-        "viewHelpOrPressKit": "Help & FAQ ã‚’å‚ç…§ã™ã‚‹ã‹ã€Press Kit ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚",
-        "trademarkedLogosImagesAndIpNotice": "ã€é–¢é€£ã™ã‚‹ã™ã¹ã¦ã®ãƒ­ã‚´ã€ã‚«ãƒ¼ãƒ‰ç”»åƒã€çŸ¥çš„è²¡ç”£ã¯ä»¥ä¸‹ã®å•†æ¨™ãŠã‚ˆã³/ã¾ãŸã¯è‘—ä½œç‰©ã§ã™",
-        "staticWizardsCopyrightYears": "Â© 1993-2025 Wizards of the Coast LLC"
+        "community": "コミュニティ向けに提供されています。",
+        "forMoreInformationOn": "詳細については、",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "およびその知的財産ポリシーについては、以下をご覧ください:",
+        "ifYouAreTheRightsHolderAnd": "権利者であり、この Web サイト上のコンテンツが権利を侵害していると考える場合は、解決のため直接お問い合わせください。",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "Help & FAQ を参照するか、Press Kit を確認してください。",
+        "trademarkedLogosImagesAndIpNotice": "、関連するすべてのロゴ、カード画像、知的財産は以下の商標および/または著作物です",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "å…¬é–‹",
-        "private": "ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆ",
-        "label": "å…¬é–‹è¨­å®š",
-        "privacy": "ãƒ—ãƒ©ã‚¤ãƒã‚·ãƒ¼",
-        "privateOnlyYouSubtitle": "è‡ªåˆ†ã ã‘ãŒé–²è¦§ã§ãã¾ã™",
-        "privateSubtitle": "æ‹›å¾…ã®ã¿",
-        "publicPlayersSubtitle": "ä»–ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«è¡¨ç¤ºã•ã‚Œã¾ã™",
-        "publicProfileSubtitle": "å…¬é–‹ãƒ—ãƒ­ãƒ•ã‚£ãƒ¼ãƒ«ã«è¡¨ç¤ºã•ã‚Œã¾ã™",
-        "publicSubtitle": "èª°ã§ã‚‚å‚åŠ ã§ãã¾ã™"
-      },
-      "visibilityPill": {
-        "public": "å…¬é–‹",
-        "private": "éžå…¬é–‹"
+        "privacy": "プライバシー",
+        "privateOnlyYouSubtitle": "自分だけが閲覧できます",
+        "privateSubtitle": "招待のみ",
+        "publicPlayersSubtitle": "他のプレイヤーに表示されます",
+        "publicProfileSubtitle": "公開プロフィールに表示されます",
+        "publicSubtitle": "誰でも参加できます"
       }
     },
     "extraActions": {
-      "label": "è¿½åŠ ",
-      "open": "è¿½åŠ ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³ã‚’é–‹ã",
-      "menu": "è¿½åŠ ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³"
+      "open": "追加のアクションを開く",
+      "menu": "追加のアクション"
     },
     "navigation": {
-      "back": "æˆ»ã‚‹"
+      "back": "戻る"
     },
     "actions": {
-      "accept": "æ‰¿èª",
-      "confirm": "ç¢ºèª",
-      "create": "ä½œæˆ",
-      "delete": "å‰Šé™¤",
-      "done": "å®Œäº†",
-      "invite": "æ‹›å¾…",
-      "roll": "æŒ¯ã‚‹",
-      "save": "ä¿å­˜",
-      "select": "é¸æŠž",
-      "sending": "é€ä¿¡ä¸­...",
-      "understood": "äº†è§£",
-      "working": "å‡¦ç†ä¸­...",
-      "showPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’è¡¨ç¤º",
-      "hidePassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’éš ã™",
-      "previous": "å‰ã¸",
-      "next": "æ¬¡ã¸",
-      "moveUp": "ä¸Šã«ç§»å‹•",
-      "moveDown": "ä¸‹ã«ç§»å‹•",
-      "remove": "å‰Šé™¤",
-      "newGame": "æ–°ã—ã„è©¦åˆ"
+      "create": "作成",
+      "delete": "削除",
+      "done": "完了",
+      "invite": "招待",
+      "understood": "了解",
+      "working": "処理中...",
+      "showPassword": "パスワードを表示",
+      "hidePassword": "パスワードを隠す",
+      "previous": "前へ",
+      "moveUp": "上に移動",
+      "moveDown": "下に移動"
     },
     "modal": {
-      "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-      "cannotBeUndone": "ã“ã®æ“ä½œã¯å…ƒã«æˆ»ã™ã“ã¨ãŒã§ãã¾ã›ã‚“ã€‚",
-      "close": "é–‰ã˜ã‚‹"
+      "cannotBeUndone": "この操作は元に戻すことができません。"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "commandersArrivalHeadline": "ã‚ãªãŸã®çµ±çŽ‡è€…ãŸã¡ã¯è¡€ã«é£¢ãˆã¦ã„ã¾ã™",
-        "welcome": "ã‚ˆã†ã“ã"
+        "commandersArrivalHeadline": "あなたの統率者たちは血に飢えています",
+        "welcome": "ようこそ"
       },
       "dashboardTopCommanders": {
-        "title": "äººæ°—ã®çµ±çŽ‡è€…",
-        "subtitle": "ã“ã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã§æœ€ã‚‚ä½¿ã‚ã‚Œã¦ã„ã‚‹çµ±çŽ‡è€…",
-        "communityPopularity": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã®è©¦åˆãƒ‡ãƒ¼ã‚¿ã«åŸºã¥ã",
-        "viewMore": "ã‚‚ã£ã¨è¦‹ã‚‹"
+        "subtitle": "このフォーマットで最も使われている統率者"
       },
       "dashboardHeaderContext": {
-        "pageSummary": "ãƒšãƒ¼ã‚¸æ¦‚è¦"
+        "pageSummary": "ページ概要"
       },
       "dashboardHeaderControls": {
-        "pendingFriendRequests": "ä¿ç•™ä¸­ã®å‹é”ãƒªã‚¯ã‚¨ã‚¹ãƒˆ",
-        "onlineFriends": "ã‚ªãƒ³ãƒ©ã‚¤ãƒ³å‹é”",
-        "friends": "å‹é”",
-        "messages": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-        "unreadMessages": "æœªèª­ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸"
+        "pendingFriendRequests": "保留中の友達リクエスト",
+        "onlineFriends": "オンライン友達",
+        "unreadMessages": "未読メッセージ"
       },
       "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone ãƒ€ãƒƒã‚·ãƒ¥ãƒœãƒ¼ãƒ‰",
-        "primary": "ãƒ—ãƒ©ã‚¤ãƒžãƒªãƒ¼",
-        "cards": "ã‚«ãƒ¼ãƒ‰",
-        "decks": "ãƒ‡ãƒƒã‚­",
-        "rooms": "ãƒ«ãƒ¼ãƒ ",
-        "community": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£",
-        "tableAssistant": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚¢ã‚·ã‚¹ã‚¿ãƒ³ãƒˆ",
-        "admin": "Admin"
+        "commanderzoneDashboard": "CommanderZone ダッシュボード",
+        "primary": "プライマリー",
+        "community": "コミュニティ"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "friends": "å‹é”",
-        "userSearchResults": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®æ¤œç´¢çµæžœ",
-        "friendList": "å‹é”ãƒªã‚¹ãƒˆ",
-        "sendFriendRequest": "å‹é”ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚’é€ã‚‹",
-        "cancelRequest": "ãƒªã‚¯ã‚¨ã‚¹ãƒˆã®ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-        "removeFriend": "å‹é”ã‚’å‰Šé™¤ã™ã‚‹",
-        "findUsers": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’æŽ¢ã™",
-        "noUsersFound": "ãƒ¦ãƒ¼ã‚¶ãƒ¼ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚",
-        "acceptedStatus": "å‹é”",
-        "blockedStatus": "ãƒ–ãƒ­ãƒƒã‚¯ã•ã‚Œã¾ã—ãŸ",
-        "declinedStatus": "æ‹’å¦ã•ã‚Œã¾ã—ãŸ",
-        "invitations": "æ‹›å¾…çŠ¶",
-        "inGameStatus": "ã‚²ãƒ¼ãƒ å†…",
-        "joinedPlayers": "å‚åŠ æ¸ˆã¿",
-        "offlineStatus": "ã‚ªãƒ•ãƒ©ã‚¤ãƒ³",
-        "online": "ã‚ªãƒ³ãƒ©ã‚¤ãƒ³",
-        "onlineStatus": "ã‚ªãƒ³ãƒ©ã‚¤ãƒ³",
-        "pendingStatus": "ä¿ç•™ä¸­",
-        "searchHint": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’æ¤œç´¢ã™ã‚‹ã«ã¯ 2 æ–‡å­—ä»¥ä¸Šå…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-        "searchPlayers": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’æ¤œç´¢...",
-        "searchTab": "æ¤œç´¢",
-        "seats": "å¸­",
-        "requests": "ãƒªã‚¯ã‚¨ã‚¹ãƒˆ",
-        "receivedRequests": "å—ã‘å–ã‚Šã¾ã—ãŸ",
-        "sentRequests": "é€ä¿¡æ¸ˆã¿",
-        "disconnected": "åˆ‡æ–­ã•ã‚Œã¾ã—ãŸ",
-        "roomInvite": "ãƒ«ãƒ¼ãƒ ã¸ã®æ‹›å¾…"
+        "userSearchResults": "ユーザーの検索結果",
+        "friendList": "友達リスト",
+        "cancelRequest": "リクエストのキャンセル",
+        "removeFriend": "友達を削除する",
+        "findUsers": "ユーザーを探す",
+        "blockedStatus": "ブロックされました",
+        "declinedStatus": "拒否されました",
+        "invitations": "招待状",
+        "joinedPlayers": "参加済み",
+        "pendingStatus": "保留中",
+        "searchHint": "プレイヤーを検索するには 2 文字以上入力してください。",
+        "searchPlayers": "プレイヤーを検索...",
+        "seats": "席",
+        "requests": "リクエスト",
+        "receivedRequests": "受け取りました",
+        "disconnected": "切断されました",
+        "roomInvite": "ルームへの招待"
       }
     },
     "messages": {
       "messagesDropdown": {
-        "messages": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-        "inbox": "å—ä¿¡ç®±",
-        "loadingMessages": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’èª­ã¿è¾¼ã¿ä¸­...",
-        "noMessagesYet": "ã¾ã ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "receivedMessages": "å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-        "sentBy": "é€ä¿¡è€…ï¼š",
-        "unread": "æœªèª­",
-        "read": "æ—¢èª­",
-        "couldNotLoadMessages": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-        "couldNotMarkMessageRead": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’æ—¢èª­ã«ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚"
+        "inbox": "受信箱",
+        "loadingMessages": "メッセージを読み込み中...",
+        "noMessagesYet": "まだメッセージはありません。",
+        "receivedMessages": "受信メッセージ",
+        "sentBy": "送信者：",
+        "unread": "未読",
+        "read": "既読",
+        "couldNotLoadMessages": "メッセージを読み込めませんでした。",
+        "couldNotMarkMessageRead": "メッセージを既読にできませんでした。"
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "èªè¨¼ãƒ¢ãƒ¼ãƒ‰",
-      "commanderzone": "CommanderZone",
-      "login": "ãƒ­ã‚°ã‚¤ãƒ³",
-      "register": "ç™»éŒ²",
-      "email": "é›»å­ãƒ¡ãƒ¼ãƒ«",
-      "emailOrUserName": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã¾ãŸã¯ãƒ¦ãƒ¼ã‚¶ãƒ¼å",
-      "invalidCredentials": "é›»å­ãƒ¡ãƒ¼ãƒ«ã€ãƒ¦ãƒ¼ã‚¶ãƒ¼åã€ã¾ãŸã¯ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒç„¡åŠ¹ã§ã™ã€‚",
-      "tooManyLoginAttempts": "å¤±æ•—ã—ãŸãƒ­ã‚°ã‚¤ãƒ³è©¦è¡ŒãŒå¤šã™ãŽã¾ã™ã€‚å¾Œã§ã‚‚ã†ä¸€åº¦è©¦ã—ã¦ãã ã•ã„ã€‚",
-      "loginLockoutWarning": "ãƒ­ã‚°ã‚¤ãƒ³è©¦è¡Œ {{ count }}/5 ã«å¤±æ•—ã—ã¾ã—ãŸã€‚ 5å›žå¤±æ•—ã™ã‚‹ã¨15åˆ†é–“ãƒ­ã‚°ã‚¤ãƒ³ãŒãƒ–ãƒ­ãƒƒã‚¯ã•ã‚Œã¾ã™ã€‚",
-      "password": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
-      "userName": "ãƒ¦ãƒ¼ã‚¶ãƒ¼å",
+      "authMode": "認証モード",
+      "login": "ログイン",
+      "register": "登録",
+      "emailOrUserName": "メールアドレスまたはユーザー名",
+      "invalidCredentials": "電子メール、ユーザー名、またはパスワードが無効です。",
+      "tooManyLoginAttempts": "失敗したログイン試行が多すぎます。後でもう一度試してください。",
+      "loginLockoutWarning": "ログイン試行 {{ count }}/5 に失敗しました。 5回失敗すると15分間ログインがブロックされます。",
+      "password": "パスワード",
       "passwordRequirements": {
-        "label": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®è¦ä»¶",
-        "minLength": "æœ€ä½Ž 8 æ–‡å­—",
-        "lowercase": "å°‘ãªãã¨ã‚‚ 1 ã¤ã®å°æ–‡å­—",
-        "uppercase": "å°‘ãªãã¨ã‚‚ 1 ã¤ã®å¤§æ–‡å­—",
-        "number": "å°‘ãªãã¨ã‚‚ 1 ã¤ã®æ•°å­—",
-        "special": "å°‘ãªãã¨ã‚‚ 1 ã¤ã®ç‰¹æ®Šæ–‡å­—"
+        "label": "パスワードの要件",
+        "minLength": "最低 8 文字",
+        "lowercase": "少なくとも 1 つの小文字",
+        "uppercase": "少なくとも 1 つの大文字",
+        "number": "少なくとも 1 つの数字",
+        "special": "少なくとも 1 つの特殊文字"
       },
-      "registrationCompletedCheckEmail": "ç™»éŒ²ãŒå®Œäº†ã—ã¾ã—ãŸã€‚ãƒ¡ãƒ¼ãƒ«ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¦ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚",
-      "createAccount": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ä½œæˆã™ã‚‹",
-      "accessDecksRoomsAndTable": "ãƒ‡ãƒƒã‚­ã€ãƒ«ãƒ¼ãƒ ã€æ‰‹å‹•ã®çµ±çŽ‡è€…ãƒ†ãƒ¼ãƒ–ãƒ«ã«ã‚¢ã‚¯ã‚»ã‚¹ã—ã¾ã™ã€‚",
-      "enterValidEmail": "æœ‰åŠ¹ãªé›»å­ãƒ¡ãƒ¼ãƒ«ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "enterValidEmailOrUsername": "æœ‰åŠ¹ãªé›»å­ãƒ¡ãƒ¼ãƒ«ã¾ãŸã¯ãƒ¦ãƒ¼ã‚¶ãƒ¼åã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "forgotPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å¿˜ã‚ŒãŸå ´åˆ",
-      "checkingEmail": "ãƒ¡ãƒ¼ãƒ«ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¦ã„ã¾ã™...",
-      "checkingAvailability": "ç©ºãçŠ¶æ³ã‚’ç¢ºèªä¸­...",
-      "passwordPolicySummary": "å°æ–‡å­—ã€å¤§æ–‡å­—ã€æ•°å­—ã€ç‰¹æ®Šæ–‡å­—ã‚’å«ã‚€ 8 æ–‡å­—ä»¥ä¸Šã€‚",
-      "confirmPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ç¢ºèª",
-      "passwordsDoNotMatch": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒä¸€è‡´ã—ã¾ã›ã‚“ã€‚",
-      "emailAvailable": "é›»å­ãƒ¡ãƒ¼ãƒ«ãŒåˆ©ç”¨å¯èƒ½",
-      "emailAlreadyRegistered": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã™ã§ã«ç™»éŒ²ã•ã‚Œã¦ã„ã¾ã™",
-      "couldNotCheckNow": "ç¾åœ¨ç¢ºèªã§ãã¾ã›ã‚“ã§ã—ãŸ",
-      "usernameLengthRequirement": "ãƒ¦ãƒ¼ã‚¶ãƒ¼åã¯ 2 ï½ž 20 æ–‡å­—ã«ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚",
-      "usernameAvailable": "åˆ©ç”¨å¯èƒ½ãªãƒ¦ãƒ¼ã‚¶ãƒ¼å",
-      "usernameUnavailable": "ãƒ¦ãƒ¼ã‚¶ãƒ¼åãŒåˆ©ç”¨ã§ãã¾ã›ã‚“",
-      "googleUnavailable": "ç¾åœ¨ã€Googleãƒ­ã‚°ã‚¤ãƒ³ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
-      "signInWithGoogle": "Googleã§ãƒ­ã‚°ã‚¤ãƒ³",
-      "registerWithGoogle": "Googleã§ç™»éŒ²",
-      "socialSignIn": "ã‚½ãƒ¼ã‚·ãƒ£ãƒ«ãƒ­ã‚°ã‚¤ãƒ³",
-      "or": "ã¾ãŸã¯"
+      "registrationCompletedCheckEmail": "登録が完了しました。メールをチェックしてアカウントを確認してください。",
+      "createAccount": "アカウントを作成する",
+      "accessDecksRoomsAndTable": "デッキ、ルーム、手動の統率者テーブルにアクセスします。",
+      "enterValidEmailOrUsername": "有効な電子メールまたはユーザー名を入力してください。",
+      "forgotPassword": "パスワードを忘れた場合",
+      "passwordPolicySummary": "小文字、大文字、数字、特殊文字を含む 8 文字以上。",
+      "googleUnavailable": "現在、Googleログインは利用できません。",
+      "signInWithGoogle": "Googleでログイン",
+      "registerWithGoogle": "Googleで登録",
+      "socialSignIn": "ソーシャルログイン",
+      "or": "または"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "ãƒ¡ãƒ¼ãƒ«ç¢ºèªä¸­",
-      "waitWhileWeConfirmYourAccount": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’ç¢ºèªã™ã‚‹ã¾ã§ãŠå¾…ã¡ãã ã•ã„ã€‚",
-      "couldNotConfirmEmail": "ãƒ¡ãƒ¼ãƒ«ã‚’ç¢ºèªã§ãã¾ã›ã‚“ã§ã—ãŸ",
-      "invalidOrExpiredLink": "æ¤œè¨¼ãƒªãƒ³ã‚¯ãŒç„¡åŠ¹ã§ã‚ã‚‹ã‹ã€æœ‰åŠ¹æœŸé™ãŒåˆ‡ã‚Œã¦ã„ã¾ã™ã€‚"
+      "confirmingEmail": "メール確認中",
+      "waitWhileWeConfirmYourAccount": "アカウントを確認するまでお待ちください。",
+      "couldNotConfirmEmail": "メールを確認できませんでした",
+      "invalidOrExpiredLink": "検証リンクが無効であるか、有効期限が切れています。"
     },
     "passwordResetPage": {
-      "email": "é›»å­ãƒ¡ãƒ¼ãƒ«",
-      "requestError": "å¾©æ—§ãƒ¡ãƒ¼ãƒ«ã‚’ãƒªã‚¯ã‚¨ã‚¹ãƒˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "invalidOrExpiredLink": "å›žå¾©ãƒªãƒ³ã‚¯ãŒç„¡åŠ¹ã§ã‚ã‚‹ã‹ã€æœ‰åŠ¹æœŸé™ãŒåˆ‡ã‚Œã¦ã„ã¾ã™ã€‚",
-      "updateError": "ãã®ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ä½¿ç”¨ã—ã¦ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’æ›´æ–°ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "sending": "é€ä¿¡ä¸­...",
-      "sendRecoveryEmail": "å¾©æ—§ãƒ¡ãƒ¼ãƒ«ã‚’é€ä¿¡",
-      "updating": "æ›´æ–°ä¸­...",
-      "updatePassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’æ›´æ–°ã™ã‚‹",
-      "resetPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’ãƒªã‚»ãƒƒãƒˆã™ã‚‹",
-      "requestRecoveryEmailDescription": "å®‰å…¨ãªãƒªãƒ³ã‚¯ã‚’å—ã‘å–ã‚‹ãŸã‚ã€å¾©æ—§ãƒ¡ãƒ¼ãƒ«ã‚’ãƒªã‚¯ã‚¨ã‚¹ãƒˆã—ã¦ãã ã•ã„ã€‚",
-      "setNewPasswordDescription": "é›»å­ãƒ¡ãƒ¼ãƒ«ã§å—ã‘å–ã£ãŸå®‰å…¨ãªãƒªãƒ³ã‚¯ã‚’ä½¿ç”¨ã—ã¦æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’è¨­å®šã—ã¾ã™ã€‚",
-      "newPassword": "æ–°ã—ã„ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰",
-      "confirmPassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã®ç¢ºèª",
-      "passwordsDoNotMatch": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒä¸€è‡´ã—ã¾ã›ã‚“ã€‚",
-      "passwordUpdatedSigningIn": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒæ›´æ–°ã•ã‚Œã¾ã—ãŸã€‚ã‚µã‚¤ãƒ³ã‚¤ãƒ³ä¸­...",
-      "recoveryEmailSentIfAccountExists": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒå­˜åœ¨ã™ã‚‹å ´åˆã€ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰å¾©æ—§ãƒ¡ãƒ¼ãƒ«ãŒé€ä¿¡ã•ã‚Œã¾ã™ã€‚"
+      "requestError": "復旧メールをリクエストできませんでした。",
+      "invalidOrExpiredLink": "回復リンクが無効であるか、有効期限が切れています。",
+      "updateError": "そのトークンを使用してパスワードを更新できませんでした。",
+      "sendRecoveryEmail": "復旧メールを送信",
+      "updating": "更新中...",
+      "updatePassword": "パスワードを更新する",
+      "resetPassword": "パスワードをリセットする",
+      "requestRecoveryEmailDescription": "安全なリンクを受け取るため、復旧メールをリクエストしてください。",
+      "setNewPasswordDescription": "電子メールで受け取った安全なリンクを使用して新しいパスワードを設定します。",
+      "newPassword": "新しいパスワード",
+      "passwordUpdatedSigningIn": "パスワードが更新されました。サインイン中...",
+      "recoveryEmailSentIfAccountExists": "メールアドレスが存在する場合、パスワード復旧メールが送信されます。"
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "ãƒ«ãƒ¼ãƒ ã‚’æ¤œç´¢",
-      "searchOwner": "ãƒ›ã‚¹ãƒˆã®æ¤œç´¢",
-      "roomName": "ãƒ«ãƒ¼ãƒ å",
-      "owner": "ãƒ›ã‚¹ãƒˆ",
-      "visibility": "å¯è¦–æ€§",
-      "publicAndPrivate": "ã™ã¹ã¦",
-      "publicOnly": "å…¬é–‹ã®ã¿",
-      "privateOnly": "ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆã®ã¿",
-      "status": "ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
-      "anonymous": "åŒ¿å",
-      "open": "å‹Ÿé›†ä¸­",
-      "full": "æº€å“¡",
-      "started": "é–‹å§‹æ¸ˆã¿",
-      "host": "ãƒ›ã‚¹ãƒˆ",
-      "format": "ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
-      "players": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "action": "ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
-      "noRoomsMatchTheCurrentFilters": "ç¾åœ¨ã®ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã«ä¸€è‡´ã™ã‚‹ãƒ«ãƒ¼ãƒ ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "paginationLabel": "ãƒ«ãƒ¼ãƒ ä¸€è¦§ã®ãƒšãƒ¼ã‚¸åˆ‡ã‚Šæ›¿ãˆ"
+      "searchRoom": "ルームを検索",
+      "searchOwner": "ホストの検索",
+      "anonymous": "匿名",
+      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。",
+      "paginationLabel": "ルーム一覧のページ切り替え"
     },
     "roomCreatePanel": {
-      "join": "å‚åŠ ",
-      "createANewRoom": "æ–°ã—ã„ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã™ã‚‹",
-      "roomSetup": "ãƒ«ãƒ¼ãƒ è¨­å®š",
-      "createRoom": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã™ã‚‹",
-      "alreadyInRoomTooltip": "ã™ã§ã«ãƒ«ãƒ¼ãƒ ã«å‚åŠ ã—ã¦ã„ã¾ã™ã€‚åˆ¥ã®ãƒ«ãƒ¼ãƒ ã«å‚åŠ ã™ã‚‹å‰ã«é€€å‡ºã—ã¦ãã ã•ã„ã€‚",
-      "enterRoomCode": "ãƒ«ãƒ¼ãƒ ã‚³ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„",
-      "joinWithCode": "ã‚³ãƒ¼ãƒ‰ã§å‚åŠ ã™ã‚‹"
+      "createANewRoom": "新しいルームを作成する",
+      "roomSetup": "ルーム設定",
+      "alreadyInRoomTooltip": "すでにルームに参加しています。別のルームに参加する前に退出してください。",
+      "enterRoomCode": "ルームコードを入力してください",
+      "joinWithCode": "コードで参加する"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "ç¾åœ¨ã®ãƒ«ãƒ¼ãƒ è©³ç´°",
-      "currentRoom": "ç¾åœ¨ã®ãƒ«ãƒ¼ãƒ ",
-      "yourDeck": "ã‚ãªãŸã®ãƒ‡ãƒƒã‚­",
-      "turn": "ã‚¿ãƒ¼ãƒ³"
+      "currentRoomDetails": "現在のルーム詳細",
+      "currentRoom": "現在のルーム",
+      "yourDeck": "あなたのデッキ"
     },
     "roomInvitesPanel": {
-      "invites": "æ‹›å¾…",
-      "pendingRoomInvites": "ä¿ç•™ä¸­ã®ãƒ«ãƒ¼ãƒ ã¸ã®æ‹›å¾…",
-      "accept": "æ‰¿èª",
-      "decline": "è¾žé€€"
-    },
-    "roomRow": {
-      "started": "é–‹å§‹æ¸ˆã¿",
-      "full": "ãƒ•ãƒ«",
-      "open": "å‹Ÿé›†ä¸­",
-      "join": "å‚åŠ "
+      "invites": "招待",
+      "pendingRoomInvites": "保留中のルームへの招待",
+      "decline": "辞退"
     },
     "rooms": {
-      "validDeckRequiredToCreate": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã™ã‚‹ã«ã¯æœ‰åŠ¹ãªãƒ‡ãƒƒã‚­ãŒå¿…è¦ã§ã™ã€‚",
-      "deleteRoom": "ãƒ«ãƒ¼ãƒ ã‚’å‰Šé™¤ã™ã‚‹",
-      "deckRequired": "ãƒ‡ãƒƒã‚­ãŒå¿…è¦ã§ã™"
+      "validDeckRequiredToCreate": "ルームを作成するには有効なデッキが必要です。",
+      "deckRequired": "デッキが必要です"
     },
     "roomSetupControls": {
-      "timer": "ã‚¿ã‚¤ãƒžãƒ¼",
-      "mulligan": "ãƒžãƒªã‚¬ãƒ³",
-      "firstMulliganFree": "æœ€åˆã®ãƒžãƒªã‚¬ãƒ³ã¯ç„¡æ–™ã§ã™",
-      "firstMulliganNotFree": "First mulligan is not free",
-      "mulliganDescriptions": {
-        "london": "æ¯Žå›ž7æžšå¼•ãã¾ã™ã€‚ã‚­ãƒ¼ãƒ—ã™ã‚‹ã¨ãã€æœ‰åŠ¹ãªãƒžãƒªã‚¬ãƒ³1å›žã«ã¤ãã‚«ãƒ¼ãƒ‰1æžšã‚’ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹ã«ç½®ãã¾ã™ã€‚",
-        "vancouver": "æœ‰åŠ¹ãªãƒžãƒªã‚¬ãƒ³1å›žã«ã¤ãå¼•ãã‚«ãƒ¼ãƒ‰ãŒ1æžšå°‘ãªããªã‚Šã¾ã™ã€‚æœ‰åŠ¹ãªãƒžãƒªã‚¬ãƒ³å¾Œã«ã‚­ãƒ¼ãƒ—ã—ãŸå ´åˆã€å è¡“1ã‚’è¡Œã„ã¾ã™ã€‚",
-        "paris": "æœ‰åŠ¹ãªãƒžãƒªã‚¬ãƒ³1å›žã«ã¤ãå¼•ãã‚«ãƒ¼ãƒ‰ãŒ1æžšå°‘ãªããªã‚Šã¾ã™ã€‚ã‚«ãƒ¼ãƒ‰ã‚’ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹ã«ç½®ãã“ã¨ã‚‚ã€å è¡“ã‚’è¡Œã†ã“ã¨ã‚‚ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "generous": "çµ±çŽ‡è€…å‘ã‘ã®å¯›å®¹ãƒ«ãƒ¼ãƒ«: æœ€å¤§10æžšå¼•ãã€å¯èƒ½ãªã‚‰7æžšã‚’ã‚­ãƒ¼ãƒ—ã—ã€æ®‹ã‚Šã‚’ç„¡ä½œç‚ºãªé †ç•ªã§ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹ã«ç½®ãã¾ã™ã€‚"
-      },
-      "firstMulliganFreeOn": "ç„¡æ–™",
-      "firstMulliganFreeOff": "ã‚«ã‚¦ãƒ³ãƒˆ",
-      "mulliganRules": {
-        "generous": "å¯›å®¹",
-        "london": "London",
-        "paris": "Paris",
-        "vancouver": "Vancouver"
-      },
-      "noTimer": "ã‚¿ã‚¤ãƒžãƒ¼ãªã—"
+      "firstMulliganFreeOff": "カウント",
+      "noTimer": "タイマーなし"
     },
     "roomSetupModal": {
-      "roomName": "ãƒ«ãƒ¼ãƒ å",
-      "timer": "ã‚¿ã‚¤ãƒžãƒ¼",
-      "createRoom": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã™ã‚‹",
-      "editRoomConfigurationBeforeStarting": "é–‹å§‹ã™ã‚‹å‰ã«ãƒ«ãƒ¼ãƒ ã®æ§‹æˆã‚’èª¿æ•´ã—ã¦ãã ã•ã„ã€‚",
-      "exampleRoomName": "ä¾‹ï¼šã‚¶ãƒ»ã‚¿ãƒãƒ¼ãƒ³"
+      "editRoomConfigurationBeforeStarting": "開始する前にルームの構成を調整してください。",
+      "exampleRoomName": "例：ザ・タバーン"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "ãƒ‡ãƒƒã‚­é¸æŠž",
-      "invalidDeck": "ç„¡åŠ¹ãªãƒ‡ãƒƒã‚­",
-      "rollDice": "ãƒ€ã‚¤ã‚¹ã‚’æŒ¯ã‚‹",
-      "selectADeck": "ãƒ‡ãƒƒã‚­ã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "randomDeck": "ãƒ©ãƒ³ãƒ€ãƒ ãƒ‡ãƒƒã‚­",
-      "chooseOne": "1 ã¤é¸æŠžã—ã¦ãã ã•ã„",
-      "checking": "ãƒã‚§ãƒƒã‚¯ä¸­"
+      "deckSelection": "デッキ選択",
+      "randomDeck": "ランダムデッキ",
+      "chooseOne": "1 つ選択してください",
+      "checking": "チェック中"
     },
     "waitingRoomLogPanel": {
-      "activity": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ“ãƒ†ã‚£",
-      "roomEventsWillAppearHere": "ã“ã“ã«ãƒ«ãƒ¼ãƒ ã‚¤ãƒ™ãƒ³ãƒˆãŒè¡¨ç¤ºã•ã‚Œã¾ã™ã€‚"
+      "activity": "アクティビティ",
+      "roomEventsWillAppearHere": "ここにルームイベントが表示されます。"
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½æ”¾",
-      "d20RollResult": "D20ãƒ­ãƒ¼ãƒ«çµæžœ",
-      "waitingForPlayer": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’å¾…ã£ã¦ã„ã¾ã™",
-      "host": "ãƒ›ã‚¹ãƒˆ",
-      "turnOrder": "ã‚¿ãƒ¼ãƒ³é †åº",
-      "d20Roll": "D20ãƒ­ãƒ¼ãƒ«",
-      "openSlot": "ã‚ªãƒ¼ãƒ—ãƒ³ã‚¹ãƒ­ãƒƒãƒˆ"
+      "d20RollResult": "D20ロール結果",
+      "waitingForPlayer": "プレイヤーを待っています",
+      "d20Roll": "D20ロール",
+      "openSlot": "オープンスロット"
     },
     "waitingRoom": {
-      "leaveRoom": "ãƒ«ãƒ¼ãƒ ã‚’å‡ºã‚‹",
-      "deleteRoom": "ãƒ«ãƒ¼ãƒ ã‚’å‰Šé™¤ã™ã‚‹",
-      "inviteFriends": "å‹é”ã‚’æ‹›å¾…ã™ã‚‹",
-      "kickPlayer": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½æ”¾",
-      "invalidDeck": "ç„¡åŠ¹ãªãƒ‡ãƒƒã‚­",
-      "setup": "ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—",
-      "chooseYourDeckAndGetReadyBefore": "ãƒ‡ãƒƒã‚­ã‚’é¸æŠžã—ã€é–‹å§‹ã™ã‚‹å‰ã«æº–å‚™ã‚’æ•´ãˆã¦ãã ã•ã„ã€‚",
-      "start": "é–‹å§‹",
-      "afterRollingYourDeckSelectionWillBe": "ãƒ€ã‚¤ã‚¹ã‚’æŒ¯ã£ãŸå¾Œã€ãƒ‡ãƒƒã‚­é¸æŠžã¯ãƒ­ãƒƒã‚¯ã•ã‚Œå¤‰æ›´ã§ããªããªã‚Šã¾ã™ã€‚",
-      "noAcceptedFriendsYet": "ã¾ã æ‰¿èªã•ã‚ŒãŸå‹é”ãŒã„ã¾ã›ã‚“ã€‚",
-      "inRoom": "ãƒ«ãƒ¼ãƒ ã®ä¸­",
-      "invited": "æ‹›å¾…ã•ã‚Œã¾ã—ãŸ",
-      "allPlayersReady": "å…¨ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼æº–å‚™å®Œäº†",
-      "chooseAcceptedFriendsToInvite": "ã“ã®ãƒ«ãƒ¼ãƒ ã«æ‹›å¾…ã™ã‚‹æ‰¿èªæ¸ˆã¿ã®å‹é”ã‚’é¸æŠžã—ã¦ãã ã•ã„ã€‚",
-      "invalidDeckSelectionMessage": "{{ deckName }} ã«ã¯çµ±çŽ‡è€…ãƒ‡ãƒƒã‚­æ¤œè¨¼ã‚¨ãƒ©ãƒ¼ãŒã‚ã‚‹ãŸã‚é¸æŠžã§ãã¾ã›ã‚“ã€‚",
-      "kickPlayerConfirmation": "{{ playerName }} ã‚’ãƒ«ãƒ¼ãƒ ã‹ã‚‰è¿½ã„å‡ºã—ã¾ã™ã‹?",
-      "leaveRoomConfirmation": "ã“ã®ãƒ«ãƒ¼ãƒ ã‚’é€€å‡ºã—ã€ãƒ«ãƒ¼ãƒ ä¸€è¦§ã«æˆ»ã‚Šã¾ã™ã€‚",
-      "playersCount": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ ({{ current }}/{{ max }})",
-      "rollSetsTurnOrder": "ã“ã®ãƒ­ãƒ¼ãƒ«ã§ã‚¿ãƒ¼ãƒ³é †ãŒæ±ºã¾ã‚Šã¾ã™ã€‚",
-      "thisDeck": "ã“ã®ãƒ‡ãƒƒã‚­",
-      "thisPlayer": "ã“ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "tieBreakRoll": "ã‚¿ã‚¤ãƒ–ãƒ¬ãƒ¼ã‚¯ãƒ­ãƒ¼ãƒ«",
-      "tieBreakRollMessage": "{{ playerNames }} ã¨åŒç‚¹ã§ã™ã€‚ã‚‚ã†ä¸€åº¦æŒ¯ã£ã¦ã‚¿ã‚¤ã‚’è§£æ¶ˆã—ã¦ãã ã•ã„ã€‚",
-      "waitingForDecksAndRolls": "ãƒ‡ãƒƒã‚­ã¨ãƒ­ãƒ¼ãƒ«ã‚’å¾…ã£ã¦ã„ã¾ã™",
+      "setup": "セットアップ",
+      "chooseYourDeckAndGetReadyBefore": "デッキを選択し、開始する前に準備を整えてください。",
+      "afterRollingYourDeckSelectionWillBe": "ダイスを振った後、デッキ選択はロックされ変更できなくなります。",
+      "noAcceptedFriendsYet": "まだ承認された友達がいません。",
+      "inRoom": "ルームの中",
+      "invited": "招待されました",
+      "allPlayersReady": "全プレイヤー準備完了",
+      "chooseAcceptedFriendsToInvite": "このルームに招待する承認済みの友達を選択してください。",
+      "invalidDeckSelectionMessage": "{{ deckName }} には統率者デッキ検証エラーがあるため選択できません。",
+      "kickPlayerConfirmation": "{{ playerName }} をルームから追い出しますか?",
+      "leaveRoomConfirmation": "このルームを退出し、ルーム一覧に戻ります。",
+      "playersCount": "プレイヤー ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "このロールでターン順が決まります。",
+      "thisDeck": "このデッキ",
+      "thisPlayer": "このプレイヤー",
+      "tieBreakRoll": "タイブレークロール",
+      "tieBreakRollMessage": "{{ playerNames }} と同点です。もう一度振ってタイを解消してください。",
+      "waitingForDecksAndRolls": "デッキとロールを待っています",
       "realtimeUnavailable": "リアルタイム接続を復旧しています。ルームの変更が遅れて表示される場合があります。"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "é–‹å§‹æ™‚ãƒ©ã‚¤ãƒ•ç·é‡",
-        "decreaseStartingLife": "é–‹å§‹æ™‚ãƒ©ã‚¤ãƒ•ç·é‡ã‚’æ¸›ã‚‰ã™",
-        "increaseStartingLife": "é–‹å§‹æ™‚ãƒ©ã‚¤ãƒ•ç·é‡ã‚’å¢—ã‚„ã™",
-        "lifeUnit": "ãƒ©ã‚¤ãƒ•",
-        "startingLifePresets": "é–‹å§‹æ™‚ãƒ©ã‚¤ãƒ•ç·é‡ãƒ—ãƒªã‚»ãƒƒãƒˆ",
-        "startingTotal": "é–‹å§‹åˆè¨ˆ",
-        "totalLife": "ãƒ©ã‚¤ãƒ•ç·é‡"
+        "decreaseStartingLife": "開始時ライフ総量を減らす",
+        "increaseStartingLife": "開始時ライフ総量を増やす",
+        "lifeUnit": "ライフ",
+        "startingLifePresets": "開始時ライフ総量プリセット"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚µã‚¤ã‚º",
-        "seats": "å¸­",
-        "setTableSizeToPlayers": "ãƒ†ãƒ¼ãƒ–ãƒ«äººæ•°ã‚’ {{ count }} äººã«è¨­å®š"
+        "tableSize": "テーブルサイズ",
+        "seats": "席",
+        "setTableSizeToPlayers": "テーブル人数を {{ count }} 人に設定"
       }
     },
     "header": {
-      "title": "ãƒ«ãƒ¼ãƒ ",
-      "totalRooms": "ç·ãƒ«ãƒ¼ãƒ æ•°",
-      "openRooms": "ã‚ªãƒ¼ãƒ—ãƒ³ãƒ«ãƒ¼ãƒ ",
-      "privateRooms": "å€‹å®¤",
-      "publicRooms": "ãƒ‘ãƒ–ãƒªãƒƒã‚¯ãƒ«ãƒ¼ãƒ ",
-      "totalPlayers": "ç·ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼æ•°",
-      "startedGames": "é–‹å§‹æ¸ˆã¿ã®è©¦åˆ",
-      "description": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªãƒ­ãƒ“ãƒ¼ã‚’æŽ¢ã—ã¦ã€ã™ãã«è©¦åˆã¸å‚åŠ ã§ãã¾ã™ã€‚"
-    },
-    "waiting": {
-      "header": {
-        "inviteFriends": "å‹é”ã‚’æ‹›å¾…ã™ã‚‹"
-      }
+      "totalRooms": "総ルーム数",
+      "openRooms": "オープンルーム",
+      "privateRooms": "個室",
+      "publicRooms": "パブリックルーム",
+      "totalPlayers": "総プレイヤー数",
+      "startedGames": "開始済みの試合",
+      "description": "アクティブなロビーを探して、すぐに試合へ参加できます。"
     }
   },
   "community": {
     "preview": {
       "summary": {
-        "topHundred": "ä¸Šä½ 100 æžšã®ã‚«ãƒ¼ãƒ‰"
+        "topHundred": "上位 100 枚のカード"
       },
-      "error": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "empty": "ã¾ã åˆ©ç”¨å¯èƒ½ãªã‚«ãƒ¼ãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "playedLabel": "éŠã‚“ã ",
+      "error": "コミュニティ プレビューを読み込めませんでした。",
+      "empty": "まだ利用可能なカードはありません。",
+      "playedLabel": "遊んだ",
       "filters": {
-        "allTypes": "å…¨ç¨®é¡ž",
         "type": {
-          "artifact": "ã‚¢ãƒ¼ãƒ†ã‚£ãƒ•ã‚¡ã‚¯ãƒˆ",
-          "battle": "ãƒãƒˆãƒ«",
-          "creature": "ã‚¯ãƒªãƒ¼ãƒãƒ£ãƒ¼",
-          "enchantment": "ã‚¨ãƒ³ãƒãƒ£ãƒ³ãƒˆ",
-          "instant": "ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ãƒˆ",
-          "land": "åœŸåœ°",
-          "planeswalker": "ãƒ—ãƒ¬ã‚¤ãƒ³ã‚ºã‚¦ã‚©ãƒ¼ã‚«ãƒ¼",
-          "sorcery": "ã‚½ãƒ¼ã‚µãƒªãƒ¼"
+          "creature": "クリーチャー",
+          "enchantment": "エンチャント",
+          "instant": "インスタント",
+          "planeswalker": "プレインズウォーカー",
+          "sorcery": "ソーサリー"
         }
       }
     },
     "detail": {
       "saveConfirmation": {
-        "title": "ã“ã®ãƒ‡ãƒƒã‚­ã‚’ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã«ä¿å­˜ã—ã¾ã™ã‹?",
-        "confirm": "ç¢ºèªã™ã‚‹",
-        "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«"
+        "title": "このデッキをデッキリストに保存しますか?"
       },
-      "error": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "headerTitle": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­",
-      "like": "ãƒ‡ãƒƒã‚­ã«ã„ã„ã­",
-      "likeError": "ã“ã®ãƒ‡ãƒƒã‚­ã«ã„ã„ã­ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "missingId": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­IDãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "save": "ä¿å­˜",
-      "saveError": "ã“ã®ãƒ‡ãƒƒã‚­ã‚’ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã«ä¿å­˜ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "shareError": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­ã®ãƒªãƒ³ã‚¯ã‚’ã‚³ãƒ”ãƒ¼ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "unknownCommander": "ä¸æ˜Žãªçµ±çŽ‡è€…",
+      "error": "コミュニティデッキを読み込めませんでした。",
+      "headerTitle": "コミュニティデッキ",
+      "like": "デッキにいいね",
+      "likeError": "このデッキにいいねできませんでした。",
+      "missingId": "コミュニティデッキIDがありません。",
+      "saveError": "このデッキをデッキリストに保存できませんでした。",
+      "shareError": "コミュニティデッキのリンクをコピーできませんでした。",
+      "unknownCommander": "不明な統率者",
       "readonly": {
         "validation": {
-          "backendValid": "ã“ã®ãƒ‡ãƒƒã‚­ã¯ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã§æœ‰åŠ¹ã¨ã—ã¦ãƒžãƒ¼ã‚¯ã•ã‚Œã¦ã„ã¾ã™ã€‚",
-          "backendInvalid": "ã“ã®ãƒ‡ãƒƒã‚­ã«ã¯ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã§è­¦å‘Šã¾ãŸã¯å•é¡ŒãŒã‚ã‚Šã¾ã™ã€‚",
-          "commanders": "çµ±çŽ‡é ˜åŸŸ: {{ names }}",
-          "error": "ã‚¨ãƒ©ãƒ¼",
-          "warning": "è­¦å‘Š"
+          "backendValid": "このデッキはコミュニティで有効としてマークされています。",
+          "backendInvalid": "このデッキにはコミュニティで警告または問題があります。",
+          "commanders": "統率領域: {{ names }}",
+          "error": "エラー"
         },
-        "historyOwner": "å…±æœ‰è€…",
-        "ownDeck": "ã“ã®ãƒ‡ãƒƒã‚­ã¯ã‚ãªãŸã®ã‚‚ã®ã§ã™ã€‚"
+        "historyOwner": "共有者",
+        "ownDeck": "このデッキはあなたのものです。"
       }
     },
     "deckCard": {
-      "likes": "ã„ã„ã­æ•°: {{ count }}",
-      "copies": "ã‚³ãƒ”ãƒ¼æ•°: {{ count }}"
+      "likes": "いいね数: {{ count }}",
+      "copies": "コピー数: {{ count }}"
     },
     "dashboardTopCommanders": {
-      "ariaLabel": "ãƒˆãƒƒãƒ—3ã®çµ±çŽ‡è€…",
-      "theUrDragonPlayed": "47,928 ã‚²ãƒ¼ãƒ ",
-      "edgarMarkovPlayed": "47,211 ã‚²ãƒ¼ãƒ ",
-      "atraxaPlayed": "43,917 ã‚²ãƒ¼ãƒ "
+      "ariaLabel": "トップ3の統率者",
+      "theUrDragonPlayed": "47,928 ゲーム",
+      "edgarMarkovPlayed": "47,211 ゲーム",
+      "atraxaPlayed": "43,917 ゲーム"
     },
     "home": {
-      "title": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­",
-      "subtitle": "ä»–ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒä½œæˆã—ãŸå…¬é–‹ãƒ‡ãƒƒã‚­ã‚’ç™ºè¦‹ã—ã¦ãã ã•ã„ã€‚",
-      "error": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
+      "title": "コミュニティデッキ",
+      "subtitle": "他のプレイヤーが作成した公開デッキを発見してください。",
+      "error": "コミュニティを読み込めませんでした。",
       "decksSection": {
-        "title": "ç™ºè¦‹ã™ã‚‹ãƒ‡ãƒƒã‚­"
+        "title": "発見するデッキ"
       },
-      "decksButton": "æ¤œç´¢ãƒ‡ãƒƒã‚­",
-      "decksEmpty": "ã¾ã åˆ©ç”¨å¯èƒ½ãªãƒ‘ãƒ–ãƒªãƒƒã‚¯ãƒ‡ãƒƒã‚­ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "commandersTitle": "æœ€ã‚‚ãƒ—ãƒ¬ã‚¤ã•ã‚ŒãŸçµ±çŽ‡è€…",
-      "mobileCommandersTitle": "äººæ°—ã®çµ±çŽ‡è€…",
-      "commandersAriaLabel": "å‚è€ƒç”¨ã®çµ±çŽ‡è€…",
-      "cardsTitle": "æœ€ã‚‚ãƒ—ãƒ¬ã‚¤ã•ã‚ŒãŸã‚«ãƒ¼ãƒ‰",
-      "mobileCardsTitle": "ãƒˆãƒƒãƒ—ã‚«ãƒ¼ãƒ‰",
-      "cardsSubtitle": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã«ã‚ˆã£ã¦ãƒ—ãƒ¬ã‚¤ã•ã‚ŒãŸã‚²ãƒ¼ãƒ ã«åŸºã¥ã",
-      "cardsAriaLabel": "æŽ¢ç´¢ã™ã‚‹ã‚«ãƒ¼ãƒ‰",
-      "viewMore": "ã‚‚ã£ã¨è¦‹ã‚‹"
+      "commandersTitle": "最もプレイされた統率者",
+      "commandersAriaLabel": "参考用の統率者",
+      "cardsTitle": "最もプレイされたカード",
+      "mobileCardsTitle": "トップカード",
+      "cardsAriaLabel": "探索するカード"
     },
     "deckList": {
-      "title": "æ¤œç´¢ãƒ‡ãƒƒã‚­",
-      "subtitle": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã®å…¬é–‹ãƒ‡ãƒƒã‚­ã‚’æŽ¢ç´¢ã—ã¦ãã ã•ã„ã€‚",
-      "filterName": "åå‰ã§æ¤œç´¢",
-      "filterNamePlaceholder": "ãƒ‡ãƒƒã‚­ã‚’æ¤œç´¢...",
-      "filterCommander": "çµ±çŽ‡è€…",
-      "filterCommanderPlaceholder": "çµ±çŽ‡è€…ã‚’æ¤œç´¢...",
-      "commanderSelect": "é¸æŠž",
-      "filterFormat": "ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
-      "allFormats": "ã™ã¹ã¦ã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
+      "subtitle": "コミュニティの公開デッキを探索してください。",
+      "filterCommanderPlaceholder": "統率者を検索...",
+      "allFormats": "すべてのフォーマット",
       "filterBracket": "ブラケット",
       "allBrackets": "すべてのブラケット",
-      "searchButton": "æ¤œç´¢",
-      "empty": "ã¾ã åˆ©ç”¨å¯èƒ½ãªãƒ‘ãƒ–ãƒªãƒƒã‚¯ãƒ‡ãƒƒã‚­ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "error": "ãƒ‘ãƒ–ãƒªãƒƒã‚¯ãƒ‡ãƒƒã‚­ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚"
+      "error": "パブリックデッキを読み込めませんでした。"
     },
     "deckViewer": {
-      "cardsCount": "{{ count }} ã‚«ãƒ¼ãƒ‰",
-      "sectionsCount": "{{ count }} ã‚»ã‚¯ã‚·ãƒ§ãƒ³",
       "viewMode": {
-        "label": "ãƒ“ãƒ¥ãƒ¼ãƒ¢ãƒ¼ãƒ‰",
-        "text": "ãƒ†ã‚­ã‚¹ãƒˆ",
-        "spoiler": "ã‚¹ãƒã‚¤ãƒ©ãƒ¼"
+        "label": "ビューモード"
       },
-      "invalidCard": "ã“ã®ã‚«ãƒ¼ãƒ‰ã¯ {{ format }} ã§ã¯ç„¡åŠ¹ã§ã™ã€‚",
+      "invalidCard": "このカードは {{ format }} では無効です。",
       "groups": {
-        "commander": "çµ±çŽ‡è€…",
-        "planeswalker": "ãƒ—ãƒ¬ã‚¤ãƒ³ã‚ºã‚¦ã‚©ãƒ¼ã‚«ãƒ¼",
-        "battle": "æˆ¦é—˜",
-        "creature": "ç”Ÿãç‰©",
-        "instant": "ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ãƒˆ",
-        "sorcery": "é­”è¡“",
-        "enchantment": "ã‚¨ãƒ³ãƒãƒ£ãƒ³ãƒˆ",
-        "artifact": "ã‚¢ãƒ¼ãƒ†ã‚£ãƒ•ã‚¡ã‚¯ãƒˆ",
-        "land": "åœŸåœ°",
-        "sideboard": "ã‚µã‚¤ãƒ‰ãƒœãƒ¼ãƒ‰",
-        "other": "ãã®ä»–",
-        "includingMdfc": "{{ count }} (MDFC ã‚’å«ã‚€)"
+        "battle": "戦闘",
+        "other": "その他",
+        "includingMdfc": "{{ count }} (MDFC を含む)"
       }
-    },
-    "shared": {
-      "deckWarnings": "ãƒ‡ãƒƒã‚­ã®è­¦å‘Š"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "çŸ¢å°ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "drawArrow": "çŸ¢å°ã‚’æã",
-      "chooseTargetBoard": "ã‚¿ãƒ¼ã‚²ãƒƒãƒˆãƒœãƒ¼ãƒ‰ã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "theSelectedBattlefieldOpensBehindThisPanel": "ã‚«ãƒ¼ãƒ‰ã‚’é¸æŠžã™ã‚‹å‰ã«ã€é¸æŠžã—ãŸæˆ¦å ´ãŒã“ã®ãƒ‘ãƒãƒ«ã®å¾Œã‚ã«é–‹ãã¾ã™ã€‚",
-      "targetPlayer": "å¯¾è±¡ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "multipleTargets": "ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã¯è¤‡æ•°ã§ã™ã‹?",
-      "drawSeveralArrowsFromThisCard": "ã“ã®ã‚«ãƒ¼ãƒ‰ã‹ã‚‰çŸ¢ã‚’æ•°æœ¬å¼•ã",
-      "targets": "ã‚¿ãƒ¼ã‚²ãƒƒãƒˆ",
-      "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-      "selectTarget": "ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã®é¸æŠž"
+      "selectArrowTargetPlayer": "矢印ターゲットのプレイヤーを選択してください",
+      "chooseTargetBoard": "ターゲットボードを選択してください",
+      "theSelectedBattlefieldOpensBehindThisPanel": "カードを選択する前に、選択した戦場がこのパネルの後ろに開きます。",
+      "targetPlayer": "対象プレイヤー",
+      "multipleTargets": "ターゲットは複数ですか?",
+      "drawSeveralArrowsFromThisCard": "このカードから矢を数本引く",
+      "targets": "ターゲット",
+      "selectTarget": "ターゲットの選択"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "æˆ¦å ´ã‚ºãƒ¼ãƒ ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ã‚’é–‹ã",
-      "battlefieldZoom": "æˆ¦å ´ã‚ºãƒ¼ãƒ ",
-      "resetBattlefieldZoom": "æˆ¦å ´ã®ã‚ºãƒ¼ãƒ ã‚’ãƒªã‚»ãƒƒãƒˆã™ã‚‹",
-      "resetZoom": "ã‚ºãƒ¼ãƒ ã‚’ãƒªã‚»ãƒƒãƒˆã™ã‚‹"
+      "openBattlefieldZoomControls": "戦場ズームコントロールを開く",
+      "battlefieldZoom": "戦場ズーム",
+      "resetBattlefieldZoom": "戦場のズームをリセットする",
+      "resetZoom": "ズームをリセットする"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "ã‚«ãƒ¼ãƒ‰ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã®è©³ç´°",
-      "powerAndToughness": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹",
-      "attachedTo": "ã«ä»˜å±ž",
-      "attached": "ä»˜å±ž",
-      "current": "ç¾åœ¨",
-      "counters": "ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼"
+      "cardPreviewDetails": "カードプレビューの詳細",
+      "attachedTo": "に付属",
+      "attached": "付属"
     },
     "faceDownPreview": {
       "playedFaceDown": "裏向きでプレイ済み"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "ä»–ã®é¡”ã‚’è¦‹ã¦ãã ã•ã„",
-      "loadingCards": "ã‚«ãƒ¼ãƒ‰ã‚’èª­ã¿è¾¼ã¿ã™ã‚‹"
+      "loadingCards": "カードを読み込みする"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "ãƒãƒ£ãƒƒãƒˆå—ä¿¡è€…"
+      "chatRecipient": "チャット受信者"
     },
     "contextMenu": {
       "labels": {
-        "refreshSnapshot": "ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆã‚’æ›´æ–°ã™ã‚‹",
-        "focusMyBoard": "è‡ªåˆ†ã®ç›¤é¢ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹",
+        "refreshSnapshot": "スナップショットを更新する",
+        "focusMyBoard": "自分の盤面にフォーカス",
         "concede": "投了",
-        "leaveTable": "å¸­ã‚’ç«‹ã¤",
-        "deleteArrow": "çŸ¢å°ã‚’å‰Šé™¤",
-        "deleteArrows": "çŸ¢å°ã®å‰Šé™¤",
-        "deleteCounter": "ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼ã‚’å‰Šé™¤",
-        "resetManaPool": "ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«ã‚’ç©ºã«ã™ã‚‹",
-        "focusPlayer": "æ³¨ç›®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-        "life1": "ãƒ©ã‚¤ãƒ•+1",
-        "viewExile": "è¿½æ”¾ã‚’è¡¨ç¤º",
-        "viewGraveyard": "å¢“åœ°ã‚’è¡¨ç¤º",
-        "drawCard": "ã‚«ãƒ¼ãƒ‰ã‚’å¼•ã",
-        "drawXCards": "Xæžšã®ã‚«ãƒ¼ãƒ‰ã‚’å¼•ã",
-        "shuffle": "ã‚·ãƒ£ãƒƒãƒ•ãƒ«",
-        "selectRandomCard": "ãƒ©ãƒ³ãƒ€ãƒ ãªã‚«ãƒ¼ãƒ‰ã‚’é¸æŠž",
-        "selectAllBattlefieldCards": "æˆ¦å ´ã«ã‚ã‚‹ã‚«ãƒ¼ãƒ‰ã‚’ã™ã¹ã¦é¸æŠžã™ã‚‹",
-        "selectAllHandCards": "æ‰‹æœ­ã®ã‚«ãƒ¼ãƒ‰ã‚’ã™ã¹ã¦é¸æŠž",
-        "createToken": "ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ä½œæˆ",
-        "gameMechanics": "ã‚²ãƒ¼ãƒ ã®ãƒ¡ã‚«ãƒ‹ã‚ºãƒ ",
-        "addMonarch": "çµ±æ²»è€…ã‚’è¿½åŠ ",
-        "becomeMonarch": "çµ±æ²»è€…ã«ãªã‚‹",
-        "addInitiative": "ã‚¤ãƒ‹ã‚·ã‚¢ãƒãƒ–ã‚’è¿½åŠ ã™ã‚‹",
-        "takeInitiative": "ã‚¤ãƒ‹ã‚·ã‚¢ãƒãƒ–ã‚’å¾—ã‚‹",
-        "addDayNight": "æ˜¼/å¤œã‚’è¿½åŠ ",
-        "addTheRing": "æŒ‡è¼ªã‚’è¿½åŠ ",
-        "addDungeon": "ãƒ€ãƒ³ã‚¸ãƒ§ãƒ³ã‚’è¿½åŠ ",
-        "addCitysBlessing": "éƒ½å¸‚ã®æ‰¿èªã‚’å¾—ã‚‹",
-        "removeCitysBlessing": "éƒ½å¸‚ã®æ‰¿èªã‚’å–ã‚Šé™¤ã",
-        "addEmblem": "ã‚¨ãƒ³ãƒ–ãƒ¬ãƒ ã‚’è¿½åŠ ã™ã‚‹",
-        "showManaPool": "ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«ã‚’è¡¨ç¤º",
-        "view": "è¡¨ç¤º",
-        "drawArrow": "çŸ¢å°ã‚’æã",
-        "addMana": "ãƒžãƒŠã‚’è¿½åŠ ã™ã‚‹",
-        "attachTo": "æ·»ä»˜å…ˆ...",
-        "unequip": "è£…å‚™ã‚’å¤–ã™",
-        "detachAllAttached": "ã¤ã„ã¦ã„ã‚‹ã‚«ãƒ¼ãƒ‰ã‚’ã™ã¹ã¦å¤–ã™",
-        "makeATokenCopy": "ã‚³ãƒ”ãƒ¼ãƒ»ãƒˆãƒ¼ã‚¯ãƒ³ã‚’ä½œæˆ",
-        "removeStack": "ã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å‰Šé™¤",
-        "flipCardFace": "ã‚«ãƒ¼ãƒ‰ã®é¢ã‚’åè»¢",
-        "playFaceDown": "è£å‘ãã§ãƒ—ãƒ¬ã‚¤ã™ã‚‹",
-        "previewCard": "ã‚«ãƒ¼ãƒ‰ã‚’ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
+        "leaveTable": "席を立つ",
+        "deleteArrow": "矢印を削除",
+        "deleteArrows": "矢印の削除",
+        "deleteCounter": "カウンターを削除",
+        "resetManaPool": "マナ・プールを空にする",
+        "focusPlayer": "注目プレイヤー",
+        "life1": "ライフ+1",
+        "viewExile": "追放を表示",
+        "viewGraveyard": "墓地を表示",
+        "drawCard": "カードを引く",
+        "drawXCards": "X枚のカードを引く",
+        "shuffle": "シャッフル",
+        "selectRandomCard": "ランダムなカードを選択",
+        "selectAllBattlefieldCards": "戦場にあるカードをすべて選択する",
+        "selectAllHandCards": "手札のカードをすべて選択",
+        "createToken": "トークンを作成",
+        "gameMechanics": "ゲームのメカニズム",
+        "addMonarch": "統治者を追加",
+        "becomeMonarch": "統治者になる",
+        "addInitiative": "イニシアチブを追加する",
+        "takeInitiative": "イニシアチブを得る",
+        "addDayNight": "昼/夜を追加",
+        "addTheRing": "指輪を追加",
+        "addDungeon": "ダンジョンを追加",
+        "removeCitysBlessing": "都市の承認を取り除く",
+        "addEmblem": "エンブレムを追加する",
+        "showManaPool": "マナ・プールを表示",
+        "addMana": "マナを追加する",
+        "attachTo": "添付先...",
+        "unequip": "装備を外す",
+        "detachAllAttached": "ついているカードをすべて外す",
+        "makeATokenCopy": "コピー・トークンを作成",
+        "removeStack": "スタックから削除",
+        "flipCardFace": "カードの面を反転",
+        "playFaceDown": "裏向きでプレイする",
+        "previewCard": "カードをプレビュー",
         "lookAtFaceDownCard": "カードを見る",
-        "moveTop": "ä¸Šã«ç§»å‹•",
-        "revealTopCard": "ä¸€ç•ªä¸Šã®ã‚«ãƒ¼ãƒ‰ã‚’å…¬é–‹",
+        "moveTop": "上に移動",
+        "revealTopCard": "一番上のカードを公開",
         "revealXTopCards": "ライブラリーの上からX枚を公開",
-        "revealLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã‚’å…¬é–‹",
-        "moveAllTo": "ã™ã¹ã¦ç§»å‹•",
-        "counters": "ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
-        "giveToPlayer": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«æ¸¡ã™",
-        "moveTo": "ç§»å‹•å…ˆ",
-        "giveTo": "æ¸¡ã™",
-        "reveal": "å…¬é–‹",
+        "revealLibrary": "ライブラリーを公開",
+        "moveAllTo": "すべて移動",
+        "giveToPlayer": "プレイヤーに渡す",
+        "moveTo": "移動先",
         "stopRevealing": "公開をやめる",
         "playTopRevealed": "一番上のカードを公開してプレイ",
         "stopPlayingTopRevealed": "一番上のカードを公開してプレイをやめる",
-        "viewAllLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã‚’è¡¨ç¤º",
-        "viewXTopCards": "ä¸€ç•ªä¸Šã‹ã‚‰Xæžšã‚’è¦‹ã‚‹",
-        "bottomOfLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹",
-        "battlefield": "æˆ¦å ´",
-        "hand": "æ‰‹æœ­",
-        "xToBottomOfLibrary": "Xæžšã‚’ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸‹ã«ç½®ã",
-        "xToGraveyard": "Xæžšã‚’å¢“åœ°ã«ç½®ã",
-        "xToExile": "Xæžšã‚’è¿½æ”¾ã™ã‚‹",
-        "xToHandPlayer": "Xæžšã‚’ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ‰‹æœ­ã«åŠ ãˆã‚‹",
-        "xToBattlefieldPlayer": "Xæžšã‚’ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ä¸‹ã§æˆ¦å ´ã«å‡ºã™",
-        "removeAllCounters": "ã™ã¹ã¦ã®ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼ã‚’å‰Šé™¤ã™ã‚‹",
-        "createHelper": "ãƒ¡ã‚«ãƒ‹ã‚ºãƒ ",
-        "setRingBearer": "æŒ‡è¼ªæ‰€æŒè€…ã¨ã—ã¦è¨­å®š",
-        "mechanics": "ãƒ¡ã‚«ãƒ‹ã‚ºãƒ ",
-        "openDebug": "ãƒ‡ãƒãƒƒã‚°ã‚’é–‹ã",
-        "rollDice": "ãƒ€ã‚¤ã‚¹ã‚’æŒ¯ã‚‹",
-        "all": "ã™ã¹ã¦"
+        "viewAllLibrary": "ライブラリーを表示",
+        "viewXTopCards": "一番上からX枚を見る",
+        "bottomOfLibrary": "ライブラリーの一番下",
+        "battlefield": "戦場",
+        "xToBottomOfLibrary": "X枚をライブラリーの一番下に置く",
+        "xToGraveyard": "X枚を墓地に置く",
+        "xToExile": "X枚を追放する",
+        "xToHandPlayer": "X枚をプレイヤーの手札に加える",
+        "xToBattlefieldPlayer": "X枚をプレイヤーのコントロール下で戦場に出す",
+        "removeAllCounters": "すべてのカウンターを削除する",
+        "setRingBearer": "指輪所持者として設定",
+        "openDebug": "デバッグを開く"
       },
       "drawShortcut": "D",
       "shuffleShortcut": "S",
@@ -640,179 +752,241 @@
       "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
-      "x": "Ã—"
+      "x": "×"
     },
     "focusedBattlefield": {
-      "manaRow": "ãƒžãƒŠåˆ—"
+      "manaRow": "マナ列"
     },
     "gameAdBanner": {
-      "advertisingBanner": "åºƒå‘ŠãƒãƒŠãƒ¼"
+      "advertisingBanner": "広告バナー"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "æˆ¦å ´ã®çŸ¢"
+      "battlefieldArrows": "戦場の矢"
     },
     "cardMarkerRail": {
-      "openOracleRulingsOnScryfall": "Scryfallã§ã‚ªãƒ©ã‚¯ãƒ«è£å®šã‚’é–‹ã",
-      "tokenCopyLabel": "ã“ã®ãƒˆãƒ¼ã‚¯ãƒ³ã¯ã‚³ãƒ”ãƒ¼ã§ã™"
+      "openOracleRulingsOnScryfall": "Scryfallでオラクル裁定を開く",
+      "tokenCopyLabel": "このトークンはコピーです",
+      "counterAriaLabel": "{{ counter }}カウンター: {{ value }}",
+      "counterTooltip": "{{ counter }}カウンター。左クリックで置き、右クリックで取り除きます。"
     },
     "gameCardView": {
-      "lookAtOtherFace": "ã‚‚ã†ä¸€æ–¹ã®é¢ã‚’è¦‹ã‚‹",
-      "powerAndToughness": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹",
-      "powerLeftClickAddsRightClickRemoves": "ãƒ‘ãƒ¯ãƒ¼ã€‚å·¦ã‚¯ãƒªãƒƒã‚¯ã§è¿½åŠ ã€å³ã‚¯ãƒªãƒƒã‚¯ã§å‰Šé™¤ã€‚",
-      "toughnessLeftClickAddsRightClickRemoves": "ã‚¿ãƒ•ãƒã‚¹ã€‚å·¦ã‚¯ãƒªãƒƒã‚¯ã§è¿½åŠ ã€å³ã‚¯ãƒªãƒƒã‚¯ã§å‰Šé™¤ã€‚",
-      "battleCounter": "ãƒãƒˆãƒ«",
-      "battleCounterTooltip": "æˆ¦ã„ã€‚å·¦ã‚¯ãƒªãƒƒã‚¯ã§è¿½åŠ ã€å³ã‚¯ãƒªãƒƒã‚¯ã§å‰Šé™¤ã€‚",
-      "sagaCounter": "è‹±é›„è­š",
-      "sagaCounterTooltip": "è‹±é›„è­šã€‚å·¦ã‚¯ãƒªãƒƒã‚¯ã§è¿½åŠ ã€å³ã‚¯ãƒªãƒƒã‚¯ã§å‰Šé™¤ã€‚",
-      "attach": "æ·»ä»˜ã™ã‚‹",
-      "stack": "ã‚¹ã‚¿ãƒƒã‚¯"
+      "powerLeftClickAddsRightClickRemoves": "パワー。左クリックで追加、右クリックで削除。",
+      "toughnessLeftClickAddsRightClickRemoves": "タフネス。左クリックで追加、右クリックで削除。",
+      "battleCounterTooltip": "戦い。左クリックで追加、右クリックで削除。",
+      "sagaCounter": "英雄譚",
+      "sagaCounterTooltip": "英雄譚。左クリックで追加、右クリックで削除。",
+      "attach": "添付する",
+      "stack": "スタック"
     },
     "loyaltyCounter": {
-      "loyalty": "å¿ èª å¿ƒ",
-      "loyaltyLeftClickAddsRightClickRemoves": "å¿ èª å¿ƒã€‚å·¦ã‚¯ãƒªãƒƒã‚¯ã§è¿½åŠ ã€å³ã‚¯ãƒªãƒƒã‚¯ã§å‰Šé™¤ã€‚"
+      "loyalty": "忠誠心",
+      "loyaltyLeftClickAddsRightClickRemoves": "忠誠心。左クリックで追加、右クリックで削除。"
     },
     "gameDisconnectVoteModal": {
-      "disconnectVotes": "åˆ‡æ–­æŠ•ç¥¨",
+      "disconnectVotes": "切断投票",
       "expel": "追放する",
-      "genericDisconnectedMessage": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒåˆ‡æ–­ã—ã¾ã—ãŸã€‚å†æŽ¥ç¶šã‚’å¾…ã¤ã‹ã€ãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰è¿½æ”¾ã™ã‚‹ã‹æŠ•ç¥¨ã—ã¦ãã ã•ã„ã€‚",
-      "noVote": "æŠ•ç¥¨ãªã—",
-      "playerDisconnectedMessage": "{{ playerName }} ãŒåˆ‡æ–­ã—ã¾ã—ãŸã€‚å†æŽ¥ç¶šã‚’å¾…ã¤ã‹ã€ãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰è¿½æ”¾ã™ã‚‹ã‹æŠ•ç¥¨ã—ã¦ãã ã•ã„ã€‚",
-      "wait": "å¾…ã¤",
-      "playerDisconnected": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒåˆ‡æ–­ã•ã‚Œã¾ã—ãŸ",
-      "yourVote": "ã‚ãªãŸã®æŠ•ç¥¨:",
-      "timeRemaining": "æ®‹ã‚Šæ™‚é–“:",
+      "genericDisconnectedMessage": "プレイヤーが切断しました。再接続を待つか、テーブルから追放するか投票してください。",
+      "playerDisconnectedMessage": "{{ playerName }} が切断しました。再接続を待つか、テーブルから追放するか投票してください。",
+      "wait": "待つ",
+      "playerDisconnected": "プレイヤーが切断されました",
+      "yourVote": "あなたの投票:",
+      "timeRemaining": "残り時間:",
       "voteFinished": "投票終了",
-      "targetPlayerBackOnline": "å¯¾è±¡ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒã‚ªãƒ³ãƒ©ã‚¤ãƒ³ã«æˆ»ã‚Šã¾ã—ãŸã€‚"
+      "targetPlayerBackOnline": "対象のプレイヤーがオンラインに戻りました。"
     },
     "gameRematchModal": {
-      "roomVotes": "ãƒ«ãƒ¼ãƒ ã®æŠ•ç¥¨",
-      "closeVotes": "æŠ•ç¥¨ã‚’ç· ã‚åˆ‡ã‚‹",
-      "defeatedMessage": "ã“ã®ãƒ«ãƒ¼ãƒ ã§ã¾ãŸéŠã³ãŸã„ã§ã™ã‹ï¼Ÿ",
-      "extraTime": "å»¶é•·æˆ¦",
-      "legendaryVictory": "ä¼èª¬ã®å‹åˆ©",
-      "leaveRoom": "ãƒ«ãƒ¼ãƒ ã‚’å‡ºã‚‹",
-      "lifeTotal": "{{ life }} ãƒ©ã‚¤ãƒ•",
-      "noVote": "æŠ•ç¥¨ãªã—",
-      "playAgain": "ã‚‚ã†ä¸€åº¦ãƒ—ãƒ¬ã‚¤",
-      "playersHaveSecondsToVote": "{{ playerNames }} ã¯ {{ seconds }}ç§’ä»¥å†…ã«æŠ•ç¥¨ã§ãã¾ã™ã€‚",
-      "playersMissingExtra": "{{ playerNames }} ã¯ã¾ã æŠ•ç¥¨ã—ã¦ã„ã¾ã›ã‚“ã€‚è¿½åŠ ã§ {{ seconds }}ç§’ã‚ã‚Šã¾ã™ã€‚",
-      "timeLimit": "åˆ¶é™æ™‚é–“",
-      "winnerMessage": "ãƒ†ãƒ¼ãƒ–ãƒ«ã¯ã‚ãªãŸã®ã‚‚ã®ã§ã™ã€‚ã‚ãªãŸã¯æ··ä¹±ã‚’ä¹—ã‚Šåˆ‡ã‚Šã€æ¨©å¨ã‚’æŒã£ã¦ã‚²ãƒ¼ãƒ ã‚’çµ‚äº†ã—ã¾ã—ãŸã€‚",
-      "youDied": "ã‚ãªãŸã¯æ­»ã‚“ã ",
-      "youHaveSecondsToVote": "{{ seconds }}ç§’ä»¥å†…ã«æŠ•ç¥¨ã§ãã¾ã™ã€‚",
-      "yourVoteMissingExtra": "ã‚ãªãŸã®æŠ•ç¥¨ãŒã¾ã ã‚ã‚Šã¾ã›ã‚“ã€‚è¿½åŠ ã§ {{ seconds }}ç§’ã‚ã‚Šã¾ã™ã€‚",
-      "currentVote": "ç¾åœ¨ã®æŠ•ç¥¨:",
-      "otherPlayersAlreadyVoted": "æ®‹ã‚Šã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¯ã™ã§ã«ãƒ«ãƒ¼ãƒ ã‚’é›¢ã‚Œã‚‹ã“ã¨ã«æŠ•ç¥¨ã—ã¦ã„ã¾ã™ã€‚"
+      "roomVotes": "ルームの投票",
+      "closeVotes": "投票を締め切る",
+      "defeatedMessage": "このルームでまた遊びたいですか？",
+      "extraTime": "延長戦",
+      "legendaryVictory": "伝説の勝利",
+      "lifeTotal": "{{ life }} ライフ",
+      "playAgain": "もう一度プレイ",
+      "playersHaveSecondsToVote": "{{ playerNames }} は {{ seconds }}秒以内に投票できます。",
+      "playersMissingExtra": "{{ playerNames }} はまだ投票していません。追加で {{ seconds }}秒あります。",
+      "timeLimit": "制限時間",
+      "winnerMessage": "テーブルはあなたのものです。あなたは混乱を乗り切り、権威を持ってゲームを終了しました。",
+      "youDied": "あなたは死んだ",
+      "youHaveSecondsToVote": "{{ seconds }}秒以内に投票できます。",
+      "yourVoteMissingExtra": "あなたの投票がまだありません。追加で {{ seconds }}秒あります。",
+      "currentVote": "現在の投票:",
+      "otherPlayersAlreadyVoted": "残りのプレイヤーはすでにルームを離れることに投票しています。"
     },
     "gameTableHeader": {
-      "currentPlayer": "ç¾åœ¨ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼"
-    },
-    "gameXQuantityStepper": {
-      "adjustValue": "å€¤ã‚’èª¿æ•´ã™ã‚‹",
-      "increaseValue": "å€¤ã‚’å¢—ã‚„ã™",
-      "decreaseValue": "å€¤ã‚’æ¸›ã‚‰ã™"
+      "currentPlayer": "現在のプレイヤー"
     },
     "manaActionDialog": {
-      "manaProductionParts": "ãƒžãƒŠç”Ÿç”£ãƒ‘ãƒ¼ãƒ„",
-      "fixedMana": "å›ºå®šãƒžãƒŠ",
-      "manaToAdd": "è¿½åŠ ã™ã‚‹ãƒžãƒŠ",
-      "manaAmount": "ãƒžãƒŠé‡",
-      "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«"
+      "manaProductionParts": "マナ生産パーツ",
+      "fixedMana": "固定マナ",
+      "manaToAdd": "追加するマナ",
+      "manaAmount": "マナ量"
     },
     "manaPoolPanel": {
-      "manaPool": "ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«",
-      "hideManaPool": "ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«ã‚’éš ã™"
-    },
-    "numberActionDialog": {
-      "adjustValue": "å€¤ã‚’èª¿æ•´ã™ã‚‹",
-      "increaseValue": "å€¤ã‚’å¢—ã‚„ã™",
-      "decreaseValue": "å€¤ã‚’æ¸›ã‚‰ã™"
+      "manaPool": "マナ・プール",
+      "hideManaPool": "マナ・プールを隠す"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "å¯¾æˆ¦ç›¸æ‰‹ã®ã‚¾ãƒ¼ãƒ³ã‚«ã‚¦ãƒ³ãƒˆ",
-      "playerDefeated": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ•—åŒ—",
-      "deckPending": "ãƒ‡ãƒƒã‚­ä¿ç•™ä¸­",
-      "turn": "ã‚¿ãƒ¼ãƒ³"
+      "opponentZoneCounts": "対戦相手のゾーンカウント",
+      "playerDefeated": "プレイヤーの敗北",
+      "deckPending": "デッキ保留中"
     },
     "playerSummaryPanel": {
-      "lifeControls": "ãƒ©ã‚¤ãƒ•ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«",
-      "lifeTotal": "ãƒ©ã‚¤ãƒ•ç·é‡",
-      "playerCounters": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
-      "commanderDamage": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸",
+      "lifeControls": "ライフコントロール",
+      "playerCounters": "プレイヤーカウンター",
       "autoApplyCommanderDamageToLife": "ライフを自動で減らす",
       "autoApplyCommanderDamageToLifeTooltip": "有効にすると、統率者ダメージの変更に合わせてそのプレイヤーのライフも調整します。",
-      "otherCounters": "ãã®ä»–ã®ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼",
-      "extras": "ã‚¨ã‚¯ã‚¹ãƒˆãƒ©",
-      "openExtraPlayerCounters": "è¿½åŠ ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼ã‚’é–‹ã",
-      "extraPlayerCounters": "è¿½åŠ ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼"
+      "otherCounters": "その他のカウンター",
+      "openExtraPlayerCounters": "追加のプレイヤーカウンターを開く",
+      "extraPlayerCounters": "追加プレイヤーカウンター"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹ã‚’è¨­å®šã™ã‚‹",
-      "powerToughness": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹",
-      "power": "ãƒ‘ãƒ¯ãƒ¼",
-      "toughness": "ã‚¿ãƒ•ãƒã‚¹",
-      "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-      "apply": "é©ç”¨"
+      "setPowerAndToughness": "パワー/タフネスを設定する",
+      "powerToughness": "パワー/タフネス",
+      "apply": "適用"
     },
     "tokenSearchModal": {
-      "tokenCreationControls": "ãƒˆãƒ¼ã‚¯ãƒ³ä½œæˆã®åˆ¶å¾¡",
-      "loadingDeckTokens": "ãƒ‡ãƒƒã‚­ãƒˆãƒ¼ã‚¯ãƒ³ã‚’èª­ã¿è¾¼ã¿ä¸­...",
-      "searchingTokens": "ãƒˆãƒ¼ã‚¯ãƒ³ã‚’æ¤œç´¢ã—ã¦ã„ã¾ã™..."
+      "tokenCreationControls": "トークン作成の制御",
+      "loadingDeckTokens": "デッキトークンを読み込み中...",
+      "searchingTokens": "トークンを検索しています..."
     },
     "playersOrder": {
-      "currentTurnLabel": "ã‚¿ãƒ¼ãƒ³ {{ turnNumber }}",
-      "upcomingTurnLabel": "{{ count }}å†…",
-      "currentTurnTitle": "{{ name }} ã®ã‚¿ãƒ¼ãƒ³ã§ã™",
-      "upcomingTurnTitle": "{{ name }} ã¾ã§ã‚ã¨ {{ count }} ã‚¿ãƒ¼ãƒ³",
-      "turnOrder": "ã‚¿ãƒ¼ãƒ³é †"
+      "currentTurnLabel": "ターン {{ turnNumber }}",
+      "upcomingTurnLabel": "{{ count }}内",
+      "currentTurnTitle": "{{ name }} のターンです",
+      "upcomingTurnTitle": "{{ name }} まであと {{ count }} ターン"
     },
     "turnPhasePanel": {
       "activeTurnPlayer": "ターン: {{ name }}",
-      "turnPhases": "ã‚¿ãƒ¼ãƒ³ãƒ•ã‚§ã‚¤ã‚º",
-      "focusTheActiveTurnPlayer": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªã‚¿ãƒ¼ãƒ³ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ç„¦ç‚¹ã‚’å½“ã¦ã‚‹",
-      "focusTurn": "ã‚¿ãƒ¼ãƒ³ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹",
-      "passTurn": "ã‚¿ãƒ¼ãƒ³ã‚’æ¸¡ã™"
+      "turnPhases": "ターンフェイズ",
+      "focusTheActiveTurnPlayer": "アクティブなターンプレイヤーに焦点を当てる",
+      "focusTurn": "ターンにフォーカス",
+      "advancePhase": "フェーズを進める",
+      "phaseLabels": {
+        "untap": "アンタップ",
+        "upkeep": "アップキープ",
+        "main-1": "第1メイン・フェイズ",
+        "combat": "戦闘",
+        "main-2": "第2メイン・フェイズ",
+        "end": "終了ステップ"
+      }
+    },
+    "debug": {
+      "eyebrow": "ゲームデバッグ",
+      "title": "WebSocket",
+      "websocketUnavailable": "ライブデバッグ WebSocket は設定されていません。HTTP メトリクスは引き続き利用できます。",
+      "websocketTicketError": "デバッグ WebSocket チケットを作成できませんでした。HTTP メトリクスは引き続き利用できます。",
+      "websocketOpenError": "デバッグ WebSocket を開けませんでした。GAME_WEBSOCKET_PUBLIC_URL または ws-game プロキシを確認してください。",
+      "websocketConnectionError": "デバッグ WebSocket エラーです。GAME_WEBSOCKET_PUBLIC_URL または ws-game プロキシを確認してください。",
+      "websocketNonTextMessage": "デバッグ WebSocket がテキスト以外のメッセージを受信しました。",
+      "websocketInvalidJson": "デバッグ WebSocket が無効な JSON を受信しました。",
+      "websocketUnsupportedMessage": "デバッグ WebSocket が未対応のメッセージを受信しました。",
+      "liveWebsocketStatus": "デバッグ・ライブ WS: {{ status }}",
+      "reset": "再起動",
+      "websocketDisconnectedWarning": "デバッグタブは開いていますが、現在デバッグ WebSocket に接続していません。ゲームは通常どおり続行できます。",
+      "httpMetrics": "HTTP メトリクス",
+      "healthEndpoint": "GET /games/{{ gameId }}/debug/health",
+      "liveWebsocketPhp": "ライブ PHP WebSocket デバッグ",
+      "noEndpointConfigured": "エンドポイント未設定",
+      "gameplayRuntime": "ゲーム実行環境 runtime_ws",
+      "gameplayRuntimeDescription": "コマンドを再取得せず、BroadcastChannel を通じてローカル観測します",
+      "sinceDebugReset": "デバッグ再起動後",
+      "clientToServer": "クライアント → サーバー",
+      "averageJsonCharactersPerMessage": "1メッセージあたりの JSON 文字数平均: {{ value }}",
+      "serverToClient": "サーバー → クライアント",
+      "averageCommand": "コマンド平均",
+      "maximum": "最大",
+      "connections": "接続数",
+      "disconnections": "切断: {{ count }}件",
+      "localGameplayQueue": "ローカルのゲームキュー",
+      "queueDepth": "キュー長",
+      "inFlight": "処理中",
+      "queueRates": "処理率 (60秒)",
+      "queueRatesDescription": "エンキュー/秒 — 排出/秒",
+      "enqueueDrain": "追加/排出",
+      "localAccumulated": "ローカル累計",
+      "dropsRetryResync": "破棄/再試行/再同期",
+      "localQueueHealth": "ローカルキューの状態",
+      "rejectedCircuitQueueFull": "拒否/回路遮断/キュー満杯",
+      "localAntiLoopProtection": "ローカルのループ防止",
+      "noLocalQueueMetrics": "ローカルキューのメトリクスはありません。ゲームを開いて操作を発生させてください。",
+      "localDeadLetter": "ローカルのデッドレター (直近100件)",
+      "at": "時刻",
+      "command": "コマンド",
+      "detail": "詳細",
+      "noDeadLetterEvents": "デッドレターイベントはありません。",
+      "clientToServerKeepalive": "クライアント → サーバーのキープアライブ",
+      "averageJsonCharacters": "1メッセージあたりの JSON 文字数平均",
+      "serverToClientKeepalive": "サーバー → クライアントのキープアライブ",
+      "disconnectionsLabel": "切断",
+      "lastDisconnection": "最終切断",
+      "recentActions": "最近の操作",
+      "operations": "操作",
+      "localSnapshotGrowth": "ローカルスナップショットの行数増加",
+      "time": "時刻",
+      "jsonCharacters": "{{ count }} 文字の JSON",
+      "outgoingTrafficSummary": "{{ messages }}件のメッセージ / {{ characters }}文字の JSON",
+      "noRecordedActions": "記録された操作はまだありません。",
+      "noRecordedErrors": "記録されたエラーはありません。",
+      "actionsByType": "種類別の操作",
+      "serverMessages": "サーバー → クライアントのメッセージ",
+      "errorsByCode": "コード別のエラー",
+      "sanitizedJson": "サニタイズ済み JSON",
+      "system": "システム",
+      "unnamedDeck": "名前のないデッキ",
+      "noOperations": "操作なし",
+      "milliseconds": "{{ value }} ミリ秒",
+      "connection": {
+        "connected": "接続済み",
+        "connecting": "接続中",
+        "reconnecting": "切断、再接続中",
+        "unavailable": "未設定",
+        "error": "エラー",
+        "stopped": "停止中"
+      },
+      "noLocalData": "ローカルデータなし",
+      "snapshotGrowth": "{{ value }}行",
+      "snapshotGrowthUnavailable": "ローカルのゲームタブからこの操作は報告されていません。",
+      "snapshotGrowthTitle": "{{ previous }} → {{ next }}行、ローカル JSON {{ characters }}文字",
+      "loadError": "デバッグデータを読み込めませんでした。",
+      "noAdditionalDetail": "追加の詳細はありません。",
+      "noMessage": "メッセージなし",
+      "sort": {
+        "ascending": "昇順",
+        "descending": "降順"
+      },
+      "status": {
+        "available": "利用可能",
+        "notLoaded": "未読み込み",
+        "observedInThisTab": "このタブで観測済み",
+        "noLocalTelemetry": "ローカルテレメトリーなし"
+      }
     },
     "zoneModal": {
-      "searchByName": "åå‰ã§æ¤œç´¢",
-      "closeZone": "ã‚¯ãƒ­ãƒ¼ã‚ºã‚¾ãƒ¼ãƒ³",
-      "readOnlyLibraryReview": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ç¢ºèªï¼ˆèª­ã¿å–ã‚Šå°‚ç”¨ï¼‰",
-      "type": "ã‚¿ã‚¤ãƒ—",
-      "allTypes": "å…¨ç¨®é¡ž",
-      "creatures": "ã‚¯ãƒªãƒ¼ãƒãƒ£ãƒ¼",
-      "instants": "ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ãƒˆ",
-      "sorceries": "ã‚½ãƒ¼ã‚µãƒªãƒ¼",
-      "artifacts": "ã‚¢ãƒ¼ãƒ†ã‚£ãƒ•ã‚¡ã‚¯ãƒˆ",
-      "enchantments": "ã‚¨ãƒ³ãƒãƒ£ãƒ³ãƒˆ",
-      "planeswalkers": "ãƒ—ãƒ¬ã‚¤ãƒ³ã‚ºã‚¦ã‚©ãƒ¼ã‚«ãƒ¼",
-      "lands": "åœŸåœ°",
-      "search": "æ¤œç´¢"
+      "closeZone": "クローズゾーン",
+      "readOnlyLibraryReview": "ライブラリー確認（読み取り専用）",
+      "type": "タイプ"
     },
     "gameTable": {
-      "message": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-      "closeGame": "æŽ¥æˆ¦ï¼Ÿ",
-      "giveCard": "ã‚«ãƒ¼ãƒ‰ã‚’æ¸¡ã—ã¾ã™ã‹ï¼Ÿ",
-      "moveToHand": "æ‰‹æœ­ã«å…¥ã‚Œã¾ã™ã‹ï¼Ÿ",
-      "moveAllToLibrary": "ã™ã¹ã¦ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã«ç½®ã",
-      "rotateYourDevice": "ãƒ‡ãƒã‚¤ã‚¹ã‚’å›žè»¢ã•ã›ã¾ã™",
-      "gamesCanOnlyBePlayedInLandscape": "ã‚²ãƒ¼ãƒ ã¯ã€ãƒ¢ãƒã‚¤ãƒ«ãŠã‚ˆã³ã‚¿ãƒ–ãƒ¬ãƒƒãƒˆã§ã¯æ¨ªå‘ãã§ã®ã¿ãƒ—ãƒ¬ã‚¤ã§ãã¾ã™ã€‚",
-      "thisTableNeedsALittleMoreRoom": "ã“ã®ãƒ†ãƒ¼ãƒ–ãƒ«ã«ã¯ã‚‚ã†å°‘ã—ã‚¹ãƒšãƒ¼ã‚¹ãŒå¿…è¦ã§ã™",
-      "sorryThisResolutionIsTooCrampedFor": "ç”³ã—è¨³ã‚ã‚Šã¾ã›ã‚“ãŒã€ã“ã®è§£åƒåº¦ã¯çµ±çŽ‡è€…æˆ¦ã‚²ãƒ¼ãƒ ã¨ã—ã¦ã¯ç‹­ã™ãŽã¾ã™ã€‚ãƒ–ãƒ©ã‚¦ã‚¶ã®ã‚ºãƒ¼ãƒ ã‚’èª¿æ•´ã™ã‚‹ã‹ã€ã‚ˆã‚Šå¤§ããªã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’ä½¿ç”¨ã—ã¦ãã ã•ã„ã€‚",
-      "useCtrl0InYourBrowserTo": "ãƒ–ãƒ©ã‚¦ã‚¶ã§ Ctrl+0 ã‚’ä½¿ç”¨ã—ã¦ã‚ºãƒ¼ãƒ ã‚’ 100% ã«ãƒªã‚»ãƒƒãƒˆã—ã€ã“ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’æ›´æ–°ã¾ãŸã¯ã‚µã‚¤ã‚ºå¤‰æ›´ã—ã¾ã™ã€‚",
-      "leaveRoom": "ãƒ«ãƒ¼ãƒ ã‚’å‡ºã‚‹",
-      "gameLog": "ã‚²ãƒ¼ãƒ ãƒ­ã‚°",
-      "chat": "ãƒãƒ£ãƒƒãƒˆ",
-      "noGameActionsYet": "ã‚²ãƒ¼ãƒ ã‚¢ã‚¯ã‚·ãƒ§ãƒ³ã¯ã¾ã ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "noChatMessagesYet": "ã¾ã ãƒãƒ£ãƒƒãƒˆ ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "reactedBy": "åå¿œã—ãŸã®ã¯",
-      "votes": "æŠ•ç¥¨",
-      "opponents": "å¯¾æˆ¦å¯¾æˆ¦ç›¸æ‰‹",
-      "randomOrder": "ãƒ©ãƒ³ãƒ€ãƒ ãªé †åº",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "ã“ã‚Œã‚‰ã®ã‚«ãƒ¼ãƒ‰ã®ã¿ã‚’ã‚·ãƒ£ãƒƒãƒ•ãƒ«ã—ã¦ã‹ã‚‰é…ç½®ã—ã¦ãã ã•ã„ã€‚",
-      "gameLogUnreadActions": "ã‚²ãƒ¼ãƒ ãƒ­ã‚°ã€æœªèª­ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
-      "chatUnreadMessages": "ãƒãƒ£ãƒƒãƒˆã€æœªèª­ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-      "moveCardToAnotherBattlefield": "ã‚«ãƒ¼ãƒ‰ã‚’åˆ¥ã®æˆ¦å ´ã«ç§»å‹•ã™ã‚‹",
-      "putIntoLibrary": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã«ç½®ã",
+      "giveCard": "カードを渡しますか？",
+      "moveToHand": "手札に入れますか？",
+      "moveAllToLibrary": "すべてライブラリーに置く",
+      "gamesCanOnlyBePlayedInLandscape": "ゲームは、モバイルおよびタブレットでは横向きでのみプレイできます。",
+      "thisTableNeedsALittleMoreRoom": "このテーブルにはもう少しスペースが必要です",
+      "sorryThisResolutionIsTooCrampedFor": "申し訳ありませんが、この解像度は統率者戦ゲームとしては狭すぎます。ブラウザのズームを調整するか、より大きなウィンドウを使用してください。",
+      "useCtrl0InYourBrowserTo": "ブラウザで Ctrl+0 を使用してズームを 100% にリセットし、このウィンドウを更新またはサイズ変更します。",
+      "gameLog": "ゲームログ",
+      "chat": "チャット",
+      "noGameActionsYet": "ゲームアクションはまだありません。",
+      "noChatMessagesYet": "まだチャット メッセージはありません。",
+      "reactedBy": "反応したのは",
+      "votes": "投票",
+      "opponents": "対戦対戦相手",
+      "randomOrder": "ランダムな順序",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "これらのカードのみをシャッフルしてから配置してください。",
+      "gameLogUnreadActions": "ゲームログ、未読アクション",
+      "chatUnreadMessages": "チャット、未読メッセージ",
+      "moveCardToAnotherBattlefield": "カードを別の戦場に移動する",
+      "putIntoLibrary": "ライブラリーに置く",
       "focusedOpponentLabel": "表示中：",
       "returnToOwnBattlefield": "自分の戦場へ",
       "leaveTableConfirmationTitle": "テーブルから離れますか？",
@@ -824,158 +998,134 @@
       "reloadRequiredAction": "ページを再読み込み"
     },
     "reactions": {
-      "like": "ã„ã„ã­",
-      "dislike": "å«Œã„",
-      "love": "æ„›",
-      "laugh": "ç¬‘ã†",
-      "angry": "ã¨ã¦ã‚‚æ€’ã£ã¦ã„ã‚‹",
-      "vomit": "å˜”åç‰©",
-      "cry": "æ³£ã"
+      "like": "いいね",
+      "dislike": "嫌い",
+      "love": "愛",
+      "laugh": "笑う",
+      "angry": "とても怒っている",
+      "vomit": "嘔吐物",
+      "cry": "泣く"
     },
     "numberAction": {
       "drawCards": {
-        "title": "ã‚«ãƒ¼ãƒ‰ã‚’å¼•ã",
-        "description": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã‹ã‚‰ä½•æžšå¼•ãã‹ã‚’é¸æŠžã—ã¾ã™ã€‚",
-        "confirm": "æã"
+        "title": "カードを引く",
+        "description": "ライブラリーから何枚引くかを選択します。"
       },
       "moveTopCards": {
-        "title": "ä¸€ç•ªä¸Šã®ã‚«ãƒ¼ãƒ‰ã‚’ç§»å‹•ã™ã‚‹",
-        "description": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸Šã‹ã‚‰ä½•æžšã‚’åˆ¥ã®é ˜åŸŸã«ç½®ãã‹ã‚’é¸æŠžã—ã¾ã™ã€‚",
-        "confirm": "ç§»å‹•"
+        "title": "一番上のカードを移動する",
+        "description": "ライブラリーの一番上から何枚を別の領域に置くかを選択します。",
+        "confirm": "移動"
       },
       "viewTopCards": {
-        "title": "ãƒˆãƒƒãƒ—ã‚«ãƒ¼ãƒ‰ã‚’è¦‹ã‚‹",
-        "description": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸Šã‹ã‚‰ä½•æžšè¦‹ã‚‹ã‹ã‚’é¸æŠžã—ã¾ã™ã€‚",
-        "confirm": "è¦‹ã‚‹"
+        "title": "トップカードを見る",
+        "description": "ライブラリーの一番上から何枚見るかを選択します。"
       },
       "revealTopCards": {
         "title": "上からカードを公開",
-        "description": "選択した対戦相手に公開するライブラリー上部のカード枚数を選択します。",
-        "confirm": "公開"
+        "description": "選択した対戦相手に公開するライブラリー上部のカード枚数を選択します。"
       },
       "deckCardCount": "あなたのデッキには{{ count }}枚のカードがあります。"
     },
     "playerCounters": {
-      "poison": "æ¯’",
-      "energy": "ã‚¨ãƒãƒ«ã‚®ãƒ¼",
-      "experience": "çµŒé¨“",
+      "poison": "毒",
+      "energy": "エネルギー",
+      "experience": "経験",
       "rad": "放射能",
-      "tickets": "ãƒã‚±ãƒƒãƒˆ"
+      "tickets": "チケット"
     },
     "zones": {
-      "hand": "æ‰‹æœ­",
-      "library": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼",
-      "graveyard": "å¢“åœ°",
-      "exile": "è¿½æ”¾"
+      "library": "ライブラリー",
+      "graveyard": "墓地"
     },
     "chat": {
-      "allPlayers": "ã™ã¹ã¦ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼"
+      "allPlayers": "すべてのプレイヤー"
     },
     "specialHelpers": {
       "modal": {
-        "title": "åŠ›å­¦",
-        "quickActions": "ã‚¯ã‚¤ãƒƒã‚¯ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
-        "cardBacked": "ã‚«ãƒ¼ãƒ‰ä»˜ããƒ˜ãƒ«ãƒ‘ãƒ¼",
-        "searchPlaceholder": "ã‚¨ãƒ³ãƒ–ãƒ¬ãƒ ã‚„ãƒ€ãƒ³ã‚¸ãƒ§ãƒ³ã‚’æ¤œç´¢ã™ã‚‹",
-        "searching": "ãƒ˜ãƒ«ãƒ‘ãƒ¼ã‚’æ¤œç´¢ã—ã¦ã„ã¾ã™...",
-        "noResults": "çµæžœãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚",
-        "searchHint": "æ¤œç´¢ã™ã‚‹ã«ã¯å°‘ãªãã¨ã‚‚ 2 æ–‡å­—ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-        "searchError": "ç‰¹åˆ¥ãªãƒ˜ãƒ«ãƒ‘ãƒ¼ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-        "playerTarget": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼: {{playerName}}",
-        "currentState": "ç¾åœ¨ã®çŠ¶æ…‹",
-        "readonly": "èª­ã¿å–ã‚Šå°‚ç”¨ã€‚ã“ã“ã§ãƒ¡ã‚«ãƒ‹ã‚¯ã‚¹ã‚’æ¤œæŸ»ã§ãã¾ã™ãŒã€ãƒ¡ã‚«ãƒ‹ã‚¯ã‚¹ã‚’å¤‰æ›´ã§ãã‚‹ã®ã¯ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ã—ã¦ã„ã‚‹ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã ã‘ã§ã™ã€‚",
-        "ringLevel": "æŒ‡è¼ªã®ãƒ¬ãƒ™ãƒ«",
-        "noRingBearer": "æŒ‡è¼ªæ‰€æŒè€…ãŒå‰²ã‚Šå½“ã¦ã‚‰ã‚Œã¦ã„ã¾ã›ã‚“",
-        "removeHelper": "å‰Šé™¤",
-        "clearRingBearer": "æŒ‡è¼ªæ‰€æŒè€…ã‚’è§£é™¤",
-        "ringLevelUp": "ãƒ¬ãƒ™ãƒ«+1",
-        "ringLevelDown": "ãƒ¬ãƒ™ãƒ«-1",
-        "noActiveMechanics": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªãƒ¡ã‚«ãƒ‹ãƒƒã‚¯ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "notSet": "æœªè¨­å®š"
+        "quickActions": "クイックアクション",
+        "cardBacked": "カード付きヘルパー",
+        "searchPlaceholder": "エンブレムやダンジョンを検索する",
+        "searching": "ヘルパーを検索しています...",
+        "noResults": "結果が見つかりませんでした。",
+        "searchHint": "検索するには少なくとも 2 文字を入力してください。",
+        "searchError": "特別なヘルパーを読み込めませんでした。",
+        "playerTarget": "プレイヤー: {{playerName}}",
+        "currentState": "現在の状態",
+        "readonly": "読み取り専用。ここでメカニクスを検査できますが、メカニクスを変更できるのはコントロールしているプレイヤーだけです。",
+        "noRingBearer": "指輪所持者が割り当てられていません",
+        "clearRingBearer": "指輪所持者を解除",
+        "ringLevelUp": "レベル+1",
+        "ringLevelDown": "レベル-1",
+        "noActiveMechanics": "アクティブなメカニックはありません。",
+        "notSet": "未設定"
       },
       "quick": {
-        "monarch": "çµ±æ²»è€…ã«ãªã‚‹",
-        "initiative": "ã‚¤ãƒ‹ã‚·ã‚¢ãƒãƒ–ã‚’å¾—ã‚‹",
-        "citysBlessing": "éƒ½å¸‚ã®æ‰¿èªã‚’å¾—ã‚‹",
-        "theRing": "æŒ‡è¼ªã‚’ä½œæˆ",
-        "setDay": "è¨­å®šæ—¥",
-        "setNight": "ã‚»ãƒƒãƒˆãƒŠã‚¤ãƒˆ"
+        "monarch": "統治者になる",
+        "initiative": "イニシアチブを得る",
+        "theRing": "指輪を作成",
+        "setDay": "設定日",
+        "setNight": "セットナイト"
       },
       "labels": {
-        "monarch": "çµ±æ²»è€…",
-        "initiative": "ã‚¤ãƒ‹ã‚·ã‚¢ãƒãƒ–",
-        "theRing": "æŒ‡è¼ª",
-        "emblem": "ã‚¨ãƒ³ãƒ–ãƒ¬ãƒ ",
-        "dungeon": "ãƒ€ãƒ³ã‚¸ãƒ§ãƒ³",
-        "day": "æ—¥",
-        "night": "å¤œ",
-        "citysBlessing": "éƒ½å¸‚ã®æ‰¿èª",
-        "dayNight": "æ˜¼/å¤œ"
+        "initiative": "イニシアチブ",
+        "theRing": "指輪",
+        "emblem": "エンブレム",
+        "dungeon": "ダンジョン",
+        "day": "日",
+        "night": "夜",
+        "citysBlessing": "都市の承認",
+        "dayNight": "昼/夜"
       },
       "dungeonReplacement": {
-        "title": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªãƒ€ãƒ³ã‚¸ãƒ§ãƒ³ã‚’ç½®ãæ›ãˆã¾ã™ã‹?",
-        "message": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªãƒ€ãƒ³ã‚¸ãƒ§ãƒ³ã¯ 1 ã¤ã ã‘ã§ã™ã€‚ {{currentDungeon}} ã‚’ {{nextDungeon}} ã«ç½®ãæ›ãˆã¾ã™ã‹?",
-        "confirm": "ãƒ€ãƒ³ã‚¸ãƒ§ãƒ³ã‚’å…¥ã‚Œæ›¿ãˆã‚‹",
-        "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«"
+        "title": "アクティブなダンジョンを置き換えますか?",
+        "message": "アクティブなダンジョンは 1 つだけです。 {{currentDungeon}} を {{nextDungeon}} に置き換えますか?",
+        "confirm": "ダンジョンを入れ替える"
       },
       "citysBlessingRemoval": {
-        "title": "éƒ½å¸‚ã®æ‰¿èªã‚’å‰Šé™¤ã—ã¾ã™ã‹?",
-        "message": "ã“ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¯ãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰éƒ½å¸‚ã®æ‰¿èªã‚’å¤±ã„ã¾ã™ã€‚ç¶šè¡Œã—ã¾ã™ã‹ï¼Ÿ",
-        "confirm": "å‰Šé™¤",
-        "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«"
+        "title": "都市の承認を削除しますか?",
+        "message": "このプレイヤーはテーブルから都市の承認を失います。続行しますか？"
       },
       "rail": {
-        "title": "ç‰¹åˆ¥ãªå­˜åœ¨",
-        "ringLevel": "ãƒªãƒ³ã‚°ãƒ¬ãƒ™ãƒ«"
+        "title": "特別な存在"
       }
     },
     "zonePilesPanel": {
-      "monarchBadgeTooltip": "ã‚ãªãŸã¯çµ±æ²»è€…ã§ã™ã€‚"
+      "monarchBadgeTooltip": "あなたは統治者です。"
     },
     "mulliganOverlay": {
-      "title": "ãƒžãƒªã‚¬ãƒ³",
-      "metaAriaLabel": "ãƒžãƒªã‚¬ãƒ³ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
-      "firstMulliganFree": "æœ€åˆã®ãƒžãƒªã‚¬ãƒ³ã¯ç„¡æ–™ã§ã™",
-      "firstMulliganNotFree": "First mulligan is not free",
-      "mulligansTaken": "You have taken {{ count }} mulligans",
-      "effectiveMulligans": "æœ‰åŠ¹: {{ count }}",
-      "scryTitle": "å è¡“1",
-      "scryDescription": "ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã®ä¸€ç•ªä¸Šã®ã‚«ãƒ¼ãƒ‰ã‚’ã©ã†ã™ã‚‹ã‹é¸æŠžã—ã¾ã™ã€‚",
-      "waitingForPlayers": "ä»–ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’å¾…ã£ã¦ã„ã¾ã™...",
-      "currentHand": "ç¾åœ¨ã®æ‰‹æœ­",
-      "emptyHand": "æ‰‹æœ­ã«ã‚«ãƒ¼ãƒ‰ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "selectedCount": "{{ selected }} / {{ total }} ãŒé¸æŠžã•ã‚Œã¾ã—ãŸ",
-      "bottomSelectionHelp": "ãƒ‡ã‚¹ã‚¯ãƒˆãƒƒãƒ—: å³ã‚¯ãƒªãƒƒã‚¯ã—ã¦ã‚«ãƒ¼ãƒ‰ã‚’ä¸‹éƒ¨ã«ç½®ãã¾ã™ã€‚ãƒ¢ãƒã‚¤ãƒ«/ã‚¿ãƒ–ãƒ¬ãƒƒãƒˆ: [ä¸‹éƒ¨ã«ç½®ã] ãƒœã‚¿ãƒ³ã‚’ä½¿ç”¨ã—ã¾ã™ã€‚",
-      "otherPlayersStatus": "ä»–ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹",
-      "players": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "noOtherPlayers": "ä»–ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¯ã„ã¾ã›ã‚“ã€‚",
-      "rules": {
-        "london": "London",
-        "vancouver": "Vancouver",
-        "paris": "Paris",
-        "generous": "å¯›å¤§ãª"
-      },
+      "metaAriaLabel": "マリガンステータス",
+      "mulligansTaken": "マリガン回数: {{ count }}回",
+      "effectiveMulligans": "有効: {{ count }}",
+      "scryTitle": "占術1",
+      "scryDescription": "ライブラリーの一番上のカードをどうするか選択します。",
+      "waitingForPlayers": "他のプレイヤーを待っています...",
+      "currentHand": "現在の手札",
+      "emptyHand": "手札にカードがありません。",
+      "selectedCount": "{{ selected }} / {{ total }} が選択されました",
+      "bottomSelectionHelp": "デスクトップ: 右クリックしてカードを下部に置きます。モバイル/タブレット: [下部に置く] ボタンを使用します。",
+      "otherPlayersStatus": "他のプレイヤーのステータス",
+      "noOtherPlayers": "他のプレイヤーはいません。",
       "status": {
-        "deciding": "æ±ºã‚ã‚‹",
-        "scrying": "å è¡“",
-        "ready": "æº–å‚™å®Œäº†"
+        "deciding": "決める",
+        "scrying": "占術",
+        "ready": "準備完了"
       },
       "actions": {
-        "keepOnTop": "ãƒˆãƒƒãƒ—ã‚’ç¶­æŒã™ã‚‹",
-        "putOnBottom": "åº•ã«ç½®ãã¾ã™",
-        "removeFromBottom": "ä¸‹ã‹ã‚‰å¤–ã™",
-        "keepHand": "Keep hand",
-        "keepWithBottom": "Keep and bottom"
+        "keepOnTop": "トップを維持する",
+        "putOnBottom": "底に置きます",
+        "removeFromBottom": "下から外す",
+        "keepHand": "この手札をキープ",
+        "keepWithBottom": "キープして一番下へ置く"
       },
       "description": {
-        "londonNoBottom": "7æžšå¼•ãã¾ã™ã€‚ã‚«ãƒ¼ãƒ‰ã‚’ä¸€ç•ªä¸‹ã«ç½®ãå¿…è¦ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "londonChooseBottom": "7æžšå¼•ãã¾ã™ã€‚ä¸€ç•ªä¸‹ã«ç½®ã {{ count }} æžšã®ã‚«ãƒ¼ãƒ‰ã‚’é¸ã³ã¾ã™ã€‚",
-        "londonBottomOrder": "é¸æŠžã—ãŸé †ç•ªã¯ä¸€ç•ªä¸‹ã®é †ç•ªã¨ãªã‚Šã¾ã™ã€‚",
-        "drawCards": "{{ count }} æžšå¼•ãã¾ã™ã€‚",
-        "vancouverScry": "æ¬¡ã«å è¡“1ã‚’è¡Œã„ã¾ã™ã€‚",
-        "generousNoBottom": "{{ count }} æžšå¼•ãã¾ã™ã€‚ä¸€ç•ªä¸‹ã«ç½®ãã‚«ãƒ¼ãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "generousChooseBottom": "{{ drawCount }} æžšå¼•ãã¾ã™ã€‚{{ bottomCount }} æžšã‚’é¸ã³ã€ç„¡ä½œç‚ºãªé †ç•ªã§ä¸€ç•ªä¸‹ã«ç½®ãã¾ã™ã€‚",
-        "generousRandomOrder": "æœ€çµ‚çš„ãªé †ç•ªã¯ãƒ©ãƒ³ãƒ€ãƒ ã¨ãªã‚Šã¾ã™ã€‚"
+        "londonNoBottom": "7枚引きます。カードを一番下に置く必要はありません。",
+        "londonChooseBottom": "7枚引きます。一番下に置く {{ count }} 枚のカードを選びます。",
+        "londonBottomOrder": "選択した順番は一番下の順番となります。",
+        "drawCards": "{{ count }} 枚引きます。",
+        "vancouverScry": "次に占術1を行います。",
+        "generousNoBottom": "{{ count }} 枚引きます。一番下に置くカードはありません。",
+        "generousChooseBottom": "{{ drawCount }} 枚引きます。{{ bottomCount }} 枚を選び、無作為な順番で一番下に置きます。",
+        "generousRandomOrder": "最終的な順番はランダムとなります。"
       }
     }
   },
@@ -1019,20 +1169,7 @@
       "changed": "{{ previousPlayer }} のターンが終了しました。{{ player }} のターンが始まります。",
       "phaseChanged": "{{ actor }} は {{ phase }}・フェイズに進みました。"
     },
-    "phase": {
-      "untap": "アンタップ",
-      "upkeep": "アップキープ",
-      "draw": "ドロー",
-      "main-1": "第1メイン",
-      "combat": "戦闘",
-      "main-2": "第2メイン",
-      "end": "終了"
-    },
     "library": {
-      "moveTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を {{ toZone }} に移動しました。",
-      "reorderTop": "{{ actor }} はライブラリーの上から {{ count }} 枚を並べ替えました。",
-      "putTop": "{{ actor }} はカードをライブラリーの一番上に置きました。",
-      "putBottom": "{{ actor }} はカードをライブラリーの一番下に置きました。",
       "draw": "{{ actor }}はカードを引きました。",
       "drawMany": "{{ actor }} が {{ count }} カードを盗みました。",
       "playTopFaceDown": "{{ actor }} はライブラリーの最初のカードを裏向きでプレイしました。",
@@ -1048,23 +1185,6 @@
     "commanderDamage": {
       "changed": "{{ actor }} は {{ target }} への統率者ダメージを {{ previousValue }} から {{ value }} に変更しました。"
     },
-    "stack": {
-      "cardAdded": "{{ actor }} はカードをスタックに追加しました。",
-      "itemRemoved": "{{ actor }} はスタックから項目を取り除きました。"
-    },
-    "arrow": {
-      "created": "{{ actor }} は矢印を作成しました。",
-      "removed": "{{ actor }} は矢印を削除しました。"
-    },
-    "attachment": {
-      "created": "{{ actor }} はカードを付けました。",
-      "removed": "{{ actor }} は付けられたカードを外しました。"
-    },
-    "mulligan": {
-      "taken": "{{ actor }} はマリガンしました。",
-      "kept": "{{ actor }} は手札をキープしました。",
-      "scryConfirmed": "{{ actor }} はマリガン後の占術を完了しました。"
-    },
     "disconnect": {
       "expelled": "{{ target }} は切断投票の結果、退出させられました。",
       "noVotersWait": "投票するためにログインしているプレイヤーはいません。テーブルは {{ target }} を待ちます。",
@@ -1075,8 +1195,6 @@
       "voteExpiredWait": "切断投票の有効期限が切れました。テーブルは待機します。"
     },
     "zone": {
-      "randomSelected": "{{ actor }} は {{ fromZone }} から無作為にカードを選びました。",
-      "movedAll": "{{ actor }} は {{ count }} 枚を {{ fromZone }} から {{ toZone }} に移動しました。",
       "battlefield": "戦場",
       "graveyard": "墓地",
       "exile": "追放領域",
@@ -1086,10 +1204,7 @@
       "zone": "領域"
     },
     "card": {
-      "faceChanged": "{{ actor }} は {{ cardName }} を {{ faceName }} の面にしました。",
       "faceDownInspected": "{{ actor }} は裏向きのカードを確認しました。",
-      "turnedFaceDown": "{{ actor }} はカードを裏向きにしました。",
-      "turnedFaceUp": "{{ actor }} はカードを表向きにしました。",
       "controllerChanged": "{{ actor }} はカードのコントローラーを {{ target }} に変更しました。",
       "revealed": "{{ actor }} は自分の{{ zone }}からカードを1枚 {{ recipients }} に公開しました。",
       "revealedNamed": "{{ actor }} は自分の{{ zone }}から {{ cardName }} を {{ recipients }} に公開しました。",
@@ -1098,18 +1213,12 @@
       "stoppedRevealingMany": "{{ actor }} は自分の{{ zone }}からカードを{{ count }}枚 {{ recipients }} に公開するのをやめました。",
       "moved": "{{ actor }} はカードを {{ fromZone }} から {{ toZone }} に移動しました。",
       "tapped": "{{ actor }} がパーマネントをタップしました。",
-      "untapped": "{{ actor }} はパーマネントをアンタップしました。",
-      "movedMany": "{{ actor }} は、{{ count }} カードを {{ fromZone }} から {{ toZone }} に移動しました。"
+      "untapped": "{{ actor }} はパーマネントをアンタップしました。"
     },
     "audience": {
       "all": "すべてのプレイヤー"
     },
-    "cardStats": {
-      "powerToughnessChanged": "{{ actor }} は {{ cardName }} を {{ previousPower }}/{{ previousToughness }} から {{ power }}/{{ toughness }} に変更しました。",
-      "loyaltyChanged": "{{ actor }} は {{ cardName }} の忠誠度を {{ previousValue }} から {{ value }} に変更しました（{{ delta }}）。",
-      "sagaChanged": "{{ actor }} は {{ cardName }} の英雄譚の章を {{ previousChapter }} から {{ chapter }} に変更しました（{{ delta }}）。",
-      "defenseChanged": "{{ actor }} は {{ cardName }} の防御力を {{ previousDefense }} から {{ defense }} に変更しました（{{ delta }}）。"
-    },
+    "cardStats": {},
     "cardCounter": {
       "changed": "{{ actor }} は、{{ counter }} カウンターを {{ value }} に置きました。"
     },
@@ -1117,7 +1226,7 @@
       "changed": "{{ actor }} は、{{ counter }} を {{ value }} に置きます。"
     },
     "battlefield": {
-      "untappedAll": "{{ actor }} アンタップ状態の永久 {{ count }}。"
+      "untappedAll": "{{ actor }} は {{ count }} 個のパーマネントをアンタップしました。"
     },
     "life": {
       "changed": "{{ actor }} は、{{ player }} の有効期間を {{ previousLife }} から {{ life }} に変更しました。"
@@ -1133,8 +1242,7 @@
     },
     "commander": {
       "cast": "{{ actor }} は指揮エリアから指揮官を発進させました。コマンダーのキャストカウンターは{{ commanderCastCount }}です。",
-      "castCounterChanged": "{{ actor }} は統率者 {{ commanderName }} のキャスト回数カウンターを {{ commanderCastCount }} に設定しました。",
-      "unknown": "統率者"
+      "castCounterChanged": "{{ actor }} は統率者 {{ commanderName }} のキャスト回数カウンターを {{ commanderCastCount }} に設定しました。"
     },
     "token": {
       "created": "{{ actor }} はトークン {{ tokenName }} を作成しました。",
@@ -1150,476 +1258,347 @@
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "colorIdentity": "å›ºæœ‰è‰²:",
-        "commander": "çµ±çŽ‡è€…:"
+        "colorIdentity": "固有色:",
+        "commander": "統率者:"
       },
       "cardSearch": {
-        "solRingAtraxaLightningGreaves": "Sol Ringã€Atraxaã€Lightning Greaves...",
+        "solRingAtraxaLightningGreaves": "Sol Ring、Atraxa、Lightning Greaves...",
         "header": {
-          "title": "ã‚«ãƒ¼ãƒ‰",
-          "description": "ãƒ†ãƒ¼ãƒ–ãƒ«ãƒãƒªãƒ†ã‚£ã‚¯ã‚¹ãŒå§‹ã¾ã‚‹å‰ã«ã€å®Œç’§ãªã‚«ãƒ¼ãƒ‰ã‚’è¦‹ã¤ã‘ã¦ãã ã•ã„ã€‚"
+          "description": "テーブルポリティクスが始まる前に、完璧なカードを見つけてください。"
         },
-        "search": "æ¤œç´¢",
-        "clear": "ã‚¯ãƒªã‚¢",
-        "close": "é–‰ã˜ã‚‹",
-        "advancedFilters": "é«˜åº¦ãªãƒ•ã‚£ãƒ«ã‚¿ãƒ¼",
-        "searchingCards": "ã‚«ãƒ¼ãƒ‰ã‚’æ¤œç´¢ä¸­...",
-        "noCardsFound": "ã‚«ãƒ¼ãƒ‰ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚",
+        "advancedFilters": "高度なフィルター",
+        "noCardsFound": "カードが見つかりませんでした。",
         "actions": {
-          "showDetails": "è©³ç´°ã‚’è¡¨ç¤º",
-          "addToDeck": "ãƒ‡ãƒƒã‚­ã«è¿½åŠ ",
-          "showRulings": "ã‚ªãƒ©ã‚¯ãƒ«è£å®šã‚’è¡¨ç¤º",
-          "viewPrintings": "ã™ã¹ã¦ã®å°åˆ·ã‚’è¡¨ç¤º"
+          "showDetails": "詳細を表示",
+          "addToDeck": "デッキに追加",
+          "showRulings": "オラクル裁定を表示",
+          "viewPrintings": "すべての印刷を表示"
         },
         "details": {
-          "close": "è©³ç´°ã‚’é–‰ã˜ã‚‹",
-          "couldNotLoad": "ã“ã®ã‚«ãƒ¼ãƒ‰ã‚’èª­ã¿è¾¼ã¿ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "oracleText": "Oracle ãƒ†ã‚­ã‚¹ãƒˆ",
-          "noOracleText": "åˆ©ç”¨å¯èƒ½ãªã‚ªãƒ©ã‚¯ãƒ«ãƒ†ã‚­ã‚¹ãƒˆã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-          "legalFormats": "ä½¿ç”¨å¯èƒ½ãªãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
-          "illegalFormats": "ä½¿ç”¨ä¸å¯ã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
-          "noLegalFormats": "ãƒ­ãƒ¼ã‚«ãƒ«ã‚«ã‚¿ãƒ­ã‚°ã«ä½¿ç”¨å¯èƒ½ãªãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-          "noIllegalFormats": "ãƒ­ãƒ¼ã‚«ãƒ«ã‚«ã‚¿ãƒ­ã‚°ã«ä½¿ç”¨ä¸å¯ã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
+          "close": "詳細を閉じる",
+          "couldNotLoad": "このカードを読み込みできませんでした。",
+          "oracleText": "Oracle テキスト",
+          "legalFormats": "使用可能なフォーマット",
+          "illegalFormats": "使用不可のフォーマット",
+          "noLegalFormats": "ローカルカタログに使用可能なフォーマットはありません。",
+          "noIllegalFormats": "ローカルカタログに使用不可のフォーマットはありません。"
         },
         "addToDeck": {
-          "title": "ã‚«ãƒ¼ãƒ‰ã‚’è¿½åŠ ",
-          "deck": "ãƒ‡ãƒƒã‚­",
-          "section": "ã‚»ã‚¯ã‚·ãƒ§ãƒ³",
-          "quantity": "æ•°é‡",
-          "selectDeck": "ãƒ‡ãƒƒã‚­ã‚’é¸æŠžã—ã¦ãã ã•ã„",
-          "selectSection": "ã‚»ã‚¯ã‚·ãƒ§ãƒ³ã‚’é¸æŠžã—ã¦ãã ã•ã„",
-          "decreaseQuantity": "æ•°é‡ã‚’æ¸›ã‚‰ã™",
-          "increaseQuantity": "æ•°é‡ã‚’å¢—ã‚„ã™",
-          "sectionMain": "ãƒ¡ã‚¤ãƒ³ãƒ‡ãƒƒã‚­",
-          "sectionCommander": "çµ±çŽ‡è€…",
-          "sectionSideboard": "ã‚µã‚¤ãƒ‰ãƒœãƒ¼ãƒ‰",
-          "sectionConsidering": "æ¤œè¨Žä¸­",
-          "confirm": "ã‚«ãƒ¼ãƒ‰ã‚’è¿½åŠ ",
-          "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-          "noDecks": "ã¾ã ãƒ‡ãƒƒã‚­ã‚’æŒã£ã¦ã„ã¾ã›ã‚“ã€‚",
-          "colorIdentityWarning": "{{ card }} ã®å›ºæœ‰è‰²ã¯ {{ deck }} ã®çµ±çŽ‡è€…ã®å›ºæœ‰è‰²å¤–ã§ã™:",
-          "formatLegalityWarning": "{{ card }} ã¯ã€é¸æŠžã—ãŸãƒ‡ãƒƒã‚­ã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã§ã‚ã‚‹ {{ format }} ã§ã¯ä½¿ç”¨ã§ãã¾ã›ã‚“ã€‚",
-          "couldNotLoadDecks": "ãƒ‡ãƒƒã‚­ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "couldNotAdd": "ã“ã®ã‚«ãƒ¼ãƒ‰ã‚’é¸æŠžã—ãŸãƒ‡ãƒƒã‚­ã«è¿½åŠ ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚"
+          "deck": "デッキ",
+          "section": "セクション",
+          "selectSection": "セクションを選択してください",
+          "decreaseQuantity": "数量を減らす",
+          "increaseQuantity": "数量を増やす",
+          "sectionMain": "メインデッキ",
+          "noDecks": "まだデッキを持っていません。",
+          "colorIdentityWarning": "{{ card }} の固有色は {{ deck }} の統率者の固有色外です:",
+          "formatLegalityWarning": "{{ card }} は、選択したデッキのフォーマットである {{ format }} では使用できません。",
+          "couldNotLoadDecks": "デッキを読み込めませんでした。",
+          "couldNotAdd": "このカードを選択したデッキに追加できませんでした。"
         },
         "printings": {
-          "title": "{{ card }} ã®å°åˆ·",
-          "empty": "ã“ã®ã‚«ãƒ¼ãƒ‰ã®å°åˆ·ã¯è¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "couldNotLoad": "ã‚«ãƒ¼ãƒ‰å°åˆ·ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "close": "é–‰ã˜ã‚‹"
+          "title": "{{ card }} の印刷",
+          "empty": "このカードの印刷は見つかりませんでした。",
+          "couldNotLoad": "カード印刷を読み込めませんでした。"
         },
         "summary": {
-          "ariaLabel": "é©ç”¨ã•ã‚ŒãŸã‚«ãƒ¼ãƒ‰æ¤œç´¢ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼",
-          "activeQuery": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªã‚¯ã‚¨ãƒª",
-          "totalFound": "{{ total }} ã‚«ãƒ¼ãƒ‰ãŒè¦‹ã¤ã‹ã‚Šã¾ã—ãŸ",
-          "pageStatus": "ãƒšãƒ¼ã‚¸ {{ page }} / {{ pages }}",
+          "ariaLabel": "適用されたカード検索フィルター",
+          "activeQuery": "アクティブなクエリ",
+          "totalFound": "{{ total }} カードが見つかりました",
+          "pageStatus": "ページ {{ page }} / {{ pages }}",
           "filters": {
-            "name": "åå‰",
-            "rules": "ãƒ«ãƒ¼ãƒ«",
-            "types": "ã‚¿ã‚¤ãƒ—",
-            "subtypes": "ã‚µãƒ–ã‚¿ã‚¤ãƒ—",
-            "sets": "ã‚»ãƒƒãƒˆ",
-            "rarity": "ãƒ¬ã‚¢ãƒªãƒ†ã‚£",
-            "colors": "è‰²",
-            "cardKind": "ã‚«ãƒ¼ãƒ‰ç¨®åˆ¥",
-            "manaValue": "ãƒžãƒŠç·é‡",
-            "manaCost": "ãƒžãƒŠãƒ»ã‚³ã‚¹ãƒˆ",
-            "power": "ãƒ‘ãƒ¯ãƒ¼",
-            "toughness": "ã‚¿ãƒ•ãƒã‚¹",
-            "formats": "ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ"
+            "rules": "ルール",
+            "cardKind": "カード種別"
           }
         },
         "sort": {
-          "label": "ä¸¦ã¹æ›¿ãˆ",
-          "colors": "è‰²",
-          "nameAsc": "åå‰ A ï½ž Z",
-          "nameDesc": "åå‰ Z-A",
-          "manaValueAsc": "ãƒžãƒŠä½Žï½žé«˜",
-          "manaValueDesc": "ãƒžãƒŠ é«˜â†’ä½Ž"
-        },
-        "view": {
-          "list": "ãƒªã‚¹ãƒˆ",
-          "spoiler": "ã‚¹ãƒã‚¤ãƒ©ãƒ¼"
+          "nameAsc": "名前 A ～ Z",
+          "nameDesc": "名前 Z-A",
+          "manaValueAsc": "マナ低～高",
+          "manaValueDesc": "マナ 高→低"
         },
         "form": {
-          "name": "åå‰",
-          "textA": "ãƒ«ãƒ¼ãƒ«ãƒ†ã‚­ã‚¹ãƒˆ",
-          "textB": "2ç•ªç›®ã®ãƒ†ã‚­ã‚¹ãƒˆ",
-          "textMode": "ãƒ†ã‚­ã‚¹ãƒˆä¸€è‡´",
-          "textModeAll": "ã™ã¹ã¦ã®ãƒ†ã‚­ã‚¹ãƒˆç”¨èªž",
-          "textModeAllDescription": "ä¸¡æ–¹ã®ãƒœãƒƒã‚¯ã‚¹ãŒã‚«ãƒ¼ãƒ‰ ãƒ«ãƒ¼ãƒ«ã®ãƒ†ã‚­ã‚¹ãƒˆã«è¡¨ç¤ºã•ã‚Œãªã‘ã‚Œã°ãªã‚Šã¾ã›ã‚“ã€‚",
-          "textModeAny": "ä»»æ„ã®ãƒ†ã‚­ã‚¹ãƒˆç”¨èªž",
-          "textModeAnyDescription": "ã©ã¡ã‚‰ã®ãƒœãƒƒã‚¯ã‚¹ã‚‚ã‚«ãƒ¼ãƒ‰ ãƒ«ãƒ¼ãƒ«ã®ãƒ†ã‚­ã‚¹ãƒˆã¨ä¸€è‡´ã—ã¾ã™ã€‚",
-          "textExact": "å˜èªžã®å®Œå…¨ä¸€è‡´",
-          "textExactDescription": "é•·ã„å˜èªžã®ä¸€éƒ¨ã§ã¯ãªãã€å®Œå…¨ãªå˜èªžã ã‘ã‚’æ¤œç´¢ã—ã¾ã™ã€‚",
-          "types": "ã‚¿ã‚¤ãƒ—",
-          "subtypes": "ã‚µãƒ–ã‚¿ã‚¤ãƒ—",
-          "sets": "ã‚»ãƒƒãƒˆ",
-          "rarity": "ãƒ¬ã‚¢ãƒªãƒ†ã‚£",
-          "colors": "è‰²",
-          "colorMode": "ã‚«ãƒ©ãƒ¼ãƒžãƒƒãƒ",
-          "colorModeAny": "ã©ã‚Œã§ã‚‚",
-          "colorModeAll": "ã™ã¹ã¦",
-          "colorModeExact": "æ­£ç¢ºãª",
-          "clearManaCost": "ãƒžãƒŠãƒ»ã‚³ã‚¹ãƒˆã‚’ã‚¯ãƒªã‚¢ã™ã‚‹",
-          "basic": "åŸºæœ¬",
-          "legendary": "ä¼èª¬ã®",
-          "artifact": "ã‚¢ãƒ¼ãƒ†ã‚£ãƒ•ã‚¡ã‚¯ãƒˆ",
-          "multicolor": "ãƒžãƒ«ãƒã‚«ãƒ©ãƒ¼",
-          "land": "åœŸåœ°",
-          "costs": "ã‚³ã‚¹ãƒˆ",
-          "manaValueMin": "ãƒžãƒŠæœ€å°",
-          "manaValueMax": "ãƒžãƒŠæœ€å¤§",
-          "manaCost": "ãƒžãƒŠãƒ»ã‚³ã‚¹ãƒˆ",
-          "powerToughness": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹",
-          "powerMin": "ãƒ‘ãƒ¯ãƒ¼æœ€å°",
-          "powerMax": "ãƒ‘ãƒ¯ãƒ¼æœ€å¤§",
-          "toughnessMin": "ã‚¿ãƒ•ãƒã‚¹æœ€å°",
-          "toughnessMax": "ã‚¿ãƒ•ãƒã‚¹æœ€å¤§",
-          "includeVariablePower": "* ãƒ‘ãƒ¯ãƒ¼ã‚’å«ã‚€",
-          "includeVariablePowerDescription": "* ã‚„ 1+* ãªã©ã€ãƒ‘ãƒ¯ãƒ¼ãŒå›ºå®šæ•°ã§ã¯ãªã„ã‚«ãƒ¼ãƒ‰ã‚‚å«ã¾ã‚Œã¾ã™ã€‚",
-          "includeVariableToughness": "*ã‚¿ãƒ•ãƒã‚¹ã‚’å«ã‚€",
-          "includeVariableToughnessDescription": "* ã‚„ 1+* ãªã©ã€ã‚¿ãƒ•ãƒã‚¹ãŒå›ºå®šå€¤ã§ã¯ãªã„ã‚«ãƒ¼ãƒ‰ã‚‚å«ã¾ã‚Œã¾ã™ã€‚",
-          "formats": "ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ",
-          "filterOptions": "ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã‚ªãƒ—ã‚·ãƒ§ãƒ³",
-          "presentation": "è¡¨ç¤ºå½¢å¼",
-          "loadingOptions": "ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã‚’èª­ã¿è¾¼ã‚“ã§ã„ã¾ã™...",
-          "enabled": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–",
-          "activeFilters": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼",
-          "precisionConsole": "ç²¾å¯†ã‚³ãƒ³ã‚½ãƒ¼ãƒ«",
-          "composeSearch": "æ­£ç¢ºãªã‚«ãƒ¼ãƒ‰ã‚¯ã‚¨ãƒªã‚’ä½œæˆã™ã‚‹",
-          "oracleText": "ã‚«ãƒ¼ãƒ‰ãƒ«ãƒ¼ãƒ«ãƒ†ã‚­ã‚¹ãƒˆ",
-          "textAPlaceholder": "ã‚«ãƒ¼ãƒ‰ã‚’1æžšå¼•ãã€å¯¾è±¡ã‚’ç ´å£Šã™ã‚‹ã€ã‚ãªãŸãŒå”±ãˆã‚‹ãŸã³...",
-          "textBPlaceholder": "ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã® 2 ç•ªç›®ã®ãƒ«ãƒ¼ãƒ«ç”¨èªž",
-          "removeManaSymbol": "æœ€å¾Œã®ãƒžãƒŠã‚·ãƒ³ãƒœãƒ«ã‚’å‰Šé™¤ã—ã¾ã™"
+          "textA": "ルールテキスト",
+          "textB": "2番目のテキスト",
+          "textMode": "テキスト一致",
+          "textModeAll": "すべてのテキスト用語",
+          "textModeAllDescription": "両方のボックスがカード ルールのテキストに表示されなければなりません。",
+          "textModeAny": "任意のテキスト用語",
+          "textModeAnyDescription": "どちらのボックスもカード ルールのテキストと一致します。",
+          "textExact": "単語の完全一致",
+          "textExactDescription": "長い単語の一部ではなく、完全な単語だけを検索します。",
+          "colorMode": "カラーマッチ",
+          "colorModeExact": "正確な",
+          "clearManaCost": "マナ・コストをクリアする",
+          "legendary": "伝説の",
+          "multicolor": "マルチカラー",
+          "manaValueMin": "マナ最小",
+          "manaValueMax": "マナ最大",
+          "powerMin": "パワー最小",
+          "powerMax": "パワー最大",
+          "toughnessMin": "タフネス最小",
+          "toughnessMax": "タフネス最大",
+          "includeVariablePower": "* パワーを含む",
+          "includeVariablePowerDescription": "* や 1+* など、パワーが固定数ではないカードも含まれます。",
+          "includeVariableToughness": "*タフネスを含む",
+          "includeVariableToughnessDescription": "* や 1+* など、タフネスが固定値ではないカードも含まれます。",
+          "filterOptions": "フィルターオプション",
+          "presentation": "表示形式",
+          "loadingOptions": "フィルターを読み込んでいます...",
+          "enabled": "アクティブ",
+          "activeFilters": "アクティブフィルター",
+          "precisionConsole": "精密コンソール",
+          "composeSearch": "正確なカードクエリを作成する",
+          "oracleText": "カードルールテキスト",
+          "textAPlaceholder": "カードを1枚引く、対象を破壊する、あなたが唱えるたび...",
+          "textBPlaceholder": "オプションの 2 番目のルール用語",
+          "removeManaSymbol": "最後のマナシンボルを削除します"
         },
         "help": {
-          "title": "æ¤œç´¢ã‚¬ã‚¤ãƒ‰",
-          "heading": "é«˜åº¦ãªæ¤œç´¢ã‚¬ã‚¤ãƒ‰",
-          "nameTitle": "åå‰",
-          "name": "ã‚«ãƒ¼ãƒ‰åã®å®Œå…¨ä¸€è‡´ã¾ãŸã¯éƒ¨åˆ†ä¸€è‡´ã§æ¤œç´¢ã—ã¾ã™ã€‚CommanderZone ã¯æ¨™æº–åã€å°åˆ·å/ãƒ­ãƒ¼ã‚«ãƒ©ã‚¤ã‚ºåã€ãƒ­ãƒ¼ã‚«ãƒ«ã‚«ã‚¿ãƒ­ã‚°ã«ã‚ã‚‹ãƒ•ãƒ¬ã‚¤ãƒãƒ¼åã‚’ç¢ºèªã™ã‚‹ãŸã‚ã€æ—¥æœ¬èªžåã¨è‹±èªžåã®ã©ã¡ã‚‰ã§ã‚‚åŒã˜ã‚«ãƒ¼ãƒ‰ã‚’è¦‹ã¤ã‘ã‚‰ã‚Œã¾ã™ã€‚",
-          "textTitle": "ã‚«ãƒ¼ãƒ‰ãƒ†ã‚­ã‚¹ãƒˆ",
-          "text": "ãƒ«ãƒ¼ãƒ«ãƒ†ã‚­ã‚¹ãƒˆã®ç”¨èªžã‚’1ã¤ã¾ãŸã¯2ã¤ä½¿ç”¨ã—ã¾ã™ã€‚ä¸€è‡´æ¡ä»¶ã®åˆ‡ã‚Šæ›¿ãˆã§ã€ä¸¡æ–¹ã®å…¥åŠ›ãŒã‚«ãƒ¼ãƒ‰ã«å«ã¾ã‚Œã‚‹å¿…è¦ãŒã‚ã‚‹ã‹ã€ã©ã¡ã‚‰ã‹ä¸€æ–¹ã§ååˆ†ã‹ã‚’æ±ºã‚ã¾ã™ã€‚ãƒ†ã‚­ã‚¹ãƒˆã¯ã‚ªãƒ©ã‚¯ãƒ«ãƒ†ã‚­ã‚¹ãƒˆã¨ã‚«ãƒ¼ãƒ‰ã®å„é¢ã§ç¢ºèªã•ã‚Œã¾ã™ã€‚",
-          "subtypesTitle": "ã‚µãƒ–ã‚¿ã‚¤ãƒ—",
-          "subtypes": "ã‚µãƒ–ã‚¿ã‚¤ãƒ—ã¯ã‚¿ã‚¤ãƒ—ã¨ã¯ç‹¬ç«‹ã—ã¦æ©Ÿèƒ½ã—ã¾ã™ã€‚ä»–ã®ã‚»ã‚¯ã‚·ãƒ§ãƒ³ã¨çµ„ã¿åˆã‚ã›ã¦ã€ã‚¨ãƒ«ãƒ•ã€ã‚´ãƒ–ãƒªãƒ³ã€ãƒ‰ãƒ©ã‚´ãƒ³ã€è£…å‚™ã€ã‚ªãƒ¼ãƒ©ãªã©ã‚’è¦‹ã¤ã‘ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚",
-          "rarityTitle": "ãƒ¬ã‚¢ãƒªãƒ†ã‚£",
-          "rarity": "è¤‡æ•°ã®ãƒ¬ã‚¢ãƒªãƒ†ã‚£ã‚’åŒæ™‚ã«é¸æŠžã§ãã¾ã™ã€‚è‰²ä»˜ãã®ãƒ©ãƒ™ãƒ«ã¯è¦–è¦šçš„ãªè£œåŠ©ã®ã¿ã§ã€æ¤œç´¢ã§ã¯ã‚«ã‚¿ãƒ­ã‚°ä¸Šã®ãƒ¬ã‚¢ãƒªãƒ†ã‚£ã‚’ä½¿ç”¨ã—ã¾ã™ã€‚",
-          "colorsTitle": "è‰²",
-          "colors": "è‰²ã®ä¸€è‡´æ¡ä»¶ã¯ã€é¸æŠžã—ãŸè‰²ã«ã¤ã„ã¦ã€ã„ãšã‚Œã‹ã®è‰²ã€ã™ã¹ã¦ã®è‰²ã€ã¾ãŸã¯å®Œå…¨ä¸€è‡´ã®ã©ã‚Œã§æ¤œç´¢ã™ã‚‹ã‹ã‚’åˆ¶å¾¡ã—ã¾ã™ã€‚ã‚¢ãƒ¼ãƒ†ã‚£ãƒ•ã‚¡ã‚¯ãƒˆã€å¤šè‰²ã€åœŸåœ°ã¯è¿½åŠ ã®ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆã§ã™ã€‚",
-          "costsTitle": "ã‚³ã‚¹ãƒˆ",
-          "costs": "ãƒžãƒŠç·é‡ã¯ CommanderZone ã®æ­£è¦åŒ–ã•ã‚ŒãŸã‚«ãƒ¼ãƒ‰ã‚«ã‚¿ãƒ­ã‚°ã‚’ä½¿ç”¨ã—ã€X ã¯ 0 ã¨ã—ã¦æ•°ãˆã¾ã™ã€‚æ­£ç¢ºãªãƒžãƒŠãƒ»ã‚³ã‚¹ãƒˆã¯ã‚·ãƒ³ãƒœãƒ«ãƒ”ãƒƒã‚«ãƒ¼ã§ä½œæˆã§ãã‚‹ãŸã‚ã€è‰²ã‚³ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã™ã‚‹å¿…è¦ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-          "statsTitle": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹",
-          "stats": "ãƒ‘ãƒ¯ãƒ¼/ã‚¿ãƒ•ãƒã‚¹ã®ç¯„å›²ã¯æ•°å€¤ã‚’æ¯”è¼ƒã—ã¾ã™ã€‚ * ã‚„ 1+* ãªã©ã®å€¤ã‚’æŒã¤ã‚«ãƒ¼ãƒ‰ã‚‚å¿…è¦ãªå ´åˆã¯ã€å°ã•ãªå¤‰æ•°å€¤ãƒã‚§ãƒƒã‚¯ãƒœãƒƒã‚¯ã‚¹ã‚’æœ‰åŠ¹ã«ã—ã¾ã™ã€‚"
+          "title": "検索ガイド",
+          "heading": "高度な検索ガイド",
+          "name": "カード名の完全一致または部分一致で検索します。CommanderZone は標準名、印刷名/ローカライズ名、ローカルカタログにあるフレイバー名を確認するため、日本語名と英語名のどちらでも同じカードを見つけられます。",
+          "textTitle": "カードテキスト",
+          "text": "ルールテキストの用語を1つまたは2つ使用します。一致条件の切り替えで、両方の入力がカードに含まれる必要があるか、どちらか一方で十分かを決めます。テキストはオラクルテキストとカードの各面で確認されます。",
+          "subtypesTitle": "サブタイプ",
+          "subtypes": "サブタイプはタイプとは独立して機能します。他のセクションと組み合わせて、エルフ、ゴブリン、ドラゴン、装備、オーラなどを見つけることができます。",
+          "rarity": "複数のレアリティを同時に選択できます。色付きのラベルは視覚的な補助のみで、検索ではカタログ上のレアリティを使用します。",
+          "colors": "色の一致条件は、選択した色について、いずれかの色、すべての色、または完全一致のどれで検索するかを制御します。アーティファクト、多色、土地は追加のショートカットです。",
+          "costs": "マナ総量は CommanderZone の正規化されたカードカタログを使用し、X は 0 として数えます。正確なマナ・コストはシンボルピッカーで作成できるため、色コードを入力する必要はありません。",
+          "stats": "パワー/タフネスの範囲は数値を比較します。 * や 1+* などの値を持つカードも必要な場合は、小さな変数値チェックボックスを有効にします。"
         },
-        "actionsAriaLabel": "ã‚«ãƒ¼ãƒ‰æ¤œç´¢ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
-        "filtersAriaLabel": "ã‚«ãƒ¼ãƒ‰æ¤œç´¢ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼"
-      },
-      "cardImage": {
-        "flipFace": "é¢ã‚’åè»¢"
-      },
-      "autocomplete": {
-        "cardAutocomplete": {
-          "searchingCards": "ã‚«ãƒ¼ãƒ‰ã‚’æ¤œç´¢ä¸­..."
-        }
+        "actionsAriaLabel": "カード検索アクション",
+        "filtersAriaLabel": "カード検索フィルター"
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "ã‚¿ã‚¤ãƒ—ã®å†…è¨³",
-      "utilityCounts": "ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ã‚«ã‚¦ãƒ³ãƒˆ",
+      "typeBreakdown": "タイプの内訳",
+      "utilityCounts": "ユーティリティカウント",
       "reloadPageForData": "分析データを取得するにはページを再読み込みしてください。"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "ãƒžãƒŠãƒãƒ©ãƒ³ã‚¹",
-      "coloredSourceShareVersusColorDemand": "ã‚«ãƒ©ãƒ¼ã‚½ãƒ¼ã‚¹ã®ã‚·ã‚§ã‚¢ã¨ã‚«ãƒ©ãƒ¼éœ€è¦ã€‚",
-      "sources": "ã‚½ãƒ¼ã‚¹",
-      "sourceMix": "ã‚½ãƒ¼ã‚¹ãƒŸãƒƒã‚¯ã‚¹"
+      "manaBalance": "マナバランス",
+      "coloredSourceShareVersusColorDemand": "カラーソースのシェアとカラー需要。",
+      "sources": "ソース",
+      "sourceMix": "ソースミックス"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "ãƒžãƒŠã‚«ãƒ¼ãƒ–",
-      "mainDeckByManaValue": "ãƒžãƒŠç·é‡åˆ¥ã®ãƒ¡ã‚¤ãƒ³ãƒ‡ãƒƒã‚­ã€‚",
-      "permanents": "ãƒ‘ãƒ¼ãƒžãƒãƒ³ãƒˆ",
-      "spells": "å‘ªæ–‡",
-      "sampleHand": "ã‚µãƒ³ãƒ—ãƒ«ãƒãƒ³ãƒ‰",
-      "sevenRandomCardsFromTheMainDeck": "ãƒ¡ã‚¤ãƒ³ãƒ‡ãƒƒã‚­ã‹ã‚‰ãƒ©ãƒ³ãƒ€ãƒ ã«é¸ã°ã‚ŒãŸ7æžšã®ã‚«ãƒ¼ãƒ‰ã€‚",
-      "drawAgain": "ã‚‚ã†ä¸€åº¦å¼•ã",
-      "noCardsAvailable": "åˆ©ç”¨ã§ãã‚‹ã‚«ãƒ¼ãƒ‰ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚"
+      "manaCurve": "マナカーブ",
+      "mainDeckByManaValue": "マナ総量別のメインデッキ。",
+      "permanents": "パーマネント",
+      "spells": "呪文",
+      "sampleHand": "サンプルハンド",
+      "sevenRandomCardsFromTheMainDeck": "メインデッキからランダムに選ばれた7枚のカード。",
+      "drawAgain": "もう一度引く",
+      "noCardsAvailable": "利用できるカードはありません。"
     },
     "deckCardMenu": {
-      "copyQuantityControls": "ã‚³ãƒ”ãƒ¼æ•°é‡åˆ¶å¾¡",
-      "selectedCardPreview": "é¸æŠžã—ãŸã‚«ãƒ¼ãƒ‰ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "quantityToAddOrRemove": "è¿½åŠ ã¾ãŸã¯å‰Šé™¤ã™ã‚‹æ•°é‡",
-      "editingCard": "ã‚«ãƒ¼ãƒ‰ã‚’ç·¨é›†ä¸­",
-      "quantity": "æ•°é‡",
-      "add": "è¿½åŠ ",
-      "remove": "å‰Šé™¤",
-      "selectPrintVersion": "å°åˆ·ç‰ˆã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "moveToMain": "ãƒ¡ã‚¤ãƒ³ã«ç§»å‹•",
-      "moveToCommander": "çµ±çŽ‡è€…ã¸ç§»å‹•",
-      "moveToSideboard": "ã‚µã‚¤ãƒ‰ãƒœãƒ¼ãƒ‰ã«ç§»å‹•",
-      "moveToConsidering": "æ¤œè¨Žä¸­ã¸ç§»å‹•"
-    },
-    "deckCardSpoilerView": {
-      "flipFace": "é¢ã‚’åè»¢",
-      "noCommanderAssignedYet": "çµ±çŽ‡è€…ãŒã¾ã å‰²ã‚Šå½“ã¦ã‚‰ã‚Œã¦ã„ã¾ã›ã‚“ã€‚"
+      "copyQuantityControls": "コピー数量制御",
+      "selectedCardPreview": "選択したカードのプレビュー",
+      "quantityToAddOrRemove": "追加または削除する数量",
+      "editingCard": "カードを編集中",
+      "moveToMain": "メインに移動",
+      "moveToCommander": "統率者へ移動",
+      "moveToSideboard": "サイドボードに移動",
+      "moveToConsidering": "検討中へ移動"
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "çµ±çŽ‡è€…ãŒã¾ã å‰²ã‚Šå½“ã¦ã‚‰ã‚Œã¦ã„ã¾ã›ã‚“ã€‚",
-      "unknownType": "ä¸æ˜Žãªã‚¿ã‚¤ãƒ—"
-    },
-    "deckCommanderShowcase": {
-      "flipFace": "é¢ã‚’åè»¢"
+      "unknownType": "不明なタイプ"
     },
     "deckEditor": {
-      "addCardsByName": "ã‚«ãƒ¼ãƒ‰ã‚’åå‰ã§è¿½åŠ ã™ã‚‹",
-      "searchAnotherCardName": "åˆ¥ã®ã‚«ãƒ¼ãƒ‰åã‚’æ¤œç´¢ã™ã‚‹",
-      "deckEditorSections": "ãƒ‡ãƒƒã‚­ã‚¨ãƒ‡ã‚£ã‚¿ãƒ¼ã®ã‚»ã‚¯ã‚·ãƒ§ãƒ³",
-      "copyCardName": "ã‚«ãƒ¼ãƒ‰åã‚’ã‚³ãƒ”ãƒ¼ã™ã‚‹",
-      "searchCard": "ã‚«ãƒ¼ãƒ‰ã‚’æ¤œç´¢",
-      "saveMissingCard": "ä¸è¶³ã‚«ãƒ¼ãƒ‰ã‚’ä¿å­˜",
-      "ignoreThisSession": "ã“ã®ã‚»ãƒƒã‚·ãƒ§ãƒ³ã‚’ç„¡è¦–ã™ã‚‹",
-      "remove": "å‰Šé™¤",
-      "clearLocalHistory": "ãƒ­ãƒ¼ã‚«ãƒ«å±¥æ­´ã‚’ã‚¯ãƒªã‚¢",
-      "importDecklist": "ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã™ã‚‹",
-      "selectPrintVersion": "å°åˆ·ç‰ˆã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "restoreHistory": "å±¥æ­´ã®å¾©å…ƒ",
-      "view": "è¡¨ç¤º",
-      "text": "ãƒ†ã‚­ã‚¹ãƒˆ",
-      "spoiler": "ã‚¹ãƒã‚¤ãƒ©ãƒ¼",
-      "analysis": "åˆ†æž",
-      "considering": "æ¤œè¨Žä¸­",
-      "validation": "æ¤œè¨¼",
-      "missing": "ä¸è¶³",
-      "history": "æ­´å²",
-      "consideringCards": "ã‚«ãƒ¼ãƒ‰ã‚’æ¤œè¨Žä¸­",
-      "cardsParkedOutsideThePlayableDeck": "ãƒ—ãƒ¬ã‚¤å¯èƒ½ãªãƒ‡ãƒƒã‚­ã®å¤–ã«ç½®ã‹ã‚ŒãŸã‚«ãƒ¼ãƒ‰ã€‚",
-      "noConsideringCards": "ã‚«ãƒ¼ãƒ‰ã‚’æ¤œè¨Žã™ã‚‹å¿…è¦ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "derivedTokens": "æ´¾ç”Ÿãƒˆãƒ¼ã‚¯ãƒ³",
-      "resolvedFromCardsCurrentlyInTheDeck": "ç¾åœ¨ãƒ‡ãƒƒã‚­ã«å…¥ã£ã¦ã„ã‚‹ã‚«ãƒ¼ãƒ‰ã‹ã‚‰è§£æ±ºã•ã‚Œã¾ã™ã€‚",
-      "noResolvedTokensForThisDeck": "ã“ã®ãƒ‡ãƒƒã‚­ã«ã¯è§£æ±ºæ¸ˆã¿ãƒˆãƒ¼ã‚¯ãƒ³ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "unresolvedTokens": "æœªè§£æ±ºã®ãƒˆãƒ¼ã‚¯ãƒ³",
-      "validateWithBackend": "ã‚µãƒ¼ãƒãƒ¼ã§æ¤œè¨¼ã™ã‚‹",
-      "errors": "ã‚¨ãƒ©ãƒ¼",
-      "warnings": "è­¦å‘Š",
-      "noFrontendDiagnosticsForTheCurrentDeck": "ç¾åœ¨ã®ãƒ‡ãƒƒã‚­ã«ã¯ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ã‚¤ã‚¹è¨ºæ–­ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "search": "æ¤œç´¢",
-      "add": "è¿½åŠ ",
-      "noCardSearchResults": "ã‚«ãƒ¼ãƒ‰æ¤œç´¢çµæžœãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "futureCollection": "ä»Šå¾Œã®ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³",
-      "snapshot": "ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆ",
-      "restore": "å¾©å…ƒ",
-      "noLocalHistoryForThisDeckYet": "ã“ã®ãƒ‡ãƒƒã‚­ã®ãƒ­ãƒ¼ã‚«ãƒ«å±¥æ­´ã¯ã¾ã ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "noCards": "ã‚«ãƒ¼ãƒ‰ãªã—",
-      "deckName": "ãƒ‡ãƒƒã‚­å",
-      "saveName": "åå‰ã‚’ä¿å­˜",
-      "plainTextDecklist": "ãƒ—ãƒ¬ãƒ¼ãƒ³ãƒ†ã‚­ã‚¹ãƒˆã®ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆ",
-      "loadFile": "ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ­ãƒ¼ãƒ‰ã™ã‚‹",
-      "lastImport": "æœ€å¾Œã®ã‚¤ãƒ³ãƒãƒ¼ãƒˆ",
-      "missingCardsFromLatestImport": "æœ€æ–°ã®ã‚¤ãƒ³ãƒãƒ¼ãƒˆã§ã‚«ãƒ¼ãƒ‰ãŒæ¬ è½ã—ã¦ã„ã‚‹",
-      "chooseTheExactPrintingFor": "æ­£ç¢ºãªå°åˆ·ã‚’é¸æŠž",
-      "quantityAndSectionWillStayUnchanged": "æ•°é‡ã¨ã‚»ã‚¯ã‚·ãƒ§ãƒ³ã¯å¤‰æ›´ã•ã‚Œã¾ã›ã‚“ã€‚",
-      "loadingPrintVersions": "å°åˆ·ç‰ˆã‚’èª­ã¿è¾¼ã¿ä¸­...",
-      "onlyOnePrintVersion": "å°åˆ·ç‰ˆã¯ 1 ã¤ã ã‘",
-      "thisCardOnlyHasOnePrintVersion": "ã“ã®ã‚«ãƒ¼ãƒ‰ã«ã¯ã€ãƒ‡ãƒ¼ã‚¿ãƒ™ãƒ¼ã‚¹ã§åˆ©ç”¨ã§ãã‚‹å°åˆ·ãƒãƒ¼ã‚¸ãƒ§ãƒ³ãŒ 1 ã¤ã ã‘ã‚ã‚Šã¾ã™ã€‚",
-      "noPrintVersionsFoundForThisCard": "ã“ã®ã‚«ãƒ¼ãƒ‰ã®å°åˆ·ç‰ˆã¯è¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚",
-      "current": "ç¾åœ¨",
+      "addCardsByName": "カードを名前で追加する",
+      "searchAnotherCardName": "別のカード名を検索する",
+      "deckEditorSections": "デッキエディターのセクション",
+      "copyCardName": "カード名をコピーする",
+      "searchCard": "カードを検索",
+      "saveMissingCard": "不足カードを保存",
+      "ignoreThisSession": "このセッションを無視する",
+      "clearLocalHistory": "ローカル履歴をクリア",
+      "restoreHistory": "履歴の復元",
+      "analysis": "分析",
+      "validation": "検証",
+      "history": "歴史",
+      "consideringCards": "カードを検討中",
+      "cardsParkedOutsideThePlayableDeck": "プレイ可能なデッキの外に置かれたカード。",
+      "noConsideringCards": "カードを検討する必要はありません。",
+      "derivedTokens": "派生トークン",
+      "resolvedFromCardsCurrentlyInTheDeck": "現在デッキに入っているカードから解決されます。",
+      "noResolvedTokensForThisDeck": "このデッキには解決済みトークンがありません。",
+      "unresolvedTokens": "未解決のトークン",
+      "validateWithBackend": "サーバーで検証する",
+      "warnings": "警告",
+      "noFrontendDiagnosticsForTheCurrentDeck": "現在のデッキにはインターフェイス診断がありません。",
+      "noCardSearchResults": "カード検索結果がありません。",
+      "futureCollection": "今後のコレクション",
+      "restore": "復元",
+      "noLocalHistoryForThisDeckYet": "このデッキのローカル履歴はまだありません。",
+      "noCards": "カードなし",
+      "saveName": "名前を保存",
+      "plainTextDecklist": "プレーンテキストのデッキリスト",
+      "loadFile": "ファイルをロードする",
+      "lastImport": "最後のインポート",
+      "missingCardsFromLatestImport": "最新のインポートでカードが欠落している",
+      "chooseTheExactPrintingFor": "正確な印刷を選択",
+      "quantityAndSectionWillStayUnchanged": "数量とセクションは変更されません。",
+      "loadingPrintVersions": "印刷版を読み込み中...",
+      "onlyOnePrintVersion": "印刷版は 1 つだけ",
+      "thisCardOnlyHasOnePrintVersion": "このカードには、データベースで利用できる印刷バージョンが 1 つだけあります。",
+      "noPrintVersionsFoundForThisCard": "このカードの印刷版は見つかりません。",
       "header": {
-        "title": "ãƒ‡ãƒƒã‚­ã‚¨ãƒ‡ã‚£ã‚¿ãƒ¼",
-        "deckWarnings": "ãƒ‡ãƒƒã‚­ã®è­¦å‘Š",
-        "import": "ã‚¤ãƒ³ãƒãƒ¼ãƒˆ",
-        "export": "ã‚¨ã‚¯ã‚¹ãƒãƒ¼ãƒˆ",
-        "share": "ã‚·ã‚§ã‚¢ã™ã‚‹",
-        "shareCopied": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒªãƒ³ã‚¯ãŒã‚³ãƒ”ãƒ¼ã•ã‚Œã¾ã—ãŸ",
-        "shareError": "ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ ãƒªãƒ³ã‚¯ã‚’ã‚³ãƒ”ãƒ¼ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚"
+        "title": "デッキエディター",
+        "import": "インポート",
+        "export": "エクスポート",
+        "share": "シェアする",
+        "shareCopied": "コミュニティリンクがコピーされました",
+        "shareError": "コミュニティ リンクをコピーできませんでした。"
       },
-      "cardsCount": "{{ count }} ã‚«ãƒ¼ãƒ‰",
-      "clear": "ã‚¯ãƒªã‚¢",
-      "clearLocalHistoryQuestion": "ã“ã®ãƒ‡ãƒƒã‚­ã®ãƒ­ãƒ¼ã‚«ãƒ«å±¥æ­´ã‚’ã‚¯ãƒªã‚¢ã—ã¾ã™ã‹?",
-      "colorIdentity": "å›ºæœ‰è‰²: {{ colors }}",
-      "commanderMode": "çµ±çŽ‡è€…ãƒ¢ãƒ¼ãƒ‰: {{ mode }}",
-      "fromSourceCard": "{{ name }} ã‚ˆã‚Š",
-      "historyCardsSummary": "{{ count }} ã‚«ãƒ¼ãƒ‰ - {{ commanders }}",
-      "importSummary": "{{ parsed }} æžšã‚’è§£æžã€{{ imported }} æžšã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã€{{ missing }} æžšãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "noCommander": "çµ±çŽ‡è€…ãªã—",
-      "noCost": "ã‚³ã‚¹ãƒˆãªã—",
-      "no": "ã„ã„ãˆ",
-      "restoreSnapshotQuestion": "ã“ã®ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆã‚’å¾©å…ƒã—ã¾ã™ã‹?",
-      "searchResultsFor": "{{ name }} ã®æ¤œç´¢çµæžœ",
-      "sectionsCount": "{{ count }} ã‚»ã‚¯ã‚·ãƒ§ãƒ³",
-      "usableInGame": "ã‚²ãƒ¼ãƒ å†…ã§ä½¿ç”¨å¯èƒ½ï¼š{{ value }}",
-      "validationCounts": "ã‚«ãƒ¼ãƒ‰: åˆè¨ˆ {{ total }} æžš (çµ±çŽ‡è€… {{ commander }}ã€ãƒ¡ã‚¤ãƒ³ {{ main }}ã€ã‚µã‚¤ãƒ‰ãƒœãƒ¼ãƒ‰ {{ sideboard }}ã€æ¤œè¨Žä¸­ {{ maybeboard }})",
-      "validationFailed": "çµ±çŽ‡è€…ãƒ‡ãƒƒã‚­ã®æ¤œè¨¼ã«å¤±æ•—ã—ã¾ã—ãŸ",
-      "validationPassed": "çµ±çŽ‡è€…ãƒ‡ãƒƒã‚­ã®æ¤œè¨¼ã«åˆæ ¼ã—ã¾ã—ãŸ",
-      "yes": "ã¯ã„",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 é¡å‰²ã‚Šã®å¯“è©±/ã‚­ã‚­ã‚¸ã‚­ã®åå°„(NEO) 141"
+      "clearLocalHistoryQuestion": "このデッキのローカル履歴をクリアしますか?",
+      "colorIdentity": "固有色: {{ colors }}",
+      "commanderMode": "統率者モード: {{ mode }}",
+      "fromSourceCard": "{{ name }} より",
+      "historyCardsSummary": "{{ count }} カード - {{ commanders }}",
+      "importSummary": "{{ parsed }} 枚を解析、{{ imported }} 枚をインポート、{{ missing }} 枚が見つかりませんでした。",
+      "noCommander": "統率者なし",
+      "noCost": "コストなし",
+      "restoreSnapshotQuestion": "このスナップショットを復元しますか?",
+      "searchResultsFor": "{{ name }} の検索結果",
+      "usableInGame": "ゲーム内で使用可能：{{ value }}",
+      "validationCounts": "カード: 合計 {{ total }} 枚 (統率者 {{ commander }}、メイン {{ main }}、サイドボード {{ sideboard }}、検討中 {{ maybeboard }})",
+      "validationFailed": "統率者デッキの検証に失敗しました",
+      "validationPassed": "統率者デッキの検証に合格しました",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 鏡割りの寓話/キキジキの反射(NEO) 141"
     },
     "deckList": {
-      "newDeckName": "æ–°ã—ã„ãƒ‡ãƒƒã‚­å",
-      "searchCommanderByName": "çµ±çŽ‡è€…åã§æ¤œç´¢",
-      "example1SolRingVoc168": "ä¾‹: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "ã‚¸ã‚§ã‚¹ã‚«ã‚¤ã€ãƒ“ãƒ¼ãƒ«ã€ãƒ†ã‚¹ãƒˆä¸­...",
-      "renameFolder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãƒ¼ã®åå‰ã‚’å¤‰æ›´ã™ã‚‹",
-      "deleteFolder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ã®å‰Šé™¤",
-      "editDeck": "ãƒ‡ãƒƒã‚­ã‚’ç·¨é›†ã™ã‚‹",
-      "deleteDeck": "ãƒ‡ãƒƒã‚­ã®å‰Šé™¤",
-      "deckSaved": "ãƒ‡ãƒƒã‚­ãŒä¿å­˜ã•ã‚Œã¾ã—ãŸ",
-      "createSuccessMessage": "ã“ã®ãƒ‡ãƒƒã‚­ã¯ä¿å­˜ã•ã‚Œã¾ã—ãŸã€‚ä¿å­˜æ¸ˆã¿ãƒ‡ãƒƒã‚­ä¸€è¦§ã«è¿½åŠ ã•ã‚ŒãŸã®ã§ã€è‡ªç”±ã«ç·¨é›†ã§ãã¾ã™ã€‚çµ±çŽ‡è€…ãƒ‡ãƒƒã‚­æ§‹ç¯‰ã‚’æ¥½ã—ã‚“ã§ãã ã•ã„ï¼",
-      "createEmptyDeck": "ç©ºã®ãƒ‡ãƒƒã‚­ã‚’ä½œæˆã™ã‚‹",
-      "createFolder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãƒ¼ã®ä½œæˆ",
-      "continueToRooms": "ãƒ«ãƒ¼ãƒ ã«é€²ã‚€",
-      "commanderEnlargedPreview": "çµ±çŽ‡è€…ã®æ‹¡å¤§ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "deckListLabel": "ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆ",
-      "yourDeckListFeelsALittleEmpty": "ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆãŒå°‘ã—ç©ºã£ã½ã«ãªã£ãŸæ°—ãŒã—ã¾ã™ã€‚é£›ã³è¾¼ã‚“ã§æ§‹ç¯‰ã‚’å§‹ã‚ã¾ã—ã‚‡ã†ï¼",
-      "noDecksInThisFolderYet": "ã“ã®ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ã«ã¯ã¾ã ãƒ‡ãƒƒã‚­ãŒã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "missingCards": "ä¸è¶³ã—ã¦ã„ã‚‹ã‚«ãƒ¼ãƒ‰",
-      "deckName": "ãƒ‡ãƒƒã‚­å",
-      "folder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãƒ¼",
-      "noFolder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãŒã‚ã‚Šã¾ã›ã‚“",
-      "openDeck": "ãƒ‡ãƒƒã‚­ã‚’é–‹ã",
-      "thisDeckIsPublicButItsFolder": "ã“ã®ãƒ‡ãƒƒã‚­ã¯å…¬é–‹ã•ã‚Œã¦ã„ã¾ã™ãŒã€ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãƒ¼ã¯éžå…¬é–‹ã§ã™ã€‚å…¬ã«å…¬é–‹ã•ã‚Œã‚‹ã“ã¨ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "commander": "çµ±çŽ‡è€…",
-      "importDecklist": "ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã™ã‚‹",
-      "ifYouIncludeYourCommanderInThe": "ã‚¤ãƒ³ãƒãƒ¼ãƒˆã™ã‚‹ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã«çµ±çŽ‡è€…ãŒå«ã¾ã‚Œã¦ã„ã¦ã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“ã€‚ã“ã¡ã‚‰ã§å–ã‚Šé™¤ãã¾ã™ã€‚",
-      "ifYouIncludeYourCommandersInThe": "ã‚¤ãƒ³ãƒãƒ¼ãƒˆã™ã‚‹ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã«çµ±çŽ‡è€…ãŸã¡ãŒå«ã¾ã‚Œã¦ã„ã¦ã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“ã€‚ã“ã¡ã‚‰ã§å–ã‚Šé™¤ãã¾ã™ã€‚",
-      "folderName": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼å",
-      "playmat": "ãƒ—ãƒ¬ã‚¤ãƒžãƒƒãƒˆ",
-      "sleeve": "ã‚¹ãƒªãƒ¼ãƒ–",
-      "editPlaymat": "ãƒ—ãƒ¬ã‚¤ãƒžãƒƒãƒˆã®ç·¨é›†",
-      "editSleeve": "ã‚¹ãƒªãƒ¼ãƒ–ã®ç·¨é›†",
+      "newDeckName": "新しいデッキ名",
+      "searchCommanderByName": "統率者名で検索",
+      "example1SolRingVoc168": "例: 1 Sol Ring (VOC) 168",
+      "jeskaiBrewsTesting": "ジェスカイ、ビール、テスト中...",
+      "renameFolder": "フォルダーーーの名前を変更する",
+      "deleteFolder": "フォルダーーの削除",
+      "editDeck": "デッキを編集する",
+      "deleteDeck": "デッキの削除",
+      "deckSaved": "デッキが保存されました",
+      "createSuccessMessage": "このデッキは保存されました。保存済みデッキ一覧に追加されたので、自由に編集できます。統率者デッキ構築を楽しんでください！",
+      "createEmptyDeck": "空のデッキを作成する",
+      "continueToRooms": "ルームに進む",
+      "commanderEnlargedPreview": "統率者の拡大プレビュー",
+      "deckListLabel": "デッキリスト",
+      "yourDeckListFeelsALittleEmpty": "デッキリストが少し空っぽになった気がします。飛び込んで構築を始めましょう！",
+      "noDecksInThisFolderYet": "このフォルダーーにはまだデッキがありません。",
+      "missingCards": "不足しているカード",
+      "folder": "フォルダーーー",
+      "noFolder": "フォルダーーがありません",
+      "openDeck": "デッキを開く",
+      "thisDeckIsPublicButItsFolder": "このデッキは公開されていますが、フォルダーーーは非公開です。公に公開されることはありません。",
+      "ifYouIncludeYourCommanderInThe": "インポートするデッキリストに統率者が含まれていても問題ありません。こちらで取り除きます。",
+      "ifYouIncludeYourCommandersInThe": "インポートするデッキリストに統率者たちが含まれていても問題ありません。こちらで取り除きます。",
+      "folderName": "フォルダーー名",
+      "playmat": "プレイマット",
+      "sleeve": "スリーブ",
+      "editPlaymat": "プレイマットの編集",
+      "editSleeve": "スリーブの編集",
       "header": {
-        "title": "ãƒ‡ãƒƒã‚­",
-        "createDeck": "ãƒ‡ãƒƒã‚­ã‚’ä½œæˆã™ã‚‹",
-        "createFolder": "ãƒ•ã‚©ãƒ«ãƒ€ãƒ¼ãƒ¼ãƒ¼ã®ä½œæˆ",
-        "description": "ãƒ‡ãƒƒã‚­ã‚’ç·¨æˆã€æ§‹ç¯‰ã€ãƒžã‚¹ã‚¿ãƒ¼ã—ã¾ã—ã‚‡ã†ã€‚"
-      },
-      "colorFilter": {
-        "label": "è‰²",
-        "any": "ã©ã‚Œã§ã‚‚",
-        "white": "ç™½",
-        "blue": "é’",
-        "black": "é»’",
-        "red": "èµ¤",
-        "green": "ç·‘",
-        "colorless": "ç„¡è‰²"
+        "createDeck": "デッキを作成する",
+        "description": "デッキを編成、構築、マスターしましょう。"
       },
       "sortMode": {
-        "label": "ä¸¦ã¹æ›¿ãˆ",
-        "nameAsc": "åå‰ (A ï½ž Z)",
-        "nameDesc": "åå‰ (Z-A)"
+        "nameAsc": "名前 (A ～ Z)",
+        "nameDesc": "名前 (Z-A)"
       },
       "cosmetics": {
-        "free": "ç„¡æ–™",
-        "playmatOptions": "ãƒ—ãƒ¬ã‚¤ãƒžãƒƒãƒˆã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³",
-        "playmatTiers": "ãƒ—ãƒ¬ã‚¤ãƒžãƒƒãƒˆã®ãƒ†ã‚£ã‚¢",
-        "premium": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ ",
-        "selectPlaymat": "ãƒ—ãƒ¬ã‚¤ãƒžãƒƒãƒˆ {{ name }} ã‚’é¸æŠž",
-        "selectSleeve": "ã‚¹ãƒªãƒ¼ãƒ– {{ name }} ã‚’é¸æŠž",
-        "sleeveOptions": "ã‚¹ãƒªãƒ¼ãƒ–ã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³"
+        "playmatOptions": "プレイマットのオプション",
+        "playmatTiers": "プレイマットのティア",
+        "selectPlaymat": "プレイマット {{ name }} を選択",
+        "selectSleeve": "スリーブ {{ name }} を選択",
+        "sleeveOptions": "スリーブのオプション"
       },
       "filters": {
-        "actionsAndFilters": "ãƒ‡ãƒƒã‚­ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³ã¨ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼"
+        "actionsAndFilters": "デッキのアクションとフィルター"
       },
-      "maximumCharacters": "æœ€å¤§ {{ count }} æ–‡å­—ã€‚",
-      "noDecksMatchFilters": "ç¾åœ¨ã®ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã«ä¸€è‡´ã™ã‚‹ãƒ‡ãƒƒã‚­ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-      "removeCommander": "çµ±çŽ‡è€…ã‚’å‰Šé™¤",
-      "searchDecks": "æ¤œç´¢ãƒ‡ãƒƒã‚­",
-      "searchDecksPlaceholder": "ãƒ‡ãƒƒã‚­ã‚’æ¤œç´¢...",
+      "maximumCharacters": "最大 {{ count }} 文字。",
+      "noDecksMatchFilters": "現在のフィルターに一致するデッキはありません。",
+      "removeCommander": "統率者を削除",
       "stats": {
-        "colorDistribution": "è‰²ã®åˆ†å¸ƒ",
-        "private": "ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆ",
-        "public": "å…¬é–‹",
-        "summary": "ãƒ‡ãƒƒã‚­æ¦‚è¦",
-        "total": "åˆè¨ˆ"
+        "colorDistribution": "色の分布",
+        "summary": "デッキ概要",
+        "total": "合計"
       }
     },
     "advancedAnalysis": {
-      "title": "é«˜åº¦ãªåˆ†æž",
-      "eyebrow": "ãƒ‡ãƒƒã‚­åˆ†æž",
-      "description": "ãƒ‡ãƒƒã‚­ã®å¥å…¨æ€§ã€ã‚³ãƒ³ãƒœã€å®‰å®šæ€§ã€ãƒ‘ãƒ¯ãƒ¼æŒ‡æ¨™ã‚’è©³ã—ãç¢ºèªã—ã¾ã™ã€‚",
-      "openButton": "é«˜åº¦ãªåˆ†æž",
-      "openCommunityAria": "ã“ã®ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ãƒ‡ãƒƒã‚­ã®é«˜åº¦ãªåˆ†æžã‚’é–‹ã",
-      "loading": "é«˜åº¦ãªåˆ†æžã‚’èª­ã¿è¾¼ã‚“ã§ã„ã¾ã™...",
-      "retry": "ãƒªãƒˆãƒ©ã‚¤",
-      "retryAria": "é«˜åº¦ãªåˆ†æžã®èª­ã¿è¾¼ã¿ã‚’å†è©¦è¡Œã—ã¾ã™",
+      "eyebrow": "デッキ分析",
+      "description": "デッキの健全性、コンボ、安定性、パワー指標を詳しく確認します。",
+      "openCommunityAria": "このコミュニティデッキの高度な分析を開く",
+      "loading": "高度な分析を読み込んでいます...",
+      "retryAria": "高度な分析の読み込みを再試行します",
       "error": {
-        "generic": "é«˜åº¦ãªåˆ†æžã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
-        "notFound": "ã“ã®ãƒ‡ãƒƒã‚­ã§ã¯é«˜åº¦ãªåˆ†æžã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
-        "forbidden": "ã“ã®åˆ†æžã‚’è¡¨ç¤ºã™ã‚‹æ¨©é™ãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
+        "generic": "高度な分析を読み込めませんでした。",
+        "notFound": "このデッキでは高度な分析は利用できません。",
+        "forbidden": "この分析を表示する権限がありません。"
       },
       "common": {
-        "unavailable": "åˆ©ç”¨ä¸å¯",
-        "notAvailable": "åˆ©ç”¨ä¸å¯",
-        "available": "åˆ©ç”¨å¯èƒ½",
-        "yes": "ã¯ã„",
-        "no": "ã„ã„ãˆ"
+        "unavailable": "利用不可",
+        "notAvailable": "利用不可",
+        "available": "利用可能"
       },
       "overview": {
-        "aria": "é«˜åº¦ãªåˆ†æžã®æ¦‚è¦",
-        "eyebrow": "æ¦‚è¦"
+        "aria": "高度な分析の概要",
+        "eyebrow": "概要"
       },
       "summary": {
-        "title": "ã¾ã¨ã‚",
-        "primaryArchetype": "ä¸»è¦ãªåŽŸåž‹",
-        "secondaryArchetypes": "äºŒæ¬¡åŽŸåž‹",
-        "archetypeConfidence": "åŽŸåž‹ã®ä¿¡é ¼æ€§",
-        "archetypeConfidenceDescription": "Shows how strongly the analyzer believes the detected archetype matches the deck card signals.",
+        "title": "まとめ",
+        "primaryArchetype": "主要な原型",
+        "secondaryArchetypes": "二次原型",
+        "archetypeConfidence": "原型の信頼性",
+        "archetypeConfidenceDescription": "検出したアーキタイプがデッキのカードシグナルにどれほど一致すると分析器が判断しているかを示します。",
         "archetypeReasons": {
-          "generic": "This plan is supported by the strongest card-role patterns found in the deck.",
-          "mixed": "No single plan clearly dominates; the deck has meaningful support for more than one game plan.",
-          "combo": "The deck has combo lines, tutors, compact win conditions, or enough combo pieces to make a combo plan credible.",
-          "aristocrats": "The deck has sacrifice outlets, sacrifice payoffs, token makers, or recursion that work together as an aristocrats engine.",
-          "reanimator": "The deck has ways to fill the graveyard, reanimate threats, and bring back cards worth cheating into play.",
-          "control": "The deck has enough interaction, sweepers, counterspells, and card flow to support a control game plan.",
-          "stax": "The deck includes tax or stax pieces that can restrict opponents while its own plan keeps functioning.",
-          "blink": "The deck has blink enablers and enter-the-battlefield payoffs that can generate repeated value.",
-          "tokens": "The deck can create tokens and has payoffs or finishers that turn those bodies into pressure.",
-          "typal": "The deck is built around a shared creature type with enough matching creatures or tribal support.",
-          "voltron_infect": "The deck has protection, combat pressure, equipment, auras, or infect-style threats that support a single attacker plan.",
-          "spellslinger": "The deck has instant and sorcery density, card selection, cost reduction, or burst mana for a spellslinger plan.",
-          "artifact": "The deck has enough artifacts or artifact payoffs for artifacts to be a central theme.",
-          "enchantress": "The deck has enough enchantments or enchantment payoffs for enchantments to be a central theme.",
-          "landfall": "The deck has landfall cards or land-search support that rewards repeated land drops.",
-          "theft": "The deck has theft effects that make opponents' cards part of its plan.",
-          "discard": "The deck has discard effects or payoffs that reward making players discard cards.",
-          "mill": "The deck has mill effects or payoffs that make milling a meaningful path.",
-          "lifegain": "The deck has lifegain cards or payoffs that turn life gain into material advantage."
+          "generic": "この方針は、デッキ内で見つかった最も強いカード役割のパターンによって裏付けられています。",
+          "mixed": "明確に優勢な方針は1つではなく、複数のゲームプランを有意に支えています。",
+          "combo": "コンボライン、サーチ、コンパクトな勝利条件、または信頼できるコンボプランに十分なコンボパーツがあります。",
+          "aristocrats": "生け贄の供給源と見返り、トークン生成、再利用が連携し、アリストクラッツのエンジンとして機能します。",
+          "reanimator": "墓地を肥やし、脅威をリアニメイトし、本来のコストを踏み倒す価値のあるカードを戦場に戻す手段があります。",
+          "control": "コントロールのゲームプランを支えるだけの妨害、全体除去、打ち消し、カード・アドバンテージがあります。",
+          "stax": "自分のプランを機能させたまま対戦相手を制限できる、税やスタックスのカードがあります。",
+          "blink": "ブリンクを可能にするカードと戦場に出たときの誘発型能力の見返りがあり、繰り返しアドバンテージを得られます。",
+          "tokens": "トークンを生成でき、それらをプレッシャーに変える見返りやフィニッシャーがあります。",
+          "typal": "共通するクリーチャー・タイプを軸に、十分な同族クリーチャーまたは部族支援で構成されています。",
+          "voltron_infect": "単体の攻撃者を軸にするプランを支える、保護、戦闘圧力、装備品、オーラ、感染系の脅威があります。",
+          "spellslinger": "スペルスリンガーのプランに必要なインスタントやソーサリーの密度、カード選択、コスト軽減、瞬間的なマナがあります。",
+          "artifact": "アーティファクトを中心テーマにできるだけのアーティファクト、またはアーティファクトの見返りがあります。",
+          "enchantress": "エンチャントを中心テーマにできるだけのエンチャント、またはエンチャントの見返りがあります。",
+          "landfall": "土地を繰り返し出すことで報われる上陸カード、または土地サーチ支援があります。",
+          "theft": "対戦相手のカードを自分のプランに組み込む奪取効果があります。",
+          "discard": "プレイヤーにカードを捨てさせることで利益を得る、手札破壊効果または見返りがあります。",
+          "mill": "切削を有力な勝ち筋にする切削効果または見返りがあります。",
+          "lifegain": "ライフ獲得を実質的なアドバンテージに変えるライフ獲得カードまたは見返りがあります。"
         },
-        "criticalIssues": "é‡å¤§ãªå•é¡Œ",
-        "primaryTypalType": "ä¸»è¦éƒ¨æ—",
-        "archetypeSignals": "Archetype rationale",
-        "archetypeReason": "Why this fits",
-        "archetypeCards": "Cards"
+        "criticalIssues": "重大な問題",
+        "primaryTypalType": "主要部族",
+        "archetypeSignals": "アーキタイプの根拠",
+        "archetypeReason": "適合する理由"
       },
       "header": {
-        "deckId": "ãƒ‡ãƒƒã‚­ID",
-        "analyzedAt": "ã§åˆ†æž",
-        "snapshot": "Snapshot"
+        "deckId": "デッキID",
+        "analyzedAt": "で分析"
       },
       "snapshot": {
-        "fresh": "æœ€æ–°ã®åˆ†æž",
-        "cached": "ã‚­ãƒ£ãƒƒã‚·ãƒ¥ã•ã‚ŒãŸåˆ†æž",
-        "metadataUnavailable": "Snapshot ãƒ¡ã‚¿ãƒ‡ãƒ¼ã‚¿ã¯ä½¿ç”¨ã§ãã¾ã›ã‚“ã€‚",
-        "calculatedAt": "è¨ˆç®—ã•ã‚ŒãŸ {{date}}",
-        "calculatedEarlier": "ã“ã®ãƒ‡ãƒƒã‚­ã®çŠ¶æ…‹ã«ã¤ã„ã¦ã¯ä»¥å‰ã«è¨ˆç®—ã•ã‚Œã¾ã—ãŸã€‚",
-        "reasonCalculatedAt": "{{reason}} è¨ˆç®—ã•ã‚ŒãŸ {{date}}",
-        "recalculated": "ç¾åœ¨ã®ãƒ‡ãƒƒã‚­çŠ¶æ…‹ã«åˆã‚ã›ã¦å†è¨ˆç®—ã•ã‚Œã¾ã™ã€‚"
+        "fresh": "最新の分析",
+        "cached": "キャッシュされた分析",
+        "metadataUnavailable": "Snapshot メタデータは使用できません。",
+        "calculatedAt": "計算された {{date}}",
+        "calculatedEarlier": "このデッキの状態については以前に計算されました。",
+        "reasonCalculatedAt": "{{reason}} 計算された {{date}}",
+        "recalculated": "現在のデッキ状態に合わせて再計算されます。"
       },
       "status": {
-        "excellent": "ç´ æ™´ã‚‰ã—ã„",
-        "good": "è‰¯ã„",
-        "warning": "è­¦å‘Š",
-        "critical": "è‡´å‘½çš„",
-        "unknown": "æœªçŸ¥",
-        "info": "æƒ…å ±"
-      },
-      "priority": {
-        "high": "é«˜ã„",
-        "medium": "ä¸­ãã‚‰ã„",
-        "low": "ä½Žã„"
+        "excellent": "素晴らしい",
+        "critical": "致命的",
+        "unknown": "未知",
+        "info": "情報"
       },
       "health": {
-        "eyebrow": "ãƒ‡ãƒƒã‚­ã®å¥å…¨æ€§",
-        "title": "ãƒ˜ãƒ«ã‚¹ã‚°ãƒªãƒƒãƒ‰",
-        "defaultMessage": "ã“ã®é ˜åŸŸã¯è‡ªä¿¡ã‚’æŒã£ã¦è©•ä¾¡ã§ãã¾ã›ã‚“ã€‚",
+        "eyebrow": "デッキの健全性",
+        "title": "ヘルスグリッド",
+        "defaultMessage": "この領域は自信を持って評価できません。",
         "reasonCodes": {
           "belowRecommendedMinimum": "このカテゴリで検出された枚数が推奨基準を下回っています。",
           "relatedIssueDetected": "このカテゴリに関連する分析上の警告が検出されました。",
@@ -1630,806 +1609,927 @@
           "typalIssueDetected": "タイプ部族パッケージに、密度、支援、または統率者との整合性に関する警告があります。"
         },
         "cards": {
-          "ramp": "Ramp",
-          "draw": "æã",
-          "interaction": "äº¤æµ",
-          "wipes": "ãƒ¯ã‚¤ãƒ—",
-          "tutors": "Tutors",
-          "sacrifice": "çŠ ç‰²",
-          "wincons": "Wincons",
-          "combos": "Combos",
-          "consistency": "ä¸€è²«æ€§",
-          "stax": "Stax",
-          "typal": "Tribal",
-          "mana": "Mana"
+          "interaction": "交流",
+          "combos": "コンボ",
+          "consistency": "一貫性",
+          "typal": "部族",
+          "mana": "マナ"
         }
       },
       "metrics": {
-        "eyebrow": "ãƒ‡ãƒƒã‚­ã‚·ã‚°ãƒŠãƒ«",
-        "title": "ä¸»è¦ãªæŒ‡æ¨™",
-        "unavailable": "ã“ã®åˆ†æžã§ã¯è©³ç´°ãªãƒ¡ãƒˆãƒªã‚¯ã‚¹ä¿¡å·ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
-        "permanentRamp": "å¸¸è¨­ãƒ©ãƒ³ãƒ—",
-        "fastMana": "é€Ÿã„ãƒžãƒŠ",
-        "trueTutors": "æœ¬ç‰©ã®å®¶åº­æ•™å¸«",
-        "boardWipes": "ãƒœãƒ¼ãƒ‰ãƒ¯ã‚¤ãƒ—",
-        "massBounce": "ãƒžã‚¹ãƒã‚¦ãƒ³ã‚¹",
-        "sacOutlets": "åš¢å‡ºå£",
-        "wincons": "Wincons",
-        "completeCombos": "ã‚³ãƒ³ãƒœã‚’å®Œäº†ã™ã‚‹",
-        "keepableHands": "ã‚­ãƒ¼ãƒ—å¯èƒ½ãªåˆæ‰‹",
-        "drawEffects": "æç”»åŠ¹æžœ",
-        "spotInteraction": "ã‚¹ãƒãƒƒãƒˆã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ã‚·ãƒ§ãƒ³",
-        "outlets": "ã‚¢ã‚¦ãƒˆãƒ¬ãƒƒãƒˆ",
-        "staxPieces": "Stax å€‹",
-        "burstMana": "ãƒãƒ¼ã‚¹ãƒˆãƒžãƒŠ",
-        "rituals": "å„€å¼",
-        "manaFixing": "ãƒžãƒŠå›ºå®š",
-        "oneShotMana": "ãƒ¯ãƒ³ã‚·ãƒ§ãƒƒãƒˆãƒžãƒŠ",
-        "typedTutors": "å…¥åŠ›ã•ã‚ŒãŸè¬›å¸«",
-        "landTutors": "åœŸåœ°ã®å®¶åº­æ•™å¸«",
-        "rampSearch": "Ramp æ¤œç´¢",
-        "opponentTutors": "ç›¸æ‰‹ã®å®¶åº­æ•™å¸«",
-        "pseudoWipes": "ç–‘ä¼¼ãƒ¯ã‚¤ãƒ—",
-        "conditionalWipes": "æ¡ä»¶ä»˜ããƒ¯ã‚¤ãƒ—",
-        "sacrificeOutlets": "çŠ ç‰²ã®å‡ºå£",
-        "oneShotSacrifice": "ä¸€æ’ƒã®çŠ ç‰²",
-        "selfSacrifice": "è‡ªå·±çŠ ç‰²",
-        "sacrificePayoffs": "çŠ ç‰²ã®è¦‹è¿”ã‚Š",
-        "combatFinishers": "æˆ¦é—˜ãƒ•ã‚£ãƒ‹ãƒƒã‚·ãƒ£ãƒ¼",
-        "infectThreats": "æ„ŸæŸ“ã®è„…å¨",
-        "extraCombatEngines": "è¿½åŠ ã®æˆ¦é—˜ã‚¨ãƒ³ã‚¸ãƒ³",
-        "stax": "Stax",
-        "tax": "ç¨Ž",
-        "symmetricalStaxRisk": "å¯¾ç§°çš„ãªã‚¹ã‚¿ãƒƒã‚¯ãƒªã‚¹ã‚¯",
-        "typalCreatures": "????????"
+        "eyebrow": "デッキシグナル",
+        "title": "主要な指標",
+        "unavailable": "この分析では詳細なメトリクス信号は利用できません。",
+        "trueTutors": "真のサーチ",
+        "boardWipes": "ボードワイプ",
+        "sacOutlets": "生け贄の供給源",
+        "drawEffects": "ドロー効果",
+        "spotInteraction": "単体除去・妨害",
+        "outlets": "アウトレット",
+        "staxPieces": "スタックス",
+        "manaFixing": "マナ基盤の安定化",
+        "typedTutors": "条件付きサーチ",
+        "landTutors": "土地サーチ",
+        "rampSearch": "Ramp search",
+        "opponentTutors": "対戦相手に利益を与えるサーチ",
+        "sacrificeOutlets": "生け贄の供給源",
+        "oneShotSacrifice": "一撃の犠牲",
+        "selfSacrifice": "自己犠牲",
+        "sacrificePayoffs": "生け贄の見返り",
+        "combatFinishers": "戦闘フィニッシャー",
+        "infectThreats": "感染の脅威",
+        "extraCombatEngines": "追加の戦闘エンジン",
+        "tax": "税",
+        "symmetricalStaxRisk": "対称型スタックスのリスク",
+        "typalCreatures": "部族クリーチャー"
       },
       "cardResolution": {
-        "title": "ã‚«ãƒ¼ãƒ‰ã®è§£åƒåº¦",
-        "cards": "ã‚«ãƒ¼ãƒ‰",
-        "resolved": "è§£æ±ºæ¸ˆã¿",
-        "unmatched": "æ¯”é¡žã®ãªã„",
-        "unmatchedAria": "æ¯”é¡žã®ãªã„ã‚«ãƒ¼ãƒ‰",
-        "unmatchedCount": "{{count}} ä¸€è‡´ã—ãªã„ã‚«ãƒ¼ãƒ‰",
-        "unmatchedCopy": "ä¸€éƒ¨ã®ã‚«ãƒ¼ãƒ‰ã‚’è§£æ±ºã§ããªã‹ã£ãŸãŸã‚ã€å½¹å‰²ã¨ã‚³ãƒ³ãƒœã®ã‚·ã‚°ãƒŠãƒ«ãŒä¸å®Œå…¨ã§ã‚ã‚‹å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚",
-        "cardCouldNotBeMatched": "ã‚«ãƒ¼ãƒ‰ã‚’ç…§åˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚"
+        "title": "カードの解像度",
+        "resolved": "解決済み",
+        "unmatched": "未照合",
+        "unmatchedAria": "未照合のカード",
+        "unmatchedCount": "未照合のカード: {{count}}枚",
+        "unmatchedCopy": "一部のカードを照合できなかったため、役割とコンボのシグナルが不完全な場合があります。",
+        "cardCouldNotBeMatched": "カードを照合できませんでした。"
       },
       "combos": {
-        "eyebrow": "æ—¢çŸ¥ã®è¡Œ",
-        "title": "ã‚³ãƒ³ãƒœåˆ†æž",
-        "completeTitle": "ã‚³ãƒ³ãƒœã‚’å®Œäº†ã™ã‚‹",
-        "partialTitle": "éƒ¨åˆ†çš„ãªã‚³ãƒ³ãƒœ",
-        "completersTitle": "ãƒˆãƒƒãƒ—ã‚³ãƒ³ãƒœå®Œæˆè€…",
-        "viewMore": "ã‚‚ã£ã¨è¦‹ã‚‹",
-        "viewMoreCompleteAria": "ã‚ˆã‚Šå®Œå…¨ãªã‚³ãƒ³ãƒœã‚’è¡¨ç¤º",
-        "viewMorePartialAria": "éƒ¨åˆ†çš„ãªã‚³ãƒ³ãƒœã‚’ã‚‚ã£ã¨è¦‹ã‚‹",
-        "viewMoreCompletersAria": "ã‚³ãƒ³ãƒœã‚³ãƒ³ãƒœã‚³ãƒ³ãƒ—ãƒªãƒ¼ãƒˆãƒ„ãƒ¼ãƒ«ã‚’ã‚‚ã£ã¨è¦‹ã‚‹",
-        "missingCards": "æ¬ è½: {{cards}}",
-        "comboLine": "ã‚³ãƒ³ãƒœãƒ©ã‚¤ãƒ³ {{index}}",
+        "eyebrow": "既知のコンボライン",
+        "title": "コンボ分析",
+        "partialTitle": "部分的なコンボ",
+        "completersTitle": "トップコンボ完成者",
+        "viewMoreCompleteAria": "より完全なコンボを表示",
+        "viewMorePartialAria": "部分的なコンボをもっと見る",
+        "viewMoreCompletersAria": "さらに多くのコンボ完成カードを表示",
+        "missingCards": "欠落: {{cards}}",
+        "comboLine": "コンボライン {{index}}",
         "summary": {
-          "complete": "ã‚³ãƒ³ãƒœã‚’å®Œäº†ã™ã‚‹",
-          "partialOneMissing": "éƒ¨åˆ†çš„ã€1 ã¤æ¬ è½",
-          "partialTwoMissing": "éƒ¨åˆ†çš„ã€2 ã¤æ¬ è½",
-          "winLike": "å‹åˆ©ã«è¿‘ã„ã‚³ãƒ³ãƒœ",
-          "infiniteMana": "ç„¡é™ã®ãƒžãƒŠ",
-          "lethalLoops": "ãƒªãƒ¼ã‚µãƒ«ãƒ«ãƒ¼ãƒ—"
+          "partialOneMissing": "部分的、1 つ欠落",
+          "partialTwoMissing": "部分的、2 つ欠落",
+          "winLike": "勝利に近いコンボ",
+          "lethalLoops": "リーサルループ"
         },
         "empty": {
-          "noComplete": "å®Œå…¨ãªã‚³ãƒ³ãƒœ ãƒ©ã‚¤ãƒ³ãŒæ¤œå‡ºã•ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "noOneCardAway": "ã‚«ãƒ¼ãƒ‰ 1 æžšå…ˆã®ã‚³ãƒ³ãƒœ ãƒ©ã‚¤ãƒ³ã¯æ¤œå‡ºã•ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚",
-          "noCompleters": "ã‚³ãƒ³ãƒœå®Œäº†è€…ãŒç‰¹å®šã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚",
-          "unavailable": "ã‚³ãƒ³ãƒœãƒ‡ãƒ¼ã‚¿ã¯ã“ã®åˆ†æžã§ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
-          "noCompleteOrPartial": "å®Œå…¨ã¾ãŸã¯éƒ¨åˆ†çš„ãªã‚³ãƒ³ãƒœ ãƒ©ã‚¤ãƒ³ãŒæ¤œå‡ºã•ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚"
+          "noComplete": "完全なコンボ ラインが検出されませんでした。",
+          "noOneCardAway": "カード 1 枚先のコンボ ラインは検出されませんでした。",
+          "noCompleters": "コンボ完了者が特定されていません。",
+          "unavailable": "コンボデータはこの分析では利用できません。",
+          "noCompleteOrPartial": "完全または部分的なコンボ ラインが検出されませんでした。"
         },
         "badges": {
-          "winLike": "å‹ã¡ã£ã½ã„",
-          "infiniteMana": "ç„¡é™ã®ãƒžãƒŠ",
-          "infiniteDamage": "ç„¡é™ãƒ€ãƒ¡ãƒ¼ã‚¸",
-          "requiresCommander": "æŒ‡æ®å®˜ãŒå¿…è¦ã§ã™",
-          "requiresTemplate": "ãƒ†ãƒ³ãƒ—ãƒ¬ãƒ¼ãƒˆãŒå¿…è¦ã§ã™"
+          "winLike": "勝ちっぽい",
+          "infiniteDamage": "無限ダメージ",
+          "requiresCommander": "指揮官が必要です",
+          "requiresTemplate": "テンプレートが必要です"
         },
         "cardState": {
-          "inDeck": "Deck?",
-          "missing": "??"
+          "inDeck": "デッキ内"
         }
       },
       "consistency": {
         "eyebrow": "Monte Carlo",
-        "title": "ä¸€è²«æ€§ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³",
-        "disclaimer": "åˆæ‰‹ã¨ã‚«ãƒ¼ãƒ‰ã¸ã®ã‚¢ã‚¯ã‚»ã‚¹ã‚’ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã—ã¾ã™ã€‚è©¦åˆçµæžœã§ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-        "simulationRuns": "ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã®å®Ÿè¡Œ",
-        "openingHand": "é–‹ãæ‰‹",
-        "keepRule": "ãƒ«ãƒ¼ãƒ«ã‚’å®ˆã‚‹",
-        "mulligan": "Mulligan",
-        "byTurn": "é †ç•ªã«",
-        "unavailable": "ã“ã®è§£æžã§ã¯ä¸€è²«æ€§ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
-        "keepRuleFallback": "ã‚­ãƒ¼ãƒ—å¯èƒ½ãªãƒãƒ³ãƒ‰ã¯ã€ãƒ©ãƒ³ãƒ‰æ•°ã€åˆæœŸãƒ—ãƒ¬ã‚¤ã€å±•é–‹ã‚·ã‚°ãƒŠãƒ«ã€ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ã‚·ãƒ§ãƒ³ã€ãƒˆãƒƒãƒ—ãƒ˜ãƒ“ãƒ¼ãƒ—ãƒ¬ãƒƒã‚·ãƒ£ãƒ¼ã‹ã‚‰è©•ä¾¡ã•ã‚Œã¾ã™ã€‚",
-        "turn3": "ã‚¿ãƒ¼ãƒ³3",
-        "turn5": "ã‚¿ãƒ¼ãƒ³5",
+        "title": "一貫性シミュレーション",
+        "disclaimer": "初手とカードへのアクセスをシミュレートします。試合結果ではありません。",
+        "simulationRuns": "シミュレーションの実行",
+        "openingHand": "初手",
+        "keepRule": "キープ基準",
+        "byTurn": "ターン別",
+        "unavailable": "この解析では一貫性シミュレーションは利用できません。",
+        "keepRuleFallback": "キープ可能なハンドは、ランド数、初期プレイ、展開シグナル、インタラクション、トップヘビープレッシャーから評価されます。",
+        "turn3": "ターン3",
+        "turn5": "ターン5",
         "metrics": {
-          "keepableHands": "ã‚­ãƒ¼ãƒ—å¯èƒ½ãªåˆæ‰‹",
-          "twoToFourLands": "åœŸåœ° 2 ï½ž 4 æžš",
-          "zeroOrOneLand": "0-1 ãƒ©ãƒ³ãƒ‰",
-          "fivePlusLands": "åœŸåœ° 5 æžšä»¥ä¸Š",
-          "earlyInteraction": "åˆæœŸã®ç›¸äº’ä½œç”¨",
-          "drawOrSelection": "æç”»ã¾ãŸã¯é¸æŠž",
-          "trueTutor": "çœŸã®å®¶åº­æ•™å¸«",
-          "earlyPlay": "åºç›¤ã®ãƒ—ãƒ¬ã‚¤",
-          "tooFewLands": "åœŸåœ°ãŒå°‘ãªã™ãŽã‚‹",
-          "tooManyLands": "åœŸåœ°ãŒå¤šã™ãŽã‚‹",
-          "noEarlyPlay": "æ—©ã‚ã®ãƒ—ãƒ¬ã‚¤ã¯ç¦æ­¢",
-          "tooTopHeavy": "ãƒˆãƒƒãƒ—ãƒ˜ãƒ“ãƒ¼ã™ãŽã‚‹",
-          "keepableAt7": "7æ™‚ã«ã‚­ãƒ¼ãƒ—å¯èƒ½",
-          "keepableBy6": "6ã¾ã§ã‚­ãƒ¼ãƒ—å¯èƒ½",
-          "keepableBy5": "5ã¾ã§ã‚­ãƒ¼ãƒ—å¯èƒ½",
-          "averageMulligansNeeded": "å¿…è¦ãªå¹³å‡çš„ãªãƒžãƒªã‚¬ãƒ³æ•°",
-          "permanentRampSeen": "æ’ä¹…çš„ãªãƒ©ãƒ³ãƒ—ãŒè¦‹ã‚‰ã‚Œã‚‹",
-          "earlyInteractionSeen": "åˆæœŸã®ç›¸äº’ä½œç”¨ãŒè¦‹ã‚‰ã‚Œã‚‹",
-          "drawOrSelectionSeen": "æç”»ã¾ãŸã¯é¸æŠžç¯„å›²ãŒè¡¨ç¤ºã•ã‚Œã¾ã—ãŸ",
-          "trueTutorSeen": "çœŸã®å®¶åº­æ•™å¸«ãŒè¦‹ãˆãŸ",
-          "winconSeen": "Wincon ãŒè¦‹ã‚‰ã‚Œã¾ã—ãŸ",
-          "comboPieceSeen": "ã‚³ãƒ³ãƒœãƒ‘ãƒ¼ãƒ„ã‚’ç¢ºèª",
-          "interactionSeen": "ã‚¤ãƒ³ã‚¿ãƒ©ã‚¯ã‚·ãƒ§ãƒ³ãŒè¦‹ã‚‰ã‚Œã‚‹",
-          "completeTwoCardComboSeen": "å®Œå…¨ãª 2 æžšã®ã‚«ãƒ¼ãƒ‰ã®ã‚³ãƒ³ãƒœãŒç¢ºèªã•ã‚Œã¾ã—ãŸ",
-          "comboPlusProtectionSeen": "ã‚³ãƒ³ãƒœã¨é˜²å¾¡ã‚’ç¢ºèª",
-          "canCastOnCurve": "Can cast on curve",
-          "missingColor": "Missing color",
-          "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "Tapped-out delay"
+          "twoToFourLands": "土地 2 ～ 4 枚",
+          "zeroOrOneLand": "0-1 ランド",
+          "fivePlusLands": "土地 5 枚以上",
+          "earlyInteraction": "初期の相互作用",
+          "drawOrSelection": "ドローまたはカード選択",
+          "trueTutor": "真のサーチ",
+          "earlyPlay": "序盤のプレイ",
+          "tooFewLands": "土地が少なすぎる",
+          "tooManyLands": "土地が多すぎる",
+          "noEarlyPlay": "序盤の行動なし",
+          "tooTopHeavy": "トップヘビーすぎる",
+          "keepableAt7": "7枚でキープ可能",
+          "keepableBy6": "6枚までにキープ可能",
+          "keepableBy5": "5枚までにキープ可能",
+          "averageMulligansNeeded": "必要な平均的なマリガン数",
+          "permanentRampSeen": "Permanent ramp seen",
+          "earlyInteractionSeen": "初期の相互作用が見られる",
+          "drawOrSelectionSeen": "ドローまたはカード選択あり",
+          "trueTutorSeen": "真のサーチあり",
+          "winconSeen": "勝ち筋あり",
+          "comboPieceSeen": "コンボパーツあり",
+          "interactionSeen": "妨害あり",
+          "completeTwoCardComboSeen": "完成した2枚コンボあり",
+          "comboPlusProtectionSeen": "コンボと保護あり",
+          "canCastOnCurve": "マナカーブどおりに唱えられる",
+          "missingColor": "不足している色",
+          "missingManaValue": "不足しているマナ総量",
+          "tappedOutDelay": "タップインによる遅延"
         },
-        "turn1": "Turn 1",
-        "turn2": "Turn 2",
-        "colorAccessByTurn": "Color access by turn",
-        "commanderCurveCastability": "Commander curve castability"
+        "turn1": "ターン1",
+        "turn2": "ターン2",
+        "colorAccessByTurn": "ターンごとの色マナへのアクセス",
+        "commanderCurveCastability": "統率者をマナカーブどおりに唱えられる確率"
       },
       "roles": {
-        "eyebrow": "æ©Ÿèƒ½çš„ãªå½¹å‰²",
-        "title": "å½¹å‰²ã®è³ªã®å†…è¨³",
-        "qualityAria": "{{role}}ã®å“è³ª",
-        "unavailable": "å½¹å‰²ã®å“è³ªãƒ‡ãƒ¼ã‚¿ã¯ã“ã®åˆ†æžã«ã¯åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚",
+        "eyebrow": "機能的な役割",
+        "title": "役割の質の内訳",
+        "qualityAria": "{{role}}の品質",
+        "unavailable": "役割の品質データはこの分析には利用できません。",
         "cards": {
-          "ramp": "Ramp",
-          "tutors": "Tutors",
-          "wipes": "ãƒ¯ã‚¤ãƒ—",
-          "sacrifice": "çŠ ç‰²",
-          "winconsCombat": "Wincons / æˆ¦é—˜",
-          "stax": "Stax"
+          "winconsCombat": "勝ち筋 / 戦闘"
         },
         "messages": {
-          "rampOneShot": "ä¸€éƒ¨ã®åŠ é€Ÿã¯å˜ç™ºçš„ãªã‚‚ã®ã§ã‚ã‚Šã€å®‰å®šã—ãŸãƒ©ãƒ³ãƒ—ã¨ã—ã¦ã‚«ã‚¦ãƒ³ãƒˆã•ã‚Œã‚‹ã¹ãã§ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-          "tutorsSeparated": "Ramp æ¤œç´¢ã¨å¯¾æˆ¦ç›¸æ‰‹ã®ãƒãƒ¥ãƒ¼ã‚¿ãƒ¼ã¯ã€çœŸã®ãƒãƒ¥ãƒ¼ã‚¿ãƒ¼ã‹ã‚‰åˆ†é›¢ã•ã‚Œã¾ã™ã€‚",
-          "wipesSeparated": "ãƒžã‚¹ ãƒã‚¦ãƒ³ã‚¹ã¨æ¡ä»¶ä»˜ããƒ¯ã‚¤ãƒ—ã¯ã€ãƒãƒ¼ãƒ‰ ãƒœãƒ¼ãƒ‰ ãƒ¯ã‚¤ãƒ—ã¨åŒã˜ã§ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚",
-          "sacrificeOneShot": "ãƒ¯ãƒ³ã‚·ãƒ§ãƒƒãƒˆã®çŠ ç‰²ã¯åå¾©å¯èƒ½ãªå‡ºå£ã¨ã—ã¦ã‚«ã‚¦ãƒ³ãƒˆã•ã‚Œã¾ã›ã‚“ã€‚"
+          "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
+          "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
+          "wipesSeparated": "大量バウンスと条件付きワイプは、確実な全体除去とは区別されます。",
+          "sacrificeOneShot": "ワンショットの犠牲は反復可能な出口としてカウントされません。"
         }
       },
       "quality": {
-        "premium": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ ",
-        "good": "è‰¯ã„",
-        "medium": "ä¸­ãã‚‰ã„",
-        "slow": "é…ã„",
-        "oneShot": "ãƒ¯ãƒ³ã‚·ãƒ§ãƒƒãƒˆ"
+        "slow": "遅い",
+        "oneShot": "ワンショット"
       },
       "typal": {
-        "eyebrow": "éƒ¨æ—ã‚¢ã‚¤ãƒ‡ãƒ³ãƒ†ã‚£ãƒ†ã‚£",
-        "title": "{{type}} tribal",
-        "creatures": "ã‚¯ãƒªãƒ¼ãƒãƒ£ãƒ¼",
-        "support": "ã‚µãƒãƒ¼ãƒˆ",
-        "commanderMatches": "{{type}}éƒ¨æ—ã®Commanderã§ã™",
-        "creatureCards": "ã‚¯ãƒªãƒ¼ãƒãƒ£ãƒ¼ã‚«ãƒ¼ãƒ‰",
-        "supportCards": "ã‚µãƒãƒ¼ãƒˆã‚«ãƒ¼ãƒ‰"
+        "eyebrow": "部族アイデンティティ",
+        "title": "{{type}}部族",
+        "commanderMatches": "{{type}}部族の統率者です",
+        "creatureCards": "クリーチャーカード",
+        "supportCards": "サポートカード"
       },
       "mana": {
-        "title": "Mana Analysis",
-        "sourcesByColor": "Mana sources by color",
-        "color": "Color",
-        "pipDemand": "ç·è‰²è¦æ±‚",
-        "earlyPipDemand": "åºç›¤ã®è‰²è¦æ±‚",
-        "colorIntensity": "è‰²è¦æ±‚ã®å‰²åˆ",
-        "sourcesOfColor": "ã“ã®è‰²ã®ä¾›çµ¦æº",
-        "colorSourceShare": "è‰²ä¾›çµ¦æºã®å‰²åˆ",
-        "coloredSources": "Colored sources",
-        "coloredSourceHealth": "Colored source health",
-        "untappedSources": "Untapped sources",
-        "earlySources": "Early sources",
-        "status": "Status",
-        "totalLands": "Total lands",
-        "averageManaValue": "Average mana value",
-        "tappedLands": "Tapped lands",
-        "fetchlands": "Fetchlands",
-        "deadFetchlands": "Dead fetchlands",
-        "manaBase": "????",
-        "acceleration": "??",
-        "colorFixing": "??????",
-        "landBase": "Land base",
-        "basics": "Basics",
-        "nonbasics": "Nonbasics",
-        "typedLands": "Typed lands",
-        "utilityLands": "Utility lands",
-        "colorlessUtilityLands": "Colorless utility lands",
-        "conditionallyTappedLands": "Conditionally tapped lands",
-        "mdfcLands": "MDFC lands",
-        "landCycles": "Land cycles",
-        "noLandCycles": "No tracked land cycles detected.",
-        "fetchlandCoverage": "Fetchland coverage",
-        "fetchlandsNotTutors": "Fetchlands are analyzed as mana fixing, not generic tutors.",
-        "effectiveColors": "Effective colors",
-        "untappedEffectiveColors": "Untapped effective colors",
-        "tappedOnlyColors": "Tapped-only colors",
+        "title": "マナ分析",
+        "sourcesByColor": "色別のマナ供給源",
+        "pipDemand": "総色要求",
+        "earlyPipDemand": "序盤の色要求",
+        "colorIntensity": "色要求の割合",
+        "sourcesOfColor": "この色の供給源",
+        "colorSourceShare": "色供給源の割合",
+        "coloredSources": "色マナ供給源",
+        "coloredSourceHealth": "色マナ供給源の状態",
+        "untappedSources": "アンタップ状態で出る供給源",
+        "earlySources": "序盤の供給源",
+        "totalLands": "土地の総数",
+        "tappedLands": "タップ状態で戦場に出る土地",
+        "deadFetchlands": "機能しないフェッチランド",
+        "manaBase": "マナ基盤",
+        "acceleration": "Acceleration",
+        "colorFixing": "色マナの安定化",
+        "landBase": "土地基盤",
+        "basics": "基本土地",
+        "nonbasics": "基本でない土地",
+        "typedLands": "基本土地タイプを持つ土地",
+        "conditionallyTappedLands": "条件付きでタップインする土地",
+        "mdfcLands": "両面カードの土地",
+        "landCycles": "土地サイクル",
+        "noLandCycles": "追跡対象の土地サイクルは検出されませんでした。",
         "rampProfile": "Ramp profile",
-        "permanentRamp": "Permanent ramp",
         "landRamp": "Land ramp",
-        "manaRocks": "Mana rocks",
-        "manaDorks": "Mana dorks",
-        "fastMana": "Fast mana",
-        "burstMana": "Burst mana",
-        "rituals": "Rituals",
-        "oneShotMana": "One-shot mana",
-        "costReducers": "Cost reducers",
-        "commanderCastability": "Commander castability",
-        "commanderCostTitle": "{{commander}} cost",
-        "commanderColorTitle": "{{color}} castability",
-        "requiredPips": "Required pips",
-        "allCommanderColors": "All commander colors",
-        "warnings": "Mana warnings",
-        "noManaIssues": "No mana issues detected",
-        "unavailable": "Mana analysis is not available for this deck.",
-        "quantity": "{{quantity}} copies",
-        "colors": {
-          "white": "White",
-          "blue": "Blue",
-          "black": "Black",
-          "red": "Red",
-          "green": "Green",
-          "colorless": "Colorless"
-        },
+        "manaRocks": "マナ・アーティファクト",
+        "manaDorks": "マナ・クリーチャー",
+        "costReducers": "コスト軽減",
+        "commanderCastability": "統率者の唱えやすさ",
+        "commanderColorTitle": "{{color}}を出す能力",
+        "allCommanderColors": "統率者のすべての色",
+        "warnings": "マナに関する警告",
+        "noManaIssues": "マナに関する問題は検出されませんでした",
+        "unavailable": "このデッキではマナ分析を利用できません。",
         "cycles": {
-          "fetchland": "Fetchlands",
-          "shockland": "Shocklands",
-          "triome": "Triomes",
-          "surveilLand": "Surveil lands",
-          "fastland": "Fastlands",
-          "slowland": "Slowlands",
-          "painland": "Painlands",
-          "checkland": "Checklands",
-          "filterland": "Filterlands",
-          "pathway": "Pathways",
-          "battleLand": "Battle lands",
-          "bondLand": "Bond lands",
-          "bounceLand": "Bounce lands",
-          "temple": "Temples",
-          "gainLand": "Gain lands",
-          "utilityLand": "Utility lands",
-          "colorlessUtilityLand": "Colorless utility lands"
-        },
-        "analysis": {
-          "typedLandDensity": "Typed land density",
-          "fetchSynergyScore": "Fetch synergy",
-          "checklandSupport": "Checkland support",
-          "earlyUntappedAccess": "Early untapped access",
-          "tappedLandPressure": "Tapped land pressure",
-          "colorlessUtilityPressure": "Colorless utility pressure",
-          "pathwayColorChoicePressure": "Pathway color pressure",
-          "filterlandInputPressure": "Filterland input pressure",
-          "bounceLandTempoPressure": "Bounce land tempo pressure"
+          "shockland": "ショックランド",
+          "triome": "トライオーム",
+          "surveilLand": "諜報土地",
+          "fastland": "ファストランド",
+          "slowland": "スローランド",
+          "painland": "ペインランド",
+          "checkland": "チェックランド",
+          "filterland": "フィルターランド",
+          "pathway": "パスウェイ",
+          "battleLand": "バトルランド",
+          "bondLand": "バンドランド",
+          "bounceLand": "バウンスランド",
+          "temple": "占術土地",
+          "gainLand": "ゲインランド"
         }
       },
       "boardWipes": {
-        "title": "Board Wipe Analysis",
-        "overviewTitle": "Board wipe overview",
-        "package": "Wipe package",
-        "methods": "Methods",
-        "coverage": "Coverage",
-        "qualitySignals": "Quality signals",
-        "pseudoConditionalWarnings": "Pseudo / conditional warnings",
-        "warnings": "Board wipe issues",
-        "details": "Wipe details",
-        "viewMore": "View more",
-        "viewMoreDetailsAria": "View more board wipe details",
-        "detectedWipes": "Detected wipes",
-        "manaValue": "Mana value",
-        "noIssues": "No board wipe issues detected",
-        "noDetectedWipes": "No board wipes detected.",
-        "unavailable": "Board wipe analysis is not available for this deck.",
+        "title": "全体除去の分析",
+        "overviewTitle": "全体除去の概要",
+        "package": "除去パッケージ",
+        "methods": "手段",
+        "coverage": "対応範囲",
+        "qualitySignals": "品質シグナル",
+        "pseudoConditionalWarnings": "疑似・条件付き除去の警告",
+        "warnings": "全体除去に関する警告",
+        "details": "除去の詳細",
+        "viewMoreDetailsAria": "全体除去の詳細をさらに表示",
+        "detectedWipes": "検出された全体除去",
+        "noIssues": "全体除去に関する問題は検出されませんでした",
+        "noDetectedWipes": "全体除去は検出されませんでした。",
+        "unavailable": "このデッキでは全体除去の分析を利用できません。",
         "stats": {
-          "total": "Total wipes",
-          "hardTotal": "Hard wipes",
-          "pseudoTotal": "Pseudo wipes",
-          "hardCreatureWipes": "Hard creature wipes",
-          "averageManaValue": "Average mana value",
-          "effectiveLowCostWipes": "Cheap emergency wipes",
-          "destroyWipes": "Destroy wipes",
-          "exileWipes": "Exile wipes",
-          "sacrificeWipes": "Sacrifice wipes",
-          "massBounce": "Mass bounce",
-          "damageWipes": "Damage wipes",
-          "minusXMinusXWipes": "-X/-X wipes",
-          "creatureWipes": "Creature wipes",
-          "artifactWipes": "Artifact wipes",
-          "enchantmentWipes": "Enchantment wipes",
-          "artifactEnchantmentWipes": "Artifact/enchantment wipes",
-          "graveyardWipes": "Graveyard wipes",
-          "nonlandPermanentWipes": "Nonland permanent wipes",
-          "allPermanentWipes": "All permanent wipes",
-          "modalWipes": "Modal wipes",
-          "asymmetricalWipes": "Asymmetrical wipes",
-          "oneSidedWipes": "One-sided wipes",
-          "overloadedWipes": "Overloaded wipes",
-          "scalableWipes": "Scalable wipes",
-          "instantSpeedWipes": "Instant-speed wipes",
-          "answersIndestructible": "Answers indestructible",
-          "getsAroundHexproof": "Gets around hexproof",
-          "permanentBasedWipes": "Permanent-based wipes",
-          "repeatableWipes": "Repeatable wipes",
-          "combatOnlyWipes": "Combat-only wipes",
-          "conditionalWipes": "Conditional wipes",
-          "opponentCompensationWipes": "Opponent compensation",
-          "selfPlanRiskWipes": "Own plan collision"
+          "total": "全体除去の総数",
+          "hardTotal": "確実な全体除去",
+          "hardCreatureWipes": "確実なクリーチャー全体除去",
+          "effectiveLowCostWipes": "低コストの緊急全体除去",
+          "destroyWipes": "破壊する全体除去",
+          "exileWipes": "追放する全体除去",
+          "sacrificeWipes": "生け贄に捧げさせる全体除去",
+          "damageWipes": "ダメージによる全体除去",
+          "minusXMinusXWipes": "-X/-X全体除去",
+          "creatureWipes": "クリーチャー全体除去",
+          "artifactWipes": "アーティファクト全体除去",
+          "enchantmentWipes": "エンチャント全体除去",
+          "artifactEnchantmentWipes": "アーティファクト・エンチャント全体除去",
+          "graveyardWipes": "墓地全体除去",
+          "nonlandPermanentWipes": "土地でないパーマネントの全体除去",
+          "allPermanentWipes": "すべてのパーマネントの全体除去",
+          "modalWipes": "モードを持つ全体除去",
+          "asymmetricalWipes": "非対称の全体除去",
+          "oneSidedWipes": "一方的な全体除去",
+          "overloadedWipes": "超過コストの全体除去",
+          "scalableWipes": "可変型の全体除去",
+          "instantSpeedWipes": "インスタント・タイミングの全体除去",
+          "getsAroundHexproof": "呪禁を回避できる",
+          "permanentBasedWipes": "パーマネント由来の全体除去",
+          "repeatableWipes": "繰り返し使える全体除去",
+          "combatOnlyWipes": "戦闘限定の全体除去",
+          "selfPlanRiskWipes": "自分のプランとの衝突"
         },
         "badges": {
-          "hard": "Hard",
-          "pseudo": "Pseudo",
-          "modal": "Modal",
-          "overload": "Overload",
-          "asymmetric": "Asymmetric",
-          "exile": "Exile",
-          "bounce": "Bounce",
-          "damage": "Damage",
-          "tuckShuffle": "Tuck / shuffle",
-          "answersIndestructible": "Answers indestructible",
-          "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "hard": "確実",
+          "pseudo": "疑似",
+          "modal": "モード",
+          "overload": "超過",
+          "asymmetric": "非対称",
+          "bounce": "バウンス",
+          "damage": "ダメージ",
+          "tuckShuffle": "ライブラリーに戻す / 切り直す",
+          "artifactWipe": "アーティファクト除去",
+          "enchantmentWipe": "エンチャント除去"
         },
         "issues": {
           "low_hard_board_wipes": {
-            "title": "Few hard board wipes",
-            "message": "Hard board wipe count is below the expected baseline for this plan."
+            "title": "確実な全体除去が少ない",
+            "message": "このプランで想定される基準より、確実な全体除去の枚数が少なくなっています。"
           },
           "wipes_are_mostly_bounce_or_conditional": {
-            "title": "Wipes are mostly soft or conditional",
-            "message": "Mass bounce, pseudo-wipes, and conditional wipes are separated from hard resets."
+            "title": "全体除去の多くが緩いものか条件付きです",
+            "message": "大量バウンス、疑似全体除去、条件付き全体除去は、確実なリセットとは区別されます。"
           },
           "wipes_are_mostly_pseudo": {
-            "title": "Wipes are mostly pseudo-wipes",
-            "message": "The wipe count is mostly pseudo, combat-only, or conditional rather than reliable hard resets."
+            "title": "全体除去の多くが疑似全体除去です",
+            "message": "全体除去の多くが、信頼できるリセットではなく疑似、戦闘限定、または条件付きです。"
           },
           "wipes_are_mostly_bounce": {
-            "title": "Wipes are mostly bounce",
-            "message": "The wipe package leans on mass bounce and has little hard creature reset coverage."
+            "title": "全体除去の多くがバウンスです",
+            "message": "除去パッケージが大量バウンスに偏っており、確実なクリーチャーのリセットが少ないです。"
           },
           "no_indestructible_answer": {
-            "title": "No wipe answers indestructible",
-            "message": "The deck has wipes, but none are classified as exile, sacrifice, -X/-X, tuck, or shuffle answers."
+            "title": "破壊不能への全体除去対策なし",
+            "message": "全体除去はありますが、追放、生け贄、-X/-X、ライブラリーに戻す、切り直す対策に分類されるものはありません。"
           },
           "no_artifact_enchantment_wipe_coverage": {
-            "title": "No artifact or enchantment wipe coverage",
-            "message": "The wipe package has no mass artifact or enchantment coverage."
+            "title": "アーティファクトまたはエンチャントへの全体除去がない",
+            "message": "除去パッケージにアーティファクトまたはエンチャントへの全体除去はありません。"
           },
           "no_graveyard_wipe_coverage": {
-            "title": "No graveyard wipe coverage",
-            "message": "The wipe package has no graveyard exile coverage for plans where that can matter."
+            "title": "墓地全体除去がない",
+            "message": "それが重要になるプラン向けの、墓地を追放する全体除去がありません。"
           },
           "too_many_symmetrical_wipes_for_creature_deck": {
-            "title": "Too many symmetrical wipes for a creature plan",
-            "message": "Several wipes can reset the deck own creature board."
+            "title": "クリーチャープランに対して対称的な全体除去が多すぎる",
+            "message": "複数の全体除去が自分のクリーチャー戦場もリセットします。"
           },
           "own_plan_collision_wipes": {
-            "title": "Wipes collide with the deck plan",
-            "message": "Some wipes overlap with the deck own permanent, graveyard, artifact, enchantment, token, or creature plan."
+            "title": "全体除去がデッキプランと衝突する",
+            "message": "一部の全体除去が、自分のパーマネント、墓地、アーティファクト、エンチャント、トークン、またはクリーチャーのプランと衝突します。"
           },
           "board_wipes_self_plan_risk": {
-            "title": "Board wipes may pressure the deck plan",
-            "message": "Some wipes overlap with the deck own permanent strategy."
+            "title": "全体除去がデッキプランを圧迫する可能性があります",
+            "message": "一部の全体除去がデッキ自身のパーマネント戦略と重なります。"
           },
           "expensive_wipe_package": {
-            "title": "Wipe package is expensive",
-            "message": "Most wipes cost six or more mana and no low-cost emergency wipe is classified."
+            "title": "全体除去パッケージが重い",
+            "message": "全体除去の大半が6マナ以上で、低コストの緊急用全体除去が分類されていません。"
           },
           "no_cheap_emergency_wipe": {
-            "title": "No cheap emergency wipe",
-            "message": "The deck has wipes, but none are classified as efficient low-cost emergency resets."
+            "title": "低コストの緊急全体除去がない",
+            "message": "全体除去はありますが、効率的で低コストの緊急リセットに分類されるものはありません。"
           },
           "overload_wipe_available": {
-            "title": "Overload wipe available",
-            "message": "At least one wipe has an alternative mass mode such as overload."
+            "title": "超過コストの全体除去を使用可能",
+            "message": "超過コストのような代替の大量対象モードを持つ全体除去が少なくとも1枚あります。"
           },
           "asymmetrical_wipe_strength": {
-            "title": "Asymmetrical wipe strength",
-            "message": "The deck has one-sided or asymmetrical board wipe coverage."
+            "title": "非対称な全体除去が強みです",
+            "message": "一方的または非対称な全体除去があります。"
           },
           "modal_wipe_strength": {
-            "title": "Modal wipe strength",
-            "message": "The deck has flexible modal board wipe coverage."
+            "title": "モード選択式全体除去が強みです",
+            "message": "柔軟なモード選択式の全体除去があります。"
           },
           "opponent_compensation_risk": {
-            "title": "Opponent compensation risk",
-            "message": "Some wipes can compensate opponents by ramping or replacing resources."
+            "title": "対戦相手への補償リスク",
+            "message": "一部の全体除去は、ランプやリソース補充によって対戦相手に補償を与える場合があります。"
           }
         },
         "notes": {
-          "control_friendly": "Control friendly",
-          "pseudo_wipe": "Pseudo wipe",
-          "self_plan_risk": "Own plan risk",
-          "token_plan_risk": "Token plan risk",
-          "artifact_plan_risk": "Artifact plan risk",
-          "enchantment_plan_risk": "Enchantment plan risk",
-          "graveyard_plan_risk": "Graveyard plan risk",
-          "alternative_mass_mode": "Alternative mass mode",
-          "opponent_compensation": "Opponent compensation"
+          "control_friendly": "コントロール向き",
+          "pseudo_wipe": "疑似全体除去",
+          "self_plan_risk": "自分のプランへのリスク",
+          "token_plan_risk": "トークンプランへのリスク",
+          "artifact_plan_risk": "アーティファクトプランへのリスク",
+          "enchantment_plan_risk": "エンチャントプランへのリスク",
+          "graveyard_plan_risk": "墓地プランへのリスク",
+          "alternative_mass_mode": "代替の大量対象モード"
         }
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "title": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚¢ã‚·ã‚¹ã‚¿ãƒ³ãƒˆ",
-      "benefits": "åˆ©ç‚¹",
-      "manualCommanderTable": "æ‰‹å‹•ã®çµ±çŽ‡è€…ãƒ†ãƒ¼ãƒ–ãƒ«",
-      "physicalGameTrackingDescription": "ç´™ã®è©¦åˆã‚’è¨˜éŒ²ã™ã‚‹ãŸã‚ã«å¿…è¦ãªã‚‚ã®ãŒæƒã£ã¦ã„ã¾ã™ã€‚",
-      "setupDescription": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã€é–‹å§‹ãƒ©ã‚¤ãƒ•ç·é‡ã€ã‚¿ã‚¤ãƒžãƒ¼ã‚’è¨­å®šã—ã¾ã™ã€‚CommanderZone ã¯ Magic ã®ãƒ«ãƒ¼ãƒ«ã‚’è‡ªå‹•åŒ–ã›ãšã€ãƒ©ã‚¤ãƒ•ç·é‡ã€ã‚¿ãƒ¼ãƒ³ã€çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ç®¡ç†ã—ã¾ã™ã€‚",
-      "quickSetup": "ã‚¯ã‚¤ãƒƒã‚¯ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—",
-      "defaultFourPlayers": "ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ã¯4äººã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "defaultFortyLife": "40ãƒ©ã‚¤ãƒ•",
-      "commanderDamageEnabled": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸æœ‰åŠ¹åŒ–",
-      "quickSummary": "ç°¡å˜ãªæ¦‚è¦"
+      "benefits": "利点",
+      "physicalGameTrackingDescription": "紙の試合を記録するために必要なものが揃っています。",
+      "setupDescription": "プレイヤー、開始ライフ総量、タイマーを設定します。CommanderZone は Magic のルールを自動化せず、ライフ総量、ターン、統率者ダメージを管理します。",
+      "quickSetup": "クイックセットアップ",
+      "defaultFourPlayers": "デフォルトでは4人のプレイヤー",
+      "defaultFortyLife": "40ライフ",
+      "commanderDamageEnabled": "統率者ダメージ有効化",
+      "quickSummary": "簡単な概要"
     },
     "tableAssistantReplayModal": {
-      "seatLabel": "ã‚·ãƒ¼ãƒˆ {{ count }}",
-      "turnLabel": "ã‚¿ãƒ¼ãƒ³ {{ count }}",
-      "startGame": "è©¦åˆã‚’é–‹å§‹",
-      "tableSetup": "ãƒ†ãƒ¼ãƒ–ãƒ«ã®ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—",
-      "closeTableSetup": "ãƒ†ãƒ¼ãƒ–ãƒ«è¨­å®šã‚’é–‰ã˜ã‚‹",
-      "tablePositions": "ãƒ†ãƒ¼ãƒ–ãƒ«ã®ä½ç½®",
-      "player": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "noPlayer": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒã„ã¾ã›ã‚“",
-      "order": "é †ç•ª",
-      "choosePlayerAndTurn": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨ãã®ã‚¿ãƒ¼ãƒ³ã‚’é¸æŠžã—ã¾ã™ã€‚",
-      "randomTurn": "ãƒ©ãƒ³ãƒ€ãƒ ã‚¿ãƒ¼ãƒ³"
+      "seatLabel": "シート {{ count }}",
+      "turnLabel": "ターン {{ count }}",
+      "tableSetup": "テーブルのセットアップ",
+      "closeTableSetup": "テーブル設定を閉じる",
+      "tablePositions": "テーブルの位置",
+      "noPlayer": "プレイヤーがいません",
+      "order": "順番",
+      "choosePlayerAndTurn": "プレイヤーとそのターンを選択します。",
+      "randomTurn": "ランダムターン"
     },
     "tableAssistantRoom": {
-      "rotateDevice": "ãƒ‡ãƒã‚¤ã‚¹ã‚’å›žè»¢ã•ã›ã¾ã™",
-      "roomInformation": "ãƒ«ãƒ¼ãƒ æƒ…å ±",
-      "copyRoomLink": "ãƒ«ãƒ¼ãƒ ãƒªãƒ³ã‚¯ã‚’ã‚³ãƒ”ãƒ¼ã™ã‚‹",
-      "globalTrackers": "ã‚°ãƒ­ãƒ¼ãƒãƒ«ãƒˆãƒ©ãƒƒã‚«ãƒ¼",
-      "players": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "commanderDamage": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸",
-      "closeCommanderDamage": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’é–‰ã˜ã‚‹",
-      "playerLife": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ãƒ©ã‚¤ãƒ•",
-      "playerTrackers": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãƒˆãƒ©ãƒƒã‚«ãƒ¼",
-      "knockoutIconLabel": "ãƒŽãƒƒã‚¯ã‚¢ã‚¦ãƒˆ",
-      "landscapeOptimizedNotice": "ãƒ«ãƒ¼ãƒ ã¯ãƒ¢ãƒã‚¤ãƒ«ã®æ¨ªå‘ããƒ¢ãƒ¼ãƒ‰ã«æœ€é©åŒ–ã•ã‚Œã¦ã„ã¾ã™ã€‚",
-      "roomCode": "ãƒ«ãƒ¼ãƒ ã‚³ãƒ¼ãƒ‰",
-      "lethal": "è‡´å‘½çš„",
-      "commanderDamageSummary": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸",
-      "assignedToConnectedPlayer": "æŽ¥ç¶šä¸­ã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«å‰²ã‚Šå½“ã¦æ¸ˆã¿",
-      "viewAndEdit": "è¡¨ç¤ºã¨ç·¨é›†"
+      "roomInformation": "ルーム情報",
+      "copyRoomLink": "ルームリンクをコピーする",
+      "globalTrackers": "グローバルトラッカー",
+      "closeCommanderDamage": "統率者ダメージを閉じる",
+      "playerLife": "プレイヤーのライフ",
+      "playerTrackers": "プレイヤートラッカー",
+      "knockoutIconLabel": "ノックアウト",
+      "landscapeOptimizedNotice": "ルームはモバイルの横向きモードに最適化されています。",
+      "roomCode": "ルームコード",
+      "lethal": "致命的",
+      "assignedToConnectedPlayer": "接続中のプレイヤーに割り当て済み",
+      "viewAndEdit": "表示と編集"
     },
     "tableAssistantSetup": {
-      "createRoom": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã™ã‚‹",
-      "createRoomError": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚¢ã‚·ã‚¹ã‚¿ãƒ³ãƒˆã®ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "creatingRoom": "ä½œæˆä¸­...",
-      "initialLife": "åˆæœŸãƒ©ã‚¤ãƒ•åˆè¨ˆ",
-      "initialTotal": "é–‹å§‹åˆè¨ˆ",
-      "needPlayersAndNames": "å°‘ãªãã¨ã‚‚ 2 äººã®ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒã„ã¦ã€ã™ã¹ã¦ã®åå‰ãŒå®Œäº†ã—ã¦ã„ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚",
-      "playerColorAria": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ {{ index }} ã‚«ãƒ©ãƒ¼",
-      "playerColorsAria": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ {{ index }} ã®è‰²",
-      "playerNameAria": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ {{ index }} å",
-      "playerNamePlaceholder": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ {{ index }}",
-      "players": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼",
-      "configureTableAssistant": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚¢ã‚·ã‚¹ã‚¿ãƒ³ãƒˆã‚’è¨­å®š",
-      "newGame": "æ–°ã—ã„è©¦åˆ",
-      "configureTable": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚’æ§‹æˆã™ã‚‹",
-      "setupDescription": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã€ãƒ©ã‚¤ãƒ•ã€ã‚¿ã‚¤ãƒžãƒ¼ã€‚ãã‚Œä»¥å¤–ã¯ã™ã¹ã¦ã‚²ãƒ¼ãƒ ä¸­ã«èª¿æ•´ã•ã‚Œã¾ã™ã€‚",
-      "tableRules": "ãƒ†ãƒ¼ãƒ–ãƒ«ãƒ«ãƒ¼ãƒ«",
-      "commanderDamageAndTimerNote": "çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸ã¯å¸¸ã«æœ‰åŠ¹ã§ã™ã€‚ã‚¿ã‚¤ãƒžãƒ¼ã¯ä»»æ„ã§ã™ã€‚"
+      "createRoomError": "テーブルアシスタントのルームを作成できませんでした。",
+      "creatingRoom": "作成中...",
+      "needPlayersAndNames": "少なくとも 2 人のプレイヤーがいて、すべての名前が完了している必要があります。",
+      "playerColorAria": "プレイヤー {{ index }} カラー",
+      "playerColorsAria": "プレイヤー {{ index }} の色",
+      "playerNameAria": "プレイヤー {{ index }} 名",
+      "playerNamePlaceholder": "プレイヤー {{ index }}",
+      "configureTableAssistant": "テーブルアシスタントを設定",
+      "configureTable": "テーブルを構成する",
+      "setupDescription": "プレイヤー、ライフ、タイマー。それ以外はすべてゲーム中に調整されます。",
+      "tableRules": "テーブルルール",
+      "commanderDamageAndTimerNote": "統率者ダメージは常に有効です。タイマーは任意です。"
     },
     "tableAssistantTableMenu": {
       "cz": "CZ",
-      "commanderZoneGameOptions": "CommanderZone ã‚²ãƒ¼ãƒ ã‚ªãƒ—ã‚·ãƒ§ãƒ³",
-      "gameOptions": "ã‚²ãƒ¼ãƒ ã‚ªãƒ—ã‚·ãƒ§ãƒ³",
-      "newGame": "æ–°ã—ã„è©¦åˆ",
-      "rollDice": "ãƒ€ã‚¤ã‚¹ã‚’æŒ¯ã‚‹",
-      "fullScreen": "å…¨ç”»é¢è¡¨ç¤º",
-      "exitToDashboard": "ãƒ€ãƒƒã‚·ãƒ¥ãƒœãƒ¼ãƒ‰ã«æˆ»ã‚‹",
-      "keepPlaying": "ãƒ—ãƒ¬ã‚¤ã‚’ç¶šã‘ã‚‹"
+      "commanderZoneGameOptions": "CommanderZone ゲームオプション",
+      "gameOptions": "ゲームオプション",
+      "fullScreen": "全画面表示",
+      "exitToDashboard": "ダッシュボードに戻る",
+      "keepPlaying": "プレイを続ける"
     },
     "tableAssistantTimerSettings": {
-      "min": "åˆ†",
-      "timer": "ã‚¿ã‚¤ãƒžãƒ¼",
-      "turnDuration": "ã‚¿ãƒ¼ãƒ³æŒç¶šæ™‚é–“",
-      "seconds": "ç§’",
+      "min": "分",
+      "turnDuration": "ターン持続時間",
+      "seconds": "秒",
       "timerModes": {
-        "turn": "ã‚¿ãƒ¼ãƒ³ã”ã¨",
-        "phase": "ãƒ•ã‚§ãƒ¼ã‚ºã”ã¨"
+        "turn": "ターンごと",
+        "phase": "フェーズごと"
       }
     },
     "tableAssistantTurnControls": {
-      "activeTurn": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªã‚¿ãƒ¼ãƒ³",
-      "pauseTimer": "ä¸€æ™‚åœæ­¢ã‚¿ã‚¤ãƒžãƒ¼",
-      "resumeTimer": "ã‚¿ã‚¤ãƒžãƒ¼ã‚’å†é–‹",
-      "startTimer": "ã‚¿ã‚¤ãƒžãƒ¼ã‚’é–‹å§‹",
-      "passToNextTurn": "æ¬¡ã®ã‚¿ãƒ¼ãƒ³ã«ãƒ‘ã‚¹ã™ã‚‹",
-      "pause": "ä¸€æ™‚åœæ­¢",
-      "resume": "å†é–‹",
-      "start": "ã‚¹ã‚¿ãƒ¼ãƒˆ",
-      "turn": "ã‚¿ãƒ¼ãƒ³",
-      "next": "æ¬¡ã¸"
+      "activeTurn": "アクティブなターン",
+      "pauseTimer": "一時停止タイマー",
+      "resumeTimer": "タイマーを再開",
+      "startTimer": "タイマーを開始",
+      "passToNextTurn": "次のターンにパスする",
+      "pause": "一時停止",
+      "resume": "再開"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "ãƒ©ã‚¤ãƒ•ã¨çµ±çŽ‡è€…",
-          "description": "è©¦åˆã‚’ã‚¹ãƒ—ãƒ¬ãƒƒãƒ‰ã‚·ãƒ¼ãƒˆã«ã›ãšã€ãƒ©ã‚¤ãƒ•ã¨çµ±çŽ‡è€…ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’è¨˜éŒ²ã—ã¾ã™ã€‚"
+          "title": "ライフと統率者",
+          "description": "試合をスプレッドシートにせず、ライフと統率者ダメージを記録します。"
         },
         "simpleTurns": {
-          "title": "ã‚·ãƒ³ãƒ—ãƒ«ãªã‚¿ãƒ¼ãƒ³",
-          "description": "ã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’ç¤ºã—ã€ãƒ†ãƒ¼ãƒ–ãƒ«ãŒãƒ†ãƒ³ãƒã‚’å¿…è¦ã¨ã™ã‚‹å ´åˆã¯è‡ªå‹•ãƒ«ãƒ¼ãƒ«ãªã—ã§ã‚¿ã‚¤ãƒžãƒ¼ã‚’ä½¿ã„ã¾ã™ã€‚"
+          "title": "シンプルなターン",
+          "description": "アクティブプレイヤーを示し、テーブルがテンポを必要とする場合は自動ルールなしでタイマーを使います。"
         },
         "sharedTable": {
-          "title": "å…±æœ‰ãƒ†ãƒ¼ãƒ–ãƒ«",
-          "description": "ãƒ†ãƒ¼ãƒ–ãƒ«ã®ä¸­å¤®ã«1å°ã®æºå¸¯é›»è©±ã¾ãŸã¯ã‚¿ãƒ–ãƒ¬ãƒƒãƒˆã‚’ç½®ãã‚ˆã†ã«è¨­è¨ˆã•ã‚Œã¦ã„ã¾ã™ã€‚"
+          "title": "共有テーブル",
+          "description": "テーブルの中央に1台の携帯電話またはタブレットを置くように設計されています。"
         }
-      },
-      "header": {
-        "title": "ãƒ†ãƒ¼ãƒ–ãƒ«ã‚¢ã‚·ã‚¹ã‚¿ãƒ³ãƒˆ",
-        "startGame": "è©¦åˆã‚’é–‹å§‹"
       }
     }
   },
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ã‚¢ãƒã‚¿ãƒ¼",
-      "changeAvatar": "ã‚¢ãƒã‚¿ãƒ¼ã®å¤‰æ›´",
-      "becomePremium": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ ã«ãªã‚‹",
-      "changeName": "éŠ˜æ¿ã®å¤‰æ›´",
-      "accountDetails": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã®è©³ç´°",
-      "email": "é›»å­ãƒ¡ãƒ¼ãƒ«",
-      "userName": "ãƒ¦ãƒ¼ã‚¶ãƒ¼å",
-      "changePassword": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å¤‰æ›´ã™ã‚‹",
-      "sendingPasswordEmail": "ãƒ¡ãƒ¼ãƒ«ã‚’é€ä¿¡ä¸­...",
-      "passwordResetEmailSentShort": "é€ä¿¡æ¸ˆã¿",
-      "passwordResetEmailSent": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãƒªã‚»ãƒƒãƒˆãƒ¡ãƒ¼ãƒ«ã‚’é€ä¿¡ã—ã¾ã—ãŸã€‚",
-      "passwordResetEmailError": "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãƒªã‚»ãƒƒãƒˆãƒ¡ãƒ¼ãƒ«ã‚’é€ä¿¡ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚",
-      "deleteAccount": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’å‰Šé™¤ã™ã‚‹",
-      "areYouSureYouWantToPermanently": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’å®Œå…¨ã«å‰Šé™¤ã—ã¦ã‚‚ã‚ˆã‚ã—ã„ã§ã™ã‹?",
-      "cancel": "ã‚­ãƒ£ãƒ³ã‚»ãƒ«",
-      "changeTheme": "ãƒ†ãƒ¼ãƒžã®å¤‰æ›´",
+      "playerAvatar": "プレイヤーのアバター",
+      "changeAvatar": "アバターの変更",
+      "becomePremium": "プレミアムになる",
+      "changeName": "銘板の変更",
+      "accountDetails": "アカウントの詳細",
+      "changePassword": "パスワードを変更する",
+      "sendingPasswordEmail": "メールを送信中...",
+      "passwordResetEmailSent": "パスワードリセットメールを送信しました。",
+      "passwordResetEmailError": "パスワードリセットメールを送信できませんでした。",
+      "deleteAccount": "アカウントを削除する",
+      "areYouSureYouWantToPermanently": "アカウントを完全に削除してもよろしいですか?",
+      "changeTheme": "テーマの変更",
       "gameSettings": {
-        "title": "ã‚²ãƒ¼ãƒ ãƒ—ãƒ¬ã‚¤ã®è¨­å®š",
+        "title": "ゲームプレイの設定",
         "showManaHelperOnStartup": {
-          "label": "èµ·å‹•æ™‚ã«ãƒžãƒŠãƒ˜ãƒ«ãƒ‘ãƒ¼ã‚’è¡¨ç¤º",
-          "description": "è©¦åˆãŒå§‹ã¾ã£ãŸã‚‰ãƒžãƒŠãƒ˜ãƒ«ãƒ‘ãƒ¼ã‚’é–‹ãã¾ã™ã€‚"
+          "label": "起動時にマナヘルパーを表示",
+          "description": "試合が始まったらマナヘルパーを開きます。"
         },
         "enableManaRow": {
-          "label": "ãƒžãƒŠåˆ—ã‚’æœ‰åŠ¹ã«ã™ã‚‹",
-          "description": "ã‚²ãƒ¼ãƒ ä¸­ã«å°‚ç”¨ã®ãƒžãƒŠåˆ—ã‚’è¡¨ç¤ºã—ã¾ã™ã€‚"
+          "label": "マナ列を有効にする",
+          "description": "ゲーム中に専用のマナ列を表示します。"
         },
         "gameAnimations": {
-          "label": "ã‚²ãƒ¼ãƒ ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³",
-          "description": "è©¦åˆä¸­ã«è¦–è¦šçš„ãªå‹•ãã¨ãƒ•ã‚£ãƒ¼ãƒ‰ãƒãƒƒã‚¯ã®ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³ã‚’ä½¿ç”¨ã—ã¾ã™ã€‚"
+          "label": "ゲームアニメーション",
+          "description": "試合中に視覚的な動きとフィードバックのアニメーションを使用します。"
         },
         "chatNotificationSounds": {
-          "label": "ãƒãƒ£ãƒƒãƒˆé€šçŸ¥éŸ³",
-          "description": "æ–°ã—ã„ãƒãƒ£ãƒƒãƒˆé€šçŸ¥ãŒåˆ°ç€ã—ãŸã¨ãã«éŸ³ã‚’é³´ã‚‰ã—ã¾ã™ã€‚"
+          "label": "チャット通知音",
+          "description": "新しいチャット通知が到着したときに音を鳴らします。"
         },
         "preserveManaPool": {
-          "label": "ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«ã‚’æ¸©å­˜ã™ã‚‹",
-          "description": "ã‚¹ã‚¿ãƒƒã‚¯ã•ã‚ŒãŸã‚¢ã‚¯ã‚·ãƒ§ãƒ³ã‚’è§£æ±ºã™ã‚‹é–“ã€ãƒžãƒŠã‚’ãƒžãƒŠãƒ»ãƒ—ãƒ¼ãƒ«ã«ä¿æŒã—ã¦ãã ã•ã„ã€‚"
+          "label": "マナ・プールを温存する",
+          "description": "スタックされたアクションを解決する間、マナをマナ・プールに保持してください。"
         }
       },
-      "enterValidEmail": "æœ‰åŠ¹ãªé›»å­ãƒ¡ãƒ¼ãƒ«ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "checkingEmail": "ãƒ¡ãƒ¼ãƒ«ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¦ã„ã¾ã™...",
-      "checkingAvailability": "ç©ºãçŠ¶æ³ã‚’ç¢ºèªä¸­...",
-      "couldNotCheckNow": "ç¾åœ¨ç¢ºèªã§ãã¾ã›ã‚“ã§ã—ãŸ",
-      "usernameLengthRequirement": "ãƒ¦ãƒ¼ã‚¶ãƒ¼åã¯ 2 ï½ž 20 æ–‡å­—ã«ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚",
-      "usernameAvailable": "åˆ©ç”¨å¯èƒ½ãªãƒ¦ãƒ¼ã‚¶ãƒ¼å",
-      "usernameUnavailable": "ãƒ¦ãƒ¼ã‚¶ãƒ¼åãŒåˆ©ç”¨ã§ãã¾ã›ã‚“",
-      "emailAvailable": "é›»å­ãƒ¡ãƒ¼ãƒ«ãŒåˆ©ç”¨å¯èƒ½",
-      "emailAlreadyRegistered": "ãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã™ã§ã«ç™»éŒ²ã•ã‚Œã¦ã„ã¾ã™",
-      "deleteAccountWarning": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã¨ã€ãƒ‡ãƒƒã‚­ã‚„è¨­å®šã‚’å«ã‚€ã™ã¹ã¦ã®é–¢é€£ãƒ‡ãƒ¼ã‚¿ã‚’å®Œå…¨ã«å‰Šé™¤ã—ã¾ã™ã€‚ã“ã®æ“ä½œã¯å…ƒã«æˆ»ã™ã“ã¨ãŒã§ãã¾ã›ã‚“ã€‚"
+      "deleteAccountWarning": "アカウントと、デッキや設定を含むすべての関連データを完全に削除します。この操作は元に戻すことができません。"
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "ã‚¢ãƒã‚¿ãƒ¼ã®åˆæœŸã‚«ã‚¹ã‚¿ãƒžã‚¤ã‚º",
-      "mainColor": "ãƒ¡ã‚¤ãƒ³ã‚«ãƒ©ãƒ¼",
-      "secondaryColor": "äºŒæ¬¡è‰²",
-      "letters": "æ–‡å­—"
+      "initialAvatarCustomization": "アバターの初期カスタマイズ",
+      "mainColor": "メインカラー",
+      "secondaryColor": "二次色",
+      "letters": "文字"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "ã‚¢ãƒã‚¿ãƒ¼ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "avatarTiers": "ã‚¢ãƒã‚¿ãƒ¼ã®éšŽå±¤",
-      "basicAvatars": "åŸºæœ¬ã‚¢ãƒã‚¿ãƒ¼",
-      "premiumAvatars": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ ã‚¢ãƒã‚¿ãƒ¼",
-      "chooseAvatar": "ã‚¢ãƒã‚¿ãƒ¼ã‚’é¸æŠž",
-      "currentSelection": "ç¾åœ¨ã®é¸æŠžå†…å®¹",
-      "basic": "åŸºæœ¬",
-      "premium": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ "
+      "avatarTiers": "アバターの階層",
+      "basicAvatars": "基本アバター",
+      "premiumAvatars": "プレミアムアバター",
+      "chooseAvatar": "アバターを選択"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã•ã‚ŒãŸã‚¢ãƒã‚¿ãƒ¼ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "avatarPreview": "ã‚¢ãƒã‚¿ãƒ¼ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "uploadImage": "ç”»åƒã‚’ã‚¢ãƒƒãƒ—ãƒ­ãƒ¼ãƒ‰ã™ã‚‹",
-      "chooseYourOwnImageAndFrameIt": "ç‹¬è‡ªã®ç”»åƒã‚’é¸æŠžã—ã€ã‚¢ãƒã‚¿ãƒ¼ã®ã‚µãƒ¼ã‚¯ãƒ«å†…ã«ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’å…¥ã‚Œã¾ã™ã€‚",
-      "imageFile": "ç”»åƒãƒ•ã‚¡ã‚¤ãƒ«",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNGã€JPGã€WEBPã€ã¾ãŸã¯ãƒ–ãƒ©ã‚¦ã‚¶ãƒ¼ã§ã‚µãƒãƒ¼ãƒˆã•ã‚Œã¦ã„ã‚‹åˆ¥ã®ç”»åƒã€‚æœ€å¤§2MBã€‚",
-      "chooseImage": "ç”»åƒã‚’é¸æŠžã—ã¦ãã ã•ã„",
-      "avatarImagesMustBeNonOffensiveNon": "ã‚¢ãƒã‚¿ãƒ¼ç”»åƒã¯ã€æ”»æ’ƒçš„ã§ãªãã€æ€§çš„ã§ãªãã€CommanderZone ã‚³ãƒŸãƒ¥ãƒ‹ãƒ†ã‚£ã«é©åˆ‡ãªã‚‚ã®ã§ãªã‘ã‚Œã°ãªã‚Šã¾ã›ã‚“ã€‚",
-      "horizontal": "æ°´å¹³",
-      "vertical": "åž‚ç›´",
-      "zoom": "ã‚ºãƒ¼ãƒ "
+      "uploadedAvatarPreview": "アップロードされたアバターのプレビュー",
+      "chooseYourOwnImageAndFrameIt": "独自の画像を選択し、アバターのサークル内にフレームを入れます。",
+      "imageFile": "画像ファイル",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG、JPG、WEBP、またはブラウザーでサポートされている別の画像。最大2MB。",
+      "chooseImage": "画像を選択してください",
+      "avatarImagesMustBeNonOffensiveNon": "アバター画像は、攻撃的でなく、性的でなく、CommanderZone コミュニティに適切なものでなければなりません。",
+      "horizontal": "水平",
+      "vertical": "垂直",
+      "zoom": "ズーム"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "åå‰ã‚¹ã‚¿ã‚¤ãƒ«ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "nameStyleTiers": "åå‰ã‚¹ã‚¿ã‚¤ãƒ«å±¤",
-      "currentSelection": "ç¾åœ¨ã®é¸æŠžå†…å®¹",
-      "textColor": "æ–‡å­—ã®è‰²",
-      "basic": "åŸºæœ¬",
-      "premium": "ãƒ—ãƒ¬ãƒŸã‚¢ãƒ "
+      "nameStylePreview": "名前スタイルのプレビュー",
+      "nameStyleTiers": "名前スタイル層",
+      "textColor": "文字の色"
     }
   },
   "modals": {
     "roll": {
       "rollModal": {
-        "text": "çµæžœ",
-        "rollDice": "ãƒ€ã‚¤ã‚¹ã‚’æŒ¯ã‚‹",
-        "closeRoll": "ãƒ­ãƒ¼ãƒ«ã‚’é–‰ã˜ã‚‹",
-        "rollType": "ãƒ­ãƒ¼ãƒ«ç¨®åˆ¥",
-        "close": "é–‰ã˜ã‚‹",
-        "rollAgain": "ã‚‚ã†ä¸€åº¦æŒ¯ã‚‹",
-        "roll": "æŒ¯ã‚‹"
+        "text": "結果",
+        "closeRoll": "ロールを閉じる",
+        "rollType": "ロール種別",
+        "rollAgain": "もう一度振る"
       },
       "options": {
-        "coin": "ã‚³ã‚¤ãƒ³",
-        "d4": "4é¢ãƒ€ã‚¤ã‚¹",
-        "d6": "6é¢ãƒ€ã‚¤ã‚¹",
-        "d10": "10é¢ãƒ€ã‚¤ã‚¹",
-        "d20": "20é¢ãƒ€ã‚¤ã‚¹"
+        "coin": "コイン",
+        "d4": "4面ダイス",
+        "d6": "6面ダイス",
+        "d10": "10面ダイス",
+        "d20": "20面ダイス"
       },
       "results": {
-        "heads": "è¡¨",
-        "tails": "è£"
+        "heads": "表",
+        "tails": "裏"
       }
     }
   },
   "contactPage": {
     "meta": {
-      "title": "ãŠå•ã„åˆã‚ã›",
-      "description": "ã‚µãƒãƒ¼ãƒˆã€ãƒã‚°ãƒ¬ãƒãƒ¼ãƒˆã€æ¨©åˆ©å•é¡Œã€ã¾ãŸã¯ä¸€èˆ¬çš„ãªè³ªå•ã«ã¤ã„ã¦ã¯ã€CommanderZone ã«ãŠå•ã„åˆã‚ã›ãã ã•ã„ã€‚"
+      "description": "サポート、バグレポート、権利問題、または一般的な質問については、CommanderZone にお問い合わせください。"
     },
     "hero": {
-      "title": "ãŠå•ã„åˆã‚ã›",
-      "description": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ãŠé€ã‚Šãã ã•ã„ã€‚ã§ãã‚‹ã ã‘æ—©ãç¢ºèªã•ã›ã¦ã„ãŸã ãã¾ã™ã€‚"
+      "description": "メッセージをお送りください。できるだけ早く確認させていただきます。"
     },
     "nav": {
-      "loggedOutCta": "ãƒ€ãƒƒã‚·ãƒ¥ãƒœãƒ¼ãƒ‰ã«æˆ»ã‚‹",
-      "anonymousCta": "ãƒ›ãƒ¼ãƒ ã«æˆ»ã‚‹",
-      "actionsAriaLabel": "ãŠå•ã„åˆã‚ã›ãƒšãƒ¼ã‚¸ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³"
+      "loggedOutCta": "ダッシュボードに戻る",
+      "anonymousCta": "ホームに戻る",
+      "actionsAriaLabel": "お問い合わせページのアクション"
     },
     "copy": {
-      "supportTitle": "ã‚µãƒãƒ¼ãƒˆã¨æ¨©åˆ©",
-      "supportBody": "ã‚µãƒãƒ¼ãƒˆã€ãƒã‚°å ±å‘Šã€ãƒ—ãƒ©ã‚¤ãƒã‚·ãƒ¼ãƒªã‚¯ã‚¨ã‚¹ãƒˆã€æ¨©åˆ©ã«é–¢ã™ã‚‹å•é¡Œã€ãã®ä»–ã®è³ªå•ã‚„ã‚¢ã‚¤ãƒ‡ã‚¢ãŒã‚ã‚Œã°ã€ã“ã®ãƒ•ã‚©ãƒ¼ãƒ ã‚’ä½¿ç”¨ã—ã¦ãã ã•ã„ã€‚å¿…è¦ã§ã‚ã‚Œã° {{ email }} å®›ã¦ã«ãƒ¡ãƒ¼ãƒ«ã§ç¶šã‘ã‚‹ã“ã¨ã‚‚ã§ãã¾ã™ã€‚",
-      "includeTitle": "ä½•ã‚’å«ã‚ã‚‹ã‹",
-      "includeBody": "å•é¡Œã‚’æ˜Žç¢ºã«èª¬æ˜Žã—ã€é–¢é€£ã™ã‚‹ãƒšãƒ¼ã‚¸ã€ãƒ«ãƒ¼ãƒ ã€ãƒ‡ãƒƒã‚­ã€ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆãªã©ã®å‚è€ƒæƒ…å ±ã‚’å«ã‚ã¦ãã ã•ã„ã€‚ç§˜å¯†æƒ…å ±ã‚„æ”¯æ‰•ã„æƒ…å ±ã¯é€ä¿¡ã—ãªã„ã§ãã ã•ã„ã€‚"
+      "supportTitle": "サポートと権利",
+      "supportBody": "サポート、バグ報告、プライバシーリクエスト、権利に関する問題、その他の質問やアイデアがあれば、このフォームを使用してください。必要であれば {{ email }} 宛てにメールで続けることもできます。",
+      "includeTitle": "何を含めるか",
+      "includeBody": "問題を明確に説明し、関連するページ、ルーム、デッキ、スクリーンショットなどの参考情報を含めてください。秘密情報や支払い情報は送信しないでください。"
     },
     "form": {
-      "nameLabel": "åå‰",
-      "namePlaceholder": "ã‚ãªãŸã®åå‰",
-      "nameError": "ã‚ãªãŸã®åå‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "emailLabel": "ãƒ¡ãƒ¼ãƒ«",
+      "namePlaceholder": "あなたの名前",
+      "nameError": "あなたの名前を入力してください。",
       "emailPlaceholder": "you@example.com",
-      "emailError": "æœ‰åŠ¹ãªãƒ¡ãƒ¼ãƒ«ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "subjectLabel": "ä»¶å",
-      "subjectPlaceholder": "ã”ç”¨ä»¶ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„",
-      "subjectError": "ä»¶åã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "messageLabel": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",
-      "messagePlaceholder": "ã“ã“ã«ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’æ›¸ã„ã¦ãã ã•ã„ã€‚",
-      "messageError": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚",
-      "submit": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’é€ä¿¡",
-      "submitting": "é€ä¿¡ä¸­...",
-      "submitSuccess": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯é€ä¿¡ã•ã‚Œã¾ã—ãŸã€‚",
-      "submitRateLimitError": "ãŠå•ã„åˆã‚ã›ã®ä¸Šé™ã«é”ã—ã¾ã—ãŸã€‚å†è©¦è¡Œã™ã‚‹å‰ã«ç´„ {{ retryAfterMinutes }} åˆ†ãŠå¾…ã¡ãã ã•ã„ã€‚ç·Šæ€¥ã®å ´åˆã¯ {{ email }} ã¸ç›´æŽ¥ã”é€£çµ¡ãã ã•ã„ã€‚",
-      "submitError": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’é€ä¿¡ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚{{ email }} ã¸ç›´æŽ¥ã”é€£çµ¡ã„ãŸã ãã‹ã€åˆ¥ã®æ–¹æ³•ã§ãŠå•ã„åˆã‚ã›ãã ã•ã„ã€‚"
+      "subjectPlaceholder": "ご用件を入力してください",
+      "subjectError": "件名を入力してください。",
+      "messagePlaceholder": "ここにメッセージを書いてください。",
+      "messageError": "メッセージを入力してください。",
+      "submitSuccess": "メッセージは送信されました。",
+      "submitRateLimitError": "お問い合わせの上限に達しました。再試行する前に約 {{ retryAfterMinutes }} 分お待ちください。緊急の場合は {{ email }} へ直接ご連絡ください。",
+      "submitError": "メッセージを送信できませんでした。{{ email }} へ直接ご連絡いただくか、別の方法でお問い合わせください。"
     }
   },
   "onboarding": {
-    "accountActions": "ã‚¢ã‚«ã‚¦ãƒ³ãƒˆã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³",
+    "accountActions": "アカウントのアクション",
     "demoRoom": {
-      "description": "ã“ã‚Œã¯ã‚ªãƒ³ãƒœãƒ¼ãƒ‡ã‚£ãƒ³ã‚°ç”¨ã®ãƒ‡ãƒ¢ãƒ«ãƒ¼ãƒ ã§ã™ã€‚ãƒžãƒ«ãƒãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼æŽ¥ç¶šãŒæœ‰åŠ¹ãªå ´åˆã¯ã€å®Ÿéš›ã®ãƒ«ãƒ¼ãƒ ä½“é¨“ã«ç½®ãæ›ã‚ã‚Šã¾ã™ã€‚",
-      "eyebrow": "ãƒ‡ãƒ¢ãƒ«ãƒ¼ãƒ ",
-      "goToLogin": "ãƒ­ã‚°ã‚¤ãƒ³ã«ç§»å‹•"
+      "description": "これはオンボーディング用のデモルームです。マルチプレイヤー接続が有効な場合は、実際のルーム体験に置き換わります。",
+      "eyebrow": "デモルーム",
+      "goToLogin": "ログインに移動"
     },
     "hero": {
-      "description": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆã—ã€ãƒªãƒ³ã‚¯ã‚’å…±æœ‰ã—ã€ãƒ‡ãƒƒã‚­ã‚’é¸ã³ã€æœ¬ç‰©ã®çµ±çŽ‡è€…ãƒãƒƒãƒ‰å‘ã‘ã«ä½œã‚‰ã‚ŒãŸãƒ†ãƒ¼ãƒ–ãƒ«ã§ãƒ—ãƒ¬ã‚¤ã—ã¾ã™ã€‚",
-      "eyebrow": "æ‰‹å‹•ã®çµ±çŽ‡è€…ãƒ†ãƒ¼ãƒ–ãƒ«",
-      "title": "æ•°ç§’ã§ã‚ªãƒ³ãƒ©ã‚¤ãƒ³çµ±çŽ‡è€…æˆ¦ã‚’å§‹ã‚ã‚‹"
+      "description": "ルームを作成し、リンクを共有し、デッキを選び、本物の統率者ポッド向けに作られたテーブルでプレイします。",
+      "title": "数秒でオンライン統率者戦を始める"
     },
     "highlights": {
-      "ariaLabel": "è£½å“ã®ãƒã‚¤ãƒ©ã‚¤ãƒˆ",
-      "deckValidation": "çµ±çŽ‡è€…æˆ¦å‘ã‘ãƒ‡ãƒƒã‚­æ¤œè¨¼",
-      "manualTable": "æ‰‹å‹•ãƒ†ãƒ¼ãƒ–ãƒ«ã€ãƒ«ãƒ¼ãƒ«ã‚¨ãƒ³ã‚¸ãƒ³ãªã—",
-      "privateRooms": "ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ«ãƒ¼ãƒ ã¨æ‹›å¾…"
+      "ariaLabel": "製品のハイライト",
+      "deckValidation": "統率者戦向けデッキ検証",
+      "manualTable": "手動テーブル、ルールエンジンなし",
+      "privateRooms": "プライベートルームと招待"
     },
     "preview": {
-      "ariaLabel": "CommanderZone ãƒ†ãƒ¼ãƒ–ãƒ«ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼",
-      "flow": "å¾…åˆå®¤ã€ãƒ‡ãƒƒã‚­é¸æŠžã€ãƒ†ãƒ¼ãƒ–ãƒ«ã®æµã‚Œã‚’1ã‹æ‰€ã§ã€‚",
-      "guest": "ã‚²ã‚¹ãƒˆ",
-      "oneLink": "ãƒªãƒ³ã‚¯ãŒ 1 ã¤",
-      "ready": "æº–å‚™å®Œäº†"
+      "ariaLabel": "CommanderZone テーブルのプレビュー",
+      "flow": "待合室、デッキ選択、テーブルの流れを1か所で。",
+      "guest": "ゲスト",
+      "oneLink": "リンクが 1 つ",
+      "ready": "準備完了"
     },
     "steps": {
       "import": {
-        "description": "ãƒªã‚¹ãƒˆã‚’è²¼ã‚Šä»˜ã‘ã¦ã‚¤ãƒ³ãƒãƒ¼ãƒˆã—ã¾ã™ã€‚",
-        "title": "ãƒ‡ãƒƒã‚­ãƒªã‚¹ãƒˆã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã™ã‚‹"
+        "description": "リストを貼り付けてインポートします。"
       },
       "play": {
-        "description": "ãƒ«ãƒ¼ãƒ ã‚’é–‹ã„ã¦è©¦åˆã‚’é–‹å§‹ã—ã¾ã™ã€‚",
-        "title": "ãƒ—ãƒ¬ã‚¤"
+        "description": "ルームを開いて試合を開始します。",
+        "title": "プレイ"
       },
       "room": {
-        "description": "ãƒ†ãƒ¼ãƒ–ãƒ«ç”¨ã®ãƒ«ãƒ¼ãƒ ã‚’ç”Ÿæˆã—ã¾ã™ã€‚",
-        "title": "ãƒ«ãƒ¼ãƒ ã‚’ä½œæˆ"
+        "description": "テーブル用のルームを生成します。"
       },
       "share": {
-        "description": "ãƒ«ãƒ¼ãƒ ãƒªãƒ³ã‚¯ã‚’ã‚³ãƒ”ãƒ¼ã—ã¦é€ä¿¡ã—ã¾ã™ã€‚",
-        "title": "ãƒªãƒ³ã‚¯ã‚’å…±æœ‰ã™ã‚‹"
+        "description": "ルームリンクをコピーして送信します。",
+        "title": "リンクを共有する"
       }
     }
   },
   "shared": {
     "cardPreview": {
-      "rank": "ãƒ©ãƒ³ã‚¯ {{ rank }}",
-      "viewMore": "ã‚‚ã£ã¨è¦‹ã‚‹"
+      "rank": "ランク {{ rank }}"
+    },
+    "text": {
+      "users": "ユーザー",
+      "reports": "通報",
+      "notifications": "通知",
+      "noUsersFound": "ユーザーが見つかりませんでした。",
+      "subject": "件名",
+      "message": "メッセージ",
+      "title": "見出し",
+      "list": "リスト",
+      "uploadImage": "画像をアップロードする",
+      "refresh": "更新",
+      "online": "オンライン",
+      "usernameOrEmail": "ユーザー名またはメールアドレス...",
+      "name": "名前",
+      "email": "電子メール",
+      "created": "作成日",
+      "status": "ステータス",
+      "premium": "プレミアム",
+      "actions": "操作",
+      "support": "サポート",
+      "admin": "管理者",
+      "owner": "ホスト",
+      "inGame": "ゲーム内",
+      "offline": "オフライン",
+      "sendMessage": "メッセージを送信",
+      "reason": "理由",
+      "sendFriendRequest": "友達リクエストを送る",
+      "commander": "統率者",
+      "monarch": "統治者",
+      "passTurn": "ターンを渡す",
+      "commanderzone": "CommanderZone",
+      "player": "プレイヤー",
+      "noOracleTextAvailable": "利用可能なオラクルテキストはありません。",
+      "colorless": "無色",
+      "countCards": "{{ count }} カード",
+      "giveTo": "渡す",
+      "white": "白",
+      "blue": "青",
+      "black": "黒",
+      "red": "赤",
+      "green": "緑",
+      "public": "公開",
+      "private": "プライベート",
+      "visibility": "公開設定",
+      "extras": "追加",
+      "accept": "承認",
+      "confirm": "確認",
+      "roll": "振る",
+      "save": "保存",
+      "select": "選択",
+      "sending": "送信中...",
+      "next": "次へ",
+      "remove": "削除",
+      "newGame": "新しい試合",
+      "cancel": "キャンセル",
+      "close": "閉じる",
+      "topCommanders": "人気の統率者",
+      "basedOnGamesPlayedByTheCommunity": "コミュニティの試合データに基づく",
+      "viewMore": "もっと見る",
+      "friends": "友達",
+      "messages": "メッセージ",
+      "cards": "カード",
+      "decks": "デッキ",
+      "rooms": "ルーム",
+      "tableAssistant": "テーブルアシスタント",
+      "search": "検索",
+      "sent": "送信済み",
+      "userName": "ユーザー名",
+      "enterAValidEmail": "有効な電子メールを入力してください。",
+      "checkingEmail": "メールをチェックしています...",
+      "checkingAvailability": "空き状況を確認中...",
+      "confirmPassword": "パスワードの確認",
+      "passwordsDoNotMatch": "パスワードが一致しません。",
+      "emailAvailable": "電子メールが利用可能",
+      "emailAlreadyRegistered": "メールアドレスはすでに登録されています",
+      "couldNotCheckRightNow": "現在確認できませんでした",
+      "userNameMustBeBetween2And20Characters": "ユーザー名は 2 ～ 20 文字にする必要があります。",
+      "userNameAvailable": "利用可能なユーザー名",
+      "userNameNotAvailable": "ユーザー名が利用できません",
+      "roomName": "ルーム名",
+      "all": "すべて",
+      "open": "募集中",
+      "full": "満員",
+      "started": "開始済み",
+      "host": "ホスト",
+      "format": "フォーマット",
+      "players": "プレイヤー",
+      "action": "アクション",
+      "join": "参加",
+      "createRoom": "ルームを作成する",
+      "turn": "ターン",
+      "deleteRoom": "ルームを削除する",
+      "timer": "タイマー",
+      "mulligan": "マリガン",
+      "mulliganDescriptions": {
+        "london": "毎回7枚引きます。キープするとき、有効なマリガン1回につきカード1枚をライブラリーの一番下に置きます。",
+        "vancouver": "有効なマリガン1回につき引くカードが1枚少なくなります。有効なマリガン後にキープした場合、占術1を行います。",
+        "paris": "有効なマリガン1回につき引くカードが1枚少なくなります。カードをライブラリーの一番下に置くことも、占術を行うこともありません。",
+        "generous": "統率者向けの寛容ルール: 最大10枚引き、可能なら7枚をキープし、残りを無作為な順番でライブラリーの一番下に置きます。"
+      },
+      "firstMulliganIsFree": "最初のマリガンは無料です",
+      "firstMulliganIsNotFree": "最初のマリガンは無料ではありません",
+      "free": "無料",
+      "generous": "寛容",
+      "london": "London",
+      "paris": "Paris",
+      "vancouver": "Vancouver",
+      "invalidDeck": "無効なデッキ",
+      "rollDice": "ダイスを振る",
+      "selectADeck": "デッキを選択してください",
+      "kickPlayer": "プレイヤーを追放",
+      "turnOrder": "ターン順序",
+      "leaveRoom": "ルームを出る",
+      "inviteFriends": "友達を招待する",
+      "start": "開始",
+      "startingLifeTotal": "開始時ライフ総量",
+      "startingTotal": "開始合計",
+      "lifeTotal": "ライフ総量",
+      "allTypes": "すべてのタイプ",
+      "artifact": "アーティファクト",
+      "battle": "バトル",
+      "land": "土地",
+      "warning": "警告",
+      "searchDecks": "検索デッキ",
+      "noPublicDecksAvailableYet": "利用可能な公開デッキはまだありません。",
+      "searchByName": "名前で検索",
+      "searchDecksLabel": "デッキを検索...",
+      "countSections": "{{ count }} セクション",
+      "text": "テキスト",
+      "spoiler": "スポイラー",
+      "planeswalkers": "プレインズウォーカー",
+      "creatures": "クリーチャー",
+      "instants": "インスタント",
+      "sorceries": "ソーサリー",
+      "enchantments": "エンチャント",
+      "artifacts": "アーティファクト",
+      "lands": "土地",
+      "sideboard": "サイドボード",
+      "deckWarnings": "デッキの警告",
+      "drawArrow": "矢印を描く",
+      "powerAndToughness": "パワー/タフネス",
+      "current": "現在",
+      "counters": "カウンター",
+      "lookAtOtherFace": "他の顔を見てください",
+      "view": "表示",
+      "reveal": "公開",
+      "hand": "手札",
+      "mechanics": "メカニズム",
+      "noVote": "投票なし",
+      "adjustValue": "値を調整する",
+      "increaseValue": "値を増やす",
+      "decreaseValue": "値を減らす",
+      "commanderDamage": "統率者ダメージ",
+      "power": "パワー",
+      "toughness": "タフネス",
+      "draw": "描く",
+      "errors": "エラー",
+      "yes": "はい",
+      "no": "いいえ",
+      "retry": "リトライ",
+      "rotateYourDevice": "デバイスを回転させます",
+      "exile": "追放",
+      "ringLevel": "指輪のレベル",
+      "clear": "クリア",
+      "searchingCards": "カードを検索中...",
+      "addCard": "カードを追加",
+      "quantity": "数量",
+      "considering": "検討中",
+      "types": "タイプ",
+      "subtypes": "サブタイプ",
+      "sets": "セット",
+      "rarity": "レアリティ",
+      "colors": "色",
+      "manaValue": "マナ総量",
+      "manaCost": "マナ・コスト",
+      "formats": "フォーマット",
+      "sort": "並べ替え",
+      "any": "どれでも",
+      "basic": "基本",
+      "costs": "コスト",
+      "color": "色",
+      "flipFace": "面を反転",
+      "add": "追加",
+      "selectPrintVersion": "印刷版を選択してください",
+      "noCommanderAssignedYet": "統率者がまだ割り当てられていません。",
+      "importDecklist": "デッキリストをインポートする",
+      "missing": "不足",
+      "snapshot": "スナップショット",
+      "deckName": "デッキ名",
+      "createFolder": "フォルダーを作成",
+      "advancedAnalysis": "高度な分析",
+      "yesLabel": "はい",
+      "noLabel": "いいえ",
+      "good": "良い",
+      "high": "高い",
+      "medium": "中くらい",
+      "low": "低い",
+      "ramp": "Ramp",
+      "wipes": "ワイプ",
+      "tutors": "サーチ",
+      "sacrifice": "犠牲",
+      "wincons": "勝ち筋",
+      "stax": "スタックス",
+      "permanentRamp": "Permanent ramp",
+      "fastMana": "速いマナ",
+      "massBounce": "マスバウンス",
+      "completeCombos": "コンボを完了する",
+      "keepableHands": "キープ可能な初手",
+      "burstMana": "バーストマナ",
+      "rituals": "儀式",
+      "oneShotMana": "ワンショットマナ",
+      "pseudoWipes": "疑似ワイプ",
+      "conditionalWipes": "条件付きワイプ",
+      "infiniteMana": "無限のマナ",
+      "averageManaValue": "平均マナ総量",
+      "fetchlands": "フェッチランド",
+      "utilityLands": "ユーティリティ土地",
+      "colorlessUtilityLands": "無色のユーティリティ土地",
+      "answersIndestructible": "破壊不能への対策",
+      "opponentCompensation": "対戦相手への補償",
+      "manualCommanderTable": "手動の統率者テーブル",
+      "startGame": "試合を開始",
+      "avatarPreview": "アバターのプレビュー",
+      "currentSelection": "現在の選択内容",
+      "contactUs": "お問い合わせ",
+      "colorDemand": "色の需要",
+      "citysBlessing": "都市の承認を得る"
     }
   },
   "cards": {
     "cardSearch": {
       "pagination": {
-        "label": "ã‚«ãƒ¼ãƒ‰æ¤œç´¢ãƒšãƒ¼ã‚¸ãƒãƒ¼ã‚·ãƒ§ãƒ³"
+        "label": "カード検索ページネーション"
       }
     }
   },
   "bracket": {
     "pill": {
-      "label": "Bracket {{ bracket }} · {{ label }}",
-      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+      "label": "ブラケット {{ bracket }} · {{ label }}",
+      "ariaLabel": "統率者ブラケット {{ bracket }}: {{ label }}"
     },
     "tooltip": {
-      "current": "Bracket {{ bracket }}"
+      "current": "ブラケット {{ bracket }}"
     },
     "explanation": {
-      "button": "How is this calculated?",
-      "title": "Commander Bracket Estimate",
-      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
-      "confidence": "Confidence: {{ confidence }}",
-      "detectedSignals": "Detected signals",
-      "officialSignals": "Official bracket limits and detectable deck signals.",
-      "officialCriteria": "Official criteria",
-      "reasons": "Reasons",
-      "noReasons": "No detailed reasons were returned for this estimate.",
-      "differenceModel": "Difference model",
-      "theme": "1 → 2: Theme",
-      "staples": "2 → 3: Staples",
-      "speed": "3 → 4: Speed",
-      "metagame": "4 → 5: Metagame",
-      "manaEfficiency": "Mana efficiency: key gate for Bracket 5",
-      "warning": "Commander Brackets are a pregame communication tool. CommanderZone assigns an operational bracket from detectable deck signals. This estimate is advisory and can be wrong, but every deck is evaluated with the same criteria."
-    },
-    "confidence": {
-      "high": "High",
-      "medium": "Medium",
-      "low": "Low"
+      "button": "計算方法を見る",
+      "title": "統率者ブラケットの推定",
+      "currentBracket": "ブラケット {{ bracket }} — {{ label }}",
+      "confidence": "信頼度: {{ confidence }}",
+      "detectedSignals": "検出されたシグナル",
+      "officialSignals": "公式ブラケットの制限と、検出可能なデッキシグナル。",
+      "officialCriteria": "公式基準",
+      "reasons": "理由",
+      "noReasons": "この推定について詳細な理由は返されませんでした。",
+      "differenceModel": "差分モデル",
+      "theme": "1 → 2: テーマ",
+      "staples": "2 → 3: 定番カード",
+      "speed": "3 → 4: 速度",
+      "metagame": "4 → 5: メタゲーム",
+      "manaEfficiency": "マナ効率: ブラケット5の重要な条件",
+      "warning": "統率者ブラケットはゲーム開始前の意思疎通のためのツールです。CommanderZone は検出可能なデッキシグナルから運用上のブラケットを割り当てます。この推定は参考情報であり、誤っている場合がありますが、すべてのデッキを同じ基準で評価します。"
     },
     "signals": {
-      "gameChangers": "Game Changers",
-      "massLandDenial": "Mass Land Denial",
-      "extraTurns": "Extra Turns",
-      "twoCardCombos": "Two-card combos",
-      "nonLandTutors": "Tutors",
-      "staples": "Staples",
-      "speed": "Speed",
-      "metagame": "Metagame",
-      "manaEfficiency": "Mana efficiency",
-      "detected": "Detected",
-      "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No"
+      "gameChangers": "ゲームチェンジャー",
+      "massLandDenial": "大量土地破壊",
+      "extraTurns": "追加ターン",
+      "twoCardCombos": "2枚コンボ",
+      "staples": "定番カード",
+      "speed": "速度",
+      "metagame": "メタゲーム",
+      "manaEfficiency": "マナ効率",
+      "detected": "検出済み",
+      "notDetected": "未検出"
+    }
+  },
+  "errors": {
+    "runtime": {
+      "commander-card-was-not-found": "統率者カードが見つかりませんでした。",
+      "could-not-copy-to-clipboard": "クリップボードにコピーできませんでした。",
+      "could-not-create-folder": "フォルダーを作成できませんでした。",
+      "could-not-decline-room-invite": "ルーム招待を辞退できませんでした。",
+      "could-not-delete-folder": "フォルダーを削除できませんでした。",
+      "could-not-delete-room": "ルームを削除できませんでした。",
+      "could-not-find-target-player-for-initiative": "イニシアチブの対象プレイヤーが見つかりませんでした。",
+      "could-not-find-target-player-for-monarch": "統治者の対象プレイヤーが見つかりませんでした。",
+      "could-not-find-target-player-for-the-ring": "指輪の対象プレイヤーが見つかりませんでした。",
+      "could-not-find-target-player-for-citys-blessing": "都市の承認の対象プレイヤーが見つかりませんでした。",
+      "could-not-join-room": "ルームに参加できませんでした。",
+      "could-not-leave-room": "ルームから退出できませんでした。",
+      "could-not-load-card": "カードを読み込めませんでした。",
+      "could-not-load-deck-file": "デッキファイルを読み込めませんでした。",
+      "could-not-load-decks": "デッキを読み込めませんでした。",
+      "could-not-load-friends": "フレンドを読み込めませんでした。",
+      "could-not-load-room-formats": "ルームフォーマットを読み込めませんでした。",
+      "could-not-load-room-invites": "ルーム招待を読み込めませんでした。",
+      "could-not-load-room-state": "ルームの状態を読み込めませんでした。",
+      "could-not-load-rooms": "ルームを読み込めませんでした。",
+      "could-not-load-your-current-room": "現在のルームを読み込めませんでした。",
+      "could-not-open-that-battlefield": "その戦場を開けませんでした。",
+      "could-not-rename-folder": "フォルダー名を変更できませんでした。",
+      "could-not-search-cards": "カードを検索できませんでした。",
+      "could-not-send-invite": "招待を送信できませんでした。",
+      "falta-el-identificador-de-sala": "ルーム ID がありません。",
+      "la-conexion-de-juego-no-esta-disponible": "ゲーム接続を利用できません。",
+      "maximum-5-different-counters-per-card": "1枚のカードに置ける異なる種類のカウンターは最大5種類です。",
+      "missing-card-id": "カード ID がありません。",
+      "missing-deck-slug": "デッキスラッグがありません。",
+      "no-legal-commander-decks-available": "使用可能な統率者デッキがありません。",
+      "no-se-pudieron-cargar-los-tokens-del-mazo": "デッキのトークンを読み込めませんでした。",
+      "no-se-pudo-aplicar-la-accion": "操作を適用できませんでした。",
+      "no-se-pudo-buscar-tokens": "トークンを検索できませんでした。",
+      "no-se-pudo-cargar-la-sala": "ルームを読み込めませんでした。",
+      "only-the-active-turn-player-can-advance-the-turn": "ターンを進められるのは、アクティブ・プレイヤーだけです。",
+      "only-the-active-turn-player-can-pass-the-turn": "ターンを終了できるのは、アクティブ・プレイヤーだけです。",
+      "room-created-but-could-not-open-the-waiting-room": "ルームは作成されましたが、待機ルームを開けませんでした。",
+      "you-can-only-change-your-own-cards": "変更できるのは自分のカードだけです。",
+      "you-can-only-change-your-own-commander-cast-count": "変更できるのは自分の統率者の唱えた回数だけです。",
+      "you-can-only-change-your-own-commander-damage": "変更できるのは自分の統率者ダメージだけです。",
+      "you-can-only-change-your-own-life-total": "変更できるのは自分のライフ総量だけです。",
+      "you-can-only-change-your-own-player-counters": "変更できるのは自分のプレイヤーカウンターだけです。",
+      "you-can-only-detach-cards-from-permanents-you-control": "外せるのは自分がコントロールしているパーマネントからのカードだけです。",
+      "you-can-only-detach-cards-you-control": "外せるのは自分がコントロールしているカードだけです。",
+      "you-can-only-move-your-own-cards": "移動できるのは自分のカードだけです。",
+      "you-can-only-select-random-cards-from-your-own-zones": "無作為に選べるのは自分の領域のカードだけです。",
+      "you-can-only-update-your-own-dungeon-marker": "更新できるのは自分のダンジョンマーカーだけです。"
     }
   }
 }

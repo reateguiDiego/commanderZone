@@ -627,7 +627,7 @@ describe('WaitingRoomComponent', () => {
     fixture.detectChanges();
 
     expect(component.hasCompletedTurnOrder(waitingRoom)).toBe(false);
-    expect(component.playerDeckName(waitingRoom.players[1])).toBe('Deck pending');
+    expect(component.playerDeckName(waitingRoom.players[1])).toBe('game.opponentMiniBoard.deckPending');
     expect(fixture.nativeElement.textContent).not.toContain('1. Owner');
     expect(fixture.nativeElement.textContent).toContain('Guest 2');
     expect(fixture.nativeElement.textContent).toContain('Deck pending');

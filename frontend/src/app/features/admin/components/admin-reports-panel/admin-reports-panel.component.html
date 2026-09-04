@@ -1,33 +1,33 @@
 <section class="admin-reports-panel" aria-labelledby="admin-reports-title">
   <header class="admin-reports-header">
-    <h2 id="admin-reports-title">Reports</h2>
+    <h2 id="admin-reports-title">{{ 'shared.text.reports' | runtimeTranslate }}</h2>
     <button type="button" czButton="secondary" czButtonSize="sm" (click)="loadReports()" [disabled]="isLoading()">
-      Refresh
+      {{ 'shared.text.refresh' | runtimeTranslate }}
     </button>
   </header>
 
   @if (errorMessage(); as error) {
-    <p class="admin-reports-alert" role="alert">{{ error }}</p>
+    <p class="admin-reports-alert" role="alert">{{ error | runtimeTranslate }}</p>
   }
 
-  <div class="admin-reports-filters" aria-label="Report filters">
+  <div class="admin-reports-filters" [attr.aria-label]="'admin.reports.filtersAriaLabel' | runtimeTranslate">
     <label class="admin-reports-search">
-      <span>Reporter</span>
+      <span>{{ 'admin.reports.columns.reporter' | runtimeTranslate }}</span>
       <input
         type="search"
         name="reporterSearch"
-        placeholder="Username, mail..."
+        [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
         [value]="reporterQuery()"
         (input)="updateReporterQuery($event)"
       />
     </label>
 
     <label class="admin-reports-search">
-      <span>Reported user</span>
+      <span>{{ 'admin.reports.columns.reportedUser' | runtimeTranslate }}</span>
       <input
         type="search"
         name="reportedUserSearch"
-        placeholder="Username, mail..."
+        [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
         [value]="reportedUserQuery()"
         (input)="updateReportedUserQuery($event)"
       />
@@ -38,72 +38,72 @@
     <table class="admin-reports-table">
       <thead>
         <tr>
-          <th scope="col">Reporter</th>
-          <th scope="col">Reporter mail</th>
-          <th scope="col">Reported user</th>
-          <th scope="col">Reported mail</th>
-          <th scope="col">Reason</th>
-          <th scope="col">Actions</th>
+          <th scope="col">{{ 'admin.reports.columns.reporter' | runtimeTranslate }}</th>
+          <th scope="col">{{ 'admin.reports.columns.reporterEmail' | runtimeTranslate }}</th>
+          <th scope="col">{{ 'admin.reports.columns.reportedUser' | runtimeTranslate }}</th>
+          <th scope="col">{{ 'admin.reports.columns.reportedUserEmail' | runtimeTranslate }}</th>
+          <th scope="col">{{ 'shared.text.reason' | runtimeTranslate }}</th>
+          <th scope="col">{{ 'shared.text.actions' | runtimeTranslate }}</th>
         </tr>
       </thead>
       <tbody>
         @if (isLoading() && reports().length === 0) {
           <tr>
             <td colspan="6">
-              <p class="admin-reports-empty">Loading reports...</p>
+              <p class="admin-reports-empty">{{ 'admin.reports.loading' | runtimeTranslate }}</p>
             </td>
           </tr>
         } @else if (reports().length === 0) {
           <tr>
             <td colspan="6">
-              <p class="admin-reports-empty">No user reports yet.</p>
+              <p class="admin-reports-empty">{{ 'admin.reports.empty' | runtimeTranslate }}</p>
             </td>
           </tr>
         } @else if (filteredReports().length === 0) {
           <tr>
             <td colspan="6">
-              <p class="admin-reports-empty">No reports match the current filters.</p>
+              <p class="admin-reports-empty">{{ 'admin.reports.noMatch' | runtimeTranslate }}</p>
             </td>
           </tr>
         } @else {
           @for (report of filteredReports(); track report.id) {
             <tr>
-              <td data-label="Reporter">
+              <td [attr.data-label]="'admin.reports.columns.reporter' | runtimeTranslate">
                 <span class="report-username">{{ report.reporter.displayName }}</span>
               </td>
-              <td data-label="Reporter mail">
+              <td [attr.data-label]="'admin.reports.columns.reporterEmail' | runtimeTranslate">
                 <span class="report-mail">{{ report.reporter.email }}</span>
               </td>
-              <td data-label="Reported user">
+              <td [attr.data-label]="'admin.reports.columns.reportedUser' | runtimeTranslate">
                 <span class="report-username">{{ report.reportedUser.displayName }}</span>
               </td>
-              <td data-label="Reported mail">
+              <td [attr.data-label]="'admin.reports.columns.reportedUserEmail' | runtimeTranslate">
                 <span class="report-mail">{{ report.reportedUser.email }}</span>
               </td>
-              <td data-label="Reason">
+              <td [attr.data-label]="'shared.text.reason' | runtimeTranslate">
                 <span class="report-reason">{{ report.reason }}</span>
               </td>
-              <td data-label="Actions">
+              <td [attr.data-label]="'shared.text.actions' | runtimeTranslate">
                 <div class="admin-reports-actions">
-                  <app-tooltip text="Message reporter" align="end">
+                  <app-tooltip [text]="'admin.reports.messageReporter' | runtimeTranslate" align="end">
                     <button
                       type="button"
                       class="admin-reports-icon-action"
                       czButton="icon"
                       czButtonSize="sm"
-                      [attr.aria-label]="'Send message to reporter ' + report.reporter.displayName"
+                      [attr.aria-label]="'admin.reports.sendMessageToReporter' | runtimeTranslate: { name: report.reporter.displayName }"
                       (click)="requestSendMessageToReporter(report)"
                     >
                       <lucide-icon name="send" size="16" aria-hidden="true" />
                     </button>
                   </app-tooltip>
-                  <app-tooltip text="Message reported user" align="end">
+                  <app-tooltip [text]="'admin.reports.messageReportedUser' | runtimeTranslate" align="end">
                     <button
                       type="button"
                       class="admin-reports-icon-action"
                       czButton="icon"
                       czButtonSize="sm"
-                      [attr.aria-label]="'Send message to reported user ' + report.reportedUser.displayName"
+                      [attr.aria-label]="'admin.reports.sendMessageToReportedUser' | runtimeTranslate: { name: report.reportedUser.displayName }"
                       (click)="requestSendMessage(report)"
                     >
                       <lucide-icon name="send" size="16" aria-hidden="true" />

@@ -73,7 +73,7 @@
     @if (hasIssues()) {
       <div class="deck-card-status">
         <app-tooltip [text]="issueTooltip()">
-          <span class="deck-list-warning" [attr.aria-label]="'community.shared.deckWarnings' | runtimeTranslate">
+          <span class="deck-list-warning" [attr.aria-label]="'shared.text.deckWarnings' | runtimeTranslate">
             <lucide-icon name="triangle-alert" size="16" />
           </span>
         </app-tooltip>

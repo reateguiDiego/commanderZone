@@ -9,7 +9,6 @@ import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTablePlayersStore } from '../players/game-table-players.store';
 import { PlayerView } from '../core/game-table-snapshot-selectors';
 import { GameTableZoneModalState, ZoneModalState } from './game-table-zone-modal.state';
-import { GameTableZonePilesState } from './game-table-zone-piles.state';
 import { GameTableLibraryTopState } from './game-table-library-top.state';
 
 describe('GameTableLibraryTopState', () => {
@@ -63,10 +62,6 @@ describe('GameTableLibraryTopState', () => {
           provide: GameTableZoneModalState,
           useValue: { zoneModal: zoneModalSignal } satisfies Pick<GameTableZoneModalState, 'zoneModal'>,
         },
-        {
-          provide: GameTableZonePilesState,
-          useValue: { zoneTitle: () => 'Library' } satisfies Pick<GameTableZonePilesState, 'zoneTitle'>,
-        },
       ],
     });
 
@@ -80,13 +75,13 @@ describe('GameTableLibraryTopState', () => {
     expect(openFixedZone).toHaveBeenCalledWith(
       'player-1',
       'library',
-      'player-1 top 2 library cards',
+      'game.numberAction.viewTopCards.title',
       [card('card-1'), card('card-3')],
       'card-1',
       false,
       {
         allowReorder: true,
-        drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+        drawOrderLabels: ['Draw 1', 'Draw 2'],
         viewTopCount: 2,
       },
     );
@@ -103,7 +98,7 @@ describe('GameTableLibraryTopState', () => {
   });
 
   it('keeps the current draw order labels', () => {
-    expect(state.drawOrderLabels(4)).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO', 'ROBO 4']);
+    expect(state.drawOrderLabels(4)).toEqual(['Draw 1', 'Draw 2', 'Draw 3', 'Draw 4']);
   });
 
   it('opens a received top-library reveal as a read-only modal for an opponent', () => {
@@ -112,13 +107,13 @@ describe('GameTableLibraryTopState', () => {
     expect(openFixedZone).toHaveBeenCalledWith(
       'player-1',
       'library',
-      'player-1 top 2 library cards',
+      'game.numberAction.viewTopCards.title',
       [card('card-1'), card('card-3')],
       'card-1',
       false,
       {
         readOnly: true,
-        drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+        drawOrderLabels: ['Draw 1', 'Draw 2'],
         viewTopCount: 2,
       },
     );
@@ -190,7 +185,7 @@ function zoneModal(cards: GameCardInstance[]): ZoneModalState {
     readOnly: false,
     allowRandomSelect: false,
     allowReorder: true,
-    drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+    drawOrderLabels: ['Draw 1', 'Draw 2'],
     viewTopCount: 2,
     selectedCard: cards[0] ?? null,
     loading: false,

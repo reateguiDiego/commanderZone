@@ -2,7 +2,7 @@
   <header class="community-hero">
     <app-back-button link="/community" />
     <div class="community-hero-copy">
-      <h1>{{ 'community.deckList.title' | runtimeTranslate }}</h1>
+      <h1>{{ 'shared.text.searchDecks' | runtimeTranslate }}</h1>
       <p>{{ 'community.deckList.subtitle' | runtimeTranslate }}</p>
       <app-hero-rule />
     </div>
@@ -10,21 +10,21 @@
 
   <form class="community-filters" (ngSubmit)="applyFilters()">
     <label class="community-filter-field">
-      <span>{{ 'community.deckList.filterName' | runtimeTranslate }}</span>
+      <span>{{ 'shared.text.searchByName' | runtimeTranslate }}</span>
       <input
         name="searchQuery"
         type="search"
-        [placeholder]="'community.deckList.filterNamePlaceholder' | runtimeTranslate"
+        [placeholder]="'shared.text.searchDecksLabel' | runtimeTranslate"
         [ngModel]="searchQuery()"
         (ngModelChange)="setSearchQuery($event)"
       />
     </label>
 
     <label class="community-filter-field">
-      <span>{{ 'community.deckList.filterCommander' | runtimeTranslate }}</span>
+      <span>{{ 'shared.text.commander' | runtimeTranslate }}</span>
       <app-card-autocomplete
         [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
-        actionLabel="community.deckList.commanderSelect"
+        actionLabel="shared.text.select"
         [filters]="{ commanderCandidate: true }"
         [query]="commanderQuery()"
         (queryChange)="setCommanderQuery($event)"
@@ -45,7 +45,7 @@
     <div class="community-filter-select">
       <app-format-select
         name="communityDeckFormat"
-        label="community.deckList.filterFormat"
+        label="shared.text.format"
         [options]="formatOptions()"
         [value]="selectedFormat()"
         (valueChange)="setSelectedFormat($event)"
@@ -54,7 +54,7 @@
 
     <div class="community-filter-actions">
       <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
-        {{ 'community.deckList.searchButton' | runtimeTranslate }}
+        {{ 'shared.text.search' | runtimeTranslate }}
       </button>
     </div>
   </form>
@@ -64,7 +64,7 @@
   } @else if (error()) {
     <p class="notice error">{{ error()! | runtimeTranslate }}</p>
   } @else if (visibleDecks().length === 0) {
-    <p class="notice">{{ 'community.deckList.empty' | runtimeTranslate }}</p>
+    <p class="notice">{{ 'shared.text.noPublicDecksAvailableYet' | runtimeTranslate }}</p>
   } @else {
     <app-community-deck-grid [decks]="visibleDecks()" (deckSelected)="openDeck($event)" />
 

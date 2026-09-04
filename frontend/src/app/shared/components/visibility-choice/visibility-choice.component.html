@@ -18,10 +18,10 @@
         <span class="visibility-choice__main">
           @if (option === 'public') {
             <lucide-icon name="globe" size="14" />
-            <span czTextFit czTextFitMinScale="0.78">{{ 'common.visibility.visibilityChoice.public' | runtimeTranslate }}</span>
+            <span czTextFit czTextFitMinScale="0.78">{{ 'shared.text.public' | runtimeTranslate }}</span>
           } @else {
             <lucide-icon name="lock" size="14" />
-            <span czTextFit czTextFitMinScale="0.78">{{ 'common.visibility.visibilityChoice.private' | runtimeTranslate }}</span>
+            <span czTextFit czTextFitMinScale="0.78">{{ 'shared.text.private' | runtimeTranslate }}</span>
           }
         </span>
         <small class="visibility-choice__subtitle">{{ subtitle(option) | runtimeTranslate }}</small>

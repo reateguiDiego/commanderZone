@@ -39,7 +39,7 @@
         </div>
         <div class="advanced-analysis-mana-source-grid" role="table">
           <div class="advanced-analysis-mana-source-header" role="row">
-            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.color' | runtimeTranslate }}</span>
+            <span role="columnheader">{{ 'shared.text.color' | runtimeTranslate }}</span>
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.coloredSources' | runtimeTranslate }}</span>
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.untappedSources' | runtimeTranslate }}</span>
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.earlySources' | runtimeTranslate }}</span>
@@ -65,7 +65,7 @@
                 [cards]="group.cards"
                 [headerFilterOptions]="sourceColorFilterOptions()"
                 [headerFilterValue]="sourceColorFilterValue()"
-                headerFilterLabelKey="deckBuilder.advancedAnalysis.mana.color"
+                headerFilterLabelKey="shared.text.color"
                 headerFilterName="mana-source-color-filter"
                 (headerFilterValueChange)="sourceColorFilterChange.emit($event)"
               />
@@ -80,11 +80,11 @@
         </div>
         <div class="advanced-analysis-mana-panel-grid">
           <section class="advanced-analysis-mana-subsection">
-            <h4>{{ 'deckBuilder.advancedAnalysis.mana.colorDemand' | runtimeTranslate }}</h4>
+            <h4>{{ 'shared.text.colorDemand' | runtimeTranslate }}</h4>
             @if (demandRows().length > 0) {
               <div class="advanced-analysis-mana-demand-grid" role="table">
                 <div class="advanced-analysis-mana-demand-header" role="row">
-                  <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.color' | runtimeTranslate }}</span>
+                  <span role="columnheader">{{ 'shared.text.color' | runtimeTranslate }}</span>
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.earlyPipDemand' | runtimeTranslate }}</span>
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.pipDemand' | runtimeTranslate }}</span>
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.colorIntensity' | runtimeTranslate }}</span>

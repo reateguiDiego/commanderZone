@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { AppShellI18nService } from '../../../../core/localization/app-shell-i18n.service';
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { APP_THEMES, AppTheme, AppThemeId } from '../../../../core/theme/app-theme';
 import { AppThemeService } from '../../../../core/theme/app-theme.service';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
@@ -12,7 +13,7 @@ interface ThemeOptionViewModel extends AppTheme {
 
 @Component({
   selector: 'app-theme-settings-panel',
-  imports: [CzButtonDirective, PremiumBadgeComponent],
+  imports: [RuntimeTranslatePipe, CzButtonDirective, PremiumBadgeComponent],
   templateUrl: './theme-settings-panel.component.html',
   styleUrl: './theme-settings-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

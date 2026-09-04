@@ -1,4 +1,5 @@
 export interface ChatRecipientOption {
-  playerId: string | null;
-  label: string;
+  readonly playerId: string | null;
+  readonly label?: string;
+  readonly labelKey?: string;
 }

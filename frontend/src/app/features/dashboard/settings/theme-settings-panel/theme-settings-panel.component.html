@@ -13,8 +13,8 @@
     [style.--theme-text]="currentThemeOption().palette.text"
   >
     <div class="theme-preview-copy">
-      <strong>{{ currentThemeOption().label }}</strong>
-      <small>{{ currentThemeOption().description }}</small>
+      <strong>{{ currentThemeOption().labelKey | runtimeTranslate }}</strong>
+      <small>{{ currentThemeOption().descriptionKey | runtimeTranslate }}</small>
     </div>
 
     <span class="theme-preview-swatches" aria-hidden="true">
@@ -45,8 +45,8 @@
         }
 
         <span class="theme-option-copy">
-          <strong>{{ theme.label }}</strong>
-          <small>{{ theme.description }}</small>
+          <strong>{{ theme.labelKey | runtimeTranslate }}</strong>
+          <small>{{ theme.descriptionKey | runtimeTranslate }}</small>
         </span>
         <span class="theme-swatches" aria-hidden="true">
           @for (color of theme.paletteColors; track $index) {
@@ -69,7 +69,7 @@
       [disabled]="!hasChanges() || saving()"
       (click)="saveTheme()"
     >
-      {{ saving() ? 'Saving...' : saveLabel() }}
+      {{ saving() ? ('common.ui.saving' | runtimeTranslate) : saveLabel() }}
     </button>
   </footer>
 </section>

@@ -373,6 +373,15 @@ button[data-action-id="invite-friends"] {
   max-width: 175px;
 }
 
+button[data-action-id="like-deck"].cz-button--active lucide-icon {
+  color: var(--cz-text);
+}
+
+button[data-action-id="like-deck"].cz-button--active ::ng-deep lucide-icon svg {
+  fill: var(--cz-text);
+  stroke: var(--cz-text);
+}
+
 .page-header-action-feedback {
   justify-self: end;
   color: var(--cz-secondary);
@@ -626,12 +635,18 @@ button.cz-button--tone-danger:disabled {
     justify-self: start;
   }
 
-  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-feedback {
+  .page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-actions-stack {
+    position: relative;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-feedback,
+  .page-header-context[data-page-context="deck-editor"] .page-header-action-feedback {
     position: absolute;
+    top: calc(100% + 0.32rem);
     right: 0;
-    bottom: calc(100% + 0.32rem);
     z-index: 4;
     box-sizing: border-box;
+    width: max-content;
     max-width: min(13rem, calc(100vw - 2rem));
     padding: 0.32rem 0.55rem;
     border: 1px solid rgb(var(--cz-success-rgb) / 42%);
@@ -644,9 +659,9 @@ button.cz-button--tone-danger:disabled {
     font-size: 0.68rem;
     line-height: 1.12;
     text-align: right;
+    overflow-wrap: anywhere;
     pointer-events: none;
     backdrop-filter: blur(8px);
-    justify-self: end;
   }
 
   .page-header-detail-row.has-actions:not(.has-stats) button:not(.icon-only) {

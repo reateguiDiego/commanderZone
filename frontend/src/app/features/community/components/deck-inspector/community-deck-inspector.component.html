@@ -48,11 +48,11 @@
       </div>
 
       <div class="dense-list">
-        @for (issue of clientIssues(); track issue.title + issue.detail) {
+        @for (issue of clientIssues(); track issue.titleKey + issue.detailKey + issue.cards.join()) {
           <div class="list-row issue-row" [class.error-issue]="issue.severity === 'error'">
             <span>
-              <strong>{{ issue.title }}</strong>
-              <small>{{ issue.detail }}</small>
+              <strong>{{ issue.titleKey | runtimeTranslate }}</strong>
+              <small>{{ issue.detailKey | runtimeTranslate: issue.detailParams }}</small>
             </span>
             <span class="metric">{{ issueSeverityKey(issue) | runtimeTranslate }}</span>
           </div>

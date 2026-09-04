@@ -32,14 +32,14 @@ export const TABLE_ASSISTANT_PHASES: readonly TableAssistantPhaseId[] = [
 ] as const;
 
 export const TABLE_ASSISTANT_TRACKERS: readonly TableAssistantTrackerDefinition[] = [
-  { id: 'commander-damage', label: 'Commander damage', scope: 'special', defaultEnabled: true },
-  { id: 'poison', label: 'Poison', scope: 'player', defaultEnabled: false },
-  { id: 'commander-tax', label: 'Commander tax', scope: 'player', defaultEnabled: false },
-  { id: 'energy', label: 'Energy', scope: 'player', defaultEnabled: false },
-  { id: 'experience', label: 'Experience', scope: 'player', defaultEnabled: false },
-  { id: 'monarch', label: 'Monarch', scope: 'global', defaultEnabled: false },
-  { id: 'initiative', label: 'Initiative', scope: 'global', defaultEnabled: false },
-  { id: 'storm', label: 'Storm', scope: 'global', defaultEnabled: false },
+  { id: 'commander-damage', labelKey: 'shared.text.commanderDamage', scope: 'special', defaultEnabled: true },
+  { id: 'poison', labelKey: 'game.playerCounters.poison', scope: 'player', defaultEnabled: false },
+  { id: 'commander-tax', labelKey: 'common.ui.commanderTax', scope: 'player', defaultEnabled: false },
+  { id: 'energy', labelKey: 'game.playerCounters.energy', scope: 'player', defaultEnabled: false },
+  { id: 'experience', labelKey: 'game.playerCounters.experience', scope: 'player', defaultEnabled: false },
+  { id: 'monarch', labelKey: 'shared.text.monarch', scope: 'global', defaultEnabled: false },
+  { id: 'initiative', labelKey: 'game.specialHelpers.labels.initiative', scope: 'global', defaultEnabled: false },
+  { id: 'storm', labelKey: 'common.ui.storm', scope: 'global', defaultEnabled: false },
 ] as const;
 
 const PLAYER_COLORS = TABLE_ASSISTANT_COLOR_OPTIONS.map((option) => option.id);
@@ -169,17 +169,7 @@ export function activeTrackerDefinitions(
 }
 
 export function phaseLabel(phaseId: TableAssistantPhaseId): string {
-  const labels: Record<TableAssistantPhaseId, string> = {
-    untap: 'Untap',
-    upkeep: 'Upkeep',
-    draw: 'Draw',
-    'main-1': 'Main 1',
-    combat: 'Combat',
-    'main-2': 'Main 2',
-    end: 'End',
-  };
-
-  return labels[phaseId];
+  return `game.turnPhasePanel.phaseLabels.${phaseId}`;
 }
 
 export function canEditPlayer(

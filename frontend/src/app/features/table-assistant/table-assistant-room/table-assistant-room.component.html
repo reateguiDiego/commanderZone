@@ -1,6 +1,6 @@
 <main class="table-room-page">
-  <section class="orientation-lock" [attr.aria-label]="'tableAssistant.tableAssistantRoom.rotateDevice' | runtimeTranslate">
-    <strong>{{ 'tableAssistant.tableAssistantRoom.rotateDevice' | runtimeTranslate }}</strong>
+  <section class="orientation-lock" [attr.aria-label]="'shared.text.rotateYourDevice' | runtimeTranslate">
+    <strong>{{ 'shared.text.rotateYourDevice' | runtimeTranslate }}</strong>
     <span>{{ 'tableAssistant.tableAssistantRoom.landscapeOptimizedNotice' | runtimeTranslate }}</span>
   </section>
 
@@ -8,7 +8,7 @@
     @if (loading()) {
       <app-global-loader />
     } @else if (error()) {
-      <p class="notice error">{{ error() }}</p>
+      <p class="notice error">{{ error()! | runtimeTranslate }}</p>
     } @else if (room(); as tableRoom) {
       @if (shouldShowRoomSharing()) {
         <section class="room-meta-strip" [attr.aria-label]="'tableAssistant.tableAssistantRoom.roomInformation' | runtimeTranslate">
@@ -17,11 +17,11 @@
             <strong>{{ tableRoom.state.sharing.code }}</strong>
           </div>
           <button type="button" [attr.aria-label]="'tableAssistant.tableAssistantRoom.copyRoomLink' | runtimeTranslate" (click)="copyInviteLink()">
-            {{ copied() ? 'Copiado' : 'Copiar enlace' }}
+            {{ (copied() ? 'common.ui.copied' : 'tableAssistant.tableAssistantRoom.copyRoomLink') | runtimeTranslate }}
           </button>
           <div
             class="connected-pill"
-            [attr.aria-label]="connectedParticipantsCount() + ' jugadores conectados'"
+            [attr.aria-label]="'common.ui.connectedPlayers' | runtimeTranslate: { count: connectedParticipantsCount() }"
           >
             <span class="person-symbol" aria-hidden="true"></span>
             <span class="connected-count">{{ connectedParticipantsCount() }}</span>
@@ -33,19 +33,19 @@
         <section class="global-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.globalTrackers' | runtimeTranslate">
           @for (trackerId of globalTrackerIds(); track trackerId) {
             <article>
-              <span>{{ trackerLabel(trackerId) }}</span>
+              <span>{{ trackerLabel(trackerId) | runtimeTranslate }}</span>
               <strong>{{ tableRoom.state.globalTrackers[trackerId] ?? 0 }}</strong>
               <div>
                 <button
                   type="button"
-                  [attr.aria-label]="'Reducir ' + trackerLabel(trackerId)"
+                  [attr.aria-label]="'common.ui.decreaseTracker' | runtimeTranslate: { tracker: trackerLabel(trackerId) | runtimeTranslate }"
                   (click)="changeGlobalTracker(trackerId, -1)"
                 >
                   -
                 </button>
                 <button
                   type="button"
-                  [attr.aria-label]="'Aumentar ' + trackerLabel(trackerId)"
+                  [attr.aria-label]="'common.ui.increaseTracker' | runtimeTranslate: { tracker: trackerLabel(trackerId) | runtimeTranslate }"
                   (click)="changeGlobalTracker(trackerId, 1)"
                 >
                   +
@@ -59,7 +59,7 @@
       <section
         class="players-grid"
         [style.--seat-column-count]="seatColumnCount()"
-        [attr.aria-label]="'tableAssistant.tableAssistantRoom.players' | runtimeTranslate"
+        [attr.aria-label]="'shared.text.players' | runtimeTranslate"
       >
         @for (player of seatedPlayers(); track player.id) {
           <article
@@ -83,9 +83,9 @@
               }
 
               @if (isCommanderDamageOpen(player)) {
-                <section class="commander-damage-board" [attr.aria-label]="'tableAssistant.tableAssistantRoom.commanderDamage' | runtimeTranslate">
+                <section class="commander-damage-board" [attr.aria-label]="'shared.text.commanderDamage' | runtimeTranslate">
                   <header>
-                    <strong>{{ 'tableAssistant.tableAssistantRoom.commanderDamage' | runtimeTranslate }}</strong>
+                    <strong>{{ 'shared.text.commanderDamage' | runtimeTranslate }}</strong>
                     <button
                       class="symbol-button compact-symbol"
                       type="button"
@@ -107,7 +107,7 @@
                           type="button"
                           [disabled]="!canUsePlayerOptions(player)"
                           [attr.aria-label]="
-                            'Reducir daño de comandante de ' + source.name + ' a ' + player.name
+                            'common.ui.removeCommanderDamage' | runtimeTranslate: { source: source.name, player: player.name }
                           "
                           (click)="changeCommanderDamage(player, source.id, -1)"
                         >
@@ -117,7 +117,7 @@
                           type="button"
                           [disabled]="!canUsePlayerOptions(player)"
                           [attr.aria-label]="
-                            'Aumentar daño de comandante de ' + source.name + ' a ' + player.name
+                            'common.ui.addCommanderDamage' | runtimeTranslate: { source: source.name, player: player.name }
                           "
                           (click)="changeCommanderDamage(player, source.id, 1)"
                         >
@@ -165,16 +165,16 @@
                   } @else if (tableRoom.state.settings.commanderDamageEnabled) {
                     <app-extra-actions-menu
                       class="commander-damage-trigger"
-                      label="Extras"
-                      ariaLabel="Abrir extras de jugador"
-                      menuLabel="Extras de jugador"
+                      label="shared.text.extras"
+                      ariaLabel="game.playerSummaryPanel.openExtraPlayerCounters"
+                      menuLabel="game.playerSummaryPanel.extraPlayerCounters"
                       icon="plus"
                       align="right"
                       variant="compact"
                       [showText]="true"
                     >
                       <button type="button" role="menuitem" (click)="openCommanderDamage(player)">
-                        <span>{{ 'tableAssistant.tableAssistantRoom.commanderDamageSummary' | runtimeTranslate }}</span>
+                        <span>{{ 'shared.text.commanderDamage' | runtimeTranslate }}</span>
                         <small>{{ 'tableAssistant.tableAssistantRoom.viewAndEdit' | runtimeTranslate }}</small>
                       </button>
                     </app-extra-actions-menu>
@@ -185,7 +185,7 @@
                   <button
                     type="button"
                     [disabled]="!canEdit(player)"
-                    [attr.aria-label]="'Restar 1 vida a ' + player.name"
+                    [attr.aria-label]="'common.ui.removeOneLifeFrom' | runtimeTranslate: { player: player.name }"
                     (click)="changeLife(player, -1)"
                   >
                     -
@@ -194,7 +194,7 @@
                   <button
                     type="button"
                     [disabled]="!canEdit(player)"
-                    [attr.aria-label]="'Sumar 1 vida a ' + player.name"
+                    [attr.aria-label]="'common.ui.addOneLifeTo' | runtimeTranslate: { player: player.name }"
                     (click)="changeLife(player, 1)"
                   >
                     +
@@ -209,13 +209,13 @@
                   <section class="player-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.playerTrackers' | runtimeTranslate">
                     @for (trackerId of playerTrackerIds(); track trackerId) {
                       <div>
-                        <span>{{ trackerLabel(trackerId) }}</span>
+                        <span>{{ trackerLabel(trackerId) | runtimeTranslate }}</span>
                         <strong>{{ player.trackers[trackerId] ?? 0 }}</strong>
                         <button
                           type="button"
                           [disabled]="!canUsePlayerOptions(player)"
                           [attr.aria-label]="
-                            'Reducir ' + trackerLabel(trackerId) + ' de ' + player.name
+              'common.ui.decreasePlayerTracker' | runtimeTranslate: { tracker: (trackerLabel(trackerId) | runtimeTranslate), player: player.name }
                           "
                           (click)="changePlayerTracker(player, trackerId, -1)"
                         >
@@ -225,7 +225,7 @@
                           type="button"
                           [disabled]="!canUsePlayerOptions(player)"
                           [attr.aria-label]="
-                            'Aumentar ' + trackerLabel(trackerId) + ' de ' + player.name
+              'common.ui.increasePlayerTracker' | runtimeTranslate: { tracker: (trackerLabel(trackerId) | runtimeTranslate), player: player.name }
                           "
                           (click)="changePlayerTracker(player, trackerId, 1)"
                         >

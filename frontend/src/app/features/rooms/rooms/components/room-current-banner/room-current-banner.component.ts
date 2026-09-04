@@ -24,7 +24,7 @@ export class RoomCurrentBannerComponent {
 
   readonly leaveRequested = output<string>();
 
-  readonly playerDeckName = computed(() => this.currentPlayer()?.deckName ?? 'No deck selected');
+  readonly playerDeckName = computed(() => this.currentPlayer()?.deckName ?? 'shared.text.selectADeck');
   readonly deckImageUrl = computed(() => this.currentPlayer()?.deckImageUrl ?? null);
   readonly canLeave = computed(() => this.viewerRole() !== 'owner');
   readonly formatName = computed(() => this.formatLabel(this.room().format));
@@ -34,13 +34,17 @@ export class RoomCurrentBannerComponent {
 
     return room.gameId ? ['/games', room.gameId] : ['/rooms', room.id, 'waiting'];
   });
-  readonly primaryActionLabel = computed(() => this.room().gameId ? 'Open' : 'Join room');
+  readonly primaryActionLabel = computed(() => this.room().gameId ? 'shared.text.open' : 'shared.text.join');
   readonly primaryActionIcon = computed(() => this.room().gameId ? 'play' : 'door-open');
-  readonly turnLabel = computed(() => {
+  readonly turnLabelKey = computed(() => {
     const number = this.turn()?.number;
 
-    return typeof number === 'number' ? `Turn ${number}` : 'Turn pending';
+    return typeof number === 'number'
+      ? 'game.playersOrder.currentTurnLabel'
+      : 'rooms.waitingRoom.waitingForDecksAndRolls';
   });
+
+  readonly turnLabelParams = computed(() => ({ turnNumber: this.turn()?.number ?? '' }));
 
   formatLabel(formatId: string): string {
     return this.formats().find((format) => format.id === formatId)?.name ?? formatId;
@@ -48,8 +52,8 @@ export class RoomCurrentBannerComponent {
 
   visibilityPillLabelKey(visibility: RoomVisibility): string {
     return visibility === 'public'
-      ? 'common.visibility.visibilityPill.public'
-      : 'common.visibility.visibilityPill.private';
+      ? 'shared.text.public'
+      : 'shared.text.private';
   }
 
   roomCapacity(room: CurrentRoomSummary): number {

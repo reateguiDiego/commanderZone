@@ -21,7 +21,7 @@ describe('GameDisconnectVoteModalComponent', () => {
 
     expect(component.voteLabel('wait')).toBe('game.gameDisconnectVoteModal.wait');
     expect(component.voteLabel('expel')).toBe('game.gameDisconnectVoteModal.expel');
-    expect(component.voteLabel(null)).toBe('game.gameDisconnectVoteModal.noVote');
+    expect(component.voteLabel(null)).toBe('shared.text.noVote');
   });
 
   it('renders the disconnected-player modal when opened by state', () => {

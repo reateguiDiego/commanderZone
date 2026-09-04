@@ -43,7 +43,7 @@
         }
       </div>
 
-      <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
+      <p class="analysis-footnote">{{ 'common.ui.averageManaValueWithoutLands' | runtimeTranslate: { value: store.analysis().averageManaValue } }}</p>
 
       <section class="opening-hand-panel">
         <div class="analysis-panel-header compact-analysis-header">

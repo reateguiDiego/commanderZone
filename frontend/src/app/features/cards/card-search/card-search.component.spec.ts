@@ -11,6 +11,7 @@ import { LanguagePreferencesService } from '../../../core/localization/language-
 import { Card } from '../../../core/models/card.model';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CardSearchComponent } from './card-search.component';
 
@@ -18,8 +19,14 @@ describe('CardSearchComponent', () => {
   let isDesktop: ReturnType<typeof signal<boolean>>;
   let isDesktopLayout: ReturnType<typeof signal<boolean>>;
   let hasHover: ReturnType<typeof signal<boolean>>;
+  let profile: ReturnType<typeof signal<{ width: number }>>;
   let cardLanguage: ReturnType<typeof signal<'en' | 'es'>>;
   let appLanguage: ReturnType<typeof signal<'en' | 'es'>>;
+
+  const bodyScrollLock = {
+    lock: vi.fn(),
+    unlock: vi.fn(),
+  };
 
   const cardsApi = {
     search: vi.fn().mockReturnValue(of({ data: [] })),
@@ -55,6 +62,7 @@ describe('CardSearchComponent', () => {
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
     hasHover = signal(true);
+    profile = signal({ width: 1280 });
     cardLanguage = signal('es');
     appLanguage = signal('en');
     cardsApi.search.mockClear();
@@ -63,6 +71,8 @@ describe('CardSearchComponent', () => {
     cardsLanguageService.list.mockClear();
     decksApi.list.mockClear();
     decksApi.addCard.mockClear();
+    bodyScrollLock.lock.mockClear();
+    bodyScrollLock.unlock.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [CardSearchComponent],
@@ -72,6 +82,7 @@ describe('CardSearchComponent', () => {
         { provide: CardsApi, useValue: cardsApi },
         { provide: CardsLanguageService, useValue: cardsLanguageService },
         { provide: DecksApi, useValue: decksApi },
+        { provide: BodyScrollLockService, useValue: bodyScrollLock },
         {
           provide: LanguagePreferencesService,
           useValue: {
@@ -85,6 +96,7 @@ describe('CardSearchComponent', () => {
             isDesktop,
             isDesktopLayout,
             hasHover,
+            profile,
           },
         },
       ],
@@ -102,7 +114,6 @@ describe('CardSearchComponent', () => {
     expect(TestBed.inject(PageHeaderStore).state()?.context).toBe('cards');
     expect(TestBed.inject(PageHeaderStore).state()?.heroRule).toBe(true);
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.id).toBe('card-search-language-disclaimer');
-    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.tooltipTriggerMode).toBe('click');
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.tooltipPlacement).toBe('bottom');
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[1]?.id).toBe('card-search-help');
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[1]?.tooltip).toBeUndefined();
@@ -198,9 +209,9 @@ describe('CardSearchComponent', () => {
     expect(fixture.componentInstance.totalResults()).toBe(1241);
     expect(fixture.componentInstance.totalPages()).toBe(63);
     expect(fixture.componentInstance.filterPills()).toEqual([{
-      labelKey: 'deckBuilder.cards.cardSearch.summary.filters.name',
+      labelKey: 'shared.text.name',
       value: 'sol ring',
-      track: 'deckBuilder.cards.cardSearch.summary.filters.name:sol ring',
+      track: 'shared.text.name:sol ring',
     }]);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.cards-main .cards-view-actions')).not.toBeNull();
@@ -234,6 +245,33 @@ describe('CardSearchComponent', () => {
 
     expect(fixture.componentInstance.filtersExpanded()).toBe(true);
     expect(fixture.nativeElement.querySelector('.cards-filter-toggle--summary')).toBeNull();
+  });
+
+  it('renders a mobile filters backdrop only while the filters are expanded', () => {
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.componentInstance.filtersExpanded.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.cards-filters-backdrop')).not.toBeNull();
+    expect(bodyScrollLock.lock).not.toHaveBeenCalled();
+
+    fixture.componentInstance.collapseFilters();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.cards-filters-backdrop')).toBeNull();
+  });
+
+  it('locks the page scroll while the mobile filters dialog is open', () => {
+    profile.set({ width: 921 });
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.detectChanges();
+
+    expect(bodyScrollLock.lock).toHaveBeenCalledTimes(1);
+
+    fixture.componentInstance.collapseFilters();
+    fixture.detectChanges();
+
+    expect(bodyScrollLock.unlock).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a standalone filter reopen button when filters are closed before searching', async () => {

@@ -1,4 +1,4 @@
 <section class="advanced-analysis-state" [class.advanced-analysis-state--error]="variant() === 'error'" aria-live="polite">
   <p>{{ message() ?? ('deckBuilder.advancedAnalysis.error.notFound' | runtimeTranslate) }}</p>
-  <button czButton="secondary" class="secondary-button" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.retryAria' | runtimeTranslate" (click)="retry.emit()">{{ 'deckBuilder.advancedAnalysis.retry' | runtimeTranslate }}</button>
+  <button czButton="secondary" class="secondary-button" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.retryAria' | runtimeTranslate" (click)="retry.emit()">{{ 'shared.text.retry' | runtimeTranslate }}</button>
 </section>

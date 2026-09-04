@@ -8,8 +8,8 @@
   [class.is-commander-zone]="isCommanderZoneIdentity()"
 >
   @if (isCommanderZoneIdentity()) {
-    <span class="player-info-official-logo" [attr.aria-label]="'common.app.brand' | runtimeTranslate">
-      <img [src]="themeAssets.czLogoUrl()" [alt]="'common.app.brand' | runtimeTranslate" />
+    <span class="player-info-official-logo" [attr.aria-label]="'shared.text.commanderzone' | runtimeTranslate">
+      <img [src]="themeAssets.czLogoUrl()" [alt]="'shared.text.commanderzone' | runtimeTranslate" />
     </span>
   } @else if (interactive()) {
     <app-tooltip class="player-info-profile-tooltip" [text]="profileNavigationTooltip()" [stretch]="true">

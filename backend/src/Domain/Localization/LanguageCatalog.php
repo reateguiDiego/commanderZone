@@ -5,7 +5,7 @@ namespace App\Domain\Localization;
 final class LanguageCatalog
 {
     public const DEFAULT_LANGUAGE = 'en';
-    public const COMMON_PRINT_LANGUAGES = ['ph', 'qya', 'grc', 'he', 'sa', 'ar'];
+    public const COMMON_PRINT_LANGUAGES = ['ph', 'la', 'qya', 'grc', 'he', 'sa', 'ar'];
 
     public const SUPPORTED_APP_LANGUAGES = [
         'en',

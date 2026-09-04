@@ -36,7 +36,7 @@
             </span>
           }
           @if (playmat.premium) {
-            <span class="create-playmat-option-pill create-playmat-option-pill--premium">{{ 'deckBuilder.deckList.cosmetics.premium' | runtimeTranslate }}</span>
+            <span class="create-playmat-option-pill create-playmat-option-pill--premium">{{ 'shared.text.premium' | runtimeTranslate }}</span>
           }
         </span>
       </button>
@@ -44,7 +44,7 @@
   </div>
 
   <footer class="create-playmat-spoiler-actions">
-    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'common.actions.select' | runtimeTranslate }}</button>
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'shared.text.select' | runtimeTranslate }}</button>
   </footer>
 </section>
 

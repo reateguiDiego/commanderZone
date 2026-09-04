@@ -8,7 +8,7 @@
     (click)="toggleOpen($event)"
   >
     <lucide-icon name="send" size="15" aria-hidden="true" />
-    <span>{{ selectedRecipientLabel() }}</span>
+    <span>{{ selectedRecipientLabel() | runtimeTranslate }}</span>
     <lucide-icon class="chevron" name="chevron-down" size="15" aria-hidden="true" />
   </button>
 
@@ -23,7 +23,7 @@
           [attr.aria-selected]="optionValue(recipient) === selectedValue()"
           (click)="selectRecipient($event, recipient)"
         >
-          <span>{{ recipient.label }}</span>
+          <span>{{ recipientLabel(recipient) | runtimeTranslate }}</span>
           @if (optionValue(recipient) === selectedValue()) {
             <lucide-icon name="check" size="15" aria-hidden="true" />
           }

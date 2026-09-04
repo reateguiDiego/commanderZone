@@ -71,40 +71,42 @@ describe('ZoneCardStackComponent', () => {
   it('keeps a newly revealed top card face down until the shuffle has finished', async () => {
     const fixture = await renderZoneCardStack(4, '/assets/second-card.jpg', 'player-1', 10);
     await fixture.whenStable();
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: () => ({ matches: false }),
-    });
-    const cards = Array.from(fixture.nativeElement.querySelectorAll('.zone-card-stack-layer, .zone-card-stack-top')) as HTMLElement[];
-    cards.forEach((card) => Object.defineProperty(card, 'getClientRects', { value: () => [new DOMRect()] }));
-    const topCard = topImage(fixture)!;
-    topCard.style.opacity = '0';
-    topCard.style.visibility = 'hidden';
-    let completeShuffle: (() => void) | undefined;
-    const timeline = {
-      set: vi.fn().mockReturnThis(),
-      to: vi.fn().mockReturnThis(),
-      kill: vi.fn(),
-    };
-    vi.spyOn(gsap, 'timeline').mockImplementation((config) => {
-      completeShuffle = config?.onComplete;
-      return timeline as unknown as gsap.core.Timeline;
-    });
+    const restoreMatchMedia = mockMatchMedia(false);
 
-    fixture.componentRef.setInput('showRevealIndicator', true);
-    fixture.componentRef.setInput('image', '/assets/new-revealed-top.jpg');
-    fixture.componentRef.setInput('shuffleRevision', 11);
-    fixture.detectChanges();
-    await fixture.whenStable();
+    try {
+      const cards = Array.from(fixture.nativeElement.querySelectorAll('.zone-card-stack-layer, .zone-card-stack-top')) as HTMLElement[];
+      cards.forEach((card) => Object.defineProperty(card, 'getClientRects', { value: () => [new DOMRect()] }));
+      const topCard = topImage(fixture)!;
+      topCard.style.opacity = '0';
+      topCard.style.visibility = 'hidden';
+      let completeShuffle: (() => void) | undefined;
+      const timeline = {
+        set: vi.fn().mockReturnThis(),
+        to: vi.fn().mockReturnThis(),
+        kill: vi.fn(),
+      };
+      vi.spyOn(gsap, 'timeline').mockImplementation((config) => {
+        completeShuffle = config?.onComplete;
+        return timeline as unknown as gsap.core.Timeline;
+      });
 
-    expect(topCard.getAttribute('src')).toBe('/assets/second-card.jpg');
+      fixture.componentRef.setInput('showRevealIndicator', true);
+      fixture.componentRef.setInput('image', '/assets/new-revealed-top.jpg');
+      fixture.componentRef.setInput('shuffleRevision', 11);
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    completeShuffle?.();
-    fixture.detectChanges();
+      expect(topCard.getAttribute('src')).toBe('/assets/second-card.jpg');
 
-    expect(topCard.style.visibility).not.toBe('hidden');
-    expect(topCard.style.opacity).not.toBe('0');
-    expect(topCard.getAttribute('src')).toBe('/assets/new-revealed-top.jpg');
+      completeShuffle?.();
+      fixture.detectChanges();
+
+      expect(topCard.style.visibility).not.toBe('hidden');
+      expect(topCard.style.opacity).not.toBe('0');
+      expect(topCard.getAttribute('src')).toBe('/assets/new-revealed-top.jpg');
+    } finally {
+      restoreMatchMedia();
+    }
   });
 });
 
@@ -137,4 +139,31 @@ function stackLayers(fixture: ComponentFixture<ZoneCardStackComponent>): HTMLIma
 
 function topImage(fixture: ComponentFixture<ZoneCardStackComponent>): HTMLImageElement | null {
   return fixture.nativeElement.querySelector('.zone-card-stack-top');
+}
+
+function mockMatchMedia(matches: boolean): () => void {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (): MediaQueryList => ({
+      matches,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  });
+
+  return () => {
+    if (originalDescriptor) {
+      Object.defineProperty(window, 'matchMedia', originalDescriptor);
+      return;
+    }
+
+    Reflect.deleteProperty(window, 'matchMedia');
+  };
 }

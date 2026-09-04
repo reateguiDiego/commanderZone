@@ -102,8 +102,8 @@ export class RoomRowComponent {
 
   visibilityPillLabelKey(visibility: RoomVisibility): string {
     return visibility === 'public'
-      ? 'common.visibility.visibilityPill.public'
-      : 'common.visibility.visibilityPill.private';
+      ? 'shared.text.public'
+      : 'shared.text.private';
   }
 
   isAnonymousPrivateOwner(room: Room): boolean {

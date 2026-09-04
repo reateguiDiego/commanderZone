@@ -1,6 +1,6 @@
 <div class="setup-controls">
   <app-game-setup-life-control
-    label="rooms.setup.gameSetupLifeControl.totalLife"
+    label="shared.text.lifeTotal"
     summary=""
     [value]="startingLife()"
     [step]="startingLifeStep()"
@@ -10,7 +10,7 @@
 
   <div class="setup-control timer-control">
     <div class="control-copy">
-      <span class="eyebrow">{{ 'rooms.roomSetupControls.timer' | runtimeTranslate }}</span>
+      <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
       <strong>{{ timerSummary() | runtimeTranslate }}</strong>
     </div>
     <app-table-assistant-timer-settings
@@ -37,7 +37,7 @@
     <div class="mulligan-select-field">
       <app-format-select
         name="mulliganRule"
-        labelKey="rooms.roomSetupControls.mulligan"
+        labelKey="shared.text.mulligan"
         [formats]="mulliganSelectOptions()"
         [value]="mulliganRule()"
         [disabled]="disabled() || updatingMulligan()"
@@ -48,8 +48,8 @@
 
     <div class="mulligan-toggle-field">
       <app-toggle
-        [label]="'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate"
-        [description]="(firstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+        [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
+        [description]="(firstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
         [checked]="firstMulliganFree()"
         [disabled]="disabled() || updatingMulligan()"
         (checkedChange)="firstMulliganFreeChange.emit($event)"

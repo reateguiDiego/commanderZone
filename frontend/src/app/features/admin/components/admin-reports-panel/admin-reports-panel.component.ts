@@ -4,13 +4,14 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { AdminReportsApi } from '../../data-access/admin-reports.api';
 import { AdminReport } from '../../data-access/admin-reports.models';
 import type { AdminMessageRecipientSelection } from '../admin-users-panel/admin-users-panel.component';
 
 @Component({
   selector: 'app-admin-reports-panel',
-  imports: [CzButtonDirective, LucideAngularModule, TooltipComponent],
+  imports: [RuntimeTranslatePipe, CzButtonDirective, LucideAngularModule, TooltipComponent],
   templateUrl: './admin-reports-panel.component.html',
   styleUrl: './admin-reports-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,7 +47,7 @@ export class AdminReportsPanelComponent {
       const response = await firstValueFrom(this.api.listReports());
       this.reports.set(response.reports);
     } catch (error: unknown) {
-      this.errorMessage.set(this.resolveError(error, 'Could not load reports.'));
+      this.errorMessage.set(this.resolveError(error, 'admin.reports.errors.loadReports'));
     } finally {
       this.isLoading.set(false);
     }

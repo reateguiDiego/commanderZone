@@ -10,9 +10,9 @@
   @if (menuOpen()) {
     <div class="table-exit-menu" role="dialog" [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.gameOptions' | runtimeTranslate">
       <button class="menu-action primary" type="button" (click)="selectNewTable()">
-        {{ 'tableAssistant.tableAssistantTableMenu.newGame' | runtimeTranslate }}
+        {{ 'shared.text.newGame' | runtimeTranslate }}
       </button>
-      <button class="menu-action" type="button" (click)="selectRoll()">{{ 'tableAssistant.tableAssistantTableMenu.rollDice' | runtimeTranslate }}</button>
+      <button class="menu-action" type="button" (click)="selectRoll()">{{ 'shared.text.rollDice' | runtimeTranslate }}</button>
       <button class="menu-action" type="button" (click)="selectFullscreen()">
         {{ 'tableAssistant.tableAssistantTableMenu.fullScreen' | runtimeTranslate }}
       </button>

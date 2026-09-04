@@ -40,8 +40,8 @@
         class="double-face-toggle"
         role="button"
         tabindex="-1"
-        [attr.aria-label]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
-        [title]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
+        [attr.aria-label]="'shared.text.lookAtOtherFace' | runtimeTranslate"
+        [title]="'shared.text.lookAtOtherFace' | runtimeTranslate"
         draggable="false"
         (pointerdown)="stopFaceTogglePointer($event)"
         (click)="lookAtOtherFace($event)"
@@ -148,7 +148,7 @@
     }
     <span class="card-visual">
       @if (showRevealIndicator()) {
-        <span class="reveal-indicator" aria-label="Revealed card">
+        <span class="reveal-indicator" [attr.aria-label]="'common.ui.revealedCard' | runtimeTranslate">
           <lucide-icon name="eye" size="15" aria-hidden="true" />
         </span>
       }
@@ -164,14 +164,14 @@
       @if (image(); as cardImage) {
         <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
       } @else if (monarchCard()) {
-        <span class="monarch-card-visual" aria-label="Monarch">
+        <span class="monarch-card-visual" [attr.aria-label]="'shared.text.monarch' | runtimeTranslate">
           <i
             class="monarch-card-icon"
             appMtgIcon="ms-ability-role-royal"
             mtgIconKind="mechanic"
             aria-hidden="true"
           ></i>
-          <span class="monarch-card-title">Monarch</span>
+          <span class="monarch-card-title">{{ 'shared.text.monarch' | runtimeTranslate }}</span>
         </span>
       } @else {
         <span>{{ fallbackLabel() }}</span>
@@ -197,8 +197,8 @@
           class="double-face-toggle"
           role="button"
           tabindex="-1"
-          [attr.aria-label]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
-          [title]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.lookAtOtherFace' | runtimeTranslate"
+          [title]="'shared.text.lookAtOtherFace' | runtimeTranslate"
           draggable="false"
           (pointerdown)="stopFaceTogglePointer($event)"
           (click)="lookAtOtherFace($event)"
@@ -211,7 +211,7 @@
       @if (statsVisible()) {
         <span
           class="power-toughness-overlay"
-          [attr.aria-label]="'game.gameCardView.powerAndToughness' | runtimeTranslate"
+          [attr.aria-label]="'shared.text.powerAndToughness' | runtimeTranslate"
           [class.stat-pair-pulse-increase]="powerPulse() === 'increase' && toughnessPulse() === 'increase'"
           [class.stat-pair-pulse-decrease]="powerPulse() === 'decrease' && toughnessPulse() === 'decrease'"
         >

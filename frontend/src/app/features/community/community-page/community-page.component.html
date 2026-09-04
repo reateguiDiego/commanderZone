@@ -57,9 +57,9 @@
     <section class="community-preview-grid">
       <app-card-preview-section
         [title]="commandersTitleKey()"
-        viewMoreLabel="community.home.viewMore"
+        viewMoreLabel="shared.text.viewMore"
         [viewMoreLink]="'/community/top-commanders'"
-        footerNote="navigation.dashboard.dashboardTopCommanders.communityPopularity"
+        footerNote="shared.text.basedOnGamesPlayedByTheCommunity"
         ariaLabel="community.home.commandersAriaLabel"
         [items]="featuredCommanders()"
         icon="trophy"
@@ -71,9 +71,9 @@
 
       <app-card-preview-section
         [title]="cardsTitleKey()"
-        viewMoreLabel="community.home.viewMore"
+        viewMoreLabel="shared.text.viewMore"
         [viewMoreLink]="'/community/top-cards'"
-        footerNote="navigation.dashboard.dashboardTopCommanders.communityPopularity"
+        footerNote="shared.text.basedOnGamesPlayedByTheCommunity"
         ariaLabel="community.home.cardsAriaLabel"
         [items]="featuredCards()"
         icon="sparkles"
@@ -98,13 +98,13 @@
           class="primary-button compact"
           routerLink="/community/decks"
         >
-          {{ 'community.home.decksButton' | runtimeTranslate }}
+          {{ 'shared.text.searchDecks' | runtimeTranslate }}
         </a>
       </div>
       @if (featuredDecks().length > 0) {
         <app-community-deck-grid [decks]="featuredDecks()" (deckSelected)="openDeck($event)" />
       } @else {
-        <p class="notice">{{ 'community.home.decksEmpty' | runtimeTranslate }}</p>
+        <p class="notice">{{ 'shared.text.noPublicDecksAvailableYet' | runtimeTranslate }}</p>
       }
     </section>
   }

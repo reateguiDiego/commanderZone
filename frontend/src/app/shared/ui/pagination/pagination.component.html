@@ -8,7 +8,7 @@
     <span>/ {{ totalPages() }}</span>
   </span>
   <button type="button" class="pagination-button" [disabled]="nextDisabled()" (click)="nextRequested.emit()">
-    <span>{{ 'common.actions.next' | runtimeTranslate }}</span>
+    <span>{{ 'shared.text.next' | runtimeTranslate }}</span>
     <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
   </button>
 </nav>

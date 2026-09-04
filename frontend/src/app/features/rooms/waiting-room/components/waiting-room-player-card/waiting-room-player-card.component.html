@@ -13,16 +13,16 @@
 
   <div class="player-status-stack">
     @if (host()) {
-      <span class="host-ribbon">{{ 'rooms.waitingRoomPlayerCard.host' | runtimeTranslate }}</span>
+      <span class="host-ribbon">{{ 'shared.text.host' | runtimeTranslate }}</span>
     }
 
     <span class="ready-state" [class.ready]="ready()">
       @if (ready()) {
-        Ready
+        {{ 'landing.preview.ready' | runtimeTranslate }}
       } @else if (!player.deckId) {
-        Deck pending
+        {{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}
       } @else {
-        Roll pending
+        {{ 'rooms.waitingRoom.waitingForDecksAndRolls' | runtimeTranslate }}
       }
     </span>
   </div>
@@ -31,8 +31,8 @@
     <button
       class="player-kick-button"
       type="button"
-      [title]="'rooms.waitingRoomPlayerCard.kickPlayer' | runtimeTranslate"
-      [attr.aria-label]="'rooms.waitingRoomPlayerCard.kickPlayer' | runtimeTranslate"
+      [title]="'shared.text.kickPlayer' | runtimeTranslate"
+      [attr.aria-label]="'shared.text.kickPlayer' | runtimeTranslate"
       [disabled]="kicking()"
       (click)="kickRequested.emit(player)"
     >
@@ -43,7 +43,7 @@
   @if (player.turnRoll !== null || (player.turnRolls?.length ?? 0) > 0) {
     <div class="roll-badge" [attr.aria-label]="'rooms.waitingRoomPlayerCard.d20RollResult' | runtimeTranslate">
       @if (turnPosition() !== null) {
-        <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }} #{{ turnPosition() }}</span>
+        <span class="roll-badge-label">{{ 'shared.text.turnOrder' | runtimeTranslate }} #{{ turnPosition() }}</span>
         <span class="roll-value">
           <span class="roll-value-prefix">D20</span>
           <strong>{{ rollLabel(player) }}</strong>
@@ -93,7 +93,7 @@
         (rollRequested)="rollRequested.emit()"
       />
     } @else {
-      <small class="deck-name">{{ deckName() }}</small>
+      <small class="deck-name">{{ deckName() | runtimeTranslate }}</small>
     }
   </div>
 } @else {

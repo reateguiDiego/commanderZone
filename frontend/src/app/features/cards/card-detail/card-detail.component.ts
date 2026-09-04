@@ -42,7 +42,7 @@ export class CardDetailComponent {
   private async load(): Promise<void> {
     const scryfallId = this.route.snapshot.paramMap.get('scryfallId');
     if (!scryfallId) {
-      this.error.set('Missing card id.');
+      this.error.set('errors.runtime.missing-card-id');
       this.loading.set(false);
       return;
     }
@@ -51,7 +51,7 @@ export class CardDetailComponent {
       const response = await firstValueFrom(this.cardsApi.get(scryfallId));
       this.card.set(response.card);
     } catch {
-      this.error.set('Could not load card.');
+      this.error.set('errors.runtime.could-not-load-card');
     } finally {
       this.loading.set(false);
     }

@@ -4,11 +4,11 @@
     [class.roll-modal--big]="size() === 'big'"
     role="dialog"
     aria-modal="true"
-    [attr.aria-label]="'modals.roll.rollModal.rollDice' | runtimeTranslate"
+    [attr.aria-label]="'shared.text.rollDice' | runtimeTranslate"
     (click)="$event.stopPropagation()"
   >
     <header>
-      <span class="eyebrow">{{ 'modals.roll.rollModal.rollDice' | runtimeTranslate }}</span>
+      <span class="eyebrow">{{ 'shared.text.rollDice' | runtimeTranslate }}</span>
       <button
         class="roll-close-button"
         type="button"
@@ -51,9 +51,9 @@
     }
 
     <footer>
-      <button class="secondary-action" type="button" czButton="secondary" (click)="close()">{{ 'modals.roll.rollModal.close' | runtimeTranslate }}</button>
+      <button class="secondary-action" type="button" czButton="secondary" (click)="close()">{{ 'shared.text.close' | runtimeTranslate }}</button>
       <button class="primary-action" type="button" czButton="primary" (click)="roll()">
-        {{ (rollResult() ? 'modals.roll.rollModal.rollAgain' : 'modals.roll.rollModal.roll') | runtimeTranslate }}
+        {{ (rollResult() ? 'modals.roll.rollModal.rollAgain' : 'shared.text.roll') | runtimeTranslate }}
       </button>
     </footer>
   </section>

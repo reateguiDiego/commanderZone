@@ -7,7 +7,6 @@ import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 export type PageHeaderOwner = object;
 export type PageHeaderActionVariant = 'primary' | 'secondary';
 export type PageHeaderActionTone = 'default' | 'danger' | 'success' | 'warning';
-export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
 export type PageHeaderActionTooltipPlacement = 'top' | 'bottom';
 export type PageHeaderActionTooltipAlign = 'center' | 'end';
 
@@ -18,7 +17,6 @@ export interface PageHeaderAction {
   icon?: string;
   iconOnly?: boolean;
   tooltip?: string;
-  tooltipTriggerMode?: PageHeaderActionTooltipTriggerMode;
   tooltipPlacement?: PageHeaderActionTooltipPlacement;
   tooltipAlign?: PageHeaderActionTooltipAlign;
   disabled?: boolean;

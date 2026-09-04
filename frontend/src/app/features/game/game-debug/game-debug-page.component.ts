@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../core/api/games.api';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
+import { TranslationService } from '../../../core/localization/translation.service';
 import {
   GameDebugActionExchange,
   GameDebugConnectionState,
@@ -24,7 +26,7 @@ interface GameDebugActionSort {
 
 @Component({
   selector: 'app-game-debug-page',
-  imports: [GlobalLoaderComponent],
+  imports: [GlobalLoaderComponent, RuntimeTranslatePipe],
   templateUrl: './game-debug-page.component.html',
   styleUrl: './game-debug-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +36,7 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly gamesApi = inject(GamesApi);
   private readonly snapshotMetrics = inject(GameDebugSnapshotMetricsService);
+  private readonly translation = inject(TranslationService);
   readonly debugWebsocket = inject(GameDebugWebsocketService);
 
   readonly gameId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -66,8 +69,10 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
     };
   });
   readonly deadLetterEvents = computed(() => [...this.snapshotMetrics.deadLetterEvents()].reverse());
-  readonly httpMetricsStatus = computed(() => this.report() ? 'disponibles' : 'sin cargar');
-  readonly gameplayRuntimeObservationStatus = computed(() => this.queueMetrics() ? 'observado por esta pestana' : 'sin telemetria local');
+  readonly httpMetricsStatusKey = computed(() => this.report() ? 'game.debug.status.available' : 'game.debug.status.notLoaded');
+  readonly gameplayRuntimeObservationStatusKey = computed(() => this.queueMetrics()
+    ? 'game.debug.status.observedInThisTab'
+    : 'game.debug.status.noLocalTelemetry');
 
   ngOnInit(): void {
     this.snapshotMetrics.observe(this.gameId);
@@ -105,14 +110,14 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
 
   playerLabel(playerId: string | null | undefined): string {
     if (!playerId) {
-      return 'System';
+      return this.translateText('game.debug.system');
     }
 
     return this.report()?.context.players.find((player) => player.playerId === playerId)?.displayName ?? playerId;
   }
 
   playerDeck(player: GameDebugPlayerContext): string {
-    return player.deckName && player.deckName.trim() !== '' ? player.deckName : 'Deck sin nombre';
+    return player.deckName && player.deckName.trim() !== '' ? player.deckName : this.translateText('game.debug.unnamedDeck');
   }
 
   playerConnection(player: GameDebugPlayerContext): GameDebugConnectionState | null {
@@ -136,7 +141,7 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
   }
 
   operationTypes(action: GameDebugActionExchange): string {
-    return action.outgoing?.operationTypes?.join(', ') || 'sin operaciones';
+    return action.outgoing?.operationTypes?.join(', ') || this.translateText('game.debug.noOperations');
   }
 
   sortActionsBy(column: GameDebugActionSortColumn): void {
@@ -152,7 +157,7 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return sort.direction === 'asc' ? 'asc' : 'desc';
+    return this.translateText(sort.direction === 'asc' ? 'game.debug.sort.ascending' : 'game.debug.sort.descending');
   }
 
   actionAriaSort(column: GameDebugActionSortColumn): 'ascending' | 'descending' | 'none' {
@@ -171,7 +176,7 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
   }
 
   formatMs(value: number | null | undefined): string {
-    return `${Number(value ?? 0).toFixed(2)} ms`;
+    return this.translateText('game.debug.milliseconds', { value: Number(value ?? 0).toFixed(2) });
   }
 
   averageJsonCharacters(bucket: GameDebugTrafficBucket | null | undefined): string {
@@ -186,49 +191,53 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
   debugLiveStatusLabel(): string {
     switch (this.debugWebsocket.status()) {
       case 'connected':
-        return 'conectado';
+        return this.translateText('game.debug.connection.connected');
       case 'connecting':
-        return 'conectando';
+        return this.translateText('game.debug.connection.connecting');
       case 'disconnected':
-        return 'desconectado, reintentando';
+        return this.translateText('game.debug.connection.reconnecting');
       case 'unavailable':
-        return 'no configurado';
+        return this.translateText('game.debug.connection.unavailable');
       case 'error':
-        return 'error';
+        return this.translateText('game.debug.connection.error');
       case 'stopped':
-        return 'detenido';
+        return this.translateText('game.debug.connection.stopped');
     }
   }
 
   snapshotGrowthLabel(action: GameDebugActionExchange): string {
     const metric = this.snapshotMetric(action);
     if (!metric) {
-      return 'sin dato local';
+      return this.translateText('game.debug.noLocalData');
     }
 
     const sign = metric.lineDelta > 0 ? '+' : '';
 
-    return `${sign}${metric.lineDelta} lineas`;
+    return this.translateText('game.debug.snapshotGrowth', { value: `${sign}${metric.lineDelta}` });
   }
 
   snapshotGrowthTitle(action: GameDebugActionExchange): string {
     const metric = this.snapshotMetric(action);
     if (!metric) {
-      return 'La pestaña de partida local no ha reportado esta accion.';
+      return this.translateText('game.debug.snapshotGrowthUnavailable');
     }
 
     const characterSign = metric.characterDelta > 0 ? '+' : '';
 
-    return `${metric.previousLines} -> ${metric.nextLines} lineas, ${characterSign}${metric.characterDelta} caracteres JSON locales`;
+    return this.translateText('game.debug.snapshotGrowthTitle', {
+      previous: metric.previousLines,
+      next: metric.nextLines,
+      characters: `${characterSign}${metric.characterDelta}`,
+    });
   }
 
   private errorMessage(error: unknown): string {
     if (typeof error === 'object' && error !== null && 'error' in error) {
       const response = (error as { error?: { error?: string; detail?: string } }).error;
-      return response?.error ?? response?.detail ?? 'No se pudo cargar el debug.';
+      return response?.error ?? response?.detail ?? this.translateText('game.debug.loadError');
     }
 
-    return 'No se pudo cargar el debug.';
+    return this.translateText('game.debug.loadError');
   }
 
   private compareActions(left: GameDebugActionExchange, right: GameDebugActionExchange, sort: GameDebugActionSort): number {
@@ -268,7 +277,19 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
 
   deadLetterTitle(entry: GameDebugDeadLetterEvent): string {
     const details = entry.details?.trim();
-    return details && details !== '' ? details : 'Sin detalle adicional.';
+    return details && details !== '' ? details : this.translateText('game.debug.noAdditionalDetail');
+  }
+
+  errorDescription(message: string | null | undefined): string {
+    return message ?? this.translateText('game.debug.noMessage');
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 
   private compareText(left: string | null | undefined, right: string | null | undefined): number {

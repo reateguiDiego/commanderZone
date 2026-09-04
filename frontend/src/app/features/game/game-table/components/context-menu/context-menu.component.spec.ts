@@ -456,11 +456,11 @@ describe('ContextMenuComponent', () => {
 
     expect(menuText(fixture)).toContain('Add the Monarch');
     expect(menuText(fixture)).toContain('Add the Initiative');
-    expect(menuText(fixture)).toContain('Add Day / Night');
+    expect(menuText(fixture)).toContain('Add day/night');
     expect(menuText(fixture)).toContain('Add The Ring');
-    expect(menuText(fixture)).toContain('Add Dungeon');
-    expect(menuText(fixture)).toContain("Get the City's Blessing");
-    expect(menuText(fixture)).toContain('Add Emblem');
+    expect(menuText(fixture)).toContain('Venture into a dungeon');
+    expect(menuText(fixture)).toContain("Get the city's blessing");
+    expect(menuText(fixture)).toContain('Create emblem');
     expect(fixture.componentInstance.gameMechanicsMenuItems().map((item) => item.icon)).toEqual([
       'ms-ability-role-royal',
       'ms-ability-d20',
@@ -486,7 +486,7 @@ describe('ContextMenuComponent', () => {
     initiativeButton?.click();
 
     const dayNightButton = menuButtons(fixture)
-      .find((candidate) => candidate.textContent?.includes('Add Day / Night'));
+      .find((candidate) => candidate.textContent?.includes('Add day/night'));
     dayNightButton?.click();
 
     const theRingButton = menuButtons(fixture)
@@ -494,15 +494,15 @@ describe('ContextMenuComponent', () => {
     theRingButton?.click();
 
     const dungeonButton = menuButtons(fixture)
-      .find((candidate) => candidate.textContent?.includes('Add Dungeon'));
+      .find((candidate) => candidate.textContent?.includes('Venture into a dungeon'));
     dungeonButton?.click();
 
     const citysBlessingButton = menuButtons(fixture)
-      .find((candidate) => candidate.textContent?.includes("Get the City's Blessing"));
+      .find((candidate) => candidate.textContent?.includes("Get the city's blessing"));
     citysBlessingButton?.click();
 
     const emblemButton = menuButtons(fixture)
-      .find((candidate) => candidate.textContent?.includes('Add Emblem'));
+      .find((candidate) => candidate.textContent?.includes('Create emblem'));
     emblemButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'createInitiative' });
@@ -556,7 +556,7 @@ describe('ContextMenuComponent', () => {
     expect(menuText(fixture)).toContain('Take the Initiative');
     expect(menuText(fixture)).not.toContain('Add the Monarch');
     expect(menuText(fixture)).not.toContain('Add the Initiative');
-    expect(menuText(fixture)).not.toContain('Add Day / Night');
+    expect(menuText(fixture)).not.toContain('Add day/night');
   });
 
   it('hides monarch and initiative from battlefield game mechanics when the current player already has them', () => {
@@ -593,11 +593,11 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
     fixture.detectChanges();
 
-    expect(menuText(fixture)).toContain("Remove the City's Blessing");
-    expect(menuText(fixture)).not.toContain("Get the City's Blessing");
+    expect(menuText(fixture)).toContain("Remove the city's blessing");
+    expect(menuText(fixture)).not.toContain("Get the city's blessing");
 
     const removeButton = menuButtons(fixture)
-      .find((candidate) => candidate.textContent?.includes("Remove the City's Blessing"));
+      .find((candidate) => candidate.textContent?.includes("Remove the city's blessing"));
     removeButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'removeCitysBlessing' });
@@ -965,12 +965,12 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(menuText(libraryMenu)).not.toContain('Reveal');
-    expect(menuText(libraryMenu)).not.toContain('Select random card');
-    expect(menuText(libraryMenu)).not.toContain("Create a token that's a copy");
-    expect(menuText(graveyardMenu)).toContain("Create a token that's a copy");
-    expect(menuText(graveyardMenu)).toContain('Select random card');
-    expect(menuText(exileMenu)).toContain("Create a token that's a copy");
-    expect(menuText(exileMenu)).toContain('Select random card');
+    expect(menuText(libraryMenu)).not.toContain('Choose a random card');
+    expect(menuText(libraryMenu)).not.toContain('Create a token copy');
+    expect(menuText(graveyardMenu)).toContain('Create a token copy');
+    expect(menuText(graveyardMenu)).toContain('Choose a random card');
+    expect(menuText(exileMenu)).toContain('Create a token copy');
+    expect(menuText(exileMenu)).toContain('Choose a random card');
     expect(menuText(graveyardMenu)).not.toContain('Reveal');
     expect(menuText(exileMenu)).not.toContain('Reveal');
   });
@@ -987,10 +987,10 @@ describe('ContextMenuComponent', () => {
     const text = menuText(fixture);
 
     expect(text).toContain('Reveal');
-    expect(text).toContain("Create a token that's a copy");
+    expect(text).toContain('Create a token copy');
     expect(text).toContain('Play face down');
     expect(text).toContain('Give to');
-    expect(text).toContain('Select random card');
+    expect(text).toContain('Choose a random card');
     expect(text).not.toContain('Add to stack');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
     fixture.detectChanges();
@@ -1119,7 +1119,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Select random card'));
+      .find((candidate) => candidate.textContent?.includes('Choose a random card'));
     button?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'selectRandomCard' });
@@ -1134,7 +1134,7 @@ describe('ContextMenuComponent', () => {
       suppressRandomSelect: true,
     });
 
-    expect(menuText(fixture)).not.toContain('Select random card');
+    expect(menuText(fixture)).not.toContain('Choose a random card');
   });
 
   it('exposes the requested library menu structure and emits nested actions', () => {
@@ -1156,14 +1156,14 @@ describe('ContextMenuComponent', () => {
     expect(buttonLabels(fixture)).toEqual([
       'Draw a card D',
       'Draw X cards',
-      'Move top›',
+      'Move top card›',
       'Play face down',
       'Reveal top card›',
       'Reveal X top cards›',
       'Reveal library›',
       'Play with top card revealed›',
       'Shuffle S',
-      'Select random card',
+      'Choose a random card',
       'View›',
     ]);
 
@@ -1376,8 +1376,8 @@ describe('ContextMenuComponent', () => {
       isLandStacked: () => false,
     });
 
-    expect(menuText(stacked)).toContain('Remove from stack');
-    expect(menuText(loose)).not.toContain('Remove from stack');
+    expect(menuText(stacked)).toContain('Remove from the stack');
+    expect(menuText(loose)).not.toContain('Remove from the stack');
   });
 
   it('limits an emblem battlefield card menu to remove', () => {
@@ -1413,7 +1413,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     expect(buttonLabels(fixture)).toEqual(['Remove']);
-    expect(menuText(fixture)).not.toContain('Remove from stack');
+    expect(menuText(fixture)).not.toContain('Remove from the stack');
   });
 
   it('limits a dungeon battlefield card menu to remove without stack actions', () => {
@@ -1429,7 +1429,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     expect(buttonLabels(fixture)).toEqual(['Remove']);
-    expect(menuText(fixture)).not.toContain('Remove from stack');
+    expect(menuText(fixture)).not.toContain('Remove from the stack');
     expect(menuText(fixture)).not.toContain('Attach to...');
     expect(menuText(fixture)).not.toContain('Move to');
     expect(menuText(fixture)).not.toContain('Counters');
@@ -1563,7 +1563,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const removeStack = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Remove from stack'));
+      .find((candidate) => candidate.textContent?.includes('Remove from the stack'));
     removeStack?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'removeStack' });
@@ -1599,7 +1599,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'moveTo');
     fixture.detectChanges();
 
-    expect(menuText(fixture)).toContain('Bottom of library');
+    expect(menuText(fixture)).toContain('Bottom of your library');
 
     fixture.componentInstance.selectMoveTo('library:bottom');
 
@@ -1692,7 +1692,7 @@ describe('ContextMenuComponent', () => {
     ownerFixture.componentInstance.actionSelected.subscribe(selected);
     ownerFixture.componentInstance.interacted.subscribe(interacted);
 
-    const lookAtCard = menuButtons(ownerFixture).find((button) => button.textContent?.includes('Look at card'));
+    const lookAtCard = menuButtons(ownerFixture).find((button) => button.textContent?.includes('Look at face-down card'));
 
     expect(lookAtCard).toBeDefined();
     lookAtCard?.click();
@@ -1708,7 +1708,7 @@ describe('ContextMenuComponent', () => {
       currentPlayer: player('user-2', 'Opponent'),
     });
 
-    expect(menuText(opponentFixture)).not.toContain('Look at card');
+    expect(menuText(opponentFixture)).not.toContain('Look at face-down card');
 
     const ownerWithoutControlFixture = createContextMenuFixture({
       kind: 'card',
@@ -1719,7 +1719,7 @@ describe('ContextMenuComponent', () => {
       currentPlayer: player('user-1', 'User'),
     });
 
-    expect(menuText(ownerWithoutControlFixture)).toContain('Look at card');
+    expect(menuText(ownerWithoutControlFixture)).toContain('Look at face-down card');
   });
 
   it('hides power toughness setup when the battlefield card already has visible stats', () => {

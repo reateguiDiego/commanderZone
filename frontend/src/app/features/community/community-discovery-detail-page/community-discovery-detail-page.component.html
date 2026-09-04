@@ -15,18 +15,18 @@
         />
       </div>
       <div class="community-discovery-hero__copy">
-        <span>{{ kind === 'commander' ? 'Commander' : 'Card' }}</span>
+        <span>{{ (kind === 'commander' ? 'shared.text.commander' : 'common.ui.card') | runtimeTranslate }}</span>
         <h1>{{ title() }}</h1>
         @if (detailData.item.colors?.length) {
           <app-mana-symbols [symbols]="detailData.item.colors" />
         }
-        <p>{{ detailData.item.timesPlayed ?? 0 }} public CommanderZone decks include this {{ kind }}.</p>
+        <p>{{ 'common.ui.decksIncludeItem' | runtimeTranslate: { count: detailData.item.timesPlayed ?? 0, kind: (kind === 'commander' ? 'shared.text.commander' : 'common.ui.card') | runtimeTranslate } }}</p>
         <app-hero-rule />
       </div>
     </header>
 
     <section class="community-discovery-section">
-      <h2>Public decks</h2>
+      <h2>{{ 'common.ui.publicDecks' | runtimeTranslate }}</h2>
       <app-community-deck-grid
         [decks]="detailData.decks"
         (deckSelected)="openDeck($event)"

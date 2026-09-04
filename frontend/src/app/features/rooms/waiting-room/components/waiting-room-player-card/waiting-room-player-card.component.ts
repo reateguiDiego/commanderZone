@@ -24,7 +24,7 @@ export class WaitingRoomPlayerCardComponent {
   readonly hasDualDeckArt = input(false);
   readonly deckArtUrl = input<string | null>(null);
   readonly secondaryDeckArtUrl = input<string | null>(null);
-  readonly deckName = input('Deck pending');
+  readonly deckName = input('game.opponentMiniBoard.deckPending');
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');

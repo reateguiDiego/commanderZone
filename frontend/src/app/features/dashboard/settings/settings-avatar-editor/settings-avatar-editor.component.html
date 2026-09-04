@@ -5,7 +5,7 @@
     </div>
   </header>
 
-  <section class="avatar-preview-panel" [attr.aria-label]="'settings.settingsAvatarEditor.avatarPreview' | runtimeTranslate">
+  <section class="avatar-preview-panel" [attr.aria-label]="'shared.text.avatarPreview' | runtimeTranslate">
     <div
       class="avatar-preview"
       [class.premium-preview]="previewIsPremium()"
@@ -13,13 +13,13 @@
       [style.color]="previewImageUrl() ? null : previewInitialTextColor()"
     >
       @if (previewImageUrl()) {
-        <img [src]="previewImageUrl()" [alt]="'settings.settingsAvatarEditor.avatarPreview' | runtimeTranslate" draggable="false" (dragstart)="preventAvatarDrag($event)" />
+        <img [src]="previewImageUrl()" [alt]="'shared.text.avatarPreview' | runtimeTranslate" draggable="false" (dragstart)="preventAvatarDrag($event)" />
       } @else {
         <span>{{ previewInitialLetter() }}</span>
       }
     </div>
     <div class="avatar-preview-copy">
-      <span>{{ 'settings.settingsAvatarEditor.currentSelection' | runtimeTranslate }}</span>
+      <span>{{ 'shared.text.currentSelection' | runtimeTranslate }}</span>
       <strong>{{ currentSelectionLabel() }}</strong>
     </div>
   </section>
@@ -50,18 +50,18 @@
         />
 
         @for (presetAvatar of basicPresetAvatars; track presetAvatar.id) {
-          <app-tooltip [text]="presetAvatar.label">
+          <app-tooltip [text]="presetAvatar.labelKey | runtimeTranslate">
             <button
               type="button"
               class="preset-avatar"
               [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
-              [attr.aria-label]="presetAvatar.label"
+              [attr.aria-label]="presetAvatar.labelKey | runtimeTranslate"
               [disabled]="saving()"
               (click)="choosePreset(presetAvatar)"
               (dragstart)="preventAvatarDrag($event)"
             >
               <span class="avatar-image-frame">
-                <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
+                <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.labelKey | runtimeTranslate" draggable="false" />
               </span>
             </button>
           </app-tooltip>
@@ -71,22 +71,22 @@
       <section class="preset-tier" [attr.aria-label]="'settings.settingsAvatarEditor.premiumAvatars' | runtimeTranslate">
         <div class="preset-grid premium-grid">
           @for (presetAvatar of premiumPresetAvatars; track presetAvatar.id) {
-            <app-tooltip [text]="presetAvatar.label">
+            <app-tooltip [text]="presetAvatar.labelKey | runtimeTranslate">
               <button
                 type="button"
                 class="preset-avatar premium-avatar"
                 [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
-                [attr.aria-label]="presetAvatar.label + ' premium avatar'"
+                [attr.aria-label]="'common.ui.premiumAvatar' | runtimeTranslate: { name: (presetAvatar.labelKey | runtimeTranslate) }"
                 [disabled]="saving()"
                 (click)="choosePreset(presetAvatar)"
                 (dragstart)="preventAvatarDrag($event)"
               >
                 <span class="avatar-image-frame">
-                  <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
+                  <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.labelKey | runtimeTranslate" draggable="false" />
                 </span>
                 <app-premium-badge
                   class="premium-badge"
-                  [label]="'settings.settingsAvatarEditor.premium' | runtimeTranslate"
+                  [label]="'shared.text.premium' | runtimeTranslate"
                 />
               </button>
             </app-tooltip>
@@ -106,7 +106,7 @@
     }
 
     <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
-      {{ saving() ? 'Saving...' : 'Save' }}
+      {{ (saving() ? 'common.ui.saving' : 'shared.text.save') | runtimeTranslate }}
     </button>
   </footer>
 </section>

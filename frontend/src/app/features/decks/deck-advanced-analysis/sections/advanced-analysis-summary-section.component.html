@@ -47,7 +47,7 @@
             </dl>
             <div class="advanced-analysis-archetype-cards">
               <app-advanced-analysis-card-grid
-                [title]="'deckBuilder.advancedAnalysis.summary.archetypeCards' | runtimeTranslate"
+                [title]="'shared.text.cards' | runtimeTranslate"
                 [cards]="archetype.cards"
               />
             </div>
@@ -64,11 +64,11 @@
       </div>
       <dl class="advanced-analysis-typal-stats advanced-analysis-data-grid">
         <div>
-          <dt>{{ 'deckBuilder.advancedAnalysis.typal.creatures' | runtimeTranslate }}</dt>
+          <dt>{{ 'shared.text.creatures' | runtimeTranslate }}</dt>
           <dd>{{ typalIdentity.creatureCount }}</dd>
         </div>
         <div>
-          <dt>{{ 'deckBuilder.advancedAnalysis.typal.support' | runtimeTranslate }}</dt>
+          <dt>{{ 'shared.text.support' | runtimeTranslate }}</dt>
           <dd>{{ typalIdentity.supportCount }}</dd>
         </div>
         <div>

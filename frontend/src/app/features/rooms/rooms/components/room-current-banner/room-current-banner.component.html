@@ -15,39 +15,39 @@
       </div>
       <div class="room-chips" [attr.aria-label]="'rooms.roomCurrentBanner.currentRoomDetails' | runtimeTranslate">
         <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ formatName() }}</span>
-        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ playerCountLabel() }} players</span>
+        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ 'rooms.waitingRoom.playersCount' | runtimeTranslate: { count: playerCountLabel() } }}</span>
       </div>
     </div>
 
     <div class="deck-summary">
       <div class="deck-art" [class.is-empty]="!deckImageUrl()">
         @if (deckImageUrl(); as imageUrl) {
-          <img [src]="imageUrl" [alt]="playerDeckName()" />
+          <img [src]="imageUrl" [alt]="playerDeckName() | runtimeTranslate" />
         } @else {
           <lucide-icon name="library" size="22" />
         }
       </div>
       <div class="deck-copy">
         <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
-        <strong>{{ playerDeckName() }}</strong>
+        <strong>{{ playerDeckName() | runtimeTranslate }}</strong>
       </div>
     </div>
 
     <div class="turn-summary">
-      <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.turn' | runtimeTranslate }}</span>
-      <strong>{{ turnLabel() }}</strong>
+      <span czTextFit czTextFitMinScale="0.78">{{ 'shared.text.turn' | runtimeTranslate }}</span>
+      <strong>{{ turnLabelKey() | runtimeTranslate: turnLabelParams() }}</strong>
     </div>
   </div>
 
   <div class="current-room-actions">
     <a czButton="primary" czButtonSize="sm" class="primary-button compact" [routerLink]="primaryActionRoute()">
       <lucide-icon [name]="primaryActionIcon()" size="15" />
-      {{ primaryActionLabel() }}
+      {{ primaryActionLabel() | runtimeTranslate }}
     </a>
     @if (canLeave()) {
       <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" data-testid="current-room-leave" [disabled]="leavingRoomId() === currentRoom.id" (click)="leaveRequested.emit(currentRoom.id)">
         <lucide-icon name="log-out" size="15" />
-        {{ leavingRoomId() === currentRoom.id ? 'Leaving' : 'Leave' }}
+        {{ (leavingRoomId() === currentRoom.id ? 'common.ui.leaving' : 'shared.text.leaveRoom') | runtimeTranslate }}
       </button>
     }
   </div>

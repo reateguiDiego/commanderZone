@@ -23,11 +23,11 @@
           type="button"
           class="turn-action-button pass-turn-button"
           data-testid="pass-turn"
-          title="Pass turn"
+          [title]="'shared.text.passTurn' | runtimeTranslate"
           (click)="passTurn.emit()"
         >
           <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
-          <span>{{ 'game.turnPhasePanel.passTurn' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.passTurn' | runtimeTranslate }}</span>
         </button>
         <button
           czButton="primary"
@@ -35,11 +35,11 @@
           type="button"
           class="turn-action-button advance-phase-button"
           data-testid="advance-phase"
-          [title]="'Advance to ' + nextPhaseLabel()"
+          [title]="'game.turnPhasePanel.advancePhase' | runtimeTranslate"
           (click)="advancePhase.emit()"
         >
           <lucide-icon name="play" size="17" aria-hidden="true" />
-          <span data-testid="end-step">{{ nextPhaseLabel() }}</span>
+          <span data-testid="end-step">{{ nextPhaseKey() | runtimeTranslate }}</span>
         </button>
       }
       <app-compact-checkbox
@@ -71,7 +71,7 @@
             <lucide-icon class="phase-combat-sword" name="swords" size="21" aria-hidden="true" />
           }
         </span>
-        <span class="phase-label">{{ phaseDisplayLabel(phase) }}</span>
+        <span class="phase-label">{{ phaseTranslationKey(phase) | runtimeTranslate }}</span>
       </button>
     }
   </div>

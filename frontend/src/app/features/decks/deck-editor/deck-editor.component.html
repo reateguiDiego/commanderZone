@@ -2,7 +2,7 @@
   @if (store.loading()) {
     <app-global-loader />
   } @else if (store.error()) {
-    <p class="notice error">{{ store.error() }}</p>
+    <p class="notice error">{{ store.error()! | runtimeTranslate }}</p>
   } @else if (store.deck(); as deck) {
     @if (actionError()) {
       <p class="notice error">{{ actionError()! | runtimeTranslate }}</p>
@@ -15,15 +15,20 @@
             <app-bracket-pill class="deck-summary-bracket-pill" [bracket]="bracket" />
           }
           <div class="deck-summary-counts">
-            <strong>{{ 'deckBuilder.deckEditor.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
-            <span>{{ 'deckBuilder.deckEditor.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+            <strong>{{
+              'shared.text.countCards' | runtimeTranslate: { count: store.playableCardCount() }
+            }}</strong>
+            <span>{{
+              'shared.text.countSections'
+                | runtimeTranslate: { count: store.playableSectionCount() }
+            }}</span>
           </div>
         </div>
         <div class="deck-summary-controls">
           <div class="deck-search-stack">
             <app-card-autocomplete
               [placeholder]="'deckBuilder.deckEditor.addCardsByName' | runtimeTranslate"
-              actionLabel="deckBuilder.deckEditor.add"
+              actionLabel="shared.text.add"
               [minQueryLength]="3"
               [showQuantity]="true"
               [clearOnSelect]="true"
@@ -34,39 +39,11 @@
               (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
             />
           </div>
-          <div class="view-mode-select" [class.is-open]="viewModeMenuOpen()" (click)="$event.stopPropagation()">
-            <span id="deck-view-mode-label" class="sr-only">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</span>
-            <button
-              class="view-mode-trigger"
-              type="button"
-              aria-haspopup="listbox"
-              aria-labelledby="deck-view-mode-label deck-view-mode-value"
-              [attr.aria-expanded]="viewModeMenuOpen()"
-              (click)="toggleViewModeMenu($event)"
-            >
-              <span id="deck-view-mode-value">{{ selectedViewModeLabelKey() | runtimeTranslate }}</span>
-              <lucide-icon name="chevron-down" size="16" aria-hidden="true" />
-            </button>
-            @if (viewModeMenuOpen()) {
-              <div class="view-mode-menu" role="listbox" aria-labelledby="deck-view-mode-label">
-                @for (option of viewModeOptions; track option.value) {
-                  <button
-                    class="view-mode-option"
-                    type="button"
-                    role="option"
-                    [class.is-selected]="store.viewMode() === option.value"
-                    [attr.aria-selected]="store.viewMode() === option.value"
-                    (click)="selectViewMode(option.value, $event)"
-                  >
-                    <span>{{ option.labelKey | runtimeTranslate }}</span>
-                    @if (store.viewMode() === option.value) {
-                      <span class="view-mode-selected-mark" aria-hidden="true"></span>
-                    }
-                  </button>
-                }
-              </div>
-            }
-          </div>
+          <app-deck-view-mode-select
+            idPrefix="deck-view-mode"
+            [value]="store.viewMode()"
+            (valueChange)="selectViewMode($event)"
+          />
         </div>
       </div>
 
@@ -87,14 +64,21 @@
       />
 
       @if (store.visibleActiveTab() === 'analysis') {
-        <app-deck-analysis-panel [advancedAnalysisLink]="advancedAnalysisLink(deck)" [advancedAnalysisState]="advancedAnalysisState(deck)" />
+        <app-deck-analysis-panel
+          [advancedAnalysisLink]="advancedAnalysisLink(deck)"
+          [advancedAnalysisState]="advancedAnalysisState(deck)"
+        />
       } @else if (store.visibleActiveTab() === 'considering') {
         <div class="analysis-shell analysis-screen considering-layout">
           <section class="analysis-panel">
             <div class="analysis-panel-header">
               <div>
                 <h3>{{ 'deckBuilder.deckEditor.consideringCards' | runtimeTranslate }}</h3>
-                <p>{{ 'deckBuilder.deckEditor.cardsParkedOutsideThePlayableDeck' | runtimeTranslate }}</p>
+                <p>
+                  {{
+                    'deckBuilder.deckEditor.cardsParkedOutsideThePlayableDeck' | runtimeTranslate
+                  }}
+                </p>
               </div>
               <strong class="analysis-list-count">{{ store.consideringCards().length }}</strong>
             </div>
@@ -108,26 +92,41 @@
                   (mouseleave)="hideCardPreview()"
                   (pointerleave)="hideCardPreview()"
                   (click)="store.toggleCardMenu($event, entry)"
-                  >
-                    <span class="deck-card-primary">
-                      <strong class="deck-card-name">
-                      <span class="deck-card-name-text" [attr.title]="store.displayCardListName(entry.card)">
+                >
+                  <span class="deck-card-primary">
+                    <strong class="deck-card-name">
+                      <span
+                        class="deck-card-name-text"
+                        [attr.title]="store.displayCardListName(entry.card)"
+                      >
                         {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
                       </span>
                       @if (entry.card.isGameChanger) {
                         <app-game-changer-icon />
                       }
                       @if (store.hasAlternateFace(entry.card)) {
-                        <button class="face-toggle-button" type="button" (click)="toggleCardFace($event, entry.card)">
+                        <button
+                          class="face-toggle-button"
+                          type="button"
+                          (click)="toggleCardFace($event, entry.card)"
+                        >
                           <lucide-icon name="rotate-cw" size="13" />
                         </button>
                       }
                       @if (store.isCardInvalidForDeck(entry.card)) {
-                        <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(entry.card)" />
+                        <lucide-icon
+                          class="warning-mark"
+                          name="triangle-alert"
+                          size="14"
+                          [attr.title]="store.invalidCardMessage(entry.card)"
+                        />
                       }
                     </strong>
                   </span>
-                  <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}</small>
+                  <small class="deck-card-secondary">{{
+                    store.displayCardTypeLine(entry.card) ||
+                      ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate)
+                  }}</small>
                   <span class="deck-card-cost">
                     @if (store.shouldShowManaCost(entry.card)) {
                       <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
@@ -138,7 +137,9 @@
                   <app-deck-card-menu [entry]="entry" />
                 }
               } @empty {
-                <p class="notice compact-notice">{{ 'deckBuilder.deckEditor.noConsideringCards' | runtimeTranslate }}</p>
+                <p class="notice compact-notice">
+                  {{ 'deckBuilder.deckEditor.noConsideringCards' | runtimeTranslate }}
+                </p>
               }
             </div>
           </section>
@@ -148,13 +149,21 @@
               <div class="analysis-panel-header">
                 <div>
                   <h3>{{ 'deckBuilder.deckEditor.derivedTokens' | runtimeTranslate }}</h3>
-                  <p>{{ 'deckBuilder.deckEditor.resolvedFromCardsCurrentlyInTheDeck' | runtimeTranslate }}</p>
+                  <p>
+                    {{
+                      'deckBuilder.deckEditor.resolvedFromCardsCurrentlyInTheDeck'
+                        | runtimeTranslate
+                    }}
+                  </p>
                 </div>
                 <strong class="analysis-list-count">{{ store.tokens().length }}</strong>
               </div>
 
               <div class="dense-list compact-list">
-                @for (entry of store.tokens(); track entry.sourceCard.scryfallId + entry.token.scryfallId) {
+                @for (
+                  entry of store.tokens();
+                  track entry.sourceCard.scryfallId + entry.token.scryfallId
+                ) {
                   <div
                     class="deck-card-row"
                     (mouseenter)="store.showCardPreview($event, entry.token)"
@@ -163,10 +172,15 @@
                   >
                     <span class="deck-card-primary">
                       <strong class="deck-card-name">
-                        <span class="deck-card-name-text" [attr.title]="entry.token.name">{{ entry.token.name }}</span>
+                        <span class="deck-card-name-text" [attr.title]="entry.token.name">{{
+                          entry.token.name
+                        }}</span>
                       </strong>
                     </span>
-                    <small class="deck-card-secondary">{{ 'deckBuilder.deckEditor.fromSourceCard' | runtimeTranslate: { name: entry.sourceCard.name } }}</small>
+                    <small class="deck-card-secondary">{{
+                      'deckBuilder.deckEditor.fromSourceCard'
+                        | runtimeTranslate: { name: entry.sourceCard.name }
+                    }}</small>
                     <span class="deck-card-cost">
                       @if (store.shouldShowManaCost(entry.token)) {
                         <app-mana-symbols [value]="entry.token.manaCost" fallback="-" />
@@ -174,14 +188,23 @@
                     </span>
                   </div>
                 } @empty {
-                  <p class="notice compact-notice">{{ 'deckBuilder.deckEditor.noResolvedTokensForThisDeck' | runtimeTranslate }}</p>
+                  <p class="notice compact-notice">
+                    {{ 'deckBuilder.deckEditor.noResolvedTokensForThisDeck' | runtimeTranslate }}
+                  </p>
                 }
               </div>
 
               @if (store.unresolvedTokens().length > 0) {
                 <div class="notice warning compact-notice">
-                  <strong>{{ 'deckBuilder.deckEditor.unresolvedTokens' | runtimeTranslate }}</strong>
-                  <span>{{ store.unresolvedTokens().map((item) => item.token.name).join(', ') }}</span>
+                  <strong>{{
+                    'deckBuilder.deckEditor.unresolvedTokens' | runtimeTranslate
+                  }}</strong>
+                  <span>{{
+                    store
+                      .unresolvedTokens()
+                      .map((item) => item.token.name)
+                      .join(', ')
+                  }}</span>
                 </div>
               }
             </section>
@@ -189,7 +212,12 @@
         </div>
       } @else if (store.visibleActiveTab() === 'validation') {
         <div class="button-row wrap-row">
-          <button czButton="primary" class="primary-button" type="button" (click)="store.validate(deck.id)">
+          <button
+            czButton="primary"
+            class="primary-button"
+            type="button"
+            (click)="store.validate(deck.id)"
+          >
             <lucide-icon name="check-circle-2" size="17" />
             {{ 'deckBuilder.deckEditor.validateWithBackend' | runtimeTranslate }}
           </button>
@@ -197,23 +225,51 @@
 
         @if (store.validation(); as result) {
           <div class="notice" [class.ok-notice]="result.valid" [class.error]="!result.valid">
-            <strong>{{ (result.valid ? 'deckBuilder.deckEditor.validationPassed' : 'deckBuilder.deckEditor.validationFailed') | runtimeTranslate }}</strong>
-            <span>{{ 'deckBuilder.deckEditor.usableInGame' | runtimeTranslate: { value: ((result.valid ? 'deckBuilder.deckEditor.yes' : 'deckBuilder.deckEditor.no') | runtimeTranslate) } }}</span>
-            <span>{{ 'deckBuilder.deckEditor.validationCounts' | runtimeTranslate: { total: result.counts.total, commander: result.counts.commander, main: result.counts.main, sideboard: result.counts.sideboard, maybeboard: result.counts.maybeboard } }}</span>
+            <strong>{{
+              (result.valid
+                ? 'deckBuilder.deckEditor.validationPassed'
+                : 'deckBuilder.deckEditor.validationFailed'
+              ) | runtimeTranslate
+            }}</strong>
+            <span>{{
+              'deckBuilder.deckEditor.usableInGame'
+                | runtimeTranslate
+                  : {
+                      value:
+                        ((result.valid ? 'shared.text.yes' : 'shared.text.no') | runtimeTranslate),
+                    }
+            }}</span>
+            <span>{{
+              'deckBuilder.deckEditor.validationCounts'
+                | runtimeTranslate
+                  : {
+                      total: result.counts.total,
+                      commander: result.counts.commander,
+                      main: result.counts.main,
+                      sideboard: result.counts.sideboard,
+                      maybeboard: result.counts.maybeboard,
+                    }
+            }}</span>
             <span>
-              {{ 'deckBuilder.deckEditor.commanderMode' | runtimeTranslate: { mode: result.commander.mode } }}
+              {{
+                'deckBuilder.deckEditor.commanderMode'
+                  | runtimeTranslate: { mode: result.commander.mode }
+              }}
               @if (result.commander.names.length > 0) {
                 - {{ result.commander.names.join(' / ') }}
               }
             </span>
             @if (result.commander.colorIdentity.length > 0) {
-              <span>{{ 'deckBuilder.deckEditor.colorIdentity' | runtimeTranslate: { colors: result.commander.colorIdentity.join(', ') } }}</span>
+              <span>{{
+                'deckBuilder.deckEditor.colorIdentity'
+                  | runtimeTranslate: { colors: result.commander.colorIdentity.join(', ') }
+              }}</span>
             }
           </div>
 
           @if (result.errors.length > 0) {
             <div class="notice error">
-              <strong>{{ 'deckBuilder.deckEditor.errors' | runtimeTranslate }}</strong>
+              <strong>{{ 'shared.text.errors' | runtimeTranslate }}</strong>
               <ul>
                 @for (issue of result.errors; track issue.code + issue.title + issue.detail) {
                   <li>
@@ -249,16 +305,23 @@
         }
 
         <div class="dense-list">
-          @for (issue of store.clientIssues(); track issue.title + issue.detail) {
+          @for (
+            issue of store.clientIssues();
+            track issue.titleKey + issue.detailKey + issue.cards.join()
+          ) {
             <div class="list-row issue-row" [class.error-issue]="issue.severity === 'error'">
               <span>
-                <strong>{{ issue.title }}</strong>
-                <small>{{ issue.detail }}</small>
+                <strong>{{ issue.titleKey | runtimeTranslate }}</strong>
+                <small>{{ issue.detailKey | runtimeTranslate: issue.detailParams }}</small>
               </span>
               <span class="metric">{{ issue.severity }}</span>
             </div>
           } @empty {
-            <p class="notice ok-notice">{{ 'deckBuilder.deckEditor.noFrontendDiagnosticsForTheCurrentDeck' | runtimeTranslate }}</p>
+            <p class="notice ok-notice">
+              {{
+                'deckBuilder.deckEditor.noFrontendDiagnosticsForTheCurrentDeck' | runtimeTranslate
+              }}
+            </p>
           }
         </div>
       } @else if (store.visibleActiveTab() === 'missing') {
@@ -268,26 +331,53 @@
               <div class="missing-row">
                 <span>
                   <strong>{{ item.quantity }} {{ item.name }}</strong>
-                  <small>{{ item.section }}{{ item.watched ? ' - saved' : '' }}</small>
+                  <small>
+                    {{ item.section }}
+                    @if (item.watched) {
+                      — {{ 'common.ui.saved' | runtimeTranslate }}
+                    }
+                  </small>
                 </span>
                 <div class="button-row">
                   <app-tooltip [text]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate">
-                    <button czButton="icon" class="icon-button" type="button" (click)="store.copyMissing(item.name)">
+                    <button
+                      czButton="icon"
+                      class="icon-button"
+                      type="button"
+                      (click)="store.copyMissing(item.name)"
+                    >
                       <lucide-icon name="copy" size="15" />
                     </button>
                   </app-tooltip>
                   <app-tooltip [text]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate">
-                    <button czButton="icon" class="icon-button" type="button" (click)="store.searchMissing(item.name)">
+                    <button
+                      czButton="icon"
+                      class="icon-button"
+                      type="button"
+                      (click)="store.searchMissing(item.name)"
+                    >
                       <lucide-icon name="search" size="15" />
                     </button>
                   </app-tooltip>
                   <app-tooltip [text]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate">
-                    <button czButton="icon" class="icon-button" type="button" (click)="store.saveMissing(item.name, deck.id)">
+                    <button
+                      czButton="icon"
+                      class="icon-button"
+                      type="button"
+                      (click)="store.saveMissing(item.name, deck.id)"
+                    >
                       <lucide-icon name="bookmark-plus" size="15" />
                     </button>
                   </app-tooltip>
-                  <app-tooltip [text]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate">
-                    <button czButton="icon" class="icon-button" type="button" (click)="store.ignoreMissing(item.name)">
+                  <app-tooltip
+                    [text]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate"
+                  >
+                    <button
+                      czButton="icon"
+                      class="icon-button"
+                      type="button"
+                      (click)="store.ignoreMissing(item.name)"
+                    >
                       <lucide-icon name="eye-off" size="15" />
                     </button>
                   </app-tooltip>
@@ -298,11 +388,27 @@
         }
 
         @if (store.missingSearch(); as search) {
-          <h3>{{ 'deckBuilder.deckEditor.searchResultsFor' | runtimeTranslate: { name: search.name } }}</h3>
+          <h3>
+            {{
+              'deckBuilder.deckEditor.searchResultsFor' | runtimeTranslate: { name: search.name }
+            }}
+          </h3>
           <div class="search-bar compact-search">
             <lucide-icon name="search" size="18" />
-            <input name="missingSearchQuery" [placeholder]="'deckBuilder.deckEditor.searchAnotherCardName' | runtimeTranslate" [(ngModel)]="store.missingSearchQuery" />
-            <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="button" (click)="store.searchMissingQuery()">{{ 'deckBuilder.deckEditor.search' | runtimeTranslate }}</button>
+            <input
+              name="missingSearchQuery"
+              [placeholder]="'deckBuilder.deckEditor.searchAnotherCardName' | runtimeTranslate"
+              [(ngModel)]="store.missingSearchQuery"
+            />
+            <button
+              czButton="primary"
+              czButtonSize="sm"
+              class="primary-button compact"
+              type="button"
+              (click)="store.searchMissingQuery()"
+            >
+              {{ 'shared.text.search' | runtimeTranslate }}
+            </button>
           </div>
           <div class="dense-list">
             @for (card of search.cards; track card.scryfallId) {
@@ -311,22 +417,47 @@
                   <strong>
                     {{ card.name }}
                     @if (store.isCardInvalidForDeck(card)) {
-                      <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(card)" />
+                      <lucide-icon
+                        class="warning-mark"
+                        name="triangle-alert"
+                        size="14"
+                        [attr.title]="store.invalidCardMessage(card)"
+                      />
                     }
                   </strong>
-                  <small><app-mana-symbols [value]="card.manaCost" fallback="deckBuilder.deckEditor.noCost" /></small>
-                  <small>{{ card.typeLine || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}</small>
+                  <small
+                    ><app-mana-symbols
+                      [value]="card.manaCost"
+                      fallback="deckBuilder.deckEditor.noCost"
+                  /></small>
+                  <small>{{
+                    card.typeLine || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate)
+                  }}</small>
                 </span>
                 <div class="button-row">
-                  <a czButton="text" czButtonSize="sm" class="text-button compact" [routerLink]="['/cards', card.scryfallId]">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</a>
-                  <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="button" (click)="store.addMissingCard(search.name, card)">
+                  <a
+                    czButton="text"
+                    czButtonSize="sm"
+                    class="text-button compact"
+                    [routerLink]="['/cards', card.scryfallId]"
+                    >{{ 'shared.text.view' | runtimeTranslate }}</a
+                  >
+                  <button
+                    czButton="primary"
+                    czButtonSize="sm"
+                    class="primary-button compact"
+                    type="button"
+                    (click)="store.addMissingCard(search.name, card)"
+                  >
                     <lucide-icon name="plus" size="15" />
-                    {{ 'deckBuilder.deckEditor.add' | runtimeTranslate }}
+                    {{ 'shared.text.add' | runtimeTranslate }}
                   </button>
                 </div>
               </div>
             } @empty {
-              <p class="notice warning">{{ 'deckBuilder.deckEditor.noCardSearchResults' | runtimeTranslate }}</p>
+              <p class="notice warning">
+                {{ 'deckBuilder.deckEditor.noCardSearchResults' | runtimeTranslate }}
+              </p>
             }
           </div>
         }
@@ -340,8 +471,13 @@
                   <strong>{{ item.name }}</strong>
                   <small>{{ store.formatDate(item.addedAt) }}</small>
                 </span>
-                <app-tooltip [text]="'deckBuilder.deckEditor.remove' | runtimeTranslate">
-                  <button czButton="icon" class="icon-button" type="button" (click)="store.missingStore.remove(item.name)">
+                <app-tooltip [text]="'shared.text.remove' | runtimeTranslate">
+                  <button
+                    czButton="icon"
+                    class="icon-button"
+                    type="button"
+                    (click)="store.missingStore.remove(item.name)"
+                  >
                     <lucide-icon name="x" size="15" />
                   </button>
                 </app-tooltip>
@@ -351,12 +487,23 @@
         }
       } @else {
         <div class="button-row wrap-row">
-          <button czButton="secondary" class="secondary-button" type="button" (click)="store.recordHistory(deck, 'Manual snapshot')">
+          <button
+            czButton="secondary"
+            class="secondary-button"
+            type="button"
+            (click)="store.recordHistory(deck, 'Manual snapshot')"
+          >
             <lucide-icon name="camera" size="17" />
-            {{ 'deckBuilder.deckEditor.snapshot' | runtimeTranslate }}
+            {{ 'shared.text.snapshot' | runtimeTranslate }}
           </button>
           <app-tooltip [text]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate">
-            <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="store.clearHistoryModalOpen.set(true)">
+            <button
+              czButton="icon"
+              czButtonTone="danger"
+              class="icon-button danger"
+              type="button"
+              (click)="store.clearHistoryModalOpen.set(true)"
+            >
               <lucide-icon name="trash" size="16" />
             </button>
           </app-tooltip>
@@ -367,16 +514,40 @@
             <div class="history-row">
               <span>
                 <strong>{{ entry.source }}</strong>
-                <small>{{ store.formatDate(entry.createdAt) }} - {{ ('deckBuilder.deckEditor.historyCardsSummary' | runtimeTranslate: { count: entry.totalCards, commanders: entry.commanders.join(', ') || ('deckBuilder.deckEditor.noCommander' | runtimeTranslate) }) }}</small>
-                <small>+{{ entry.diff.added.length }} / -{{ entry.diff.removed.length }} / +/-{{ entry.diff.changed.length }}</small>
+                <small
+                  >{{ store.formatDate(entry.createdAt) }} -
+                  {{
+                    'deckBuilder.deckEditor.historyCardsSummary'
+                      | runtimeTranslate
+                        : {
+                            count: entry.totalCards,
+                            commanders:
+                              entry.commanders.join(', ') ||
+                              ('deckBuilder.deckEditor.noCommander' | runtimeTranslate),
+                          }
+                  }}</small
+                >
+                <small
+                  >+{{ entry.diff.added.length }} / -{{ entry.diff.removed.length }} / +/-{{
+                    entry.diff.changed.length
+                  }}</small
+                >
               </span>
-              <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
+              <button
+                czButton="secondary"
+                czButtonSize="sm"
+                class="secondary-button compact"
+                type="button"
+                (click)="store.restoreHistory(entry)"
+              >
                 <lucide-icon name="rotate-ccw" size="15" />
                 {{ 'deckBuilder.deckEditor.restore' | runtimeTranslate }}
               </button>
             </div>
           } @empty {
-            <p class="notice">{{ 'deckBuilder.deckEditor.noLocalHistoryForThisDeckYet' | runtimeTranslate }}</p>
+            <p class="notice">
+              {{ 'deckBuilder.deckEditor.noLocalHistoryForThisDeckYet' | runtimeTranslate }}
+            </p>
           }
         </div>
       }
@@ -432,41 +603,78 @@
 
     <app-modal
       [open]="store.importModalOpen()"
-      [title]="'deckBuilder.deckEditor.importDecklist' | runtimeTranslate"
+      [title]="'shared.text.importDecklist' | runtimeTranslate"
       primaryLabel="deckBuilder.deckEditor.header.import"
-      secondaryLabel="common.modal.cancel"
+      secondaryLabel="shared.text.cancel"
       (primary)="store.importDeck(deck.id)"
       (secondary)="store.closeImportModal()"
     >
       <div class="form-stack">
         <label>
-          {{ 'deckBuilder.deckEditor.deckName' | runtimeTranslate }}
+          {{ 'shared.text.deckName' | runtimeTranslate }}
           <input name="deckName" [(ngModel)]="store.deckName" />
         </label>
-        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.rename(deck.id)">
+        <button
+          czButton="secondary"
+          czButtonSize="sm"
+          class="secondary-button compact"
+          type="button"
+          (click)="store.rename(deck.id)"
+        >
           <lucide-icon name="save" size="16" />
           {{ 'deckBuilder.deckEditor.saveName' | runtimeTranslate }}
         </button>
         <label>
           {{ 'deckBuilder.deckEditor.plainTextDecklist' | runtimeTranslate }}
-          <textarea name="decklist" rows="14" [placeholder]="'deckBuilder.deckEditor.decklistTextareaExample' | runtimeTranslate" [(ngModel)]="store.decklist"></textarea>
+          <textarea
+            name="decklist"
+            rows="14"
+            [placeholder]="'deckBuilder.deckEditor.decklistTextareaExample' | runtimeTranslate"
+            [(ngModel)]="store.decklist"
+          ></textarea>
         </label>
-        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="fileInput.click()">
+        <button
+          czButton="secondary"
+          czButtonSize="sm"
+          class="secondary-button compact"
+          type="button"
+          (click)="fileInput.click()"
+        >
           <lucide-icon name="file-up" size="16" />
           {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
         </button>
-        <input #fileInput class="hidden-input" type="file" accept=".txt,.csv,.dek,.dec" (change)="store.loadDeckFile($event)" />
+        <input
+          #fileInput
+          class="hidden-input"
+          type="file"
+          accept=".txt,.csv,.dek,.dec"
+          (change)="store.loadDeckFile($event)"
+        />
 
         @if (store.lastImportStats(); as stats) {
-          <div class="notice" [class.warning]="stats.missingCards > 0" [class.ok-notice]="stats.missingCards === 0">
+          <div
+            class="notice"
+            [class.warning]="stats.missingCards > 0"
+            [class.ok-notice]="stats.missingCards === 0"
+          >
             <strong>{{ 'deckBuilder.deckEditor.lastImport' | runtimeTranslate }}</strong>
-            <span>{{ 'deckBuilder.deckEditor.importSummary' | runtimeTranslate: { parsed: stats.parsedCards, imported: stats.importedCards, missing: stats.missingCards } }}</span>
+            <span>{{
+              'deckBuilder.deckEditor.importSummary'
+                | runtimeTranslate
+                  : {
+                      parsed: stats.parsedCards,
+                      imported: stats.importedCards,
+                      missing: stats.missingCards,
+                    }
+            }}</span>
           </div>
         }
 
         @if (store.missingItems().length > 0) {
           <div class="notice warning">
-            <strong>{{ 'deckBuilder.deckEditor.missingCardsFromLatestImport' | runtimeTranslate }}</strong>
+            <strong>{{
+              'deckBuilder.deckEditor.missingCardsFromLatestImport' | runtimeTranslate
+            }}</strong>
             <span>{{ store.missingPreview() }}</span>
           </div>
         }
@@ -475,9 +683,13 @@
 
     <app-modal
       [open]="store.printVersionModalOpen()"
-      [title]="store.hasSinglePrintVersionOption() ? '' : ('deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate)"
-      [ariaLabel]="'deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate"
-      secondaryLabel="common.modal.close"
+      [title]="
+        store.hasSinglePrintVersionOption()
+          ? ''
+          : ('shared.text.selectPrintVersion' | runtimeTranslate)
+      "
+      [ariaLabel]="'shared.text.selectPrintVersion' | runtimeTranslate"
+      secondaryLabel="shared.text.close"
       [showPrimary]="false"
       size="wide"
       (secondary)="store.closePrintVersionModal()"
@@ -486,19 +698,27 @@
         <div class="print-version-modal">
           @if (!store.hasSinglePrintVersionOption()) {
             <p class="print-version-intro">
-              {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong> {{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
+              {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }}
+              <strong>{{ entry.card.name }}</strong>
+              {{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
             </p>
           }
 
           @if (store.loadingPrintVersions()) {
-            <p class="notice">{{ 'deckBuilder.deckEditor.loadingPrintVersions' | runtimeTranslate }}</p>
+            <p class="notice">
+              {{ 'deckBuilder.deckEditor.loadingPrintVersions' | runtimeTranslate }}
+            </p>
           } @else if (store.hasSinglePrintVersionOption()) {
             <div class="notice compact-notice ok-notice">
               <strong>{{ 'deckBuilder.deckEditor.onlyOnePrintVersion' | runtimeTranslate }}</strong>
-              <span>{{ 'deckBuilder.deckEditor.thisCardOnlyHasOnePrintVersion' | runtimeTranslate }}</span>
+              <span>{{
+                'deckBuilder.deckEditor.thisCardOnlyHasOnePrintVersion' | runtimeTranslate
+              }}</span>
             </div>
           } @else if (store.printVersionGroups().length === 0) {
-            <p class="notice warning">{{ 'deckBuilder.deckEditor.noPrintVersionsFoundForThisCard' | runtimeTranslate }}</p>
+            <p class="notice warning">
+              {{ 'deckBuilder.deckEditor.noPrintVersionsFoundForThisCard' | runtimeTranslate }}
+            </p>
           } @else {
             <div class="print-version-sections">
               @for (group of store.printVersionGroups(); track group.title) {
@@ -521,7 +741,7 @@
                         <span class="print-version-copy">
                           <small>{{ store.printVersionMeta(card) }}</small>
                           @if (store.isCurrentPrintVersion(card)) {
-                            <em>{{ 'deckBuilder.deckEditor.current' | runtimeTranslate }}</em>
+                            <em>{{ 'shared.text.current' | runtimeTranslate }}</em>
                           }
                         </span>
                       </button>
@@ -540,7 +760,7 @@
       [title]="'deckBuilder.deckEditor.restoreHistory' | runtimeTranslate"
       [message]="store.restoreTarget() ? 'deckBuilder.deckEditor.restoreSnapshotQuestion' : ''"
       primaryLabel="deckBuilder.deckEditor.restore"
-      secondaryLabel="common.modal.cancel"
+      secondaryLabel="shared.text.cancel"
       (primary)="store.confirmRestoreHistory(deck.id)"
       (secondary)="store.restoreModalOpen.set(false)"
     />
@@ -549,8 +769,8 @@
       [open]="store.clearHistoryModalOpen()"
       [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate"
       message="deckBuilder.deckEditor.clearLocalHistoryQuestion"
-      primaryLabel="deckBuilder.deckEditor.clear"
-      secondaryLabel="common.modal.cancel"
+      primaryLabel="shared.text.clear"
+      secondaryLabel="shared.text.cancel"
       [danger]="true"
       (primary)="store.confirmClearHistory(deck.id)"
       (secondary)="store.clearHistoryModalOpen.set(false)"

@@ -47,7 +47,7 @@ describe('TokenSearchModalComponent', () => {
 
     expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
     expect(fixture.nativeElement.textContent).toContain('Plant Token');
-    expect(fixture.nativeElement.textContent).toContain('from Avenger of Zendikar');
+    expect(fixture.nativeElement.textContent).toContain('Avenger of Zendikar');
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://cards.test/token-1.jpg');
   });
 
@@ -168,7 +168,7 @@ describe('TokenSearchModalComponent', () => {
       await vi.advanceTimersByTimeAsync(320);
       expect(cardsApi.search).not.toHaveBeenCalled();
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
+      expect(fixture.nativeElement.textContent).toContain('No results found.');
 
       fixture.componentInstance.onQueryInput('du');
       await vi.advanceTimersByTimeAsync(320);
@@ -185,7 +185,7 @@ describe('TokenSearchModalComponent', () => {
       fixture.detectChanges();
 
       expect(cardsApi.search).not.toHaveBeenCalled();
-      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
+      expect(fixture.nativeElement.textContent).toContain('No results found.');
     } finally {
       vi.useRealTimers();
     }

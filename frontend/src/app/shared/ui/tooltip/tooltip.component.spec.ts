@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { DeviceProfileService } from '../../services/device-profile.service';
 import { TooltipComponent } from './tooltip.component';
 
 type TestTooltipPlacement = 'top' | 'bottom';
@@ -10,7 +11,7 @@ type TestTooltipAlign = 'start' | 'center' | 'end';
   standalone: true,
   imports: [TooltipComponent],
   template: `
-    <app-tooltip [text]="text" triggerMode="click" [placement]="placement" [align]="align">
+    <app-tooltip [text]="text" [placement]="placement" [align]="align">
       <button type="button">Open tooltip</button>
     </app-tooltip>
   `,
@@ -22,9 +23,13 @@ class TooltipHostComponent {
 }
 
 describe('TooltipComponent', () => {
+  const hasHover = signal(true);
+
   beforeEach(async () => {
+    hasHover.set(true);
     await TestBed.configureTestingModule({
       imports: [TooltipHostComponent],
+      providers: [{ provide: DeviceProfileService, useValue: { hasHover } }],
     }).compileComponents();
 
     Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: 320 });
@@ -73,6 +78,37 @@ describe('TooltipComponent', () => {
 
     expect(tooltipBubbleRule()).toContain('z-index: var(--cz-tooltip-z-index, 3600)');
   });
+
+  it('does not open from a click', () => {
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.detectChanges();
+
+    button(fixture).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.cz-tooltip__bubble')).toBeNull();
+  });
+
+  it('does not open from a touch pointer', () => {
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.detectChanges();
+
+    trigger(fixture).dispatchEvent(pointerEvent('pointerenter', 'touch'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.cz-tooltip__bubble')).toBeNull();
+  });
+
+  it('does not open when the device cannot hover', () => {
+    hasHover.set(false);
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.detectChanges();
+
+    trigger(fixture).dispatchEvent(pointerEvent('pointerenter', 'mouse'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.cz-tooltip__bubble')).toBeNull();
+  });
 });
 
 async function openTooltip(
@@ -82,7 +118,7 @@ async function openTooltip(
   fixture.detectChanges();
   trigger(fixture).getBoundingClientRect = () => options.triggerRect;
 
-  button(fixture).click();
+  trigger(fixture).dispatchEvent(pointerEvent('pointerenter', 'mouse'));
   fixture.detectChanges();
   bubble(fixture).getBoundingClientRect = () => options.bubbleRect;
 
@@ -114,6 +150,12 @@ function tooltipBubbleRule(): string {
   }
 
   return '';
+}
+
+function pointerEvent(type: string, pointerType: string): PointerEvent {
+  const event = new Event(type, { bubbles: true }) as PointerEvent;
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  return event;
 }
 
 function rect(values: Partial<DOMRect>): DOMRect {

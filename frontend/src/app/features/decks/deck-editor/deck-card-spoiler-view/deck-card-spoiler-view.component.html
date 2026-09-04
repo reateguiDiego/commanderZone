@@ -1,12 +1,28 @@
 <div class="spoiler-sections" [class.spoiler-sections--full]="full()">
   @for (group of store.cardGroups(); track group.id) {
-    <section class="spoiler-section" [class.spoiler-section--full]="full() || group.cards.length > 3">
+    <section
+      class="spoiler-section"
+      [class.spoiler-section--full]="full() || group.cards.length > 3"
+    >
       <div class="spoiler-section-header">
-        <button class="spoiler-section-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
-          <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
+        <button
+          class="spoiler-section-toggle"
+          type="button"
+          [attr.aria-expanded]="!store.isGroupCollapsed(group.id)"
+          (click)="store.toggleGroup(group.id)"
+        >
+          <lucide-icon
+            [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'"
+            size="16"
+          />
           <span class="spoiler-section-title">
             @if (group.titleManaSymbols?.length) {
-              <app-mana-symbols class="spoiler-section-title-symbols" [symbols]="group.titleManaSymbols" fallback="" size="small" />
+              <app-mana-symbols
+                class="spoiler-section-title-symbols"
+                [symbols]="group.titleManaSymbols"
+                fallback=""
+                size="small"
+              />
             }
             {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
             @if (group.id === 'commander' && store.deckColorIdentitySymbols().length > 0) {
@@ -37,32 +53,47 @@
       <div class="spoiler-section-body" [class.collapsed]="store.isGroupCollapsed(group.id)">
         <div class="spoiler-section-body-inner">
           @if (group.id === 'commander' && group.cards.length === 0) {
-            <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardSpoilerView.noCommanderAssignedYet' | runtimeTranslate }}</p>
+            <p class="notice warning compact-notice">
+              {{ 'deckBuilder.deckEditor.noCommanderAssignedYet' | runtimeTranslate }}
+            </p>
           } @else if (group.cards.length === 0) {
-            <p class="spoiler-section-empty">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
+            <p class="spoiler-section-empty">
+              {{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}
+            </p>
           } @else {
             <div class="spoiler-card-grid">
               @for (entry of group.cards; track entry.id) {
                 <article
+                  #spoilerCard
                   class="spoiler-card"
                   [class.spoiler-card--battle]="isBattleVisibleFace(entry.card)"
                   [class.spoiler-card--menu-open]="isRowMenuOpen(entry.id)"
+                  [attr.data-card-entry-id]="entry.id"
                   (click)="cardClickEnabled() ? store.toggleCardMenu($event, entry) : null"
                 >
-                  <div class="spoiler-image-frame" [class.spoiler-image-frame--battle]="isBattleVisibleFace(entry.card)">
+                  <div
+                    class="spoiler-image-frame"
+                    [class.spoiler-image-frame--battle]="isBattleVisibleFace(entry.card)"
+                  >
                     @if (store.displayCardImageUrl(entry.card); as imageUrl) {
                       <img
                         [src]="imageUrl"
                         [alt]="store.displayCardName(entry.card)"
                         [class.card-image--battle]="isBattleVisibleFace(entry.card)"
-                        loading="lazy"
+                        [loading]="imageLoading(entry.id)"
                         decoding="async"
                       />
                     } @else {
-                      <div class="spoiler-card-fallback" [class.spoiler-card-fallback--battle]="isBattleVisibleFace(entry.card)">
+                      <div
+                        class="spoiler-card-fallback"
+                        [class.spoiler-card-fallback--battle]="isBattleVisibleFace(entry.card)"
+                      >
                         <strong>{{ store.displayCardName(entry.card) }}</strong>
                         @if (store.shouldShowManaCost(entry.card)) {
-                          <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
+                          <app-mana-symbols
+                            [value]="store.displayCardManaCost(entry.card)"
+                            fallback="-"
+                          />
                         }
                       </div>
                     }
@@ -74,7 +105,7 @@
                       <button
                         class="face-toggle-button"
                         type="button"
-                        [title]="'deckBuilder.deckCardSpoilerView.flipFace' | runtimeTranslate"
+                        [title]="'shared.text.flipFace' | runtimeTranslate"
                         (pointerdown)="stopFaceTogglePointer($event)"
                         (contextmenu)="stopFaceToggleContextMenu($event)"
                         (click)="toggleCardFace($event, entry.card)"
@@ -83,7 +114,10 @@
                       </button>
                     }
                     @if (store.isCardInvalidForDeck(entry.card)) {
-                      <span class="invalid-badge" [attr.title]="store.invalidCardMessage(entry.card)">
+                      <span
+                        class="invalid-badge"
+                        [attr.title]="store.invalidCardMessage(entry.card)"
+                      >
                         <lucide-icon name="triangle-alert" size="15" />
                       </span>
                     }
@@ -95,8 +129,13 @@
                     }
                   </strong>
                   @if (entry.analysisBadges; as badges) {
-                    @if (badges.length > 1 || (badges.length === 1 && entry.showSingleAnalysisBadge)) {
-                      <div class="spoiler-card-functional-badges" [attr.aria-label]="badges.join(', ')">
+                    @if (
+                      badges.length > 1 || (badges.length === 1 && entry.showSingleAnalysisBadge)
+                    ) {
+                      <div
+                        class="spoiler-card-functional-badges"
+                        [attr.aria-label]="badges.join(', ')"
+                      >
                         @for (badge of badges; track badge) {
                           <span>{{ badge }}</span>
                         }

@@ -22,6 +22,11 @@ const MIN_TOKEN_QUANTITY = 1;
 const MAX_TOKEN_QUANTITY = 20;
 const SEARCH_DEBOUNCE_MS = 320;
 
+interface TranslationLabel {
+  readonly key: string;
+  readonly params?: Record<string, unknown>;
+}
+
 @Component({
   selector: 'app-token-search-modal',
   imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective, GameXQuantityStepperComponent],
@@ -176,48 +181,42 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
     const source = this.deckTokens().find((entry) => entry.token.scryfallId === card.scryfallId)?.sourceCard.name;
 
-    return source ? `from ${source}` : null;
+    return source ?? null;
   }
 
   modalTitle(): string {
     return this.kind === 'token'
-      ? 'Create token'
+      ? 'game.contextMenu.labels.createToken'
       : this.kind === 'emblem'
-        ? 'Add emblem'
-        : 'Add dungeon';
+        ? 'game.contextMenu.labels.addEmblem'
+        : 'game.contextMenu.labels.addDungeon';
   }
 
   searchPlaceholder(): string {
-    return this.kind === 'token'
-      ? 'Search tokens'
-      : this.kind === 'emblem'
-        ? 'Search emblems'
-        : 'Search dungeons';
+    return 'shared.text.search';
   }
 
-  resultsLabel(): string {
+  resultsLabel(): TranslationLabel {
     const count = this.displayCards().length;
     if (this.kind === 'token') {
       return this.showingDeckTokens()
-        ? `${this.deckTokenCards().length} deck tokens`
-        : `${count} token results`;
+        ? { key: 'shared.text.countCards', params: { count: this.deckTokenCards().length } }
+        : { key: 'shared.text.countCards', params: { count } };
     }
 
-    return `${count} ${this.kind} results`;
+    return { key: 'shared.text.countCards', params: { count } };
   }
 
   emptyStateLabel(): string {
-    if (this.kind === 'token') {
-      return this.showingSearchResults() ? 'No tokens found.' : 'This deck has no detected tokens.';
-    }
-
-    return this.kind === 'emblem' ? 'No emblems found.' : 'No dungeons found.';
+    return 'game.specialHelpers.modal.noResults';
   }
 
-  addButtonLabel(card: Card): string {
+  addButtonLabel(_card: Card): string {
     return this.kind === 'token'
-      ? `Create ${this.quantity()} ${card.name}`
-      : `Add ${card.name}`;
+      ? 'game.contextMenu.labels.createToken'
+      : this.kind === 'emblem'
+        ? 'game.contextMenu.labels.addEmblem'
+        : 'game.contextMenu.labels.addDungeon';
   }
 
   private async loadDeckTokens(): Promise<void> {
@@ -244,7 +243,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     } catch {
       if (this.open && this.deckId === deckId) {
         this.deckTokens.set([]);
-        this.error.set('No se pudieron cargar los tokens del mazo.');
+        this.error.set('errors.runtime.no-se-pudieron-cargar-los-tokens-del-mazo');
       }
     } finally {
       if (this.open && this.deckId === deckId) {
@@ -265,7 +264,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     } catch {
       if (version === this.searchVersion) {
         this.searchResults.set([]);
-        this.error.set('No se pudo buscar tokens.');
+        this.error.set('errors.runtime.no-se-pudo-buscar-tokens');
       }
     } finally {
       if (version === this.searchVersion) {

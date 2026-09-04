@@ -20,26 +20,26 @@
         />
 
         <div class="community-user-actions">
-          <div class="community-user-action-buttons" aria-label="User actions">
-            <app-tooltip text="Report user">
+          <div class="community-user-action-buttons" [attr.aria-label]="'common.ui.userActions' | runtimeTranslate">
+            <app-tooltip [text]="'common.ui.reportUser' | runtimeTranslate">
               <button
                 czButton="secondary"
                 czButtonSize="sm"
                 type="button"
                 class="secondary-button compact icon-only community-user-action-button is-danger"
-                aria-label="Report user"
+                [attr.aria-label]="'common.ui.reportUser' | runtimeTranslate"
               >
                 <lucide-icon name="flag" size="18" aria-hidden="true" />
               </button>
             </app-tooltip>
 
-            <app-tooltip text="Send friend request">
+            <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
               <button
                 czButton="secondary"
                 czButtonSize="sm"
                 type="button"
                 class="secondary-button compact icon-only community-user-action-button is-success"
-                aria-label="Send friend request"
+                [attr.aria-label]="'shared.text.sendFriendRequest' | runtimeTranslate"
                 [disabled]="sendingFriendRequest()"
                 (click)="sendFriendRequest(userData)"
               >
@@ -47,13 +47,13 @@
               </button>
             </app-tooltip>
 
-            <app-tooltip text="Copy profile link">
+            <app-tooltip [text]="'common.ui.copyProfileLink' | runtimeTranslate">
               <button
                 czButton="secondary"
                 czButtonSize="sm"
                 type="button"
                 class="secondary-button compact icon-only community-user-action-button"
-                aria-label="Copy profile link"
+                [attr.aria-label]="'common.ui.copyProfileLink' | runtimeTranslate"
                 (click)="shareUser(userData)"
               >
                 <lucide-icon name="link" size="18" aria-hidden="true" />
@@ -76,21 +76,21 @@
 
     <form class="community-user-filters" (ngSubmit)="applyFilters()">
       <label class="community-user-filter-field">
-        <span>{{ 'community.deckList.filterName' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.searchByName' | runtimeTranslate }}</span>
         <input
           name="userDeckSearchQuery"
           type="search"
-          [placeholder]="'community.deckList.filterNamePlaceholder' | runtimeTranslate"
+          [placeholder]="'shared.text.searchDecksLabel' | runtimeTranslate"
           [ngModel]="searchQuery()"
           (ngModelChange)="setSearchQuery($event)"
         />
       </label>
 
       <label class="community-user-filter-field">
-        <span>{{ 'community.deckList.filterCommander' | runtimeTranslate }}</span>
+        <span>{{ 'shared.text.commander' | runtimeTranslate }}</span>
         <app-card-autocomplete
           [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
-          actionLabel="community.deckList.commanderSelect"
+          actionLabel="shared.text.select"
           [filters]="{ commanderCandidate: true }"
           [query]="commanderQuery()"
           (queryChange)="setCommanderQuery($event)"
@@ -101,7 +101,7 @@
       <div class="community-user-filter-select">
         <app-format-select
           name="userDeckFormat"
-          label="community.deckList.filterFormat"
+          label="shared.text.format"
           [options]="formatOptions()"
           [value]="selectedFormat()"
           (valueChange)="setSelectedFormat($event)"
@@ -120,7 +120,7 @@
 
       <div class="community-user-filter-actions">
         <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
-          {{ 'community.deckList.searchButton' | runtimeTranslate }}
+          {{ 'shared.text.search' | runtimeTranslate }}
         </button>
       </div>
     </form>

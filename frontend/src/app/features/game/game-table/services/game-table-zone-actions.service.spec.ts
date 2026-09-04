@@ -111,14 +111,14 @@ describe('GameTableZoneActionsService', () => {
     const cards = [card('card-1'), card('card-2'), card('card-3')];
     service.openFixedZone('player-1', 'library', 'Top 3', cards, 'card-1', false, {
       allowReorder: true,
-      drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO'],
+      drawOrderLabels: ['Draw 1', 'Draw 2', 'Draw 3'],
     });
 
     service.replaceZoneModalCards([cards[1]!, cards[2]!]);
 
     expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-2', 'card-3']);
     expect(state.zoneModal()?.total).toBe(3);
-    expect(state.zoneModal()?.drawOrderLabels).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
+    expect(state.zoneModal()?.drawOrderLabels).toEqual(['Draw 1', 'Draw 2', 'Draw 3']);
   });
 
   it('filters a fixed revealed library locally without another zone request', () => {

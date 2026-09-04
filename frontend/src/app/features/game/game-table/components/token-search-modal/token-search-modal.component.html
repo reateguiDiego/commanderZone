@@ -1,7 +1,7 @@
 <app-modal
   [open]="open"
   [title]="modalTitle()"
-  secondaryLabel="common.modal.close"
+  secondaryLabel="shared.text.close"
   [showPrimary]="false"
   [showCloseButton]="true"
   [lockBodyScroll]="false"
@@ -15,7 +15,7 @@
       <input
         type="search"
         name="gameplayCardSearch"
-        [placeholder]="searchPlaceholder()"
+        [placeholder]="searchPlaceholder() | runtimeTranslate"
         autocomplete="off"
         [disabled]="pending"
         [ngModel]="query()"
@@ -31,7 +31,8 @@
       } @else if (error(); as message) {
         <span class="error">{{ message }}</span>
       } @else if (displayCards().length > 0) {
-        <span>{{ resultsLabel() }}</span>
+        @let resultCopy = resultsLabel();
+        <span>{{ resultCopy.key | runtimeTranslate: resultCopy.params }}</span>
       }
     </div>
 
@@ -46,7 +47,7 @@
           <div
             class="token-add-controls"
             [class.token-add-controls-single]="kind !== 'token'"
-            [attr.aria-label]="kind === 'token' ? ('game.tokenSearchModal.tokenCreationControls' | runtimeTranslate) : 'gameplay card add controls'"
+            [attr.aria-label]="kind === 'token' ? ('game.tokenSearchModal.tokenCreationControls' | runtimeTranslate) : ('common.ui.gameplayCardAddControls' | runtimeTranslate)"
           >
             @if (kind === 'token') {
               <app-game-x-quantity-stepper
@@ -54,7 +55,7 @@
                 [min]="1"
                 [max]="20"
                 [disabled]="pending"
-                [ariaLabel]="'token quantity for ' + card.name"
+                [ariaLabel]="'common.ui.tokenQuantityFor' | runtimeTranslate: { card: card.name }"
                 (valueChanged)="onQuantityInput($event)"
               />
             }
@@ -62,7 +63,7 @@
               class="token-add-button"
               type="button"
               [disabled]="pending"
-              [attr.aria-label]="addButtonLabel(card)"
+              [attr.aria-label]="addButtonLabel(card) | runtimeTranslate"
               (click)="selectCard(card)"
             >
               <lucide-icon name="plus" size="22" aria-hidden="true" />
@@ -71,7 +72,7 @@
           <span class="token-card-copy">
             <strong>{{ card.name }}</strong>
             @if (sourceLabel(card); as source) {
-              <small>{{ source }}</small>
+              <small>{{ source | runtimeTranslate }}</small>
             } @else if (card.typeLine) {
               <small>{{ card.typeLine }}</small>
             }
@@ -79,7 +80,7 @@
         </article>
       } @empty {
         <p class="empty-state">
-          {{ emptyStateLabel() }}
+          {{ emptyStateLabel() | runtimeTranslate }}
         </p>
       }
     </div>

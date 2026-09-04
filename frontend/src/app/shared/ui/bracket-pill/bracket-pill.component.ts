@@ -78,8 +78,8 @@ export class BracketPillComponent {
       {
         labelKey: 'bracket.signals.massLandDenial',
         value: estimate.officialSignals.massLandDenial.detected
-          ? 'bracket.signals.yes'
-          : 'bracket.signals.no',
+          ? 'shared.text.yesLabel'
+          : 'shared.text.noLabel',
       },
       {
         labelKey: 'bracket.signals.extraTurns',
@@ -90,7 +90,7 @@ export class BracketPillComponent {
         value: String(estimate.officialSignals.twoCardCombos.count),
       },
       {
-        labelKey: 'bracket.signals.nonLandTutors',
+        labelKey: 'shared.text.tutors',
         value: String(estimate.officialSignals.nonLandTutors.count),
       },
     ];

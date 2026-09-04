@@ -85,7 +85,7 @@ export class AddCardToDeckModalComponent {
   });
   readonly addToDeckSectionOptions = computed(() => this.deckSectionOptions(this.resolvedCard()));
   readonly deckSelectOptions = computed<readonly FormatSelectOption[]>(() => [
-    { id: '', labelKey: 'deckBuilder.cards.cardSearch.addToDeck.selectDeck', disabled: true },
+    { id: '', labelKey: 'shared.text.selectADeck', disabled: true },
     ...this.decks().map((deck) => ({ id: deck.id, name: deck.name })),
   ]);
   readonly deckSectionSelectOptions = computed<readonly FormatSelectOption[]>(() => [
@@ -248,12 +248,12 @@ export class AddCardToDeckModalComponent {
   private deckSectionOptions(card: Card | null): DeckSectionOption[] {
     const options: DeckSectionOption[] = [
       { id: 'main', labelKey: 'deckBuilder.cards.cardSearch.addToDeck.sectionMain' },
-      { id: 'sideboard', labelKey: 'deckBuilder.cards.cardSearch.addToDeck.sectionSideboard' },
-      { id: 'maybeboard', labelKey: 'deckBuilder.cards.cardSearch.addToDeck.sectionConsidering' },
+      { id: 'sideboard', labelKey: 'shared.text.sideboard' },
+      { id: 'maybeboard', labelKey: 'shared.text.considering' },
     ];
 
     if (card && card.commanderLegal && isCommanderCandidate(card)) {
-      options.splice(1, 0, { id: 'commander', labelKey: 'deckBuilder.cards.cardSearch.addToDeck.sectionCommander' });
+      options.splice(1, 0, { id: 'commander', labelKey: 'shared.text.commander' });
     }
 
     return options;

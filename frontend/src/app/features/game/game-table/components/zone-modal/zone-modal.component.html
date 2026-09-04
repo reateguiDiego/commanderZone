@@ -4,7 +4,7 @@
   <div class="zone-modal" data-testid="zone-modal" [class.has-zone-filters]="currentModal.showFilters" (click)="stopClick($event)">
     <header class="zone-modal-header">
       <div class="zone-title-block">
-        <span class="zone-eyebrow">{{ currentModal.total }} cards</span>
+        <span class="zone-eyebrow">{{ 'shared.text.countCards' | runtimeTranslate: { count: currentModal.total } }}</span>
         <h2>{{ currentModal.title }}</h2>
       </div>
       <button class="zone-modal-close" type="button" czButton="icon" czButtonSize="sm" data-testid="zone-modal-close" [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate" (click)="close.emit()">
@@ -21,8 +21,8 @@
           (valueChange)="updateType($event)"
         />
         <label class="zone-search">
-          <span>{{ 'game.zoneModal.search' | runtimeTranslate }}</span>
-          <input [placeholder]="'game.zoneModal.searchByName' | runtimeTranslate" [ngModel]="currentModal.search" (ngModelChange)="updateSearch($event)" />
+          <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
+          <input [placeholder]="'shared.text.searchByName' | runtimeTranslate" [ngModel]="currentModal.search" (ngModelChange)="updateSearch($event)" />
         </label>
       </div>
     }
@@ -36,7 +36,7 @@
         [allowSelection]="!currentModal.allowReorder"
         [orderLabels]="currentModal.drawOrderLabels"
         [cardImage]="cardImage()"
-        emptyLabel="I'm empty now. You can close me if you want, and only if you want. 🙂"
+        emptyLabel="common.ui.emptyZone"
         (cardSelected)="cardSelected.emit($event)"
         (cardsReordered)="cardsReordered.emit($event)"
         (cardMenuOpened)="cardMenuOpened.emit($event)"

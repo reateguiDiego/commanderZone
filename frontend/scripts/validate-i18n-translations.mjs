@@ -4,8 +4,26 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(scriptDir, '..');
+const appRoot = join(frontendRoot, 'src', 'app');
 const i18nRoot = join(frontendRoot, 'src', 'assets', 'i18n');
-const localeConfigPath = join(frontendRoot, 'src', 'app', 'core', 'localization', 'locale-config.ts');
+const localeConfigPath = join(
+  frontendRoot,
+  'src',
+  'app',
+  'core',
+  'localization',
+  'locale-config.ts',
+);
+const backendAppRoot = resolve(frontendRoot, '..', 'backend', 'src');
+const gameRuntimeRoot = resolve(frontendRoot, '..', 'game-runtime');
+const catalogReferenceLocale = 'en';
+
+const staticCopyDirectories = [
+  'src/app/features/legal',
+  'src/app/features/not-found',
+  'src/app/features/seo-landings',
+  'src/app/seo-landings',
+];
 
 const errors = [];
 
@@ -44,15 +62,18 @@ function readLocaleConfig() {
   }
 
   const localeConfig = readUtf8(localeConfigPath);
-  const supportedLocalesMatch = localeConfig.match(/SUPPORTED_LOCALES\s*=\s*\[([\s\S]*?)\]\s*as const/);
+  const supportedLocalesMatch = localeConfig.match(
+    /SUPPORTED_LOCALES\s*=\s*\[([\s\S]*?)\]\s*as const/,
+  );
   const configuredLocales = supportedLocalesMatch
     ? [...supportedLocalesMatch[1].matchAll(/code:\s*'([^']+)'/g)].map((match) => match[1])
     : [];
   const defaultIndexMatch = localeConfig.match(/DEFAULT_LOCALE\s*=\s*SUPPORTED_LOCALES\[(\d+)\]/);
   const defaultLiteralMatch = localeConfig.match(/DEFAULT_LOCALE(?:_CODE)?\s*=\s*['"]([^'"]+)['"]/);
-  const baseLocale = defaultLiteralMatch?.[1]
-    ?? (defaultIndexMatch ? configuredLocales[Number(defaultIndexMatch[1])] : undefined)
-    ?? configuredLocales[0];
+  const baseLocale =
+    defaultLiteralMatch?.[1] ??
+    (defaultIndexMatch ? configuredLocales[Number(defaultIndexMatch[1])] : undefined) ??
+    configuredLocales[0];
 
   return { configuredLocales, baseLocale };
 }
@@ -66,6 +87,146 @@ function listLocaleFiles() {
   return readdirSync(i18nRoot)
     .filter((file) => extname(file) === '.json')
     .sort();
+}
+
+function walkFiles(dir, extension, out = []) {
+  if (!existsSync(dir)) {
+    return out;
+  }
+
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    const stat = statSync(path);
+
+    if (stat.isDirectory()) {
+      walkFiles(path, extension, out);
+      continue;
+    }
+
+    if (extname(path) === extension) {
+      out.push(path);
+    }
+  }
+
+  return out;
+}
+
+function isStaticCopyFile(path) {
+  const normalized = normalizePath(path);
+
+  return staticCopyDirectories.some((directory) => normalized.startsWith(directory));
+}
+
+function isTranslationKey(value) {
+  return /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9-]+)+$/.test(value);
+}
+
+function isAllowedLiteral(value) {
+  return /^(?:https?:\/\/\S+|mailto:\S+|D\d+|-|x|s)$/i.test(value);
+}
+
+function isKnownNonCopyLiteral(value) {
+  return /^(?:CommanderZone|MTG|UNKNOWN_ERROR)$/i.test(value);
+}
+
+function validateExpressionLiterals(location, expression) {
+  const stringLiteralPattern = /'(?:\\.|[^'\\\r\n])*'|"(?:\\.|[^"\\\r\n])*"/g;
+
+  for (const match of expression.matchAll(stringLiteralPattern)) {
+    const value = match[0].slice(1, -1).trim();
+
+    if (
+      value === '' ||
+      !/[\p{L}]/u.test(value) ||
+      isTranslationKey(value) ||
+      isAllowedLiteral(value) ||
+      isKnownNonCopyLiteral(value)
+    ) {
+      continue;
+    }
+
+    const isKnownUiTerm =
+      /^(?:add|cancel|close|confirm|copied|delete|deleting|leave|leaving|loading|offline|online|remove|save|saving|send|yes|no)$/i.test(
+        value,
+      );
+    if (!/\s/u.test(value) && !/^[A-ZÁÀÄÂÇÉÈËÊÍÌÏÎÑÓÒÖÔÚÙÜÛ]/u.test(value) && !isKnownUiTerm) {
+      continue;
+    }
+
+    fail(`${location} contains hardcoded runtime UI copy in an Angular expression: ${value}`);
+  }
+}
+
+function validateRuntimeTemplateCopy() {
+  const attributePattern =
+    /\b(?:actionLabel|alt|aria-label|ariaLabel|cancelLabel|confirmLabel|data-label|fallback|label|menuLabel|message|placeholder|primaryLabel|secondaryLabel|text|title|tooltip)\s*=\s*(["'])(.*?)\1/g;
+  const boundAttributePattern =
+    /\[(?:actionLabel|alt|aria-label|ariaLabel|cancelLabel|confirmLabel|data-label|fallback|label|menuLabel|message|placeholder|primaryLabel|secondaryLabel|text|title|tooltip)\]\s*=\s*(["'])(.*?)\1/g;
+  const textNodePattern = />([^<]+)</g;
+  const interpolationPattern = /\{\{([\s\S]*?)\}\}/g;
+
+  for (const path of walkFiles(appRoot, '.html')) {
+    if (isStaticCopyFile(path)) {
+      continue;
+    }
+
+    const text = readFileSync(path, 'utf8');
+    const location = normalizePath(path);
+
+    for (const match of text.matchAll(attributePattern)) {
+      const value = match[2].trim();
+      if (value === '' || isTranslationKey(value) || isAllowedLiteral(value)) {
+        continue;
+      }
+
+      fail(`${location} contains hardcoded runtime UI attribute copy: ${value}`);
+    }
+
+    for (const match of text.matchAll(boundAttributePattern)) {
+      validateExpressionLiterals(location, match[2]);
+    }
+
+    for (const match of text.matchAll(interpolationPattern)) {
+      validateExpressionLiterals(location, match[1]);
+    }
+
+    for (const match of text.matchAll(textNodePattern)) {
+      const value = match[1]
+        .replace(/\{\{[\s\S]*?\}\}/g, '')
+        .replace(/&[A-Za-z]+;/g, '')
+        .trim();
+
+      if (
+        value === '' ||
+        !/[\p{L}]/u.test(value) ||
+        isAllowedLiteral(value) ||
+        /[{}@=()[\]]/.test(value)
+      ) {
+        continue;
+      }
+
+      fail(`${location} contains hardcoded runtime UI text: ${value}`);
+    }
+  }
+}
+
+function validateRuntimeErrorMessages() {
+  const errorSetterPattern =
+    /(?:\b(?:this|self|context|core)(?:\.[A-Za-z_$][\w$]*)*\.error\.set)\(\s*(?:'((?:\\.|[^'\\\r\n])*)'|"((?:\\.|[^"\\\r\n])*)")\s*\)/g;
+
+  for (const path of walkFiles(appRoot, '.ts')) {
+    if (path.endsWith('.spec.ts')) {
+      continue;
+    }
+
+    const text = readFileSync(path, 'utf8');
+    for (const match of text.matchAll(errorSetterPattern)) {
+      const value = match[1] ?? match[2];
+      if (!isTranslationKey(value)) {
+        fail(`${normalizePath(path)} sends hardcoded UI copy to an error state: ${value}`);
+      }
+    }
+  }
 }
 
 function flattenValues(value, prefix = '', out = {}) {
@@ -150,12 +311,66 @@ function validateTranslationValue(locale, key, value) {
   }
 }
 
+function validateCatalogUsageAndSharedCopy(translationsByLocale) {
+  const referenceTranslations = translationsByLocale.get(catalogReferenceLocale);
+  if (!referenceTranslations) {
+    fail(`Missing ${catalogReferenceLocale}.json catalog reference.`);
+    return;
+  }
+
+  const referenceValues = flattenValues(referenceTranslations);
+  const usageSources = [
+    ...walkFiles(appRoot, '.ts').filter((path) => !path.endsWith('.spec.ts')),
+    ...walkFiles(appRoot, '.html'),
+    ...walkFiles(backendAppRoot, '.php'),
+    ...walkFiles(gameRuntimeRoot, '.ts'),
+  ]
+    .map((path) => readFileSync(path, 'utf8'))
+    .join('\n');
+  const valuesToKeys = new Map();
+  const sharedTextReferences = new Set(
+    [...usageSources.matchAll(/['"](shared\.text\.[A-Za-z0-9.-]+)['"]/g)].map((match) => match[1]),
+  );
+
+  for (const key of sharedTextReferences) {
+    if (!Object.hasOwn(referenceValues, key)) {
+      fail(
+        `${catalogReferenceLocale}.json is missing shared text referenced by the application: ${key}.`,
+      );
+    }
+  }
+
+  for (const [key, value] of Object.entries(referenceValues)) {
+    if (!usageSources.includes(key)) {
+      fail(
+        `${catalogReferenceLocale}.json:${key} is not referenced by the application or game event contracts.`,
+      );
+    }
+
+    const matchingKeys = valuesToKeys.get(value) ?? [];
+    matchingKeys.push(key);
+    valuesToKeys.set(value, matchingKeys);
+  }
+
+  for (const [value, keys] of valuesToKeys) {
+    if (keys.length > 1) {
+      fail(
+        `${catalogReferenceLocale}.json repeats the value ${JSON.stringify(value)} in ${keys.length} keys. ` +
+          `Move it to shared.text and reuse that key: ${keys.join(', ')}`,
+      );
+    }
+  }
+}
+
 const { configuredLocales, baseLocale: configuredBaseLocale } = readLocaleConfig();
 const localeFiles = listLocaleFiles();
 const localeCodes = localeFiles.map((file) => file.slice(0, -'.json'.length));
-const baseLocale = configuredBaseLocale && localeCodes.includes(configuredBaseLocale)
-  ? configuredBaseLocale
-  : (localeCodes.includes('en') ? 'en' : localeCodes[0]);
+const baseLocale =
+  configuredBaseLocale && localeCodes.includes(configuredBaseLocale)
+    ? configuredBaseLocale
+    : localeCodes.includes('en')
+      ? 'en'
+      : localeCodes[0];
 
 if (!baseLocale) {
   fail('No locale JSON files found.');
@@ -194,11 +409,15 @@ for (const locale of localeCodes) {
   const extra = keys.filter((key) => !baseKeySet.has(key));
 
   if (missing.length > 0) {
-    fail(`${locale}.json is missing ${missing.length} key(s) from ${baseLocale}.json: ${missing.join(', ')}`);
+    fail(
+      `${locale}.json is missing ${missing.length} key(s) from ${baseLocale}.json: ${missing.join(', ')}`,
+    );
   }
 
   if (extra.length > 0) {
-    fail(`${locale}.json has ${extra.length} extra key(s) not present in ${baseLocale}.json: ${extra.join(', ')}`);
+    fail(
+      `${locale}.json has ${extra.length} extra key(s) not present in ${baseLocale}.json: ${extra.join(', ')}`,
+    );
   }
 
   for (const key of keys) {
@@ -213,12 +432,16 @@ for (const locale of localeCodes) {
 
     if (basePlaceholders.join('|') !== localePlaceholders.join('|')) {
       fail(
-        `${locale}.json:${key} placeholders differ from ${baseLocale}.json. `
-        + `Expected [${basePlaceholders.join(', ') || 'none'}], got [${localePlaceholders.join(', ') || 'none'}].`,
+        `${locale}.json:${key} placeholders differ from ${baseLocale}.json. ` +
+          `Expected [${basePlaceholders.join(', ') || 'none'}], got [${localePlaceholders.join(', ') || 'none'}].`,
       );
     }
   }
 }
+
+validateCatalogUsageAndSharedCopy(translationsByLocale);
+validateRuntimeTemplateCopy();
+validateRuntimeErrorMessages();
 
 if (errors.length > 0) {
   console.error('i18n translation validation failed:');
@@ -228,4 +451,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`i18n translation validation passed (${localeCodes.length} locales, base ${baseLocale}, ${baseKeys.length} keys).`);
+console.log(
+  `i18n translation validation passed (${localeCodes.length} locales, base ${baseLocale}, ${baseKeys.length} keys).`,
+);

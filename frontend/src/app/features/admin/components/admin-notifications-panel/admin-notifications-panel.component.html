@@ -1,50 +1,27 @@
 <section class="admin-notifications-panel" aria-labelledby="admin-notifications-title">
   <header class="admin-notifications-header">
-    <h2 id="admin-notifications-title">Notifications</h2>
+    <h2 id="admin-notifications-title">{{ 'shared.text.notifications' | runtimeTranslate }}</h2>
   </header>
 
   <form class="admin-notifications-form" [formGroup]="form" novalidate (ngSubmit)="submit()">
-    <label class="field recipient-field">
-      <span>Recipient</span>
-      <input
-        type="text"
-        name="recipient"
-        autocomplete="off"
-        role="combobox"
-        aria-controls="admin-notifications-recipient-options"
-        [attr.aria-expanded]="recipientsOpen()"
-        [formControl]="recipientControl"
-        (focus)="openRecipients()"
-        (blur)="closeRecipients()"
-        (input)="updateRecipientQuery($any($event.target).value)"
-      />
-
-      @if (recipientsOpen()) {
-        <div id="admin-notifications-recipient-options" class="recipient-options" role="listbox">
-          @for (option of filteredRecipients(); track option.id) {
-            <button
-              type="button"
-              role="option"
-              class="recipient-option"
-              [class.is-selected]="selectedRecipient().id === option.id"
-              (mousedown)="$event.preventDefault()"
-              (click)="selectRecipient(option)"
-            >
-              {{ option.name }}
-            </button>
-          } @empty {
-            <span class="recipient-empty">No users found.</span>
-          }
-        </div>
-      }
-    </label>
+    <app-format-select
+      class="recipient-field"
+      labelKey="admin.notifications.recipient"
+      name="recipient"
+      [options]="recipientOptions()"
+      [value]="selectedRecipientId()"
+      [disabled]="loadingUsers()"
+      [searchable]="true"
+      [searchPlaceholder]="'shared.text.search' | runtimeTranslate"
+      (valueChange)="selectRecipient($event)"
+    />
 
     <label class="field">
-      <span>Subject</span>
+      <span>{{ 'shared.text.subject' | runtimeTranslate }}</span>
       <input type="text" formControlName="subject" autocomplete="off" maxlength="30" />
       <div class="field-meta">
         @if (fieldInvalid('subject')) {
-          <span class="field-error">Subject is required.</span>
+          <span class="field-error">{{ 'admin.notifications.subjectRequired' | runtimeTranslate }}</span>
         } @else {
           <span></span>
         }
@@ -53,30 +30,30 @@
     </label>
 
     <div class="field message-field">
-      <label for="admin-notifications-body">Message</label>
-      <div class="message-tools" aria-label="Message formatting tools">
+      <label for="admin-notifications-body">{{ 'shared.text.message' | runtimeTranslate }}</label>
+      <div class="message-tools" [attr.aria-label]="'admin.notifications.formattingTools' | runtimeTranslate">
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('heading')">
-          Title
+          {{ 'shared.text.title' | runtimeTranslate }}
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('list')">
-          List
+          {{ 'shared.text.list' | runtimeTranslate }}
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('link')">
-          Link
+          {{ 'admin.notifications.tools.link' | runtimeTranslate }}
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('separator')">
-          Separator
+          {{ 'admin.notifications.tools.separator' | runtimeTranslate }}
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('image')">
-          Image URL
+          {{ 'admin.notifications.tools.imageUrl' | runtimeTranslate }}
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" (click)="openImageUpload()">
           <lucide-icon name="upload" size="15" aria-hidden="true" />
-          Upload image
+          {{ 'shared.text.uploadImage' | runtimeTranslate }}
         </button>
       </div>
       <input #imageUploadInput class="image-upload-input" type="file" accept="image/*" (change)="uploadImage($event)" />
-      <p class="message-format-help">Enter adds a new line. An empty line creates a paragraph.</p>
+      <p class="message-format-help">{{ 'admin.notifications.formatHelp' | runtimeTranslate }}</p>
       <textarea
         #bodyTextarea
         id="admin-notifications-body"
@@ -86,7 +63,7 @@
       ></textarea>
       <div class="field-meta">
         @if (fieldInvalid('body')) {
-          <span class="field-error">Message is required.</span>
+          <span class="field-error">{{ 'admin.notifications.messageRequired' | runtimeTranslate }}</span>
         } @else {
           <span></span>
         }
@@ -94,13 +71,13 @@
       </div>
     </div>
 
-    <p class="message-overflow-warning">Todo lo que quede fuera del recuadro de preview sera scroll horizontal para el usuario... y no mola.</p>
+    <p class="message-overflow-warning">{{ 'admin.notifications.overflowWarning' | runtimeTranslate }}</p>
     <section class="message-preview" aria-labelledby="admin-notifications-preview-title">
       <header>
-        <span id="admin-notifications-preview-title">Preview</span>
+        <span id="admin-notifications-preview-title">{{ 'admin.notifications.preview' | runtimeTranslate }}</span>
       </header>
       @if (bodyPreview().trim() === '') {
-        <p class="message-preview-empty">Your message preview will appear here.</p>
+        <p class="message-preview-empty">{{ 'admin.notifications.previewEmpty' | runtimeTranslate }}</p>
       } @else {
         <app-message-body [body]="bodyPreview()" />
       }
@@ -114,8 +91,19 @@
       <p class="notice success">{{ message }}</p>
     }
 
+    <app-format-select
+      class="delivery-field"
+      labelKey="admin.notifications.delivery.label"
+      name="delivery"
+      [options]="deliveryOptions"
+      [value]="delivery()"
+      [disabled]="sending()"
+      (valueChange)="selectDelivery($event)"
+    />
+    <p class="delivery-info" role="status">{{ deliveryDescriptionKey() | runtimeTranslate }}</p>
+
     <button type="submit" czButton="primary" [disabled]="!canSubmit()">
-      {{ sending() ? 'Sending...' : 'Send' }}
+      {{ (sending() ? 'shared.text.sending' : 'admin.notifications.send') | runtimeTranslate }}
     </button>
   </form>
 </section>

@@ -33,7 +33,7 @@
       @if (deckLabel()(currentPlayer); as label) {
         <small>{{ label }}</small>
       }
-      <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
+      <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" [fallback]="'shared.text.colorless' | runtimeTranslate" size="small" />
     </div>
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
@@ -43,7 +43,7 @@
           type="button"
           class="life-step-button life-step-decrease"
           data-testid="life-decrease"
-          [attr.aria-label]="'Remove 1 life from ' + currentPlayer.state.user.displayName"
+          [attr.aria-label]="'common.ui.removeOneLifeFrom' | runtimeTranslate: { player: currentPlayer.state.user.displayName }"
           (click)="changeLife($event, -1)"
         >
           <lucide-icon name="minus" size="16" aria-hidden="true" />
@@ -61,7 +61,7 @@
         [attr.data-player-id]="currentPlayer.id"
         (click)="changeLife($event, 1)"
         (contextmenu)="changeLife($event, -1)"
-        [attr.aria-label]="'game.playerSummaryPanel.lifeTotal' | runtimeTranslate"
+        [attr.aria-label]="'shared.text.lifeTotal' | runtimeTranslate"
       >
         {{ displayedLife() }}
       </button>
@@ -70,7 +70,7 @@
           type="button"
           class="life-step-button life-step-increase"
           data-testid="life-increase"
-          [attr.aria-label]="'Add 1 life to ' + currentPlayer.state.user.displayName"
+          [attr.aria-label]="'common.ui.addOneLifeTo' | runtimeTranslate: { player: currentPlayer.state.user.displayName }"
           (click)="changeLife($event, 1)"
         >
           <lucide-icon name="plus" size="16" aria-hidden="true" />
@@ -95,7 +95,7 @@
     <app-extra-actions-menu
       class="player-extra-actions"
       data-testid="player-extra-menu-host"
-      label="game.playerSummaryPanel.extras"
+      label="shared.text.extras"
       ariaLabel="game.playerSummaryPanel.openExtraPlayerCounters"
       menuLabel="game.playerSummaryPanel.extraPlayerCounters"
       icon="chevron-down"
@@ -108,7 +108,7 @@
         @if (commanderDamageRows().length > 0) {
           <div class="counter-menu-section commander-damage-section">
             <div class="counter-menu-heading">
-              <span>{{ 'game.playerSummaryPanel.commanderDamage' | runtimeTranslate }}</span>
+              <span>{{ 'shared.text.commanderDamage' | runtimeTranslate }}</span>
             </div>
             @for (row of commanderDamageRows(); track row.sourcePlayerId) {
               <article class="counter-row commander-damage-row">
@@ -121,7 +121,7 @@
                       <small class="commander-damage-name">{{ commander.name }}</small>
                       @if (canEditCounters()) {
                         @let feedback = commanderDamageFeedback(commander.commanderInstanceId);
-                        <span class="counter-stepper commander-damage-stepper" aria-label="Commander damage from {{ row.username }} - {{ commander.name }}">
+                        <span class="counter-stepper commander-damage-stepper" [attr.aria-label]="'common.ui.commanderDamageFrom' | runtimeTranslate: { player: row.username, commander: commander.name }">
                           <span class="counter-value-shell">
                             <span
                               class="counter-value"
@@ -148,7 +148,7 @@
                           <button
                             type="button"
                             class="counter-step-button"
-                            aria-label="Remove commander damage from {{ row.username }} - {{ commander.name }}"
+                            [attr.aria-label]="'common.ui.removeCommanderDamageFrom' | runtimeTranslate: { player: row.username, commander: commander.name }"
                             (click)="changeCommanderDamage($event, row.sourcePlayerId, commander.commanderInstanceId, -1)"
                           >
                             <span aria-hidden="true">-</span>
@@ -156,14 +156,14 @@
                           <button
                             type="button"
                             class="counter-step-button"
-                            aria-label="Add commander damage from {{ row.username }} - {{ commander.name }}"
+                            [attr.aria-label]="'common.ui.addCommanderDamageFrom' | runtimeTranslate: { player: row.username, commander: commander.name }"
                             (click)="changeCommanderDamage($event, row.sourcePlayerId, commander.commanderInstanceId, 1)"
                           >
                             <span aria-hidden="true">+</span>
                           </button>
                         </span>
                       } @else {
-                        <span class="counter-readonly-value" aria-label="Commander damage from {{ row.username }} - {{ commander.name }}">
+                        <span class="counter-readonly-value" [attr.aria-label]="'common.ui.commanderDamageFrom' | runtimeTranslate: { player: row.username, commander: commander.name }">
                           {{ commander.damage }}
                         </span>
                       }
@@ -211,7 +211,7 @@
                   </span>
                   @if (canEditCounters()) {
                     @let feedback = playerCounterFeedback(tracker.key);
-                    <span class="counter-stepper" aria-label="{{ tracker.label | runtimeTranslate }} counters">
+                    <span class="counter-stepper" [attr.aria-label]="'common.ui.counters' | runtimeTranslate: { counter: (tracker.label | runtimeTranslate) }">
                       <span class="counter-value-shell">
                         <span
                           class="counter-value"
@@ -238,7 +238,7 @@
                       <button
                         type="button"
                         class="counter-step-button"
-                        aria-label="Remove {{ tracker.label | runtimeTranslate }} counter"
+                        [attr.aria-label]="'common.ui.removeCounter' | runtimeTranslate: { counter: (tracker.label | runtimeTranslate) }"
                         (click)="changePlayerCounter($event, tracker.key, -1)"
                       >
                         <span aria-hidden="true">-</span>
@@ -246,14 +246,14 @@
                       <button
                         type="button"
                         class="counter-step-button"
-                        aria-label="Add {{ tracker.label | runtimeTranslate }} counter"
+                        [attr.aria-label]="'common.ui.addCounter' | runtimeTranslate: { counter: (tracker.label | runtimeTranslate) }"
                         (click)="changePlayerCounter($event, tracker.key, 1)"
                       >
                         <span aria-hidden="true">+</span>
                       </button>
                     </span>
                   } @else {
-                    <span class="counter-readonly-value" aria-label="{{ tracker.label | runtimeTranslate }} counters">
+                    <span class="counter-readonly-value" [attr.aria-label]="'common.ui.counters' | runtimeTranslate: { counter: (tracker.label | runtimeTranslate) }">
                       {{ counterValue(tracker.key) }}
                     </span>
                   }

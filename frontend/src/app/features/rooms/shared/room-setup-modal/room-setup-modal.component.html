@@ -4,7 +4,7 @@
   [message]="message()"
   [size]="mode() === 'edit' ? 'compact' : 'default'"
   [primaryLabel]="mode() === 'create' ? 'common.actions.create' : 'common.actions.done'"
-  secondaryLabel="common.modal.cancel"
+  secondaryLabel="shared.text.cancel"
   [showPrimary]="!(mode() === 'edit' && readOnly())"
   [showSecondary]="mode() === 'create'"
   [primaryDisabled]="mode() === 'create' && (actionsLocked() || createRoomForm.invalid)"
@@ -20,7 +20,7 @@
         <div class="create-fields">
           <label class="room-name-field">
             <span class="setup-field-label">
-              {{ 'rooms.roomSetupModal.roomName' | runtimeTranslate }}
+              {{ 'shared.text.roomName' | runtimeTranslate }}
               <span class="required-mark" aria-hidden="true">*</span>
             </span>
             <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.exampleRoomName' | runtimeTranslate" />
@@ -30,7 +30,7 @@
 
         <app-game-setup-life-control
           class="modal-setup-field"
-          label="rooms.setup.gameSetupLifeControl.totalLife"
+          label="shared.text.lifeTotal"
           summary=""
           [value]="createStartingLife()"
           [step]="startingLifeStep()"
@@ -53,7 +53,7 @@
 
         <div class="setup-control timer-control modal-setup-field">
           <div class="control-copy">
-            <span class="eyebrow">{{ 'rooms.roomSetupModal.timer' | runtimeTranslate }}</span>
+            <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
             <strong>{{ createTimerSummary() | runtimeTranslate }}</strong>
           </div>
           <app-table-assistant-timer-settings
@@ -72,7 +72,7 @@
         <div class="mulligan-select-field">
           <app-format-select
             name="mulliganRule"
-            labelKey="rooms.roomSetupControls.mulligan"
+            labelKey="shared.text.mulligan"
             [formats]="mulliganSelectOptions()"
             [value]="createMulliganRule()"
             [disabled]="actionsLocked()"
@@ -94,8 +94,8 @@
       <div class="setup-modal-row">
         <div class="mulligan-toggle-field">
           <app-toggle
-            [label]="'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate"
-            [description]="(createFirstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+            [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
+            [description]="(createFirstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
             [checked]="createFirstMulliganFree()"
             [disabled]="actionsLocked()"
             (checkedChange)="changeCreateFirstMulliganFree($event)"

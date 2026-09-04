@@ -19,7 +19,7 @@ export function gameTableErrorMessage(error: unknown): string {
   const haystack = `${code} ${message} ${fallback}`.toLowerCase();
 
   if (code === 'BASE_VERSION_MISMATCH' || haystack.includes('base_version_mismatch')) {
-    return 'Sincronizando mesa... reintenta.';
+    return 'game.gameTable.reloadRequiredMessage';
   }
 
   if (
@@ -29,7 +29,7 @@ export function gameTableErrorMessage(error: unknown): string {
     || haystack.includes('temporarily blocked after repeated command rejections')
     || haystack.includes('temporarily limited to avoid saturation')
   ) {
-    return 'Accion temporalmente limitada para evitar saturacion.';
+    return 'errors.runtime.no-se-pudo-aplicar-la-accion';
   }
 
   if (
@@ -39,12 +39,12 @@ export function gameTableErrorMessage(error: unknown): string {
     || haystack.includes('not valid in the current state')
     || haystack.includes('action is not valid')
   ) {
-    return 'La accion ya no es valida en el estado actual.';
+    return 'errors.runtime.no-se-pudo-aplicar-la-accion';
   }
 
   if (haystack.includes('invalid payload field: disconnectvote')) {
-    return 'La votacion ya no esta disponible porque el jugador se ha reconectado.';
+    return 'game.gameDisconnectVoteModal.targetPlayerBackOnline';
   }
 
-  return message || fallback || 'Action failed.';
+  return message || fallback || 'errors.runtime.no-se-pudo-aplicar-la-accion';
 }

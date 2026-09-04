@@ -5,7 +5,6 @@ import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameLogEntryView, GameTableChatLogState } from './game-table-chat-log.state';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
-import { runtimeTranslationFallback } from '../../../../../core/localization/runtime-translate.pipe';
 
 @Injectable()
 export class GameTableChatStore {
@@ -70,7 +69,7 @@ export class GameTableChatStore {
     }
 
     return [
-      { playerId: null, label: runtimeTranslationFallback('game.chat.allPlayers') },
+      { playerId: null, labelKey: 'game.chat.allPlayers' },
       ...opponents,
     ];
   }

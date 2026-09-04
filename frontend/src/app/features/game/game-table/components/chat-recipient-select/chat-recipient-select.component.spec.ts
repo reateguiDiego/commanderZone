@@ -30,7 +30,7 @@ async function renderComponent(): Promise<ComponentFixture<ChatRecipientSelectCo
 
   const fixture = TestBed.createComponent(ChatRecipientSelectComponent);
   fixture.componentRef.setInput('recipients', [
-    { playerId: null, label: 'All players' },
+    { playerId: null, labelKey: 'game.chat.allPlayers' },
     { playerId: 'player-2', label: 'Opponent' },
   ]);
   fixture.componentRef.setInput('selectedValue', 'all');

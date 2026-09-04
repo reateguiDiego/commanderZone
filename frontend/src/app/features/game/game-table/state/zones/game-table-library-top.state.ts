@@ -1,4 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Optional } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { runtimeTranslationFallback } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { GameTableLibraryActionsService } from '../../services/game-table-library-actions.service';
 import { GameTableZoneActionsService } from '../../services/game-table-zone-actions.service';
@@ -6,7 +8,6 @@ import { GameTableContextStore } from '../core/game-table-context.store';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTablePlayersStore } from '../players/game-table-players.store';
 import { GameTableZoneModalState } from './game-table-zone-modal.state';
-import { GameTableZonePilesState } from './game-table-zone-piles.state';
 
 @Injectable()
 export class GameTableLibraryTopState {
@@ -17,7 +18,7 @@ export class GameTableLibraryTopState {
     private readonly playersStore: GameTablePlayersStore,
     private readonly zoneActions: GameTableZoneActionsService,
     private readonly zoneModalState: GameTableZoneModalState,
-    private readonly zonePilesState: GameTableZonePilesState,
+    @Optional() private readonly translation: TranslateService | null = null,
   ) {}
 
   async viewTopLibrary(playerId: string, count: number): Promise<void> {
@@ -26,14 +27,14 @@ export class GameTableLibraryTopState {
 
     const cards = this.visibleLibraryCards(playerId).slice(0, sanitizedCount);
     if (cards.length === 0) {
-      this.core.error.set(`No cards in ${this.zonePilesState.zoneTitle('library').toLowerCase()}.`);
+      this.core.error.set('common.ui.emptyZone');
       return;
     }
 
     this.zoneActions.openFixedZone(
       playerId,
       'library',
-      `${this.playersStore.playerName(playerId)} top ${cards.length} library card${cards.length === 1 ? '' : 's'}`,
+      'game.numberAction.viewTopCards.title',
       cards,
       cards[0]?.instanceId ?? null,
       false,
@@ -58,7 +59,7 @@ export class GameTableLibraryTopState {
     this.zoneActions.openFixedZone(
       playerId,
       'library',
-      `${this.playersStore.playerName(playerId)} top ${cards.length} library card${cards.length === 1 ? '' : 's'}`,
+      'game.numberAction.viewTopCards.title',
       cards,
       cards[0]?.instanceId ?? null,
       false,
@@ -86,22 +87,20 @@ export class GameTableLibraryTopState {
   }
 
   drawOrderLabels(count: number): readonly string[] {
-    return Array.from({ length: count }, (_unused, index) => {
-      if (index === 0) {
-        return 'PROXIMO ROBO';
-      }
-      if (index === 1) {
-        return 'SEGUNDO ROBO';
-      }
-      if (index === 2) {
-        return 'TERCER ROBO';
-      }
+    const drawLabel = this.translateText('shared.text.draw');
 
-      return `ROBO ${index + 1}`;
-    });
+    return Array.from({ length: count }, (_unused, index) => `${drawLabel} ${index + 1}`);
   }
 
   private visibleLibraryCards(playerId: string): GameCardInstance[] {
     return this.core.snapshot()?.players[playerId]?.zones.library?.filter((card) => !card.hidden) ?? [];
+  }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation?.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
   }
 }

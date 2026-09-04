@@ -8,7 +8,7 @@
     [disabled]="updatingDeck() || deckLocked()"
     (ngModelChange)="selectNativeDeck($event)"
   >
-    <option value="" disabled>{{ 'rooms.waitingRoomDeckSelector.selectADeck' | runtimeTranslate }}</option>
+    <option value="" disabled>{{ 'shared.text.selectADeck' | runtimeTranslate }}</option>
     @if (showRandomDeckOption()) {
       <option [value]="randomDeckOptionValue">{{ 'rooms.waitingRoomDeckSelector.randomDeck' | runtimeTranslate }}</option>
     }
@@ -26,14 +26,14 @@
           </span>
           <span class="deck-option-status">
             @if (deck.invalid) {
-              <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'rooms.waitingRoomDeckSelector.invalidDeck' | runtimeTranslate" />
+              <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'shared.text.invalidDeck' | runtimeTranslate" />
             } @else {
               <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
             }
           </span>
         } @else {
           <span class="deck-option-main">
-            <span class="deck-option-name">{{ 'rooms.waitingRoomDeckSelector.selectADeck' | runtimeTranslate }}</span>
+            <span class="deck-option-name">{{ 'shared.text.selectADeck' | runtimeTranslate }}</span>
           </span>
         }
       </button>
@@ -69,7 +69,7 @@
               </span>
               <span class="deck-option-status">
                 @if (deck.invalid) {
-                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'rooms.waitingRoomDeckSelector.invalidDeck' | runtimeTranslate" />
+                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'shared.text.invalidDeck' | runtimeTranslate" />
                 } @else if (deck.validating) {
                   <span class="deck-validating">{{ 'rooms.waitingRoomDeckSelector.checking' | runtimeTranslate }}</span>
                 } @else {
@@ -82,7 +82,7 @@
       }
     </div>
 
-    <button class="random-deck-button" [class.roll-pending]="canRoll()" type="button" [title]="'rooms.waitingRoomDeckSelector.rollDice' | runtimeTranslate" [attr.aria-label]="'rooms.waitingRoomDeckSelector.rollDice' | runtimeTranslate" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
+    <button class="random-deck-button" [class.roll-pending]="canRoll()" type="button" [title]="'shared.text.rollDice' | runtimeTranslate" [attr.aria-label]="'shared.text.rollDice' | runtimeTranslate" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
       <img src="/assets/icons/chance/dice_20.png" alt="" />
     </button>
   </div>

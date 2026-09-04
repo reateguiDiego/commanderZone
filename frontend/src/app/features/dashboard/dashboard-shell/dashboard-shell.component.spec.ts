@@ -180,7 +180,6 @@ describe('DashboardShellComponent', () => {
     expect(adminLink).not.toBeNull();
     expect(adminLink?.textContent?.trim()).toBe('');
     expect(adminLink?.getAttribute('aria-label')).toBe('Admin');
-    expect(adminLink?.closest('app-tooltip')).not.toBeNull();
     expect(adminLink?.querySelector('lucide-icon[name="shield-check"]')).not.toBeNull();
 
     expect(adminLink?.classList).toContain('admin-action');

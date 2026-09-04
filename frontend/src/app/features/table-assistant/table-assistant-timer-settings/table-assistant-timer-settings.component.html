@@ -1,4 +1,4 @@
-<section class="timer-settings" [class.compact]="compact()" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.timer' | runtimeTranslate">
+<section class="timer-settings" [class.compact]="compact()" [attr.aria-label]="'shared.text.timer' | runtimeTranslate">
   <div class="segmented-control">
     @for (option of visibleTimerModes(); track option.mode) {
       <button type="button" [class.active]="timerMode() === option.mode" [attr.aria-pressed]="timerMode() === option.mode" [disabled]="disabled()" (click)="setTimerMode(option.mode)">

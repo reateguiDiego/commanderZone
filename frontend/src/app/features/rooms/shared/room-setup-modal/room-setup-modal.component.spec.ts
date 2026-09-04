@@ -59,4 +59,22 @@ describe('RoomSetupModalComponent', () => {
     expect(fixture.componentInstance.createFirstMulliganFree()).toBe(false);
     expect(button.getAttribute('aria-checked')).toBe('false');
   });
+
+  it('renders a localized description for every mulligan rule', () => {
+    const descriptions = {
+      LONDON: 'Draw 7 cards every time.',
+      VANCOUVER: 'Each effective mulligan draws one fewer card.',
+      PARIS: 'Each effective mulligan draws one fewer card.',
+      GENEROUS: 'Commander-friendly rule:',
+    } as const;
+
+    for (const [rule, description] of Object.entries(descriptions)) {
+      fixture.componentInstance.changeCreateMulliganRule(rule);
+      fixture.detectChanges();
+
+      const mulliganDescription = fixture.nativeElement.querySelector('.mulligan-description') as HTMLElement;
+      expect(mulliganDescription.textContent).toContain(description);
+      expect(mulliganDescription.textContent).not.toContain('shared.text.mulliganDescriptions');
+    }
+  });
 });

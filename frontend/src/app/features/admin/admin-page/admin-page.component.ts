@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { AdminNotificationsPanelComponent } from '../components/admin-notifications-panel/admin-notifications-panel.component';
 import { AdminReportsPanelComponent } from '../components/admin-reports-panel/admin-reports-panel.component';
@@ -20,6 +21,7 @@ interface AdminNavigationItem {
   selector: 'app-admin-page',
   imports: [
     LucideAngularModule,
+    RuntimeTranslatePipe,
     CzButtonDirective,
     AdminNotificationsPanelComponent,
     AdminReportsPanelComponent,
@@ -38,9 +40,9 @@ export class AdminPageComponent {
     return section === 'users' || section === 'reports';
   });
   readonly navigationItems: readonly AdminNavigationItem[] = [
-    { id: 'users', label: 'Users', icon: 'users' },
-    { id: 'reports', label: 'Reports', icon: 'flag' },
-    { id: 'notifications', label: 'Notifications', icon: 'bell' },
+    { id: 'users', label: 'shared.text.users', icon: 'users' },
+    { id: 'reports', label: 'shared.text.reports', icon: 'flag' },
+    { id: 'notifications', label: 'shared.text.notifications', icon: 'bell' },
   ];
 
   selectSection(sectionId: AdminSectionId): void {

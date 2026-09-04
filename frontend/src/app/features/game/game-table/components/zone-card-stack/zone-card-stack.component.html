@@ -21,8 +21,8 @@
     class="zone-card-stack-face-toggle"
     role="button"
     tabindex="-1"
-    [attr.aria-label]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
-    [title]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
+    [attr.aria-label]="'shared.text.lookAtOtherFace' | runtimeTranslate"
+    [title]="'shared.text.lookAtOtherFace' | runtimeTranslate"
     (pointerdown)="stopFaceTogglePointer($event)"
     (click)="toggleAlternateFace($event)"
   >
@@ -30,7 +30,7 @@
   </span>
 }
 @if (showRevealIndicator()) {
-  <span class="zone-card-stack-reveal-indicator library-top-revealed-indicator" aria-label="Revealed top library card">
+  <span class="zone-card-stack-reveal-indicator library-top-revealed-indicator" [attr.aria-label]="'common.ui.revealedTopLibraryCard' | runtimeTranslate">
     <svg class="lucide lucide-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
       <circle cx="12" cy="12" r="3" />

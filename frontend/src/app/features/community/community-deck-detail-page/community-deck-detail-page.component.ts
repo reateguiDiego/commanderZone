@@ -152,9 +152,9 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
               },
               {
                 id: 'save-deck',
-                label: 'community.detail.save',
+                label: 'shared.text.save',
                 icon: 'save',
-                tooltip: 'community.detail.save',
+                tooltip: 'shared.text.save',
                 disabled: saving || viewerOwnsDeck,
                 counter: deck.copies,
                 counterLabel: 'community.deckCard.copies',

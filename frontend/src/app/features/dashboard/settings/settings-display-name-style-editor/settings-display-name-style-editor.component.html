@@ -1,6 +1,6 @@
 <section class="name-style-editor">
   <header class="name-style-preview" [attr.aria-label]="'settings.settingsDisplayNameStyleEditor.nameStylePreview' | runtimeTranslate">
-    <span>{{ 'settings.settingsDisplayNameStyleEditor.currentSelection' | runtimeTranslate }}</span>
+    <span>{{ 'shared.text.currentSelection' | runtimeTranslate }}</span>
     <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" plateSize="lg" />
     <label class="name-color-picker">
       {{ 'settings.settingsDisplayNameStyleEditor.textColor' | runtimeTranslate }}
@@ -36,7 +36,7 @@
           @if (option.preset.tier === 'premium') {
             <app-premium-badge
               class="premium-badge"
-              [label]="'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate"
+              [label]="'shared.text.premium' | runtimeTranslate"
             />
           }
         </button>
@@ -50,7 +50,7 @@
     }
 
     <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
-      {{ saving() ? 'Saving...' : 'Save' }}
+      {{ (saving() ? 'common.ui.saving' : 'shared.text.save') | runtimeTranslate }}
     </button>
   </footer>
 </section>

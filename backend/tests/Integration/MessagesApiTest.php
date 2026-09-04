@@ -45,15 +45,18 @@ final class MessagesApiTest extends ApiTestCase
         $adminToken = $this->adminToken('admin-message-sender@example.test', 'Admin Sender');
         $recipientToken = $this->registerAndLogin('message-recipient@example.test', 'Message Recipient');
         $recipientId = $this->currentUserId($recipientToken);
+        $emailCountBeforeSend = count(self::getMailerMessages());
 
         $this->jsonRequest('POST', '/admin/messages', [
             'recipientId' => $recipientId,
             'subject' => 'Admin notice',
             'body' => 'Welcome to CommanderZone.',
+            'delivery' => 'internal',
         ], $adminToken);
 
         self::assertResponseStatusCodeSame(201);
         self::assertSame(1, $this->jsonResponse()['sent']);
+        self::assertCount($emailCountBeforeSend, self::getMailerMessages());
 
         $this->jsonRequest('GET', '/messages', token: $recipientToken);
         self::assertResponseIsSuccessful();
@@ -70,6 +73,89 @@ final class MessagesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(1, $this->jsonResponse()['unreadCount']);
         self::assertNotNull($this->jsonResponse()['message']['readAt']);
+    }
+
+    public function testAdminMessageCanAlsoBeDeliveredByEmailWithoutSkippingTheInternalMessage(): void
+    {
+        $adminToken = $this->adminToken('admin-email-sender@example.test', 'Admin Email Sender');
+        $recipientToken = $this->registerAndLogin('email-recipient@example.test', 'Email Recipient');
+        $recipientId = $this->currentUserId($recipientToken);
+        $emailCountBeforeSend = count(self::getMailerMessages());
+
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $recipientId,
+            'subject' => 'Email notice',
+            'body' => implode("\n", [
+                '## Commander update',
+                '',
+                'The same message is delivered in both channels. [Open CommanderZone](/decks)',
+                '',
+                '- First action',
+                '- [Read the guide](https://example.com/guide)',
+                '',
+                '---',
+                '',
+                '![Commander image](data:image/png;base64,aGVsbG8=)',
+                '<strong>This stays text, not HTML.</strong>',
+            ]),
+            'delivery' => 'both',
+        ], $adminToken);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(1, $this->jsonResponse()['sent']);
+        self::assertCount($emailCountBeforeSend + 1, self::getMailerMessages());
+        $email = self::getMailerMessage($emailCountBeforeSend);
+        self::assertNotNull($email);
+        self::assertEmailAddressContains($email, 'To', 'email-recipient@example.test');
+        self::assertEmailSubjectContains($email, 'Email notice');
+        self::assertEmailTextBodyContains($email, 'The same message is delivered in both channels.');
+        self::assertEmailHtmlBodyContains($email, '<h1',);
+        self::assertEmailHtmlBodyContains($email, 'Email notice');
+        self::assertEmailHtmlBodyContains($email, '<h2');
+        self::assertEmailHtmlBodyContains($email, 'Commander update');
+        self::assertEmailHtmlBodyContains($email, '<ul');
+        self::assertEmailHtmlBodyContains($email, '>Open CommanderZone</a>');
+        self::assertEmailHtmlBodyNotContains($email, 'href="/decks"');
+        self::assertEmailHtmlBodyContains($email, 'href="https://example.com/guide"');
+        self::assertEmailHtmlBodyContains($email, '<hr');
+        self::assertEmailHtmlBodyContains($email, 'src="cid:admin-message-image-1@commanderzone"');
+        self::assertEmailHtmlBodyContains($email, '&lt;strong&gt;This stays text, not HTML.&lt;/strong&gt;');
+        self::assertEmailAttachmentCount($email, 1);
+
+        $this->jsonRequest('GET', '/messages', token: $recipientToken);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'The same message is delivered in both channels.',
+            $this->messageBySubject($this->jsonResponse(), 'Email notice')['body'],
+        );
+    }
+
+    public function testAdminCanSendAnEmailWithoutCreatingAnInternalMessage(): void
+    {
+        $adminToken = $this->adminToken('admin-email-only@example.test', 'Admin Email Only');
+        $recipientToken = $this->registerAndLogin('email-only-recipient@example.test', 'Email Only Recipient');
+        $recipientId = $this->currentUserId($recipientToken);
+        $emailCountBeforeSend = count(self::getMailerMessages());
+
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $recipientId,
+            'subject' => 'Email only',
+            'body' => 'This delivery has no internal message.',
+            'delivery' => 'email',
+        ], $adminToken);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(1, $this->jsonResponse()['sent']);
+        self::assertCount($emailCountBeforeSend + 1, self::getMailerMessages());
+        $email = self::getMailerMessage($emailCountBeforeSend);
+        self::assertNotNull($email);
+        self::assertEmailSubjectContains($email, 'Email only');
+
+        $this->jsonRequest('GET', '/messages', token: $recipientToken);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->jsonResponse()['unreadCount']);
+        self::assertCount(1, $this->jsonResponse()['data']);
     }
 
     public function testAdminCanSendMessageToAllUsers(): void

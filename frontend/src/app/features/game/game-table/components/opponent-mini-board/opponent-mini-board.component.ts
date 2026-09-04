@@ -67,10 +67,10 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 export class OpponentMiniBoardComponent {
   readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
   readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
-    { zone: 'hand', icon: 'hand-fan', title: 'game.zones.hand' },
+    { zone: 'hand', icon: 'hand-fan', title: 'shared.text.hand' },
     { zone: 'library', icon: 'deck', title: 'game.zones.library' },
     { zone: 'graveyard', icon: 'grave', title: 'game.zones.graveyard' },
-    { zone: 'exile', icon: 'ban', title: 'game.zones.exile' },
+    { zone: 'exile', icon: 'ban', title: 'shared.text.exile' },
   ];
 
   readonly player = input.required<PlayerView>();

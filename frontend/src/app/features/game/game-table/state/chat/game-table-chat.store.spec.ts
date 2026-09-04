@@ -66,7 +66,7 @@ describe('GameTableChatStore', () => {
     const store = TestBed.inject(GameTableChatStore);
 
     expect(store.chatRecipients()).toEqual([
-      { playerId: null, label: 'All players' },
+      { playerId: null, labelKey: 'game.chat.allPlayers' },
       { playerId: 'user-3', label: 'Alive opponent' },
     ]);
   });

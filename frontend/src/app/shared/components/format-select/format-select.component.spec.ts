@@ -1,16 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MobileViewportSyncService } from '../../services/mobile-viewport-sync.service';
 import { FormatSelectComponent } from './format-select.component';
 
 describe('FormatSelectComponent', () => {
   let fixture: ComponentFixture<FormatSelectComponent>;
+  const mobileViewportSync = { syncAfterSharedSelectChange: vi.fn() };
 
   afterEach(() => {
     vi.useRealTimers();
+    mobileViewportSync.syncAfterSharedSelectChange.mockReset();
   });
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FormatSelectComponent],
+      providers: [{ provide: MobileViewportSyncService, useValue: mobileViewportSync }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(FormatSelectComponent);
@@ -57,6 +61,40 @@ describe('FormatSelectComponent', () => {
 
     expect(options.map((option) => option.textContent?.trim())).toEqual(['All decks', 'Public decks']);
     expect(selectedValues).toEqual(['public']);
+    expect(mobileViewportSync.syncAfterSharedSelectChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters options only when search is explicitly enabled', async () => {
+    fixture.componentRef.setInput('formats', []);
+    fixture.componentRef.setInput('options', [
+      { id: 'one', name: 'Áurea', searchText: 'aurea@example.test' },
+      { id: 'two', name: 'Boros', searchText: 'boros@example.test' },
+    ]);
+    fixture.componentRef.setInput('searchable', true);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const searchInput = fixture.nativeElement.querySelector('.format-select-search-input') as HTMLInputElement;
+    expect(searchInput).not.toBeNull();
+    expect(document.activeElement).toBe(searchInput);
+
+    searchInput.value = 'aurea@example.test';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const options = Array.from(fixture.nativeElement.querySelectorAll('.format-select-option')) as HTMLElement[];
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['Áurea']);
+  });
+
+  it('does not render a search input by default', () => {
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.format-select-search-input')).toBeNull();
   });
 
   it('returns focus to the trigger before hiding the dropdown menu', () => {

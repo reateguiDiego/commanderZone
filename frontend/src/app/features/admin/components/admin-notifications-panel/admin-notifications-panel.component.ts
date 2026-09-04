@@ -4,6 +4,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { MessagesApi } from '../../../../core/api/messages.api';
+import { TranslationService } from '../../../../core/localization/translation.service';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
+import { AdminMessageDelivery } from '../../../../core/models/message.model';
+import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { MessageBodyComponent } from '../../../../shared/ui/message-body/message-body.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
@@ -20,9 +24,21 @@ const MAX_BODY_LENGTH = 200000;
 const MAX_UPLOADED_IMAGE_DATA_URL_LENGTH = 160000;
 type MessageSnippet = 'heading' | 'image' | 'link' | 'list' | 'separator';
 
+const DELIVERY_OPTIONS: readonly FormatSelectOption[] = [
+  { id: 'internal', labelKey: 'admin.notifications.delivery.internal' },
+  { id: 'email', labelKey: 'admin.notifications.delivery.email' },
+  { id: 'both', labelKey: 'admin.notifications.delivery.both' },
+];
+
+const DELIVERY_DESCRIPTION_KEYS: Record<AdminMessageDelivery, string> = {
+  internal: 'admin.notifications.delivery.description.internal',
+  email: 'admin.notifications.delivery.description.email',
+  both: 'admin.notifications.delivery.description.both',
+};
+
 @Component({
   selector: 'app-admin-notifications-panel',
-  imports: [ReactiveFormsModule, LucideAngularModule, CzButtonDirective, MessageBodyComponent],
+  imports: [ReactiveFormsModule, LucideAngularModule, RuntimeTranslatePipe, FormatSelectComponent, CzButtonDirective, MessageBodyComponent],
   templateUrl: './admin-notifications-panel.component.html',
   styleUrl: './admin-notifications-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,30 +49,23 @@ export class AdminNotificationsPanelComponent {
   private readonly adminUsersApi = inject(AdminUsersApi);
   private readonly formBuilder = inject(FormBuilder);
   private readonly messagesApi = inject(MessagesApi);
+  private readonly translation = inject(TranslationService);
 
   readonly preselectedRecipient = input<RecipientOption | null>(null);
   readonly users = signal<readonly AdminUser[]>([]);
-  readonly recipientsOpen = signal(false);
-  readonly recipientQuery = signal('Todos');
-  readonly selectedRecipient = signal<RecipientOption>({ id: ALL_RECIPIENT_ID, name: 'Todos' });
-  readonly recipientControl = this.formBuilder.nonNullable.control('Todos');
+  readonly selectedRecipientId = signal(ALL_RECIPIENT_ID);
+  readonly delivery = signal<AdminMessageDelivery>('internal');
   readonly loadingUsers = signal(false);
   readonly sending = signal(false);
   readonly sentMessage = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly bodyPreview = signal('');
-  readonly recipientOptions = computed<readonly RecipientOption[]>(() => [
-    { id: ALL_RECIPIENT_ID, name: 'Todos' },
-    ...this.users().map((user) => ({ id: user.id, name: user.displayName })),
+  readonly recipientOptions = computed<readonly FormatSelectOption[]>(() => [
+    { id: ALL_RECIPIENT_ID, labelKey: 'admin.notifications.allUsers' },
+    ...this.users().map((user) => ({ id: user.id, name: user.displayName, searchText: user.email })),
   ]);
-  readonly filteredRecipients = computed(() => {
-    const query = this.recipientQuery().trim().toLowerCase();
-    if (query === '' || query === 'todos') {
-      return this.recipientOptions();
-    }
-
-    return this.recipientOptions().filter((option) => option.name.toLowerCase().includes(query));
-  });
+  readonly deliveryOptions = DELIVERY_OPTIONS;
+  readonly deliveryDescriptionKey = computed(() => DELIVERY_DESCRIPTION_KEYS[this.delivery()]);
 
   readonly form = this.formBuilder.nonNullable.group({
     subject: ['', [Validators.required, Validators.maxLength(MAX_SUBJECT_LENGTH)]],
@@ -76,15 +85,10 @@ export class AdminNotificationsPanelComponent {
       const response = await firstValueFrom(this.adminUsersApi.listUsers());
       this.users.set(response.users);
     } catch (error: unknown) {
-      this.errorMessage.set(this.resolveError(error, 'Could not load users.'));
+      this.errorMessage.set(this.resolveError(error, 'admin.notifications.errors.loadUsers'));
     } finally {
       this.loadingUsers.set(false);
     }
-  }
-
-  updateRecipientQuery(value: string): void {
-    this.recipientQuery.set(value);
-    this.recipientsOpen.set(true);
   }
 
   insertMessageSnippet(snippet: MessageSnippet): void {
@@ -108,21 +112,21 @@ export class AdminNotificationsPanelComponent {
     }
 
     if (!file.type.startsWith('image/')) {
-      this.errorMessage.set('Please choose an image file.');
+      this.errorMessage.set(this.translateText('admin.notifications.errors.invalidImageType'));
       return;
     }
 
     try {
       const imageDataUrl = await this.compressedImageDataUrl(file);
       if (imageDataUrl.length > MAX_UPLOADED_IMAGE_DATA_URL_LENGTH) {
-        this.errorMessage.set('Uploaded image is too large for a message. Use a smaller image.');
+        this.errorMessage.set(this.translateText('admin.notifications.errors.imageTooLarge'));
         return;
       }
 
       this.insertTextAtCursor(`![](${imageDataUrl})\n`);
       this.errorMessage.set(null);
     } catch {
-      this.errorMessage.set('Could not read the uploaded image.');
+      this.errorMessage.set(this.translateText('admin.notifications.errors.readImage'));
     }
   }
 
@@ -130,24 +134,16 @@ export class AdminNotificationsPanelComponent {
     this.bodyPreview.set(this.form.controls.body.value);
   }
 
-  selectRecipient(option: RecipientOption): void {
-    this.selectedRecipient.set(option);
-    this.recipientQuery.set(option.name);
-    this.recipientControl.setValue(option.name, { emitEvent: false });
-    this.recipientsOpen.set(false);
+  selectRecipient(recipientId: string): void {
+    if (this.recipientOptions().some((option) => option.id === recipientId)) {
+      this.selectedRecipientId.set(recipientId);
+    }
   }
 
-  openRecipients(): void {
-    this.recipientsOpen.set(true);
-  }
-
-  closeRecipients(): void {
-    queueMicrotask(() => {
-      const selected = this.selectedRecipient();
-      this.recipientQuery.set(selected.name);
-      this.recipientControl.setValue(selected.name, { emitEvent: false });
-      this.recipientsOpen.set(false);
-    });
+  selectDelivery(delivery: string): void {
+    if (isAdminMessageDelivery(delivery)) {
+      this.delivery.set(delivery);
+    }
   }
 
   async submit(): Promise<void> {
@@ -162,22 +158,23 @@ export class AdminNotificationsPanelComponent {
 
     try {
       const response = await firstValueFrom(this.messagesApi.sendAdminMessage({
-        recipientId: this.selectedRecipient().id,
+        recipientId: this.selectedRecipientId(),
         subject: this.form.controls.subject.value.trim(),
         body: this.form.controls.body.value.trim(),
+        delivery: this.delivery(),
       }));
-      this.sentMessage.set(`Message sent to ${response.sent} user(s).`);
+      this.sentMessage.set(this.translateText('admin.notifications.messageSent', { count: response.sent }));
       this.form.reset({ subject: '', body: '' });
       this.bodyPreview.set('');
     } catch (error: unknown) {
-      this.errorMessage.set(this.resolveError(error, 'Could not send message.'));
+      this.errorMessage.set(this.resolveError(error, 'admin.notifications.errors.sendMessage'));
     } finally {
       this.sending.set(false);
     }
   }
 
   canSubmit(): boolean {
-    return this.form.valid && !this.sending() && this.selectedRecipient().id.trim() !== '';
+    return this.form.valid && !this.sending() && this.selectedRecipientId().trim() !== '';
   }
 
   fieldInvalid(field: 'body' | 'subject'): boolean {
@@ -194,24 +191,24 @@ export class AdminNotificationsPanelComponent {
     return field === 'subject' ? MAX_SUBJECT_LENGTH : MAX_BODY_LENGTH;
   }
 
-  private resolveError(error: unknown, fallback: string): string {
+  private resolveError(error: unknown, fallbackKey: string): string {
     if (error instanceof HttpErrorResponse && typeof error.error?.error === 'string') {
       return error.error.error;
     }
 
-    return fallback;
+    return this.translateText(fallbackKey);
   }
 
   private messageSnippet(snippet: MessageSnippet): string {
     switch (snippet) {
       case 'heading':
-        return '## Title\n';
+        return `## ${this.translateText('shared.text.title')}\n`;
       case 'image':
-        return '![Image description](https://example.com/image.png)\n';
+        return `![${this.translateText('admin.notifications.snippets.imageDescription')}](https://example.com/image.png)\n`;
       case 'link':
-        return '[Link text](https://example.com)\n';
+        return `[${this.translateText('admin.notifications.snippets.linkText')}](https://example.com)\n`;
       case 'list':
-        return '- List item\n';
+        return `- ${this.translateText('admin.notifications.snippets.listItem')}\n`;
       case 'separator':
         return '---\n';
     }
@@ -234,7 +231,7 @@ export class AdminNotificationsPanelComponent {
     ].join('');
 
     if (nextBody.length > MAX_BODY_LENGTH) {
-      this.errorMessage.set(`Message is too long. Maximum length is ${MAX_BODY_LENGTH} characters.`);
+      this.errorMessage.set(this.translateText('admin.notifications.errors.messageTooLong', { count: MAX_BODY_LENGTH }));
       return;
     }
 
@@ -284,16 +281,28 @@ export class AdminNotificationsPanelComponent {
     });
   }
 
-  private applyPreselectedRecipient(recipient: RecipientOption | null, options: readonly RecipientOption[]): void {
+  private applyPreselectedRecipient(recipient: RecipientOption | null, options: readonly FormatSelectOption[]): void {
     if (!recipient || recipient.id.trim() === '' || recipient.name.trim() === '') {
       return;
     }
 
     const option = options.find((candidate) => candidate.id === recipient.id) ?? recipient;
-    if (this.selectedRecipient().id === option.id && this.recipientQuery() === option.name) {
+    if (this.selectedRecipientId() === option.id) {
       return;
     }
 
-    this.selectRecipient(option);
+    this.selectRecipient(option.id);
   }
+
+  private translateText(key: string, params?: Record<string, unknown>): string {
+    const translated = this.translation.instant(key, params);
+
+    return typeof translated === 'string' && translated !== key
+      ? translated
+      : runtimeTranslationFallback(key, params);
+  }
+}
+
+function isAdminMessageDelivery(value: string): value is AdminMessageDelivery {
+  return value === 'internal' || value === 'email' || value === 'both';
 }

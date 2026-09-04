@@ -100,7 +100,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.syncCurrentRoom(response.data);
       this.updatePageHeader();
     } catch {
-      this.error.set('Could not load rooms.');
+      this.error.set('errors.runtime.could-not-load-rooms');
     }
   }
 
@@ -124,7 +124,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
         this.roomId = response.room.id;
       }
     } catch {
-      this.error.set('Could not load your current room.');
+      this.error.set('errors.runtime.could-not-load-your-current-room');
     }
   }
 
@@ -133,7 +133,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(this.roomsApi.incomingInvites(skipGlobalLoading));
       this.incomingInvites.set(response.data);
     } catch {
-      this.error.set('Could not load room invites.');
+      this.error.set('errors.runtime.could-not-load-room-invites');
     }
   }
 
@@ -142,7 +142,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(this.deckFormatsApi.list(skipGlobalLoading));
       this.formats.set(response.data);
     } catch {
-      this.error.set('Could not load room formats.');
+      this.error.set('errors.runtime.could-not-load-room-formats');
     }
   }
 
@@ -210,7 +210,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.scheduleRoomSync();
       await this.navigateToWaitingRoom(response.room.id);
     } catch {
-      this.error.set('Could not join room.');
+      this.error.set('errors.runtime.could-not-join-room');
     }
   }
 
@@ -275,7 +275,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.scheduleRoomSync();
       this.roomPendingDelete.set(null);
     } catch {
-      this.error.set('Could not delete room.');
+      this.error.set('errors.runtime.could-not-delete-room');
     } finally {
       this.deletingRoomId.set(null);
     }
@@ -304,7 +304,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       await firstValueFrom(this.roomsApi.declineInvite(invite.id));
       await this.loadRoomListState();
     } catch {
-      this.error.set('Could not decline room invite.');
+      this.error.set('errors.runtime.could-not-decline-room-invite');
     }
   }
 
@@ -635,7 +635,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private async navigateToWaitingRoom(roomId: string): Promise<void> {
     const navigated = await this.router.navigateByUrl(`/rooms/${roomId}/waiting`);
     if (!navigated) {
-      this.error.set('Room created, but could not open the waiting room.');
+      this.error.set('errors.runtime.room-created-but-could-not-open-the-waiting-room');
     }
   }
 
@@ -665,7 +665,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
   private updatePageHeader(): void {
     this.pageHeader.set({
-      title: 'rooms.header.title',
+      title: 'shared.text.rooms',
       description: 'rooms.header.description',
       context: 'rooms',
       heroRule: true,

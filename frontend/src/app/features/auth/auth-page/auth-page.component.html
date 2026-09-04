@@ -1,7 +1,7 @@
 <main class="auth-screen">
   <section class="auth-panel">
     <div class="auth-copy">
-      <img class="auth-logo" [src]="themeAssets.czLogoUrl()" [alt]="'auth.authPage.commanderzone' | runtimeTranslate" />
+      <img class="auth-logo" [src]="themeAssets.czLogoUrl()" [alt]="'shared.text.commanderzone' | runtimeTranslate" />
       <p>{{ 'auth.authPage.accessDecksRoomsAndTable' | runtimeTranslate }}</p>
     </div>
 
@@ -127,52 +127,52 @@
       } @else {
         <form class="form-stack" [formGroup]="registerForm" (ngSubmit)="submitRegister()">
           <label>
-            {{ 'auth.authPage.email' | runtimeTranslate }}
+            {{ 'shared.text.email' | runtimeTranslate }}
             <input type="email" autocomplete="email" formControlName="email" />
             @if (registerEmailInvalid()) {
               <span class="field-error">
                 <lucide-icon name="triangle-alert" size="14" />
-                {{ 'auth.authPage.enterValidEmail' | runtimeTranslate }}
+                {{ 'shared.text.enterAValidEmail' | runtimeTranslate }}
               </span>
             }
             @if (registerEmailAvailabilityVisible()) {
               @if (emailAvailability() === 'checking') {
-                <span class="availability muted">{{ 'auth.authPage.checkingEmail' | runtimeTranslate }}</span>
+                <span class="availability muted">{{ 'shared.text.checkingEmail' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'available') {
-                <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.emailAvailable' | runtimeTranslate }}</span>
+                <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'shared.text.emailAvailable' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'taken') {
-                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.emailAlreadyRegistered' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'shared.text.emailAlreadyRegistered' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'error') {
-                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.couldNotCheckNow' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'shared.text.couldNotCheckRightNow' | runtimeTranslate }}</span>
               }
             }
           </label>
 
           <label class="user-name-field">
-            {{ 'auth.authPage.userName' | runtimeTranslate }}
+            {{ 'shared.text.userName' | runtimeTranslate }}
             <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
             <span class="field-feedback-row">
               <span class="field-feedback-messages">
                 @if (controlInvalid('displayName')) {
                   <span class="field-error">
                     <lucide-icon name="triangle-alert" size="14" />
-                    {{ 'auth.authPage.usernameLengthRequirement' | runtimeTranslate }}
+                    {{ 'shared.text.userNameMustBeBetween2And20Characters' | runtimeTranslate }}
                   </span>
                 }
                 @if (userNameAvailability() === 'checking') {
-                  <span class="availability muted">{{ 'auth.authPage.checkingAvailability' | runtimeTranslate }}</span>
+                  <span class="availability muted">{{ 'shared.text.checkingAvailability' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'available') {
-                  <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.usernameAvailable' | runtimeTranslate }}</span>
+                  <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'shared.text.userNameAvailable' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'taken') {
-                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.usernameUnavailable' | runtimeTranslate }}</span>
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'shared.text.userNameNotAvailable' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'error') {
-                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.couldNotCheckNow' | runtimeTranslate }}</span>
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'shared.text.couldNotCheckRightNow' | runtimeTranslate }}</span>
                 }
               </span>
               <span class="character-counter">{{ registerDisplayNameLength() }}/{{ userNameMaxLength }}</span>
@@ -211,7 +211,7 @@
           </label>
 
           <label>
-            {{ 'auth.authPage.confirmPassword' | runtimeTranslate }}
+            {{ 'shared.text.confirmPassword' | runtimeTranslate }}
             <div class="password-field">
               <input [type]="registerConfirmPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" />
               <button
@@ -226,7 +226,7 @@
             @if (registerPasswordMismatchVisible()) {
               <span class="field-error">
                 <lucide-icon name="triangle-alert" size="14" />
-                {{ 'auth.authPage.passwordsDoNotMatch' | runtimeTranslate }}
+                {{ 'shared.text.passwordsDoNotMatch' | runtimeTranslate }}
               </span>
             }
           </label>

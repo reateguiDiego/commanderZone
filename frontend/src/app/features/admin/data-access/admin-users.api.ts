@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api/api.config';
 import {
   AdminUserImpersonationResponse,
+  AdminUsersListQuery,
   AdminUserResponse,
   AdminUserUpdatePayload,
   AdminUsersResponse,
@@ -13,8 +14,25 @@ import {
 export class AdminUsersApi {
   private readonly http = inject(HttpClient);
 
-  listUsers(): Observable<AdminUsersResponse> {
-    return this.http.get<AdminUsersResponse>(`${API_BASE_URL}/admin/users`);
+  listUsers(query?: AdminUsersListQuery): Observable<AdminUsersResponse> {
+    if (!query) {
+      return this.http.get<AdminUsersResponse>(`${API_BASE_URL}/admin/users`);
+    }
+
+    const params = new HttpParams({
+      fromObject: {
+        q: query.query,
+        role: query.role,
+        premiumTier: query.premiumTier,
+        status: query.status,
+        sort: query.sort,
+        direction: query.direction,
+        page: String(query.page),
+        limit: String(query.limit),
+      },
+    });
+
+    return this.http.get<AdminUsersResponse>(`${API_BASE_URL}/admin/users`, { params });
   }
 
   updateUser(userId: string, payload: AdminUserUpdatePayload): Observable<AdminUserResponse> {
@@ -27,10 +45,6 @@ export class AdminUsersApi {
 
   revokeSessions(userId: string): Observable<AdminUserResponse> {
     return this.http.post<AdminUserResponse>(`${API_BASE_URL}/admin/users/${userId}/sessions/revoke`, {});
-  }
-
-  removeFromRooms(userId: string): Observable<AdminUserResponse> {
-    return this.http.post<AdminUserResponse>(`${API_BASE_URL}/admin/users/${userId}/rooms/leave`, {});
   }
 
   impersonateUser(userId: string): Observable<AdminUserImpersonationResponse> {

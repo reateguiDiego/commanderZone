@@ -47,10 +47,10 @@
     <span class="opponent-life-group">
       <span class="opponent-presence-pills">
         @if (isActiveTurnPlayer()) {
-          <span class="opponent-turn-pill" data-testid="opponent-turn-pill">{{ 'game.opponentMiniBoard.turn' | runtimeTranslate }}</span>
+          <span class="opponent-turn-pill" data-testid="opponent-turn-pill">{{ 'shared.text.turn' | runtimeTranslate }}</span>
         }
         @if (isOffline()) {
-          <span class="opponent-offline-pill" data-testid="opponent-offline-pill">{{ 'navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate }}</span>
+          <span class="opponent-offline-pill" data-testid="opponent-offline-pill">{{ 'shared.text.offline' | runtimeTranslate }}</span>
         }
       </span>
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>

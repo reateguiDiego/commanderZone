@@ -77,7 +77,7 @@ describe('NumberActionDialogComponent', () => {
 
     const deckCount = fixture.nativeElement.querySelector('[data-testid="number-action-deck-count"]') as HTMLElement;
 
-    expect(deckCount.textContent).toContain('Your deck has 42 cards.');
+    expect(deckCount.textContent).toContain('Your library contains 42 cards.');
   });
 });
 

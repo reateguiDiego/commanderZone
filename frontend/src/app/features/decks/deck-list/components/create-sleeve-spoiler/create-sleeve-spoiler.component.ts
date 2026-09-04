@@ -158,8 +158,8 @@ export class CreateSleeveSpoilerComponent implements AfterViewInit, OnDestroy {
   readonly sleeveGrid = viewChild<ElementRef<HTMLElement>>('sleeveGrid');
   readonly activeTier = signal<SleeveTierTab>('free');
   readonly tierTabItems: readonly TabListItem[] = [
-    { id: 'free', label: 'deckBuilder.deckList.cosmetics.free' },
-    { id: 'premium', label: 'deckBuilder.deckList.cosmetics.premium' },
+    { id: 'free', label: 'shared.text.free' },
+    { id: 'premium', label: 'shared.text.premium' },
   ];
   readonly hoverPreview = signal<SleeveHoverPreview | null>(null);
   readonly sleeves = computed(() => {

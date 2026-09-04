@@ -1,4 +1,4 @@
-import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../core/assets/app-image-url';
@@ -43,11 +43,11 @@ export class SettingsAvatarEditorComponent {
   readonly tierTabItems: readonly TabListItem[] = [
     {
       id: 'basic',
-      label: 'settings.settingsAvatarEditor.basic',
+      label: 'shared.text.basic',
     },
     {
       id: 'premium',
-      label: 'settings.settingsAvatarEditor.premium',
+      label: 'shared.text.premium',
     },
   ];
   readonly pendingType = signal<PendingAvatarType>('current');
@@ -126,7 +126,7 @@ export class SettingsAvatarEditorComponent {
     return DEFAULT_INITIAL_TEXT_COLOR;
   });
   readonly currentSelectionLabel = computed(() => {
-    return this.displayName().trim() || 'Player';
+    return this.displayName().trim() || runtimeTranslationFallback('shared.text.player');
   });
 
   readonly canSave = computed(() => {

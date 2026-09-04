@@ -85,30 +85,30 @@ export class CommunityCardPreviewPageComponent {
   readonly heroTitleKey = this.kind === 'cards'
     ? 'community.home.cardsTitle'
     : 'community.home.commandersTitle';
-  readonly heroSubtitleKey = 'community.home.cardsSubtitle';
+  readonly heroSubtitleKey = 'shared.text.basedOnGamesPlayedByTheCommunity';
   readonly typeOptions: readonly FormatSelectOption[] = [
-    { id: '', labelKey: 'community.preview.filters.allTypes' },
-    { id: 'artifact', labelKey: 'community.preview.filters.type.artifact' },
-    { id: 'battle', labelKey: 'community.preview.filters.type.battle' },
+    { id: '', labelKey: 'shared.text.allTypes' },
+    { id: 'artifact', labelKey: 'shared.text.artifact' },
+    { id: 'battle', labelKey: 'shared.text.battle' },
     { id: 'creature', labelKey: 'community.preview.filters.type.creature' },
     { id: 'enchantment', labelKey: 'community.preview.filters.type.enchantment' },
     { id: 'instant', labelKey: 'community.preview.filters.type.instant' },
-    { id: 'land', labelKey: 'community.preview.filters.type.land' },
+    { id: 'land', labelKey: 'shared.text.land' },
     { id: 'planeswalker', labelKey: 'community.preview.filters.type.planeswalker' },
     { id: 'sorcery', labelKey: 'community.preview.filters.type.sorcery' },
   ];
   readonly colorOptions: readonly FormatSelectOption[] = [
-    { id: '', labelKey: 'deckBuilder.deckList.colorFilter.any' },
-    { id: 'W', labelKey: 'deckBuilder.deckList.colorFilter.white' },
-    { id: 'U', labelKey: 'deckBuilder.deckList.colorFilter.blue' },
-    { id: 'B', labelKey: 'deckBuilder.deckList.colorFilter.black' },
-    { id: 'R', labelKey: 'deckBuilder.deckList.colorFilter.red' },
-    { id: 'G', labelKey: 'deckBuilder.deckList.colorFilter.green' },
-    { id: 'C', labelKey: 'deckBuilder.deckList.colorFilter.colorless' },
+    { id: '', labelKey: 'shared.text.any' },
+    { id: 'W', labelKey: 'shared.text.white' },
+    { id: 'U', labelKey: 'shared.text.blue' },
+    { id: 'B', labelKey: 'shared.text.black' },
+    { id: 'R', labelKey: 'shared.text.red' },
+    { id: 'G', labelKey: 'shared.text.green' },
+    { id: 'C', labelKey: 'shared.text.colorless' },
   ];
   readonly viewTabs: readonly TabListItem[] = [
-    { id: 'list', label: 'deckBuilder.cards.cardSearch.view.list', icon: 'list' },
-    { id: 'spoiler', label: 'deckBuilder.cards.cardSearch.view.spoiler', icon: 'image' },
+    { id: 'list', label: 'shared.text.list', icon: 'list' },
+    { id: 'spoiler', label: 'shared.text.spoiler', icon: 'image' },
   ];
 
   constructor() {

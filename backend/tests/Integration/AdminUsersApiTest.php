@@ -21,6 +21,13 @@ final class AdminUsersApiTest extends ApiTestCase
         $targetToken = $this->registerAndLogin('target-admin-users@example.test', 'Target Admin');
         $targetId = $this->currentUserId($targetToken);
         $this->insertGoogleAuthIdentity($targetId, 'google-target-subject', 'google-target@example.test', true);
+        $this->setUserLocalization($targetId, 'ES', 'Spain', 'es');
+        $this->jsonRequest('POST', '/decks', ['name' => 'Private Admin Deck'], $targetToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/decks', ['name' => 'Public Admin Deck 1', 'visibility' => 'public'], $targetToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/decks', ['name' => 'Public Admin Deck 2', 'visibility' => 'public'], $targetToken);
+        self::assertResponseStatusCodeSame(201);
 
         $this->jsonRequest('GET', '/admin/users', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -30,22 +37,35 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertArrayHasKey('displayName', $users[0]);
         self::assertArrayHasKey('email', $users[0]);
         self::assertArrayHasKey('publicProfilePath', $users[0]);
-        self::assertArrayHasKey('authIdentities', $users[0]);
+        self::assertArrayHasKey('authProviders', $users[0]);
         self::assertArrayHasKey('lastConnectedAt', $users[0]);
         self::assertArrayHasKey('presenceStatus', $users[0]);
         self::assertArrayHasKey('isOnline', $users[0]);
-        self::assertArrayHasKey('activeRoomsCount', $users[0]);
         self::assertArrayHasKey('activeSessionsCount', $users[0]);
+        self::assertArrayHasKey('deckCounts', $users[0]);
         self::assertArrayHasKey('createdAt', $users[0]);
+        self::assertSame(1, $this->jsonResponse()['page']);
+        self::assertSame($this->jsonResponse()['total'], $this->jsonResponse()['limit']);
+        self::assertSame(1, $this->jsonResponse()['totalPages']);
+        self::assertArrayHasKey('summary', $this->jsonResponse());
+        self::assertArrayHasKey('countries', $this->jsonResponse());
+        self::assertArrayHasKey('localizationSummary', $this->jsonResponse());
+        self::assertSame(
+            $this->jsonResponse()['summary']['total'],
+            $this->jsonResponse()['localizationSummary']['all']['totalUsers'],
+        );
+        self::assertContains([
+            'code' => 'ES',
+            'name' => 'Spain',
+            'userCount' => 1,
+            'share' => 50,
+        ], $this->jsonResponse()['localizationSummary']['all']['countries']);
         $targetUser = $this->adminUserById($users, $targetId);
         self::assertSame('/community/users/Target-Admin', $targetUser['publicProfilePath']);
-        self::assertCount(1, $targetUser['authIdentities']);
-        self::assertSame('GOOGLE', $targetUser['authIdentities'][0]['provider']);
-        self::assertSame('google-target-subject', $targetUser['authIdentities'][0]['providerUserId']);
-        self::assertSame('google-target@example.test', $targetUser['authIdentities'][0]['providerEmail']);
-        self::assertTrue($targetUser['authIdentities'][0]['providerEmailVerified']);
-        self::assertArrayHasKey('createdAt', $targetUser['authIdentities'][0]);
-        self::assertArrayHasKey('lastUsedAt', $targetUser['authIdentities'][0]);
+        self::assertSame(['Google'], $targetUser['authProviders']);
+        self::assertArrayNotHasKey('authIdentities', $targetUser);
+        self::assertSame(['total' => 3, 'privateCount' => 1, 'publicCount' => 2], $targetUser['deckCounts']);
+        self::assertSame(['countryCode' => 'ES', 'countryName' => 'Spain', 'appLanguage' => 'es'], $targetUser['localization']);
 
         $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
             'authorizationRole' => Role::ADMIN,
@@ -69,6 +89,55 @@ final class AdminUsersApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertIsArray($this->jsonResponse()['users']);
+    }
+
+    public function testAdminUsersListReturnsProvidersForEveryUser(): void
+    {
+        $ownerToken = $this->ownerToken('providers-owner@example.test', 'Providers Owner');
+        $firstUserToken = $this->registerAndLogin('providers-first@example.test', 'Providers First');
+        $secondUserToken = $this->registerAndLogin('providers-second@example.test', 'Providers Second');
+        $firstUserId = $this->currentUserId($firstUserToken);
+        $secondUserId = $this->currentUserId($secondUserToken);
+        $this->insertGoogleAuthIdentity($firstUserId, 'first-subject', 'providers-first@example.test', true);
+        $this->insertGoogleAuthIdentity($secondUserId, 'second-subject', 'providers-second@example.test', true);
+
+        $this->jsonRequest('GET', '/admin/users', token: $ownerToken);
+
+        self::assertResponseIsSuccessful();
+        $users = $this->jsonResponse()['users'];
+        self::assertSame(['Google'], $this->adminUserById($users, $firstUserId)['authProviders']);
+        self::assertSame(['Google'], $this->adminUserById($users, $secondUserId)['authProviders']);
+    }
+
+    public function testAdminUsersListFiltersSortsAndPaginatesOnTheServer(): void
+    {
+        $ownerToken = $this->ownerToken('page-owner@example.test', 'Page Owner');
+        $firstToken = $this->registerAndLogin('target-first@example.test', 'Target First');
+        $secondToken = $this->registerAndLogin('target-second@example.test', 'Target Second');
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'First deck one'], $firstToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/decks', ['name' => 'First deck two'], $firstToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/decks', ['name' => 'Second deck'], $secondToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest(
+            'GET',
+            '/admin/users?q=target&status=all&sort=totalDecks&direction=desc&page=1&limit=1',
+            token: $ownerToken,
+        );
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(1, $response['page']);
+        self::assertSame(1, $response['limit']);
+        self::assertSame(2, $response['total']);
+        self::assertSame(2, $response['totalPages']);
+        self::assertCount(1, $response['users']);
+        self::assertSame('Target First', $response['users'][0]['displayName']);
+        self::assertSame(2, $response['users'][0]['deckCounts']['total']);
+        self::assertSame(3, $response['summary']['totalDecks']);
     }
 
     /**
@@ -172,9 +241,6 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(403);
 
         $this->jsonRequest('POST', '/admin/users/'.$peerId.'/sessions/revoke', token: $adminToken);
-        self::assertResponseStatusCodeSame(403);
-
-        $this->jsonRequest('POST', '/admin/users/'.$peerId.'/rooms/leave', token: $adminToken);
         self::assertResponseStatusCodeSame(403);
 
         $this->jsonRequest('DELETE', '/admin/users/'.$peerId, token: $adminToken);
@@ -378,28 +444,6 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame(0, $this->activeRefreshSessionCount($targetId));
     }
 
-    public function testAdminCanRemoveUserFromAllRooms(): void
-    {
-        $ownerToken = $this->ownerToken('rooms-owner@example.test', 'Rooms Owner');
-        $targetToken = $this->registerAndLogin('rooms-target@example.test', 'Rooms Target');
-        $targetId = $this->currentUserId($targetToken);
-
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $ownerToken);
-        self::assertResponseIsSuccessful();
-        $roomId = (string) $this->jsonResponse()['room']['id'];
-
-        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $targetToken);
-        self::assertResponseIsSuccessful();
-
-        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/rooms/leave', token: $ownerToken);
-
-        self::assertResponseIsSuccessful();
-        self::assertSame(0, $this->jsonResponse()['user']['activeRoomsCount']);
-        $this->jsonRequest('GET', '/rooms/current', token: $targetToken);
-        self::assertResponseIsSuccessful();
-        self::assertNull($this->jsonResponse()['room']);
-    }
-
     public function testOwnerCanManageOwnPremiumButCannotDeleteSelf(): void
     {
         $ownerToken = $this->ownerToken('delete-owner@example.test', 'Delete Owner');
@@ -473,6 +517,32 @@ SQL,
                 'providerUserId' => $providerUserId,
                 'providerEmail' => $providerEmail,
                 'verified' => $verified,
+            ],
+        );
+        $this->entityManager->clear();
+    }
+
+    private function setUserLocalization(string $userId, string $countryCode, string $countryName, string $appLanguage): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
+            'UPDATE app_user SET last_seen_country_code = :countryCode, app_language = :appLanguage WHERE id = :userId',
+            ['countryCode' => $countryCode, 'appLanguage' => $appLanguage, 'userId' => $userId],
+        );
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO user_daily_visit (id, user_id, visit_date, first_seen_at, country_code, country_name, created_at)
+VALUES (:id, :userId, '2026-09-03', '2026-09-03 10:00:00', :countryCode, :countryName, '2026-09-03 10:00:00')
+ON CONFLICT (user_id, visit_date) DO UPDATE
+SET first_seen_at = EXCLUDED.first_seen_at,
+    country_code = EXCLUDED.country_code,
+    country_name = EXCLUDED.country_name
+SQL,
+            [
+                'id' => \Symfony\Component\Uid\Uuid::v7()->toRfc4122(),
+                'userId' => $userId,
+                'countryCode' => $countryCode,
+                'countryName' => $countryName,
             ],
         );
         $this->entityManager->clear();

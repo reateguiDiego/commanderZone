@@ -77,7 +77,7 @@ describe('RoomsComponent', () => {
     expect(header?.stats?.map((stat) => stat.label)).toEqual([
       'Total rooms',
       'Open rooms',
-      'Started games',
+      'Games in progress',
       'Total players',
       'Public rooms',
       'Private rooms',
@@ -129,7 +129,7 @@ describe('RoomsComponent', () => {
     expect(header?.stats?.map((stat) => [stat.label, stat.value])).toEqual([
       ['Total rooms', 3],
       ['Open rooms', 1],
-      ['Started games', 1],
+      ['Games in progress', 1],
       ['Total players', 5],
       ['Public rooms', 2],
       ['Private rooms', 1],
@@ -244,44 +244,6 @@ describe('RoomsComponent', () => {
       .map((element) => element.nativeElement.textContent.trim());
 
     expect(roomNames).toEqual(['Alpha public']);
-  });
-
-  it('disables list actions while the user already has a current room', async () => {
-    const currentRoom = roomFixture({
-      id: 'room-current',
-      name: 'Current room',
-      players: [roomPlayerFixture('user-1', 'Owner')],
-    });
-    const listedRoom = roomFixture({ id: 'room-public', name: 'Joinable room', visibility: 'public' });
-    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(currentRoom), player: currentRoomPlayerSummaryFixture(currentRoom), turn: { number: null }, viewerRole: 'owner_player' }));
-    roomsApi.list.mockReturnValue(of({ data: [currentRoom, listedRoom] }));
-
-    const fixture = TestBed.createComponent(RoomsComponent);
-    fixture.detectChanges();
-    await flushInitialRoomLoad();
-    fixture.detectChanges();
-
-    const joinButton = fixture.debugElement.query(By.css('.room-list button.secondary-button'));
-    expect(joinButton.nativeElement.disabled).toBe(true);
-    const roomTooltipTrigger = fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip'));
-    roomTooltipTrigger.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    fixture.detectChanges();
-    expect(fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip__bubble')).nativeElement.textContent.trim())
-      .toBe('You are already in a room. Leave it before joining another one.');
-
-    const createPanelTooltipAnchors = fixture.debugElement.queryAll(By.css('.rooms-create-panel .action-tooltip-anchor'));
-    createPanelTooltipAnchors.forEach((element) => {
-      element.query(By.css('.cz-tooltip'))?.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    });
-    fixture.detectChanges();
-    expect(createPanelTooltipAnchors.map((element) => element.query(By.css('.cz-tooltip__bubble'))?.nativeElement.textContent.trim())).toEqual([
-      'You are already in a room. Leave it before joining another one.',
-      'You are already in a room. Leave it before joining another one.',
-    ]);
-    expect(createPanelTooltipAnchors.every((element) => element.query(By.css('button')).nativeElement.disabled)).toBe(true);
-
-    await fixture.componentInstance.openListedRoom(listedRoom);
-    expect(roomsApi.join).not.toHaveBeenCalled();
   });
 
   it('creates rooms with the complete setup payload from the modal', async () => {

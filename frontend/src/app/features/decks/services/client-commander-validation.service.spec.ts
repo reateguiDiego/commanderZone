@@ -29,10 +29,10 @@ describe('ClientCommanderValidationService', () => {
 
     const issues = service.validate(deck);
 
-    expect(issues.some((issue) => issue.title === 'Singleton violation' && issue.cards.includes('Sol Ring'))).toBe(true);
-    expect(issues.some((issue) => issue.title === 'Commander legality issue' && issue.cards.includes('Banned Card'))).toBe(true);
+    expect(issues.some((issue) => issue.titleKey === 'deckBuilder.clientCommanderValidation.singletonViolation.title' && issue.cards.includes('Sol Ring'))).toBe(true);
+    expect(issues.some((issue) => issue.titleKey === 'deckBuilder.clientCommanderValidation.commanderLegalityIssue.title' && issue.cards.includes('Banned Card'))).toBe(true);
     expect(issues.some((issue) => issue.cards.includes('MDFC Card // Land'))).toBe(false);
-    expect(issues.some((issue) => issue.title === 'Color identity issue' && issue.cards.includes('Counterspell'))).toBe(false);
+    expect(issues.some((issue) => issue.titleKey === 'deckBuilder.clientCommanderValidation.colorIdentityIssue.title' && issue.cards.includes('Counterspell'))).toBe(false);
   });
 
   it('treats localized basic lands as singleton-safe cards', () => {
@@ -49,7 +49,7 @@ describe('ClientCommanderValidationService', () => {
 
     const issues = service.validate(deck);
 
-    expect(issues.some((issue) => issue.title === 'Singleton violation')).toBe(false);
+    expect(issues.some((issue) => issue.titleKey === 'deckBuilder.clientCommanderValidation.singletonViolation.title')).toBe(false);
   });
 });
 

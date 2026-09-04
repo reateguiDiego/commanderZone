@@ -131,7 +131,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Enable mana row');
     expect(fixture.nativeElement.textContent).toContain('Preserve mana pool');
-    expect(fixture.nativeElement.textContent).toContain('Subtract life automatically');
+    expect(fixture.nativeElement.textContent).toContain('Apply commander damage to life total');
     expect(fixture.nativeElement.textContent).toContain('Game animations');
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
   });

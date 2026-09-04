@@ -1,24 +1,45 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, HostListener, PLATFORM_ID, computed, inject, input, output, signal } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostListener,
+  PLATFORM_ID,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { Card } from '../../../../core/models/card.model';
 import { Deck } from '../../../../core/models/deck.model';
 import { DeckEditorViewMode } from '../../../decks/models/deck-editor.models';
 import { DeckCardSpoilerViewComponent } from '../../../decks/deck-editor/deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from '../../../decks/deck-editor/deck-card-text-view/deck-card-text-view.component';
-import { CommunityDeckCardAction, CommunityDeckCardActionEvent, CommunityDeckViewerStore } from './community-deck-viewer.store';
+import {
+  CommunityDeckCardAction,
+  CommunityDeckCardActionEvent,
+  CommunityDeckViewerStore,
+} from './community-deck-viewer.store';
 import { CommonCardMenuComponent } from '../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
 import { CardFaceImageComponent } from '../../../../shared/components/card-face-image/card-face-image.component';
 import { DeckBracketEstimate } from '../../../../core/models/deck-analysis.model';
 import { BracketPillComponent } from '../../../../shared/ui/bracket-pill/bracket-pill.component';
+import { DeckViewModeSelectComponent } from '../../../decks/deck-editor/deck-view-mode-select/deck-view-mode-select.component';
 
 const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
 
 @Component({
   selector: 'app-deck-viewer',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, BracketPillComponent, DeckCardTextViewComponent, DeckCardSpoilerViewComponent, CommonCardMenuComponent, CardFaceImageComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    BracketPillComponent,
+    DeckCardTextViewComponent,
+    DeckCardSpoilerViewComponent,
+    DeckViewModeSelectComponent,
+    CommonCardMenuComponent,
+    CardFaceImageComponent,
+  ],
   templateUrl: './deck-viewer.component.html',
   styleUrl: './deck-viewer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,19 +53,10 @@ export class DeckViewerComponent {
   private readonly device = inject(DeviceProfileService);
   private readonly documentRef = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-  readonly viewModeMenuOpen = signal(false);
   readonly viewMode = signal<DeckEditorViewMode>(this.resolveInitialViewMode());
-  readonly viewModeOptions: ReadonlyArray<{ value: DeckEditorViewMode; label: string }> = [
-    { value: 'text', label: 'community.deckViewer.viewMode.text' },
-    { value: 'spoiler', label: 'community.deckViewer.viewMode.spoiler' },
-  ];
-  readonly selectedViewModeLabel = computed(() => (
-    this.viewModeOptions.find((option) => option.value === this.viewMode())?.label ?? 'community.deckViewer.viewMode.text'
-  ));
 
   @HostListener('document:click')
   handleDocumentClick(): void {
-    this.viewModeMenuOpen.set(false);
     this.store.closeContextMenu();
   }
 
@@ -56,7 +68,11 @@ export class DeckViewerComponent {
       return;
     }
 
-    if (target.closest('app-common-card-menu') || target.closest('.deck-card-row') || target.closest('.spoiler-card')) {
+    if (
+      target.closest('app-common-card-menu') ||
+      target.closest('.deck-card-row') ||
+      target.closest('.spoiler-card')
+    ) {
       return;
     }
 
@@ -74,15 +90,8 @@ export class DeckViewerComponent {
     this.store.closeContextMenu();
   }
 
-  toggleViewModeMenu(event: MouseEvent): void {
-    event.stopPropagation();
-    this.viewModeMenuOpen.update((open) => !open);
-  }
-
-  selectViewMode(value: DeckEditorViewMode, event: MouseEvent): void {
-    event.stopPropagation();
+  selectViewMode(value: DeckEditorViewMode): void {
     this.viewMode.set(value);
-    this.viewModeMenuOpen.set(false);
     this.rememberViewMode(value);
   }
 
@@ -122,9 +131,7 @@ export class DeckViewerComponent {
     const storage = this.sessionStorage();
     const storedValue = storage?.getItem(COMMUNITY_DECK_VIEWER_SESSION_KEY);
 
-    return storedValue === 'text' || storedValue === 'spoiler'
-      ? storedValue
-      : null;
+    return storedValue === 'text' || storedValue === 'spoiler' ? storedValue : null;
   }
 
   private rememberViewMode(value: DeckEditorViewMode): void {

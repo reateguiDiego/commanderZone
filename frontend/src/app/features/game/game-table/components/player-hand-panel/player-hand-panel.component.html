@@ -152,5 +152,5 @@
       </div>
     }
   }
-  <span class="hand-count" data-testid="hand-count">{{ zoneCount()(handPlayer, 'hand') }} cards</span>
+  <span class="hand-count" data-testid="hand-count">{{ 'shared.text.countCards' | runtimeTranslate: { count: zoneCount()(handPlayer, 'hand') } }}</span>
 </div>

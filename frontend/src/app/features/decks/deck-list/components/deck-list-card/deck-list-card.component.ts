@@ -45,14 +45,14 @@ export class DeckListCardComponent {
 
   visibilityLabelKey(visibility: DeckVisibility | undefined): string {
     return visibility === 'public'
-      ? 'common.visibility.visibilityChoice.public'
-      : 'common.visibility.visibilityChoice.private';
+      ? 'shared.text.public'
+      : 'shared.text.private';
   }
 
   visibilityPillLabelKey(visibility: DeckVisibility | undefined): string {
     return visibility === 'public'
-      ? 'common.visibility.visibilityPill.public'
-      : 'common.visibility.visibilityPill.private';
+      ? 'shared.text.public'
+      : 'shared.text.private';
   }
 
   showMetrics(): boolean {

@@ -37,10 +37,10 @@ export class RoomSetupControlsComponent {
   readonly updatingTimer = input(false);
   readonly updatingMulligan = input(false);
   readonly mulliganOptions: readonly { value: RoomMulliganRule; labelKey: string }[] = [
-    { value: 'LONDON', labelKey: 'rooms.roomSetupControls.mulliganRules.london' },
-    { value: 'VANCOUVER', labelKey: 'rooms.roomSetupControls.mulliganRules.vancouver' },
-    { value: 'PARIS', labelKey: 'rooms.roomSetupControls.mulliganRules.paris' },
-    { value: 'GENEROUS', labelKey: 'rooms.roomSetupControls.mulliganRules.generous' },
+    { value: 'LONDON', labelKey: 'shared.text.london' },
+    { value: 'VANCOUVER', labelKey: 'shared.text.vancouver' },
+    { value: 'PARIS', labelKey: 'shared.text.paris' },
+    { value: 'GENEROUS', labelKey: 'shared.text.generous' },
   ];
 
   readonly mulliganSelectOptions = computed(() => this.mulliganOptions.map((option) => ({
@@ -81,6 +81,6 @@ export class RoomSetupControlsComponent {
   }
 
   private descriptionKeyForMulliganRule(mulliganRule: RoomMulliganRule): string {
-    return `rooms.roomSetupControls.mulliganDescriptions.${mulliganRule.toLowerCase()}`;
+    return `shared.text.mulliganDescriptions.${mulliganRule.toLowerCase()}`;
   }
 }

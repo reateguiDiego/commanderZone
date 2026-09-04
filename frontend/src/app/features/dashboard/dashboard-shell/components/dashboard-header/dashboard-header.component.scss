@@ -157,6 +157,38 @@
   transform: scale(1.05);
 }
 
+@media (min-width: 1281px) and (max-width: 1600px) {
+  .header-menu {
+    gap: clamp(0.4rem, 0.9vw, 0.7rem);
+  }
+
+  .nav-list {
+    gap: clamp(0.2rem, 0.5vw, 0.42rem);
+  }
+
+  .nav-list a {
+    gap: 0.28rem;
+    min-height: 3.8rem;
+    padding: 0.38rem clamp(0.38rem, 0.65vw, 0.58rem);
+    white-space: normal;
+  }
+
+  .nav-icon {
+    width: clamp(2.55rem, 3vw, 3.2rem);
+    height: clamp(2.55rem, 3vw, 3.2rem);
+  }
+
+  .nav-label {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+}
+
 @media (max-width: 1400px), (orientation: portrait) {
   .topbar {
     min-height: auto;
@@ -215,6 +247,10 @@
 
   .header-menu {
     display: contents;
+  }
+
+  .topbar--admin .brand {
+    display: none;
   }
 
   .brand {

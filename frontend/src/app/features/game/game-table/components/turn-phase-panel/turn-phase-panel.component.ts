@@ -49,45 +49,21 @@ export class TurnPhasePanelComponent {
     return currentPlayerId !== null && currentPlayerId === this.turn().activePlayerId;
   }
 
-  nextPhaseLabel(): string {
+  nextPhaseKey(): string {
     const phases = this.phases();
     const currentPhaseIndex = phases.indexOf(this.turn().phase);
     const nextPhase = currentPhaseIndex >= 0 && currentPhaseIndex < phases.length - 1
       ? phases[currentPhaseIndex + 1]
       : phases[0];
 
-    return this.phaseLabel(nextPhase ?? 'untap');
+    return this.phaseTranslationKey(nextPhase ?? 'untap');
   }
 
   isCompactPhase(phase: string): boolean {
     return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
   }
 
-  phaseDisplayLabel(phase: string): string {
-    switch (phase) {
-      case 'untap':
-        return 'Untap';
-      case 'upkeep':
-        return 'Upkeep';
-      case 'draw':
-        return 'Draw';
-      case 'main-1':
-        return 'Main phase I';
-      case 'combat':
-        return 'Combat';
-      case 'main-2':
-        return 'Main phase II';
-      case 'end':
-        return 'End step';
-      default:
-        return this.phaseLabel(phase).replace('-', ' ');
-    }
-  }
-
-  private phaseLabel(phase: string): string {
-    return phase
-      .split('-')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join('-');
+  phaseTranslationKey(phase: string): string {
+    return `game.turnPhasePanel.phaseLabels.${phase}`;
   }
 }

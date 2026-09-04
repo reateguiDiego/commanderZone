@@ -1,6 +1,6 @@
 <section class="avatar-upload">
   <header class="avatar-upload-header">
-    <h3>{{ 'settings.settingsAvatarUpload.uploadImage' | runtimeTranslate }}</h3>
+    <h3>{{ 'shared.text.uploadImage' | runtimeTranslate }}</h3>
     <p>{{ 'settings.settingsAvatarUpload.chooseYourOwnImageAndFrameIt' | runtimeTranslate }}</p>
   </header>
 
@@ -10,7 +10,7 @@
         @if (previewImageUrl()) {
           <img
             [src]="previewImageUrl()"
-            [alt]="'settings.settingsAvatarUpload.avatarPreview' | runtimeTranslate"
+            [alt]="'shared.text.avatarPreview' | runtimeTranslate"
             draggable="false"
             [style.width]="previewImageSize()"
             [style.height]="previewImageSize()"
@@ -68,7 +68,7 @@
     }
 
     <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
-      {{ saving() ? 'Saving...' : 'Save' }}
+      {{ (saving() ? 'common.ui.saving' : 'shared.text.save') | runtimeTranslate }}
     </button>
   </footer>
 </section>

@@ -53,7 +53,7 @@ describe('SpecialEntityRailComponent', () => {
     fixture.componentInstance.previewHidden.subscribe(hidden);
 
     const card = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill-card-backed') as NodeListOf<HTMLElement>)
-      .find((element) => element.getAttribute('aria-label')?.includes('The Initiative')) as HTMLElement | undefined;
+      .find((element) => element.getAttribute('aria-label')?.includes('Initiative')) as HTMLElement | undefined;
     expect(card).toBeTruthy();
     card?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     card?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));

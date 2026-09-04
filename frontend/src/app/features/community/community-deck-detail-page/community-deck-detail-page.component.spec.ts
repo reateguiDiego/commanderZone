@@ -195,7 +195,7 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(text).toContain('Analysis');
     expect(text).toContain('Advanced Analysis');
     expect(text).toContain('Deep deck health, combos, consistency and power signals.');
-    expect(text).toContain('Considering');
+    expect(text).toContain('Maybeboard');
     expect(text).toContain('Validation');
     expect(text).not.toContain('History');
     expect(text).not.toContain('Missing');
