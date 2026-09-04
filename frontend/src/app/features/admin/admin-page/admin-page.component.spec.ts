@@ -114,7 +114,7 @@ describe('AdminPageComponent', () => {
       recipientId: 'user-1',
       subject: 'Notice',
       body: 'Hello',
-      sendEmail: false,
+      delivery: 'internal',
     });
   });
 });

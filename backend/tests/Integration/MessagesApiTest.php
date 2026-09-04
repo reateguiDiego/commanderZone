@@ -51,7 +51,7 @@ final class MessagesApiTest extends ApiTestCase
             'recipientId' => $recipientId,
             'subject' => 'Admin notice',
             'body' => 'Welcome to CommanderZone.',
-            'sendEmail' => false,
+            'delivery' => 'internal',
         ], $adminToken);
 
         self::assertResponseStatusCodeSame(201);
@@ -98,7 +98,7 @@ final class MessagesApiTest extends ApiTestCase
                 '![Commander image](data:image/png;base64,aGVsbG8=)',
                 '<strong>This stays text, not HTML.</strong>',
             ]),
-            'sendEmail' => true,
+            'delivery' => 'both',
         ], $adminToken);
 
         self::assertResponseStatusCodeSame(201);
@@ -128,6 +128,34 @@ final class MessagesApiTest extends ApiTestCase
             'The same message is delivered in both channels.',
             $this->messageBySubject($this->jsonResponse(), 'Email notice')['body'],
         );
+    }
+
+    public function testAdminCanSendAnEmailWithoutCreatingAnInternalMessage(): void
+    {
+        $adminToken = $this->adminToken('admin-email-only@example.test', 'Admin Email Only');
+        $recipientToken = $this->registerAndLogin('email-only-recipient@example.test', 'Email Only Recipient');
+        $recipientId = $this->currentUserId($recipientToken);
+        $emailCountBeforeSend = count(self::getMailerMessages());
+
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $recipientId,
+            'subject' => 'Email only',
+            'body' => 'This delivery has no internal message.',
+            'delivery' => 'email',
+        ], $adminToken);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(1, $this->jsonResponse()['sent']);
+        self::assertCount($emailCountBeforeSend + 1, self::getMailerMessages());
+        $email = self::getMailerMessage($emailCountBeforeSend);
+        self::assertNotNull($email);
+        self::assertEmailSubjectContains($email, 'Email only');
+
+        $this->jsonRequest('GET', '/messages', token: $recipientToken);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->jsonResponse()['unreadCount']);
+        self::assertCount(1, $this->jsonResponse()['data']);
     }
 
     public function testAdminCanSendMessageToAllUsers(): void

@@ -132,6 +132,27 @@ textarea:focus {
   --format-select-open-z-index: 260;
 }
 
+.delivery-field {
+  width: 100%;
+  --format-select-menu-width: 100%;
+  --format-select-menu-min-width: 100%;
+  --format-select-open-z-index: 260;
+}
+
+.delivery-info {
+  margin: -0.55rem 0 0;
+  border: 1px solid rgb(var(--cz-info-rgb) / 36%);
+  border-radius: 8px;
+  padding: 0.62rem 0.72rem;
+  background: rgb(var(--cz-info-rgb) / 11%);
+  color: var(--cz-info);
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
 .field-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

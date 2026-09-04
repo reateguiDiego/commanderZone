@@ -8,8 +8,17 @@
     "notifications": {
       "recipient": "送信先",
       "allUsers": "すべてのユーザー",
-      "sendEmail": "メールでも送信する",
-      "sendEmailDescription": "メッセージは受信者のメールアドレスにも送信されます。",
+      "delivery": {
+        "label": "送信方法",
+        "internal": "アプリ内メッセージのみ",
+        "email": "メールのみ",
+        "both": "アプリ内メッセージとメール",
+        "description": {
+          "internal": "受信者はこのメッセージをアプリ内でのみ確認できます。",
+          "email": "受信者はこのメッセージをメールでのみ受け取ります。",
+          "both": "受信者はこのメッセージをアプリ内で確認し、メールでも受け取ります。"
+        }
+      },
       "subjectRequired": "件名を入力してください。",
       "formattingTools": "メッセージ書式ツール",
       "tools": {
@@ -489,12 +498,6 @@
       "deckRequired": "デッキが必要です"
     },
     "roomSetupControls": {
-      "mulliganDescriptions": {
-        "london": "毎回7枚引きます。キープするとき、有効なマリガン1回につきカード1枚をライブラリーの一番下に置きます。",
-        "vancouver": "有効なマリガン1回につき引くカードが1枚少なくなります。有効なマリガン後にキープした場合、占術1を行います。",
-        "paris": "有効なマリガン1回につき引くカードが1枚少なくなります。カードをライブラリーの一番下に置くことも、占術を行うこともありません。",
-        "generous": "統率者向けの寛容ルール: 最大10枚引き、可能なら7枚をキープし、残りを無作為な順番でライブラリーの一番下に置きます。"
-      },
       "firstMulliganFreeOff": "カウント",
       "noTimer": "タイマーなし"
     },
@@ -1223,7 +1226,7 @@
       "changed": "{{ actor }} は、{{ counter }} を {{ value }} に置きます。"
     },
     "battlefield": {
-      "untappedAll": "{{ actor }} アンタップ状態の永久 {{ count }}。"
+      "untappedAll": "{{ actor }} は {{ count }} 個のパーマネントをアンタップしました。"
     },
     "life": {
       "changed": "{{ actor }} は、{{ player }} の有効期間を {{ previousLife }} から {{ life }} に変更しました。"
@@ -1627,7 +1630,7 @@
         "manaFixing": "マナ基盤の安定化",
         "typedTutors": "条件付きサーチ",
         "landTutors": "土地サーチ",
-        "rampSearch": "ランプ用サーチ",
+        "rampSearch": "Ramp search",
         "opponentTutors": "対戦相手に利益を与えるサーチ",
         "sacrificeOutlets": "生け贄の供給源",
         "oneShotSacrifice": "一撃の犠牲",
@@ -1710,7 +1713,7 @@
           "keepableBy6": "6枚までにキープ可能",
           "keepableBy5": "5枚までにキープ可能",
           "averageMulligansNeeded": "必要な平均的なマリガン数",
-          "permanentRampSeen": "恒久的なランプが見られる",
+          "permanentRampSeen": "Permanent ramp seen",
           "earlyInteractionSeen": "初期の相互作用が見られる",
           "drawOrSelectionSeen": "ドローまたはカード選択あり",
           "trueTutorSeen": "真のサーチあり",
@@ -1738,8 +1741,8 @@
           "winconsCombat": "勝ち筋 / 戦闘"
         },
         "messages": {
-          "rampOneShot": "一部の加速は単発的なものであり、安定したランプとしてカウントされるべきではありません。",
-          "tutorsSeparated": "ランプ用サーチと対戦相手に利益を与えるサーチは、真のサーチから分けて数えます。",
+          "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
+          "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
           "wipesSeparated": "大量バウンスと条件付きワイプは、確実な全体除去とは区別されます。",
           "sacrificeOneShot": "ワンショットの犠牲は反復可能な出口としてカウントされません。"
         }
@@ -1771,7 +1774,7 @@
         "tappedLands": "タップ状態で戦場に出る土地",
         "deadFetchlands": "機能しないフェッチランド",
         "manaBase": "マナ基盤",
-        "acceleration": "加速",
+        "acceleration": "Acceleration",
         "colorFixing": "色マナの安定化",
         "landBase": "土地基盤",
         "basics": "基本土地",
@@ -1781,8 +1784,8 @@
         "mdfcLands": "両面カードの土地",
         "landCycles": "土地サイクル",
         "noLandCycles": "追跡対象の土地サイクルは検出されませんでした。",
-        "rampProfile": "ランプの内訳",
-        "landRamp": "土地ランプ",
+        "rampProfile": "Ramp profile",
+        "landRamp": "Land ramp",
         "manaRocks": "マナ・アーティファクト",
         "manaDorks": "マナ・クリーチャー",
         "costReducers": "コスト軽減",
@@ -2296,6 +2299,12 @@
       "deleteRoom": "ルームを削除する",
       "timer": "タイマー",
       "mulligan": "マリガン",
+      "mulliganDescriptions": {
+        "london": "毎回7枚引きます。キープするとき、有効なマリガン1回につきカード1枚をライブラリーの一番下に置きます。",
+        "vancouver": "有効なマリガン1回につき引くカードが1枚少なくなります。有効なマリガン後にキープした場合、占術1を行います。",
+        "paris": "有効なマリガン1回につき引くカードが1枚少なくなります。カードをライブラリーの一番下に置くことも、占術を行うこともありません。",
+        "generous": "統率者向けの寛容ルール: 最大10枚引き、可能なら7枚をキープし、残りを無作為な順番でライブラリーの一番下に置きます。"
+      },
       "firstMulliganIsFree": "最初のマリガンは無料です",
       "firstMulliganIsNotFree": "最初のマリガンは無料ではありません",
       "free": "無料",
@@ -2393,13 +2402,13 @@
       "high": "高い",
       "medium": "中くらい",
       "low": "低い",
-      "ramp": "ランプ",
+      "ramp": "Ramp",
       "wipes": "ワイプ",
       "tutors": "サーチ",
       "sacrifice": "犠牲",
       "wincons": "勝ち筋",
       "stax": "スタックス",
-      "permanentRamp": "常設ランプ",
+      "permanentRamp": "Permanent ramp",
       "fastMana": "速いマナ",
       "massBounce": "マスバウンス",
       "completeCombos": "コンボを完了する",

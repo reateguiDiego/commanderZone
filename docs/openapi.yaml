@@ -4449,10 +4449,16 @@ components:
           type: string
           minLength: 1
           maxLength: 200000
+        delivery:
+          type: string
+          enum: [internal, email, both]
+          default: internal
+          description: Choose internal message delivery, email delivery, or both channels.
         sendEmail:
           type: boolean
           default: false
-          description: Also deliver the message to each recipient's email address.
+          deprecated: true
+          description: 'Legacy equivalent of `delivery: both` when true, otherwise `delivery: internal`.'
     AdminMessageSendResponse:
       type: object
       required: [sent]

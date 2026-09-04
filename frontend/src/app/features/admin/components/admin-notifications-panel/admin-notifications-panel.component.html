@@ -91,13 +91,16 @@
       <p class="notice success">{{ message }}</p>
     }
 
-    <app-toggle
-      [label]="'admin.notifications.sendEmail' | runtimeTranslate"
-      [description]="'admin.notifications.sendEmailDescription' | runtimeTranslate"
-      [checked]="sendEmail()"
+    <app-format-select
+      class="delivery-field"
+      labelKey="admin.notifications.delivery.label"
+      name="delivery"
+      [options]="deliveryOptions"
+      [value]="delivery()"
       [disabled]="sending()"
-      (checkedChange)="sendEmail.set($event)"
+      (valueChange)="selectDelivery($event)"
     />
+    <p class="delivery-info" role="status">{{ deliveryDescriptionKey() | runtimeTranslate }}</p>
 
     <button type="submit" czButton="primary" [disabled]="!canSubmit()">
       {{ (sending() ? 'shared.text.sending' : 'admin.notifications.send') | runtimeTranslate }}

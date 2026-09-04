@@ -26,11 +26,13 @@ export interface MessageResponse {
   readonly unreadCount: number;
 }
 
+export type AdminMessageDelivery = 'internal' | 'email' | 'both';
+
 export interface AdminMessageSendPayload {
   readonly recipientId: string;
   readonly subject: string;
   readonly body: string;
-  readonly sendEmail: boolean;
+  readonly delivery: AdminMessageDelivery;
 }
 
 export interface AdminMessageSendResponse {

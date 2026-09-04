@@ -8,8 +8,17 @@
     "notifications": {
       "recipient": "Recipient",
       "allUsers": "All users",
-      "sendEmail": "同时发送邮件",
-      "sendEmailDescription": "消息也会发送到收件人的电子邮件地址。",
+      "delivery": {
+        "label": "发送渠道",
+        "internal": "仅应用内消息",
+        "email": "仅电子邮件",
+        "both": "应用内消息和电子邮件",
+        "description": {
+          "internal": "收件人只能在应用内看到此消息。",
+          "email": "收件人只能通过电子邮件收到此消息。",
+          "both": "收件人会在应用内看到此消息，并同时通过电子邮件收到它。"
+        }
+      },
       "subjectRequired": "Subject is required.",
       "formattingTools": "Message formatting tools",
       "tools": {
@@ -229,39 +238,39 @@
       "playerCount": "{{ count }} players",
       "fixed": "Fixed",
       "manual": "Manual",
-      "manaQuantity": "Mana quantity",
-      "manaActionForCard": "{{ card }} mana action",
-      "moveCardToAnotherBattlefield": "Move {{ card }} to {{ player }}'s battlefield?",
-      "giveCardToPlayer": "You are giving {{ card }} to {{ player }}. This moves it to their hand.",
-      "revealWhileMovingToHand": "Do you want to reveal {{ card }} while moving it from library to hand?",
-      "revealAndMove": "Reveal and move",
-      "moveHidden": "Move hidden",
+      "manaQuantity": "法术力数量",
+      "manaActionForCard": "{{ card }}的法术力操作",
+      "moveCardToAnotherBattlefield": "将 {{ card }} 移至 {{ player }} 的战场？",
+      "giveCardToPlayer": "你正将 {{ card }} 交给 {{ player }}。它会移至该玩家的手牌。",
+      "revealWhileMovingToHand": "将 {{ card }} 从牌库移至手牌时要展示它吗？",
+      "revealAndMove": "展示并移动",
+      "moveHidden": "隐藏移动",
       "top": "Top",
       "bottom": "Bottom",
       "leaving": "Leaving",
       "connectedPlayers": "{{ count }} connected players",
       "emptyZone": "This zone is empty. You can close it whenever you want.",
-      "moveAllCardsToLibrary": "Where do you want to put {{ count }} cards?",
+      "moveAllCardsToLibrary": "要将 {{ count }} 张牌放到哪里？",
       "saving": "Saving...",
       "deleting": "Deleting...",
       "copied": "Copied",
-      "addMana": "Add {{ mana }}",
-      "removeMana": "Remove {{ mana }}",
-      "tokenQuantityFor": "Token quantity for {{ card }}",
+      "addMana": "添加 {{ mana }}",
+      "removeMana": "移去 {{ mana }}",
+      "tokenQuantityFor": "{{ card }} 的衍生物数量",
       "gameplayCardAddControls": "Gameplay card add controls",
       "decreaseTracker": "Decrease {{ tracker }}",
       "increaseTracker": "Increase {{ tracker }}",
-      "removeCommanderDamage": "Remove commander damage from {{ source }} to {{ player }}",
-      "addCommanderDamage": "Add commander damage from {{ source }} to {{ player }}",
+      "removeCommanderDamage": "减少 {{ source }} 对 {{ player }} 造成的指挥官伤害",
+      "addCommanderDamage": "增加 {{ source }} 对 {{ player }} 造成的指挥官伤害",
       "premiumAvatar": "{{ name }} premium avatar",
-      "addVenture": "Add venture",
-      "whiteMana": "White mana",
-      "blueMana": "Blue mana",
-      "blackMana": "Black mana",
-      "redMana": "Red mana",
-      "greenMana": "Green mana",
-      "colorlessMana": "Colorless mana",
-      "commanderTax": "Commander tax",
+      "addVenture": "添加地城探索",
+      "whiteMana": "白色法术力",
+      "blueMana": "蓝色法术力",
+      "blackMana": "黑色法术力",
+      "redMana": "红色法术力",
+      "greenMana": "绿色法术力",
+      "colorlessMana": "无色法术力",
+      "commanderTax": "指挥官税",
       "storm": "Storm",
       "colorAzorius": "Azorius",
       "colorDimir": "Dimir",
@@ -489,12 +498,6 @@
       "deckRequired": "需要套牌"
     },
     "roomSetupControls": {
-      "mulliganDescriptions": {
-        "london": "每次抓 7 张牌。决定保留手牌后，每次有效再调度将一张牌置于牌库底。",
-        "vancouver": "每次有效再调度少抓一张牌。若在有效再调度后保留手牌，则占卜 1。",
-        "paris": "每次有效再调度少抓一张牌。你不把牌置于牌库底，也不占卜。",
-        "generous": "适合 Commander 友局的规则：最多抓 10 张，尽量保留 7 张，其余随机置于牌库底。"
-      },
       "firstMulliganFreeOff": "计入",
       "noTimer": "无计时器"
     },
@@ -859,12 +862,12 @@
       "focusTurn": "聚焦回合",
       "advancePhase": "推进阶段",
       "phaseLabels": {
-        "untap": "Untap",
-        "upkeep": "Upkeep",
-        "main-1": "Main phase I",
-        "combat": "Combat",
-        "main-2": "Main phase II",
-        "end": "End step"
+        "untap": "重置",
+        "upkeep": "维持",
+        "main-1": "第一主阶段",
+        "combat": "战斗",
+        "main-2": "第二主阶段",
+        "end": "结束步骤"
       }
     },
     "debug": {
@@ -1210,7 +1213,7 @@
       "stoppedRevealingMany": "{{ actor }} 停止向 {{ recipients }} 展示其{{ zone }}中的 {{ count }} 张牌。",
       "moved": "{{ actor }} 将一张卡从 {{ fromZone }} 移至 {{ toZone }}。",
       "tapped": "{{ actor }} 横置了一个永久物。",
-      "untapped": "{{ actor }} 永久未开发。"
+      "untapped": "{{ actor }}重置了一个永久物。"
     },
     "audience": {
       "all": "所有玩家"
@@ -1223,7 +1226,7 @@
       "changed": "{{ actor }} 将 {{ counter }} 放入 {{ value }} 中。"
     },
     "battlefield": {
-      "untappedAll": "{{ actor }} 未开发的永久 {{ count }}。"
+      "untappedAll": "{{ actor }}重置了 {{ count }} 个永久物。"
     },
     "life": {
       "changed": "{{ actor }} 将 {{ player }} 的寿命从 {{ previousLife }} 更改为 {{ life }}。"
@@ -1600,7 +1603,7 @@
           "belowRecommendedMinimum": "检测到的数量低于该类别的建议基准。",
           "relatedIssueDetected": "检测到与该类别相关的分析警告。",
           "manaIssueDetected": "检测到颜色获取、速度或指挥官施放能力方面的警告。",
-          "boardWipeIssueDetected": "清场组件存在覆盖面、质量或与自身计划冲突的警告。",
+          "boardWipeIssueDetected": "Board Wipes 套件存在覆盖面、质量或与自身计划冲突的警告。",
           "consistencyIssueDetected": "起手或早期访问模拟发现了压力点。",
           "comboIssueDetected": "组合技组件存在完整性、依赖性或访问方面的警告。",
           "typalIssueDetected": "部族组件存在密度、支持或与指挥官契合度方面的警告。"
@@ -1618,7 +1621,7 @@
         "title": "关键指标",
         "unavailable": "详细的度量信号不可用于此分析。",
         "trueTutors": "真正的导师",
-        "boardWipes": "板擦拭巾",
+        "boardWipes": "Board Wipes",
         "sacOutlets": "囊出口",
         "drawEffects": "绘制效果",
         "spotInteraction": "现场互动",
@@ -1627,7 +1630,7 @@
         "manaFixing": "法力固定",
         "typedTutors": "打字导师",
         "landTutors": "土地导师",
-        "rampSearch": "Ramp 搜索",
+        "rampSearch": "Ramp search",
         "opponentTutors": "对手导师",
         "sacrificeOutlets": "牺牲网点",
         "oneShotSacrifice": "一击牺牲",
@@ -1710,7 +1713,7 @@
           "keepableBy6": "可保存至 6",
           "keepableBy5": "可保存5",
           "averageMulligansNeeded": "平均需要调度",
-          "permanentRampSeen": "看到永久坡道",
+          "permanentRampSeen": "Permanent ramp seen",
           "earlyInteractionSeen": "早期互动可见",
           "drawOrSelectionSeen": "绘制或选择看到",
           "trueTutorSeen": "真正的导师见过",
@@ -1722,7 +1725,7 @@
           "canCastOnCurve": "Can cast on curve",
           "missingColor": "Missing color",
           "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "Tapped-out delay"
+          "tappedOutDelay": "横置地延误"
         },
         "turn1": "Turn 1",
         "turn2": "Turn 2",
@@ -1738,9 +1741,9 @@
           "winconsCombat": "Wincons / 战斗"
         },
         "messages": {
-          "rampOneShot": "有些加速是一次性的，不应算作稳定斜坡。",
-          "tutorsSeparated": "Ramp搜索和对手导师与真正的导师是分开的。",
-          "wipesSeparated": "质量反弹和条件擦拭与硬板擦拭不同。",
+          "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
+          "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
+        "wipesSeparated": "Mass bounce 和 Conditional wipes 不同于 Hard Board Wipes。",
           "sacrificeOneShot": "一击牺牲不算是可重复的出路。"
         }
       },
@@ -1765,19 +1768,19 @@
         "colorSourceShare": "颜色来源占比",
         "coloredSources": "Colored sources",
         "coloredSourceHealth": "Colored source health",
-        "untappedSources": "Untapped sources",
+        "untappedSources": "未横置的法术力来源",
         "earlySources": "Early sources",
         "totalLands": "Total lands",
-        "tappedLands": "Tapped lands",
+        "tappedLands": "已横置的地",
         "deadFetchlands": "Dead fetchlands",
         "manaBase": "法术力基础",
-        "acceleration": "加速",
+        "acceleration": "Acceleration",
         "colorFixing": "调色",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",
         "typedLands": "Typed lands",
-        "conditionallyTappedLands": "Conditionally tapped lands",
+        "conditionallyTappedLands": "条件性横置地",
         "mdfcLands": "MDFC lands",
         "landCycles": "Land cycles",
         "noLandCycles": "No tracked land cycles detected.",
@@ -2352,6 +2355,12 @@
       "deleteRoom": "删除房间",
       "timer": "定时器",
       "mulligan": "再调度",
+      "mulliganDescriptions": {
+        "london": "每次抓 7 张牌。决定保留手牌后，每次有效再调度将一张牌置于牌库底。",
+        "vancouver": "每次有效再调度少抓一张牌。若在有效再调度后保留手牌，则占卜 1。",
+        "paris": "每次有效再调度少抓一张牌。你不把牌置于牌库底，也不占卜。",
+        "generous": "适合 Commander 友局的规则：最多抓 10 张，尽量保留 7 张，其余随机置于牌库底。"
+      },
       "firstMulliganIsFree": "首次再调度免费",
       "firstMulliganIsNotFree": "First mulligan is not free",
       "free": "免费",
@@ -2450,21 +2459,21 @@
       "medium": "中等的",
       "low": "低的",
       "ramp": "Ramp",
-      "wipes": "湿巾",
+      "wipes": "Wipes",
       "tutors": "Tutors",
       "sacrifice": "牺牲",
       "wincons": "Wincons",
       "stax": "Stax",
-      "permanentRamp": "永久坡道",
+      "permanentRamp": "Permanent ramp",
       "fastMana": "快速法力",
-      "massBounce": "质量弹跳",
+      "massBounce": "Mass bounce",
       "completeCombos": "完整的连击",
       "keepableHands": "可保留起手牌",
       "burstMana": "爆发法力",
       "rituals": "仪式",
       "oneShotMana": "一击法力",
-      "pseudoWipes": "伪湿巾",
-      "conditionalWipes": "有条件湿巾",
+      "pseudoWipes": "Pseudo wipes",
+      "conditionalWipes": "Conditional wipes",
       "infiniteMana": "无限法力",
       "averageManaValue": "Average mana value",
       "fetchlands": "Fetchlands",

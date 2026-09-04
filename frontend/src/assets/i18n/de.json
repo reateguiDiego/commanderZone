@@ -8,8 +8,17 @@
     "notifications": {
       "recipient": "Empfänger",
       "allUsers": "Alle Benutzer",
-      "sendEmail": "Auch per E-Mail senden",
-      "sendEmailDescription": "Die Nachricht wird zusätzlich an die E-Mail-Adresse des Empfängers gesendet.",
+      "delivery": {
+        "label": "Zustellungsweg",
+        "internal": "Nur interne Nachricht",
+        "email": "Nur E-Mail",
+        "both": "Interne Nachricht und E-Mail",
+        "description": {
+          "internal": "Der Empfänger sieht diese Nachricht nur in der App.",
+          "email": "Der Empfänger erhält diese Nachricht nur per E-Mail.",
+          "both": "Der Empfänger sieht diese Nachricht in der App und erhält sie zusätzlich per E-Mail."
+        }
+      },
       "subjectRequired": "Ein Betreff ist erforderlich.",
       "formattingTools": "Werkzeuge zur Nachrichtenformatierung",
       "tools": {
@@ -489,12 +498,6 @@
       "deckRequired": "Deck erforderlich"
     },
     "roomSetupControls": {
-      "mulliganDescriptions": {
-        "london": "Ziehe jedes Mal 7 Karten. Wenn du deine Hand behältst, legst du für jeden effektiven Mulligan eine Karte unter deine Bibliothek.",
-        "vancouver": "Jeder effektive Mulligan zieht eine Karte weniger. Wenn du nach einem effektiven Mulligan behältst, führst du Hellsicht 1 durch.",
-        "paris": "Jeder effektive Mulligan zieht eine Karte weniger. Du legst keine Karten unter deine Bibliothek und erhältst keine Hellsicht.",
-        "generous": "Commander-freundliche Regel: Ziehe bis zu 10 Karten, behalte 7, wenn möglich, und lege den Rest in zufälliger Reihenfolge unter deine Bibliothek."
-      },
       "firstMulliganFreeOff": "Zählt als Mulligan",
       "noTimer": "Kein Timer"
     },
@@ -1627,7 +1630,7 @@
         "manaFixing": "Mana-Fixing",
         "typedTutors": "Typgebundene Tutoren",
         "landTutors": "Land-Tutoren",
-        "rampSearch": "Ramp-Suche",
+        "rampSearch": "Ramp search",
         "opponentTutors": "Gegnerische Tutoren",
         "sacrificeOutlets": "Opferstellen",
         "oneShotSacrifice": "Einmalige Opfereffekte",
@@ -1710,7 +1713,7 @@
           "keepableBy6": "Auf 6 haltbar",
           "keepableBy5": "Auf 5 haltbar",
           "averageMulligansNeeded": "Durchschnittliche Mulligans erforderlich",
-          "permanentRampSeen": "Dauerhafter Ramp erkannt",
+          "permanentRampSeen": "Permanent ramp seen",
           "earlyInteractionSeen": "Frühe Interaktion erkannt",
           "drawOrSelectionSeen": "Kartenziehen oder -auswahl erkannt",
           "trueTutorSeen": "Echter Tutor erkannt",
@@ -1738,8 +1741,8 @@
           "winconsCombat": "Wincons / Kampf"
         },
         "messages": {
-          "rampOneShot": "Eine gewisse Beschleunigung erfolgt einmalig und sollte nicht als stabile Rampe gewertet werden.",
-          "tutorsSeparated": "Ramp-Suche und gegnerische Tutoren werden von echten Tutoren getrennt.",
+          "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
+          "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
           "wipesSeparated": "Massen-Bounce und bedingte Wipes sind nicht dasselbe wie harte Board Wipes.",
           "sacrificeOneShot": "Ein einmaliges Opfer zählt nicht als wiederholbarer Ausweg."
         }
@@ -1771,7 +1774,7 @@
         "tappedLands": "Getappte Länder",
         "deadFetchlands": "Tote Fetchländer",
         "manaBase": "Manabasis",
-        "acceleration": "Beschleunigung",
+        "acceleration": "Acceleration",
         "colorFixing": "Farbfixing",
         "landBase": "Länderbasis",
         "basics": "Standardländer",
@@ -1781,8 +1784,8 @@
         "mdfcLands": "MDFC-Länder",
         "landCycles": "Länderzyklen",
         "noLandCycles": "Keine erfassten Länderzyklen erkannt.",
-        "rampProfile": "Ramp-Profil",
-        "landRamp": "Länder-Ramp",
+        "rampProfile": "Ramp profile",
+        "landRamp": "Land ramp",
         "manaRocks": "Mana Rocks",
         "manaDorks": "Mana Dorks",
         "costReducers": "Kostenreduzierer",
@@ -2352,6 +2355,12 @@
       "deleteRoom": "Raum löschen",
       "timer": "Timer",
       "mulligan": "Mulligan",
+      "mulliganDescriptions": {
+        "london": "Ziehe jedes Mal 7 Karten. Wenn du deine Hand behältst, legst du für jeden effektiven Mulligan eine Karte unter deine Bibliothek.",
+        "vancouver": "Jeder effektive Mulligan zieht eine Karte weniger. Wenn du nach einem effektiven Mulligan behältst, führst du Hellsicht 1 durch.",
+        "paris": "Jeder effektive Mulligan zieht eine Karte weniger. Du legst keine Karten unter deine Bibliothek und erhältst keine Hellsicht.",
+        "generous": "Commander-freundliche Regel: Ziehe bis zu 10 Karten, behalte 7, wenn möglich, und lege den Rest in zufälliger Reihenfolge unter deine Bibliothek."
+      },
       "firstMulliganIsFree": "Der erste Mulligan ist kostenlos",
       "firstMulliganIsNotFree": "Der erste Mulligan ist nicht kostenlos",
       "free": "Kostenlos",
@@ -2455,7 +2464,7 @@
       "sacrifice": "Opfern",
       "wincons": "Wincons",
       "stax": "Stax",
-      "permanentRamp": "Dauerhafter Ramp",
+      "permanentRamp": "Permanent ramp",
       "fastMana": "Schnelles Mana",
       "massBounce": "Massen-Bounce",
       "completeCombos": "Komplette Combos",

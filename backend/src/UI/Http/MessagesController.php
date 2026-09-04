@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Message\AdminMessageMailer;
+use App\Application\Message\AdminMessageDelivery;
 use App\Domain\Message\UserMessage;
 use App\Domain\User\Role;
 use App\Domain\User\User;
@@ -72,7 +73,7 @@ class MessagesController extends ApiController
         $recipientId = trim((string) ($payload['recipientId'] ?? ''));
         $subject = trim((string) ($payload['subject'] ?? ''));
         $body = trim((string) ($payload['body'] ?? ''));
-        $sendEmail = $payload['sendEmail'] ?? false;
+        $delivery = $payload['delivery'] ?? null;
 
         if ($recipientId === '') {
             return $this->fail('recipientId is required.');
@@ -83,8 +84,15 @@ class MessagesController extends ApiController
         if ($body === '' || mb_strlen($body) > self::MAX_BODY_LENGTH) {
             return $this->fail(sprintf('Message is required and must be %d characters or fewer.', self::MAX_BODY_LENGTH));
         }
-        if (!is_bool($sendEmail)) {
-            return $this->fail('sendEmail must be a boolean.');
+        if ($delivery === null) {
+            $legacySendEmail = $payload['sendEmail'] ?? false;
+            if (!is_bool($legacySendEmail)) {
+                return $this->fail('sendEmail must be a boolean.');
+            }
+
+            $delivery = $legacySendEmail ? AdminMessageDelivery::Both : AdminMessageDelivery::Internal;
+        } elseif (!is_string($delivery) || ($delivery = AdminMessageDelivery::tryFrom($delivery)) === null) {
+            return $this->fail('delivery must be one of: internal, email, both.');
         }
 
         $recipients = $recipientId === 'all'
@@ -95,12 +103,14 @@ class MessagesController extends ApiController
             return $this->fail('Recipient not found.', 404);
         }
 
-        foreach ($recipients as $recipient) {
-            $entityManager->persist(new UserMessage($actor, $recipient, $subject, $body));
+        if ($delivery->sendsInternalMessage()) {
+            foreach ($recipients as $recipient) {
+                $entityManager->persist(new UserMessage($actor, $recipient, $subject, $body));
+            }
+            $entityManager->flush();
         }
-        $entityManager->flush();
 
-        if ($sendEmail) {
+        if ($delivery->sendsEmail()) {
             foreach ($recipients as $recipient) {
                 $this->adminMessageMailer->send($recipient, $subject, $body);
             }

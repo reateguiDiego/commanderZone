@@ -8,8 +8,17 @@
     "notifications": {
       "recipient": "Recipient",
       "allUsers": "All users",
-      "sendEmail": "Also send by email",
-      "sendEmailDescription": "The message will also be sent to the recipient's email address.",
+      "delivery": {
+        "label": "Delivery channel",
+        "internal": "Internal message only",
+        "email": "Email only",
+        "both": "Internal message and email",
+        "description": {
+          "internal": "The recipient will see this message only in the app.",
+          "email": "The recipient will receive this message only by email.",
+          "both": "The recipient will see this message in the app and receive it by email."
+        }
+      },
       "subjectRequired": "Subject is required.",
       "formattingTools": "Message formatting tools",
       "tools": {
@@ -489,12 +498,6 @@
       "deckRequired": "Deck required"
     },
     "roomSetupControls": {
-      "mulliganDescriptions": {
-        "london": "Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.",
-        "vancouver": "Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.",
-        "paris": "Each effective mulligan draws one fewer card. You do not put cards on the bottom of your library or scry.",
-        "generous": "Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and put the rest on the bottom of your library in random order."
-      },
       "firstMulliganFreeOff": "Counts as a mulligan",
       "noTimer": "No timer"
     },
@@ -2352,6 +2355,12 @@
       "deleteRoom": "Delete room",
       "timer": "Timer",
       "mulligan": "Mulligan",
+      "mulliganDescriptions": {
+        "london": "Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.",
+        "vancouver": "Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.",
+        "paris": "Each effective mulligan draws one fewer card. You do not put cards on the bottom of your library or scry.",
+        "generous": "Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and put the rest on the bottom of your library in random order."
+      },
       "firstMulliganIsFree": "First mulligan is free",
       "firstMulliganIsNotFree": "First mulligan is not free",
       "free": "Free",

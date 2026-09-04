@@ -6,10 +6,10 @@ import { firstValueFrom } from 'rxjs';
 import { MessagesApi } from '../../../../core/api/messages.api';
 import { TranslationService } from '../../../../core/localization/translation.service';
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../core/localization/runtime-translate.pipe';
+import { AdminMessageDelivery } from '../../../../core/models/message.model';
 import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { MessageBodyComponent } from '../../../../shared/ui/message-body/message-body.component';
-import { ToggleComponent } from '../../../../shared/ui/toggle/toggle.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
 import { AdminUser } from '../../data-access/admin-users.models';
 
@@ -24,9 +24,21 @@ const MAX_BODY_LENGTH = 200000;
 const MAX_UPLOADED_IMAGE_DATA_URL_LENGTH = 160000;
 type MessageSnippet = 'heading' | 'image' | 'link' | 'list' | 'separator';
 
+const DELIVERY_OPTIONS: readonly FormatSelectOption[] = [
+  { id: 'internal', labelKey: 'admin.notifications.delivery.internal' },
+  { id: 'email', labelKey: 'admin.notifications.delivery.email' },
+  { id: 'both', labelKey: 'admin.notifications.delivery.both' },
+];
+
+const DELIVERY_DESCRIPTION_KEYS: Record<AdminMessageDelivery, string> = {
+  internal: 'admin.notifications.delivery.description.internal',
+  email: 'admin.notifications.delivery.description.email',
+  both: 'admin.notifications.delivery.description.both',
+};
+
 @Component({
   selector: 'app-admin-notifications-panel',
-  imports: [ReactiveFormsModule, LucideAngularModule, RuntimeTranslatePipe, FormatSelectComponent, CzButtonDirective, MessageBodyComponent, ToggleComponent],
+  imports: [ReactiveFormsModule, LucideAngularModule, RuntimeTranslatePipe, FormatSelectComponent, CzButtonDirective, MessageBodyComponent],
   templateUrl: './admin-notifications-panel.component.html',
   styleUrl: './admin-notifications-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,7 +54,7 @@ export class AdminNotificationsPanelComponent {
   readonly preselectedRecipient = input<RecipientOption | null>(null);
   readonly users = signal<readonly AdminUser[]>([]);
   readonly selectedRecipientId = signal(ALL_RECIPIENT_ID);
-  readonly sendEmail = signal(false);
+  readonly delivery = signal<AdminMessageDelivery>('internal');
   readonly loadingUsers = signal(false);
   readonly sending = signal(false);
   readonly sentMessage = signal<string | null>(null);
@@ -52,6 +64,8 @@ export class AdminNotificationsPanelComponent {
     { id: ALL_RECIPIENT_ID, labelKey: 'admin.notifications.allUsers' },
     ...this.users().map((user) => ({ id: user.id, name: user.displayName, searchText: user.email })),
   ]);
+  readonly deliveryOptions = DELIVERY_OPTIONS;
+  readonly deliveryDescriptionKey = computed(() => DELIVERY_DESCRIPTION_KEYS[this.delivery()]);
 
   readonly form = this.formBuilder.nonNullable.group({
     subject: ['', [Validators.required, Validators.maxLength(MAX_SUBJECT_LENGTH)]],
@@ -126,6 +140,12 @@ export class AdminNotificationsPanelComponent {
     }
   }
 
+  selectDelivery(delivery: string): void {
+    if (isAdminMessageDelivery(delivery)) {
+      this.delivery.set(delivery);
+    }
+  }
+
   async submit(): Promise<void> {
     if (!this.canSubmit()) {
       this.form.markAllAsTouched();
@@ -141,7 +161,7 @@ export class AdminNotificationsPanelComponent {
         recipientId: this.selectedRecipientId(),
         subject: this.form.controls.subject.value.trim(),
         body: this.form.controls.body.value.trim(),
-        sendEmail: this.sendEmail(),
+        delivery: this.delivery(),
       }));
       this.sentMessage.set(this.translateText('admin.notifications.messageSent', { count: response.sent }));
       this.form.reset({ subject: '', body: '' });
@@ -281,4 +301,8 @@ export class AdminNotificationsPanelComponent {
       ? translated
       : runtimeTranslationFallback(key, params);
   }
+}
+
+function isAdminMessageDelivery(value: string): value is AdminMessageDelivery {
+  return value === 'internal' || value === 'email' || value === 'both';
 }

@@ -90,7 +90,7 @@ describe('AdminNotificationsPanelComponent', () => {
     expect(subjectInput.maxLength).toBe(30);
   });
 
-  it('sends the selected recipient subject and body', () => {
+  it('sends the selected recipient subject and body internally by default', () => {
     selectRecipient(fixture, 'CommanderZone');
     setInputValue(fixture, 'input[formControlName="subject"]', 'Server notice');
     setInputValue(fixture, 'textarea[formControlName="body"]', 'Maintenance tonight.');
@@ -104,25 +104,25 @@ describe('AdminNotificationsPanelComponent', () => {
       recipientId: 'user-1',
       subject: 'Server notice',
       body: 'Maintenance tonight.',
-      sendEmail: false,
+      delivery: 'internal',
     });
   });
 
-  it('includes the email delivery flag when the toggle is enabled', () => {
+  it('uses the selected delivery channel and explains it', () => {
     selectRecipient(fixture, 'CommanderZone');
     setInputValue(fixture, 'input[formControlName="subject"]', 'Server notice');
     setInputValue(fixture, 'textarea[formControlName="body"]', 'Maintenance tonight.');
 
-    const emailToggle = fixture.nativeElement.querySelector('app-toggle button[role="switch"]') as HTMLButtonElement;
-    emailToggle.click();
+    selectDelivery(fixture, 'Email only');
     fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('The recipient will receive this message only by email.');
 
     const submit = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.textContent?.includes('Send')) as HTMLButtonElement;
     submit.click();
     fixture.detectChanges();
 
-    expect(messagesApi.sendAdminMessage).toHaveBeenCalledWith(expect.objectContaining({ sendEmail: true }));
+    expect(messagesApi.sendAdminMessage).toHaveBeenCalledWith(expect.objectContaining({ delivery: 'email' }));
   });
 });
 
@@ -135,6 +135,18 @@ function clickButton(fixture: ComponentFixture<AdminNotificationsPanelComponent>
 
 function selectRecipient(fixture: ComponentFixture<AdminNotificationsPanelComponent>, name: string): void {
   const option = openRecipientOptions(fixture)
+    .find((candidate) => candidate.textContent?.includes(name)) as HTMLButtonElement;
+  option.click();
+  fixture.detectChanges();
+}
+
+function selectDelivery(fixture: ComponentFixture<AdminNotificationsPanelComponent>, name: string): void {
+  const selects = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('app-format-select')) as HTMLElement[];
+  const select = selects[1] as HTMLElement;
+  const trigger = select.querySelector('.format-select-trigger') as HTMLButtonElement;
+  trigger.click();
+  fixture.detectChanges();
+  const option = Array.from(select.querySelectorAll('.format-select-option'))
     .find((candidate) => candidate.textContent?.includes(name)) as HTMLButtonElement;
   option.click();
   fixture.detectChanges();

@@ -1717,13 +1717,13 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.roomSetupControls.firstMulliganFreeOff': 'Counts as a mulligan',
   'rooms.roomSetupControls.firstMulliganFreeOn': 'Free',
   'rooms.roomSetupControls.mulligan': 'Mulligan',
-  'rooms.roomSetupControls.mulliganDescriptions.generous':
+  'shared.text.mulliganDescriptions.generous':
     'Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and put the rest on the bottom of your library in random order.',
-  'rooms.roomSetupControls.mulliganDescriptions.london':
+  'shared.text.mulliganDescriptions.london':
     'Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.',
-  'rooms.roomSetupControls.mulliganDescriptions.paris':
+  'shared.text.mulliganDescriptions.paris':
     'Each effective mulligan draws one fewer card. You do not put cards on the bottom of your library or scry.',
-  'rooms.roomSetupControls.mulliganDescriptions.vancouver':
+  'shared.text.mulliganDescriptions.vancouver':
     'Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.',
   'rooms.roomSetupControls.mulliganRules.generous': 'Generous',
   'rooms.roomSetupControls.mulliganRules.london': 'London',
@@ -2119,8 +2119,13 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'admin.notifications.title': 'Notifications',
   'admin.notifications.recipient': 'Recipient',
   'admin.notifications.allUsers': 'All users',
-  'admin.notifications.sendEmail': 'Also send by email',
-  'admin.notifications.sendEmailDescription': 'The message will also be sent to the recipient\'s email address.',
+  'admin.notifications.delivery.label': 'Delivery channel',
+  'admin.notifications.delivery.internal': 'Internal message only',
+  'admin.notifications.delivery.email': 'Email only',
+  'admin.notifications.delivery.both': 'Internal message and email',
+  'admin.notifications.delivery.description.internal': 'The recipient will see this message only in the app.',
+  'admin.notifications.delivery.description.email': 'The recipient will receive this message only by email.',
+  'admin.notifications.delivery.description.both': 'The recipient will see this message in the app and receive it by email.',
   'admin.notifications.noUsersFound': 'No users found.',
   'admin.notifications.subject': 'Subject',
   'admin.notifications.subjectRequired': 'Subject is required.',
