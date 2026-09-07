@@ -1,4 +1,5 @@
 <section class="admin-users-panel" aria-labelledby="admin-users-title">
+  <div class="admin-users-overview">
   <header class="admin-users-header">
     <div>
       <h2 id="admin-users-title">{{ 'shared.text.users' | runtimeTranslate }}</h2>
@@ -212,17 +213,27 @@
       </div>
     </section>
 
-    @if (users().length === 0) {
+    @if (users().length > 0) {
+      <p class="admin-users-results-summary">
+        @if (appliedPresenceFilter() === 'active') {
+          {{ 'admin.users.results.activeOfTotal' | runtimeTranslate: { active: totalMatchingUsers(), total: usersSummary().total } }}
+        } @else {
+          {{ 'admin.users.results.filteredOfTotal' | runtimeTranslate: { count: totalMatchingUsers(), total: usersSummary().total } }}
+        }
+      </p>
+    }
+  }
+  </div>
+
+  <div class="admin-users-wide-separator" aria-hidden="true"></div>
+
+  @if (!isLoading() && users().length === 0 && usersSummary().total > 0) {
+    <div class="admin-users-results admin-users-results--empty">
       <p class="admin-users-empty">{{ 'admin.users.noUsersMatch' | runtimeTranslate }}</p>
-    } @else {
-    <p class="admin-users-results-summary">
-      @if (appliedPresenceFilter() === 'active') {
-        {{ 'admin.users.results.activeOfTotal' | runtimeTranslate: { active: totalMatchingUsers(), total: usersSummary().total } }}
-      } @else {
-        {{ 'admin.users.results.filteredOfTotal' | runtimeTranslate: { count: totalMatchingUsers(), total: usersSummary().total } }}
-      }
-    </p>
-    <div class="admin-users-table-wrap">
+    </div>
+  } @else if (users().length > 0 && usersSummary().total > 0) {
+    <div class="admin-users-results">
+      <div class="admin-users-table-wrap">
       <table class="admin-users-table">
         <thead>
           <tr>
@@ -466,7 +477,7 @@
       </table>
     </div>
 
-    <div class="admin-users-pagination" [attr.aria-label]="'admin.users.paginationAriaLabel' | runtimeTranslate">
+      <div class="admin-users-pagination" [attr.aria-label]="'admin.users.paginationAriaLabel' | runtimeTranslate">
       <p>
         {{ 'admin.users.pagination.showing' | runtimeTranslate: { first: firstVisibleUserIndex(), last: lastVisibleUserIndex(), total: totalMatchingUsers() } }}
       </p>
@@ -480,7 +491,7 @@
         </button>
       </div>
     </div>
-    }
+    </div>
   }
 
   @if (pendingConfirmation(); as confirmation) {

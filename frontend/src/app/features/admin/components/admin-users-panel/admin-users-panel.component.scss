@@ -9,6 +9,64 @@
   min-width: 0;
 }
 
+.admin-users-overview,
+.admin-users-results {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.admin-users-wide-separator {
+  display: none;
+}
+
+@media (min-width: 1121px) {
+  .admin-users-panel {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+    grid-template-rows: minmax(15.85rem, auto);
+    align-content: start;
+    align-items: start;
+    column-gap: 0;
+    row-gap: 1rem;
+  }
+
+  .admin-users-overview {
+    grid-column: 2;
+    padding: clamp(1rem, 2vw, 1.35rem) clamp(1.5rem, 4vw, 3.5rem) 0;
+  }
+
+  .admin-users-results {
+    grid-column: 1 / -1;
+  }
+
+  .admin-users-results--empty {
+    gap: 0;
+    margin-top: -0.35rem;
+  }
+
+  .admin-users-results--empty .admin-users-empty {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .admin-users-overview .admin-users-results-summary {
+    color: var(--cz-info);
+  }
+
+  .admin-users-wide-separator {
+    display: block;
+    grid-column: 1 / -1;
+    height: 1px;
+    margin-inline: clamp(1rem, 2vw, 1.6rem);
+    background: linear-gradient(90deg, transparent, rgb(var(--cz-primary-rgb) / 42%) 8%, rgb(var(--cz-primary-rgb) / 42%) 92%, transparent);
+  }
+
+  .admin-users-panel > app-modal {
+    grid-column: 1 / -1;
+  }
+}
+
 .admin-users-header {
   display: flex;
   align-items: end;
@@ -649,7 +707,7 @@ h2 {
   white-space: nowrap;
 }
 
-@media (min-width: 721px) and (max-width: 1120px) {
+@media (min-width: 721px) and (max-width: 1500px) {
   .admin-users-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
