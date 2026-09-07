@@ -142,19 +142,19 @@ describe('AuthPageComponent', () => {
     expect(component.canSubmitLogin()).toBe(true);
   });
 
-  it('keeps login fields readonly until user focuses them', async () => {
+  it('renders login fields editable on initial load', async () => {
     const fixture = await create('auth/login');
     fixture.detectChanges();
 
     const identifierInput = fixture.nativeElement.querySelector(
       'input[formControlName="identifier"]',
     ) as HTMLInputElement;
-
-    expect(identifierInput.readOnly).toBe(true);
-    identifierInput.dispatchEvent(new FocusEvent('focus'));
-    fixture.detectChanges();
+    const passwordInput = fixture.nativeElement.querySelector(
+      'input[formControlName="password"]',
+    ) as HTMLInputElement;
 
     expect(identifierInput.readOnly).toBe(false);
+    expect(passwordInput.readOnly).toBe(false);
   });
 
   it('keeps a dedicated feedback slot in the login form when an authentication error is shown', async () => {
