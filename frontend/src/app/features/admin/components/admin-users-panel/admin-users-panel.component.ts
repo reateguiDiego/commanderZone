@@ -35,6 +35,7 @@ import {
   AdminUsersPresenceFilter,
   AdminUsersSortDirection,
   AdminUsersSortField,
+  AdminUsersResponse,
   AdminUsersSummary,
   PremiumTier,
 } from '../../data-access/admin-users.models';
@@ -276,7 +277,7 @@ export class AdminUsersPanelComponent {
             return;
           }
 
-          if (useInitialPresenceFallback && this.appliedPresenceFilter() === 'active' && response.total === 0) {
+          if (useInitialPresenceFallback && this.shouldFallbackToRecentlyCreated(response)) {
             this.presenceFilter.set('recently_created');
             this.appliedPresenceFilter.set('recently_created');
             this.currentPage.set(1);
@@ -562,8 +563,8 @@ export class AdminUsersPanelComponent {
     return key ? this.translateText(key) : status;
   }
 
-  lastConnectionDaysAgoLabel(lastConnectedAt: string): string {
-    const timestamp = Date.parse(lastConnectedAt);
+  relativeDaysAgoLabel(date: string): string {
+    const timestamp = Date.parse(date);
     const elapsedDays = Number.isFinite(timestamp)
       ? Math.max(0, Math.floor((Date.now() - timestamp) / AdminUsersPanelComponent.DAY_MS))
       : 0;
@@ -690,6 +691,14 @@ export class AdminUsersPanelComponent {
   private reloadFirstPage(): void {
     this.currentPage.set(1);
     this.loadUsers();
+  }
+
+  private shouldFallbackToRecentlyCreated(response: AdminUsersResponse): boolean {
+    if (this.appliedPresenceFilter() !== 'active') {
+      return false;
+    }
+
+    return response.total === 0 || (response.total === 1 && response.users[0]?.id === this.currentUserId());
   }
 
   private listQuery(): AdminUsersListQuery {

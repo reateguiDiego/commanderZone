@@ -310,15 +310,20 @@
               </td>
               <td class="admin-users-table-cell--wide admin-users-table-cell--last-connection" [attr.data-label]="'admin.users.columns.lastConnectedAt' | runtimeTranslate">
                 @if (user.lastConnectedAt) {
-                  <div class="admin-users-last-connection">
+                  <div class="admin-users-date">
                     <span>{{ user.lastConnectedAt | date: dateTimeFormat }}</span>
-                    <span class="admin-users-last-connection-ago">{{ lastConnectionDaysAgoLabel(user.lastConnectedAt) }}</span>
+                    <span class="admin-users-date-ago">{{ relativeDaysAgoLabel(user.lastConnectedAt) }}</span>
                   </div>
                 } @else {
                   <span class="admin-users-never">{{ 'admin.users.never' | runtimeTranslate }}</span>
                 }
               </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--created" [attr.data-label]="'shared.text.created' | runtimeTranslate">{{ user.createdAt | date: dateTimeFormat }}</td>
+              <td class="admin-users-table-cell--wide admin-users-table-cell--created" [attr.data-label]="'shared.text.created' | runtimeTranslate">
+                <div class="admin-users-date">
+                  <span>{{ user.createdAt | date: dateTimeFormat }}</span>
+                  <span class="admin-users-date-ago">{{ relativeDaysAgoLabel(user.createdAt) }}</span>
+                </div>
+              </td>
               <td class="admin-users-table-cell--compact admin-users-table-cell--status" [attr.data-label]="'shared.text.status' | runtimeTranslate">
                 <span class="admin-users-status" [class.is-online]="user.isOnline" [class.is-offline]="!user.isOnline">
                   {{ presenceLabel(user.presenceStatus) }}

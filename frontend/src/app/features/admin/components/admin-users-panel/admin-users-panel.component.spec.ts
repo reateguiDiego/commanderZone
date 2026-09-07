@@ -204,10 +204,51 @@ describe('AdminUsersPanelComponent', () => {
     expect((fallbackFixture.nativeElement as HTMLElement).textContent).toContain('CommanderZone');
   });
 
+  it('falls back to new users from the last seven days when the current administrator is the only active user', () => {
+    api.listUsers.mockClear();
+    api.listUsers.mockImplementation((query: AdminUsersListQuery) => {
+      const response = adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], query);
+
+      return of(query.status === 'active'
+        ? { ...response, users: [ownerSelf], total: 1, totalPages: 1, page: 1 }
+        : response);
+    });
+
+    const fallbackFixture = TestBed.createComponent(AdminUsersPanelComponent);
+    fallbackFixture.detectChanges();
+
+    expect(fallbackFixture.componentInstance.presenceFilter()).toBe('recently_created');
+    expect(api.listUsers).toHaveBeenNthCalledWith(1, expect.objectContaining({ status: 'active' }));
+    expect(api.listUsers).toHaveBeenNthCalledWith(2, expect.objectContaining({ status: 'recently_created' }));
+  });
+
+  it('keeps the active filter when a different user is the only active user', () => {
+    api.listUsers.mockClear();
+    api.listUsers.mockImplementation((query: AdminUsersListQuery) => {
+      const response = adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], query);
+
+      return of(query.status === 'active'
+        ? { ...response, users: [user], total: 1, totalPages: 1, page: 1 }
+        : response);
+    });
+
+    const activeUserFixture = TestBed.createComponent(AdminUsersPanelComponent);
+    activeUserFixture.detectChanges();
+
+    expect(activeUserFixture.componentInstance.presenceFilter()).toBe('active');
+    expect(api.listUsers).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the elapsed days below a known last connection', () => {
-    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-last-connection');
+    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--last-connection .admin-users-date');
 
     expect(lastConnection?.textContent).toContain('Today');
+  });
+
+  it('shows the elapsed days below the user creation date', () => {
+    const createdAt = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--created .admin-users-date');
+
+    expect(createdAt?.textContent).toContain('Today');
   });
 
   it('shows a country name resolved from its code without exposing the country code', () => {

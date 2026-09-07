@@ -483,12 +483,12 @@ h2 {
   font-weight: 900;
 }
 
-.admin-users-last-connection {
+.admin-users-date {
   display: grid;
   gap: 0.15rem;
 }
 
-.admin-users-last-connection-ago {
+.admin-users-date-ago {
   color: rgb(var(--cz-text-rgb) / 60%);
   font-size: 0.72rem;
   font-weight: 800;
@@ -992,7 +992,7 @@ h2 {
     --format-select-menu-width: 100%;
   }
 
-  .admin-users-last-connection-ago {
+  .admin-users-date-ago {
     font-size: 0.68rem;
   }
 
