@@ -33,6 +33,7 @@
       "previewEmpty": "A pré-visualização da sua mensagem aparecerá aqui.",
       "send": "Enviar",
       "messageSent": "Mensagem enviada para {{ count }} utilizador(es).",
+      "recipientCount": "Esta mensagem será recebida por {{ count }} utilizador(es).",
       "snippets": {
         "imageDescription": "Descrição da imagem",
         "linkText": "Texto da ligação",

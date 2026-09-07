@@ -132,6 +132,39 @@ textarea:focus {
   --format-select-open-z-index: 260;
 }
 
+.recipient-quick-select {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: -0.45rem;
+}
+
+.recipient-quick-select__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.recipient-quick-select__row button {
+  min-height: 2.35rem;
+  min-width: 0;
+}
+
+.recipient-audience {
+  margin: -0.55rem 0 0;
+  color: var(--cz-info);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+@media (max-width: 36rem) {
+  .recipient-quick-select__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .delivery-field {
   width: 100%;
   --format-select-menu-width: 100%;

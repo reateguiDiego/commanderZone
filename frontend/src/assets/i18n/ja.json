@@ -33,6 +33,7 @@
       "previewEmpty": "メッセージのプレビューがここに表示されます。",
       "send": "送信",
       "messageSent": "{{ count }} 人のユーザーにメッセージを送信しました。",
+      "recipientCount": "このメッセージは {{ count }} 人のユーザーに送信されます。",
       "snippets": {
         "imageDescription": "画像の説明",
         "linkText": "リンクテキスト",

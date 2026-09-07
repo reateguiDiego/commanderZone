@@ -64,7 +64,8 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
           id: 'start-table-assistant',
           label: 'shared.text.startGame',
           icon: 'play',
-          disabled: this.setupOpen(),
+          // Keep this disabled until the complete table-start flow is implemented and ready for users.
+          disabled: true,
           variant: 'primary',
           execute: () => this.openSetup(),
         },

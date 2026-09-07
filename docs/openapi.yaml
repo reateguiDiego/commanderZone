@@ -170,7 +170,7 @@ paths:
   /admin/messages:
     post:
       tags: [Admin]
-      summary: Send an admin message to one user or every user.
+      summary: Send an admin message to one user, every user, or a predefined user segment.
       requestBody:
         required: true
         content:
@@ -4450,7 +4450,7 @@ components:
       properties:
         recipientId:
           type: string
-          description: Use `all` to send to every user, otherwise a user UUID.
+          description: Use `all` to send to every user, a user UUID for one user, or one of `never_connected`, `recently_connected`, `recently_created`, `tier_0`, `tier_1`, `tier_2`, or `tier_3` for a predefined segment.
         subject:
           type: string
           minLength: 1

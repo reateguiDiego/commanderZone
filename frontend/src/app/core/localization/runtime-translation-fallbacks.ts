@@ -2146,6 +2146,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'admin.notifications.previewEmpty': 'Your message preview will appear here.',
   'admin.notifications.send': 'Send',
   'admin.notifications.messageSent': 'Message sent to {{ count }} user(s).',
+  'admin.notifications.recipientCount': 'This message will be received by {{ count }} user(s).',
   'admin.notifications.snippets.heading': 'Title',
   'admin.notifications.snippets.imageDescription': 'Image description',
   'admin.notifications.snippets.linkText': 'Link text',

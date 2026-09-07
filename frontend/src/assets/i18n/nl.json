@@ -33,6 +33,7 @@
       "previewEmpty": "Het voorbeeld van je bericht verschijnt hier.",
       "send": "Versturen",
       "messageSent": "Bericht verstuurd naar {{ count }} gebruiker(s).",
+      "recipientCount": "Dit bericht wordt ontvangen door {{ count }} gebruiker(s).",
       "snippets": {
         "imageDescription": "Afbeeldingsbeschrijving",
         "linkText": "Linktekst",

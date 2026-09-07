@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "Ce message sera reçu par {{ count }} utilisateur(s).",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
