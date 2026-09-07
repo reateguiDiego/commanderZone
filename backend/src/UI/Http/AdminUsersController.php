@@ -56,7 +56,12 @@ class AdminUsersController extends ApiController
         $presenceStatusesByUserId = $presence->statusesFor($adminUsers);
         $deckCountsByUserId = $this->deckCountsByUserId($adminUsers, $entityManager);
         $localizationByUserId = $this->localizationByUserId($adminUsers, $entityManager);
-        $filteredUsers = $this->filterAdminUsers($adminUsers, $criteria, $presenceStatusesByUserId);
+        $appliedPresence = $this->appliedPresenceFilter($criteria, $actor, $adminUsers, $presenceStatusesByUserId);
+        $filteredUsers = $this->filterAdminUsers(
+            $adminUsers,
+            [...$criteria, 'presence' => $appliedPresence],
+            $presenceStatusesByUserId,
+        );
         $this->sortAdminUsers($filteredUsers, $criteria['sort'], $criteria['direction'], $deckCountsByUserId);
 
         $total = count($filteredUsers);
@@ -83,6 +88,7 @@ class AdminUsersController extends ApiController
             'limit' => $limit,
             'total' => $total,
             'totalPages' => $totalPages,
+            'appliedStatus' => $appliedPresence,
             'summary' => $this->usersSummary($adminUsers, $presenceStatusesByUserId, $deckCountsByUserId),
             'countries' => $this->countriesSummary($adminUsers, $localizationByUserId),
             'localizationSummary' => $localizationSummaryFactory->create(
@@ -679,6 +685,7 @@ SQL,
      *   presence:string,
      *   sort:string,
      *   direction:'asc'|'desc',
+     *   fallbackWhenNoOtherActive:bool,
      *   paginate:bool,
      *   page:int,
      *   limit:int
@@ -706,6 +713,7 @@ SQL,
                 'recently_created',
                 'never_connected',
             ], true) ? $presence : 'active',
+            'fallbackWhenNoOtherActive' => $this->queryBoolean($request, 'fallbackWhenNoOtherActive'),
             'sort' => in_array($sort, ['name', 'email', 'lastConnectedAt', 'createdAt', 'role', 'premium', 'totalDecks'], true)
                 ? $sort
                 : 'createdAt',
@@ -730,9 +738,42 @@ SQL,
         return is_int($value) && $value > 0 ? $value : $default;
     }
 
+    private function queryBoolean(Request $request, string $name): bool
+    {
+        return filter_var($request->query->get($name), FILTER_VALIDATE_BOOLEAN) === true;
+    }
+
+    /**
+     * @param array{query:string, role:string|null, premiumTier:string|null, presence:string, fallbackWhenNoOtherActive:bool, sort:string, direction:'asc'|'desc', paginate:bool, page:int, limit:int} $criteria
+     * @param list<User> $users
+     * @param array<string, string> $presenceStatusesByUserId
+     */
+    private function appliedPresenceFilter(
+        array $criteria,
+        User $actor,
+        array $users,
+        array $presenceStatusesByUserId,
+    ): string {
+        if ($criteria['presence'] !== 'active' || !$criteria['fallbackWhenNoOtherActive']) {
+            return $criteria['presence'];
+        }
+
+        foreach ($users as $user) {
+            if ($user->id() === $actor->id()) {
+                continue;
+            }
+
+            if (($presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE) !== FriendPresenceService::STATUS_OFFLINE) {
+                return 'active';
+            }
+        }
+
+        return 'recently_created';
+    }
+
     /**
      * @param list<User> $users
-     * @param array{query:string, role:string|null, premiumTier:string|null, presence:string, sort:string, direction:'asc'|'desc', paginate:bool, page:int, limit:int} $criteria
+     * @param array{query:string, role:string|null, premiumTier:string|null, presence:string, fallbackWhenNoOtherActive:bool, sort:string, direction:'asc'|'desc', paginate:bool, page:int, limit:int} $criteria
      * @param array<string, string> $presenceStatusesByUserId
      * @return list<User>
      */

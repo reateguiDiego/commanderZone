@@ -47,6 +47,12 @@ paths:
             type: string
             enum: [all, active, online, in_game, offline, recently_connected, recently_created, never_connected]
             default: all
+        - name: fallbackWhenNoOtherActive
+          in: query
+          description: When true and status is active, use recently_created when the authenticated administrator is the only active user.
+          schema:
+            type: boolean
+            default: false
         - name: sort
           in: query
           schema:
@@ -4368,7 +4374,7 @@ components:
           $ref: '#/components/schemas/AdminUsersLocalizationBreakdown'
     AdminUsersListResponse:
       type: object
-      required: [users, page, limit, total, totalPages, summary, countries, localizationSummary]
+      required: [users, page, limit, total, totalPages, appliedStatus, summary, countries, localizationSummary]
       properties:
         users:
           type: array
@@ -4386,6 +4392,10 @@ components:
         totalPages:
           type: integer
           minimum: 1
+        appliedStatus:
+          type: string
+          enum: [all, active, online, in_game, offline, recently_connected, recently_created, never_connected]
+          description: Presence filter effectively used to build the returned page.
         summary:
           $ref: '#/components/schemas/AdminUsersSummary'
         countries:

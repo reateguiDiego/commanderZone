@@ -84,6 +84,7 @@ export interface AdminUsersListQuery {
   readonly role: AuthorizationRole | 'all';
   readonly premiumTier: PremiumTier | 'all';
   readonly status: AdminUsersPresenceFilter;
+  readonly fallbackWhenNoOtherActive: boolean;
   readonly sort: AdminUsersSortField;
   readonly direction: AdminUsersSortDirection;
   readonly page: number;
@@ -96,6 +97,7 @@ export interface AdminUsersResponse {
   readonly limit: number;
   readonly total: number;
   readonly totalPages: number;
+  readonly appliedStatus: AdminUsersPresenceFilter;
   readonly summary: AdminUsersSummary;
   readonly countries: readonly AdminUsersCountrySummary[];
   readonly localizationSummary: AdminUsersLocalizationSummary;

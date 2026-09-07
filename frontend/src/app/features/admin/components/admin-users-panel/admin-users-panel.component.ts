@@ -35,7 +35,6 @@ import {
   AdminUsersPresenceFilter,
   AdminUsersSortDirection,
   AdminUsersSortField,
-  AdminUsersResponse,
   AdminUsersSummary,
   PremiumTier,
 } from '../../data-access/admin-users.models';
@@ -262,7 +261,7 @@ export class AdminUsersPanelComponent {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.api.listUsers(this.listQuery())
+    this.api.listUsers(this.listQuery(useInitialPresenceFallback))
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -277,13 +276,9 @@ export class AdminUsersPanelComponent {
             return;
           }
 
-          if (useInitialPresenceFallback && this.shouldFallbackToRecentlyCreated(response)) {
-            this.presenceFilter.set('recently_created');
-            this.appliedPresenceFilter.set('recently_created');
-            this.currentPage.set(1);
-            this.loadUsers();
-
-            return;
+          if (useInitialPresenceFallback) {
+            this.presenceFilter.set(response.appliedStatus);
+            this.appliedPresenceFilter.set(response.appliedStatus);
           }
 
           this.users.set(response.users);
@@ -693,20 +688,13 @@ export class AdminUsersPanelComponent {
     this.loadUsers();
   }
 
-  private shouldFallbackToRecentlyCreated(response: AdminUsersResponse): boolean {
-    if (this.appliedPresenceFilter() !== 'active') {
-      return false;
-    }
-
-    return response.total === 0 || (response.total === 1 && response.users[0]?.id === this.currentUserId());
-  }
-
-  private listQuery(): AdminUsersListQuery {
+  private listQuery(fallbackWhenNoOtherActive: boolean): AdminUsersListQuery {
     return {
       query: this.appliedSearchQuery(),
       role: this.appliedRoleFilter(),
       premiumTier: this.appliedPremiumTierFilter(),
       status: this.appliedPresenceFilter(),
+      fallbackWhenNoOtherActive,
       sort: this.appliedSortField(),
       direction: this.appliedSortDirection(),
       page: this.currentPage(),

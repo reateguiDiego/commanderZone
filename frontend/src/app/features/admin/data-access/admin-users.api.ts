@@ -25,6 +25,7 @@ export class AdminUsersApi {
         role: query.role,
         premiumTier: query.premiumTier,
         status: query.status,
+        fallbackWhenNoOtherActive: String(query.fallbackWhenNoOtherActive),
         sort: query.sort,
         direction: query.direction,
         page: String(query.page),
