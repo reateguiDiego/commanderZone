@@ -71,6 +71,7 @@ final readonly class GameWebsocketCommandPatchService
         'stack.card_added' => 'playerId',
         'arrow.created' => 'ownerId',
         'attachment.created' => 'ownerId',
+        'battlefield_stack.created' => 'ownerId',
         'helper.created' => 'ownerPlayerId',
         'mulligan.take' => 'playerId',
         'mulligan.keep' => 'playerId',

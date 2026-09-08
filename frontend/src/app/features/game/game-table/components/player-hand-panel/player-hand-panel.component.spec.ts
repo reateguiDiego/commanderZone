@@ -629,6 +629,23 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList).not.toContain('hand-revealed');
   });
 
+  it('collapses to fan when an external drag is outside the hand', async () => {
+    vi.useFakeTimers();
+    const { fixture } = await renderHandPanel();
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
+
+    fixture.componentRef.setInput('hasActiveCardDrag', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+  });
+
   it('marks hand cards as alignment references while hand is the drop target', async () => {
     vi.useFakeTimers();
     const { fixture } = await renderHandPanel({

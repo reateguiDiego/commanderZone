@@ -87,6 +87,43 @@ func (ops *RelationsOps) RemoveAttachment(game *GameState, id string) (Relation,
 	return relation.Clone(), nil
 }
 
+func (ops *RelationsOps) AddBattlefieldStack(game *GameState, relation BattlefieldStack) error {
+	if relation.ID == "" || relation.StackedInstanceID == "" || relation.StackTopInstanceID == "" || relation.StackedInstanceID == relation.StackTopInstanceID {
+		return ErrInvalidRelation
+	}
+	stackedLocation, stackedExists := game.AssertLocation(relation.StackedInstanceID, zonePtr(ZoneBattlefield))
+	topLocation, topExists := game.AssertLocation(relation.StackTopInstanceID, zonePtr(ZoneBattlefield))
+	if !stackedExists || !topExists || stackedLocation.PlayerID != topLocation.PlayerID {
+		return ErrMissingInstance
+	}
+	ensureRelations(game)
+	if _, exists := game.Relations.BattlefieldStacks[relation.ID]; exists {
+		return ErrInvalidRelation
+	}
+	if len(game.Relations.Indexes.BattlefieldStacksByCard[relation.StackedInstanceID]) > 0 || len(game.Relations.Indexes.BattlefieldStacksByCard[relation.StackTopInstanceID]) > 0 {
+		return ErrInvalidRelation
+	}
+	if len(game.Relations.Indexes.BattlefieldStacksByTop[relation.StackTopInstanceID]) >= 2 {
+		return ErrInvalidRelation
+	}
+	game.Relations.BattlefieldStacks[relation.ID] = relation
+	addIndexedRelation(game.Relations.Indexes.BattlefieldStacksByTop, relation.StackTopInstanceID, relation.ID)
+	addIndexedRelation(game.Relations.Indexes.BattlefieldStacksByCard, relation.StackedInstanceID, relation.ID)
+	return nil
+}
+
+func (ops *RelationsOps) RemoveBattlefieldStack(game *GameState, id string) (BattlefieldStack, error) {
+	ensureRelations(game)
+	relation, ok := game.Relations.BattlefieldStacks[id]
+	if !ok {
+		return BattlefieldStack{}, ErrMissingRelation
+	}
+	delete(game.Relations.BattlefieldStacks, id)
+	removeIndexedRelation(game.Relations.Indexes.BattlefieldStacksByTop, relation.StackTopInstanceID, id)
+	removeIndexedRelation(game.Relations.Indexes.BattlefieldStacksByCard, relation.StackedInstanceID, id)
+	return relation, nil
+}
+
 func (ops *RelationsOps) AddHelper(game *GameState, relation Relation) error {
 	if relation.ID == "" {
 		return ErrInvalidRelation
@@ -155,6 +192,13 @@ func (ops *RelationsOps) PruneForMovedInstance(game *GameState, instanceID strin
 			removed = append(removed, RemovedRelation{Kind: "attachment", ID: relationID})
 		}
 	}
+	stackIDs := append([]string(nil), game.Relations.Indexes.BattlefieldStacksByTop[instanceID]...)
+	stackIDs = append(stackIDs, game.Relations.Indexes.BattlefieldStacksByCard[instanceID]...)
+	for _, relationID := range stackIDs {
+		if _, err := ops.RemoveBattlefieldStack(game, relationID); err == nil {
+			removed = append(removed, RemovedRelation{Kind: "battlefieldStack", ID: relationID})
+		}
+	}
 	return removed
 }
 
@@ -166,6 +210,9 @@ type RemovedRelation struct {
 func ensureRelations(game *GameState) {
 	if game.Relations.Attachments == nil {
 		game.Relations.Attachments = map[string]Relation{}
+	}
+	if game.Relations.BattlefieldStacks == nil {
+		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
 	}
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}
@@ -179,6 +226,42 @@ func ensureRelations(game *GameState) {
 	if game.Relations.Indexes.ByTarget == nil {
 		game.Relations.Indexes.ByTarget = map[string][]string{}
 	}
+	if game.Relations.Indexes.BattlefieldStacksByTop == nil {
+		game.Relations.Indexes.BattlefieldStacksByTop = map[string][]string{}
+	}
+	if game.Relations.Indexes.BattlefieldStacksByCard == nil {
+		game.Relations.Indexes.BattlefieldStacksByCard = map[string][]string{}
+	}
+}
+
+func addIndexedRelation(index map[string][]string, instanceID string, relationID string) {
+	if instanceID == "" {
+		return
+	}
+	for _, existing := range index[instanceID] {
+		if existing == relationID {
+			return
+		}
+	}
+	index[instanceID] = append(index[instanceID], relationID)
+}
+
+func removeIndexedRelation(index map[string][]string, instanceID string, relationID string) {
+	if instanceID == "" {
+		return
+	}
+	values := index[instanceID]
+	next := values[:0]
+	for _, existing := range values {
+		if existing != relationID {
+			next = append(next, existing)
+		}
+	}
+	if len(next) == 0 {
+		delete(index, instanceID)
+		return
+	}
+	index[instanceID] = next
 }
 
 func addRelationIndex(game *GameState, instanceID string, relationID string, source bool) {

@@ -202,7 +202,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
     const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
     if (externalDragActive) {
-      return this.previousHandLayoutMode === 'row' ? 'row' : 'fan';
+      return 'fan';
     }
 
     return (this.handHovered() || this.hasOpenHandContextMenu()) && this.isHandVisuallyRevealed() ? 'row' : 'fan';

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameCommandType, GamePlayerState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameCommandType, GamePlayerState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
@@ -142,6 +142,7 @@ describe('GameTableHandState', () => {
         land('stack-top', { x: 100, y: 200 }),
         land('stack-under', { x: 100, y: 182 }),
       ],
+      [stack('stack-under', 'stack-under', 'stack-top')],
     );
 
     await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 100, y: 200 });
@@ -163,6 +164,10 @@ describe('GameTableHandState', () => {
         position: { x: 120, y: 164, unit: 'ratio' },
       },
     });
+    expect(commandCalls[1]).toEqual({
+      type: 'battlefield_stack.created',
+      payload: { stackedInstanceId: 'hand-land', stackTopInstanceId: 'stack-top' },
+    });
   });
 
   it('adds a hand land to the stack top relation when hovering the exposed second stack card', async () => {
@@ -172,6 +177,7 @@ describe('GameTableHandState', () => {
         land('stack-top', { x: 100, y: 200 }),
         land('stack-under', { x: 100, y: 182 }),
       ],
+      [stack('stack-under', 'stack-under', 'stack-top')],
     );
 
     await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 106, y: 196 });
@@ -181,6 +187,10 @@ describe('GameTableHandState', () => {
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
       position: { x: 120, y: 164, unit: 'ratio' },
+    });
+    expect(commandCalls[1]).toEqual({
+      type: 'battlefield_stack.created',
+      payload: { stackedInstanceId: 'hand-land', stackTopInstanceId: 'stack-top' },
     });
   });
 
@@ -267,7 +277,11 @@ describe('GameTableHandState', () => {
   }
 });
 
-function snapshot(hand: GameCardInstance[], battlefield: GameCardInstance[] = []): GameSnapshot {
+function snapshot(
+  hand: GameCardInstance[],
+  battlefield: GameCardInstance[] = [],
+  battlefieldStacks: readonly GameBattlefieldStack[] = [],
+): GameSnapshot {
   return {
     version: 1,
     ownerId: 'player-1',
@@ -277,9 +291,19 @@ function snapshot(hand: GameCardInstance[], battlefield: GameCardInstance[] = []
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
     stack: [],
     arrows: [],
+    battlefieldStacks: [...battlefieldStacks],
     chat: [],
     eventLog: [],
     createdAt: '2026-05-19T00:00:00+00:00',
+  };
+}
+
+function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }
 

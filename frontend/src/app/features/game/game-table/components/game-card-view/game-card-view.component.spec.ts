@@ -40,7 +40,28 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
   });
 
-  it('keeps a hovered hand card lifted when clicked to avoid a selection bounce', async () => {
+  it('closes a hovered hand card preview when clicked', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const hoverCleared = vi.fn();
+    const previewShown = vi.fn();
+    fixture.componentInstance.cardMouseLeft.subscribe(hoverCleared);
+    fixture.componentInstance.cardMouseEntered.subscribe(previewShown);
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.componentRef.setInput('selected', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('hover-lifted');
+    expect(hoverCleared).toHaveBeenCalledOnce();
+    expect(previewShown).toHaveBeenCalledOnce();
+  });
+
+  it('closes a hovered hand card preview when pointer drag starts', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
     const hoverCleared = vi.fn();
@@ -50,11 +71,11 @@ describe('GameCardViewComponent', () => {
     vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
     fixture.detectChanges();
 
-    cardElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.componentInstance.onPointerDown({ button: 0 } as PointerEvent);
     fixture.detectChanges();
 
-    expect(cardElement.classList).toContain('hover-lifted');
-    expect(hoverCleared).not.toHaveBeenCalled();
+    expect(cardElement.classList).not.toContain('hover-lifted');
+    expect(hoverCleared).toHaveBeenCalledOnce();
   });
 
   it('cancels hand card lifting when hover ends first', async () => {

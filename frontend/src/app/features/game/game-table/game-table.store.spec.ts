@@ -51,6 +51,39 @@ describe('GameTableStore snapshot UI consistency', () => {
   });
 });
 
+describe('GameTableStore card selection previews', () => {
+  it('clears the preview instead of pinning it when selecting a battlefield or hand card', () => {
+    const clearCardPreview = vi.fn();
+    const showPinnedCardPreview = vi.fn();
+    const interactionActions = {
+      handleBattlefieldCardClick: vi.fn(),
+      handleHandCardClick: vi.fn(),
+    };
+    const storeLike = {
+      arrowsState: { handleBattlefieldCardClick: vi.fn(() => false) },
+      attachmentsState: { handleBattlefieldCardClick: vi.fn(() => false) },
+      contexts: {
+        arrowInteraction: vi.fn(() => ({})),
+        attachmentInteraction: vi.fn(() => ({})),
+        interaction: vi.fn(() => ({})),
+      },
+      clearCardPreview,
+      showPinnedCardPreview,
+      interactionActions,
+    };
+    const event = { detail: 1, preventDefault: vi.fn(), stopPropagation: vi.fn() } as unknown as MouseEvent;
+    const card = gameCard('card-1');
+
+    GameTableStore.prototype.handleBattlefieldCardClick.call(storeLike as never, event, 'player-1', card);
+    GameTableStore.prototype.handleHandCardClick.call(storeLike as never, event, 'player-1', card);
+
+    expect(clearCardPreview).toHaveBeenCalledTimes(2);
+    expect(showPinnedCardPreview).not.toHaveBeenCalled();
+    expect(interactionActions.handleBattlefieldCardClick).toHaveBeenCalledOnce();
+    expect(interactionActions.handleHandCardClick).toHaveBeenCalledOnce();
+  });
+});
+
 function gameCard(instanceId: string): GameCardInstance {
   return {
     instanceId,

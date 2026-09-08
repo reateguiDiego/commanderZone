@@ -819,9 +819,15 @@ export class GameTableMotionService {
   }
 
   private animateLandStackCreation(cards: readonly HTMLElement[], visuals: readonly HTMLElement[]): void {
-    const topCards = cards.filter((card) => card.classList.contains('land-stack-top'));
+    const topCards = cards.filter((card) => (
+      card.classList.contains('land-stack-top')
+      || card.classList.contains('attachment-stack-target')
+    ));
     const primaryCards = topCards.length > 0 ? topCards : cards.slice(-1);
-    const underCards = cards.filter((card) => card.classList.contains('land-stack-under'));
+    const underCards = cards.filter((card) => (
+      card.classList.contains('land-stack-under')
+      || card.classList.contains('attachment-stack-equipment')
+    ));
     const layeredCards = underCards.length > 0
       ? underCards
       : cards.filter((card) => !primaryCards.includes(card));

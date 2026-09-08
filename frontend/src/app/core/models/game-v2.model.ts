@@ -4,6 +4,7 @@ import type {
   ChatReactions,
   GameArrow,
   GameAttachment,
+  GameBattlefieldStack,
   GameCompactCardRef,
   GameCardPosition,
   GameControlPlaneState,
@@ -183,6 +184,7 @@ export interface BootstrapRelationsV2 {
   stack: BootstrapStackItemV2[];
   arrows: GameArrow[];
   attachments: GameAttachment[];
+  battlefieldStacks?: GameBattlefieldStack[];
   specialEntities: GameSpecialEntity[];
 }
 
@@ -469,12 +471,12 @@ export type GameplayPatchV2Operation =
     }
   | {
       op: 'relation.add';
-      kind: 'arrow' | 'attachment';
-      relation: GameArrow | GameAttachment;
+      kind: 'arrow' | 'attachment' | 'battlefieldStack';
+      relation: GameArrow | GameAttachment | GameBattlefieldStack;
     }
   | {
       op: 'relation.remove';
-      kind: 'arrow' | 'attachment';
+      kind: 'arrow' | 'attachment' | 'battlefieldStack';
       id: string;
     }
   | {
@@ -672,6 +674,14 @@ export type GameplayPatchV2Operation =
     }
   | {
       op: 'attachment.remove';
+      id: string;
+    }
+  | {
+      op: 'battlefieldStack.add';
+      battlefieldStack: GameBattlefieldStack;
+    }
+  | {
+      op: 'battlefieldStack.remove';
       id: string;
     }
   | {

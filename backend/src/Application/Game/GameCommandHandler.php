@@ -83,6 +83,8 @@ class GameCommandHandler
         'arrow.removed',
         'attachment.created',
         'attachment.removed',
+        'battlefield_stack.created',
+        'battlefield_stack.removed',
         'helper.created',
         'helper.updated',
         'helper.removed',
@@ -309,6 +311,8 @@ class GameCommandHandler
                     'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
                     'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
                     'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
+                    'battlefield_stack.created' => $log = $this->applyBattlefieldStackCreated($snapshot, $payload, $actor),
+                    'battlefield_stack.removed' => $log = $this->applyBattlefieldStackRemoved($snapshot, $payload, $actor),
                     default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
                 };
             }
@@ -408,6 +412,7 @@ class GameCommandHandler
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
+        $snapshot['battlefieldStacks'] ??= [];
         if ($this->streamsEnabled()) {
             unset($snapshot['chat'], $snapshot['eventLog']);
         } else {
@@ -2620,6 +2625,9 @@ class GameCommandHandler
         if (($equipmentLocation['playerId'] ?? null) !== $actor->id()) {
             throw new \InvalidArgumentException('You can only attach cards on your battlefield.');
         }
+        if ($this->hasBattlefieldStackEndpoint($snapshot, $equipmentInstanceId) || $this->hasBattlefieldStackEndpoint($snapshot, $attachedToInstanceId)) {
+            throw new \InvalidArgumentException('Cards in a manual stack cannot be attached.');
+        }
         if ($this->isLandCard($equipmentCard)) {
             throw new \InvalidArgumentException('Lands cannot be attached to another permanent.');
         }
@@ -2684,6 +2692,110 @@ class GameCommandHandler
         return null;
     }
 
+    private function applyBattlefieldStackCreated(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $stackedInstanceId = trim((string) ($payload['stackedInstanceId'] ?? ''));
+        $stackTopInstanceId = trim((string) ($payload['stackTopInstanceId'] ?? ''));
+        if ($stackedInstanceId === '' || $stackTopInstanceId === '') {
+            throw new \InvalidArgumentException('stackedInstanceId and stackTopInstanceId are required.');
+        }
+        if ($stackedInstanceId === $stackTopInstanceId) {
+            throw new \InvalidArgumentException('A card cannot be stacked onto itself.');
+        }
+
+        $stackedLocation = $this->battlefieldCardLocationByInstance($snapshot, $stackedInstanceId);
+        $stackTopLocation = $this->battlefieldCardLocationByInstance($snapshot, $stackTopInstanceId);
+        $stackedCard = $stackedLocation['card'] ?? null;
+        $stackTopCard = $stackTopLocation['card'] ?? null;
+        if ($stackedCard === null || $stackTopCard === null) {
+            throw new \InvalidArgumentException('Stack endpoints must be battlefield cards.');
+        }
+        if (($stackedLocation['playerId'] ?? null) !== ($stackTopLocation['playerId'] ?? null)) {
+            throw new \InvalidArgumentException('Stacked cards must stay on the same battlefield.');
+        }
+        if (($stackedLocation['playerId'] ?? null) !== $actor->id()) {
+            throw new \InvalidArgumentException('You can only stack cards on your battlefield.');
+        }
+        if (!$this->isStackableBattlefieldCard($stackedCard) || !$this->isStackableBattlefieldCard($stackTopCard)) {
+            throw new \InvalidArgumentException('Only lands and tokens can be manually stacked.');
+        }
+        if ($this->hasAttachmentEndpoint($snapshot, $stackedInstanceId) || $this->hasAttachmentEndpoint($snapshot, $stackTopInstanceId)) {
+            throw new \InvalidArgumentException('Attached cards cannot be manually stacked.');
+        }
+
+        $existingStacks = is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [];
+        foreach ($existingStacks as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $stackedInstanceId) {
+                throw new \InvalidArgumentException('The card must be detached from its current stack first.');
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $stackTopInstanceId) {
+                throw new \InvalidArgumentException('A stacked card cannot be used as another stack top.');
+            }
+        }
+
+        $membersUnderTop = array_filter(
+            $existingStacks,
+            static fn (mixed $stack): bool => is_array($stack) && ($stack['stackTopInstanceId'] ?? null) === $stackTopInstanceId,
+        );
+        if (count($membersUnderTop) >= 2) {
+            throw new \InvalidArgumentException('A manual stack can contain at most three cards.');
+        }
+
+        $relation = [
+            'id' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $actor->id(),
+            'stackedInstanceId' => $stackedInstanceId,
+            'stackTopInstanceId' => $stackTopInstanceId,
+            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ];
+        $snapshot['battlefieldStacks'] = [...$existingStacks, $relation];
+        $this->pendingEventPayload = $relation;
+
+        return null;
+    }
+
+    private function applyBattlefieldStackRemoved(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $id = trim((string) ($payload['id'] ?? ''));
+        $stackedInstanceId = trim((string) ($payload['stackedInstanceId'] ?? ''));
+        if ($id === '' && $stackedInstanceId === '') {
+            throw new \InvalidArgumentException('id or stackedInstanceId is required.');
+        }
+
+        $removedId = null;
+        foreach ($snapshot['battlefieldStacks'] ?? [] as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            $matches = $id !== ''
+                ? ($stack['id'] ?? null) === $id
+                : ($stack['stackedInstanceId'] ?? null) === $stackedInstanceId;
+            if (!$matches) {
+                continue;
+            }
+            if (isset($stack['ownerId']) && (string) $stack['ownerId'] !== $actor->id()) {
+                throw new \InvalidArgumentException('Only the stack owner can remove it.');
+            }
+            $removedId = (string) ($stack['id'] ?? '');
+            break;
+        }
+
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            static fn (array $stack): bool => $id !== ''
+                ? ($stack['id'] ?? null) !== $id
+                : ($stack['stackedInstanceId'] ?? null) !== $stackedInstanceId,
+        ));
+        if (is_string($removedId) && $removedId !== '') {
+            $this->pendingEventPayload = ['id' => $removedId];
+        }
+
+        return null;
+    }
+
     private function battlefieldContainsInstance(array &$snapshot, string $instanceId): bool
     {
         $location = $this->getLocation($snapshot, $instanceId);
@@ -2740,6 +2852,44 @@ class GameCommandHandler
     private function isLandCard(array $card): bool
     {
         return preg_match('/\bland\b/i', (string) ($card['typeLine'] ?? '')) === 1;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isStackableBattlefieldCard(array $card): bool
+    {
+        return $this->isLandCard($card)
+            || ($card['isToken'] ?? false) === true
+            || ($card['isTokenCopy'] ?? false) === true;
+    }
+
+    private function hasAttachmentEndpoint(array $snapshot, string $instanceId): bool
+    {
+        foreach ($snapshot['attachments'] ?? [] as $attachment) {
+            if (!is_array($attachment)) {
+                continue;
+            }
+            if (($attachment['equipmentInstanceId'] ?? null) === $instanceId || ($attachment['attachedToInstanceId'] ?? null) === $instanceId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasBattlefieldStackEndpoint(array $snapshot, string $instanceId): bool
+    {
+        foreach ($snapshot['battlefieldStacks'] ?? [] as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $instanceId || ($stack['stackTopInstanceId'] ?? null) === $instanceId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2880,6 +3030,11 @@ class GameCommandHandler
             $snapshot['attachments'] ?? [],
             fn (array $attachment): bool => $this->battlefieldContainsInstance($snapshot, (string) ($attachment['equipmentInstanceId'] ?? ''))
                 && $this->battlefieldContainsInstance($snapshot, (string) ($attachment['attachedToInstanceId'] ?? '')),
+        ));
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            fn (array $stack): bool => $this->battlefieldContainsInstance($snapshot, (string) ($stack['stackedInstanceId'] ?? ''))
+                && $this->battlefieldContainsInstance($snapshot, (string) ($stack['stackTopInstanceId'] ?? '')),
         ));
     }
 
@@ -5988,12 +6143,12 @@ class GameCommandHandler
     /**
      * @param list<string> $instanceIds
      *
-     * @return array{arrows:list<string>,attachments:list<string>}
+     * @return array{arrows:list<string>,attachments:list<string>,battlefieldStacks:list<string>}
      */
     private function v2PruneBattlefieldRelationsForMovedInstances(array &$snapshot, array $instanceIds): array
     {
         if ($instanceIds === []) {
-            return ['arrows' => [], 'attachments' => []];
+            return ['arrows' => [], 'attachments' => [], 'battlefieldStacks' => []];
         }
 
         $removedArrows = [];
@@ -6027,11 +6182,30 @@ class GameCommandHandler
             },
         ));
 
-        return ['arrows' => $removedArrows, 'attachments' => $removedAttachments];
+        $removedBattlefieldStacks = [];
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            function (array $stack) use (&$removedBattlefieldStacks, $trackedIds): bool {
+                $stackedInstanceId = (string) ($stack['stackedInstanceId'] ?? '');
+                $stackTopInstanceId = (string) ($stack['stackTopInstanceId'] ?? '');
+                $remove = isset($trackedIds[$stackedInstanceId]) || isset($trackedIds[$stackTopInstanceId]);
+                if ($remove && is_string($stack['id'] ?? null) && $stack['id'] !== '') {
+                    $removedBattlefieldStacks[] = $stack['id'];
+                }
+
+                return !$remove;
+            },
+        ));
+
+        return [
+            'arrows' => $removedArrows,
+            'attachments' => $removedAttachments,
+            'battlefieldStacks' => $removedBattlefieldStacks,
+        ];
     }
 
     /**
-     * @param array{arrows:list<string>,attachments:list<string>} $removedRelationIds
+     * @param array{arrows:list<string>,attachments:list<string>,battlefieldStacks:list<string>} $removedRelationIds
      *
      * @return list<array<string,mixed>>
      */
@@ -6043,6 +6217,9 @@ class GameCommandHandler
         }
         foreach ($removedRelationIds['attachments'] as $id) {
             $operations[] = ['op' => 'attachment.remove', 'id' => $id];
+        }
+        foreach ($removedRelationIds['battlefieldStacks'] as $id) {
+            $operations[] = ['op' => 'battlefieldStack.remove', 'id' => $id];
         }
 
         return $operations;
@@ -6657,6 +6834,8 @@ class GameCommandHandler
             case 'arrow.removed':
             case 'attachment.created':
             case 'attachment.removed':
+            case 'battlefield_stack.created':
+            case 'battlefield_stack.removed':
             case 'helper.created':
             case 'helper.updated':
             case 'helper.removed':

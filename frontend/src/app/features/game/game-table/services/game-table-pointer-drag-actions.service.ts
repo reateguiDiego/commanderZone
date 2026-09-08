@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
@@ -10,7 +10,7 @@ import {
   fullLandStackDropTarget,
   LandStackDetachSource,
   buildLandStackGroups,
-  isLandCard,
+  isStackableBattlefieldCard,
   landStackOffsetX,
   landStackOffsetY,
   landStackDropTarget,
@@ -273,6 +273,7 @@ export class GameTablePointerDragActionsService {
 
     const target = landStackDropTarget(
       battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -301,6 +302,10 @@ export class GameTablePointerDragActionsService {
     window.requestAnimationFrame(() => this.motion?.pulseLandStack(animatedInstanceIds, 'stack'));
 
     await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, playerId, moves));
+    await context.command('battlefield_stack.created', {
+      stackedInstanceId: draggedInstanceId,
+      stackTopInstanceId: target.targetCard.instanceId,
+    });
 
     return true;
   }
@@ -318,21 +323,37 @@ export class GameTablePointerDragActionsService {
     const selectedCards = context.selectedCards()
       .filter((item) => item.playerId === playerId && item.zone === 'battlefield' && instanceIds.includes(item.card.instanceId))
       .map((item) => item.card);
-    if (selectedCards.length === instanceIds.length && this.cardsFormDraggedLandStack(selectedCards, draggedInstanceId, instanceIds, context.cardPosition)) {
+    if (selectedCards.length === instanceIds.length && this.cardsFormDraggedLandStack(
+      selectedCards,
+      context.snapshot()?.battlefieldStacks ?? [],
+      draggedInstanceId,
+      instanceIds,
+      context.cardPosition,
+    )) {
       return true;
     }
 
     const battlefield = context.snapshot()?.players[playerId]?.zones.battlefield ?? [];
-    return this.cardsFormDraggedLandStack(battlefield, draggedInstanceId, instanceIds, context.cardPosition);
+    return this.cardsFormDraggedLandStack(
+      battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
+      draggedInstanceId,
+      instanceIds,
+      context.cardPosition,
+    );
   }
 
   private cardsFormDraggedLandStack(
     cards: readonly GameCardInstance[],
+    stacks: readonly GameBattlefieldStack[],
     draggedInstanceId: string,
     instanceIds: readonly string[],
     positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   ): boolean {
-    const group = landStackGroupContaining(buildLandStackGroups(cards, positionFor), draggedInstanceId);
+    const group = landStackGroupContaining(
+      buildLandStackGroups(cards, stacks, positionFor),
+      draggedInstanceId,
+    );
     if (!group || group.topCard.instanceId !== draggedInstanceId || group.members.length !== instanceIds.length) {
       return false;
     }
@@ -355,6 +376,7 @@ export class GameTablePointerDragActionsService {
 
     const target = landStackDropTarget(
       battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -383,6 +405,11 @@ export class GameTablePointerDragActionsService {
     }
 
     await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, playerId, moves));
+    await context.command('battlefield_stack.removed', { id: detachSource.stackId });
+    await context.command('battlefield_stack.created', {
+      stackedInstanceId: draggedInstanceId,
+      stackTopInstanceId: target.targetCard.instanceId,
+    });
 
     this.motion?.pulseLandStack(
       this.landStackPulseInstanceIds(
@@ -453,7 +480,13 @@ export class GameTablePointerDragActionsService {
   ): boolean {
     const battlefield = context.snapshot()?.players[playerId]?.zones.battlefield ?? [];
 
-    return fullLandStackDropTarget(battlefield, draggedInstanceId, draggedPosition, context.cardPosition) !== null;
+    return fullLandStackDropTarget(
+      battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
+      draggedInstanceId,
+      draggedPosition,
+      context.cardPosition,
+    ) !== null;
   }
 
   private async tryCreateAttachmentStack(
@@ -472,6 +505,7 @@ export class GameTablePointerDragActionsService {
     const target = attachmentDropTarget(
       battlefield,
       snapshot?.attachments ?? [],
+      snapshot?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -526,6 +560,7 @@ export class GameTablePointerDragActionsService {
     }
 
     await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, drag.playerId, moves));
+    await context.command('battlefield_stack.removed', { id: detachSource.stackId });
 
     this.motion?.pulseLandStack(moves.map((move) => move.instanceId), 'detach');
   }
@@ -681,7 +716,11 @@ export class GameTablePointerDragActionsService {
       return null;
     }
 
-    const groups = buildLandStackGroups(selected.map((item) => item.card), context.cardPosition);
+    const groups = buildLandStackGroups(
+      selected.map((item) => item.card),
+      context.snapshot()?.battlefieldStacks ?? [],
+      context.cardPosition,
+    );
     const group = landStackGroupContaining(groups, draggedInstanceId);
     const draggedMember = group?.members.find((member) => member.card.instanceId === draggedInstanceId);
     if (!group || !draggedMember) {
@@ -749,7 +788,7 @@ export class GameTablePointerDragActionsService {
     }
 
     return selected.some((item) => item.card.instanceId === draggedInstanceId)
-      && selected.every((item) => item.playerId === first.playerId && item.zone === 'battlefield' && isLandCard(item.card));
+      && selected.every((item) => item.playerId === first.playerId && item.zone === 'battlefield' && isStackableBattlefieldCard(item.card));
   }
 
   private selectedBattlefieldDragGroup(

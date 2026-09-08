@@ -64,6 +64,8 @@ func DefaultAppliers() []Applier {
 		ArrowRemovedApplier{},
 		AttachmentCreatedApplier{},
 		AttachmentRemovedApplier{},
+		BattlefieldStackCreatedApplier{},
+		BattlefieldStackRemovedApplier{},
 		HelperCreatedApplier{},
 		HelperUpdatedApplier{},
 		HelperRemovedApplier{},

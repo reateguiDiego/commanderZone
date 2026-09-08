@@ -466,6 +466,18 @@ export type GameSnapshotPatchOperation =
       attachments: NonNullable<GameSnapshot['attachments']>;
     }
   | {
+      op: 'battlefieldStack.add';
+      battlefieldStack: NonNullable<GameSnapshot['battlefieldStacks']>[number];
+    }
+  | {
+      op: 'battlefieldStack.remove';
+      id: string;
+    }
+  | {
+      op: 'battlefieldStacks.set';
+      battlefieldStacks: NonNullable<GameSnapshot['battlefieldStacks']>;
+    }
+  | {
       op: 'rematch.set';
       rematch: GameSnapshot['rematch'] | null;
     }

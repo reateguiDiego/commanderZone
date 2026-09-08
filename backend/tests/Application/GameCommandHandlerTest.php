@@ -3105,6 +3105,58 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('second-target', $game->snapshot()['attachments'][0]['attachedToInstanceId']);
     }
 
+    public function testBattlefieldStackPersistsOnlyLandAndTokenRelationsUpToThreeCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [...$this->card('top-land', 'Forest', 'battlefield', 1, 1, 1, 1), 'typeLine' => 'Basic Land - Forest'],
+                [...$this->card('token-card', 'Goblin', 'battlefield', 2, 2, 2, 2), 'typeLine' => 'Creature - Goblin', 'isToken' => true],
+                [...$this->card('under-land', 'Island', 'battlefield', 3, 3, 3, 3), 'typeLine' => 'Basic Land - Island'],
+                [...$this->card('fourth-land', 'Mountain', 'battlefield', 4, 4, 4, 4), 'typeLine' => 'Basic Land - Mountain'],
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'battlefield_stack.created', [
+            'stackedInstanceId' => 'token-card',
+            'stackTopInstanceId' => 'top-land',
+        ], $actor);
+        $handler->apply($game, 'battlefield_stack.created', [
+            'stackedInstanceId' => 'under-land',
+            'stackTopInstanceId' => 'top-land',
+        ], $actor);
+
+        self::assertCount(2, $game->snapshot()['battlefieldStacks']);
+        self::assertSame('top-land', $game->snapshot()['battlefieldStacks'][0]['stackTopInstanceId']);
+        self::assertSame('token-card', $game->snapshot()['battlefieldStacks'][0]['stackedInstanceId']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('A manual stack can contain at most three cards.');
+        $handler->apply($game, 'battlefield_stack.created', [
+            'stackedInstanceId' => 'fourth-land',
+            'stackTopInstanceId' => 'top-land',
+        ], $actor);
+    }
+
+    public function testBattlefieldStackRejectsNonStackableCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [...$this->card('land-card', 'Forest', 'battlefield', 1, 1, 1, 1), 'typeLine' => 'Basic Land - Forest'],
+                [...$this->card('artifact-card', 'Sol Ring', 'battlefield', 2, 2, 2, 2), 'typeLine' => 'Artifact'],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Only lands and tokens can be manually stacked.');
+        (new GameCommandHandler())->apply($game, 'battlefield_stack.created', [
+            'stackedInstanceId' => 'artifact-card',
+            'stackTopInstanceId' => 'land-card',
+        ], $actor);
+    }
+
     public function testAttachmentCannotUseLandAsEquipmentSource(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -3454,6 +3506,34 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame([], $game->snapshot()['attachments']);
+    }
+
+    public function testBattlefieldStackIsPrunedWhenAnEndpointLeavesBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [...$this->card('top-land', 'Forest', 'battlefield', 1, 1, 1, 1), 'typeLine' => 'Basic Land - Forest'],
+                [...$this->card('under-land', 'Island', 'battlefield', 2, 2, 2, 2), 'typeLine' => 'Basic Land - Island'],
+            ],
+        ]);
+        $snapshot['battlefieldStacks'] = [[
+            'id' => 'battlefield-stack-1',
+            'ownerId' => $actor->id(),
+            'stackedInstanceId' => 'under-land',
+            'stackTopInstanceId' => 'top-land',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'under-land',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['battlefieldStacks']);
     }
 
     public function testChatReactionIsPersistedAndToggledPerPlayer(): void

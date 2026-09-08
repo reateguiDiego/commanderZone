@@ -148,6 +148,7 @@ class GameSnapshotFactory
             'stack' => [],
             'arrows' => [],
             'attachments' => [],
+            'battlefieldStacks' => [],
             'specialEntities' => [],
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,

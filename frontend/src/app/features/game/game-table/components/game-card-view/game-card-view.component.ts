@@ -385,14 +385,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   onClick(event: MouseEvent): void {
-    const isBattlefieldClick = this.mode() === 'battlefield' && this.zone() === 'battlefield';
-    this.previewSuppressedUntilPointerExit = isBattlefieldClick;
-    if (isBattlefieldClick) {
-      this.deactivateHover(true);
-    }
-    if (this.previewSuppressedUntilPointerExit) {
-      this.startPreviewBoundsWatcher();
-    }
+    this.suppressHoverPreviewUntilPointerExit();
     this.cardClicked.emit({ event, card: this.card() });
   }
 
@@ -402,6 +395,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.suppressHoverPreviewUntilPointerExit();
     this.cardPointerDown.emit({ event, card: this.card() });
   }
 
@@ -634,10 +628,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.mode() !== 'battlefield' || this.zone() !== 'battlefield') {
-      this.previewSuppressedUntilPointerExit = false;
-    }
-
     if (this.previewSuppressedUntilPointerExit) {
       this.deactivateHover(false);
       return;
@@ -700,6 +690,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     this.activePreviewInstanceId = null;
     this.cardMouseLeft.emit();
+  }
+
+  private suppressHoverPreviewUntilPointerExit(): void {
+    this.previewSuppressedUntilPointerExit = true;
+    this.deactivateHover(true);
+    this.startPreviewBoundsWatcher();
   }
 
   private activatePreviewForCurrentCard(): void {

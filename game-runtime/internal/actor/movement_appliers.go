@@ -817,6 +817,9 @@ func emitPrunedRelationPatches(emitter *PatchEmitter, removed []state.RemovedRel
 		case "attachment":
 			emitter.EmitPublic(protocol.PatchOp{Op: "attachment.remove", Data: map[string]any{"id": relation.ID}})
 			emitter.EmitPublic(protocol.PatchOp{Op: "relation.remove", Data: map[string]any{"kind": "attachment", "id": relation.ID}})
+		case "battlefieldStack":
+			emitter.EmitPublic(protocol.PatchOp{Op: "battlefieldStack.remove", Data: map[string]any{"id": relation.ID}})
+			emitter.EmitPublic(protocol.PatchOp{Op: "relation.remove", Data: map[string]any{"kind": "battlefieldStack", "id": relation.ID}})
 		}
 	}
 }

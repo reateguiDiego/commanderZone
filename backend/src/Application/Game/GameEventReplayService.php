@@ -411,6 +411,16 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'battlefield_stack.created':
+                $this->applyRuntimeBattlefieldStackCreated($snapshot, $event, $payload);
+
+                return true;
+
+            case 'battlefield_stack.removed':
+                $this->applyRuntimeRelationRemoved($snapshot, 'battlefieldStacks', $payload);
+
+                return true;
+
             case 'helper.created':
                 $this->applyRuntimeHelperCreated($snapshot, $event, $payload);
 
@@ -969,6 +979,40 @@ final class GameEventReplayService
     /**
      * @param array<string,mixed> $payload
      */
+    private function applyRuntimeBattlefieldStackCreated(array &$snapshot, GameEvent $event, array $payload): void
+    {
+        $id = $this->runtimeRelationId($event, $payload, 'battlefield-stack');
+        $stackedInstanceId = is_string($payload['stackedInstanceId'] ?? null) ? trim($payload['stackedInstanceId']) : '';
+        $stackTopInstanceId = is_string($payload['stackTopInstanceId'] ?? null) ? trim($payload['stackTopInstanceId']) : '';
+        if ($id === '' || $stackedInstanceId === '' || $stackTopInstanceId === '') {
+            return;
+        }
+
+        $ownerId = is_string($payload['ownerId'] ?? null) && trim($payload['ownerId']) !== ''
+            ? trim($payload['ownerId'])
+            : ($event->createdBy()?->id() ?? null);
+        $relation = [
+            'id' => $id,
+            'stackedInstanceId' => $stackedInstanceId,
+            'stackTopInstanceId' => $stackTopInstanceId,
+            'createdAt' => is_string($payload['createdAt'] ?? null) && trim($payload['createdAt']) !== ''
+                ? trim($payload['createdAt'])
+                : $event->createdAt()->format(DATE_ATOM),
+        ];
+        if (is_string($ownerId) && $ownerId !== '') {
+            $relation['ownerId'] = $ownerId;
+        }
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
+            static fn (mixed $stack): bool => !is_array($stack)
+                || ($stack['stackedInstanceId'] ?? null) !== $stackedInstanceId,
+        ));
+        $this->upsertRuntimeRelation($snapshot, 'battlefieldStacks', $relation);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
     private function applyRuntimeRelationRemoved(array &$snapshot, string $key, array $payload): void
     {
         $id = is_string($payload['id'] ?? null) ? trim($payload['id']) : '';
@@ -1502,6 +1546,11 @@ final class GameEventReplayService
                         is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
                         static fn (mixed $attachment): bool => !is_array($attachment) || (string) ($attachment['id'] ?? '') !== $id,
                     ));
+                } elseif ($kind === 'battlefieldStack') {
+                    $snapshot['battlefieldStacks'] = array_values(array_filter(
+                        is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
+                        static fn (mixed $stack): bool => !is_array($stack) || (string) ($stack['id'] ?? '') !== $id,
+                    ));
                 }
                 return;
 
@@ -1715,6 +1764,14 @@ final class GameEventReplayService
                 || (
                     (string) ($attachment['equipmentInstanceId'] ?? $attachment['sourceId'] ?? '') !== $instanceId
                     && (string) ($attachment['attachedToInstanceId'] ?? $attachment['targetId'] ?? '') !== $instanceId
+                ),
+        ));
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
+            static fn (mixed $stack): bool => !is_array($stack)
+                || (
+                    (string) ($stack['stackedInstanceId'] ?? '') !== $instanceId
+                    && (string) ($stack['stackTopInstanceId'] ?? '') !== $instanceId
                 ),
         ));
     }

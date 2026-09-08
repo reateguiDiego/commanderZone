@@ -110,6 +110,7 @@ final class CompactGameCardStateMapper
             $loc,
         );
         $legacy['attachments'] = array_values(is_array($relations['attachments'] ?? null) ? $relations['attachments'] : []);
+        $legacy['battlefieldStacks'] = array_values(is_array($relations['battlefieldStacks'] ?? null) ? $relations['battlefieldStacks'] : []);
         $legacy['arrows'] = array_values(is_array($relations['arrows'] ?? null) ? $relations['arrows'] : []);
         $legacy['specialEntities'] = array_values(is_array($relations['helpers'] ?? null) ? $relations['helpers'] : []);
 
@@ -178,14 +179,18 @@ final class CompactGameCardStateMapper
         }
 
         $attachments = $this->indexById(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []);
+        $battlefieldStacks = $this->indexById(is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : []);
         $arrows = $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []);
         $relations = [
             'attachments' => $attachments,
+            'battlefieldStacks' => $battlefieldStacks,
             'arrows' => $arrows,
             'helpers' => $this->indexById(is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : []),
             'indexes' => [
                 'attachmentsByEquipment' => $this->relationIdsByField($attachments, 'equipmentInstanceId'),
                 'attachmentsByTarget' => $this->relationIdsByField($attachments, 'attachedToInstanceId'),
+                'battlefieldStacksByTop' => $this->relationIdsByField($battlefieldStacks, 'stackTopInstanceId'),
+                'battlefieldStacksByCard' => $this->relationIdsByField($battlefieldStacks, 'stackedInstanceId'),
                 'arrowsBySource' => $this->relationIdsByField($arrows, 'fromInstanceId'),
                 'arrowsByTarget' => $this->relationIdsByField($arrows, 'toInstanceId'),
             ],

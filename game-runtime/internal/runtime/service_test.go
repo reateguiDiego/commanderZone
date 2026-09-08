@@ -657,6 +657,36 @@ func TestServiceRecoveryFailsOnCorruptSnapshotChecksum(t *testing.T) {
 	}
 }
 
+func TestServiceRecoveryRepairsCorruptSnapshotFromAuthoritativeSource(t *testing.T) {
+	corrupt, err := persistence.NewCompactSnapshot(runtimeTestState("game-1"))
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	corrupt.Checksum = "corrupt"
+
+	loads := 0
+	service := NewServiceWithStoreAndOptions(
+		corruptSnapshotStore{snapshot: corrupt},
+		8,
+		nil,
+		WithAuthoritativeSnapshotSource(authoritativeSnapshotSourceFunc(func(_ context.Context, gameID string) (persistence.CompactSnapshot, error) {
+			loads++
+			if gameID != "game-1" {
+				return persistence.CompactSnapshot{}, errors.New("unexpected game ID")
+			}
+			return persistence.NewCompactSnapshot(runtimeTestState(gameID))
+		})),
+	)
+
+	gameActor, created, err := service.LoadActorRecovered(context.Background(), "game-1", nil)
+	if err != nil {
+		t.Fatalf("recover from authoritative snapshot: %v", err)
+	}
+	if !created || loads != 1 || gameActor.Snapshot().Version != 1 {
+		t.Fatalf("created=%v loads=%d snapshot=%#v", created, loads, gameActor.Snapshot())
+	}
+}
+
 func TestServiceRecoveryWithoutSnapshotOrMigrationInitialStateFails(t *testing.T) {
 	service := NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, nil)
 	if _, _, err := service.LoadActorRecovered(context.Background(), "missing-game", nil); !errors.Is(err, ErrActorStateNotFound) {
@@ -666,6 +696,12 @@ func TestServiceRecoveryWithoutSnapshotOrMigrationInitialStateFails(t *testing.T
 
 type corruptSnapshotStore struct {
 	snapshot persistence.CompactSnapshot
+}
+
+type authoritativeSnapshotSourceFunc func(context.Context, string) (persistence.CompactSnapshot, error)
+
+func (f authoritativeSnapshotSourceFunc) Load(ctx context.Context, gameID string) (persistence.CompactSnapshot, error) {
+	return f(ctx, gameID)
 }
 
 func (s corruptSnapshotStore) AppendEvent(context.Context, protocol.EventPayloadV2) error {

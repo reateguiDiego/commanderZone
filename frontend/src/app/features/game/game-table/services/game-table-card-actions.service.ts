@@ -310,9 +310,9 @@ export class GameTableCardActionsService {
     context.clearSelectedCards();
   }
 
-  isLandStacked(context: Pick<GameTableCardActionContext, 'battlefieldCards' | 'cardPosition'>, playerId: string, card: GameCardInstance): boolean {
+  isLandStacked(context: Pick<GameTableCardActionContext, 'snapshot' | 'battlefieldCards' | 'cardPosition'>, playerId: string, card: GameCardInstance): boolean {
     const group = landStackGroupContaining(
-      buildLandStackGroups(context.battlefieldCards(playerId), context.cardPosition),
+      buildLandStackGroups(context.battlefieldCards(playerId), context.snapshot()?.battlefieldStacks ?? [], context.cardPosition),
       card.instanceId,
     );
 
@@ -330,7 +330,11 @@ export class GameTableCardActionsService {
     }
 
     const group = landStackGroupContaining(
-      buildLandStackGroups(context.battlefieldCards(menu.playerId), context.cardPosition),
+      buildLandStackGroups(
+        context.battlefieldCards(menu.playerId),
+        context.snapshot()?.battlefieldStacks ?? [],
+        context.cardPosition,
+      ),
       menu.card.instanceId,
     );
     if (!group) {
@@ -357,6 +361,11 @@ export class GameTableCardActionsService {
         position: context.battlefieldPosition(menu.playerId, move.card.instanceId, move.position),
       })),
     });
+    for (const stack of context.snapshot()?.battlefieldStacks ?? []) {
+      if (stack.stackTopInstanceId === group.topCard.instanceId) {
+        await context.command('battlefield_stack.removed', { id: stack.id });
+      }
+    }
   }
 
   async moveActiveCard(context: GameTableCardActionContext, toZone: GameZoneName): Promise<void> {

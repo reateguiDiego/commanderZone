@@ -12,14 +12,14 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
 import { BattlefieldMechanicsOverlayComponent } from '../battlefield-mechanics-overlay/battlefield-mechanics-overlay.component';
 import { CardPreviewEvent } from '../../models/card-preview.model';
 import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
-import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
+import { buildLandStackGroups, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { ManaPool } from '../../state/mana/game-table-mana-pool.state';
@@ -69,6 +69,19 @@ interface BattlefieldCardMouseEvent {
   playerId: string;
   card: GameCardInstance;
   forceOpenLeft?: boolean;
+}
+
+/**
+ * The visual pile is shared by attachments and manual land/token stacks.
+ * Relation type is intentionally not part of this shape: it only governs how
+ * a persisted group is rendered after its own rules have already validated it.
+ */
+interface PermanentStackLayoutGroup {
+  readonly members: readonly {
+    readonly card: GameCardInstance;
+    readonly position: { x: number; y: number };
+    readonly layer: number;
+  }[];
 }
 
 interface BattlefieldCardStatChangeEvent {
@@ -167,6 +180,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly zoomPercent = input(DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
   readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
   readonly attachments = input<readonly GameAttachment[]>([]);
+  readonly battlefieldStacks = input<readonly GameBattlefieldStack[]>([]);
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
@@ -175,6 +189,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
   readonly landStackGroups = computed(() => buildLandStackGroups(
     this.battlefieldCards().filter((card) => !this.isDraggingCard()(card)),
+    this.battlefieldStacks(),
     (candidate) => this.cardPosition()(candidate),
   ));
   readonly battlefieldDragOver = output<DragEvent>();
@@ -204,66 +219,28 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);
-  readonly hoveredAttachmentStackId = signal<string | null>(null);
+  readonly hoveredPermanentStackId = signal<string | null>(null);
   private readonly measuredLayoutVersion = signal(0);
-  readonly landStackViews = computed<ReadonlyMap<string, LandStackView>>(() => {
-    const views = new Map<string, LandStackView>();
-
-    for (const group of this.landStackGroups()) {
-      for (const member of group.members) {
-        views.set(member.card.instanceId, {
-          stackId: group.id,
-          size: group.members.length,
-          layer: member.layer,
-          role: member.role,
-        });
-      }
-    }
-
-    return views;
-  });
-  readonly landStackDisplayPositions = computed<ReadonlyMap<string, { x: number; y: number }>>(() => {
-    this.layoutKey();
-    this.measuredLayoutVersion();
-    const positions = new Map<string, { x: number; y: number }>();
-    const stackOffsetY = this.stackVisualOffsetY();
-
-    for (const group of this.landStackGroups()) {
-      const top = group.members.find((member) => member.layer === 0);
-      if (!top) {
-        continue;
-      }
-
-      const rawPositions = group.members.map((member) => ({
-        member,
-        position: {
-          x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - stackOffsetY * member.layer,
-        },
-      }));
-      const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
-        instanceId: item.member.card.instanceId,
-        position: item.position,
-      })));
-
-      for (const member of group.members) {
-        positions.set(member.card.instanceId, {
-          x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - stackOffsetY * member.layer - shiftY,
-        });
-      }
-    }
-
-    return positions;
-  });
   readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
     this.player().state.zones.battlefield,
     this.attachments(),
     (candidate) => this.cardPosition()(candidate),
   ));
-  readonly attachmentStackViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
+  readonly stackPresentationViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
     const views = new Map<string, AttachmentStackView>();
 
+    // Lands and tokens deliberately reuse the attachment presentation. Their
+    // domain validation remains in land-stack.ts; only the visual contract is
+    // shared here.
+    for (const group of this.landStackGroups()) {
+      for (const member of group.members) {
+        views.set(member.card.instanceId, {
+          stackId: group.id,
+          layer: member.layer,
+          role: member.role === 'top' ? 'target' : 'equipment',
+        });
+      }
+    }
     for (const group of this.attachmentStackGroups()) {
       for (const member of group.members) {
         const view = attachmentStackViewFor([group], member.card.instanceId);
@@ -275,39 +252,13 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     return views;
   });
-  readonly attachmentStackDisplayPositions = computed<ReadonlyMap<string, { x: number; y: number }>>(() => {
+  readonly permanentStackDisplayPositions = computed<ReadonlyMap<string, { x: number; y: number }>>(() => {
     this.layoutKey();
     this.measuredLayoutVersion();
-    const positions = new Map<string, { x: number; y: number }>();
-    const stackOffsetY = this.stackVisualOffsetY();
-
-    for (const group of this.attachmentStackGroups()) {
-      const target = group.members.find((member) => member.layer === 0);
-      if (!target) {
-        continue;
-      }
-
-      const rawPositions = group.members.map((member) => ({
-        member,
-        position: {
-          x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - stackOffsetY * member.layer,
-        },
-      }));
-      const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
-        instanceId: item.member.card.instanceId,
-        position: item.position,
-      })));
-
-      for (const member of group.members) {
-        positions.set(member.card.instanceId, {
-          x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - stackOffsetY * member.layer - shiftY,
-        });
-      }
-    }
-
-    return positions;
+    return this.calculateStackDisplayPositions([
+      ...this.landStackGroups(),
+      ...this.attachmentStackGroups(),
+    ]);
   });
 
   ngAfterViewInit(): void {
@@ -381,7 +332,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   onCardDoubleClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.isCurrentPlayer()(playerId) || this.attachmentStackView(card)?.role === 'equipment') {
+    if (!this.isCurrentPlayer()(playerId) || this.isAttachedEquipment(card)) {
       return;
     }
 
@@ -487,35 +438,34 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
   }
 
-  landStackView(card: GameCardInstance): LandStackView | null {
-    return this.landStackViews().get(card.instanceId) ?? null;
+  stackPresentationView(card: GameCardInstance): AttachmentStackView | null {
+    return this.stackPresentationViews().get(card.instanceId) ?? null;
   }
 
-  attachmentStackView(card: GameCardInstance): AttachmentStackView | null {
-    return this.attachmentStackViews().get(card.instanceId) ?? null;
-  }
+  isStackPresentationHighlighted(card: GameCardInstance): boolean {
+    const hoveredStackId = this.hoveredPermanentStackId();
+    const stackView = this.stackPresentationView(card);
 
-  isAttachmentStackHighlighted(card: GameCardInstance): boolean {
-    const hoveredStackId = this.hoveredAttachmentStackId();
-    const attachmentView = this.attachmentStackView(card);
-
-    return hoveredStackId !== null && attachmentView?.stackId === hoveredStackId;
+    return hoveredStackId !== null && stackView?.stackId === hoveredStackId;
   }
 
   onCardPointerEntered(card: GameCardInstance): void {
-    this.hoveredAttachmentStackId.set(this.attachmentStackView(card)?.stackId ?? null);
+    this.hoveredPermanentStackId.set(this.stackPresentationView(card)?.stackId ?? null);
   }
 
   onCardPointerLeft(): void {
-    this.hoveredAttachmentStackId.set(null);
+    this.hoveredPermanentStackId.set(null);
     this.cardPreviewHidden.emit();
+  }
+
+  private isAttachedEquipment(card: GameCardInstance): boolean {
+    return attachmentStackViewFor(this.attachmentStackGroups(), card.instanceId)?.role === 'equipment';
   }
 
   displayedCardPosition(card: GameCardInstance): { x: number; y: number } | null {
     this.layoutKey();
     this.measuredLayoutVersion();
-    return this.landStackDisplayPositions().get(card.instanceId)
-      ?? this.attachmentStackDisplayPositions().get(card.instanceId)
+    return this.permanentStackDisplayPositions().get(card.instanceId)
       ?? this.fitPositionInsideBattlefield(card.instanceId, this.cardPosition()(card));
   }
 
@@ -671,6 +621,39 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       );
 
     return Number(offset.toFixed(2));
+  }
+
+  private calculateStackDisplayPositions(groups: readonly PermanentStackLayoutGroup[]): ReadonlyMap<string, { x: number; y: number }> {
+    const positions = new Map<string, { x: number; y: number }>();
+    const stackOffsetY = this.stackVisualOffsetY();
+
+    for (const group of groups) {
+      const anchor = group.members.find((member) => member.layer === 0);
+      if (!anchor) {
+        continue;
+      }
+
+      const rawPositions = group.members.map((member) => ({
+        member,
+        position: {
+          x: anchor.position.x + landStackOffsetX() * member.layer,
+          y: anchor.position.y - stackOffsetY * member.layer,
+        },
+      }));
+      const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
+        instanceId: item.member.card.instanceId,
+        position: item.position,
+      })));
+
+      for (const item of rawPositions) {
+        positions.set(item.member.card.instanceId, {
+          x: item.position.x,
+          y: item.position.y - shiftY,
+        });
+      }
+    }
+
+    return positions;
   }
 
   private interpolateStackVisualOffset(

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/core/game-table-ui.state';
 import { GameTableCardActionContext, GameTableCardActionsService } from './game-table-card-actions.service';
 
@@ -14,9 +14,9 @@ describe('GameTableCardActionsService', () => {
     service = TestBed.inject(GameTableCardActionsService);
   });
 
-  it('detects land stack membership from compact battlefield positions', () => {
+  it('detects land stack membership from persisted battlefield relations', () => {
     const battlefield = [land('top', 100, 200), land('under', 100, 180), card('artifact', 'Artifact', 100, 160)];
-    const ctx = context(battlefield);
+    const ctx = context(battlefield, {}, [stack('stack-under', 'under', 'top')]);
 
     expect(service.isLandStacked(ctx, 'player-1', battlefield[0]!)).toBe(true);
     expect(service.isLandStacked(ctx, 'player-1', battlefield[2]!)).toBe(false);
@@ -116,7 +116,10 @@ describe('GameTableCardActionsService', () => {
       },
       closeContextMenu,
       updateLocalCardPosition,
-    });
+    }, [
+      stack('stack-under', 'under', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
 
     await service.removeLandStack(ctx, menu(battlefield[1]!));
 
@@ -124,18 +127,22 @@ describe('GameTableCardActionsService', () => {
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 230, y: 200 });
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'bottom', { x: 360, y: 200 });
     expect(closeContextMenu).toHaveBeenCalledOnce();
-    expect(commands).toEqual([{
-      type: 'cards.position.changed',
-      payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
-        positions: [
-          { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'under', position: { x: 230, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 360, y: 200, unit: 'ratio' } },
-        ],
+    expect(commands).toEqual([
+      {
+        type: 'cards.position.changed',
+        payload: {
+          playerId: 'player-1',
+          zone: 'battlefield',
+          positions: [
+            { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
+            { instanceId: 'under', position: { x: 230, y: 200, unit: 'ratio' } },
+            { instanceId: 'bottom', position: { x: 360, y: 200, unit: 'ratio' } },
+          ],
+        },
       },
-    }]);
+      { type: 'battlefield_stack.removed', payload: { id: 'stack-under' } },
+      { type: 'battlefield_stack.removed', payload: { id: 'stack-bottom' } },
+    ]);
   });
 
   it('moves every selected card when the context menu card belongs to the selection', async () => {
@@ -400,13 +407,14 @@ describe('GameTableCardActionsService', () => {
 function context(
   battlefield: readonly GameCardInstance[],
   overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'setError' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
+  battlefieldStacks: readonly GameBattlefieldStack[] = [],
 ): GameTableCardActionContext {
   const zoneModal = overrides.zoneModal ?? (() => null);
   const loadZone = overrides.loadZone ?? vi.fn(async () => undefined);
   const replaceZoneModalCards = overrides.replaceZoneModalCards ?? vi.fn();
 
   return {
-    snapshot: () => snapshot(battlefield),
+    snapshot: () => snapshot(battlefield, battlefieldStacks),
     canControlPlayer: () => true,
     activeKeyboardCard: () => null,
     selectedCards: overrides.selectedCards ?? (() => []),
@@ -437,7 +445,10 @@ function context(
   };
 }
 
-function snapshot(battlefield: readonly GameCardInstance[]): GameSnapshot {
+function snapshot(
+  battlefield: readonly GameCardInstance[],
+  battlefieldStacks: readonly GameBattlefieldStack[] = [],
+): GameSnapshot {
   return {
     version: 1,
     ownerId: 'player-1',
@@ -461,9 +472,19 @@ function snapshot(battlefield: readonly GameCardInstance[]): GameSnapshot {
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
     stack: [],
     arrows: [],
+    battlefieldStacks: [...battlefieldStacks],
     chat: [],
     eventLog: [],
     counters: {},
+  };
+}
+
+function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }
 

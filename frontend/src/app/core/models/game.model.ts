@@ -73,6 +73,8 @@ export type GameCommandType =
   | 'arrow.removed'
   | 'attachment.created'
   | 'attachment.removed'
+  | 'battlefield_stack.created'
+  | 'battlefield_stack.removed'
   | 'helper.created'
   | 'helper.updated'
   | 'helper.removed'
@@ -268,6 +270,18 @@ export interface GameAttachment {
   createdAt: string;
 }
 
+/**
+ * A manual visual stack on a battlefield. Unlike an attachment, this has no
+ * gameplay meaning; it only preserves the player's layout choice.
+ */
+export interface GameBattlefieldStack {
+  id: string;
+  ownerId?: string;
+  stackedInstanceId: string;
+  stackTopInstanceId: string;
+  createdAt: string;
+}
+
 export interface GameSpecialEntityCardRef {
   scryfallId: string;
   name: string;
@@ -373,6 +387,7 @@ export interface GameSnapshot {
   stack: GameStackItem[];
   arrows: GameArrow[];
   attachments?: GameAttachment[];
+  battlefieldStacks?: GameBattlefieldStack[];
   specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
