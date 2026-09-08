@@ -99,29 +99,32 @@
   @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }
-  <div
-    class="mana-lane"
-    [class.drag-over]="isManaLaneHighlighted()(focusedPlayer.id)"
-    data-mana-lane
-    [attr.data-player-id]="focusedPlayer.id"
-    [attr.data-zone]="'mana'"
-    [attr.data-game-drop-zone]="'mana'"
-    (dragover)="manaLaneDragOver.emit($event)"
-    (drop)="manaLaneDropped.emit({ event: $event, playerId: focusedPlayer.id })"
-    [attr.aria-label]="'game.focusedBattlefield.manaRow' | runtimeTranslate"
-  >
-    @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
-      <app-mana-pool-panel
-        class="mana-pool-panel-anchor"
-        [pool]="manaPool()(focusedPlayer.id)"
-        [backgroundName]="focusedPlayer.state.backgroundName"
-        [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
-        [pendingColors]="pendingManaColors()"
-        (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
-        (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
-        (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
-        (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
-      />
-    }
-  </div>
+  @if (showManaRow() || (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id))) {
+    <div
+      class="mana-lane"
+      [class.mana-lane-helper-only]="!showManaRow()"
+      [class.drag-over]="isManaLaneHighlighted()(focusedPlayer.id)"
+      [attr.data-mana-lane]="showManaRow() ? '' : null"
+      [attr.data-player-id]="focusedPlayer.id"
+      [attr.data-zone]="showManaRow() ? 'mana' : null"
+      [attr.data-game-drop-zone]="showManaRow() ? 'mana' : null"
+      (dragover)="handleManaLaneDragOver($event)"
+      (drop)="handleManaLaneDrop($event, focusedPlayer.id)"
+      [attr.aria-label]="showManaRow() ? ('game.focusedBattlefield.manaRow' | runtimeTranslate) : null"
+    >
+      @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
+        <app-mana-pool-panel
+          class="mana-pool-panel-anchor"
+          [pool]="manaPool()(focusedPlayer.id)"
+          [backgroundName]="focusedPlayer.state.backgroundName"
+          [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
+          [pendingColors]="pendingManaColors()"
+          (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
+          (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
+          (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
+          (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
+        />
+      }
+    </div>
+  }
 </div>

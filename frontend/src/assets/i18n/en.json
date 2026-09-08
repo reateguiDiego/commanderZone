@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Life controls",
       "playerCounters": "Player counters",
-      "autoApplyCommanderDamageToLife": "Apply commander damage to life total",
+      "autoApplyCommanderDamageToLife": "Apply commander damage",
       "autoApplyCommanderDamageToLifeTooltip": "When enabled, commander damage changes also adjust that player's life total.",
       "otherCounters": "Other counters",
       "openExtraPlayerCounters": "Open extra player counters",
@@ -2074,9 +2074,9 @@
           "label": "Chat notification sounds",
           "description": "Play a sound when new chat notifications arrive."
         },
-        "preserveManaPool": {
-          "label": "Preserve mana pool",
-          "description": "Keep mana in your mana pool while resolving stacked actions."
+        "combineChatAndGameLog": {
+          "label": "Combine chat and game log",
+          "description": "Show chat messages and game actions together in one chronological feed."
         }
       },
       "deleteAccountWarning": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone."

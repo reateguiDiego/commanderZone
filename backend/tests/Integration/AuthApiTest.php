@@ -31,10 +31,10 @@ class AuthApiTest extends ApiTestCase
             'game' => [
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
-                'enableStackMana' => false,
                 'autoApplyCommanderDamageToLife' => true,
                 'gameAnimations' => true,
                 'chatNotificationSounds' => true,
+                'combineChatAndGameLog' => false,
             ],
         ], $this->jsonResponse()['user']['preferences']);
         self::assertSame(['ROLE_USER'], $this->jsonResponse()['user']['roles']);
@@ -70,20 +70,20 @@ class AuthApiTest extends ApiTestCase
             'gamePreferences' => [
                 'showManaHelperOnStartup' => true,
                 'enableManaRow' => false,
-                'enableStackMana' => true,
                 'autoApplyCommanderDamageToLife' => false,
                 'gameAnimations' => false,
                 'chatNotificationSounds' => false,
+                'combineChatAndGameLog' => true,
             ],
         ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame([
             'showManaHelperOnStartup' => true,
             'enableManaRow' => false,
-            'enableStackMana' => true,
             'autoApplyCommanderDamageToLife' => false,
             'gameAnimations' => false,
             'chatNotificationSounds' => false,
+            'combineChatAndGameLog' => true,
         ], $this->jsonResponse()['user']['preferences']['game']);
 
         $this->jsonRequest('PATCH', '/me', [
@@ -680,10 +680,10 @@ class AuthApiTest extends ApiTestCase
             'game' => [
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
-                'enableStackMana' => false,
                 'autoApplyCommanderDamageToLife' => true,
                 'gameAnimations' => true,
                 'chatNotificationSounds' => true,
+                'combineChatAndGameLog' => false,
             ],
         ], $this->jsonResponse()['user']['preferences']);
 

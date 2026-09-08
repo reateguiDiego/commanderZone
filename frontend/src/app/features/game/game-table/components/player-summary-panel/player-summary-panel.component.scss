@@ -788,8 +788,10 @@
 
 .commander-damage-life-toggle {
   justify-self: end;
-  width: min(100%, 15.8rem);
+  min-width: 0;
+  max-width: 100%;
   margin-top: 0.08rem;
+  --compact-checkbox-width: min(100%, 15.8rem);
   --compact-checkbox-justify: start;
   --compact-checkbox-accent-rgb: var(--game-accent-rgb);
 }

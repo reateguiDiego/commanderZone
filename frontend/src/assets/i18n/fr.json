@@ -209,7 +209,7 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valeur de mana moyenne hors terrains : {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTarget": "à {{ name }}",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Contrôles de la vie",
       "playerCounters": "Marqueurs de joueurs",
-      "autoApplyCommanderDamageToLife": "Soustraire les points de vie automatiquement",
+      "autoApplyCommanderDamageToLife": "Appliquer les dégâts de commandant",
       "autoApplyCommanderDamageToLifeTooltip": "Lorsque cette option est activée, les changements de dégâts de commandant ajustent aussi les points de vie de ce joueur.",
       "otherCounters": "Autres marqueurs",
       "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplémentaires",
@@ -2074,9 +2074,9 @@
           "label": "Sons de notification de chat",
           "description": "Lire un son lorsque de nouvelles notifications de chat arrivent."
         },
-        "preserveManaPool": {
-          "label": "Conserver la réserve de mana",
-          "description": "Conservez le mana dans votre réserve de mana pendant la résolution des actions empilées."
+        "combineChatAndGameLog": {
+          "label": "Fusionner le chat et le journal de partie",
+          "description": "Afficher les messages de chat et les actions de partie dans un seul fil chronologique."
         }
       },
       "deleteAccountWarning": "Supprimez définitivement votre compte et toutes les données associées, y compris les decks et les préférences. Cette action ne peut pas être annulée."

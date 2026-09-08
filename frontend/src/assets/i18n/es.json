@@ -209,7 +209,7 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valor de maná medio sin tierras: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTarget": "a {{ name }}",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Controles de vida",
       "playerCounters": "Contadores de jugadores",
-      "autoApplyCommanderDamageToLife": "Restar vida automáticamente",
+      "autoApplyCommanderDamageToLife": "Aplicar daño de comandante",
       "autoApplyCommanderDamageToLifeTooltip": "Si está activado, los cambios de daño de comandante también ajustan las vidas de ese jugador.",
       "otherCounters": "Otros contadores",
       "openExtraPlayerCounters": "Abrir contadores de jugadores adicionales",
@@ -2074,9 +2074,9 @@
           "label": "Sonidos de notificación de chat",
           "description": "Reproduce un sonido cuando lleguen nuevas notificaciones de chat."
         },
-        "preserveManaPool": {
-          "label": "Conservar la reserva de maná",
-          "description": "Mantén maná en tu reserva de maná mientras resuelves acciones acumuladas."
+        "combineChatAndGameLog": {
+          "label": "Unir chat y registro de partida",
+          "description": "Muestra mensajes de chat y acciones de partida juntos en una única vista cronológica."
         }
       },
       "deleteAccountWarning": "Elimina permanentemente tu cuenta y todos los datos asociados, incluidos mazos y preferencias. Esta acción no se puede deshacer."

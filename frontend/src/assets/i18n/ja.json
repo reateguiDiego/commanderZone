@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "ライフコントロール",
       "playerCounters": "プレイヤーカウンター",
-      "autoApplyCommanderDamageToLife": "ライフを自動で減らす",
+      "autoApplyCommanderDamageToLife": "統率者ダメージを適用",
       "autoApplyCommanderDamageToLifeTooltip": "有効にすると、統率者ダメージの変更に合わせてそのプレイヤーのライフも調整します。",
       "otherCounters": "その他のカウンター",
       "openExtraPlayerCounters": "追加のプレイヤーカウンターを開く",
@@ -2073,9 +2073,9 @@
           "label": "チャット通知音",
           "description": "新しいチャット通知が到着したときに音を鳴らします。"
         },
-        "preserveManaPool": {
-          "label": "マナ・プールを温存する",
-          "description": "スタックされたアクションを解決する間、マナをマナ・プールに保持してください。"
+        "combineChatAndGameLog": {
+          "label": "チャットとゲームログを統合",
+          "description": "チャットメッセージとゲームアクションを時系列の1つのフィードに表示します。"
         }
       },
       "deleteAccountWarning": "アカウントと、デッキや設定を含むすべての関連データを完全に削除します。この操作は元に戻すことができません。"

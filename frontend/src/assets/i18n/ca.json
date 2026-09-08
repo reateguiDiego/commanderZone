@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Controls de la vida",
       "playerCounters": "Comptadors de jugadors",
-      "autoApplyCommanderDamageToLife": "Resta vida automàticament",
+      "autoApplyCommanderDamageToLife": "Aplica el dany de comandant",
       "autoApplyCommanderDamageToLifeTooltip": "Si està activat, els canvis de dany de comandant també ajusten les vides d'aquest jugador.",
       "otherCounters": "Altres comptadors",
       "openExtraPlayerCounters": "Obrir comptadors de jugadors addicionals",
@@ -2074,9 +2074,9 @@
           "label": "Sona la notificació del xat",
           "description": "Reprodueix un so quan arribin noves notificacions de xat."
         },
-        "preserveManaPool": {
-          "label": "Conserva la reserva de manà",
-          "description": "Mantén el manà a la reserva de manà mentre resols accions apilades."
+        "combineChatAndGameLog": {
+          "label": "Combina el xat i el registre de partida",
+          "description": "Mostra missatges de xat i accions de partida junts en una única vista cronològica."
         }
       },
       "deleteAccountWarning": "Suprimeix permanentment el teu compte i totes les dades associades, incloses les baralles i les preferències. Aquesta acció no es pot desfer."

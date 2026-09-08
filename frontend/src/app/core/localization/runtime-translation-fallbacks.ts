@@ -1459,7 +1459,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.playersOrder.turnOrder': 'Turn order',
   'game.playersOrder.upcomingTurnLabel': 'In {{ count }}',
   'game.playersOrder.upcomingTurnTitle': '{{ name }} is {{ count }} turn(s) away',
-  'game.playerSummaryPanel.autoApplyCommanderDamageToLife': 'Apply commander damage to life total',
+  'game.playerSummaryPanel.autoApplyCommanderDamageToLife': 'Apply commander damage',
   'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip':
     "When enabled, commander damage changes also adjust that player's life total.",
   'game.playerSummaryPanel.commanderDamage': 'Commander damage',
@@ -1818,15 +1818,16 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
     'Play a sound when new chat notifications arrive.',
   'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label':
     'Chat notification sounds',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.description':
+    'Show chat messages and game actions together in one chronological feed.',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label':
+    'Combine chat and game log',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.description':
     'Show the dedicated mana row during games.',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Enable mana row',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.description':
     'Use visual movement and feedback animations during matches.',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.label': 'Game animations',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description':
-    'Keep mana in your mana pool while resolving stacked actions.',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label': 'Preserve mana pool',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description':
     'Open the mana helper when a match starts.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label':

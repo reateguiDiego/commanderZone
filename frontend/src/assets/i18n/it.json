@@ -209,7 +209,7 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valore di mana medio senza terre: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTarget": "a {{ name }}",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Controlli sulla vita",
       "playerCounters": "Segnalini dei giocatori",
-      "autoApplyCommanderDamageToLife": "Sottrai vita automaticamente",
+      "autoApplyCommanderDamageToLife": "Applica danno da comandante",
       "autoApplyCommanderDamageToLifeTooltip": "Se attivo, le modifiche al danno da comandante regolano anche i punti vita di quel giocatore.",
       "otherCounters": "Altri segnalini",
       "openExtraPlayerCounters": "Apri i segnalini dei giocatori aggiuntivi",
@@ -2073,9 +2073,9 @@
           "label": "Suoni di notifica della chat",
           "description": "Riproduci un suono quando arrivano nuove notifiche di chat."
         },
-        "preserveManaPool": {
-          "label": "Preserva la riserva di mana",
-          "description": "Mantieni il mana nella tua riserva di mana mentre risolvi le azioni impilate."
+        "combineChatAndGameLog": {
+          "label": "Unisci chat e registro di gioco",
+          "description": "Mostra messaggi chat e azioni di gioco insieme in un'unica cronologia."
         }
       },
       "deleteAccountWarning": "Elimina definitivamente il tuo account e tutti i dati associati, inclusi mazzi e preferenze. Questa azione non può essere annullata."

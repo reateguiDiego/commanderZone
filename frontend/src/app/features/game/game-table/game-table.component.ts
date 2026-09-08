@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -72,6 +73,7 @@ import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponen
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableSnapshotSelectors } from './state/core/game-table-snapshot-selectors';
+import { GameTableSessionPreferencesStore } from './state/core/game-table-session-preferences.store';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
@@ -81,6 +83,7 @@ import { GameTableNormalizedV2Store } from './state/realtime/game-table-normaliz
 import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
+import { GameActivityPanelComponent, type GameActivityReactionOption } from './components/game-activity-panel/game-activity-panel.component';
 import { ZonePilesPanelComponent } from './components/zone-piles-panel/zone-piles-panel.component';
 import { OpponentMiniBoardComponent } from './components/opponent-mini-board/opponent-mini-board.component';
 import { PlayerSummaryPanelComponent } from './components/player-summary-panel/player-summary-panel.component';
@@ -124,8 +127,10 @@ import { isDayNightCard, isDungeonCard, isEmblemCard, isGameplayCardTapLocked, i
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { VentureCardKind } from './utils/venture-card-kind';
+import { buildGameActivityTimeline } from './utils/game-activity-timeline';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+const COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT = 2;
 
 type PendingManaPoolColorCounts = Readonly<Record<string, Readonly<Partial<Record<ManaPoolColor, number>>>>>;
 
@@ -393,12 +398,6 @@ type PendingCardMotionTarget =
   | { readonly kind: 'zone'; readonly zone: DropZoneTarget }
   | { readonly kind: 'player' };
 
-interface ChatReactionOption {
-  readonly type: ChatReactionType;
-  readonly label: string;
-  readonly emoji: string;
-}
-
 interface HandDragPayload {
   readonly playerId: string;
   readonly zone: GameZoneName;
@@ -464,7 +463,9 @@ interface MotionSourceRect {
     LucideAngularModule,
     AppModalComponent,
     PrettyScrollDirective,
+    NgTemplateOutlet,
     GameLogPanelComponent,
+    GameActivityPanelComponent,
     ZonePilesPanelComponent,
     OpponentMiniBoardComponent,
     PlayerSummaryPanelComponent,
@@ -553,6 +554,7 @@ interface MotionSourceRect {
     GameTablePermanentRelationService,
     GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
+    GameTableSessionPreferencesStore,
     GameTableUiState,
     GameTableBattlefieldDragState,
     GameTableDropFeedbackState,
@@ -566,6 +568,7 @@ interface MotionSourceRect {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+  readonly gamePreferences = inject(GameTableSessionPreferencesStore).preferences;
   readonly logHistory = inject(GameTableLogHistoryService);
   readonly chatHistory = inject(GameTableChatHistoryService);
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
@@ -598,7 +601,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly effectiveBattlefieldGapRem = computed(() => this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldManaLaneHeightRem = computed(() => this.battlefieldZoom.manaLaneMinHeightRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly autoApplyCommanderDamageToLife = computed(() =>
-    this.authStore.user()?.preferences?.game?.autoApplyCommanderDamageToLife ?? true,
+    this.gamePreferences.autoApplyCommanderDamageToLife,
   );
   readonly handMotionActive = this.motion.handMotionActive;
   readonly handMotionLayoutMode = this.motion.handMotionLayoutMode;
@@ -777,8 +780,46 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return !request || !Number.isFinite(Number(request.power)) || !Number.isFinite(Number(request.toughness));
   });
-  readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
-  readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly collapsedPreviewLogEntries = computed(() =>
+    this.store.eventLog().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
+  );
+  readonly collapsedPreviewChatMessages = computed(() =>
+    (this.store.snapshot()?.chat ?? []).slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
+  );
+  // Keep live development sessions safe if template HMR briefly retains the prior preview bindings.
+  readonly latestLogEntry = computed(() => this.collapsedPreviewLogEntries().at(-1) ?? null);
+  readonly latestChatMessage = computed(() => this.collapsedPreviewChatMessages().at(-1) ?? null);
+  readonly combineChatAndGameLog = computed(() =>
+    this.gamePreferences.combineChatAndGameLog,
+  );
+  readonly gameActivityTimeline = computed(() =>
+    buildGameActivityTimeline(this.store.eventLog(), this.store.snapshot()?.chat ?? []),
+  );
+  readonly collapsedPreviewGameActivities = computed(() =>
+    this.gameActivityTimeline().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
+  );
+  readonly shouldCompactCollapsedPreview = computed(() => {
+    if (this.combineChatAndGameLog()) {
+      return this.collapsedPreviewGameActivities().length > 1;
+    }
+
+    return this.store.activeFloatingTab() === 'log'
+      ? this.collapsedPreviewLogEntries().length > 1
+      : this.collapsedPreviewChatMessages().length > 1;
+  });
+  readonly latestGameActivity = computed(() => this.collapsedPreviewGameActivities().at(-1) ?? null);
+  readonly activityHistoryLoadingOlder = computed(() =>
+    this.logHistory.loadingOlder() || this.chatHistory.loadingOlder(),
+  );
+  readonly activityHistoryLoadingNewer = computed(() =>
+    this.logHistory.loadingNewer() || this.chatHistory.loadingNewer(),
+  );
+  readonly canLoadOlderActivityHistory = computed(() =>
+    this.logHistory.canLoadOlder() || this.chatHistory.canLoadOlder(),
+  );
+  readonly canLoadNewerActivityHistory = computed(() =>
+    this.logHistory.canLoadNewer() || this.chatHistory.canLoadNewer(),
+  );
   readonly floatingPanelTabs = computed<readonly TabListItem[]>(() => [
     {
       id: 'log',
@@ -853,7 +894,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly highlightedLogEntryIds = signal<readonly string[]>([]);
   readonly fadingLogEntryIds = signal<readonly string[]>([]);
   readonly chatReactionClockMs = signal(Date.now());
-  readonly chatReactionOptions: readonly ChatReactionOption[] = [
+  readonly chatReactionOptions: readonly GameActivityReactionOption[] = [
     { type: 'like', label: 'game.reactions.like', emoji: '👍' },
     { type: 'dislike', label: 'game.reactions.dislike', emoji: '👎' },
     { type: 'love', label: 'game.reactions.love', emoji: '❤️' },
@@ -862,6 +903,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     { type: 'vomit', label: 'game.reactions.vomit', emoji: '🤮' },
     { type: 'cry', label: 'game.reactions.cry', emoji: '😭' },
   ];
+  readonly activityChatMessageHighlighted = (message: ChatMessage, index: number): boolean =>
+    this.isChatMessageHighlighted(message, index);
+  readonly activityChatMessageEvaporating = (message: ChatMessage, index: number): boolean =>
+    this.isChatMessageEvaporating(message, index);
+  readonly activityCanReactToChatMessage = (message: ChatMessage): boolean => this.canReactToChatMessage(message);
+  readonly activityHasOwnChatReaction = (message: ChatMessage, reaction: ChatReactionType): boolean =>
+    this.hasOwnChatReaction(message, reaction);
+  readonly activityHasAnyChatReaction = (message: ChatMessage): boolean => this.hasAnyChatReaction(message);
+  readonly activityShouldShowChatReactionUsers = (message: ChatMessage, reaction: ChatReactionType): boolean =>
+    this.shouldShowChatReactionUsers(message, reaction);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
   readonly focusedOpponentPlayer = computed<PlayerView | null>(() => {
@@ -976,6 +1027,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private lastObservedLogKey: string | null = null;
   private lastObservedLogEntryId: string | null = null;
   private lastUnreadChatNotificationKey: string | null = null;
+  private manaHelperStartupApplied = false;
   private readonly chatHighlightTimers = new Map<string, number>();
   private readonly logHighlightTimers = new Map<string, number>();
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
@@ -988,6 +1040,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
+  @ViewChild(GameActivityPanelComponent) private readonly gameActivityPanel?: GameActivityPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   constructor() {
@@ -996,6 +1049,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.realtimeAnimationSubscriptions.add(
       this.realtimeAnimations.patchAnimation$.subscribe((event) => this.handleRealtimePatchAnimation(event)),
     );
+
+    effect(() => {
+      const currentPlayer = this.store.currentPlayer();
+      if (this.manaHelperStartupApplied || !currentPlayer) {
+        return;
+      }
+
+      this.manaHelperStartupApplied = true;
+      if (!this.gamePreferences.showManaHelperOnStartup) {
+        this.store.hideManaPool(currentPlayer.id);
+      }
+    });
 
     effect(() => {
       if (this.tableExitPending()) {
@@ -1049,11 +1114,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     effect(() => {
       const snapshot = this.store.snapshot();
       const activeTab = this.store.activeFloatingTab();
+      const combined = this.combineChatAndGameLog();
       const latestChat = snapshot?.chat.at(-1);
       const eventLog = this.store.eventLog();
       const latestLog = eventLog.at(-1);
       const unreadKey = [
         activeTab,
+        combined,
         snapshot?.chat.length ?? 0,
         latestChat?.createdAt ?? '',
         latestChat?.userId ?? '',
@@ -1063,7 +1130,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       ].join(':');
 
       queueMicrotask(() => {
-        if (this.store.activeFloatingTab() === activeTab && unreadKey) {
+        if (this.store.activeFloatingTab() === activeTab && this.combineChatAndGameLog() === combined && unreadKey) {
           this.syncFloatingUnreadState();
         }
       });
@@ -1074,7 +1141,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (this.gameScreen) {
       this.motion.init(this.gameScreen);
     }
-    this.notificationSound.startUserGestureUnlock();
+    if (this.gamePreferences.chatNotificationSounds) {
+      this.notificationSound.startUserGestureUnlock();
+    }
     this.startChatReactionClock();
     this.setupMobileScrollLock();
     this.setupAggressiveCompactViewport();
@@ -1089,8 +1158,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.syncFollowActiveTurnPlayer(snapshot.turn.activePlayerId);
 
     const activeTab = this.store.activeFloatingTab();
-    if ((activeTab === 'log' && this.logHistory.viewingOlderHistory())
-      || (activeTab === 'chat' && this.chatHistory.viewingOlderHistory())) {
+    if (this.viewingFloatingHistory(activeTab)) {
       return;
     }
 
@@ -1098,7 +1166,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
     const latestLog = log.at(-1)?.id ?? '';
     const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
-    const key = `${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
+    const key = `${this.combineChatAndGameLog()}:${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
     if (key === this.lastAutoScrollKey) {
       return;
     }
@@ -1115,6 +1183,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   loadNewerLogHistory(): void {
     void this.logHistory.loadNewer();
+  }
+
+  loadOlderActivityHistory(): void {
+    this.clearQueuedFloatingContentScroll();
+    void Promise.all([this.logHistory.loadOlder(), this.chatHistory.loadOlder()]);
+  }
+
+  loadNewerActivityHistory(): void {
+    void Promise.all([this.logHistory.loadNewer(), this.chatHistory.loadNewer()]);
   }
 
   async handleChatHistoryScroll(event: Event): Promise<void> {
@@ -1230,6 +1307,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   scrollFloatingContentToBottom(): void {
+    this.gameActivityPanel?.scrollToBottom();
     this.gameLogPanel?.scrollToBottom();
     for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
       feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
@@ -1258,7 +1336,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   openFloatingTab(tab: FloatingPanelTab): void {
     this.store.activeFloatingTab.set(tab);
-    this.markFloatingTabRead(tab);
+    this.markVisibleFloatingContentRead(tab);
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
   }
 
@@ -1369,6 +1447,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   handleFloatingPanelLeave(): void {
     this.queueFloatingContentScrollToBottom();
+    if (this.combineChatAndGameLog()) {
+      void Promise.all([this.logHistory.restoreLatest(), this.chatHistory.restoreLatest()]);
+      return;
+    }
+
     if (this.store.activeFloatingTab() === 'log') {
       void this.logHistory.restoreLatest();
     } else {
@@ -1697,6 +1780,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
+    if (!this.gamePreferences.gameAnimations) {
+      return;
+    }
+
     const stateAnimations = [
       ...this.realtimePatchRotationAnimationsFor(event),
       ...this.realtimePatchFaceDownAnimationsFor(event),
@@ -3227,7 +3314,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private canAnimateManaComets(playerId: string): boolean {
-    return this.store.focusedPlayer()?.id === playerId
+    return this.gamePreferences.gameAnimations
+      && this.store.focusedPlayer()?.id === playerId
       && this.canControlPlayer(playerId)
       && !this.store.isManaPoolHidden(playerId);
   }
@@ -4301,6 +4389,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.focusPlayerBattlefield(activePlayerId);
   }
 
+  private viewingFloatingHistory(activeTab: FloatingPanelTab): boolean {
+    if (this.combineChatAndGameLog()) {
+      return this.logHistory.viewingOlderHistory() || this.chatHistory.viewingOlderHistory();
+    }
+
+    return activeTab === 'log' ? this.logHistory.viewingOlderHistory() : this.chatHistory.viewingOlderHistory();
+  }
+
+  private isChatFeedVisible(activeTab: FloatingPanelTab): boolean {
+    return this.combineChatAndGameLog() || activeTab === 'chat';
+  }
+
+  private isLogFeedVisible(activeTab: FloatingPanelTab): boolean {
+    return this.combineChatAndGameLog() || activeTab === 'log';
+  }
+
   private syncFloatingUnreadState(): void {
     const chatKey = this.latestChatKey();
     const logKey = this.latestLogKey();
@@ -4310,15 +4414,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.syncLogUnreadState(activeTab, logKey);
 
-    this.markFloatingTabRead(activeTab);
+    this.markVisibleFloatingContentRead(activeTab);
   }
 
-  private markFloatingTabRead(tab: FloatingPanelTab): void {
-    if (tab === 'chat') {
+  private markVisibleFloatingContentRead(tab: FloatingPanelTab): void {
+    if (this.isChatFeedVisible(tab)) {
       this.markChatRead();
+    }
+
+    if (!this.isLogFeedVisible(tab)) {
       return;
     }
 
+    this.markLogRead();
+  }
+
+  private markLogRead(): void {
     this.fadeHighlightedLogEntryIds();
     this.unreadLog.set(false);
     this.lastObservedLogKey = this.latestLogKey();
@@ -4333,7 +4444,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     this.lastObservedChatKey = chatKey;
-    if (activeTab === 'chat') {
+    if (this.isChatFeedVisible(activeTab)) {
       return;
     }
 
@@ -4343,12 +4454,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (unreadMessageKey && unreadMessageKey !== this.lastUnreadChatNotificationKey) {
       this.lastUnreadChatNotificationKey = unreadMessageKey;
       this.addHighlightedChatMessageKeys(unreadMessageKeys);
-      this.notificationSound.playChatMessage();
+      if (this.gamePreferences.chatNotificationSounds) {
+        this.notificationSound.playChatMessage();
+      }
     }
   }
 
   private syncInitialChatReadState(activeTab: FloatingPanelTab): void {
-    if (activeTab === 'chat') {
+    if (this.isChatFeedVisible(activeTab)) {
       this.markChatRead();
       return;
     }
@@ -4408,10 +4521,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.lastObservedLogKey = logKey;
     this.lastObservedLogEntryId = latestLogEntryId;
-    if (activeTab !== 'log') {
+    if (!this.isLogFeedVisible(activeTab)) {
       this.unreadLog.set(true);
       this.addHighlightedLogEntryIds(this.newLogEntryIdsAfter(previousLatestLogEntryId));
-      this.notificationSound.playGameLogMessage();
+      if (this.gamePreferences.chatNotificationSounds) {
+        this.notificationSound.playGameLogMessage();
+      }
     }
   }
 

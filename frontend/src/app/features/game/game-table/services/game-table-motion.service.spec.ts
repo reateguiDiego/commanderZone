@@ -2,6 +2,8 @@ import { ElementRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
+import { AuthStore } from '../../../../core/auth/auth.store';
+import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 import { GameTableMotionService } from './game-table-motion.service';
 
 describe('GameTableMotionService', () => {
@@ -11,9 +13,19 @@ describe('GameTableMotionService', () => {
   let gsapFromToSpy: ReturnType<typeof vi.spyOn>;
   let gsapToSpy: ReturnType<typeof vi.spyOn>;
   let gsapTimelineSpy: ReturnType<typeof vi.spyOn>;
+  let gameAnimationsEnabled = true;
+  const authStore = {
+    user: vi.fn(),
+  };
 
   beforeEach(() => {
     stubMatchMedia(() => false);
+    gameAnimationsEnabled = true;
+    authStore.user.mockReset().mockImplementation(() => ({
+      preferences: {
+        game: { gameAnimations: gameAnimationsEnabled },
+      },
+    }));
 
     flipFromSpy = vi.spyOn(Flip, 'from').mockImplementation((_state, vars) => {
       vars?.onComplete?.();
@@ -36,7 +48,11 @@ describe('GameTableMotionService', () => {
     });
     gsapTimelineSpy = vi.spyOn(gsap, 'timeline');
     TestBed.configureTestingModule({
-      providers: [GameTableMotionService],
+      providers: [
+        GameTableMotionService,
+        GameTableSessionPreferencesStore,
+        { provide: AuthStore, useValue: authStore },
+      ],
     });
 
     service = TestBed.inject(GameTableMotionService);
@@ -71,6 +87,28 @@ describe('GameTableMotionService', () => {
       targets: [card],
     });
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('does not initialize or execute visual motion when the game session disabled animations', () => {
+    service.destroy();
+    gameAnimationsEnabled = false;
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        GameTableMotionService,
+        GameTableSessionPreferencesStore,
+        { provide: AuthStore, useValue: authStore },
+      ],
+    });
+    service = TestBed.inject(GameTableMotionService);
+    service.init(new ElementRef(host));
+
+    service.punchCard('card-1');
+    const playFlip = service.prepareCardFlip();
+    playFlip();
+
+    expect(gsapFromToSpy).not.toHaveBeenCalled();
+    expect(flipFromSpy).not.toHaveBeenCalled();
   });
 
   it('uses GSAP to flip the previous face out before showing the next face', () => {

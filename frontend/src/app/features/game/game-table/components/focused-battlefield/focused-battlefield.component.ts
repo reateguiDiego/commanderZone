@@ -157,6 +157,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly cardLoyaltyValue = input.required<(card: GameCardInstance) => GameCardStatValue>();
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
+  readonly showManaRow = input(true);
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
   readonly manaPool = input<(playerId: string) => ManaPool>(() => EMPTY_MANA_POOL);
   readonly canEditManaPool = input<(playerId: string) => boolean>(() => false);
@@ -340,6 +341,18 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     if (this.layoutRefreshFrame !== null) {
       window.cancelAnimationFrame(this.layoutRefreshFrame);
       this.layoutRefreshFrame = null;
+    }
+  }
+
+  handleManaLaneDragOver(event: DragEvent): void {
+    if (this.showManaRow()) {
+      this.manaLaneDragOver.emit(event);
+    }
+  }
+
+  handleManaLaneDrop(event: DragEvent, playerId: string): void {
+    if (this.showManaRow()) {
+      this.manaLaneDropped.emit({ event, playerId });
     }
   }
 

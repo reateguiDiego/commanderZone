@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Lebenskontrollen",
       "playerCounters": "Spielermarken",
-      "autoApplyCommanderDamageToLife": "Lebenspunkte automatisch abziehen",
+      "autoApplyCommanderDamageToLife": "Kommandeursschaden anwenden",
       "autoApplyCommanderDamageToLifeTooltip": "Wenn aktiviert, passen Änderungen am Kommandeurschaden auch die Lebenspunkte dieses Spielers an.",
       "otherCounters": "Andere Marken",
       "openExtraPlayerCounters": "Zusätzliche Spielermarken öffnen",
@@ -2074,9 +2074,9 @@
           "label": "Chat-Benachrichtigungstöne",
           "description": "Spiele einen Ton ab, wenn neue Chat-Benachrichtigungen eingehen."
         },
-        "preserveManaPool": {
-          "label": "Manavorrat erhalten",
-          "description": "Mana bleibt in deinem Manavorrat, während du gestapelte Aktionen ausführst."
+        "combineChatAndGameLog": {
+          "label": "Chat und Spielprotokoll zusammenführen",
+          "description": "Chatnachrichten und Spielaktionen zusammen in einer chronologischen Ansicht anzeigen."
         }
       },
       "deleteAccountWarning": "Lösche dein Konto und alle damit verbundenen Daten, einschließlich Decks und Einstellungen, dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden."

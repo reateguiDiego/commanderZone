@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "生命控制",
       "playerCounters": "玩家指示物",
-      "autoApplyCommanderDamageToLife": "自动扣减生命",
+      "autoApplyCommanderDamageToLife": "应用指挥官伤害",
       "autoApplyCommanderDamageToLifeTooltip": "启用后，指挥官伤害的变化也会调整该玩家的生命值。",
       "otherCounters": "其他指示物",
       "openExtraPlayerCounters": "打开玩家额外指示物",
@@ -2074,9 +2074,9 @@
           "label": "聊天通知声音",
           "description": "当新的聊天通知到达时播放声音。"
         },
-        "preserveManaPool": {
-          "label": "保留法术力池",
-          "description": "在解决堆叠动作时，将法术力保留在法术力池中。"
+        "combineChatAndGameLog": {
+          "label": "合并聊天和游戏日志",
+          "description": "在同一条按时间排序的信息流中显示聊天消息和游戏操作。"
         }
       },
       "deleteAccountWarning": "永久删除您的帐户和所有相关数据，包括套牌和偏好设置。此操作无法撤消。"

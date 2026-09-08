@@ -834,7 +834,7 @@
     "playerSummaryPanel": {
       "lifeControls": "Levenspunten beheren",
       "playerCounters": "Speler counters",
-      "autoApplyCommanderDamageToLife": "Levens automatisch aftrekken",
+      "autoApplyCommanderDamageToLife": "Commanderschade toepassen",
       "autoApplyCommanderDamageToLifeTooltip": "Als dit is ingeschakeld, passen wijzigingen in commander damage ook het levenstotaal van die speler aan.",
       "otherCounters": "Andere counters",
       "openExtraPlayerCounters": "Open extra speler counters",
@@ -2073,9 +2073,9 @@
           "label": "Chatmelding klinkt",
           "description": "Speel een geluid af wanneer er nieuwe chatmeldingen binnenkomen."
         },
-        "preserveManaPool": {
-          "label": "mana pool behouden",
-          "description": "Houd mana in je mana pool terwijl je gestapelde acties uitvoert."
+        "combineChatAndGameLog": {
+          "label": "Chat en spelsysteemlog samenvoegen",
+          "description": "Toon chatberichten en spelacties samen in één chronologische feed."
         }
       },
       "deleteAccountWarning": "Verwijder permanent je account en alle bijbehorende gegevens, inclusief decks en voorkeuren. Deze actie kan niet ongedaan worden gemaakt."

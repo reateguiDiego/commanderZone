@@ -11,6 +11,33 @@
   align-content: end;
   grid-row: 2 / 4;
   height: 100%;
+  overflow: hidden;
+}
+
+.floating-collapsed-preview.compact-collapsed-preview {
+  gap: 0.15rem;
+  padding-block: 0.2rem;
+}
+
+.floating-collapsed-preview.compact-collapsed-preview > p {
+  align-items: center;
+  min-height: 1.45rem;
+  max-height: 1.75rem;
+  overflow: hidden;
+  padding-block: 0.18rem;
+}
+
+.floating-collapsed-preview.compact-collapsed-preview > p.collapsed-log-entry {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.floating-collapsed-preview.compact-collapsed-preview .collapsed-log-entry > span,
+.floating-collapsed-preview.compact-collapsed-preview .chat-message-body,
+.floating-collapsed-preview.compact-collapsed-preview .chat-message-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-panel-content {

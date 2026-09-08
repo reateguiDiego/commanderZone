@@ -1,0 +1,112 @@
+<div #feed appPrettyScroll class="panel-feed" data-testid="game-activity-feed" (scroll)="onFeedScroll()">
+  @if (loadingOlder()) {
+    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+  }
+  @for (item of items(); track item.id) {
+    @if (item.kind === 'log') {
+      @let entry = item.entry;
+      <p
+        data-testid="game-log-entry"
+        [attr.data-activity-entry-id]="item.id"
+        [attr.data-log-entry-id]="entry.id"
+        [class.phase-entry]="entry.appearance === 'phase'"
+        [class.turn-entry]="entry.appearance === 'turn'"
+        [class.death-entry]="entry.appearance === 'death'"
+        [class.new-message-highlight]="highlightedLogEntryIds().includes(entry.id)"
+        [class.new-message-evaporating]="fadingLogEntryIds().includes(entry.id)"
+      >
+        <small>{{ logTime()(entry.createdAt) }}</small>
+        <span>
+          @if (entry.subject; as subject) {
+            <strong [style.--log-author-color]="playerColor()(subject.playerId)">{{ subject.displayName }}</strong>
+          }
+          @if (entry.cardList.length > 0) {
+            {{ entry.cardListPrefix }}
+            <span class="log-card-list">
+              <button
+                type="button"
+                class="log-card-link"
+                (mouseenter)="showCardListPopover($event, entry.cardList)"
+                (mouseleave)="hideCardListPopover()"
+                (focus)="showCardListPopover($event, entry.cardList)"
+                (blur)="hideCardListPopover()"
+              >{{ entry.cardListLabel }}</button>
+            </span>
+            {{ entry.cardListSuffix }}
+          } @else {
+            {{ entry.messagePrefix }}
+          }
+          @if (entry.card; as card) {
+            <button type="button" class="log-card-link" (mouseenter)="previewCard.emit(card)" (mouseleave)="hidePreview.emit()">{{ card.name }}</button>
+          }
+          @if (entry.cardList.length === 0) {
+            {{ entry.messageSuffix }}
+          }
+        </span>
+      </p>
+    } @else {
+      @let message = item.message;
+      <p
+        class="chat-entry"
+        data-testid="chat-message"
+        [attr.data-activity-entry-id]="item.id"
+        [class.private-chat-message]="message.targetPlayerId"
+        [class.new-message-highlight]="isChatMessageHighlighted()(message, item.sourceIndex)"
+        [class.new-message-evaporating]="isChatMessageEvaporating()(message, item.sourceIndex)"
+      >
+        <small>{{ logTime()(message.createdAt) }}</small>
+        <span class="chat-message-body">
+          <span class="chat-message-line">
+            <strong [style.--chat-author-color]="playerColor()(message.userId)">{{ message.displayName }}</strong>
+            @if (message.targetDisplayName) {
+              <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
+            }
+            <span class="chat-message-separator">:</span>
+            <span class="chat-message-text">{{ message.message }}</span>
+          </span>
+          @if (canReactToChatMessage()(message)) {
+            <span class="chat-reaction-overlay">
+              @for (reaction of reactionOptions(); track reaction.type) {
+                <button
+                  type="button"
+                  class="chat-reaction"
+                  data-testid="chat-reaction"
+                  [class.active]="hasOwnChatReaction()(message, reaction.type)"
+                  [disabled]="!message.id"
+                  [attr.aria-label]="reaction.label | runtimeTranslate"
+                  (click)="reactionToggled.emit({ event: $event, message, reaction: reaction.type })"
+                ><span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span></button>
+              }
+            </span>
+          }
+          @if (hasAnyChatReaction()(message)) {
+            <span class="chat-reaction-summary">
+              @for (reaction of reactionOptions(); track reaction.type) {
+                @if (chatReactionCount()(message, reaction.type) > 0) {
+                  <span class="chat-reaction-pill">
+                    <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+                    <b>{{ chatReactionCount()(message, reaction.type) }}</b>
+                    @if (shouldShowChatReactionUsers()(message, reaction.type)) {
+                      <span class="chat-reaction-users" role="tooltip"><b>{{ 'game.gameTable.reactedBy' | runtimeTranslate }}</b> {{ chatReactionUsers()(message, reaction.type) }}</span>
+                    }
+                  </span>
+                }
+              }
+            </span>
+          }
+        </span>
+      </p>
+    }
+  }
+  @if (loadingNewer()) {
+    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+  }
+</div>
+
+@if (activeCardListPopover(); as popover) {
+  <div class="log-card-list-popover" role="tooltip" [style.left.px]="popover.left" [style.top.px]="popover.top">
+    @for (cardName of popover.names; track cardName + $index) {
+      <span>{{ cardName }}</span>
+    }
+  </div>
+}

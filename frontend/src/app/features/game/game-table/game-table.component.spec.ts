@@ -1075,7 +1075,13 @@ describe('GameTableComponent', () => {
 
   it('materializes an off-identity mana target before animating the comet into it', () => {
     vi.useFakeTimers();
-    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { showManaHelperOnStartup: true } },
+    });
     const fixture = TestBed.createComponent(GameTableComponent);
     const snapshot = snapshotWithStatus('active');
     const card = {
@@ -3319,6 +3325,163 @@ describe('GameTableComponent', () => {
 
     expect(chatButton.classList).not.toContain('has-unread');
     expect(chatButton.classList).not.toContain('attention');
+  });
+
+  it('shows chat and game actions together in chronological order when the persisted preference is enabled', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { combineChatAndGameLog: true } },
+    });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [{
+      ...gameLogEntry('event-1', 'turn.changed', 'User started their turn.'),
+      createdAt: '2026-04-30T20:02:00+00:00',
+    }];
+    snapshot.chat = [
+      chatMessage('user-2', 'Opponent', 'Before the action.', null, '2026-04-30T20:01:00+00:00'),
+      chatMessage('user-2', 'Opponent', 'After the action.', null, '2026-04-30T20:03:00+00:00'),
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const table = fixture.nativeElement as HTMLElement;
+    expect(table.querySelector('[data-testid="chat-open"]')).toBeNull();
+    expect(table.querySelector('[data-testid="game-log-open"]')).toBeNull();
+    expect(table.querySelector('[data-testid="game-activity-panel"]')).not.toBeNull();
+    expect(table.querySelector('[data-testid="game-activity-heading"]')?.textContent)
+      .toContain('Game Log');
+    expect(table.querySelector('[data-testid="game-activity-heading"]')?.textContent)
+      .toContain('Chat');
+    expect(table.querySelectorAll('.floating-collapsed-preview .collapsed-log-entry')).toHaveLength(1);
+    expect(table.querySelectorAll('.floating-collapsed-preview .collapsed-chat-entry')).toHaveLength(1);
+    expect(Array.from(table.querySelectorAll<HTMLElement>('[data-activity-entry-id]')).map((entry) => entry.dataset['activityEntryId']))
+      .toEqual([
+        'chat:user-2-2026-04-30T20:01:00+00:00',
+        'log:event-1',
+        'chat:user-2-2026-04-30T20:03:00+00:00',
+      ]);
+    expect(table.querySelector('[data-testid="chat-input"]')).not.toBeNull();
+
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { combineChatAndGameLog: false } },
+    });
+    fixture.detectChanges();
+
+    expect(table.querySelector('[data-testid="chat-open"]')).toBeNull();
+    expect(table.querySelector('[data-testid="game-log-open"]')).toBeNull();
+  });
+
+  it('keeps the mana row disabled for the whole mounted game table', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { enableManaRow: false } },
+    });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-mana-lane]')).toBeNull();
+
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { enableManaRow: true } },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-mana-lane]')).toBeNull();
+  });
+
+  it('opens the mana helper only when it was enabled at game entry', async () => {
+    routeParams['id'] = 'game-1';
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { showManaHelperOnStartup: false } },
+    });
+
+    const hiddenFixture = TestBed.createComponent(GameTableComponent);
+    hiddenFixture.detectChanges();
+    await hiddenFixture.whenStable();
+    await vi.waitFor(() => expect(hiddenFixture.componentInstance.store.loading()).toBe(false));
+    hiddenFixture.detectChanges();
+
+    expect(hiddenFixture.nativeElement.querySelector('app-mana-pool-panel')).toBeNull();
+    hiddenFixture.destroy();
+
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { showManaHelperOnStartup: true, enableManaRow: false } },
+    });
+    const visibleFixture = TestBed.createComponent(GameTableComponent);
+    visibleFixture.detectChanges();
+    await visibleFixture.whenStable();
+    await vi.waitFor(() => expect(visibleFixture.componentInstance.store.loading()).toBe(false));
+    visibleFixture.detectChanges();
+
+    expect(visibleFixture.nativeElement.querySelector('app-mana-pool-panel')).not.toBeNull();
+    expect(visibleFixture.nativeElement.querySelector('[data-mana-lane]')).toBeNull();
+  });
+
+  it('keeps unread chat feedback but suppresses notification audio when disabled at game entry', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: { chatNotificationSounds: false } },
+    });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+    const notificationSound = fixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+
+    const nextSnapshot = structuredClone(snapshot);
+    nextSnapshot.chat = [chatMessage('user-2', 'Opponent', 'New message', null, '2026-04-30T20:03:00+00:00')];
+    fixture.componentInstance.store.snapshot.set(nextSnapshot);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="chat-open"]')?.classList).toContain('has-unread');
+    expect(playChatMessage).not.toHaveBeenCalled();
   });
 
   it('highlights unread chat messages and evaporates the highlight after reading them', async () => {
