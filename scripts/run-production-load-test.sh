@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-USERS=100
+USERS=50
 ALL_PHASES=0
 API_BASE_URL="https://api.commanderzone.com"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,6 +17,7 @@ CONFIRM_PRODUCTION=0
 ALLOW_NON_PRODUCTION=0
 LOCAL_DRY_RUN=0
 SKIP_SERVER_METRICS=0
+SCENARIO="navigation"
 
 usage() {
   cat <<'USAGE'
@@ -31,8 +32,9 @@ Required for production:
     --confirm-production
 
 Modes:
-  --users 100|280|500       Run one phase.
-  --all-phases              Run 100, then 280, then 500.
+  --users 50|100|280|500    Run one phase.
+  --all-phases              Run 50, 100, 280, then 500.
+  --scenario navigation|gameplay  Select the independent navigation load (default) or gameplay control.
   --local-dry-run           Use 4 users for a short local validation.
   --skip-server-metrics     Do not collect server-side metrics.
 
@@ -50,6 +52,10 @@ while [[ $# -gt 0 ]]; do
     --all-phases)
       ALL_PHASES=1
       shift
+      ;;
+    --scenario)
+      SCENARIO="${2:?--scenario requires a value}"
+      shift 2
       ;;
     --api-base-url)
       API_BASE_URL="${2:?--api-base-url requires a value}"
@@ -119,7 +125,7 @@ require_command() {
 }
 
 is_allowed_users() {
-  [[ "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
+  [[ "$1" == "50" || "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
 }
 
 json_number() {
@@ -202,6 +208,11 @@ collect_server_snapshot() {
   (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') \
     > "$phase_dir/postgres-$label.json" \
     2>> "$errors_file" || echo "postgres metrics failed" >> "$errors_file"
+
+  local detail_sql
+  detail_sql="select json_build_object('activity',coalesce((select json_agg(x) from (select state,wait_event_type,wait_event,count(*) from pg_stat_activity where datname=current_database() group by 1,2,3) x),'[]'::json),'waits',coalesce((select json_agg(x) from (select wait_event_type,wait_event,count(*) from pg_stat_activity where wait_event is not null group by 1,2) x),'[]'::json),'locks',coalesce((select json_agg(x) from (select locktype,mode,granted,count(*) from pg_locks group by 1,2,3) x),'[]'::json),'pool',json_build_object('used',(select count(*) from pg_stat_activity),'max',(select setting::int from pg_settings where name='max_connections'),'utilization',(select round(count(*)::numeric/(select setting::numeric from pg_settings where name='max_connections'),4) from pg_stat_activity)))::text;"
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$detail_sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') > "$phase_dir/postgres-detail-$label.json" 2>> "$errors_file" || echo "postgres detail metrics failed" >> "$errors_file"
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select json_agg(x)::text from (select queryid,calls,total_exec_time,mean_exec_time,rows,left(query,500) query from pg_stat_statements order by total_exec_time desc limit 25) x"') > "$phase_dir/pg-stat-statements-$label.json" 2>> "$errors_file" || echo "pg_stat_statements unavailable" >> "$errors_file"
 
   cat > "$phase_dir/server-metrics-$label.json" <<JSON
 {
@@ -319,8 +330,11 @@ assert_safety() {
   require_command curl
 
   if ! is_allowed_users "$USERS"; then
-    echo "--users must be one of 100, 280, or 500. Received: $USERS" >&2
+    echo "--users must be one of 50, 100, 280, or 500. Received: $USERS" >&2
     exit 2
+  fi
+  if [[ "$SCENARIO" != "navigation" && "$SCENARIO" != "gameplay" ]]; then
+    echo "--scenario must be navigation or gameplay." >&2; exit 2
   fi
   if [[ -z "$USER_PASSWORD" ]]; then
     echo "Set LOAD_TEST_USER_PASSWORD or pass --user-password. Do not commit seeded user credentials." >&2
@@ -363,6 +377,8 @@ invoke_phase() {
   fi
 
   local k6_exit_code=0
+  local k6_script="commanderzone-navigation.k6.js"
+  if [[ "$SCENARIO" == "gameplay" ]]; then k6_script="commanderzone-production.k6.js"; fi
   local docker_uid docker_gid
   docker_uid="$(id -u)"
   docker_gid="$(id -g)"
@@ -383,7 +399,7 @@ invoke_phase() {
     -v "$REPO_ROOT/load-tests:/scripts:ro" \
     -v "$phase_dir:/reports" \
     "$K6_IMAGE" \
-    run /scripts/commanderzone-production.k6.js \
+    run "/scripts/$k6_script" \
     2>&1 | tee "$phase_dir/k6-output.log" || k6_exit_code="${PIPESTATUS[0]}"
 
   collect_server_snapshot "$phase_dir" after
@@ -400,7 +416,7 @@ assert_safety
 
 phases=("$USERS")
 if [[ "$ALL_PHASES" == "1" ]]; then
-  phases=(100 280 500)
+  phases=(50 100 280 500)
 fi
 
 run_id="czlt-$(date -u +"%Y%m%d-%H%M%S")"
