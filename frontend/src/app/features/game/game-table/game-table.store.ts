@@ -1179,12 +1179,12 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.showPinnedCardPreview(event, playerId, 'battlefield', card);
+    this.clearCardPreview();
     this.interactionActions.handleBattlefieldCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    this.showPinnedCardPreview(event, playerId, 'hand', card);
+    this.clearCardPreview();
     this.interactionActions.handleHandCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
@@ -1887,21 +1887,6 @@ export class GameTableStore implements OnDestroy {
 
   async changeCardLoyalty(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
     await this.cardStats.changeLoyalty(this.contexts.cardStats(), playerId, zone, card, delta);
-  }
-
-  private showPinnedCardPreview(
-    event: MouseEvent,
-    playerId: string,
-    zone: GameZoneName,
-    card: GameCardInstance,
-    sourceRect = this.previewSourceRect(event),
-  ): void {
-    this.uiState.showPinnedCardPreview({
-      card,
-      playerId,
-      zone,
-      sourceRect,
-    }, () => Boolean(this.draggingCardInstanceId()));
   }
 
   private previewSourceRect(event: MouseEvent): CardPreviewEvent['sourceRect'] {

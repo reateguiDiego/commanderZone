@@ -112,6 +112,10 @@ export class GameTableAttachmentsState {
       context.setError('Cards with attached permanents cannot be attached to another permanent.');
       return true;
     }
+    if (this.permanentRelations.isBattlefieldStacked(snapshot, targetLocation.card.instanceId)) {
+      context.setError('Cards in a manual stack cannot be attachment targets.');
+      return true;
+    }
     const targetGameplayError = this.permanentRelations.gameplayAttachmentError(targetLocation.card, 'target');
     if (targetGameplayError) {
       context.setError(targetGameplayError);

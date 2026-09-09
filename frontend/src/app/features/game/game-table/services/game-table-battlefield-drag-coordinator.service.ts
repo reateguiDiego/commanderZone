@@ -179,13 +179,7 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
 
     this.state.setActivePlayerDropTarget(null);
-    const pointerZone = this.drag.pointerDropZone(
-      event,
-      selected.playerId,
-      [...context.zones],
-      selected.card,
-      knownCommanderInstanceIds(context.snapshot()),
-    );
+    const pointerZone = this.pointerDropZoneAt(event, selected.playerId, context, selected.card);
     const zone = this.pointerDropZoneWithHandActivation(pointerZone, selected.playerId);
     if (pointerZone === 'hand' && zone !== 'hand') {
       this.state.setHandExternalRevealAllowed(false);
@@ -206,13 +200,7 @@ export class GameTableBattlefieldDragCoordinatorService {
 
   pointerDropZone(event: PointerEvent, playerId: string, context: GameTableBattlefieldDragContext): GameZoneName | null {
     const selected = context.selectedCards().find((item) => item.playerId === playerId) ?? null;
-    const pointerZone = this.drag.pointerDropZone(
-      event,
-      playerId,
-      [...context.zones],
-      selected?.card ?? null,
-      knownCommanderInstanceIds(context.snapshot()),
-    );
+    const pointerZone = this.pointerDropZoneAt(event, playerId, context, selected?.card ?? null);
 
     return this.pointerDropZoneWithHandActivation(pointerZone, playerId);
   }
@@ -371,7 +359,7 @@ export class GameTableBattlefieldDragCoordinatorService {
       return null;
     }
 
-    const groups = buildLandStackGroups(battlefield, (card) => context.cardPosition(card));
+    const groups = buildLandStackGroups(battlefield, context.snapshot()?.battlefieldStacks ?? [], (card) => context.cardPosition(card));
     const attachmentGroups = buildAttachmentStackGroups(
       battlefield,
       context.snapshot()?.attachments ?? [],
@@ -495,6 +483,46 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
 
     return this.isDraggedCardInsideCollapsedHandForActivation(playerId) ? 'hand' : null;
+  }
+
+  private pointerDropZoneAt(
+    event: PointerEvent,
+    playerId: string,
+    context: GameTableBattlefieldDragContext,
+    draggedCard: GameCardInstance | null,
+  ): GameZoneName | null {
+    const pointerZone = this.drag.pointerDropZone(
+      event,
+      playerId,
+      [...context.zones],
+      draggedCard,
+      knownCommanderInstanceIds(context.snapshot()),
+    );
+
+    return this.handTargetOverlappedByBattlefield(event, playerId, pointerZone, context.zones) ? 'battlefield' : pointerZone;
+  }
+
+  private handTargetOverlappedByBattlefield(
+    event: PointerEvent,
+    playerId: string,
+    pointerZone: GameZoneName | null,
+    zones: readonly GameZoneName[],
+  ): boolean {
+    if (pointerZone !== 'hand' || !zones.includes('battlefield')) {
+      return false;
+    }
+
+    const battlefield = this.battlefieldElement(playerId);
+    if (!battlefield) {
+      return false;
+    }
+
+    const bounds = battlefield.getBoundingClientRect();
+
+    return event.clientX >= bounds.left
+      && event.clientX <= bounds.right
+      && event.clientY >= bounds.top
+      && event.clientY <= bounds.bottom;
   }
 
   private isHandDropActiveForPlayer(playerId: string): boolean {

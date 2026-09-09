@@ -112,9 +112,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $enableManaRow = true;
 
     #[ORM\Column(type: 'boolean')]
-    private bool $enableStackMana = false;
-
-    #[ORM\Column(type: 'boolean')]
     private bool $autoApplyCommanderDamageToLife = true;
 
     #[ORM\Column(type: 'boolean')]
@@ -122,6 +119,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'boolean')]
     private bool $chatNotificationSounds = true;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $combineChatAndGameLog = false;
 
     public function __construct(string $email, string $displayName)
     {
@@ -485,10 +485,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @param array{
      *   showManaHelperOnStartup?: bool,
      *   enableManaRow?: bool,
-     *   enableStackMana?: bool,
      *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
-     *   chatNotificationSounds?: bool
+     *   chatNotificationSounds?: bool,
+     *   combineChatAndGameLog?: bool
      * } $preferences
      */
     public function updateGamePreferences(array $preferences): void
@@ -497,10 +497,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             match ($key) {
                 'showManaHelperOnStartup' => $this->showManaHelperOnStartup = $value,
                 'enableManaRow' => $this->enableManaRow = $value,
-                'enableStackMana' => $this->enableStackMana = $value,
                 'autoApplyCommanderDamageToLife' => $this->autoApplyCommanderDamageToLife = $value,
                 'gameAnimations' => $this->gameAnimations = $value,
                 'chatNotificationSounds' => $this->chatNotificationSounds = $value,
+                'combineChatAndGameLog' => $this->combineChatAndGameLog = $value,
                 default => throw new \InvalidArgumentException('Unsupported game preference.'),
             };
         }
@@ -515,10 +515,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return [
             'showManaHelperOnStartup' => $this->showManaHelperOnStartup,
             'enableManaRow' => $this->enableManaRow,
-            'enableStackMana' => $this->enableStackMana,
             'autoApplyCommanderDamageToLife' => $this->autoApplyCommanderDamageToLife,
             'gameAnimations' => $this->gameAnimations,
             'chatNotificationSounds' => $this->chatNotificationSounds,
+            'combineChatAndGameLog' => $this->combineChatAndGameLog,
         ];
     }
 

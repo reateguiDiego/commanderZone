@@ -3,15 +3,7 @@ import { Injectable, Injector, PLATFORM_ID, computed, inject, signal } from '@an
 import { firstValueFrom } from 'rxjs';
 import { ThemesService } from '../api/themes.service';
 import { AppThemeId, DEFAULT_APP_THEME_ID, appThemeById, isAppThemeId } from './app-theme';
-
-const THEME_STORAGE_KEY = 'commanderzone.theme';
-const USER_STORAGE_KEY = 'commanderzone.user';
-
-interface StoredThemeUser {
-  readonly preferences?: {
-    readonly themeId?: unknown;
-  } | null;
-}
+import { browserLocalStorage, readStoredThemeId, THEME_STORAGE_KEY } from './theme-storage';
 
 @Injectable({ providedIn: 'root' })
 export class AppThemeService {
@@ -92,38 +84,5 @@ export class AppThemeService {
     }
 
     browserLocalStorage()?.setItem(THEME_STORAGE_KEY, themeId);
-  }
-}
-
-function browserLocalStorage(): Storage | null {
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function readStoredThemeId(storage: Storage | null): AppThemeId | null {
-  const storedThemeId = storage?.getItem(THEME_STORAGE_KEY);
-  if (storedThemeId && isAppThemeId(storedThemeId)) {
-    return storedThemeId;
-  }
-
-  const storedUserThemeId = readStoredUserThemeId(storage);
-  return storedUserThemeId && isAppThemeId(storedUserThemeId) ? storedUserThemeId : null;
-}
-
-function readStoredUserThemeId(storage: Storage | null): string | null {
-  const rawUser = storage?.getItem(USER_STORAGE_KEY);
-  if (!rawUser) {
-    return null;
-  }
-
-  try {
-    const user = JSON.parse(rawUser) as StoredThemeUser;
-    const themeId = user.preferences?.themeId;
-    return typeof themeId === 'string' ? themeId : null;
-  } catch {
-    return null;
   }
 }

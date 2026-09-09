@@ -83,6 +83,8 @@ class GameCommandHandler
         'arrow.removed',
         'attachment.created',
         'attachment.removed',
+        'battlefield_stack.created',
+        'battlefield_stack.removed',
         'helper.created',
         'helper.updated',
         'helper.removed',
@@ -309,6 +311,8 @@ class GameCommandHandler
                     'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
                     'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
                     'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
+                    'battlefield_stack.created' => $log = $this->applyBattlefieldStackCreated($snapshot, $payload, $actor),
+                    'battlefield_stack.removed' => $log = $this->applyBattlefieldStackRemoved($snapshot, $payload, $actor),
                     default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
                 };
             }
@@ -408,6 +412,7 @@ class GameCommandHandler
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
+        $snapshot['battlefieldStacks'] ??= [];
         if ($this->streamsEnabled()) {
             unset($snapshot['chat'], $snapshot['eventLog']);
         } else {
@@ -715,6 +720,39 @@ class GameCommandHandler
         }
         if ($zone === 'library' && array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)) {
             $normalized[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = (int) $card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY];
+        }
+        if (is_array($card['faceRuntimeStats'] ?? null)) {
+            $normalized['faceRuntimeStats'] = $this->normalizeFaceRuntimeStats($card['faceRuntimeStats']);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param list<mixed> $stats
+     * @return list<array<string,int|string|null>>
+     */
+    private function normalizeFaceRuntimeStats(array $stats): array
+    {
+        $normalized = [];
+        foreach ($stats as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+            $defaults = [
+                'defaultPower' => $this->powerToughnessStat($face['defaultPower'] ?? null),
+                'defaultToughness' => $this->powerToughnessStat($face['defaultToughness'] ?? null),
+                'defaultLoyalty' => $this->printedStat($face['defaultLoyalty'] ?? null),
+                'defaultDefense' => $this->printedStat($face['defaultDefense'] ?? null),
+            ];
+            $normalized[] = [
+                ...$defaults,
+                'power' => $this->gameplayStat($face['power'] ?? $defaults['defaultPower']),
+                'toughness' => $this->gameplayStat($face['toughness'] ?? $defaults['defaultToughness']),
+                'loyalty' => $this->gameplayStat($face['loyalty'] ?? $defaults['defaultLoyalty']),
+                'defense' => $this->gameplayStat($face['defense'] ?? $defaults['defaultDefense']),
+                'saga' => array_key_exists('saga', $face) && $face['saga'] !== null ? max(1, min(9, (int) $face['saga'])) : null,
+            ];
         }
 
         return $normalized;
@@ -1311,30 +1349,36 @@ class GameCommandHandler
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
-        $previousPower = $card['power'] ?? null;
-        $previousToughness = $card['toughness'] ?? null;
-        $previousLoyalty = $card['loyalty'] ?? null;
-        $previousDefense = $card['defense'] ?? null;
-        $previousSaga = $card['saga'] ?? null;
+        $runtimeIndex = $this->faceRuntimeStatsIndex($card, $payload['faceIndex'] ?? null);
+        if ($runtimeIndex !== null) {
+            $stats =& $card['faceRuntimeStats'][$runtimeIndex];
+        } else {
+            $stats =& $card;
+        }
+        $previousPower = $stats['power'] ?? null;
+        $previousToughness = $stats['toughness'] ?? null;
+        $previousLoyalty = $stats['loyalty'] ?? null;
+        $previousDefense = $stats['defense'] ?? null;
+        $previousSaga = $stats['saga'] ?? null;
         if (array_key_exists('power', $payload)) {
-            $card['power'] = $payload['power'] === null ? null : (int) $payload['power'];
+            $stats['power'] = $payload['power'] === null ? null : (int) $payload['power'];
         }
         if (array_key_exists('toughness', $payload)) {
-            $card['toughness'] = $payload['toughness'] === null ? null : (int) $payload['toughness'];
+            $stats['toughness'] = $payload['toughness'] === null ? null : (int) $payload['toughness'];
         }
         if (array_key_exists('loyalty', $payload)) {
-            $card['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
+            $stats['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
         }
         if (array_key_exists('defense', $payload)) {
-            $card['defense'] = $payload['defense'] === null ? null : max(-1, min(99, (int) $payload['defense']));
+            $stats['defense'] = $payload['defense'] === null ? null : max(-1, min(99, (int) $payload['defense']));
         }
         if (array_key_exists('saga', $payload)) {
-            $card['saga'] = $payload['saga'] === null ? null : max(1, min(9, (int) $payload['saga']));
+            $stats['saga'] = $payload['saga'] === null ? null : max(1, min(9, (int) $payload['saga']));
         }
 
         if (array_key_exists('loyalty', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload)) {
             $previous = $this->numericStat($previousLoyalty);
-            $current = $this->numericStat($card['loyalty'] ?? null);
+            $current = $this->numericStat($stats['loyalty'] ?? null);
             $delta = $previous !== null && $current !== null ? $current - $previous : 0;
             $direction = $delta >= 0 ? 'increased' : 'decreased';
             $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
@@ -1344,14 +1388,14 @@ class GameCommandHandler
                 $this->cardLogName($card),
                 $direction,
                 $this->statLabel($previousLoyalty),
-                $this->statLabel($card['loyalty'] ?? null),
+                $this->statLabel($stats['loyalty'] ?? null),
                 $signedDelta,
             );
         }
 
         if (array_key_exists('defense', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload)) {
             $previous = $this->numericStat($previousDefense);
-            $current = $this->numericStat($card['defense'] ?? null);
+            $current = $this->numericStat($stats['defense'] ?? null);
             $delta = $previous !== null && $current !== null ? $current - $previous : 0;
             $direction = $delta >= 0 ? 'increased' : 'decreased';
             $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
@@ -1361,14 +1405,14 @@ class GameCommandHandler
                 $this->cardLogName($card),
                 $direction,
                 $this->statLabel($previousDefense),
-                $this->statLabel($card['defense'] ?? null),
+                $this->statLabel($stats['defense'] ?? null),
                 $signedDelta,
             );
         }
 
         if (array_key_exists('saga', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload) && !array_key_exists('defense', $payload)) {
             $previous = $this->numericStat($previousSaga);
-            $current = $this->numericStat($card['saga'] ?? null);
+            $current = $this->numericStat($stats['saga'] ?? null);
             $delta = $previous !== null && $current !== null ? $current - $previous : 0;
             $direction = $delta >= 0 ? 'increased' : 'decreased';
             $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
@@ -1378,7 +1422,7 @@ class GameCommandHandler
                     '%s saga %s to %s.',
                     $this->cardLogName($card),
                     $direction,
-                    $this->romanStatLabel($card['saga'] ?? null),
+                    $this->romanStatLabel($stats['saga'] ?? null),
                 );
             }
 
@@ -1387,7 +1431,7 @@ class GameCommandHandler
                 $this->cardLogName($card),
                 $direction,
                 $this->romanStatLabel($previousSaga),
-                $this->romanStatLabel($card['saga'] ?? null),
+                $this->romanStatLabel($stats['saga'] ?? null),
                 $signedDelta,
             );
         }
@@ -1397,8 +1441,8 @@ class GameCommandHandler
             $this->cardLogName($card),
             $this->statLabel($previousPower),
             $this->statLabel($previousToughness),
-            $this->statLabel($card['power'] ?? null),
-            $this->statLabel($card['toughness'] ?? null),
+            $this->statLabel($stats['power'] ?? null),
+            $this->statLabel($stats['toughness'] ?? null),
         );
     }
 
@@ -2620,6 +2664,9 @@ class GameCommandHandler
         if (($equipmentLocation['playerId'] ?? null) !== $actor->id()) {
             throw new \InvalidArgumentException('You can only attach cards on your battlefield.');
         }
+        if ($this->hasBattlefieldStackEndpoint($snapshot, $equipmentInstanceId) || $this->hasBattlefieldStackEndpoint($snapshot, $attachedToInstanceId)) {
+            throw new \InvalidArgumentException('Cards in a manual stack cannot be attached.');
+        }
         if ($this->isLandCard($equipmentCard)) {
             throw new \InvalidArgumentException('Lands cannot be attached to another permanent.');
         }
@@ -2684,6 +2731,110 @@ class GameCommandHandler
         return null;
     }
 
+    private function applyBattlefieldStackCreated(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $stackedInstanceId = trim((string) ($payload['stackedInstanceId'] ?? ''));
+        $stackTopInstanceId = trim((string) ($payload['stackTopInstanceId'] ?? ''));
+        if ($stackedInstanceId === '' || $stackTopInstanceId === '') {
+            throw new \InvalidArgumentException('stackedInstanceId and stackTopInstanceId are required.');
+        }
+        if ($stackedInstanceId === $stackTopInstanceId) {
+            throw new \InvalidArgumentException('A card cannot be stacked onto itself.');
+        }
+
+        $stackedLocation = $this->battlefieldCardLocationByInstance($snapshot, $stackedInstanceId);
+        $stackTopLocation = $this->battlefieldCardLocationByInstance($snapshot, $stackTopInstanceId);
+        $stackedCard = $stackedLocation['card'] ?? null;
+        $stackTopCard = $stackTopLocation['card'] ?? null;
+        if ($stackedCard === null || $stackTopCard === null) {
+            throw new \InvalidArgumentException('Stack endpoints must be battlefield cards.');
+        }
+        if (($stackedLocation['playerId'] ?? null) !== ($stackTopLocation['playerId'] ?? null)) {
+            throw new \InvalidArgumentException('Stacked cards must stay on the same battlefield.');
+        }
+        if (($stackedLocation['playerId'] ?? null) !== $actor->id()) {
+            throw new \InvalidArgumentException('You can only stack cards on your battlefield.');
+        }
+        if (!$this->isStackableBattlefieldCard($stackedCard) || !$this->isStackableBattlefieldCard($stackTopCard)) {
+            throw new \InvalidArgumentException('Only lands and tokens can be manually stacked.');
+        }
+        if ($this->hasAttachmentEndpoint($snapshot, $stackedInstanceId) || $this->hasAttachmentEndpoint($snapshot, $stackTopInstanceId)) {
+            throw new \InvalidArgumentException('Attached cards cannot be manually stacked.');
+        }
+
+        $existingStacks = is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [];
+        foreach ($existingStacks as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $stackedInstanceId) {
+                throw new \InvalidArgumentException('The card must be detached from its current stack first.');
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $stackTopInstanceId) {
+                throw new \InvalidArgumentException('A stacked card cannot be used as another stack top.');
+            }
+        }
+
+        $membersUnderTop = array_filter(
+            $existingStacks,
+            static fn (mixed $stack): bool => is_array($stack) && ($stack['stackTopInstanceId'] ?? null) === $stackTopInstanceId,
+        );
+        if (count($membersUnderTop) >= 2) {
+            throw new \InvalidArgumentException('A manual stack can contain at most three cards.');
+        }
+
+        $relation = [
+            'id' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $actor->id(),
+            'stackedInstanceId' => $stackedInstanceId,
+            'stackTopInstanceId' => $stackTopInstanceId,
+            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ];
+        $snapshot['battlefieldStacks'] = [...$existingStacks, $relation];
+        $this->pendingEventPayload = $relation;
+
+        return null;
+    }
+
+    private function applyBattlefieldStackRemoved(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $id = trim((string) ($payload['id'] ?? ''));
+        $stackedInstanceId = trim((string) ($payload['stackedInstanceId'] ?? ''));
+        if ($id === '' && $stackedInstanceId === '') {
+            throw new \InvalidArgumentException('id or stackedInstanceId is required.');
+        }
+
+        $removedId = null;
+        foreach ($snapshot['battlefieldStacks'] ?? [] as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            $matches = $id !== ''
+                ? ($stack['id'] ?? null) === $id
+                : ($stack['stackedInstanceId'] ?? null) === $stackedInstanceId;
+            if (!$matches) {
+                continue;
+            }
+            if (isset($stack['ownerId']) && (string) $stack['ownerId'] !== $actor->id()) {
+                throw new \InvalidArgumentException('Only the stack owner can remove it.');
+            }
+            $removedId = (string) ($stack['id'] ?? '');
+            break;
+        }
+
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            static fn (array $stack): bool => $id !== ''
+                ? ($stack['id'] ?? null) !== $id
+                : ($stack['stackedInstanceId'] ?? null) !== $stackedInstanceId,
+        ));
+        if (is_string($removedId) && $removedId !== '') {
+            $this->pendingEventPayload = ['id' => $removedId];
+        }
+
+        return null;
+    }
+
     private function battlefieldContainsInstance(array &$snapshot, string $instanceId): bool
     {
         $location = $this->getLocation($snapshot, $instanceId);
@@ -2740,6 +2891,44 @@ class GameCommandHandler
     private function isLandCard(array $card): bool
     {
         return preg_match('/\bland\b/i', (string) ($card['typeLine'] ?? '')) === 1;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isStackableBattlefieldCard(array $card): bool
+    {
+        return $this->isLandCard($card)
+            || ($card['isToken'] ?? false) === true
+            || ($card['isTokenCopy'] ?? false) === true;
+    }
+
+    private function hasAttachmentEndpoint(array $snapshot, string $instanceId): bool
+    {
+        foreach ($snapshot['attachments'] ?? [] as $attachment) {
+            if (!is_array($attachment)) {
+                continue;
+            }
+            if (($attachment['equipmentInstanceId'] ?? null) === $instanceId || ($attachment['attachedToInstanceId'] ?? null) === $instanceId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasBattlefieldStackEndpoint(array $snapshot, string $instanceId): bool
+    {
+        foreach ($snapshot['battlefieldStacks'] ?? [] as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            if (($stack['stackedInstanceId'] ?? null) === $instanceId || ($stack['stackTopInstanceId'] ?? null) === $instanceId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2880,6 +3069,11 @@ class GameCommandHandler
             $snapshot['attachments'] ?? [],
             fn (array $attachment): bool => $this->battlefieldContainsInstance($snapshot, (string) ($attachment['equipmentInstanceId'] ?? ''))
                 && $this->battlefieldContainsInstance($snapshot, (string) ($attachment['attachedToInstanceId'] ?? '')),
+        ));
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            fn (array $stack): bool => $this->battlefieldContainsInstance($snapshot, (string) ($stack['stackedInstanceId'] ?? ''))
+                && $this->battlefieldContainsInstance($snapshot, (string) ($stack['stackTopInstanceId'] ?? '')),
         ));
     }
 
@@ -3634,6 +3828,19 @@ class GameCommandHandler
         $card['toughness'] = $this->gameplayStat($card['defaultToughness'] ?? null);
         $card['loyalty'] = $this->gameplayStat($card['defaultLoyalty'] ?? null);
         $card['defense'] = $this->gameplayStat($card['defaultDefense'] ?? null);
+        if (is_array($card['faceRuntimeStats'] ?? null)) {
+            foreach ($card['faceRuntimeStats'] as &$faceStats) {
+                if (!is_array($faceStats)) {
+                    continue;
+                }
+                $faceStats['power'] = $this->gameplayStat($faceStats['defaultPower'] ?? null);
+                $faceStats['toughness'] = $this->gameplayStat($faceStats['defaultToughness'] ?? null);
+                $faceStats['loyalty'] = $this->gameplayStat($faceStats['defaultLoyalty'] ?? null);
+                $faceStats['defense'] = $this->gameplayStat($faceStats['defaultDefense'] ?? null);
+                $faceStats['saga'] = $faceStats['saga'] === null ? null : 1;
+            }
+            unset($faceStats);
+        }
     }
 
     private function resetTappedState(array &$card): void
@@ -3660,10 +3867,30 @@ class GameCommandHandler
             return;
         }
 
-        $card['power'] = (int) ($this->numericStat($card['power'] ?? null) ?? $this->numericStat($card['defaultPower'] ?? null) ?? 0)
+        $runtimeIndex = $this->faceRuntimeStatsIndex($card);
+        if ($runtimeIndex !== null) {
+            $stats =& $card['faceRuntimeStats'][$runtimeIndex];
+        } else {
+            $stats =& $card;
+        }
+        $stats['power'] = (int) ($this->numericStat($stats['power'] ?? null) ?? $this->numericStat($stats['defaultPower'] ?? null) ?? 0)
             + ($delta * $modifier);
-        $card['toughness'] = (int) ($this->numericStat($card['toughness'] ?? null) ?? $this->numericStat($card['defaultToughness'] ?? null) ?? 0)
+        $stats['toughness'] = (int) ($this->numericStat($stats['toughness'] ?? null) ?? $this->numericStat($stats['defaultToughness'] ?? null) ?? 0)
             + ($delta * $modifier);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function faceRuntimeStatsIndex(array $card, mixed $requestedIndex = null): ?int
+    {
+        $stats = $card['faceRuntimeStats'] ?? null;
+        if (!is_array($stats) || $stats === []) {
+            return null;
+        }
+        $index = is_numeric($requestedIndex) ? (int) $requestedIndex : $this->activeFaceIndex($card);
+
+        return isset($stats[$index]) && is_array($stats[$index]) ? $index : null;
     }
 
     /**
@@ -5049,6 +5276,9 @@ class GameCommandHandler
                 $operation[$stat] = $card[$stat] ?? null;
             }
         }
+        if (is_array($card['faceRuntimeStats'] ?? null)) {
+            $operation['faceRuntimeStats'] = $card['faceRuntimeStats'];
+        }
 
         return count($operation) > 4 ? $operation : null;
     }
@@ -5727,7 +5957,7 @@ class GameCommandHandler
                 'playerId' => (string) ($operation['playerId'] ?? ''),
                 'zone' => (string) ($operation['zone'] ?? ''),
                 'instanceId' => (string) ($operation['instanceId'] ?? ''),
-                ...(array_intersect_key($operation, array_flip(['power', 'toughness', 'loyalty', 'defense', 'saga']))),
+                ...(array_intersect_key($operation, array_flip(['power', 'toughness', 'loyalty', 'defense', 'saga', 'faceRuntimeStats']))),
             ]],
             'zone.counts.set' => $this->v2ZoneCountSetOperations($operation),
             'zone.visible.set' => [[
@@ -5988,12 +6218,12 @@ class GameCommandHandler
     /**
      * @param list<string> $instanceIds
      *
-     * @return array{arrows:list<string>,attachments:list<string>}
+     * @return array{arrows:list<string>,attachments:list<string>,battlefieldStacks:list<string>}
      */
     private function v2PruneBattlefieldRelationsForMovedInstances(array &$snapshot, array $instanceIds): array
     {
         if ($instanceIds === []) {
-            return ['arrows' => [], 'attachments' => []];
+            return ['arrows' => [], 'attachments' => [], 'battlefieldStacks' => []];
         }
 
         $removedArrows = [];
@@ -6027,11 +6257,30 @@ class GameCommandHandler
             },
         ));
 
-        return ['arrows' => $removedArrows, 'attachments' => $removedAttachments];
+        $removedBattlefieldStacks = [];
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            $snapshot['battlefieldStacks'] ?? [],
+            function (array $stack) use (&$removedBattlefieldStacks, $trackedIds): bool {
+                $stackedInstanceId = (string) ($stack['stackedInstanceId'] ?? '');
+                $stackTopInstanceId = (string) ($stack['stackTopInstanceId'] ?? '');
+                $remove = isset($trackedIds[$stackedInstanceId]) || isset($trackedIds[$stackTopInstanceId]);
+                if ($remove && is_string($stack['id'] ?? null) && $stack['id'] !== '') {
+                    $removedBattlefieldStacks[] = $stack['id'];
+                }
+
+                return !$remove;
+            },
+        ));
+
+        return [
+            'arrows' => $removedArrows,
+            'attachments' => $removedAttachments,
+            'battlefieldStacks' => $removedBattlefieldStacks,
+        ];
     }
 
     /**
-     * @param array{arrows:list<string>,attachments:list<string>} $removedRelationIds
+     * @param array{arrows:list<string>,attachments:list<string>,battlefieldStacks:list<string>} $removedRelationIds
      *
      * @return list<array<string,mixed>>
      */
@@ -6043,6 +6292,9 @@ class GameCommandHandler
         }
         foreach ($removedRelationIds['attachments'] as $id) {
             $operations[] = ['op' => 'attachment.remove', 'id' => $id];
+        }
+        foreach ($removedRelationIds['battlefieldStacks'] as $id) {
+            $operations[] = ['op' => 'battlefieldStack.remove', 'id' => $id];
         }
 
         return $operations;
@@ -6657,6 +6909,8 @@ class GameCommandHandler
             case 'arrow.removed':
             case 'attachment.created':
             case 'attachment.removed':
+            case 'battlefield_stack.created':
+            case 'battlefield_stack.removed':
             case 'helper.created':
             case 'helper.updated':
             case 'helper.removed':

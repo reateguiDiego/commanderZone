@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "此消息将由 {{ count }} 位用户接收。",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -208,7 +209,8 @@
       "impersonating": "正在模拟 {{ name }}",
       "stop": "停止",
       "averageManaValueWithoutLands": "不含地牌的平均法术力值：{{ value }}",
-      "messageTarget": "发送给 {{ name }}",
+      "messageTargetPrefix": "发送给",
+      "messageTargetSuffix": "",
       "roomNotice": "房间 {{ name }}",
       "revealed": "已展示",
       "revealedCard": "已展示的卡牌",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "打开战场缩放控件",
       "battlefieldZoom": "战场变焦",
       "resetBattlefieldZoom": "重置战场缩放",
-      "resetZoom": "重置变焦"
+      "resetZoom": "重置变焦",
+      "squareLayout": "方形布局",
+      "gridLayout": "网格布局",
+      "viewLabel": "视图：",
+      "zoomLabel": "缩放："
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "牌预览详情",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "生命控制",
       "playerCounters": "玩家指示物",
-      "autoApplyCommanderDamageToLife": "自动扣减生命",
       "autoApplyCommanderDamageToLifeTooltip": "启用后，指挥官伤害的变化也会调整该玩家的生命值。",
       "otherCounters": "其他指示物",
       "openExtraPlayerCounters": "打开玩家额外指示物",
@@ -2059,23 +2064,27 @@
         "title": "游戏偏好",
         "showManaHelperOnStartup": {
           "label": "启动时显示法术力助手",
-          "description": "比赛开始时打开法术力助手。"
+          "description": "对局开始时显示用于计算法术力的助手。你可以在对局中随时将其隐藏或再次显示。"
         },
         "enableManaRow": {
-          "label": "启用法术力行",
-          "description": "在游戏期间显示专用法术力行。"
+          "label": "显示法术力行",
+          "description": "在战场底部显示一个视觉指引，帮助放置能产生法术力的卡牌。你可以将任何类型的卡牌放在那里；它仅作视觉辅助。"
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "启用后，敌方指挥官造成的伤害会自动减少你的生命值。你可以在对局中随时轻松调整。"
         },
         "gameAnimations": {
           "label": "游戏动画",
-          "description": "在比赛期间使用视觉运动和反馈动画。"
+          "description": "开启或关闭对局中的所有视觉动画。",
+          "warning": "仅当你在对局中遇到性能问题时，才建议关闭它们。"
         },
         "chatNotificationSounds": {
           "label": "聊天通知声音",
-          "description": "当新的聊天通知到达时播放声音。"
+          "description": "收到新的未读聊天通知时播放声音。"
         },
-        "preserveManaPool": {
-          "label": "保留法术力池",
-          "description": "在解决堆叠动作时，将法术力保留在法术力池中。"
+        "combineChatAndGameLog": {
+          "label": "合并聊天和游戏日志",
+          "description": "在同一个标签页中一起显示聊天消息和游戏操作。"
         }
       },
       "deleteAccountWarning": "永久删除您的帐户和所有相关数据，包括套牌和偏好设置。此操作无法撤消。"
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "应用指挥官伤害",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "没有找到用户。",

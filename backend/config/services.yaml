@@ -111,5 +111,8 @@ services:
     App\Application\User\IpGeolocationServiceInterface:
         alias: App\Application\User\IpGeolocationService
 
+    App\Infrastructure\Observability\SqlMetricsMiddleware:
+        tags: ['doctrine.middleware']
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

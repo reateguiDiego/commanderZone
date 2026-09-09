@@ -75,6 +75,32 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertSame(100, $result['counts']['total']);
     }
 
+    public function testAcceptsPartnerCharacterSelectCommanderPair(): void
+    {
+        $deck = new Deck(new User('tmnt@example.test', 'TMNT'), 'Turtle Power');
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000214', 'Leonardo, the Balance', [
+            'type_line' => 'Legendary Creature — Mutant Ninja Turtle',
+            'oracle_text' => "Whenever a token you control enters, you may put a +1/+1 counter on each creature you control.\nPartner—Character select (You can have two commanders if both have this ability.)",
+            'color_identity' => ['W', 'U', 'B', 'R', 'G'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000215', 'Michelangelo, the Heart', [
+            'type_line' => 'Legendary Creature — Mutant Ninja Turtle',
+            'oracle_text' => "Trample\nPartner—Character select (You can have two commanders if both have this ability.)",
+            'color_identity' => ['R', 'G'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000216', 'Forest', [
+            'type_line' => 'Basic Land — Forest',
+            'mana_cost' => '',
+            'color_identity' => ['G'],
+        ]), 98));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertSame('pair', $result['commander']['mode']);
+        self::assertSame([], $result['errors']);
+    }
+
     public function testSideboardAndMaybeboardDoNotBlockCommanderValidation(): void
     {
         $deck = new Deck(new User('sections@example.test', 'Sections'), 'Sections Deck');

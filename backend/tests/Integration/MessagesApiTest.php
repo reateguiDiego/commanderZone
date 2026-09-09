@@ -182,6 +182,70 @@ final class MessagesApiTest extends ApiTestCase
         self::assertSame(2, $this->jsonResponse()['unreadCount']);
     }
 
+    public function testAdminCanSendMessagesToPredefinedRecipientSegments(): void
+    {
+        $adminToken = $this->adminToken('segment-admin@example.test', 'Segment Admin');
+        $adminId = $this->currentUserId($adminToken);
+        $neverConnectedId = $this->currentUserId($this->registerAndLogin('segment-never@example.test', 'Never Connected'));
+        $recentlyConnectedId = $this->currentUserId($this->registerAndLogin('segment-recent@example.test', 'Recently Connected'));
+        $tierOneId = $this->currentUserId($this->registerAndLogin('segment-tier-one@example.test', 'Tier One'));
+        $tierTwoId = $this->currentUserId($this->registerAndLogin('segment-tier-two@example.test', 'Tier Two'));
+        $tierThreeId = $this->currentUserId($this->registerAndLogin('segment-tier-three@example.test', 'Tier Three'));
+        $inactiveId = $this->currentUserId($this->registerAndLogin('segment-inactive@example.test', 'Inactive User'));
+        $connection = $this->entityManager->getConnection();
+        $now = new \DateTimeImmutable();
+        $pastConnection = $now->modify('-8 days')->format('Y-m-d H:i:s');
+        $recentConnection = $now->format('Y-m-d H:i:s');
+
+        $connection->executeStatement('UPDATE app_user SET last_seen_at = NULL WHERE id = :userId', ['userId' => $neverConnectedId]);
+        foreach ([$adminId, $inactiveId] as $userId) {
+            $connection->executeStatement(
+                'UPDATE app_user SET last_seen_at = :lastSeenAt WHERE id = :userId',
+                ['lastSeenAt' => $pastConnection, 'userId' => $userId],
+            );
+        }
+        foreach ([$recentlyConnectedId, $tierOneId, $tierTwoId, $tierThreeId] as $userId) {
+            $connection->executeStatement(
+                'UPDATE app_user SET last_seen_at = :lastSeenAt WHERE id = :userId',
+                ['lastSeenAt' => $recentConnection, 'userId' => $userId],
+            );
+        }
+        $connection->executeStatement(
+            'UPDATE app_user SET created_at = :createdAt WHERE id = :userId',
+            ['createdAt' => $pastConnection, 'userId' => $inactiveId],
+        );
+        foreach ([
+            $tierOneId => 'tier1',
+            $tierTwoId => 'tier2',
+            $tierThreeId => 'tier3',
+        ] as $userId => $premiumTier) {
+            $connection->executeStatement(
+                'UPDATE app_user SET premium_tier = :premiumTier WHERE id = :userId',
+                ['premiumTier' => $premiumTier, 'userId' => $userId],
+            );
+        }
+        $this->entityManager->clear();
+
+        foreach ([
+            'never_connected' => 1,
+            'recently_connected' => 5,
+            'recently_created' => 6,
+            'tier_0' => 4,
+            'tier_1' => 1,
+            'tier_2' => 1,
+            'tier_3' => 1,
+        ] as $recipientId => $expectedRecipients) {
+            $this->jsonRequest('POST', '/admin/messages', [
+                'recipientId' => $recipientId,
+                'subject' => 'Segment notice',
+                'body' => 'This message is sent to one recipient segment.',
+            ], $adminToken);
+
+            self::assertResponseStatusCodeSame(201);
+            self::assertSame($expectedRecipients, $this->jsonResponse()['sent']);
+        }
+    }
+
     public function testMessageValidationRequiresRecipientSubjectAndBody(): void
     {
         $adminToken = $this->adminToken('validation-admin@example.test', 'Validation Admin');

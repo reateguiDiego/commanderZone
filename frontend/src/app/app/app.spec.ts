@@ -206,6 +206,19 @@ describe('App', () => {
     loading.stop();
   });
 
+  it('loads theme styles only for private routes', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/en/play-commander-online');
+    fixture.detectChanges();
+    expect(document.getElementById('cz-private-theme-stylesheet')).toBeNull();
+
+    await router.navigateByUrl('/dashboard');
+    fixture.detectChanges();
+    expect(document.getElementById('cz-private-theme-stylesheet')).not.toBeNull();
+  });
+
   it('shows only the global loader during initial app route loading', () => {
     window.history.pushState({}, '', '/dashboard');
     const fixture = TestBed.createComponent(App);

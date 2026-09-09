@@ -1459,7 +1459,6 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.playersOrder.turnOrder': 'Turn order',
   'game.playersOrder.upcomingTurnLabel': 'In {{ count }}',
   'game.playersOrder.upcomingTurnTitle': '{{ name }} is {{ count }} turn(s) away',
-  'game.playerSummaryPanel.autoApplyCommanderDamageToLife': 'Apply commander damage to life total',
   'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip':
     "When enabled, commander damage changes also adjust that player's life total.",
   'game.playerSummaryPanel.commanderDamage': 'Commander damage',
@@ -1815,20 +1814,25 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'settings.dashboardSettingsModal.emailAvailable': 'Email available',
   'settings.dashboardSettingsModal.enterValidEmail': 'Enter a valid email.',
   'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.description':
-    'Play a sound when new chat notifications arrive.',
+    'Play a sound when you receive new unread chat notifications.',
   'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label':
     'Chat notification sounds',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.description':
+    'Show chat messages and game actions together in a single tab.',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label':
+    'Combine chat and game log',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.description':
-    'Show the dedicated mana row during games.',
-  'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Enable mana row',
+    'Show a visual guide at the bottom of the battlefield for placing mana-producing cards. You can place any type of card there; it is only a visual aid.',
+  'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Show a mana row',
+  'settings.dashboardSettingsModal.gameSettings.autoApplyCommanderDamageToLife.description':
+    'When enabled, damage from opposing commanders automatically reduces your life total. You can easily adjust it during the match.',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.description':
-    'Use visual movement and feedback animations during matches.',
+    'Turn all visual game animations on or off.',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.label': 'Game animations',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description':
-    'Keep mana in your mana pool while resolving stacked actions.',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label': 'Preserve mana pool',
+  'settings.dashboardSettingsModal.gameSettings.gameAnimations.warning':
+    'We recommend disabling them only if you experience performance issues during a match.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description':
-    'Open the mana helper when a match starts.',
+    'Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label':
     'Show mana helper on startup',
   'settings.dashboardSettingsModal.gameSettings.title': 'Gameplay preferences',
@@ -2146,6 +2150,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'admin.notifications.previewEmpty': 'Your message preview will appear here.',
   'admin.notifications.send': 'Send',
   'admin.notifications.messageSent': 'Message sent to {{ count }} user(s).',
+  'admin.notifications.recipientCount': 'This message will be received by {{ count }} user(s).',
   'admin.notifications.snippets.heading': 'Title',
   'admin.notifications.snippets.imageDescription': 'Image description',
   'admin.notifications.snippets.linkText': 'Link text',
@@ -2299,7 +2304,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'common.ui.impersonating': 'Impersonating {{ name }}',
   'common.ui.stop': 'Stop',
   'common.ui.averageManaValueWithoutLands': 'Average mana value without lands: {{ value }}',
-  'common.ui.messageTarget': 'to {{ name }}',
+  'common.ui.messageTargetPrefix': 'to',
+  'common.ui.messageTargetSuffix': '',
   'common.ui.roomNotice': 'Room {{ name }}',
   'common.ui.revealed': 'Revealed',
   'common.ui.revealedCard': 'Revealed card',
@@ -2722,6 +2728,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'shared.text.adjustValue': 'Adjust value',
   'shared.text.increaseValue': 'Increase value',
   'shared.text.decreaseValue': 'Decrease value',
+  'shared.text.applyCommanderDamage': 'Apply commander damage',
   'shared.text.commanderDamage': 'Commander damage',
   'shared.text.power': 'Power',
   'shared.text.toughness': 'Toughness',

@@ -4,6 +4,7 @@
   role="switch"
   [class.is-on]="checked()"
   [class.toggle--compact]="compact()"
+  [class.toggle--no-hover-feedback]="!hoverFeedback()"
   [attr.aria-checked]="checked()"
   [attr.aria-label]="ariaLabel() || label()"
   [disabled]="disabled()"
@@ -13,6 +14,9 @@
     <span class="toggle-label">{{ label() }}</span>
     @if (description()) {
       <span class="toggle-description">{{ description() }}</span>
+    }
+    @if (warning()) {
+      <span class="toggle-warning">{{ warning() }}</span>
     }
   </span>
 

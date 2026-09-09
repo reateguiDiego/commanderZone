@@ -33,6 +33,7 @@
       "previewEmpty": "La vista previa de tu mensaje aparecerá aquí.",
       "send": "Enviar",
       "messageSent": "Mensaje enviado a {{ count }} usuario(s).",
+      "recipientCount": "Este mensaje lo recibirán {{ count }} usuario(s).",
       "snippets": {
         "imageDescription": "Descripción de la imagen",
         "linkText": "Texto del enlace",
@@ -208,7 +209,8 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valor de maná medio sin tierras: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTargetPrefix": "a",
+      "messageTargetSuffix": "",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Abrir controles de zoom del campo de batalla",
       "battlefieldZoom": "Zoom del campo de batalla",
       "resetBattlefieldZoom": "Restablecer el zoom del campo de batalla",
-      "resetZoom": "Restablecer zoom"
+      "resetZoom": "Restablecer zoom",
+      "squareLayout": "Diseño cuadrado",
+      "gridLayout": "Diseño de cuadrícula",
+      "viewLabel": "Vista:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Detalles de vista previa de la carta",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Controles de vida",
       "playerCounters": "Contadores de jugadores",
-      "autoApplyCommanderDamageToLife": "Restar vida automáticamente",
       "autoApplyCommanderDamageToLifeTooltip": "Si está activado, los cambios de daño de comandante también ajustan las vidas de ese jugador.",
       "otherCounters": "Otros contadores",
       "openExtraPlayerCounters": "Abrir contadores de jugadores adicionales",
@@ -2059,23 +2064,27 @@
         "title": "Preferencias de juego",
         "showManaHelperOnStartup": {
           "label": "Mostrar ayuda de maná al iniciar",
-          "description": "Abre el asistente de maná cuando comience una partida."
+          "description": "Muestra la ayuda para contar maná al comenzar una partida. Puedes ocultarla o volver a mostrarla cuando quieras durante la partida."
         },
         "enableManaRow": {
-          "label": "Habilitar fila de maná",
-          "description": "Muestra la fila de maná dedicada durante las partidas."
+          "label": "Mostrar fila de maná",
+          "description": "Muestra una guía visual en la parte inferior del campo de batalla para colocar las cartas que producen maná. Puedes colocar cualquier tipo de carta: es solo una ayuda visual."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Si está activado, el daño de los comandantes enemigos reducirá tu total de vidas automáticamente. Puedes modificarlo fácilmente durante la partida."
         },
         "gameAnimations": {
           "label": "Animaciones del juego",
-          "description": "Usa movimientos visuales y animaciones de respuesta durante las partidas."
+          "description": "Activa o desactiva todas las animaciones visuales de la partida.",
+          "warning": "Recomendamos desactivarlas solo si tienes problemas de rendimiento durante la partida."
         },
         "chatNotificationSounds": {
           "label": "Sonidos de notificación de chat",
-          "description": "Reproduce un sonido cuando lleguen nuevas notificaciones de chat."
+          "description": "Reproduce un sonido cuando recibas nuevas notificaciones de chat sin leer."
         },
-        "preserveManaPool": {
-          "label": "Conservar la reserva de maná",
-          "description": "Mantén maná en tu reserva de maná mientras resuelves acciones acumuladas."
+        "combineChatAndGameLog": {
+          "label": "Unir chat y registro de partida",
+          "description": "Muestra los mensajes del chat y las acciones de la partida juntos en una misma pestaña."
         }
       },
       "deleteAccountWarning": "Elimina permanentemente tu cuenta y todos los datos asociados, incluidos mazos y preferencias. Esta acción no se puede deshacer."
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Usuarios",
+      "applyCommanderDamage": "Aplicar daño de comandante",
       "reports": "Reportes",
       "notifications": "Notificaciones",
       "noUsersFound": "No se encontraron usuarios.",

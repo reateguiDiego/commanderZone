@@ -1,8 +1,11 @@
 param(
-    [ValidateScript({ $_ -in @(100, 280, 500) })]
-    [int] $Users = 100,
+    [ValidateScript({ $_ -in @(50, 100, 280, 500) })]
+    [int] $Users = 50,
 
     [switch] $AllPhases,
+
+    [ValidateSet("navigation", "gameplay")]
+    [string] $Scenario = "navigation",
 
     [string] $ApiBaseUrl = "https://api.commanderzone.com",
 
@@ -52,8 +55,8 @@ Required for production:
     -ConfirmProduction
 
 Modes:
-  -Users 100|280|500     Run one phase.
-  -AllPhases             Run 100, then 280, then 500.
+  -Users 50|100|280|500     Run one phase.
+  -AllPhases             Run 50, 100, 280, then 500.
   -LocalDryRun           Use 4 users for a short local validation while keeping the selected phase metadata.
   -SkipServerMetrics     Do not collect server-side metrics.
 
@@ -161,12 +164,20 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         }
 
         try {
-            $sql = "select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
+            $sql = "select json_build_object('capturedAt',now(),'database',(select row_to_json(d) from pg_stat_database d where datname=current_database()),'activity',(select json_agg(a) from (select state,wait_event_type,wait_event,count(*) from pg_stat_activity where datname=current_database() group by 1,2,3) a),'locks',(select json_agg(l) from (select locktype,mode,granted,count(*) from pg_locks group by 1,2,3) l),'pool',json_build_object('used',(select count(*) from pg_stat_activity),'max',(select setting::int from pg_settings where name='max_connections')),'pgStatStatementsAvailable',to_regclass('public.pg_stat_statements') is not null)::text;"
             $inner = "psql -U ""`$POSTGRES_USER"" -d ""`$POSTGRES_DB"" -At -c ""$sql"""
             $dbCommand = "cd $quotedPath && $compose exec -T database sh -lc $(ShellQuote $inner)"
             $dbPayload = (Invoke-RemoteCommand $dbCommand) -join "`n"
             if (-not [string]::IsNullOrWhiteSpace($dbPayload)) {
                 $snapshot.postgres = $dbPayload | ConvertFrom-Json
+            }
+            $statementsSql = "select coalesce(json_agg(x),'[]'::json)::text from (select queryid,calls,total_exec_time,mean_exec_time,rows,left(query,500) query from pg_stat_statements order by total_exec_time desc limit 25) x;"
+            $statementsInner = "psql -U ""`$POSTGRES_USER"" -d ""`$POSTGRES_DB"" -At -c ""$statementsSql"""
+            try {
+                $statementsPayload = (Invoke-RemoteCommand "cd $quotedPath && $compose exec -T database sh -lc $(ShellQuote $statementsInner)") -join "`n"
+                $statementsPayload | Set-Content -Path (Join-Path $PhaseDir "pg-stat-statements-$Label.json") -Encoding UTF8
+            } catch {
+                $snapshot.errors += "pg_stat_statements unavailable: $($_.Exception.Message)"
             }
         } catch {
             $snapshot.errors += "postgres metrics: $($_.Exception.Message)"
@@ -375,6 +386,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     $duration = if ($LocalDryRun) { "30s" } else { "$($DurationMinutes)m" }
     $dryRunValue = if ($LocalDryRun) { "1" } else { "0" }
     $k6LogPath = Join-Path $phaseDir "k6-output.log"
+    $k6Script = if ($Scenario -eq "navigation") { "/scripts/commanderzone-navigation.k6.js" } else { "/scripts/commanderzone-production.k6.js" }
     $dockerArgs = @(
         "run",
         "--rm",
@@ -393,7 +405,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
         "-v", "$((Resolve-Path $phaseDir).Path):/reports",
         $K6Image,
         "run",
-        "/scripts/commanderzone-production.k6.js"
+        $k6Script
     )
 
     $previousDockerPassword = $env:USER_PASSWORD
@@ -429,7 +441,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
 
 Assert-Safety
 
-$phases = if ($AllPhases) { @(100, 280, 500) } else { @($Users) }
+$phases = if ($AllPhases) { @(50, 100, 280, 500) } else { @($Users) }
 $runId = "czlt-" + (Get-Date -Format "yyyyMMdd-HHmmss")
 if ($LocalDryRun) {
     $runId += "-dryrun"

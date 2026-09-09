@@ -42,6 +42,7 @@ describe('AdminPageComponent', () => {
               limit: 30,
               total: 1,
               totalPages: 1,
+              appliedStatus: 'active',
               summary: {
                 total: 1,
                 online: 0,

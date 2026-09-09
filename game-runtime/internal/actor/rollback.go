@@ -149,7 +149,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		rollback.capturePlayerZoneInstances(game, playerID, zone)
 	case "stack.card_added", "stack.item_removed":
 		rollback.captureStack(game)
-	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
+	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "battlefield_stack.created", "battlefield_stack.removed", "helper.created", "helper.updated", "helper.removed":
 		rollback.captureRelations(game)
 	case "game.concede":
 		playerID := stringPayload(command.Payload, "playerId")

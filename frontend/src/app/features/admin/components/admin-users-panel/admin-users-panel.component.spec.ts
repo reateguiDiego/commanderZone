@@ -182,32 +182,45 @@ describe('AdminUsersPanelComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('CommanderZone');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Owner Self');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Support Tester');
-    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }));
+    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'active',
+      fallbackWhenNoOtherActive: true,
+    }));
   });
 
-  it('falls back to new users from the last seven days when the initial active filter is empty', () => {
+  it('uses the effective status returned by the API for the initial user list', () => {
     api.listUsers.mockClear();
     api.listUsers.mockImplementation((query: AdminUsersListQuery) => {
-      const response = adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], query);
+      const effectiveQuery: AdminUsersListQuery = { ...query, status: 'recently_created' };
 
-      return of(query.status === 'active'
-        ? { ...response, users: [], total: 0, totalPages: 1, page: 1 }
-        : response);
+      return of({
+        ...adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], effectiveQuery),
+        appliedStatus: 'recently_created',
+      });
     });
 
     const fallbackFixture = TestBed.createComponent(AdminUsersPanelComponent);
     fallbackFixture.detectChanges();
 
     expect(fallbackFixture.componentInstance.presenceFilter()).toBe('recently_created');
-    expect(api.listUsers).toHaveBeenNthCalledWith(1, expect.objectContaining({ status: 'active' }));
-    expect(api.listUsers).toHaveBeenNthCalledWith(2, expect.objectContaining({ status: 'recently_created' }));
+    expect(api.listUsers).toHaveBeenCalledTimes(1);
+    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'active',
+      fallbackWhenNoOtherActive: true,
+    }));
     expect((fallbackFixture.nativeElement as HTMLElement).textContent).toContain('CommanderZone');
   });
 
   it('shows the elapsed days below a known last connection', () => {
-    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-last-connection');
+    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--last-connection .admin-users-date');
 
     expect(lastConnection?.textContent).toContain('Today');
+  });
+
+  it('shows the elapsed days below the user creation date', () => {
+    const createdAt = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--created .admin-users-date');
+
+    expect(createdAt?.textContent).toContain('Today');
   });
 
   it('shows a country name resolved from its code without exposing the country code', () => {
@@ -718,6 +731,7 @@ function adminUsersResponse(allUsers: readonly AdminUser[], query: AdminUsersLis
     limit: query.limit,
     total,
     totalPages,
+    appliedStatus: query.status,
     summary: adminUsersSummary(allUsers, now, sevenDaysAgo),
     countries: adminUsersCountries(allUsers),
     localizationSummary: adminUsersLocalizationSummary(allUsers),

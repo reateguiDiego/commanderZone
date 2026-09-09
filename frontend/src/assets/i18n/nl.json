@@ -33,6 +33,7 @@
       "previewEmpty": "Het voorbeeld van je bericht verschijnt hier.",
       "send": "Versturen",
       "messageSent": "Bericht verstuurd naar {{ count }} gebruiker(s).",
+      "recipientCount": "Dit bericht wordt ontvangen door {{ count }} gebruiker(s).",
       "snippets": {
         "imageDescription": "Afbeeldingsbeschrijving",
         "linkText": "Linktekst",
@@ -208,7 +209,8 @@
       "impersonating": "Je doet je voor als {{ name }}",
       "stop": "Stoppen",
       "averageManaValueWithoutLands": "Average mana value without lands: {{ value }}",
-      "messageTarget": "aan {{ name }}",
+      "messageTargetPrefix": "aan",
+      "messageTargetSuffix": "",
       "roomNotice": "Kamer {{ name }}",
       "revealed": "Onthuld",
       "revealedCard": "Onthulde kaart",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Open de zoomregelaars van battlefield",
       "battlefieldZoom": "Battlefield-zoom",
       "resetBattlefieldZoom": "battlefield-zoom opnieuw instellen",
-      "resetZoom": "Zoom opnieuw instellen"
+      "resetZoom": "Zoom opnieuw instellen",
+      "squareLayout": "Vierkante lay-out",
+      "gridLayout": "Rasterlay-out",
+      "viewLabel": "Weergave:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Details van kaartvoorbeeld",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Levenspunten beheren",
       "playerCounters": "Speler counters",
-      "autoApplyCommanderDamageToLife": "Levens automatisch aftrekken",
       "autoApplyCommanderDamageToLifeTooltip": "Als dit is ingeschakeld, passen wijzigingen in commander damage ook het levenstotaal van die speler aan.",
       "otherCounters": "Andere counters",
       "openExtraPlayerCounters": "Open extra speler counters",
@@ -2058,23 +2063,27 @@
         "title": "Gameplay-voorkeuren",
         "showManaHelperOnStartup": {
           "label": "Toon mana-helper bij opstarten",
-          "description": "Open de mana-helper wanneer een partij begint."
+          "description": "Toon de mana-telhulp wanneer een partij begint. Je kunt deze tijdens de partij op elk moment verbergen of opnieuw tonen."
         },
         "enableManaRow": {
-          "label": "Schakel mana-rij in",
-          "description": "Toon de speciale manarij tijdens partijen."
+          "label": "Een manarij weergeven",
+          "description": "Toon onderaan het slagveld een visuele gids om mana-producerende kaarten te plaatsen. Je kunt er elk kaarttype neerleggen; het is alleen een visueel hulpmiddel."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Als deze optie is ingeschakeld, verlaagt schade van vijandelijke commanders automatisch je levenspunten. Je kunt de schade tijdens de partij eenvoudig aanpassen."
         },
         "gameAnimations": {
           "label": "Spelanimaties",
-          "description": "Gebruik visuele beweging en feedbackanimaties tijdens partijen."
+          "description": "Schakel alle visuele animaties tijdens partijen in of uit.",
+          "warning": "Schakel ze alleen uit als je tijdens een partij prestatieproblemen ondervindt."
         },
         "chatNotificationSounds": {
           "label": "Chatmelding klinkt",
-          "description": "Speel een geluid af wanneer er nieuwe chatmeldingen binnenkomen."
+          "description": "Speel een geluid af wanneer je nieuwe ongelezen chatmeldingen ontvangt."
         },
-        "preserveManaPool": {
-          "label": "mana pool behouden",
-          "description": "Houd mana in je mana pool terwijl je gestapelde acties uitvoert."
+        "combineChatAndGameLog": {
+          "label": "Chat en spelsysteemlog samenvoegen",
+          "description": "Toon chatberichten en spelacties samen op één tabblad."
         }
       },
       "deleteAccountWarning": "Verwijder permanent je account en alle bijbehorende gegevens, inclusief decks en voorkeuren. Deze actie kan niet ongedaan worden gemaakt."
@@ -2207,6 +2216,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Commanderschade toepassen",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "Geen gebruikers gevonden.",

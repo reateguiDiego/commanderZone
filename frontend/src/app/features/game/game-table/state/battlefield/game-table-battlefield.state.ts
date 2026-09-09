@@ -119,7 +119,7 @@ export class GameTableBattlefieldState {
         measuredCards.get(card.instanceId)?.sourcePosition ?? null;
       const processed = new Set<string>();
 
-      for (const group of buildLandStackGroups(sourceCards, sourcePositionFor)) {
+      for (const group of buildLandStackGroups(sourceCards, snapshot.battlefieldStacks ?? [], sourcePositionFor)) {
         for (const member of group.members) {
           processed.add(member.card.instanceId);
           this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey({ playerId, instanceId: member.card.instanceId }));

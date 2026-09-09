@@ -419,6 +419,7 @@ func resetBattlefieldExitState(game *state.GameState, instanceID string) {
 	instance.Rotation = 0
 	instance.Counters = map[string]int{}
 	instance.MutableStats = nil
+	resetFaceRuntimeStats(instance.FaceRuntimeStats)
 	instance.Position = nil
 	instance.FaceDown = false
 	instance.ActiveFace = 0
@@ -430,6 +431,18 @@ func resetBattlefieldExitState(game *state.GameState, instanceID string) {
 	if location, ok := game.Loc[instanceID]; ok {
 		location.ControllerID = instance.ControllerID
 		game.Loc[instanceID] = location
+	}
+}
+
+func resetFaceRuntimeStats(faceRuntimeStats []map[string]any) {
+	for _, stats := range faceRuntimeStats {
+		stats["power"] = stats["defaultPower"]
+		stats["toughness"] = stats["defaultToughness"]
+		stats["loyalty"] = stats["defaultLoyalty"]
+		stats["defense"] = stats["defaultDefense"]
+		if stats["saga"] != nil {
+			stats["saga"] = 1
+		}
 	}
 }
 
@@ -817,6 +830,9 @@ func emitPrunedRelationPatches(emitter *PatchEmitter, removed []state.RemovedRel
 		case "attachment":
 			emitter.EmitPublic(protocol.PatchOp{Op: "attachment.remove", Data: map[string]any{"id": relation.ID}})
 			emitter.EmitPublic(protocol.PatchOp{Op: "relation.remove", Data: map[string]any{"kind": "attachment", "id": relation.ID}})
+		case "battlefieldStack":
+			emitter.EmitPublic(protocol.PatchOp{Op: "battlefieldStack.remove", Data: map[string]any{"id": relation.ID}})
+			emitter.EmitPublic(protocol.PatchOp{Op: "relation.remove", Data: map[string]any{"kind": "battlefieldStack", "id": relation.ID}})
 		}
 	}
 }

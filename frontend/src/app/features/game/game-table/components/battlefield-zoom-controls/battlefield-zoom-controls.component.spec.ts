@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LucideAngularModule, RotateCcw, Search } from 'lucide-angular';
+import { LayoutGrid, LucideAngularModule, RotateCcw, Search, Square } from 'lucide-angular';
 import { BattlefieldZoomControlsComponent } from './battlefield-zoom-controls.component';
 
 describe('BattlefieldZoomControlsComponent', () => {
@@ -26,6 +26,45 @@ describe('BattlefieldZoomControlsComponent', () => {
 
     expect(zoomPercentChanged).toHaveBeenCalledWith(127);
     expect(resetZoom).toHaveBeenCalledOnce();
+  });
+
+  it('renders the square and grid buttons above the zoom slider', async () => {
+    const fixture = await renderControls();
+    openZoomControls(fixture);
+    const popover = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-popover"]') as HTMLElement;
+    const squareButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-square-button"]') as HTMLButtonElement;
+    const gridButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]') as HTMLButtonElement;
+    const sliderRow = fixture.nativeElement.querySelector('.zoom-slider-row') as HTMLElement;
+
+    expect(squareButton).not.toBeNull();
+    expect(gridButton).not.toBeNull();
+    expect(popover.firstElementChild).toBe(squareButton.parentElement?.parentElement);
+    expect(squareButton.parentElement?.firstElementChild).toBe(squareButton);
+    expect(squareButton.parentElement?.lastElementChild).toBe(gridButton);
+    expect(squareButton.getAttribute('aria-pressed')).toBe('true');
+    expect(gridButton.getAttribute('aria-pressed')).toBe('false');
+    expect(sliderRow.contains(sliderInput(fixture))).toBe(true);
+  });
+
+  it('selects exactly one view layout at a time', async () => {
+    const fixture = await renderControls();
+    openZoomControls(fixture);
+    const squareButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-square-button"]') as HTMLButtonElement;
+    const gridButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]') as HTMLButtonElement;
+
+    gridButton.click();
+    fixture.detectChanges();
+
+    expect(squareButton.getAttribute('aria-pressed')).toBe('false');
+    expect(gridButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('hides the view layout controls for games with more than four players', async () => {
+    const fixture = await renderControls({ playerCount: 5 });
+    openZoomControls(fixture);
+
+    expect(fixture.nativeElement.querySelector('.zoom-view-actions')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.zoom-slider-row')).not.toBeNull();
   });
 
   it('emits zoom changes from pointer movement on the visible slider track', async () => {
@@ -89,12 +128,13 @@ interface RenderControlsOptions {
   readonly defaultZoomPercent?: number;
   readonly zoomStepPercent?: number;
   readonly canResetZoom?: boolean;
+  readonly playerCount?: number;
 }
 
 async function renderControls(options: RenderControlsOptions = {}): Promise<ComponentFixture<BattlefieldZoomControlsComponent>> {
   await TestBed.configureTestingModule({
     imports: [BattlefieldZoomControlsComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCcw, Search }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ LayoutGrid, RotateCcw, Search, Square }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(BattlefieldZoomControlsComponent);
@@ -104,6 +144,7 @@ async function renderControls(options: RenderControlsOptions = {}): Promise<Comp
   fixture.componentRef.setInput('defaultZoomPercent', options.defaultZoomPercent ?? 100);
   fixture.componentRef.setInput('zoomStepPercent', options.zoomStepPercent ?? 1);
   fixture.componentRef.setInput('canResetZoom', options.canResetZoom ?? true);
+  fixture.componentRef.setInput('playerCount', options.playerCount ?? 4);
   fixture.detectChanges();
 
   return fixture;

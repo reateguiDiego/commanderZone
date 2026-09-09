@@ -18,7 +18,7 @@
 
     <span class="ready-state" [class.ready]="ready()">
       @if (ready()) {
-        {{ 'landing.preview.ready' | runtimeTranslate }}
+        {{ 'onboarding.preview.ready' | runtimeTranslate }}
       } @else if (!player.deckId) {
         {{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}
       } @else {

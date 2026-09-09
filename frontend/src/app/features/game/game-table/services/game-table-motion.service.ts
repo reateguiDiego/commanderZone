@@ -1,6 +1,7 @@
 import { ElementRef, Injectable, NgZone, inject, signal } from '@angular/core';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
+import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 
 gsap.registerPlugin(Flip);
 
@@ -44,6 +45,7 @@ interface HandElementSnapshot extends MotionRect {
 @Injectable()
 export class GameTableMotionService {
   private readonly ngZone = inject(NgZone);
+  private readonly gameAnimationsEnabled = inject(GameTableSessionPreferencesStore).preferences.gameAnimations;
   private readonly handMotionActiveState = signal(false);
   private readonly handMotionLayoutModeState = signal<'fan' | 'row' | null>(null);
   readonly handMotionActive = this.handMotionActiveState.asReadonly();
@@ -57,6 +59,10 @@ export class GameTableMotionService {
 
   init(hostRef: ElementRef<HTMLElement>): void {
     this.destroy();
+    if (!this.gameAnimationsEnabled) {
+      return;
+    }
+
     const host = hostRef.nativeElement;
     this.host = host;
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -81,6 +87,10 @@ export class GameTableMotionService {
   }
 
   punchCard(instanceId: string, variant: CardPunchVariant = 'play'): void {
+    if (!this.gameAnimationsEnabled) {
+      return;
+    }
+
     const card = this.findCard(instanceId);
     if (!card) {
       return;
@@ -121,6 +131,11 @@ export class GameTableMotionService {
   }
 
   throwElementGhost(source: HTMLElement | string | null, target: HTMLElement | string, options: ThrowGhostOptions = {}): void {
+    if (!this.gameAnimationsEnabled) {
+      options.onComplete?.();
+      return;
+    }
+
     const resolvedSource = typeof source === 'string' ? this.resolveTarget(source) : source;
     const destination = this.resolveTarget(target);
     if (!resolvedSource || !destination) {
@@ -172,6 +187,10 @@ export class GameTableMotionService {
   }
 
   impactZone(target: HTMLElement | string): void {
+    if (!this.gameAnimationsEnabled) {
+      return;
+    }
+
     const element = this.resolveTarget(target);
     if (!element) {
       return;
@@ -225,6 +244,10 @@ export class GameTableMotionService {
     selector = '[data-card-instance-id], [data-motion-origin-card-id]',
     options: CardFlipOptions = {},
   ): () => void {
+    if (!this.gameAnimationsEnabled) {
+      return () => undefined;
+    }
+
     const host = this.host;
     if (!host) {
       return () => undefined;
@@ -262,6 +285,10 @@ export class GameTableMotionService {
     selector = '[data-zone="hand"][data-card-instance-id]',
     options: HandDropHandoffOptions = {},
   ): () => void {
+    if (!this.gameAnimationsEnabled) {
+      return () => undefined;
+    }
+
     const host = this.host;
     if (!host) {
       return () => undefined;
@@ -373,6 +400,10 @@ export class GameTableMotionService {
   }
 
   prepareHandLayoutFlip(root: HTMLElement, selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
+    if (!this.gameAnimationsEnabled) {
+      return () => undefined;
+    }
+
     const elements = this.handCardElements(root, selector);
     if (elements.length === 0) {
       return () => undefined;
@@ -382,27 +413,25 @@ export class GameTableMotionService {
     const state = Flip.getState(elements);
 
     return () => {
-      window.requestAnimationFrame(() => {
-        this.runInContext(() => {
-          if (this.prefersReducedMotion()) {
-            return;
-          }
+      this.runInContext(() => {
+        if (this.prefersReducedMotion()) {
+          return;
+        }
 
-          const currentElements = this.handCardElements(root, selector);
-          if (currentElements.length === 0) {
-            return;
-          }
+        const currentElements = this.handCardElements(root, selector);
+        if (currentElements.length === 0) {
+          return;
+        }
 
-          Flip.killFlipsOf(currentElements, true);
-          Flip.from(state, {
-            absolute: false,
-            duration: 0.48,
-            ease: 'power3.out',
-            nested: true,
-            prune: true,
-            scale: false,
-            targets: currentElements,
-          });
+        Flip.killFlipsOf(currentElements, true);
+        Flip.from(state, {
+          absolute: false,
+          duration: 0.42,
+          ease: 'power2.inOut',
+          nested: true,
+          prune: true,
+          scale: false,
+          targets: currentElements,
         });
       });
     };
@@ -585,6 +614,10 @@ export class GameTableMotionService {
   }
 
   prepareCardRotationFlip(instanceId: string, options: CardRotationFlipOptions = {}): () => void {
+    if (!this.gameAnimationsEnabled) {
+      return () => options.onComplete?.();
+    }
+
     const source = this.findCard(instanceId);
     if (!source) {
       return () => options.onComplete?.();
@@ -643,6 +676,10 @@ export class GameTableMotionService {
   }
 
   prepareCardFaceDownFlip(instanceId: string, options: CardFaceDownFlipOptions): () => void {
+    if (!this.gameAnimationsEnabled) {
+      return () => undefined;
+    }
+
     const source = this.findCard(instanceId);
     if (!source) {
       return () => undefined;
@@ -746,6 +783,10 @@ export class GameTableMotionService {
   }
 
   pulseLandStack(instanceIds: readonly string[], variant: 'stack' | 'detach' = 'stack'): void {
+    if (!this.gameAnimationsEnabled) {
+      return;
+    }
+
     const cards = instanceIds
       .map((instanceId) => this.findCard(instanceId))
       .filter((card): card is HTMLElement => card !== null);
@@ -776,9 +817,15 @@ export class GameTableMotionService {
   }
 
   private animateLandStackCreation(cards: readonly HTMLElement[], visuals: readonly HTMLElement[]): void {
-    const topCards = cards.filter((card) => card.classList.contains('land-stack-top'));
+    const topCards = cards.filter((card) => (
+      card.classList.contains('land-stack-top')
+      || card.classList.contains('attachment-stack-target')
+    ));
     const primaryCards = topCards.length > 0 ? topCards : cards.slice(-1);
-    const underCards = cards.filter((card) => card.classList.contains('land-stack-under'));
+    const underCards = cards.filter((card) => (
+      card.classList.contains('land-stack-under')
+      || card.classList.contains('attachment-stack-equipment')
+    ));
     const layeredCards = underCards.length > 0
       ? underCards
       : cards.filter((card) => !primaryCards.includes(card));

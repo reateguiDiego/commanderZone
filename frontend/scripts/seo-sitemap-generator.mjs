@@ -8,7 +8,7 @@ export const SEO_SITEMAP_PUBLIC_PATH = 'sitemaps/sitemap-seo.xml';
 export const COMMUNITY_USERS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-users.xml';
 export const COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-commanders.xml';
 export const COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-cards.xml';
-const DEFAULT_COMMUNITY_INDEX_URL = 'http://localhost:8000/community/indexable';
+const DEFAULT_COMMUNITY_INDEX_URL = 'https://api.commanderzone.com/community/indexable';
 const COMMUNITY_INDEX_OPTIONAL = process.env.COMMANDERZONE_COMMUNITY_INDEX_OPTIONAL === '1';
 const COMMUNITY_DECK_SITEMAP_PAGE_SIZE = 5000;
 const COMMUNITY_STATIC_PATHS = [

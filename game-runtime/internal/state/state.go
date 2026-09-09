@@ -71,25 +71,26 @@ type PlayerZones struct {
 }
 
 type CardInstanceRuntime struct {
-	InstanceID    string         `json:"instanceId"`
-	CardKey       string         `json:"cardKey,omitempty"`
-	PrintID       string         `json:"printId,omitempty"`
-	CardVersion   string         `json:"cardVersion,omitempty"`
-	Language      string         `json:"language,omitempty"`
-	OwnerID       string         `json:"ownerId"`
-	ControllerID  string         `json:"controllerId"`
-	Zone          Zone           `json:"zone"`
-	IsCommander   bool           `json:"isCommander"`
-	IsToken       bool           `json:"isToken"`
-	TokenMeta     map[string]any `json:"tokenMeta,omitempty"`
-	Tapped        bool           `json:"tapped"`
-	Rotation      int            `json:"rotation"`
-	Counters      map[string]int `json:"counters,omitempty"`
-	MutableStats  map[string]any `json:"mutableStats,omitempty"`
-	Position      map[string]any `json:"position,omitempty"`
-	FaceDown      bool           `json:"faceDown"`
-	ActiveFace    int            `json:"activeFace"`
-	VisibleToMask uint64         `json:"visibleToMask,omitempty"`
+	InstanceID       string           `json:"instanceId"`
+	CardKey          string           `json:"cardKey,omitempty"`
+	PrintID          string           `json:"printId,omitempty"`
+	CardVersion      string           `json:"cardVersion,omitempty"`
+	Language         string           `json:"language,omitempty"`
+	OwnerID          string           `json:"ownerId"`
+	ControllerID     string           `json:"controllerId"`
+	Zone             Zone             `json:"zone"`
+	IsCommander      bool             `json:"isCommander"`
+	IsToken          bool             `json:"isToken"`
+	TokenMeta        map[string]any   `json:"tokenMeta,omitempty"`
+	Tapped           bool             `json:"tapped"`
+	Rotation         int              `json:"rotation"`
+	Counters         map[string]int   `json:"counters,omitempty"`
+	MutableStats     map[string]any   `json:"mutableStats,omitempty"`
+	FaceRuntimeStats []map[string]any `json:"faceRuntimeStats,omitempty"`
+	Position         map[string]any   `json:"position,omitempty"`
+	FaceDown         bool             `json:"faceDown"`
+	ActiveFace       int              `json:"activeFace"`
+	VisibleToMask    uint64           `json:"visibleToMask,omitempty"`
 }
 
 func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
@@ -136,23 +137,28 @@ type TopRevealWindow struct {
 }
 
 type Relations struct {
-	Attachments map[string]Relation `json:"attachments"`
-	Arrows      map[string]Relation `json:"arrows"`
-	Helpers     map[string]Relation `json:"helpers"`
-	Indexes     RelationIndexes     `json:"indexes"`
+	Attachments       map[string]Relation         `json:"attachments"`
+	BattlefieldStacks map[string]BattlefieldStack `json:"battlefieldStacks"`
+	Arrows            map[string]Relation         `json:"arrows"`
+	Helpers           map[string]Relation         `json:"helpers"`
+	Indexes           RelationIndexes             `json:"indexes"`
 }
 
 func (r *Relations) UnmarshalJSON(data []byte) error {
 	aux := struct {
-		Attachments json.RawMessage `json:"attachments"`
-		Arrows      json.RawMessage `json:"arrows"`
-		Helpers     json.RawMessage `json:"helpers"`
-		Indexes     RelationIndexes `json:"indexes"`
+		Attachments       json.RawMessage `json:"attachments"`
+		BattlefieldStacks json.RawMessage `json:"battlefieldStacks"`
+		Arrows            json.RawMessage `json:"arrows"`
+		Helpers           json.RawMessage `json:"helpers"`
+		Indexes           RelationIndexes `json:"indexes"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.Attachments, &r.Attachments); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.BattlefieldStacks, &r.BattlefieldStacks); err != nil {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.Arrows, &r.Arrows); err != nil {
@@ -171,6 +177,14 @@ func (r *Relations) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type BattlefieldStack struct {
+	ID                 string `json:"id"`
+	OwnerID            string `json:"ownerId,omitempty"`
+	StackedInstanceID  string `json:"stackedInstanceId"`
+	StackTopInstanceID string `json:"stackTopInstanceId"`
+	CreatedAt          string `json:"createdAt,omitempty"`
+}
+
 type Relation struct {
 	ID       string         `json:"id"`
 	SourceID string         `json:"sourceId,omitempty"`
@@ -179,18 +193,22 @@ type Relation struct {
 }
 
 type RelationIndexes struct {
-	BySource map[string][]string `json:"bySource"`
-	ByTarget map[string][]string `json:"byTarget"`
+	BySource                map[string][]string `json:"bySource,omitempty"`
+	ByTarget                map[string][]string `json:"byTarget,omitempty"`
+	BattlefieldStacksByTop  map[string][]string `json:"battlefieldStacksByTop,omitempty"`
+	BattlefieldStacksByCard map[string][]string `json:"battlefieldStacksByCard,omitempty"`
 }
 
 func (r *RelationIndexes) UnmarshalJSON(data []byte) error {
 	aux := struct {
-		BySource               json.RawMessage `json:"bySource"`
-		ByTarget               json.RawMessage `json:"byTarget"`
-		ArrowsBySource         json.RawMessage `json:"arrowsBySource"`
-		ArrowsByTarget         json.RawMessage `json:"arrowsByTarget"`
-		AttachmentsByEquipment json.RawMessage `json:"attachmentsByEquipment"`
-		AttachmentsByTarget    json.RawMessage `json:"attachmentsByTarget"`
+		BySource                json.RawMessage `json:"bySource"`
+		ByTarget                json.RawMessage `json:"byTarget"`
+		ArrowsBySource          json.RawMessage `json:"arrowsBySource"`
+		ArrowsByTarget          json.RawMessage `json:"arrowsByTarget"`
+		AttachmentsByEquipment  json.RawMessage `json:"attachmentsByEquipment"`
+		AttachmentsByTarget     json.RawMessage `json:"attachmentsByTarget"`
+		BattlefieldStacksByTop  json.RawMessage `json:"battlefieldStacksByTop"`
+		BattlefieldStacksByCard json.RawMessage `json:"battlefieldStacksByCard"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -199,6 +217,12 @@ func (r *RelationIndexes) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if err := decodeMapOrEmpty(firstRaw(aux.ByTarget, aux.ArrowsByTarget, aux.AttachmentsByTarget), &r.ByTarget); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.BattlefieldStacksByTop, &r.BattlefieldStacksByTop); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.BattlefieldStacksByCard, &r.BattlefieldStacksByCard); err != nil {
 		return err
 	}
 	return nil
@@ -366,6 +390,9 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Relations.Attachments == nil {
 		game.Relations.Attachments = map[string]Relation{}
 	}
+	if game.Relations.BattlefieldStacks == nil {
+		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
+	}
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}
 	}
@@ -377,6 +404,12 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	}
 	if game.Relations.Indexes.ByTarget == nil {
 		game.Relations.Indexes.ByTarget = map[string][]string{}
+	}
+	if game.Relations.Indexes.BattlefieldStacksByTop == nil {
+		game.Relations.Indexes.BattlefieldStacksByTop = map[string][]string{}
+	}
+	if game.Relations.Indexes.BattlefieldStacksByCard == nil {
+		game.Relations.Indexes.BattlefieldStacksByCard = map[string][]string{}
 	}
 	if game.Stack == nil {
 		game.Stack = []StackItem{}
@@ -450,8 +483,20 @@ func (c CardInstanceRuntime) Clone() CardInstanceRuntime {
 	c.TokenMeta = cloneAnyMap(c.TokenMeta)
 	c.Counters = cloneIntMap(c.Counters)
 	c.MutableStats = cloneAnyMap(c.MutableStats)
+	c.FaceRuntimeStats = cloneAnyMapSlice(c.FaceRuntimeStats)
 	c.Position = cloneAnyMap(c.Position)
 	return c
+}
+
+func cloneAnyMapSlice(values []map[string]any) []map[string]any {
+	if values == nil {
+		return nil
+	}
+	clone := make([]map[string]any, len(values))
+	for index, value := range values {
+		clone[index] = cloneAnyMap(value)
+	}
+	return clone
 }
 
 func (z PlayerZones) Clone() PlayerZones {
@@ -507,14 +552,28 @@ func (v VisibilityIndex) Clone() VisibilityIndex {
 
 func (r Relations) Clone() Relations {
 	return Relations{
-		Attachments: cloneRelationMap(r.Attachments),
-		Arrows:      cloneRelationMap(r.Arrows),
-		Helpers:     cloneRelationMap(r.Helpers),
+		Attachments:       cloneRelationMap(r.Attachments),
+		BattlefieldStacks: cloneBattlefieldStackMap(r.BattlefieldStacks),
+		Arrows:            cloneRelationMap(r.Arrows),
+		Helpers:           cloneRelationMap(r.Helpers),
 		Indexes: RelationIndexes{
-			BySource: cloneStringSliceMap(r.Indexes.BySource),
-			ByTarget: cloneStringSliceMap(r.Indexes.ByTarget),
+			BySource:                cloneStringSliceMap(r.Indexes.BySource),
+			ByTarget:                cloneStringSliceMap(r.Indexes.ByTarget),
+			BattlefieldStacksByTop:  cloneStringSliceMap(r.Indexes.BattlefieldStacksByTop),
+			BattlefieldStacksByCard: cloneStringSliceMap(r.Indexes.BattlefieldStacksByCard),
 		},
 	}
+}
+
+func cloneBattlefieldStackMap(values map[string]BattlefieldStack) map[string]BattlefieldStack {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]BattlefieldStack, len(values))
+	for id, relation := range values {
+		clone[id] = relation
+	}
+	return clone
 }
 
 func cloneAnyMap(values map[string]any) map[string]any {

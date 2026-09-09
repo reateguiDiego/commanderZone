@@ -220,6 +220,7 @@ final class GameplayV2ContractFactory
             'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $requiredStaticCards, $language),
             'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'battlefieldStacks' => array_values(array_filter($projectedSnapshot['battlefieldStacks'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 
@@ -557,6 +558,9 @@ final class GameplayV2ContractFactory
             'isTokenCopy' => ($card['isTokenCopy'] ?? false) === true,
             'isCommander' => ($card['isCommander'] ?? $zoneName === 'command') === true,
         ];
+        if (is_array($card['faceRuntimeStats'] ?? null)) {
+            $instance['faceRuntimeStats'] = array_values($card['faceRuntimeStats']);
+        }
         if (!$this->isHiddenPlaceholder($card)) {
             $instance['cardKey'] = $staticCard['cardKey'];
             $instance['printId'] = $staticCard['printId'];

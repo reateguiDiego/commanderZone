@@ -290,6 +290,38 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
   });
 
+  it('prioritizes battlefield over an overlapping hand for preview and final drop', () => {
+    const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
+    const selectedCard = card('dragged', { x: 20, y: 248 });
+    cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
+    hand.getBoundingClientRect = () => rectangle(10, 250, 500, 160);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [hand, battlefield]),
+    });
+    const context = {
+      ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
+      selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield' as const, card: selectedCard }],
+    };
+
+    try {
+      drag.startBattlefieldPointerDrag(pointerDownOnCard(cardElement, 50, 268), 'player-1', selectedCard);
+      drag.moveCardPointerDrag(pointerEvent(150, 300), () => undefined);
+      service.updatePointerDropTarget(pointerEvent(150, 300), context);
+
+      expect(state.handExternalRevealAllowed()).toBe(true);
+      expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'battlefield' });
+      expect(state.handDropPreview()).toBeNull();
+      expect(service.pointerDropZone(pointerEvent(150, 300), 'player-1', context)).toBe('battlefield');
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
+  });
+
   it('does not reveal hand from mana row until more than half of the card is inside the collapsed hand', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
@@ -459,7 +491,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     }
   });
 
-  it('does not reactivate hand from pointer zone once the card leaves above the revealed hand body', () => {
+  it('prioritizes battlefield when the pointer re-enters its bounds from an active hand target', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
     cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
@@ -482,8 +514,8 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
         selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
       });
 
-      expect(state.handExternalRevealAllowed()).toBe(false);
-      expect(state.activeDropTarget()).toBeNull();
+      expect(state.handExternalRevealAllowed()).toBe(true);
+      expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'battlefield' });
     } finally {
       Object.defineProperty(document, 'elementsFromPoint', {
         configurable: true,
@@ -687,6 +719,20 @@ function appendBattlefieldAndHand(): { battlefield: HTMLElement; hand: HTMLEleme
   document.body.appendChild(handArea);
 
   return { battlefield, hand, cardElement };
+}
+
+function rectangle(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 function pointerEvent(clientX: number, clientY: number): PointerEvent {

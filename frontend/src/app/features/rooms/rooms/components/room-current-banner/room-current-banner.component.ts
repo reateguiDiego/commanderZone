@@ -28,7 +28,6 @@ export class RoomCurrentBannerComponent {
   readonly deckImageUrl = computed(() => this.currentPlayer()?.deckImageUrl ?? null);
   readonly canLeave = computed(() => this.viewerRole() !== 'owner');
   readonly formatName = computed(() => this.formatLabel(this.room().format));
-  readonly playerCountLabel = computed(() => `${this.room().playerCount} / ${this.roomCapacity(this.room())}`);
   readonly primaryActionRoute = computed(() => {
     const room = this.room();
 

@@ -230,6 +230,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gameActor, firstConnection, releaseConnection, err := s.runtime.AcquireConnection(loadCtx, claims.GameID)
 	cancelLoad()
 	if err != nil {
+		slog.Warn("runtime websocket actor recovery failed", "gameId", claims.GameID, "error", err)
 		if errors.Is(err, runtimesvc.ErrActorClosing) {
 			http.Error(w, "gameplay is closing", http.StatusConflict)
 			return
@@ -247,6 +248,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// reconnects this covers a runtime restart, where gateway-local presence
 		// maps no longer know that the game was previously all-offline.
 		if err := s.runtime.DeliverPresenceLifecycle(r.Context(), claims.GameID, lifecycle.AllDisconnectedCanceled, time.Now().UTC()); err != nil {
+			slog.Warn("runtime websocket lifecycle recovery failed", "gameId", claims.GameID, "error", err)
 			releaseConnection()
 			hibernateCtx, hibernateCancel := context.WithTimeout(context.Background(), s.commandTimeout)
 			if _, hibernateErr := s.runtime.HibernateActor(hibernateCtx, claims.GameID); hibernateErr != nil {

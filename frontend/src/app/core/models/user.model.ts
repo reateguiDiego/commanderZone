@@ -24,10 +24,54 @@ export interface UserDisplayNameStyle {
 export interface UserGamePreferences {
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
-  enableStackMana: boolean;
   autoApplyCommanderDamageToLife: boolean;
   gameAnimations: boolean;
   chatNotificationSounds: boolean;
+  combineChatAndGameLog: boolean;
+}
+
+export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
+  showManaHelperOnStartup: false,
+  enableManaRow: true,
+  autoApplyCommanderDamageToLife: true,
+  gameAnimations: true,
+  chatNotificationSounds: true,
+  combineChatAndGameLog: false,
+};
+
+export function normalizeUserGamePreferences(
+  preferences: Partial<UserGamePreferences> | null | undefined,
+): UserGamePreferences {
+  return {
+    showManaHelperOnStartup: booleanGamePreference(
+      preferences?.showManaHelperOnStartup,
+      DEFAULT_USER_GAME_PREFERENCES.showManaHelperOnStartup,
+    ),
+    enableManaRow: booleanGamePreference(
+      preferences?.enableManaRow,
+      DEFAULT_USER_GAME_PREFERENCES.enableManaRow,
+    ),
+    autoApplyCommanderDamageToLife: booleanGamePreference(
+      preferences?.autoApplyCommanderDamageToLife,
+      DEFAULT_USER_GAME_PREFERENCES.autoApplyCommanderDamageToLife,
+    ),
+    gameAnimations: booleanGamePreference(
+      preferences?.gameAnimations,
+      DEFAULT_USER_GAME_PREFERENCES.gameAnimations,
+    ),
+    chatNotificationSounds: booleanGamePreference(
+      preferences?.chatNotificationSounds,
+      DEFAULT_USER_GAME_PREFERENCES.chatNotificationSounds,
+    ),
+    combineChatAndGameLog: booleanGamePreference(
+      preferences?.combineChatAndGameLog,
+      DEFAULT_USER_GAME_PREFERENCES.combineChatAndGameLog,
+    ),
+  };
+}
+
+function booleanGamePreference(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 export interface UserPreferences {

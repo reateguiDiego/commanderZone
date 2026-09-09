@@ -105,6 +105,7 @@ final class GameplayBaselineFixtureFactory
             'stack' => [],
             'arrows' => [],
             'attachments' => [],
+            'battlefieldStacks' => [],
             'specialEntities' => [],
             'chat' => $this->chatLog($usersByKey),
             'eventLog' => $this->eventLog($usersByKey),

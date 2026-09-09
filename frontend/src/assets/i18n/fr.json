@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "Ce message sera reçu par {{ count }} utilisateur(s).",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -208,7 +209,8 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valeur de mana moyenne hors terrains : {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTargetPrefix": "à",
+      "messageTargetSuffix": "",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Ouvrir les contrôles de zoom du champ de bataille",
       "battlefieldZoom": "Zoom sur le champ de bataille",
       "resetBattlefieldZoom": "Réinitialiser le zoom du champ de bataille",
-      "resetZoom": "Réinitialiser le zoom"
+      "resetZoom": "Réinitialiser le zoom",
+      "squareLayout": "Disposition carrée",
+      "gridLayout": "Disposition en grille",
+      "viewLabel": "Vue :",
+      "zoomLabel": "Zoom :"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Détails de l’aperçu de la carte",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Contrôles de la vie",
       "playerCounters": "Marqueurs de joueurs",
-      "autoApplyCommanderDamageToLife": "Soustraire les points de vie automatiquement",
       "autoApplyCommanderDamageToLifeTooltip": "Lorsque cette option est activée, les changements de dégâts de commandant ajustent aussi les points de vie de ce joueur.",
       "otherCounters": "Autres marqueurs",
       "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplémentaires",
@@ -2059,23 +2064,27 @@
         "title": "Préférences de jeu",
         "showManaHelperOnStartup": {
           "label": "Afficher l’assistant de mana au démarrage",
-          "description": "Ouvrez l’assistant de mana lorsqu’un match commence."
+          "description": "Affiche l’aide au comptage du mana au début d’une partie. Vous pouvez la masquer ou l’afficher de nouveau à tout moment pendant la partie."
         },
         "enableManaRow": {
-          "label": "Activer la ligne de mana",
-          "description": "Afficher la ligne de mana dédiée pendant les parties."
+          "label": "Afficher une ligne de mana",
+          "description": "Affiche un repère visuel au bas du champ de bataille pour placer les cartes qui produisent du mana. Vous pouvez y placer n’importe quel type de carte : ce n’est qu’une aide visuelle."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Si elle est activée, les dégâts des commandants adverses réduisent automatiquement votre total de points de vie. Vous pouvez les ajuster facilement pendant la partie."
         },
         "gameAnimations": {
           "label": "Animations de parties",
-          "description": "Utilisez des mouvements visuels et des animations de retour visuel pendant les matchs."
+          "description": "Active ou désactive toutes les animations visuelles des parties.",
+          "warning": "Nous recommandons de les désactiver uniquement en cas de problèmes de performances pendant une partie."
         },
         "chatNotificationSounds": {
           "label": "Sons de notification de chat",
-          "description": "Lire un son lorsque de nouvelles notifications de chat arrivent."
+          "description": "Joue un son lorsque vous recevez de nouvelles notifications de chat non lues."
         },
-        "preserveManaPool": {
-          "label": "Conserver la réserve de mana",
-          "description": "Conservez le mana dans votre réserve de mana pendant la résolution des actions empilées."
+        "combineChatAndGameLog": {
+          "label": "Fusionner le chat et le journal de partie",
+          "description": "Affiche les messages du chat et les actions de jeu ensemble dans un même onglet."
         }
       },
       "deleteAccountWarning": "Supprimez définitivement votre compte et toutes les données associées, y compris les decks et les préférences. Cette action ne peut pas être annulée."
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Appliquer les dégâts de commandant",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "Aucun utilisateur trouvé.",

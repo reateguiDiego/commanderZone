@@ -309,6 +309,14 @@ export class GameTableSessionService {
     }
 
     const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId, this.staticCardCacheV2.knownCatalogKeys()));
+    const latestAppliedVersion = Math.max(
+      context.snapshot()?.version ?? -1,
+      this.normalizedV2Store.state()?.lastAppliedVersion ?? -1,
+    );
+    if (bootstrap.game.version < latestAppliedVersion) {
+      return;
+    }
+
     let nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
     this.logHistory.reset(nextSnapshot);
     this.chatHistory.reset(nextSnapshot);

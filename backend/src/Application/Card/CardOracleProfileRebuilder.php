@@ -2,13 +2,17 @@
 
 namespace App\Application\Card;
 
+use App\Domain\Card\CommanderPairingAbility;
+use App\Domain\Card\CommanderPairingCapabilityParser;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 
 final class CardOracleProfileRebuilder
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly CommanderPairingCapabilityParser $pairingCapabilityParser = new CommanderPairingCapabilityParser(),
+    ) {
     }
 
     /**
@@ -311,11 +315,7 @@ SQL,
             return false;
         }
 
-        return preg_match('/(^|\n)\s*partner(?:\s*\(|\s*$)/', $text) === 1
-            || preg_match('/(^|\n)\s*partner with [^\n(]+/', $text) === 1
-            || str_contains($text, 'friends forever')
-            || str_contains($text, 'choose a background')
-            || str_contains($text, "doctor's companion");
+        return !$this->pairingCapabilityParser->parse($oracleText)->is(CommanderPairingAbility::None);
     }
 
     /**

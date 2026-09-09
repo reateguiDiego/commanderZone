@@ -600,10 +600,10 @@ class AuthController extends ApiController
      * @return array{
      *   showManaHelperOnStartup?: bool,
      *   enableManaRow?: bool,
-     *   enableStackMana?: bool,
      *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
-     *   chatNotificationSounds?: bool
+     *   chatNotificationSounds?: bool,
+     *   combineChatAndGameLog?: bool
      * }|null
      */
     private function gamePreferencesFromPayload(mixed $payload): ?array
@@ -615,10 +615,10 @@ class AuthController extends ApiController
         $allowedKeys = [
             'showManaHelperOnStartup',
             'enableManaRow',
-            'enableStackMana',
             'autoApplyCommanderDamageToLife',
             'gameAnimations',
             'chatNotificationSounds',
+            'combineChatAndGameLog',
         ];
         $preferences = [];
 

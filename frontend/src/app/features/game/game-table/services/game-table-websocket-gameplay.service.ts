@@ -155,6 +155,8 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'arrow.removed',
   'attachment.created',
   'attachment.removed',
+  'battlefield_stack.created',
+  'battlefield_stack.removed',
   'helper.created',
   'helper.updated',
   'helper.removed',

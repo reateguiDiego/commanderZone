@@ -33,6 +33,7 @@
       "previewEmpty": "Die Vorschau deiner Nachricht erscheint hier.",
       "send": "Senden",
       "messageSent": "Nachricht an {{ count }} Benutzer gesendet.",
+      "recipientCount": "Diese Nachricht erhalten {{ count }} Benutzer.",
       "snippets": {
         "imageDescription": "Bildbeschreibung",
         "linkText": "Linktext",
@@ -208,7 +209,8 @@
       "impersonating": "Identität von {{ name }} übernommen",
       "stop": "Beenden",
       "averageManaValueWithoutLands": "Durchschnittlicher Manawert ohne Länder: {{ value }}",
-      "messageTarget": "an {{ name }}",
+      "messageTargetPrefix": "an",
+      "messageTargetSuffix": "",
       "roomNotice": "Raum {{ name }}",
       "revealed": "Aufgedeckt",
       "revealedCard": "Aufgedeckte Karte",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Zoomsteuerung für das Schlachtfeld öffnen",
       "battlefieldZoom": "Schlachtfeld-Zoom",
       "resetBattlefieldZoom": "Schlachtfeld-Zoom zurücksetzen",
-      "resetZoom": "Zoom zurücksetzen"
+      "resetZoom": "Zoom zurücksetzen",
+      "squareLayout": "Quadratisches Layout",
+      "gridLayout": "Rasterlayout",
+      "viewLabel": "Ansicht:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Details zur Kartenvorschau",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Lebenskontrollen",
       "playerCounters": "Spielermarken",
-      "autoApplyCommanderDamageToLife": "Lebenspunkte automatisch abziehen",
       "autoApplyCommanderDamageToLifeTooltip": "Wenn aktiviert, passen Änderungen am Kommandeurschaden auch die Lebenspunkte dieses Spielers an.",
       "otherCounters": "Andere Marken",
       "openExtraPlayerCounters": "Zusätzliche Spielermarken öffnen",
@@ -2059,23 +2064,27 @@
         "title": "Gameplay-Einstellungen",
         "showManaHelperOnStartup": {
           "label": "Mana-Helfer beim Start anzeigen",
-          "description": "Zeige während der Partie die entsprechende Manareihe an."
+          "description": "Zeigt beim Start einer Partie die Hilfe zum Zählen von Mana an. Du kannst sie während der Partie jederzeit ausblenden oder erneut einblenden."
         },
         "enableManaRow": {
-          "label": "Manareihe aktivieren",
-          "description": "Zeige während der Partie die entsprechende Manareihe an."
+          "label": "Eine Manareihe anzeigen",
+          "description": "Zeigt am unteren Rand des Spielfelds eine visuelle Orientierungshilfe zum Platzieren von manaproduzierenden Karten. Du kannst dort jede Kartenart platzieren; sie ist nur eine visuelle Hilfe."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Wenn aktiviert, verringert Schaden durch gegnerische Kommandeure automatisch deine Lebenspunkte. Du kannst den Wert während der Partie jederzeit einfach anpassen."
         },
         "gameAnimations": {
           "label": "Spielanimationen",
-          "description": "Verwende während der Spiele visuelle Bewegungs- und Feedback-Animationen."
+          "description": "Aktiviert oder deaktiviert alle visuellen Animationen während der Partie.",
+          "warning": "Wir empfehlen, sie nur bei Leistungsproblemen während einer Partie zu deaktivieren."
         },
         "chatNotificationSounds": {
           "label": "Chat-Benachrichtigungstöne",
-          "description": "Spiele einen Ton ab, wenn neue Chat-Benachrichtigungen eingehen."
+          "description": "Spielt einen Ton ab, wenn du neue ungelesene Chat-Benachrichtigungen erhältst."
         },
-        "preserveManaPool": {
-          "label": "Manavorrat erhalten",
-          "description": "Mana bleibt in deinem Manavorrat, während du gestapelte Aktionen ausführst."
+        "combineChatAndGameLog": {
+          "label": "Chat und Spielprotokoll zusammenführen",
+          "description": "Zeigt Chatnachrichten und Spielaktionen gemeinsam auf einer Registerkarte."
         }
       },
       "deleteAccountWarning": "Lösche dein Konto und alle damit verbundenen Daten, einschließlich Decks und Einstellungen, dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden."
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Benutzer",
+      "applyCommanderDamage": "Kommandeursschaden anwenden",
       "reports": "Meldungen",
       "notifications": "Benachrichtigungen",
       "noUsersFound": "Keine Benutzer gefunden.",

@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "Questo messaggio sarà ricevuto da {{ count }} utente/i.",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -208,7 +209,8 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valore di mana medio senza terre: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTargetPrefix": "a",
+      "messageTargetSuffix": "",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Apri i controlli zoom sul campo di battaglia",
       "battlefieldZoom": "Zoom sul campo di battaglia",
       "resetBattlefieldZoom": "Ripristina lo zoom del campo di battaglia",
-      "resetZoom": "Reimposta lo zoom"
+      "resetZoom": "Reimposta lo zoom",
+      "squareLayout": "Layout quadrato",
+      "gridLayout": "Layout a griglia",
+      "viewLabel": "Vista:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Dettagli anteprima della carta",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Controlli sulla vita",
       "playerCounters": "Segnalini dei giocatori",
-      "autoApplyCommanderDamageToLife": "Sottrai vita automaticamente",
       "autoApplyCommanderDamageToLifeTooltip": "Se attivo, le modifiche al danno da comandante regolano anche i punti vita di quel giocatore.",
       "otherCounters": "Altri segnalini",
       "openExtraPlayerCounters": "Apri i segnalini dei giocatori aggiuntivi",
@@ -2058,23 +2063,27 @@
         "title": "Preferenze di gioco",
         "showManaHelperOnStartup": {
           "label": "Mostra l'assistente mana all'avvio",
-          "description": "Apri l'aiutante del mana quando inizia una partita."
+          "description": "Mostra l'aiuto per contare il mana all'inizio di una partita. Puoi nasconderlo o mostrarlo di nuovo in qualsiasi momento durante la partita."
         },
         "enableManaRow": {
-          "label": "Abilita la riga di mana",
-          "description": "Mostra la riga di mana dedicata durante le partite."
+          "label": "Mostra una riga di mana",
+          "description": "Mostra una guida visiva nella parte inferiore del campo di battaglia per posizionare le carte che producono mana. Puoi collocarvi qualsiasi tipo di carta: è solo un aiuto visivo."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Se attivo, i danni dei comandanti avversari riducono automaticamente i tuoi punti vita. Puoi modificarli facilmente durante la partita."
         },
         "gameAnimations": {
           "label": "Animazioni di gioco",
-          "description": "Usa movimenti visivi e animazioni di feedback durante le partite."
+          "description": "Attiva o disattiva tutte le animazioni visive delle partite.",
+          "warning": "Ti consigliamo di disattivarle solo se riscontri problemi di prestazioni durante una partita."
         },
         "chatNotificationSounds": {
           "label": "Suoni di notifica della chat",
-          "description": "Riproduci un suono quando arrivano nuove notifiche di chat."
+          "description": "Riproduce un suono quando ricevi nuove notifiche della chat non lette."
         },
-        "preserveManaPool": {
-          "label": "Preserva la riserva di mana",
-          "description": "Mantieni il mana nella tua riserva di mana mentre risolvi le azioni impilate."
+        "combineChatAndGameLog": {
+          "label": "Unisci chat e registro di gioco",
+          "description": "Mostra i messaggi della chat e le azioni di gioco insieme in un'unica scheda."
         }
       },
       "deleteAccountWarning": "Elimina definitivamente il tuo account e tutti i dati associati, inclusi mazzi e preferenze. Questa azione non può essere annullata."
@@ -2207,6 +2216,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Applica danno da comandante",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "Nessun utente trovato.",

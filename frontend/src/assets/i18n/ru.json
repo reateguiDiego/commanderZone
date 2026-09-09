@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "Это сообщение получат {{ count }} пользователь(ей).",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -208,7 +209,8 @@
       "impersonating": "Вы действуете от имени {{ name }}",
       "stop": "Остановить",
       "averageManaValueWithoutLands": "Средняя мана-стоимость без земель: {{ value }}",
-      "messageTarget": "для {{ name }}",
+      "messageTargetPrefix": "для",
+      "messageTargetSuffix": "",
       "roomNotice": "Комната {{ name }}",
       "revealed": "Открыто",
       "revealedCard": "Открытая карта",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Открыть элементы управления масштабированием поля боя",
       "battlefieldZoom": "Масштаб поля боя",
       "resetBattlefieldZoom": "Сбросить масштаб поля боя",
-      "resetZoom": "Сбросить масштаб"
+      "resetZoom": "Сбросить масштаб",
+      "squareLayout": "Квадратная раскладка",
+      "gridLayout": "Сетка",
+      "viewLabel": "Вид:",
+      "zoomLabel": "Масштаб:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Детали предпросмотра карты",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Контроль жизней",
       "playerCounters": "Жетоны игрока",
-      "autoApplyCommanderDamageToLife": "Автоматически вычитать жизнь",
       "autoApplyCommanderDamageToLifeTooltip": "Если включено, изменения командирского урона также меняют количество жизней этого игрока.",
       "otherCounters": "Другие жетоны",
       "openExtraPlayerCounters": "Открыть дополнительные жетоны игрока",
@@ -2059,23 +2064,27 @@
         "title": "Настройки игрового процесса",
         "showManaHelperOnStartup": {
           "label": "Показывать помощник по мане при запуске",
-          "description": "Откройте помощник по мане, когда начинается матч."
+          "description": "Показывает помощник для подсчёта маны в начале партии. Его можно скрыть или снова показать в любой момент во время партии."
         },
         "enableManaRow": {
-          "label": "Включить строку маны",
-          "description": "Покажите выделенный ряд маны во время игр."
+          "label": "Показывать ряд маны",
+          "description": "Показывает в нижней части поля боя визуальный ориентир для размещения карт, производящих ману. В нём можно размещать карты любого типа: это лишь визуальная подсказка."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Если включено, урон от командиров противников автоматически уменьшает количество ваших жизней. Его можно легко изменить во время партии."
         },
         "gameAnimations": {
           "label": "Игровые анимации",
-          "description": "Используйте визуальную анимацию движений и обратной связи во время матчей."
+          "description": "Включает или выключает все визуальные анимации во время партий.",
+          "warning": "Рекомендуем отключать их только при проблемах с производительностью во время партии."
         },
         "chatNotificationSounds": {
           "label": "Звуки уведомлений в чате",
-          "description": "Воспроизведение звука при поступлении новых уведомлений чата."
+          "description": "Воспроизводит звук при получении новых непрочитанных уведомлений чата."
         },
-        "preserveManaPool": {
-          "label": "Сохранение запаса маны",
-          "description": "Сохраняйте ману в своем запасе маны, выполняя сложенные действия."
+        "combineChatAndGameLog": {
+          "label": "Объединить чат и журнал игры",
+          "description": "Показывает сообщения чата и игровые действия вместе на одной вкладке."
         }
       },
       "deleteAccountWarning": "Безвозвратно удалите свою учетную запись и все связанные с ней данные, включая колоды и настройки. Это действие невозможно отменить."
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Применять урон командира",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "Пользователи не найдены.",

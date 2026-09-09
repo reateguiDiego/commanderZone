@@ -11,14 +11,53 @@ import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/co
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { MessageBodyComponent } from '../../../../shared/ui/message-body/message-body.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
-import { AdminUser } from '../../data-access/admin-users.models';
+import { AdminUser, AdminUsersSummary } from '../../data-access/admin-users.models';
 
 interface RecipientOption {
   readonly id: string;
   readonly name: string;
 }
 
-const ALL_RECIPIENT_ID = 'all';
+interface QuickRecipientOption {
+  readonly id: QuickRecipientId;
+  readonly labelKey: string;
+}
+
+interface QuickRecipientAudience {
+  readonly count: number;
+}
+
+type QuickRecipientId =
+  | 'all'
+  | 'never_connected'
+  | 'recently_connected'
+  | 'recently_created'
+  | 'tier_0'
+  | 'tier_1'
+  | 'tier_2'
+  | 'tier_3';
+
+const ALL_RECIPIENT_ID: QuickRecipientId = 'all';
+const QUICK_RECIPIENT_OPTIONS: readonly QuickRecipientOption[] = [
+  { id: ALL_RECIPIENT_ID, labelKey: 'admin.notifications.allUsers' },
+  { id: 'never_connected', labelKey: 'admin.users.status.neverConnected' },
+  { id: 'recently_connected', labelKey: 'admin.users.status.recentlyConnected' },
+  { id: 'recently_created', labelKey: 'admin.users.status.recentlyCreated' },
+  { id: 'tier_0', labelKey: 'admin.users.summary.tier0' },
+  { id: 'tier_1', labelKey: 'admin.users.premium.tier1' },
+  { id: 'tier_2', labelKey: 'admin.users.premium.tier2' },
+  { id: 'tier_3', labelKey: 'admin.users.premium.tier3' },
+];
+const QUICK_RECIPIENT_SUMMARY_KEYS: Readonly<Record<QuickRecipientId, keyof AdminUsersSummary>> = {
+  all: 'total',
+  never_connected: 'neverConnected',
+  recently_connected: 'recentlyConnected',
+  recently_created: 'recentlyCreated',
+  tier_0: 'tier0',
+  tier_1: 'tier1',
+  tier_2: 'tier2',
+  tier_3: 'tier3',
+};
 const MAX_SUBJECT_LENGTH = 30;
 const MAX_BODY_LENGTH = 200000;
 const MAX_UPLOADED_IMAGE_DATA_URL_LENGTH = 160000;
@@ -53,7 +92,9 @@ export class AdminNotificationsPanelComponent {
 
   readonly preselectedRecipient = input<RecipientOption | null>(null);
   readonly users = signal<readonly AdminUser[]>([]);
-  readonly selectedRecipientId = signal(ALL_RECIPIENT_ID);
+  readonly usersSummary = signal<AdminUsersSummary | null>(null);
+  readonly selectedRecipientId = signal<string>(ALL_RECIPIENT_ID);
+  readonly selectedQuickRecipientId = signal<QuickRecipientId | null>(null);
   readonly delivery = signal<AdminMessageDelivery>('internal');
   readonly loadingUsers = signal(false);
   readonly sending = signal(false);
@@ -61,9 +102,20 @@ export class AdminNotificationsPanelComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly bodyPreview = signal('');
   readonly recipientOptions = computed<readonly FormatSelectOption[]>(() => [
-    { id: ALL_RECIPIENT_ID, labelKey: 'admin.notifications.allUsers' },
+    ...QUICK_RECIPIENT_OPTIONS,
     ...this.users().map((user) => ({ id: user.id, name: user.displayName, searchText: user.email })),
   ]);
+  readonly primaryQuickRecipientOptions = QUICK_RECIPIENT_OPTIONS.slice(0, 4);
+  readonly tierQuickRecipientOptions = QUICK_RECIPIENT_OPTIONS.slice(4);
+  readonly quickRecipientAudience = computed<QuickRecipientAudience | null>(() => {
+    const recipientId = this.selectedQuickRecipientId();
+    const summary = this.usersSummary();
+    if (recipientId === null || summary === null) {
+      return null;
+    }
+
+    return { count: summary[QUICK_RECIPIENT_SUMMARY_KEYS[recipientId]] };
+  });
   readonly deliveryOptions = DELIVERY_OPTIONS;
   readonly deliveryDescriptionKey = computed(() => DELIVERY_DESCRIPTION_KEYS[this.delivery()]);
 
@@ -84,6 +136,7 @@ export class AdminNotificationsPanelComponent {
     try {
       const response = await firstValueFrom(this.adminUsersApi.listUsers());
       this.users.set(response.users);
+      this.usersSummary.set(response.summary);
     } catch (error: unknown) {
       this.errorMessage.set(this.resolveError(error, 'admin.notifications.errors.loadUsers'));
     } finally {
@@ -137,7 +190,19 @@ export class AdminNotificationsPanelComponent {
   selectRecipient(recipientId: string): void {
     if (this.recipientOptions().some((option) => option.id === recipientId)) {
       this.selectedRecipientId.set(recipientId);
+      this.selectedQuickRecipientId.set(isQuickRecipientId(recipientId) ? recipientId : null);
     }
+  }
+
+  toggleQuickRecipient(recipientId: QuickRecipientId): void {
+    if (this.selectedQuickRecipientId() === recipientId) {
+      this.selectedQuickRecipientId.set(null);
+      this.selectedRecipientId.set(ALL_RECIPIENT_ID);
+      return;
+    }
+
+    this.selectedQuickRecipientId.set(recipientId);
+    this.selectedRecipientId.set(recipientId);
   }
 
   selectDelivery(delivery: string): void {
@@ -305,4 +370,8 @@ export class AdminNotificationsPanelComponent {
 
 function isAdminMessageDelivery(value: string): value is AdminMessageDelivery {
   return value === 'internal' || value === 'email' || value === 'both';
+}
+
+function isQuickRecipientId(value: string): value is QuickRecipientId {
+  return value in QUICK_RECIPIENT_SUMMARY_KEYS;
 }

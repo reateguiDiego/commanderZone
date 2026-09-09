@@ -33,6 +33,7 @@
       "previewEmpty": "A pré-visualização da sua mensagem aparecerá aqui.",
       "send": "Enviar",
       "messageSent": "Mensagem enviada para {{ count }} utilizador(es).",
+      "recipientCount": "Esta mensagem será recebida por {{ count }} utilizador(es).",
       "snippets": {
         "imageDescription": "Descrição da imagem",
         "linkText": "Texto da ligação",
@@ -208,7 +209,8 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Valor de mana médio sem terrenos: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTargetPrefix": "para",
+      "messageTargetSuffix": "",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Abra os controles de zoom do campo de batalha",
       "battlefieldZoom": "Ampliação do campo de batalha",
       "resetBattlefieldZoom": "Redefinir zoom do campo de batalha",
-      "resetZoom": "Redefinir zoom"
+      "resetZoom": "Redefinir zoom",
+      "squareLayout": "Layout quadrado",
+      "gridLayout": "Layout em grelha",
+      "viewLabel": "Vista:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Detalhes da pré-visualização da carta",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Controles de vida",
       "playerCounters": "Marcadores de jogadores",
-      "autoApplyCommanderDamageToLife": "Subtrair vida automaticamente",
       "autoApplyCommanderDamageToLifeTooltip": "Quando ativado, alterações no dano de comandante também ajustam a vida desse jogador.",
       "otherCounters": "Outros marcadores",
       "openExtraPlayerCounters": "Abrir marcadores extras do jogador",
@@ -2058,23 +2063,27 @@
         "title": "Preferências de partida",
         "showManaHelperOnStartup": {
           "label": "Mostrar ajudante de mana na inicialização",
-          "description": "Abra o auxiliar de mana quando uma partida começar."
+          "description": "Mostra o auxiliar para contar mana quando uma partida começa. Você pode ocultá-lo ou exibi-lo novamente a qualquer momento durante a partida."
         },
         "enableManaRow": {
-          "label": "Habilitar linha de mana",
-          "description": "Mostra a linha de mana dedicada durante as partidas."
+          "label": "Mostrar uma linha de mana",
+          "description": "Mostra um guia visual na parte inferior do campo de batalha para posicionar cartas que produzem mana. Você pode colocar qualquer tipo de carta nela; é apenas uma ajuda visual."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Quando ativado, o dano dos comandantes adversários reduz automaticamente seus pontos de vida. Você pode ajustá-lo facilmente durante a partida."
         },
         "gameAnimations": {
           "label": "Animações de partida",
-          "description": "Use movimentos visuais e animações de feedback durante as partidas."
+          "description": "Ativa ou desativa todas as animações visuais das partidas.",
+          "warning": "Recomendamos desativá-las apenas se você tiver problemas de desempenho durante uma partida."
         },
         "chatNotificationSounds": {
           "label": "Sons de notificação de bate-papo",
-          "description": "Reproduza um som quando novas notificações de bate-papo chegarem."
+          "description": "Reproduz um som quando você recebe novas notificações de bate-papo não lidas."
         },
-        "preserveManaPool": {
-          "label": "Preservar reserva de mana",
-          "description": "Mantenha mana em sua reserva de mana enquanto resolve ações acumuladas."
+        "combineChatAndGameLog": {
+          "label": "Unir chat e registro de jogo",
+          "description": "Mostra mensagens de chat e ações de jogo juntas em uma única aba."
         }
       },
       "deleteAccountWarning": "Exclua permanentemente sua conta e todos os dados associados, incluindo decks e preferências. Esta ação não pode ser desfeita."
@@ -2207,6 +2216,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Aplicar dano de comandante",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "Nenhum usuário encontrado.",

@@ -6,6 +6,17 @@ export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessi
 export type GameSpecialEntityScope = 'global' | 'player';
 export type GameCardStatValue = number | string | null;
 export type GamePowerToughnessValue = GameCardStatValue;
+export interface GameCardFaceRuntimeStats {
+  defaultPower: GamePowerToughnessValue;
+  defaultToughness: GamePowerToughnessValue;
+  defaultLoyalty: GameCardStatValue;
+  defaultDefense: GameCardStatValue;
+  power: GamePowerToughnessValue;
+  toughness: GamePowerToughnessValue;
+  loyalty: GameCardStatValue;
+  defense: GameCardStatValue;
+  saga: number | null;
+}
 export type GamePhase = 'MULLIGAN' | 'PLAYING' | 'FINISHED';
 export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
@@ -73,6 +84,8 @@ export type GameCommandType =
   | 'arrow.removed'
   | 'attachment.created'
   | 'attachment.removed'
+  | 'battlefield_stack.created'
+  | 'battlefield_stack.removed'
   | 'helper.created'
   | 'helper.updated'
   | 'helper.removed'
@@ -86,6 +99,8 @@ export interface GameCardInstance {
   name: string;
   imageUris?: Record<string, string>;
   cardFaces?: CardFace[];
+  /** Mutable statistics for each face in post-face-runtime snapshots only. */
+  faceRuntimeStats?: GameCardFaceRuntimeStats[];
   hasRulings?: boolean;
   typeLine?: string | null;
   layout?: string | null;
@@ -268,6 +283,18 @@ export interface GameAttachment {
   createdAt: string;
 }
 
+/**
+ * A manual visual stack on a battlefield. Unlike an attachment, this has no
+ * gameplay meaning; it only preserves the player's layout choice.
+ */
+export interface GameBattlefieldStack {
+  id: string;
+  ownerId?: string;
+  stackedInstanceId: string;
+  stackTopInstanceId: string;
+  createdAt: string;
+}
+
 export interface GameSpecialEntityCardRef {
   scryfallId: string;
   name: string;
@@ -351,6 +378,8 @@ export type GameDisconnectVotes = Record<string, GameDisconnectVoteState>;
 
 export interface GameSnapshot {
   version: number;
+  /** Enables per-face runtime stats for snapshots created after the feature rollout. */
+  faceRuntimeStatsVersion?: 1;
   /** Low-frequency control-plane cursor, never a gameplay stream version. */
   controlPlaneRevision?: number;
   ownerId?: string;
@@ -373,6 +402,7 @@ export interface GameSnapshot {
   stack: GameStackItem[];
   arrows: GameArrow[];
   attachments?: GameAttachment[];
+  battlefieldStacks?: GameBattlefieldStack[];
   specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];

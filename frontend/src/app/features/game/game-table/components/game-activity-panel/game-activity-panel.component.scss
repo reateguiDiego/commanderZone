@@ -1,0 +1,134 @@
+:host {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--game-surface-deep);
+}
+
+.panel-feed {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: 0.35rem;
+  scrollbar-gutter: stable;
+}
+
+.panel-feed p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.45rem;
+  border-radius: 6px;
+  background: rgb(var(--game-text-rgb) / 5%);
+}
+
+.panel-feed p.phase-entry {
+  border: 1px solid rgb(var(--game-info-rgb) / 46%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--game-info-rgb) / 13%),
+    rgb(var(--game-surface-rgb) / 72%)
+  );
+}
+
+.panel-feed p.turn-entry {
+  border: 1px solid var(--game-accent-line);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--game-accent-rgb) / 16%),
+    rgb(var(--game-surface-rgb) / 72%)
+  );
+}
+
+.panel-feed p.death-entry {
+  border: 1px solid rgb(239 68 68 / 46%);
+  background: linear-gradient(90deg, rgb(70 12 12 / 72%), rgb(24 9 9 / 76%));
+}
+
+.panel-feed p.new-message-highlight {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 58%),
+    0 0 0.65rem rgb(var(--gold-rgb) / 28%);
+}
+
+.panel-feed p.new-message-evaporating {
+  animation: activity-new-message-evaporate 3s ease forwards;
+}
+
+@keyframes activity-new-message-evaporate {
+  to {
+    background: rgb(var(--game-text-rgb) / 5%);
+    box-shadow: none;
+  }
+}
+
+.panel-feed small {
+  color: var(--game-info);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-feed strong {
+  color: var(
+    --log-author-color,
+    var(--chat-author-color, color-mix(in srgb, var(--cz-accent) 64%, var(--cz-primary)))
+  );
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.panel-feed span {
+  min-width: 0;
+  color: var(--game-text);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.log-card-list-popover {
+  position: fixed;
+  z-index: 7600;
+  max-width: min(18rem, calc(100vw - 1.5rem));
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--game-accent-line);
+  border-radius: 6px;
+  background: rgb(var(--game-surface-deep-rgb) / 96%);
+  box-shadow: 0 0.75rem 1.4rem rgb(var(--shadow-rgb) / 62%);
+  color: var(--game-text);
+  font-size: 0.76rem;
+}
+
+.log-card-list-popover {
+  display: grid;
+  gap: 0.18rem;
+  width: max-content;
+  max-height: 13rem;
+  overflow: auto;
+  pointer-events: none;
+}
+
+.log-card-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--game-accent);
+  font: inherit;
+  text-decoration: underline;
+}
+
+.history-loading {
+  display: block;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  background: transparent;
+  color: var(--game-info);
+  font-size: 0.72rem;
+  text-align: center;
+}

@@ -47,6 +47,12 @@ paths:
             type: string
             enum: [all, active, online, in_game, offline, recently_connected, recently_created, never_connected]
             default: all
+        - name: fallbackWhenNoOtherActive
+          in: query
+          description: When true and status is active, use recently_created when the authenticated administrator is the only active user.
+          schema:
+            type: boolean
+            default: false
         - name: sort
           in: query
           schema:
@@ -164,7 +170,7 @@ paths:
   /admin/messages:
     post:
       tags: [Admin]
-      summary: Send an admin message to one user or every user.
+      summary: Send an admin message to one user, every user, or a predefined user segment.
       requestBody:
         required: true
         content:
@@ -2137,7 +2143,7 @@ paths:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
-      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt).
+      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt). When commanders are selected separately, automatic commander inference is disabled and any explicit Commander section must match that selection.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -3128,6 +3134,42 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '422':
+          $ref: '#/components/responses/Error'
+  /internal/runtime/games/{id}/compact-snapshot:
+    get:
+      tags: [Games]
+      summary: Read the authoritative compact snapshot for runtime-only recovery.
+      description: Internal HMAC-signed Symfony-to-Go recovery endpoint. The runtime calls it only after its locally persisted compact snapshot fails checksum validation, then re-signs the recovered state locally. It is never on the gameplay hot path.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: X-CommanderZone-Signature
+          in: header
+          required: true
+          description: Lowercase hexadecimal HMAC-SHA256 of `GET`, a newline, and the exact request path.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Compact snapshot with the checksum of the exact snapshot object.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [gameId, version, snapshot, checksum]
+                properties:
+                  gameId:
+                    type: string
+                  version:
+                    type: integer
+                    minimum: 1
+                  snapshot:
+                    type: object
+                  checksum:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
   /games/{id}/control-plane:
     get:
@@ -4368,7 +4410,7 @@ components:
           $ref: '#/components/schemas/AdminUsersLocalizationBreakdown'
     AdminUsersListResponse:
       type: object
-      required: [users, page, limit, total, totalPages, summary, countries, localizationSummary]
+      required: [users, page, limit, total, totalPages, appliedStatus, summary, countries, localizationSummary]
       properties:
         users:
           type: array
@@ -4386,6 +4428,10 @@ components:
         totalPages:
           type: integer
           minimum: 1
+        appliedStatus:
+          type: string
+          enum: [all, active, online, in_game, offline, recently_connected, recently_created, never_connected]
+          description: Presence filter effectively used to build the returned page.
         summary:
           $ref: '#/components/schemas/AdminUsersSummary'
         countries:
@@ -4440,7 +4486,7 @@ components:
       properties:
         recipientId:
           type: string
-          description: Use `all` to send to every user, otherwise a user UUID.
+          description: Use `all` to send to every user, a user UUID for one user, or one of `never_connected`, `recently_connected`, `recently_created`, `tier_0`, `tier_1`, `tier_2`, or `tier_3` for a predefined segment.
         subject:
           type: string
           minLength: 1
@@ -4571,19 +4617,19 @@ components:
           $ref: '#/components/schemas/UserGamePreferences'
     UserGamePreferences:
       type: object
-      required: [showManaHelperOnStartup, enableManaRow, enableStackMana, autoApplyCommanderDamageToLife, gameAnimations, chatNotificationSounds]
+      required: [showManaHelperOnStartup, enableManaRow, autoApplyCommanderDamageToLife, gameAnimations, chatNotificationSounds, combineChatAndGameLog]
       properties:
         showManaHelperOnStartup:
           type: boolean
         enableManaRow:
-          type: boolean
-        enableStackMana:
           type: boolean
         autoApplyCommanderDamageToLife:
           type: boolean
         gameAnimations:
           type: boolean
         chatNotificationSounds:
+          type: boolean
+        combineChatAndGameLog:
           type: boolean
     AppThemeId:
       type: string
@@ -4844,6 +4890,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFace'
+        faceRuntimeStats:
+          type: array
+          description: Runtime stats indexed by face for double-faced cards in post-face-runtime snapshots.
+          items:
+            type: object
+            required: [defaultPower, defaultToughness, defaultLoyalty, defaultDefense, power, toughness, loyalty, defense, saga]
+            properties:
+              defaultPower: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultToughness: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultLoyalty: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultDefense: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              power: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              toughness: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              loyalty: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defense: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              saga: { type: [integer, 'null'], minimum: 1, maximum: 9 }
         hasRulings:
           type: boolean
           description: Persisted metadata indicating whether this card has Scryfall rulings.
@@ -7794,10 +7856,14 @@ components:
           format: date-time
     GameSnapshot:
       type: object
-      required: [version, players, turn, stack, arrows, attachments, specialEntities, chat, eventLog, createdAt]
+      required: [version, players, turn, stack, arrows, attachments, battlefieldStacks, specialEntities, chat, eventLog, createdAt]
       properties:
         version:
           type: integer
+        faceRuntimeStatsVersion:
+          type: integer
+          enum: [1]
+          description: Present only in games created with per-face runtime statistics enabled.
         ownerId:
           type: string
           format: uuid
@@ -7821,6 +7887,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameAttachment'
+        battlefieldStacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameBattlefieldStack'
         specialEntities:
           type: array
           items:
@@ -8436,6 +8506,22 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameBattlefieldStack:
+      type: object
+      description: Persisted manual battlefield layout relation. It has no Magic rules meaning.
+      required: [id, stackedInstanceId, stackTopInstanceId, createdAt]
+      properties:
+        id:
+          type: string
+        ownerId:
+          type: string
+        stackedInstanceId:
+          type: string
+        stackTopInstanceId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8532,6 +8618,8 @@ components:
             - arrow.removed
             - attachment.created
             - attachment.removed
+            - battlefield_stack.created
+            - battlefield_stack.removed
             - helper.created
             - helper.updated
             - helper.removed
@@ -8574,6 +8662,11 @@ components:
             but cannot be the attachment source, and permanents with attached
             cards cannot be attachment sources. attachment.removed detaches by
             id or equipmentInstanceId.
+            battlefield_stack.created persists one manual visual relation from
+            stackedInstanceId to stackTopInstanceId. Both cards must be lands or
+            tokens on the actor's battlefield; attachment endpoints cannot be
+            stacked and a stack is limited to three cards. battlefield_stack.removed
+            removes the relation by id or stackedInstanceId.
             dice.rolled only requires kind in the request; the backend generates
             the authoritative finalResult and returns it in the resulting event
             payload. battlefield.untap_all

@@ -78,137 +78,249 @@
 
 :root[data-theme='candy-summoners'] {
   color-scheme: light;
-  --cz-bg: #cbb8e8;
-  --cz-bg-rgb: 203 184 232;
-  --cz-surface: #e8a6c8;
-  --cz-surface-rgb: 232 166 200;
-  --cz-surface-elevated: #f8d7ea;
-  --cz-surface-elevated-rgb: 248 215 234;
-  --cz-primary: #5a2ea6;
-  --cz-primary-rgb: 90 46 166;
-  --cz-secondary: #006e8f;
-  --cz-secondary-rgb: 0 110 143;
-  --cz-accent: #b0185a;
-  --cz-accent-rgb: 176 24 90;
-  --cz-text: #000000;
-  --cz-text-rgb: 0 0 0;
-  --cz-success: #006b4a;
-  --cz-success-rgb: 0 107 74;
-  --cz-danger: #b0003a;
-  --cz-danger-rgb: 176 0 58;
-  --cz-warning: #6f3b00;
-  --cz-warning-rgb: 111 59 0;
-  --cz-info: #0057b8;
-  --cz-info-rgb: 0 87 184;
-  --cz-on-accent: #ffffff;
-  --cz-on-accent-rgb: 255 255 255;
-  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 58%);
-  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 68%);
-  --deck-list-card-topline-bg: linear-gradient(90deg, rgb(var(--cz-surface-elevated-rgb) / 84%), rgb(var(--cz-surface-elevated-rgb) / 34%));
-  --deck-list-commander-art-overlay:
-    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 38%, rgb(var(--cz-bg-rgb) / 34%) 100%),
-    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 24%) 0%, transparent 54%);
-  --deck-list-dual-commander-art-overlay: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 24%) 0%, transparent 42%, rgb(var(--cz-bg-rgb) / 34%) 100%);
-  --deck-list-row-actions-bg: rgb(var(--cz-surface-elevated-rgb) / 64%);
-  --deck-list-row-actions-bg-hover: rgb(var(--cz-surface-elevated-rgb) / 78%);
-  --player-avatar-shadow: 0 0 0 3px rgb(46 18 74 / 86%);
+
+  /* Base mate algo más apagada: gris malva */
+  --cz-bg: #c6c0c9;
+  --cz-bg-rgb: 198 192 201;
+  --cz-surface: #cfc9d2;
+  --cz-surface-rgb: 207 201 210;
+  --cz-surface-elevated: #c9c3cc;
+  --cz-surface-elevated-rgb: 201 195 204;
+
+  /* Colores funcionales con contraste reforzado sobre las tres superficies */
+  --cz-primary: #780049;
+  --cz-primary-rgb: 120 0 73;
+  --cz-secondary: #004249;
+  --cz-secondary-rgb: 0 66 73;
+  /* Igual al principal para mantener planos sus degradados */
+  --cz-accent: #780049;
+  --cz-accent-rgb: 120 0 73;
+
+  /* Colores chuche vivos para detalles, no para texto sobre gris */
+  --cz-candy-pink: #ff70b8;
+  --cz-candy-pink-rgb: 255 112 184;
+  --cz-candy-mint: #65e2ce;
+  --cz-candy-mint-rgb: 101 226 206;
+
+  /* Texto ciruela oscuro */
+  --cz-text: #3d3542;
+  --cz-text-rgb: 61 53 66;
+
+  --cz-success: #004628;
+  --cz-success-rgb: 0 70 40;
+  --cz-danger: #800018;
+  --cz-danger-rgb: 128 0 24;
+  --cz-warning: #5b3200;
+  --cz-warning-rgb: 91 50 0;
+  --cz-info: #003677;
+  --cz-info-rgb: 0 54 119;
+
+  --cz-on-accent: #fff4fa;
+  --cz-on-accent-rgb: 255 244 250;
+
+  /* La mesa usa sombras del color de su fondo para no ensuciar superficies light. */
+  --cz-game-shadow-rgb: var(--cz-bg-rgb);
+
+  /*
+   * En una superficie clara los halos reducen la nitidez percibida. Las piezas
+   * de juego conservan sus bordes y estados por color, pero se muestran planas.
+   * Cualquier futuro tema light puede reutilizar estos mismos tokens.
+   */
+  --cz-game-surface-shadow: none;
+  --cz-game-text-shadow: none;
+  --cz-game-icon-filter: none;
+  --cz-game-ambient-animation: none;
+  --cz-game-ambient-decoration-opacity: 0;
+  --cz-game-backdrop-filter: none;
+
+  --muted: rgb(var(--cz-text-rgb) / 90%);
+  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 88%);
+  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 94%);
+
+  --line: rgb(var(--cz-text-rgb) / 14%);
+  --shadow: none;
+
+  /* Fondo uniforme, sin luces de color añadidas */
+  --app-bg-base: var(--cz-bg);
+  --app-bg-deep: var(--cz-bg);
+  --app-bg-ember: rgb(var(--cz-accent-rgb) / 0%);
+  --app-bg-forest: rgb(var(--cz-success-rgb) / 0%);
+  --app-bg-moss: rgb(var(--cz-primary-rgb) / 0%);
+  --app-bg-river: rgb(var(--cz-secondary-rgb) / 0%);
+  --app-bg-blood: rgb(var(--cz-danger-rgb) / 0%);
+  --app-bg-vignette: rgb(var(--cz-bg-rgb) / 0%);
+
+  /* Cabeceras opacas para leer sobre cualquier ilustración */
+  --deck-list-card-topline-bg: linear-gradient(
+    90deg,
+    var(--cz-surface),
+    var(--cz-surface)
+  );
+
+  /* Sin velo claro sobre el arte de las cartas */
+  --deck-list-commander-art-overlay: linear-gradient(transparent, transparent);
+  --deck-list-dual-commander-art-overlay: linear-gradient(transparent, transparent);
+
+  --deck-list-row-actions-bg: var(--cz-surface);
+  --deck-list-row-actions-bg-hover: var(--cz-surface-elevated);
+
+  /* Aro rosa sólido, sin resplandor */
+  --player-avatar-shadow: 0 0 0 3px var(--cz-candy-pink);
   --player-name-text-shadow: none;
-  --cz-callout-border: rgb(var(--cz-warning-rgb) / 78%);
-  --cz-callout-bg:
-    linear-gradient(180deg, rgb(var(--cz-surface-elevated-rgb) / 88%), rgb(var(--cz-surface-elevated-rgb) / 62%)),
-    linear-gradient(135deg, rgb(var(--cz-warning-rgb) / 16%), rgb(var(--cz-surface-rgb) / 58%));
-  --cz-callout-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 52%),
-    inset 0 -1px 0 rgb(var(--cz-warning-rgb) / 18%),
-    0 14px 28px rgb(62 20 86 / 14%);
+
+  /* Callouts planos, sin brillos */
+  --cz-callout-border: var(--line);
+  --cz-callout-bg: linear-gradient(var(--cz-surface), var(--cz-surface));
+  --cz-callout-shadow: none;
+
   --cz-callout-color: var(--cz-text);
-  --cz-callout-accent: var(--cz-warning);
+  --cz-callout-accent: var(--cz-primary);
+  --cz-callout-overlay: linear-gradient(transparent, transparent);
+
+  /* Un toque menta en el icono; el panel conserva su fondo neutro */
+  --cz-callout-icon-border: rgb(var(--cz-secondary-rgb) / 32%);
+  --cz-callout-icon-bg: linear-gradient(var(--cz-candy-mint), var(--cz-candy-mint));
+  --cz-callout-icon-shadow: none;
+
+  --cz-callout-icon-color: var(--cz-text);
+  --cz-callout-icon-text-shadow: none;
+  --cz-callout-strong: var(--cz-text);
+  --cz-callout-link: var(--cz-info);
+  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 55%);
+}
+
+
+:root[data-theme='treasure-tavern'] {
+  color-scheme: dark;
+
+  /* Fondos: carbón azulado y petróleo */
+  --cz-bg: #10171b;
+  --cz-bg-rgb: 16 23 27;
+  --cz-surface: #1a252a;
+  --cz-surface-rgb: 26 37 42;
+  --cz-surface-elevated: #27353b;
+  --cz-surface-elevated-rgb: 39 53 59;
+
+  /* Acentos: turquesa, amatista y oro suave */
+  --cz-primary: #65d6c2;
+  --cz-primary-rgb: 101 214 194;
+  --cz-secondary: #b7a2e8;
+  --cz-secondary-rgb: 183 162 232;
+  --cz-accent: #e1b768;
+  --cz-accent-rgb: 225 183 104;
+
+  --cz-text: #f3eee4;
+  --cz-text-rgb: 243 238 228;
+
+  /* Estados legibles sobre las superficies oscuras */
+  --cz-success: #79d5a5;
+  --cz-success-rgb: 121 213 165;
+  --cz-danger: #ff8795;
+  --cz-danger-rgb: 255 135 149;
+  --cz-warning: #f2c66d;
+  --cz-warning-rgb: 242 198 109;
+  --cz-info: #86bfff;
+  --cz-info-rgb: 134 191 255;
+
+  /* Texto oscuro sobre fondos de acento claros */
+  --cz-on-accent: #171b20;
+  --cz-on-accent-rgb: 23 27 32;
+
+  --muted: rgb(var(--cz-text-rgb) / 74%);
+  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 60%);
+  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 70%);
+
+  --line: rgb(var(--cz-accent-rgb) / 28%);
+  --shadow: 0 18px 60px rgb(5 10 14 / 48%);
+
+  /* Ambiente sutil para conservar fondos limpios */
+  --app-bg-base: var(--cz-bg);
+  --app-bg-deep: color-mix(in srgb, var(--cz-bg) 80%, #050a0e 20%);
+  --app-bg-ember: rgb(var(--cz-secondary-rgb) / 5%);
+  --app-bg-forest: rgb(var(--cz-success-rgb) / 4%);
+  --app-bg-moss: rgb(var(--cz-accent-rgb) / 6%);
+  --app-bg-river: rgb(var(--cz-primary-rgb) / 7%);
+  --app-bg-blood: rgb(var(--cz-danger-rgb) / 3%);
+  --app-bg-vignette: rgb(5 10 14 / 36%);
+
+  --player-avatar-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 46%);
+  --player-name-text-shadow: none;
+
+  /* Callouts */
+  --cz-callout-border: rgb(var(--cz-accent-rgb) / 42%);
+  --cz-callout-bg:
+    linear-gradient(
+      180deg,
+      rgb(var(--cz-surface-elevated-rgb) / 96%),
+      rgb(var(--cz-surface-rgb) / 98%)
+    ),
+    linear-gradient(
+      135deg,
+      rgb(var(--cz-accent-rgb) / 8%),
+      rgb(var(--cz-primary-rgb) / 5%)
+    );
+
+  --cz-callout-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%),
+    0 14px 28px rgb(5 10 14 / 32%);
+
+  --cz-callout-color: var(--cz-text);
+  --cz-callout-accent: var(--cz-accent);
+
   --cz-callout-overlay:
-    linear-gradient(90deg, rgb(var(--cz-warning-rgb) / 22%), transparent 34%),
-    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent 54%);
-  --cz-callout-icon-border: rgb(var(--cz-warning-rgb) / 88%);
-  --cz-callout-icon-bg: linear-gradient(180deg, #8a4b00, var(--cz-warning));
+    linear-gradient(
+      90deg,
+      rgb(var(--cz-accent-rgb) / 6%),
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      rgb(var(--cz-text-rgb) / 2%),
+      transparent 54%
+    );
+
+  --cz-callout-icon-border: rgb(var(--cz-accent-rgb) / 76%);
+  --cz-callout-icon-bg: linear-gradient(180deg, #f0d39a, #c49a53);
+
   --cz-callout-icon-shadow:
-    0 0 0 3px rgb(var(--cz-warning-rgb) / 18%),
-    0 8px 18px rgb(62 20 86 / 14%);
+    0 0 0 3px rgb(var(--cz-accent-rgb) / 12%),
+    0 8px 18px rgb(5 10 14 / 30%);
+
   --cz-callout-icon-color: var(--cz-on-accent);
   --cz-callout-icon-text-shadow: none;
   --cz-callout-strong: var(--cz-text);
   --cz-callout-link: var(--cz-info);
-  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 58%);
-  --app-bg-vignette: rgb(var(--cz-surface-rgb) / 16%);
-}
+  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 64%);
 
-:root[data-theme='treasure-tavern'] {
-  color-scheme: dark;
-  --cz-bg: #3a1f0b;
-  --cz-bg-rgb: 58 31 11;
-  --cz-surface: #5a3212;
-  --cz-surface-rgb: 90 50 18;
-  --cz-surface-elevated: #8a5018;
-  --cz-surface-elevated-rgb: 138 80 24;
-  --cz-primary: #007c89;
-  --cz-primary-rgb: 0 124 137;
-  --cz-secondary: #7a1232;
-  --cz-secondary-rgb: 122 18 50;
-  --cz-accent: #d99a2b;
-  --cz-accent-rgb: 217 154 43;
-  --cz-text: #fff1d6;
-  --cz-text-rgb: 255 241 214;
-  --cz-success: #005f3b;
-  --cz-success-rgb: 0 95 59;
-  --cz-danger: #e0112d;
-  --cz-danger-rgb: 224 17 45;
-  --cz-warning: #7a1232;
-  --cz-warning-rgb: 122 18 50;
-  --cz-info: #0f52ba;
-  --cz-info-rgb: 15 82 186;
-  --cz-on-accent: #fff4d1;
-  --cz-on-accent-rgb: 255 244 209;
-  --muted: rgb(var(--cz-text-rgb) / 68%);
-  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 48%);
-  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 58%);
-  --line: rgb(var(--cz-accent-rgb) / 34%);
-  --shadow: 0 18px 60px rgb(20 10 4 / 38%);
-  --app-bg-base: var(--cz-bg);
-  --app-bg-deep: color-mix(in srgb, var(--cz-bg) 74%, var(--cz-surface) 26%);
-  --app-bg-ember: rgb(var(--cz-secondary-rgb) / 16%);
-  --app-bg-forest: rgb(var(--cz-success-rgb) / 11%);
-  --app-bg-moss: rgb(var(--cz-accent-rgb) / 10%);
-  --app-bg-river: rgb(var(--cz-primary-rgb) / 12%);
-  --app-bg-blood: rgb(var(--cz-danger-rgb) / 10%);
-  --app-bg-vignette: rgb(20 10 4 / 46%);
-  --player-avatar-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 38%);
-  --player-name-text-shadow: none;
-  --cz-callout-border: rgb(var(--cz-accent-rgb) / 46%);
-  --cz-callout-bg:
-    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 88%), rgb(var(--cz-bg-rgb) / 78%)),
-    linear-gradient(135deg, rgb(var(--cz-accent-rgb) / 12%), rgb(var(--cz-secondary-rgb) / 14%));
-  --cz-callout-shadow:
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
-    0 14px 28px rgb(20 10 4 / 32%);
-  --cz-callout-color: var(--cz-text);
-  --cz-callout-accent: var(--cz-accent);
-  --cz-callout-overlay:
-    linear-gradient(90deg, rgb(var(--cz-accent-rgb) / 16%), transparent 34%),
-    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent 54%);
-  --cz-callout-icon-border: rgb(var(--cz-accent-rgb) / 72%);
-  --cz-callout-icon-bg: linear-gradient(180deg, #f0bd55, var(--cz-surface-elevated));
-  --cz-callout-icon-shadow:
-    0 0 0 3px rgb(var(--cz-accent-rgb) / 14%),
-    0 8px 18px rgb(20 10 4 / 28%);
-  --cz-callout-icon-color: var(--cz-bg);
-  --cz-callout-icon-text-shadow: none;
-  --cz-callout-strong: var(--cz-text);
-  --cz-callout-link: var(--cz-info);
-  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 58%);
-  --deck-list-card-topline-bg: linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 78%), rgb(var(--cz-bg-rgb) / 34%));
+  /* Mazos: overlays neutros para respetar las ilustraciones */
+  --deck-list-card-topline-bg: linear-gradient(
+    90deg,
+    rgb(var(--cz-bg-rgb) / 92%),
+    rgb(var(--cz-bg-rgb) / 72%)
+  );
+
   --deck-list-commander-art-overlay:
-    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 28%) 0%, transparent 38%, rgb(var(--cz-bg-rgb) / 38%) 100%),
-    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 54%);
-  --deck-list-dual-commander-art-overlay: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 42%, rgb(var(--cz-bg-rgb) / 38%) 100%);
-  --deck-list-row-actions-bg: rgb(var(--cz-bg-rgb) / 58%);
-  --deck-list-row-actions-bg-hover: rgb(var(--cz-bg-rgb) / 70%);
+    linear-gradient(
+      180deg,
+      rgb(var(--cz-bg-rgb) / 22%) 0%,
+      transparent 38%,
+      rgb(var(--cz-bg-rgb) / 54%) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgb(var(--cz-bg-rgb) / 24%) 0%,
+      transparent 54%
+    );
+
+  --deck-list-dual-commander-art-overlay: linear-gradient(
+    180deg,
+    rgb(var(--cz-bg-rgb) / 22%) 0%,
+    transparent 42%,
+    rgb(var(--cz-bg-rgb) / 54%) 100%
+  );
+
+  --deck-list-row-actions-bg: rgb(var(--cz-bg-rgb) / 88%);
+  --deck-list-row-actions-bg-hover: rgb(var(--cz-surface-elevated-rgb) / 98%);
 }
 
 :root[data-theme='cyber-duel-arena'] {

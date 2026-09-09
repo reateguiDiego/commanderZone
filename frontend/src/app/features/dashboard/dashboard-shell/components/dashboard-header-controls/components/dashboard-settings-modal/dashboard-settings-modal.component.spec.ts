@@ -38,10 +38,10 @@ describe('DashboardSettingsModalComponent', () => {
         game: {
           showManaHelperOnStartup: false,
           enableManaRow: true,
-          enableStackMana: false,
           autoApplyCommanderDamageToLife: true,
           gameAnimations: true,
           chatNotificationSounds: true,
+          combineChatAndGameLog: false,
         },
       },
     }),
@@ -129,11 +129,13 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('App language');
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
-    expect(fixture.nativeElement.textContent).toContain('Enable mana row');
-    expect(fixture.nativeElement.textContent).toContain('Preserve mana pool');
-    expect(fixture.nativeElement.textContent).toContain('Apply commander damage to life total');
+    expect(fixture.nativeElement.textContent).toContain('Show a mana row');
+    expect(fixture.nativeElement.textContent).toContain('Combine chat and game log');
+    expect(fixture.nativeElement.textContent).toContain('Apply commander damage');
     expect(fixture.nativeElement.textContent).toContain('Game animations');
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
+    expect(fixture.nativeElement.textContent).toContain('We recommend disabling them only if you experience performance issues during a match.');
+    expect(fixture.nativeElement.querySelector('.game-settings-toggle [role="switch"]')?.classList.contains('toggle--no-hover-feedback')).toBe(true);
   });
 
   it('saves gameplay preferences from the game tab through /me', async () => {
@@ -146,9 +148,9 @@ describe('DashboardSettingsModalComponent', () => {
     gameTab.click();
     fixture.detectChanges();
 
-    const manaRowToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
-      .find((button) => button.textContent?.includes('Enable mana row')) as HTMLButtonElement;
-    manaRowToggle.click();
+    const combineChatAndGameLogToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Combine chat and game log')) as HTMLButtonElement;
+    combineChatAndGameLogToggle.click();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.canSave()).toBe(true);
@@ -158,11 +160,11 @@ describe('DashboardSettingsModalComponent', () => {
     expect(authApiMock.updateMe).toHaveBeenCalledWith({
       gamePreferences: {
         showManaHelperOnStartup: false,
-        enableManaRow: false,
-        enableStackMana: false,
+        enableManaRow: true,
         autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
+        combineChatAndGameLog: true,
       },
     });
     expect(authStoreMock.loadMe).toHaveBeenCalled();
@@ -180,6 +182,40 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.componentInstance.cancel();
 
     expect(fixture.componentInstance.gameSettingsToggleState().enableManaRow).toBe(true);
+    expect(fixture.componentInstance.canSave()).toBe(false);
+  });
+
+  it('opens a clean draft and discards every unsaved preference when the parent closes the modal', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.canSave()).toBe(false);
+
+    fixture.componentInstance.profileForm.controls.displayName.setValue('Unsaved player');
+    fixture.componentInstance.setCardLanguage('es');
+    fixture.componentInstance.setAppLanguage('fr');
+    fixture.componentInstance.setGameSettingsToggle('combineChatAndGameLog', true);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.canSave()).toBe(true);
+
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.profileForm.controls.displayName.value).toBe('Player');
+    expect(fixture.componentInstance.selectedCardLanguage()).toBe('en');
+    expect(fixture.componentInstance.selectedAppLanguage()).toBe('en');
+    expect(fixture.componentInstance.gameSettingsToggleState().combineChatAndGameLog).toBe(false);
+    expect(fixture.componentInstance.canSave()).toBe(false);
+    expect(runtimeLanguageSelectorMock.applyLanguage).toHaveBeenLastCalledWith('en');
+
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.canSave()).toBe(false);
   });
 
   it('updates the username character counter from the profile form value', () => {
@@ -430,10 +466,10 @@ describe('DashboardSettingsModalComponent', () => {
       gamePreferences: {
         showManaHelperOnStartup: false,
         enableManaRow: true,
-        enableStackMana: false,
         autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
+        combineChatAndGameLog: false,
       },
     });
     fixture.componentInstance.profileForm.setValue({ email: 'player@example.test', displayName: 'Player' });
@@ -568,10 +604,10 @@ describe('DashboardSettingsModalComponent', () => {
       gamePreferences: {
         showManaHelperOnStartup: false,
         enableManaRow: true,
-        enableStackMana: false,
         autoApplyCommanderDamageToLife: true,
         gameAnimations: true,
         chatNotificationSounds: true,
+        combineChatAndGameLog: false,
       },
     });
     fixture.componentInstance.selectedCardLanguage.set('fr');

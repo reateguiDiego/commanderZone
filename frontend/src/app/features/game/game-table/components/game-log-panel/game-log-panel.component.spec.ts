@@ -11,30 +11,44 @@ describe('GameLogPanelComponent', () => {
     fixture.componentRef.setInput('highlightedEntryIds', []);
     fixture.componentRef.setInput('fadingEntryIds', []);
     fixture.componentRef.setInput('logTime', () => '12:00');
-    fixture.componentRef.setInput('playerColor', (playerId: string) => playerId === 'player-1' ? '#123456' : '');
+    fixture.componentRef.setInput('playerColor', (playerId: string | null | undefined) =>
+      playerId === 'player-1' ? '#123456' : '',
+    );
   });
 
   it('renders the semantic subject separately from its fragment', () => {
-    fixture.componentRef.setInput('entries', [entry({
-      subject: { kind: 'player', playerId: 'player-1', displayName: 'Alice' },
-      messagePrefix: 'changed Bruno\'s life from 40 to 37.',
-    })]);
+    fixture.componentRef.setInput('entries', [
+      entry({
+        subject: { kind: 'player', playerId: 'player-1', displayName: 'Alice' },
+        messagePrefix: "changed Bruno's life from 40 to 37.",
+      }),
+    ]);
     fixture.detectChanges();
 
-    const logEntry = fixture.nativeElement.querySelector('[data-testid="game-log-entry"]') as HTMLElement;
+    const logEntry = fixture.nativeElement.querySelector(
+      '[data-testid="game-log-entry"]',
+    ) as HTMLElement;
 
     expect(logEntry.querySelector('strong')?.textContent).toBe('Alice');
-    expect(logEntry.querySelector('strong')?.style.getPropertyValue('--log-author-color')).toBe('#123456');
-    expect(logEntry.querySelector(':scope > span')?.textContent).toContain("changed Bruno's life from 40 to 37.");
+    expect(logEntry.querySelector('strong')?.style.getPropertyValue('--log-author-color')).toBe(
+      '#123456',
+    );
+    expect(logEntry.querySelector(':scope > span')?.textContent).toContain(
+      "changed Bruno's life from 40 to 37.",
+    );
   });
 
   it('renders a full legacy message with its resolved player subject', () => {
-    fixture.componentRef.setInput('entries', [entry({
-      messagePrefix: 'Legacy draw message.',
-    })]);
+    fixture.componentRef.setInput('entries', [
+      entry({
+        messagePrefix: 'Legacy draw message.',
+      }),
+    ]);
     fixture.detectChanges();
 
-    const logEntry = fixture.nativeElement.querySelector('[data-testid="game-log-entry"]') as HTMLElement;
+    const logEntry = fixture.nativeElement.querySelector(
+      '[data-testid="game-log-entry"]',
+    ) as HTMLElement;
 
     expect(logEntry.querySelector('strong')?.textContent).toBe('Alice');
     expect(logEntry.textContent).toContain('Legacy draw message.');

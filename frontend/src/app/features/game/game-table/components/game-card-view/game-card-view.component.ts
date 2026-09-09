@@ -283,7 +283,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     && !this.showPowerToughness()
   ));
   readonly sagaVisible = computed(() => !this.faceDown() && this.zone() === 'battlefield' && isSagaCard(this.card()));
-  readonly sagaValue = computed(() => (this.sagaVisible() ? (this.card().saga ?? this.sagaCounterValue()) : 1));
+  readonly sagaValue = computed(() => {
+    if (!this.sagaVisible()) {
+      return 1;
+    }
+    const card = this.card();
+    const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+
+    return card.faceRuntimeStats?.[index]?.saga ?? card.saga ?? this.sagaCounterValue();
+  });
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
   readonly battleRotated = computed(() => !this.faceDown() && isBattleCard(this.card()));
   readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);
@@ -385,14 +393,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   onClick(event: MouseEvent): void {
-    const isBattlefieldClick = this.mode() === 'battlefield' && this.zone() === 'battlefield';
-    this.previewSuppressedUntilPointerExit = isBattlefieldClick;
-    if (isBattlefieldClick) {
-      this.deactivateHover(true);
-    }
-    if (this.previewSuppressedUntilPointerExit) {
-      this.startPreviewBoundsWatcher();
-    }
+    this.suppressHoverPreviewUntilPointerExit();
     this.cardClicked.emit({ event, card: this.card() });
   }
 
@@ -402,6 +403,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    this.suppressHoverPreviewUntilPointerExit();
     this.cardPointerDown.emit({ event, card: this.card() });
   }
 
@@ -634,10 +636,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.mode() !== 'battlefield' || this.zone() !== 'battlefield') {
-      this.previewSuppressedUntilPointerExit = false;
-    }
-
     if (this.previewSuppressedUntilPointerExit) {
       this.deactivateHover(false);
       return;
@@ -700,6 +698,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     this.activePreviewInstanceId = null;
     this.cardMouseLeft.emit();
+  }
+
+  private suppressHoverPreviewUntilPointerExit(): void {
+    this.previewSuppressedUntilPointerExit = true;
+    this.deactivateHover(true);
+    this.startPreviewBoundsWatcher();
   }
 
   private activatePreviewForCurrentCard(): void {

@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "This message will be received by {{ count }} user(s).",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -208,7 +209,8 @@
       "impersonating": "Impersonating {{ name }}",
       "stop": "Stop",
       "averageManaValueWithoutLands": "Average mana value without lands: {{ value }}",
-      "messageTarget": "to {{ name }}",
+      "messageTargetPrefix": "to",
+      "messageTargetSuffix": "",
       "roomNotice": "Room {{ name }}",
       "revealed": "Revealed",
       "revealedCard": "Revealed card",
@@ -664,7 +666,11 @@
       "openBattlefieldZoomControls": "Open battlefield zoom controls",
       "battlefieldZoom": "Battlefield zoom",
       "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "resetZoom": "Reset zoom",
+      "squareLayout": "Square layout",
+      "gridLayout": "Grid layout",
+      "viewLabel": "View:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Card preview details",
@@ -833,7 +839,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Life controls",
       "playerCounters": "Player counters",
-      "autoApplyCommanderDamageToLife": "Apply commander damage to life total",
       "autoApplyCommanderDamageToLifeTooltip": "When enabled, commander damage changes also adjust that player's life total.",
       "otherCounters": "Other counters",
       "openExtraPlayerCounters": "Open extra player counters",
@@ -2059,23 +2064,27 @@
         "title": "Gameplay preferences",
         "showManaHelperOnStartup": {
           "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "description": "Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match."
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
+          "label": "Show a mana row",
+          "description": "Show a visual guide at the bottom of the battlefield for placing mana-producing cards. You can place any type of card there; it is only a visual aid."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "When enabled, damage from opposing commanders automatically reduces your life total. You can easily adjust it during the match."
         },
         "gameAnimations": {
           "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "description": "Turn all visual game animations on or off.",
+          "warning": "We recommend disabling them only if you experience performance issues during a match."
         },
         "chatNotificationSounds": {
           "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "description": "Play a sound when you receive new unread chat notifications."
         },
-        "preserveManaPool": {
-          "label": "Preserve mana pool",
-          "description": "Keep mana in your mana pool while resolving stacked actions."
+        "combineChatAndGameLog": {
+          "label": "Combine chat and game log",
+          "description": "Show chat messages and game actions together in a single tab."
         }
       },
       "deleteAccountWarning": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone."
@@ -2263,6 +2272,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "Apply commander damage",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "No users found.",

@@ -16,7 +16,13 @@ class DecklistPreviewer
      * @param array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string}> $entries
      * @return array<string,mixed>
      */
-    public function preview(array $entries, string $format, ?string $preferredLanguage = null, ?string $deckFormat = null): array
+    public function preview(
+        array $entries,
+        string $format,
+        ?string $preferredLanguage = null,
+        ?string $deckFormat = null,
+        bool $inferCommander = true,
+    ): array
     {
         $resolvedEntries = [];
         $missingCards = [];
@@ -50,7 +56,9 @@ class DecklistPreviewer
             ];
         }
 
-        $resolvedEntries = $this->inferCommanderSection($resolvedEntries, $format, $deckFormat);
+        if ($inferCommander) {
+            $resolvedEntries = $this->inferCommanderSection($resolvedEntries, $format, $deckFormat);
+        }
         $counts = $this->sectionCounts($resolvedEntries);
 
         return [

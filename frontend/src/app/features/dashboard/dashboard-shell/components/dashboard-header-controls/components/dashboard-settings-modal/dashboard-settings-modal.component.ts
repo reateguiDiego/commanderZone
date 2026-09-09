@@ -20,7 +20,13 @@ import {
 } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { HYBRID_LANGUAGE_OPTIONS, RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
-import { UserAvatar, UserDisplayNameStyle, UserGamePreferences } from '../../../../../../../core/models/user.model';
+import {
+  DEFAULT_USER_GAME_PREFERENCES,
+  normalizeUserGamePreferences,
+  UserAvatar,
+  UserDisplayNameStyle,
+  UserGamePreferences,
+} from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
 import { PlayerInfoComponent } from '../../../../../../../shared/ui/player-info/player-info.component';
@@ -37,7 +43,7 @@ type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
 type PasswordResetRequestState = 'idle' | 'sending' | 'sent' | 'error';
-type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'enableStackMana' | 'autoApplyCommanderDamageToLife' | 'gameAnimations' | 'chatNotificationSounds';
+type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'autoApplyCommanderDamageToLife' | 'gameAnimations' | 'chatNotificationSounds' | 'combineChatAndGameLog';
 export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
@@ -52,6 +58,7 @@ interface GameSettingsToggleOption {
   readonly id: GameSettingsToggleId;
   readonly labelKey: string;
   readonly descriptionKey: string;
+  readonly warningKey: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -61,44 +68,43 @@ const DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS = 900;
 const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
   CARD_LANGUAGE_OPTIONS.map((language) => [language.code, language.flagAsset]),
 );
-const GAME_SETTINGS_TOGGLE_DEFAULTS: UserGamePreferences = {
-  showManaHelperOnStartup: false,
-  enableManaRow: true,
-  enableStackMana: false,
-  autoApplyCommanderDamageToLife: true,
-  gameAnimations: true,
-  chatNotificationSounds: true,
-};
+const GAME_SETTINGS_TOGGLE_DEFAULTS: UserGamePreferences = { ...DEFAULT_USER_GAME_PREFERENCES };
 const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
   {
     id: 'showManaHelperOnStartup',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description',
+    warningKey: '',
   },
   {
     id: 'enableManaRow',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.description',
-  },
-  {
-    id: 'enableStackMana',
-    labelKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label',
-    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description',
+    warningKey: '',
   },
   {
     id: 'autoApplyCommanderDamageToLife',
-    labelKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLife',
-    descriptionKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip',
+    labelKey: 'shared.text.applyCommanderDamage',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.autoApplyCommanderDamageToLife.description',
+    warningKey: '',
   },
   {
     id: 'gameAnimations',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.description',
+    warningKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.warning',
   },
   {
     id: 'chatNotificationSounds',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.description',
+    warningKey: '',
+  },
+  {
+    id: 'combineChatAndGameLog',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.description',
+    warningKey: '',
   },
 ];
 
@@ -201,6 +207,7 @@ export class DashboardSettingsModalComponent {
   readonly cardLanguageCoverageLoading = signal(false);
   readonly gameSettingsToggleOptions = GAME_SETTINGS_TOGGLE_OPTIONS;
   readonly gameSettingsToggleState = signal<UserGamePreferences>({ ...GAME_SETTINGS_TOGGLE_DEFAULTS });
+  private readonly draftInitialized = signal(false);
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -220,6 +227,10 @@ export class DashboardSettingsModalComponent {
   );
 
   readonly hasChanges = computed(() => {
+    if (!this.draftInitialized()) {
+      return false;
+    }
+
     const baseline = this.profileBaseline();
     const formValue = this.profileFormValue();
     const email = formValue.email.trim().toLowerCase();
@@ -266,6 +277,7 @@ export class DashboardSettingsModalComponent {
         this.openLaunchTarget(launchTarget);
       }
       if (!isOpen && this.wasOpen) {
+        this.discardDraft();
         this.resetLocalState();
       }
       this.wasOpen = isOpen;
@@ -299,8 +311,7 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
-    this.restoreBaselineAppLanguage();
-    this.restoreBaselineGameSettings();
+    this.discardDraft();
     this.closeRequested.emit();
   }
 
@@ -453,7 +464,7 @@ export class DashboardSettingsModalComponent {
         this.reloadPage();
         return;
       }
-      this.statusMessage.set('Preferences saved.');
+      this.statusMessage.set(this.i18n.text('preferencesSaved'));
     } catch {
       this.restoreBaselineAppLanguage();
       this.errorMessage.set('No se pudieron guardar los cambios.');
@@ -564,6 +575,7 @@ export class DashboardSettingsModalComponent {
   }
 
   private initializeForm(): void {
+    this.draftInitialized.set(false);
     const user = this.authStore.user();
     const cardLanguage = normalizeCardLanguageCode(user?.preferences?.cardLanguage ?? this.languagePreferences.cardLanguage());
     const appLanguage = normalizeLanguageCode(user?.preferences?.appLanguage ?? this.languagePreferences.appLanguage());
@@ -586,6 +598,7 @@ export class DashboardSettingsModalComponent {
     this.profileFormValid.set(this.profileForm.valid);
     this.activeTab.set('general');
     this.resetLocalState();
+    this.draftInitialized.set(true);
     void this.loadCardLanguageCoverage();
   }
 
@@ -621,10 +634,25 @@ export class DashboardSettingsModalComponent {
   }
 
   private normalizeGamePreferences(preferences: Partial<UserGamePreferences> | null | undefined): UserGamePreferences {
-    return {
-      ...GAME_SETTINGS_TOGGLE_DEFAULTS,
-      ...preferences,
-    };
+    return normalizeUserGamePreferences(preferences);
+  }
+
+  private discardDraft(): void {
+    if (!this.draftInitialized()) {
+      return;
+    }
+
+    const baseline = this.profileBaseline();
+
+    this.profileForm.setValue({ email: baseline.email, displayName: baseline.displayName });
+    this.profileForm.markAsPristine();
+    this.profileForm.markAsUntouched();
+    this.profileFormValue.set(this.profileForm.getRawValue());
+    this.profileFormValid.set(this.profileForm.valid);
+    this.selectedCardLanguage.set(baseline.cardLanguage);
+    this.restoreBaselineAppLanguage();
+    this.restoreBaselineGameSettings();
+    this.draftInitialized.set(false);
   }
 
   private restoreBaselineAppLanguage(): void {

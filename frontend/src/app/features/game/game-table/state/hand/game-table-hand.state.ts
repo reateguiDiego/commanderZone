@@ -224,6 +224,12 @@ export class GameTableHandState {
     }
 
     await context.command('card.moved', payload);
+    if (landStackMove) {
+      await context.command('battlefield_stack.created', {
+        stackedInstanceId: movedInstanceId,
+        stackTopInstanceId: landStackMove.targetInstanceId,
+      });
+    }
     if (attachmentStackMove) {
       await context.command('attachment.created', {
         equipmentInstanceId: movedInstanceId,
@@ -239,13 +245,14 @@ export class GameTableHandState {
     playerId: string,
     sourceCard: GameCardInstance,
     dropPosition: { x: number; y: number },
-  ): { readonly position: { x: number; y: number }; readonly animatedInstanceIds: readonly string[] } | null {
+  ): { readonly position: { x: number; y: number }; readonly targetInstanceId: string; readonly animatedInstanceIds: readonly string[] } | null {
     const snapshot = context.snapshot();
     const battlefield = snapshot?.players[playerId]?.zones.battlefield ?? [];
     const battlefieldContext = context.battlefieldDragContext();
     const droppedCard = { ...sourceCard, zone: 'battlefield' as const, position: dropPosition };
     const target = landStackDropTarget(
       [...battlefield, droppedCard],
+      snapshot?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       (card) => {
@@ -269,6 +276,7 @@ export class GameTableHandState {
 
     return {
       position: droppedMove.position,
+      targetInstanceId: target.targetCard.instanceId,
       animatedInstanceIds: [
         ...(target.targetStack ? target.targetStack.members.map((member) => member.card.instanceId) : [target.targetCard.instanceId]),
         sourceCard.instanceId,
@@ -291,7 +299,7 @@ export class GameTableHandState {
     const battlefieldContext = context.battlefieldDragContext();
     const droppedCard = { ...sourceCard, zone: 'battlefield' as const, position: dropPosition };
     const cards = [...battlefield, droppedCard];
-    const target = attachmentDropTarget(cards, snapshot?.attachments ?? [], sourceCard.instanceId, dropPosition, (card) => {
+    const target = attachmentDropTarget(cards, snapshot?.attachments ?? [], snapshot?.battlefieldStacks ?? [], sourceCard.instanceId, dropPosition, (card) => {
       if (card.instanceId === sourceCard.instanceId) {
         return dropPosition;
       }
