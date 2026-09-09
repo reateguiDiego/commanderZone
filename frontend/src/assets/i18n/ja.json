@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "戦場ズームコントロールを開く",
       "battlefieldZoom": "戦場ズーム",
       "resetBattlefieldZoom": "戦場のズームをリセットする",
-      "resetZoom": "ズームをリセットする"
+      "resetZoom": "ズームをリセットする",
+      "squareLayout": "正方形レイアウト",
+      "gridLayout": "グリッドレイアウト",
+      "viewLabel": "表示:",
+      "zoomLabel": "ズーム:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "カードプレビューの詳細",

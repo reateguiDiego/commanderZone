@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Zoomsteuerung für das Schlachtfeld öffnen",
       "battlefieldZoom": "Schlachtfeld-Zoom",
       "resetBattlefieldZoom": "Schlachtfeld-Zoom zurücksetzen",
-      "resetZoom": "Zoom zurücksetzen"
+      "resetZoom": "Zoom zurücksetzen",
+      "squareLayout": "Quadratisches Layout",
+      "gridLayout": "Rasterlayout",
+      "viewLabel": "Ansicht:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Details zur Kartenvorschau",

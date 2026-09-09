@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "打开战场缩放控件",
       "battlefieldZoom": "战场变焦",
       "resetBattlefieldZoom": "重置战场缩放",
-      "resetZoom": "重置变焦"
+      "resetZoom": "重置变焦",
+      "squareLayout": "方形布局",
+      "gridLayout": "网格布局",
+      "viewLabel": "视图：",
+      "zoomLabel": "缩放："
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "牌预览详情",

@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Open battlefield zoom controls",
       "battlefieldZoom": "Battlefield zoom",
       "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "resetZoom": "Reset zoom",
+      "squareLayout": "Square layout",
+      "gridLayout": "Grid layout",
+      "viewLabel": "View:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Card preview details",

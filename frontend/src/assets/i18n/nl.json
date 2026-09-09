@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Open de zoomregelaars van battlefield",
       "battlefieldZoom": "Battlefield-zoom",
       "resetBattlefieldZoom": "battlefield-zoom opnieuw instellen",
-      "resetZoom": "Zoom opnieuw instellen"
+      "resetZoom": "Zoom opnieuw instellen",
+      "squareLayout": "Vierkante lay-out",
+      "gridLayout": "Rasterlay-out",
+      "viewLabel": "Weergave:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Details van kaartvoorbeeld",

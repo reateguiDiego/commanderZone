@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Apri i controlli zoom sul campo di battaglia",
       "battlefieldZoom": "Zoom sul campo di battaglia",
       "resetBattlefieldZoom": "Ripristina lo zoom del campo di battaglia",
-      "resetZoom": "Reimposta lo zoom"
+      "resetZoom": "Reimposta lo zoom",
+      "squareLayout": "Layout quadrato",
+      "gridLayout": "Layout a griglia",
+      "viewLabel": "Vista:",
+      "zoomLabel": "Zoom:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Dettagli anteprima della carta",

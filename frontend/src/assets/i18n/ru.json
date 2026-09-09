@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Открыть элементы управления масштабированием поля боя",
       "battlefieldZoom": "Масштаб поля боя",
       "resetBattlefieldZoom": "Сбросить масштаб поля боя",
-      "resetZoom": "Сбросить масштаб"
+      "resetZoom": "Сбросить масштаб",
+      "squareLayout": "Квадратная раскладка",
+      "gridLayout": "Сетка",
+      "viewLabel": "Вид:",
+      "zoomLabel": "Масштаб:"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Детали предпросмотра карты",

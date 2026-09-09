@@ -666,7 +666,11 @@
       "openBattlefieldZoomControls": "Ouvrir les contrôles de zoom du champ de bataille",
       "battlefieldZoom": "Zoom sur le champ de bataille",
       "resetBattlefieldZoom": "Réinitialiser le zoom du champ de bataille",
-      "resetZoom": "Réinitialiser le zoom"
+      "resetZoom": "Réinitialiser le zoom",
+      "squareLayout": "Disposition carrée",
+      "gridLayout": "Disposition en grille",
+      "viewLabel": "Vue :",
+      "zoomLabel": "Zoom :"
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "Détails de l’aperçu de la carte",

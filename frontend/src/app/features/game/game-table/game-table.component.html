@@ -425,6 +425,7 @@
               [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
               [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
               [canResetZoom]="battlefieldZoom.canResetZoom()"
+              [playerCount]="store.players().length"
               (zoomPercentChanged)="setBattlefieldZoom($event)"
               (resetZoom)="resetBattlefieldZoom()"
               (click)="$event.stopPropagation()"

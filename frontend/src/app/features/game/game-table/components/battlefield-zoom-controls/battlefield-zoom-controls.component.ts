@@ -58,6 +58,9 @@ const ZOOM_THUMB_MANA_SYMBOL_CLASSES = [
   'ms-s',
 ] as const;
 const DEFAULT_ZOOM_SNAP_DISTANCE_PERCENT = 2;
+const MAXIMUM_VIEW_LAYOUT_PLAYER_COUNT = 4;
+
+type BattlefieldViewLayout = 'square' | 'grid';
 
 @Component({
   selector: 'app-battlefield-zoom-controls',
@@ -75,13 +78,16 @@ export class BattlefieldZoomControlsComponent {
   readonly defaultZoomPercent = input.required<number>();
   readonly zoomStepPercent = input.required<number>();
   readonly canResetZoom = input.required<boolean>();
+  readonly playerCount = input.required<number>();
 
   readonly zoomPercentChanged = output<BattlefieldZoomPercent>();
   readonly resetZoom = output<void>();
   readonly isExpanded = signal(false);
+  readonly selectedViewLayout = signal<BattlefieldViewLayout>('square');
   readonly zoomThumbSymbol = this.pickRandomManaSymbolClass();
   readonly currentZoomPosition = computed(() => this.sliderPosition(this.zoomPercent()));
   readonly defaultZoomPosition = computed(() => this.sliderPosition(this.defaultZoomPercent()));
+  readonly shouldShowViewLayoutControls = computed(() => this.playerCount() <= MAXIMUM_VIEW_LAYOUT_PLAYER_COUNT);
   private isSliderDragging = false;
 
   @HostListener('document:pointerdown', ['$event'])
@@ -100,6 +106,14 @@ export class BattlefieldZoomControlsComponent {
 
   toggleExpanded(): void {
     this.isExpanded.update((isExpanded) => !isExpanded);
+  }
+
+  selectViewLayout(layout: BattlefieldViewLayout): void {
+    if (!this.shouldShowViewLayoutControls()) {
+      return;
+    }
+
+    this.selectedViewLayout.set(layout);
   }
 
   startSliderDrag(event: PointerEvent): void {

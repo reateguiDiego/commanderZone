@@ -42,17 +42,45 @@
   top: 0;
   right: 0;
   z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  min-height: 2rem;
+  display: inline-grid;
+  gap: 0.2rem;
   border: 1px solid var(--game-line-soft);
   border-radius: 8px;
-  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
+  padding: 0.25rem;
   background: rgb(var(--game-surface-deep-rgb) / 82%);
   box-shadow: 0 0.7rem 1.35rem rgb(var(--shadow-rgb) / 30%);
   color: var(--game-text);
   backdrop-filter: blur(10px);
+}
+
+.zoom-view-actions,
+.zoom-view-buttons,
+.zoom-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.zoom-view-actions {
+  justify-content: space-between;
+}
+
+.zoom-view-buttons {
+  gap: 0.14rem;
+}
+
+.zoom-slider-section {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.zoom-section-label {
+  color: var(--game-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .zoom-slider-shell {
@@ -157,6 +185,31 @@
   background: rgb(var(--highlight-rgb) / 6%);
   color: var(--game-text-muted, #c8c0ae);
   cursor: pointer;
+}
+
+.zoom-view-button {
+  display: inline-grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid var(--game-line-soft);
+  border-radius: 6px;
+  background: rgb(var(--highlight-rgb) / 6%);
+  color: var(--game-text-muted, #c8c0ae);
+  cursor: pointer;
+}
+
+.zoom-view-button:hover,
+.zoom-view-button:focus-visible {
+  border-color: var(--game-accent);
+  color: var(--game-text);
+}
+
+.zoom-view-button.is-selected {
+  border-color: var(--game-accent);
+  background: rgb(var(--highlight-rgb) / 18%);
+  color: var(--game-accent);
+  box-shadow: 0 0 0.45rem rgb(var(--highlight-rgb) / 24%);
 }
 
 .reset-button:hover:not(:disabled),

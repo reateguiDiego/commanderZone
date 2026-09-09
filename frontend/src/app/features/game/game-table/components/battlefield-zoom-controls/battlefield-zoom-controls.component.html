@@ -12,47 +12,87 @@
     </button>
   } @else {
     <div class="zoom-popover" data-testid="battlefield-zoom-popover" [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate">
-      <span
-        class="zoom-slider-shell"
-        data-testid="battlefield-zoom-default-mark"
-        [style.--zoom-current-position]="currentZoomPosition()"
-        [style.--zoom-default-position]="defaultZoomPosition()"
-        (pointerdown)="startSliderDrag($event)"
-        (pointermove)="moveSliderDrag($event)"
-        (pointerup)="endSliderDrag($event)"
-        (pointercancel)="endSliderDrag($event)"
-        (lostpointercapture)="cancelSliderDrag()"
-      >
-        <span class="zoom-track" aria-hidden="true">
-          <span class="zoom-default-mark"></span>
-          <span class="zoom-thumb">
-            <i [appMtgIcon]="zoomThumbSymbol" mtgIconKind="cost" aria-hidden="true"></i>
-          </span>
-        </span>
-        <input
-          class="zoom-slider"
-          data-testid="battlefield-zoom-slider"
-          type="range"
-          [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
-          [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
-          [min]="minZoomPercent()"
-          [max]="maxZoomPercent()"
-          [step]="zoomStepPercent()"
-          [value]="zoomPercent()"
-          (input)="handleZoomInput($event)"
-        />
-      </span>
+      @if (shouldShowViewLayoutControls()) {
+        <div class="zoom-view-actions" [attr.aria-label]="'game.battlefieldZoomControls.viewLabel' | runtimeTranslate" role="group">
+          <span class="zoom-section-label">{{ 'game.battlefieldZoomControls.viewLabel' | runtimeTranslate }}</span>
 
-      <button
-        class="reset-button"
-        type="button"
-        [title]="'game.battlefieldZoomControls.resetZoom' | runtimeTranslate"
-        [attr.aria-label]="'game.battlefieldZoomControls.resetBattlefieldZoom' | runtimeTranslate"
-        [disabled]="!canResetZoom()"
-        (click)="resetZoom.emit()"
-      >
-        <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
-      </button>
+          <div class="zoom-view-buttons">
+            <button
+              class="zoom-view-button"
+              data-testid="battlefield-zoom-square-button"
+              type="button"
+              [class.is-selected]="selectedViewLayout() === 'square'"
+              [title]="'game.battlefieldZoomControls.squareLayout' | runtimeTranslate"
+              [attr.aria-label]="'game.battlefieldZoomControls.squareLayout' | runtimeTranslate"
+              [attr.aria-pressed]="selectedViewLayout() === 'square'"
+              (click)="selectViewLayout('square')"
+            >
+              <lucide-icon name="square" size="14" aria-hidden="true" />
+            </button>
+
+            <button
+              class="zoom-view-button"
+              data-testid="battlefield-zoom-grid-button"
+              type="button"
+              [class.is-selected]="selectedViewLayout() === 'grid'"
+              [title]="'game.battlefieldZoomControls.gridLayout' | runtimeTranslate"
+              [attr.aria-label]="'game.battlefieldZoomControls.gridLayout' | runtimeTranslate"
+              [attr.aria-pressed]="selectedViewLayout() === 'grid'"
+              (click)="selectViewLayout('grid')"
+            >
+              <lucide-icon name="layout-grid" size="14" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="zoom-slider-section">
+        <span class="zoom-section-label">{{ 'game.battlefieldZoomControls.zoomLabel' | runtimeTranslate }}</span>
+
+        <div class="zoom-slider-row">
+          <span
+            class="zoom-slider-shell"
+            data-testid="battlefield-zoom-default-mark"
+            [style.--zoom-current-position]="currentZoomPosition()"
+            [style.--zoom-default-position]="defaultZoomPosition()"
+            (pointerdown)="startSliderDrag($event)"
+            (pointermove)="moveSliderDrag($event)"
+            (pointerup)="endSliderDrag($event)"
+            (pointercancel)="endSliderDrag($event)"
+            (lostpointercapture)="cancelSliderDrag()"
+          >
+            <span class="zoom-track" aria-hidden="true">
+              <span class="zoom-default-mark"></span>
+              <span class="zoom-thumb">
+                <i [appMtgIcon]="zoomThumbSymbol" mtgIconKind="cost" aria-hidden="true"></i>
+              </span>
+            </span>
+            <input
+              class="zoom-slider"
+              data-testid="battlefield-zoom-slider"
+              type="range"
+              [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+              [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+              [min]="minZoomPercent()"
+              [max]="maxZoomPercent()"
+              [step]="zoomStepPercent()"
+              [value]="zoomPercent()"
+              (input)="handleZoomInput($event)"
+            />
+          </span>
+
+          <button
+            class="reset-button"
+            type="button"
+            [title]="'game.battlefieldZoomControls.resetZoom' | runtimeTranslate"
+            [attr.aria-label]="'game.battlefieldZoomControls.resetBattlefieldZoom' | runtimeTranslate"
+            [disabled]="!canResetZoom()"
+            (click)="resetZoom.emit()"
+          >
+            <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     </div>
   }
 </div>
