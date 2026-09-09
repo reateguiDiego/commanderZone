@@ -1,3 +1,5 @@
+@charset "UTF-8";
+/* Generated from src/styles/themes.scss. Edit the SCSS source, not this file. */
 :root {
   color-scheme: dark;
   --cz-bg: #000000;
@@ -51,7 +53,7 @@
   --app-session-background: none;
 }
 
-:root[data-theme='arcade-neon-clash'] {
+:root[data-theme=arcade-neon-clash] {
   --cz-bg: #080b1f;
   --cz-bg-rgb: 8 11 31;
   --cz-surface: #171a3a;
@@ -76,9 +78,8 @@
   --cz-info-rgb: 59 167 255;
 }
 
-:root[data-theme='candy-summoners'] {
+:root[data-theme=candy-summoners] {
   color-scheme: light;
-
   /* Base mate algo más apagada: gris malva */
   --cz-bg: #c6c0c9;
   --cz-bg-rgb: 198 192 201;
@@ -86,7 +87,6 @@
   --cz-surface-rgb: 207 201 210;
   --cz-surface-elevated: #c9c3cc;
   --cz-surface-elevated-rgb: 201 195 204;
-
   /* Colores funcionales con contraste reforzado sobre las tres superficies */
   --cz-primary: #780049;
   --cz-primary-rgb: 120 0 73;
@@ -95,17 +95,14 @@
   /* Igual al principal para mantener planos sus degradados */
   --cz-accent: #780049;
   --cz-accent-rgb: 120 0 73;
-
   /* Colores chuche vivos para detalles, no para texto sobre gris */
   --cz-candy-pink: #ff70b8;
   --cz-candy-pink-rgb: 255 112 184;
   --cz-candy-mint: #65e2ce;
   --cz-candy-mint-rgb: 101 226 206;
-
   /* Texto ciruela oscuro */
   --cz-text: #3d3542;
   --cz-text-rgb: 61 53 66;
-
   --cz-success: #004628;
   --cz-success-rgb: 0 70 40;
   --cz-danger: #800018;
@@ -114,13 +111,10 @@
   --cz-warning-rgb: 91 50 0;
   --cz-info: #003677;
   --cz-info-rgb: 0 54 119;
-
   --cz-on-accent: #fff4fa;
   --cz-on-accent-rgb: 255 244 250;
-
   /* La mesa usa sombras del color de su fondo para no ensuciar superficies light. */
   --cz-game-shadow-rgb: var(--cz-bg-rgb);
-
   /*
    * En una superficie clara los halos reducen la nitidez percibida. Las piezas
    * de juego conservan sus bordes y estados por color, pero se muestran planas.
@@ -132,14 +126,11 @@
   --cz-game-ambient-animation: none;
   --cz-game-ambient-decoration-opacity: 0;
   --cz-game-backdrop-filter: none;
-
   --muted: rgb(var(--cz-text-rgb) / 90%);
   --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 88%);
   --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 94%);
-
   --line: rgb(var(--cz-text-rgb) / 14%);
   --shadow: none;
-
   /* Fondo uniforme, sin luces de color añadidas */
   --app-bg-base: var(--cz-bg);
   --app-bg-deep: var(--cz-bg);
@@ -149,39 +140,31 @@
   --app-bg-river: rgb(var(--cz-secondary-rgb) / 0%);
   --app-bg-blood: rgb(var(--cz-danger-rgb) / 0%);
   --app-bg-vignette: rgb(var(--cz-bg-rgb) / 0%);
-
   /* Cabeceras opacas para leer sobre cualquier ilustración */
   --deck-list-card-topline-bg: linear-gradient(
     90deg,
     var(--cz-surface),
     var(--cz-surface)
   );
-
   /* Sin velo claro sobre el arte de las cartas */
   --deck-list-commander-art-overlay: linear-gradient(transparent, transparent);
   --deck-list-dual-commander-art-overlay: linear-gradient(transparent, transparent);
-
   --deck-list-row-actions-bg: var(--cz-surface);
   --deck-list-row-actions-bg-hover: var(--cz-surface-elevated);
-
   /* Aro rosa sólido, sin resplandor */
   --player-avatar-shadow: 0 0 0 3px var(--cz-candy-pink);
   --player-name-text-shadow: none;
-
   /* Callouts planos, sin brillos */
   --cz-callout-border: var(--line);
   --cz-callout-bg: linear-gradient(var(--cz-surface), var(--cz-surface));
   --cz-callout-shadow: none;
-
   --cz-callout-color: var(--cz-text);
   --cz-callout-accent: var(--cz-primary);
   --cz-callout-overlay: linear-gradient(transparent, transparent);
-
   /* Un toque menta en el icono; el panel conserva su fondo neutro */
   --cz-callout-icon-border: rgb(var(--cz-secondary-rgb) / 32%);
   --cz-callout-icon-bg: linear-gradient(var(--cz-candy-mint), var(--cz-candy-mint));
   --cz-callout-icon-shadow: none;
-
   --cz-callout-icon-color: var(--cz-text);
   --cz-callout-icon-text-shadow: none;
   --cz-callout-strong: var(--cz-text);
@@ -189,10 +172,8 @@
   --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 55%);
 }
 
-
-:root[data-theme='treasure-tavern'] {
+:root[data-theme=treasure-tavern] {
   color-scheme: dark;
-
   /* Fondos: carbón azulado y petróleo */
   --cz-bg: #10171b;
   --cz-bg-rgb: 16 23 27;
@@ -200,7 +181,6 @@
   --cz-surface-rgb: 26 37 42;
   --cz-surface-elevated: #27353b;
   --cz-surface-elevated-rgb: 39 53 59;
-
   /* Acentos: turquesa, amatista y oro suave */
   --cz-primary: #65d6c2;
   --cz-primary-rgb: 101 214 194;
@@ -208,10 +188,8 @@
   --cz-secondary-rgb: 183 162 232;
   --cz-accent: #e1b768;
   --cz-accent-rgb: 225 183 104;
-
   --cz-text: #f3eee4;
   --cz-text-rgb: 243 238 228;
-
   /* Estados legibles sobre las superficies oscuras */
   --cz-success: #79d5a5;
   --cz-success-rgb: 121 213 165;
@@ -221,18 +199,14 @@
   --cz-warning-rgb: 242 198 109;
   --cz-info: #86bfff;
   --cz-info-rgb: 134 191 255;
-
   /* Texto oscuro sobre fondos de acento claros */
   --cz-on-accent: #171b20;
   --cz-on-accent-rgb: 23 27 32;
-
   --muted: rgb(var(--cz-text-rgb) / 74%);
   --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 60%);
   --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 70%);
-
   --line: rgb(var(--cz-accent-rgb) / 28%);
   --shadow: 0 18px 60px rgb(5 10 14 / 48%);
-
   /* Ambiente sutil para conservar fondos limpios */
   --app-bg-base: var(--cz-bg);
   --app-bg-deep: color-mix(in srgb, var(--cz-bg) 80%, #050a0e 20%);
@@ -242,10 +216,8 @@
   --app-bg-river: rgb(var(--cz-primary-rgb) / 7%);
   --app-bg-blood: rgb(var(--cz-danger-rgb) / 3%);
   --app-bg-vignette: rgb(5 10 14 / 36%);
-
   --player-avatar-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 46%);
   --player-name-text-shadow: none;
-
   /* Callouts */
   --cz-callout-border: rgb(var(--cz-accent-rgb) / 42%);
   --cz-callout-bg:
@@ -259,14 +231,11 @@
       rgb(var(--cz-accent-rgb) / 8%),
       rgb(var(--cz-primary-rgb) / 5%)
     );
-
   --cz-callout-shadow:
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%),
     0 14px 28px rgb(5 10 14 / 32%);
-
   --cz-callout-color: var(--cz-text);
   --cz-callout-accent: var(--cz-accent);
-
   --cz-callout-overlay:
     linear-gradient(
       90deg,
@@ -278,27 +247,22 @@
       rgb(var(--cz-text-rgb) / 2%),
       transparent 54%
     );
-
   --cz-callout-icon-border: rgb(var(--cz-accent-rgb) / 76%);
   --cz-callout-icon-bg: linear-gradient(180deg, #f0d39a, #c49a53);
-
   --cz-callout-icon-shadow:
     0 0 0 3px rgb(var(--cz-accent-rgb) / 12%),
     0 8px 18px rgb(5 10 14 / 30%);
-
   --cz-callout-icon-color: var(--cz-on-accent);
   --cz-callout-icon-text-shadow: none;
   --cz-callout-strong: var(--cz-text);
   --cz-callout-link: var(--cz-info);
   --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 64%);
-
   /* Mazos: overlays neutros para respetar las ilustraciones */
   --deck-list-card-topline-bg: linear-gradient(
     90deg,
     rgb(var(--cz-bg-rgb) / 92%),
     rgb(var(--cz-bg-rgb) / 72%)
   );
-
   --deck-list-commander-art-overlay:
     linear-gradient(
       180deg,
@@ -311,19 +275,17 @@
       rgb(var(--cz-bg-rgb) / 24%) 0%,
       transparent 54%
     );
-
   --deck-list-dual-commander-art-overlay: linear-gradient(
     180deg,
     rgb(var(--cz-bg-rgb) / 22%) 0%,
     transparent 42%,
     rgb(var(--cz-bg-rgb) / 54%) 100%
   );
-
   --deck-list-row-actions-bg: rgb(var(--cz-bg-rgb) / 88%);
   --deck-list-row-actions-bg-hover: rgb(var(--cz-surface-elevated-rgb) / 98%);
 }
 
-:root[data-theme='cyber-duel-arena'] {
+:root[data-theme=cyber-duel-arena] {
   --cz-bg: #050a12;
   --cz-bg-rgb: 5 10 18;
   --cz-surface: #111827;
@@ -348,7 +310,7 @@
   --cz-info-rgb: 6 182 212;
 }
 
-:root[data-theme='mystic-grove'] {
+:root[data-theme=mystic-grove] {
   --cz-bg: #081c15;
   --cz-bg-rgb: 8 28 21;
   --cz-surface: #12372a;

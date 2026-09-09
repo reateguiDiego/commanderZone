@@ -5,16 +5,38 @@ import { findSeoRouteByPath } from '../localization/seo-routes';
 
 export type RouteStyleScope = 'public' | 'private' | 'none';
 
-const ROUTE_STYLES: Record<Exclude<RouteStyleScope, 'none'>, { readonly id: string; readonly href: string; readonly bodyClass: string }> = {
+interface RouteStylesheet {
+  readonly id: string;
+  readonly href: string;
+}
+
+interface RouteStyleConfig {
+  readonly bodyClass: string;
+  readonly stylesheets: readonly RouteStylesheet[];
+}
+
+const ROUTE_STYLES: Record<Exclude<RouteStyleScope, 'none'>, RouteStyleConfig> = {
   public: {
-    id: 'cz-public-route-stylesheet',
-    href: '/route-styles/seo-public.css',
     bodyClass: 'cz-public-route',
+    stylesheets: [
+      {
+        id: 'cz-public-route-stylesheet',
+        href: '/route-styles/seo-public.css',
+      },
+    ],
   },
   private: {
-    id: 'cz-private-route-stylesheet',
-    href: '/route-styles/app-private.css',
     bodyClass: 'cz-private-route',
+    stylesheets: [
+      {
+        id: 'cz-private-theme-stylesheet',
+        href: '/route-styles/themes.css',
+      },
+      {
+        id: 'cz-private-route-stylesheet',
+        href: '/route-styles/app-private.css',
+      },
+    ],
   },
 };
 
@@ -44,13 +66,18 @@ export class RouteStylesService {
   }
 
   private apply(scope: RouteStyleScope): void {
-    for (const [candidateScope, config] of Object.entries(ROUTE_STYLES) as Array<[Exclude<RouteStyleScope, 'none'>, typeof ROUTE_STYLES.public]>) {
-      this.document.body.classList.toggle(config.bodyClass, scope === candidateScope);
+    for (const [candidateScope, config] of Object.entries(ROUTE_STYLES) as Array<[Exclude<RouteStyleScope, 'none'>, RouteStyleConfig]>) {
+      const applies = scope === candidateScope;
+      this.document.body.classList.toggle(config.bodyClass, applies);
 
-      if (scope === candidateScope) {
-        this.ensureStylesheet(config.id, config.href);
+      if (applies) {
+        for (const stylesheet of config.stylesheets) {
+          this.ensureStylesheet(stylesheet.id, stylesheet.href);
+        }
       } else {
-        this.document.getElementById(config.id)?.remove();
+        for (const stylesheet of config.stylesheets) {
+          this.document.getElementById(stylesheet.id)?.remove();
+        }
       }
     }
   }

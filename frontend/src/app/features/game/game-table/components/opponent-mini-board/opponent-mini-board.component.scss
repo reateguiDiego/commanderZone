@@ -150,12 +150,12 @@
 .opponent-user-name {
   min-width: 0;
   padding-left: 5px;
-  overflow: hidden;
-  color: rgb(var(--game-text-rgb) / 64%);
+  overflow: visible;
+  color: var(--opponent-user-name-color);
   font-size: 0.64rem;
   font-weight: 600;
   line-height: 1.15;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 

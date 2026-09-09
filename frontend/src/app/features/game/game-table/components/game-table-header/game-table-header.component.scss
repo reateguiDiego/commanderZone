@@ -20,11 +20,13 @@
   gap: 1rem;
   min-height: 5.25rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid rgb(var(--gold-rgb) / 28%);
-  background: var(--game-surface-deep);
-  box-shadow:
+  border-bottom: 1px solid var(--game-table-header-border-color, rgb(var(--gold-rgb) / 28%));
+  background: var(--game-table-header-background, var(--game-surface-deep));
+  box-shadow: var(
+    --game-table-header-shadow,
     0 1rem 2rem rgb(var(--shadow-rgb) / 22%),
-    inset 0 -1px 0 rgb(var(--highlight-rgb) / 4%);
+    inset 0 -1px 0 rgb(var(--highlight-rgb) / 4%)
+  );
   opacity: 0.18;
   pointer-events: none;
   transform: translateY(calc(-100% + var(--game-table-header-peek-height, 0.8rem)));
@@ -41,10 +43,12 @@
   right: 0;
   left: 0;
   height: var(--game-table-header-peek-height, 0.8rem);
-  background: var(--game-surface-deep);
-  box-shadow:
+  background: var(--game-table-header-peek-background, var(--game-surface-deep));
+  box-shadow: var(
+    --game-table-header-peek-shadow,
     0 0.35rem 0.9rem rgb(var(--gold-rgb) / 22%),
-    inset 0 1px 0 rgb(var(--highlight-rgb) / 45%);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 45%)
+  );
   pointer-events: none;
 }
 
@@ -126,7 +130,10 @@
 }
 
 .player-identity-avatar {
-  filter: drop-shadow(0 0 0.55rem rgb(var(--gold-rgb) / 18%));
+  filter: var(
+    --game-table-header-avatar-filter,
+    drop-shadow(0 0 0.55rem rgb(var(--gold-rgb) / 18%))
+  );
 }
 
 .player-identity app-player-name {

@@ -10,6 +10,7 @@ import { CardPreviewEvent } from '../../models/card-preview.model';
 import { OpponentTargetingPill } from '../../models/opponent-targeting-pill.model';
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../../utils/game-table-visual-assets';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
+import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
@@ -66,6 +67,7 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 })
 export class OpponentMiniBoardComponent {
   readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
+  readonly playerNameColor = gamePlayerNameColor;
   readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
     { zone: 'hand', icon: 'hand-fan', title: 'shared.text.hand' },
     { zone: 'library', icon: 'deck', title: 'game.zones.library' },

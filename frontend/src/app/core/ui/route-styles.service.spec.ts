@@ -23,6 +23,7 @@ describe('RouteStylesService', () => {
 
     expect(publicStylesheet()).not.toBeNull();
     expect(privateStylesheet()).toBeNull();
+    expect(privateThemeStylesheet()).toBeNull();
     expect(documentRef.body.classList.contains('cz-public-route')).toBe(true);
     expect(documentRef.body.classList.contains('cz-private-route')).toBe(false);
 
@@ -37,6 +38,7 @@ describe('RouteStylesService', () => {
       service.applyForPath(path);
 
       expect(privateStylesheet()).not.toBeNull();
+      expect(privateThemeStylesheet()).not.toBeNull();
       expect(publicStylesheet()).toBeNull();
       expect(documentRef.body.classList.contains('cz-private-route')).toBe(true);
       expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
@@ -47,6 +49,7 @@ describe('RouteStylesService', () => {
     service.applyForPath('/contact');
 
     expect(privateStylesheet()).not.toBeNull();
+    expect(privateThemeStylesheet()).not.toBeNull();
     expect(publicStylesheet()).toBeNull();
     expect(documentRef.body.classList.contains('cz-private-route')).toBe(true);
     expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
@@ -57,6 +60,7 @@ describe('RouteStylesService', () => {
     service.applyForPath('/unknown');
 
     expect(privateStylesheet()).toBeNull();
+    expect(privateThemeStylesheet()).toBeNull();
     expect(publicStylesheet()).toBeNull();
     expect(documentRef.body.classList.contains('cz-private-route')).toBe(false);
     expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
@@ -70,9 +74,14 @@ describe('RouteStylesService', () => {
     return documentRef.getElementById('cz-private-route-stylesheet');
   }
 
+  function privateThemeStylesheet(): HTMLElement | null {
+    return documentRef.getElementById('cz-private-theme-stylesheet');
+  }
+
   function cleanupRouteStyles(): void {
     documentRef.getElementById('cz-public-route-stylesheet')?.remove();
     documentRef.getElementById('cz-private-route-stylesheet')?.remove();
+    documentRef.getElementById('cz-private-theme-stylesheet')?.remove();
     documentRef.body.classList.remove('cz-public-route', 'cz-private-route');
   }
 });

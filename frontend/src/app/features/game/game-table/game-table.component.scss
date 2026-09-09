@@ -33,7 +33,7 @@
   --game-info: var(--cz-info);
   --game-info-rgb: var(--cz-info-rgb);
   --game-on-accent: var(--cz-on-accent);
-  --game-shadow-rgb: 0 0 0;
+  --game-shadow-rgb: var(--cz-game-shadow-rgb, 0 0 0);
   --game-highlight-rgb: 255 255 255;
   --gold: var(--game-accent);
   --gold-rgb: var(--game-accent-rgb);
