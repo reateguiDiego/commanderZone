@@ -4755,14 +4755,24 @@ describe('GameTableComponent', () => {
         '[data-testid="game-activity-panel"] [data-testid="chat-message"]',
       )?.textContent,
     ).toContain('Opponent:Reactable message');
+    const reactionPill = (fixture.nativeElement as HTMLElement).querySelector(
+      '.chat-reaction-pill',
+    ) as HTMLElement;
+    expect(reactionPill).not.toBeNull();
+    reactionPill.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.chat-reaction-users')?.textContent,
     ).toContain('Third Player');
 
+    reactionPill.dispatchEvent(new MouseEvent('mouseleave'));
+    fixture.detectChanges();
+
     const reactions = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="chat-reaction"]'),
     ) as HTMLButtonElement[];
-    reactions[0]?.click();
+    expect(reactions.length).toBeGreaterThan(0);
+    reactions[0].click();
     fixture.detectChanges();
 
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(
@@ -4843,7 +4853,7 @@ describe('GameTableComponent', () => {
     ).toContain('1');
   });
 
-  it('shows reaction authors for private chat messages', async () => {
+  it('shows reaction authors when hovering private chat message reactions', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({
       id: 'user-1',
@@ -4883,6 +4893,13 @@ describe('GameTableComponent', () => {
       '[data-testid="chat-open"]',
     ) as HTMLElement;
     chatButton.click();
+    fixture.detectChanges();
+
+    const reactionPill = (fixture.nativeElement as HTMLElement).querySelector(
+      '.chat-reaction-pill',
+    ) as HTMLElement;
+    expect(reactionPill).not.toBeNull();
+    reactionPill.dispatchEvent(new MouseEvent('mouseenter'));
     fixture.detectChanges();
 
     expect(
