@@ -104,6 +104,24 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.cardToughnessValue(card)).toBe(4);
   });
 
+  it('uses mutable runtime stats from the active face in new snapshots', () => {
+    const card = {
+      instanceId: 'card-1', name: 'Dual creature', tapped: false, activeFaceIndex: 1,
+      cardFaces: [
+        { name: 'Front', manaCost: null, typeLine: 'Creature', oracleText: null, power: '2', toughness: '2', loyalty: null, colors: [], imageUris: {} },
+        { name: 'Back', manaCost: null, typeLine: 'Creature', oracleText: null, power: '5', toughness: '4', loyalty: null, colors: [], imageUris: {} },
+      ],
+      power: 2, toughness: 2,
+      faceRuntimeStats: [
+        { defaultPower: 2, defaultToughness: 2, defaultLoyalty: null, defaultDefense: null, power: 3, toughness: 3, loyalty: null, defense: null, saga: null },
+        { defaultPower: 5, defaultToughness: 4, defaultLoyalty: null, defaultDefense: null, power: 7, toughness: 6, loyalty: null, defense: null, saga: null },
+      ],
+    };
+
+    expect(selectors.cardPowerValue(card)).toBe(7);
+    expect(selectors.cardToughnessValue(card)).toBe(6);
+  });
+
   it('keeps printed non-numeric power and toughness values for the active face', () => {
     const card = {
       instanceId: 'card-1',

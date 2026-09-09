@@ -419,13 +419,27 @@ class DecksController extends ApiController
             return $this->fail('Decklist is empty or invalid.');
         }
 
-        $preview = $previewer->preview($entries, $decklistFormat, $user->cardLanguage(), $deck->format());
         $selectedCommanders = $this->commandersFromPayload($payload, $cardResolver);
         if ($selectedCommanders === false) {
             return $this->fail('Commander card not found.', 404);
         }
         if (count($selectedCommanders) > 2) {
             return $this->fail('Commander decks can use at most two commanders.');
+        }
+
+        $preview = $previewer->preview(
+            $entries,
+            $decklistFormat,
+            $user->cardLanguage(),
+            $deck->format(),
+            $selectedCommanders === [],
+        );
+        $commanderConflicts = $this->explicitCommanderSelectionConflicts($preview['entries'], $selectedCommanders);
+        if ($commanderConflicts !== []) {
+            return $this->fail(sprintf(
+                'Selected commanders do not match the decklist commander section: %s. Update the selection or the decklist and import again.',
+                implode(', ', $commanderConflicts),
+            ));
         }
 
         $deck->clearCards();
@@ -1022,6 +1036,34 @@ class DecksController extends ApiController
         }
 
         return null;
+    }
+
+    /**
+     * @param array<int, array{section:string,name:string,card:?Card}> $entries
+     * @param list<Card> $selectedCommanders
+     * @return list<string>
+     */
+    private function explicitCommanderSelectionConflicts(array $entries, array $selectedCommanders): array
+    {
+        if ($selectedCommanders === []) {
+            return [];
+        }
+
+        $conflicts = [];
+        foreach ($entries as $entry) {
+            if (($entry['section'] ?? null) !== DeckCard::SECTION_COMMANDER) {
+                continue;
+            }
+
+            $card = $entry['card'] ?? null;
+            if (!$card instanceof Card || $this->matchingSelectedCommander($card, $selectedCommanders) instanceof Card) {
+                continue;
+            }
+
+            $conflicts[$card->scryfallId()] = $entry['name'];
+        }
+
+        return array_values($conflicts);
     }
 
     /**

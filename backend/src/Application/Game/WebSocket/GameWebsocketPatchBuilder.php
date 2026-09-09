@@ -1683,6 +1683,9 @@ final readonly class GameWebsocketPatchBuilder
                 $operation[$stat] = $nextCard[$stat] ?? null;
             }
         }
+        if (($previousCard['faceRuntimeStats'] ?? null) !== ($nextCard['faceRuntimeStats'] ?? null)) {
+            $operation['faceRuntimeStats'] = is_array($nextCard['faceRuntimeStats'] ?? null) ? $nextCard['faceRuntimeStats'] : [];
+        }
 
         return count($operation) > 4 ? $operation : null;
     }

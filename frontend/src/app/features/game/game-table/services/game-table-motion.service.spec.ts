@@ -300,26 +300,21 @@ describe('GameTableMotionService', () => {
 
   it('runs hand layout FLIP below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
-    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      callback(0);
-      return 1;
-    });
     const card = addHandCard(host, 'card-1');
 
-    try {
-      const playFlip = service.prepareHandLayoutFlip(host);
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+    const playFlip = service.prepareHandLayoutFlip(host);
 
-      playFlip();
+    playFlip();
 
-      expect(flipFromSpy).toHaveBeenCalledOnce();
-      expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
-        duration: 0.48,
-        ease: 'power3.out',
-        targets: [card],
-      });
-    } finally {
-      animationFrame.mockRestore();
-    }
+    expect(flipFromSpy).toHaveBeenCalledOnce();
+    expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
+      duration: 0.42,
+      ease: 'power2.inOut',
+      targets: [card],
+    });
+    expect(animationFrame).not.toHaveBeenCalled();
+    animationFrame.mockRestore();
   });
 
   it('uses layered GSAP pulses when creating a land stack', () => {

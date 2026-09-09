@@ -828,11 +828,17 @@ final class GameEventReplayService
         if (!is_array($card)) {
             return;
         }
+        $faceIndex = is_numeric($payload['faceIndex'] ?? null) ? (int) $payload['faceIndex'] : (int) ($card['activeFaceIndex'] ?? 0);
+        if (isset($card['faceRuntimeStats'][$faceIndex]) && is_array($card['faceRuntimeStats'][$faceIndex])) {
+            $stats =& $card['faceRuntimeStats'][$faceIndex];
+        } else {
+            $stats =& $card;
+        }
         if (is_array($payload['counters'] ?? null)) {
             $card['counters'] = $payload['counters'];
             foreach (['power', 'toughness'] as $field) {
                 if (array_key_exists($field, $payload)) {
-                    $card[$field] = $payload[$field];
+                    $stats[$field] = $payload[$field];
                 }
             }
             return;
@@ -854,7 +860,7 @@ final class GameEventReplayService
         $card['counters'] = $counters;
         foreach (['power', 'toughness'] as $field) {
             if (array_key_exists($field, $payload)) {
-                $card[$field] = $payload[$field];
+                $stats[$field] = $payload[$field];
             }
         }
     }
@@ -868,9 +874,15 @@ final class GameEventReplayService
         if (!is_array($card)) {
             return;
         }
+        $faceIndex = is_numeric($payload['faceIndex'] ?? null) ? (int) $payload['faceIndex'] : (int) ($card['activeFaceIndex'] ?? 0);
+        if (isset($card['faceRuntimeStats'][$faceIndex]) && is_array($card['faceRuntimeStats'][$faceIndex])) {
+            $stats =& $card['faceRuntimeStats'][$faceIndex];
+        } else {
+            $stats =& $card;
+        }
         foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $field) {
             if (array_key_exists($field, $payload)) {
-                $card[$field] = $payload[$field];
+                $stats[$field] = $payload[$field];
             }
         }
     }
@@ -1482,7 +1494,7 @@ final class GameEventReplayService
                 if (!is_array($card)) {
                     return;
                 }
-                foreach (['tapped', 'rotation', 'faceDown', 'hidden', 'revealedTo', 'counters', 'dungeonMarker', 'position', 'power', 'toughness', 'loyalty', 'defense', 'saga'] as $field) {
+                foreach (['tapped', 'rotation', 'faceDown', 'hidden', 'revealedTo', 'counters', 'dungeonMarker', 'position', 'power', 'toughness', 'loyalty', 'defense', 'saga', 'faceRuntimeStats'] as $field) {
                     if (array_key_exists($field, $operation)) {
                         $card[$field] = $operation[$field];
                     }
@@ -1495,7 +1507,7 @@ final class GameEventReplayService
                     return;
                 }
                 $card['counters'] = is_array($operation['counters'] ?? null) ? $operation['counters'] : [];
-                foreach (['power', 'toughness'] as $field) {
+                foreach (['power', 'toughness', 'faceRuntimeStats'] as $field) {
                     if (array_key_exists($field, $operation)) {
                         $card[$field] = $operation[$field];
                     }

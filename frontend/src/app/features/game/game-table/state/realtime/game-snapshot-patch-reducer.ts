@@ -175,6 +175,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
         ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
         ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        ...(operation.faceRuntimeStats !== undefined ? { faceRuntimeStats: operation.faceRuntimeStats.map((stats) => ({ ...stats })) } : {}),
       }));
 
     case 'cards.state.set':

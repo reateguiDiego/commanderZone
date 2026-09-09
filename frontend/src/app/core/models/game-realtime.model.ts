@@ -350,6 +350,7 @@ export type GameSnapshotPatchOperation =
         loyalty?: GameCardInstance['loyalty'];
         defense?: GameCardInstance['defense'];
         saga?: GameCardInstance['saga'];
+        faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
       }
   | {
       op: 'cards.state.set';

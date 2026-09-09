@@ -347,6 +347,7 @@ final class CompactGameCardStateMapper
 
         $bundle = CardStaticBundle::fromArray($catalog[$cardKey]);
         $mutableStats = is_array($card['mutableStats'] ?? null) ? $card['mutableStats'] : [];
+        $faceRuntimeStats = is_array($card['faceRuntimeStats'] ?? null) ? array_values($card['faceRuntimeStats']) : [];
         $tokenMeta = is_array($card['tokenMeta'] ?? null) ? $card['tokenMeta'] : [];
         $layout = $bundle->layoutMetadata['layout'] ?? null;
         $preserveIdentity = $this->zoneCarriesPublicIdentity((string) ($card['zone'] ?? $zone));
@@ -397,6 +398,9 @@ final class CompactGameCardStateMapper
         }
         if (array_key_exists('saga', $mutableStats)) {
             $hydrated['saga'] = $mutableStats['saga'];
+        }
+        if ($faceRuntimeStats !== []) {
+            $hydrated['faceRuntimeStats'] = $faceRuntimeStats;
         }
         if (is_array($card['dungeonMarker'] ?? null)) {
             $hydrated['dungeonMarker'] = $card['dungeonMarker'];

@@ -71,25 +71,26 @@ type PlayerZones struct {
 }
 
 type CardInstanceRuntime struct {
-	InstanceID    string         `json:"instanceId"`
-	CardKey       string         `json:"cardKey,omitempty"`
-	PrintID       string         `json:"printId,omitempty"`
-	CardVersion   string         `json:"cardVersion,omitempty"`
-	Language      string         `json:"language,omitempty"`
-	OwnerID       string         `json:"ownerId"`
-	ControllerID  string         `json:"controllerId"`
-	Zone          Zone           `json:"zone"`
-	IsCommander   bool           `json:"isCommander"`
-	IsToken       bool           `json:"isToken"`
-	TokenMeta     map[string]any `json:"tokenMeta,omitempty"`
-	Tapped        bool           `json:"tapped"`
-	Rotation      int            `json:"rotation"`
-	Counters      map[string]int `json:"counters,omitempty"`
-	MutableStats  map[string]any `json:"mutableStats,omitempty"`
-	Position      map[string]any `json:"position,omitempty"`
-	FaceDown      bool           `json:"faceDown"`
-	ActiveFace    int            `json:"activeFace"`
-	VisibleToMask uint64         `json:"visibleToMask,omitempty"`
+	InstanceID       string           `json:"instanceId"`
+	CardKey          string           `json:"cardKey,omitempty"`
+	PrintID          string           `json:"printId,omitempty"`
+	CardVersion      string           `json:"cardVersion,omitempty"`
+	Language         string           `json:"language,omitempty"`
+	OwnerID          string           `json:"ownerId"`
+	ControllerID     string           `json:"controllerId"`
+	Zone             Zone             `json:"zone"`
+	IsCommander      bool             `json:"isCommander"`
+	IsToken          bool             `json:"isToken"`
+	TokenMeta        map[string]any   `json:"tokenMeta,omitempty"`
+	Tapped           bool             `json:"tapped"`
+	Rotation         int              `json:"rotation"`
+	Counters         map[string]int   `json:"counters,omitempty"`
+	MutableStats     map[string]any   `json:"mutableStats,omitempty"`
+	FaceRuntimeStats []map[string]any `json:"faceRuntimeStats,omitempty"`
+	Position         map[string]any   `json:"position,omitempty"`
+	FaceDown         bool             `json:"faceDown"`
+	ActiveFace       int              `json:"activeFace"`
+	VisibleToMask    uint64           `json:"visibleToMask,omitempty"`
 }
 
 func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
@@ -200,12 +201,12 @@ type RelationIndexes struct {
 
 func (r *RelationIndexes) UnmarshalJSON(data []byte) error {
 	aux := struct {
-		BySource               json.RawMessage `json:"bySource"`
-		ByTarget               json.RawMessage `json:"byTarget"`
-		ArrowsBySource         json.RawMessage `json:"arrowsBySource"`
-		ArrowsByTarget         json.RawMessage `json:"arrowsByTarget"`
-		AttachmentsByEquipment json.RawMessage `json:"attachmentsByEquipment"`
-		AttachmentsByTarget    json.RawMessage `json:"attachmentsByTarget"`
+		BySource                json.RawMessage `json:"bySource"`
+		ByTarget                json.RawMessage `json:"byTarget"`
+		ArrowsBySource          json.RawMessage `json:"arrowsBySource"`
+		ArrowsByTarget          json.RawMessage `json:"arrowsByTarget"`
+		AttachmentsByEquipment  json.RawMessage `json:"attachmentsByEquipment"`
+		AttachmentsByTarget     json.RawMessage `json:"attachmentsByTarget"`
 		BattlefieldStacksByTop  json.RawMessage `json:"battlefieldStacksByTop"`
 		BattlefieldStacksByCard json.RawMessage `json:"battlefieldStacksByCard"`
 	}{}
@@ -482,8 +483,20 @@ func (c CardInstanceRuntime) Clone() CardInstanceRuntime {
 	c.TokenMeta = cloneAnyMap(c.TokenMeta)
 	c.Counters = cloneIntMap(c.Counters)
 	c.MutableStats = cloneAnyMap(c.MutableStats)
+	c.FaceRuntimeStats = cloneAnyMapSlice(c.FaceRuntimeStats)
 	c.Position = cloneAnyMap(c.Position)
 	return c
+}
+
+func cloneAnyMapSlice(values []map[string]any) []map[string]any {
+	if values == nil {
+		return nil
+	}
+	clone := make([]map[string]any, len(values))
+	for index, value := range values {
+		clone[index] = cloneAnyMap(value)
+	}
+	return clone
 }
 
 func (z PlayerZones) Clone() PlayerZones {

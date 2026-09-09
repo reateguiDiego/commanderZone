@@ -15,7 +15,7 @@
       </div>
       <div class="room-chips" [attr.aria-label]="'rooms.roomCurrentBanner.currentRoomDetails' | runtimeTranslate">
         <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ formatName() }}</span>
-        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ 'rooms.waitingRoom.playersCount' | runtimeTranslate: { count: playerCountLabel() } }}</span>
+        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ 'rooms.waitingRoom.playersCount' | runtimeTranslate: { current: currentRoom.playerCount, max: roomCapacity(currentRoom) } }}</span>
       </div>
     </div>
 

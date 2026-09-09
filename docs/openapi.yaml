@@ -2143,7 +2143,7 @@ paths:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
-      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt).
+      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt). When commanders are selected separately, automatic commander inference is disabled and any explicit Commander section must match that selection.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -4890,6 +4890,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFace'
+        faceRuntimeStats:
+          type: array
+          description: Runtime stats indexed by face for double-faced cards in post-face-runtime snapshots.
+          items:
+            type: object
+            required: [defaultPower, defaultToughness, defaultLoyalty, defaultDefense, power, toughness, loyalty, defense, saga]
+            properties:
+              defaultPower: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultToughness: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultLoyalty: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defaultDefense: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              power: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              toughness: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              loyalty: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              defense: { oneOf: [{ type: integer }, { type: string }, { type: 'null' }] }
+              saga: { type: [integer, 'null'], minimum: 1, maximum: 9 }
         hasRulings:
           type: boolean
           description: Persisted metadata indicating whether this card has Scryfall rulings.
@@ -7844,6 +7860,10 @@ components:
       properties:
         version:
           type: integer
+        faceRuntimeStatsVersion:
+          type: integer
+          enum: [1]
+          description: Present only in games created with per-face runtime statistics enabled.
         ownerId:
           type: string
           format: uuid

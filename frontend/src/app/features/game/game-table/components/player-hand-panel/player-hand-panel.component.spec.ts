@@ -49,6 +49,72 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList.contains('hand-revealed')).toBe(true);
   });
 
+  it('returns the hand to fan when the document becomes hidden', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel();
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    const previewHidden = vi.fn();
+    fixture.componentInstance.cardPreviewHidden.subscribe(previewHidden);
+
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 320 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+
+    const visibilityStateDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    try {
+      fixture.componentInstance.handleDocumentVisibilityChange();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+      expect(handArea.classList).not.toContain('hand-revealed');
+      expect(previewHidden).toHaveBeenCalledOnce();
+    } finally {
+      if (visibilityStateDescriptor) {
+        Object.defineProperty(document, 'visibilityState', visibilityStateDescriptor);
+      } else {
+        Reflect.deleteProperty(document, 'visibilityState');
+      }
+    }
+  });
+
+  it('restores the fan to row FLIP on the first real hover after returning to the document', async () => {
+    vi.useFakeTimers();
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({ prepareHandLayoutFlip });
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    const visibilityStateDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    try {
+      fixture.componentInstance.handleDocumentVisibilityChange();
+      fixture.detectChanges();
+    } finally {
+      if (visibilityStateDescriptor) {
+        Object.defineProperty(document, 'visibilityState', visibilityStateDescriptor);
+      } else {
+        Reflect.deleteProperty(document, 'visibilityState');
+      }
+    }
+
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+    expect(prepareHandLayoutFlip).toHaveBeenCalled();
+    expect(playFlip).toHaveBeenCalled();
+  });
+
   it('keeps the hand revealed when focus moves between cards inside the hand', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
@@ -65,24 +131,22 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList.contains('hand-revealed')).toBe(true);
   });
 
-  it('reveals the hand after a deliberate active drop target hover', async () => {
-    vi.useFakeTimers();
+  it('reveals an external hand target only while that drag remains active', async () => {
     const { fixture, handArea } = await renderHandPanel({
+      hasActiveCardDrag: true,
       isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
     });
 
     fixture.detectChanges();
-    vi.advanceTimersByTime(999);
+    expect(handArea.classList.contains('hand-revealed')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
+
+    fixture.componentRef.setInput('hasActiveCardDrag', false);
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
     fixture.detectChanges();
 
     expect(handArea.classList.contains('hand-revealed')).toBe(false);
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
-
-    vi.advanceTimersByTime(1);
-    fixture.detectChanges();
-
-    expect(handArea.classList.contains('hand-revealed')).toBe(true);
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
   });
 
   it('shows focused opponent hands face down without card hover interactions', async () => {
@@ -549,7 +613,7 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList.contains('hand-revealed')).toBe(false);
   });
 
-  it('reveals after an external drag becomes allowed while the pointer is already over hand', async () => {
+  it('does not reveal from hover when an external drag becomes allowed away from the hand target', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel({
       hasActiveCardDrag: true,
@@ -564,7 +628,7 @@ describe('PlayerHandPanelComponent', () => {
     vi.advanceTimersByTime(200);
     fixture.detectChanges();
 
-    expect(handArea.classList.contains('hand-revealed')).toBe(true);
+    expect(handArea.classList.contains('hand-revealed')).toBe(false);
   });
 
   it('keeps the hand revealed while an own hand reorder is active even if external reveal is blocked', async () => {
@@ -627,6 +691,76 @@ describe('PlayerHandPanelComponent', () => {
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
     expect(handArea.classList).not.toContain('hand-revealed');
+
+    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }));
+    fixture.detectChanges();
+
+    expect(handArea.classList).not.toContain('hand-revealed');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+  });
+
+  it('keeps the hand in row after receiving an external drop when the pointer is inside it', async () => {
+    const { fixture, handArea } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
+    });
+
+    handArea.getBoundingClientRect = () => ({
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 160,
+      top: 100,
+      right: 300,
+      bottom: 260,
+      left: 100,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fixture.componentInstance.syncHandMouseHover(new MouseEvent('mousemove', { clientX: 180, clientY: 120 }));
+
+    fixture.componentRef.setInput('hasActiveCardDrag', false);
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+  });
+
+  it('honors a pointer leave that occurs while the incoming-card handoff is animating', async () => {
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture, handArea } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
+      prepareHandLayoutFlip,
+    });
+    handArea.getBoundingClientRect = () => ({
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 160,
+      top: 100,
+      right: 300,
+      bottom: 260,
+      left: 100,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fixture.componentInstance.syncHandMouseHover(new MouseEvent('mousemove', { clientX: 180, clientY: 120 }));
+
+    fixture.componentRef.setInput('motionActive', true);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('hasActiveCardDrag', false);
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+    fixture.componentInstance.leaveHand(new MouseEvent('mouseleave', { clientX: 20, clientY: 20 }));
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+    expect(playFlip).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput('motionActive', false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+    expect(playFlip).toHaveBeenCalledOnce();
   });
 
   it('collapses to fan when an external drag is outside the hand', async () => {
@@ -646,9 +780,97 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
   });
 
+  it('returns to fan as soon as an external drag leaves the hand drop target', async () => {
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      isDropZoneHighlighted: (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    });
+
+    fixture.detectChanges();
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+  });
+
+  it('animates each external hand layout transition', async () => {
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
+      prepareHandLayoutFlip,
+    });
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+
+    expect(prepareHandLayoutFlip).toHaveBeenCalledOnce();
+    expect(playFlip).toHaveBeenCalledOnce();
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, zone: GameZoneName) => zone === 'hand');
+    fixture.detectChanges();
+
+    expect(prepareHandLayoutFlip).toHaveBeenCalledTimes(2);
+    expect(playFlip).toHaveBeenCalledTimes(2);
+  });
+
+  it('reveals an external hand target before capturing its fan to row layout', async () => {
+    let component: PlayerHandPanelComponent | null = null;
+    let revealedAtLayoutCapture: boolean | null = null;
+    const prepareHandLayoutFlip = vi.fn(() => {
+      revealedAtLayoutCapture = component?.isHandVisuallyRevealed() ?? null;
+
+      return vi.fn();
+    });
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      prepareHandLayoutFlip,
+    });
+    component = fixture.componentInstance;
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, zone: GameZoneName) => zone === 'hand');
+    fixture.detectChanges();
+
+    expect(revealedAtLayoutCapture).toBe(true);
+  });
+
+  it('animates the owning player hand when mouse hover changes between fan and row', async () => {
+    vi.useFakeTimers();
+    try {
+      const playFlip = vi.fn();
+      const prepareHandLayoutFlip = vi.fn(() => playFlip);
+      const { fixture, handArea } = await renderHandPanel({ prepareHandLayoutFlip });
+      const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+
+      hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+      vi.advanceTimersByTime(200);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+      expect(prepareHandLayoutFlip).toHaveBeenCalled();
+      expect(playFlip).toHaveBeenCalledOnce();
+
+      handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 240, clientY: 20 }));
+      vi.advanceTimersByTime(260);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+      expect(prepareHandLayoutFlip).toHaveBeenCalledTimes(2);
+      expect(playFlip).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it('marks hand cards as alignment references while hand is the drop target', async () => {
     vi.useFakeTimers();
     const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
       isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
     });
 
@@ -1324,6 +1546,7 @@ describe('PlayerHandPanelComponent', () => {
     fixture.componentInstance.handCardPointerReordered.subscribe(reordered);
     const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
     const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const handArea = fixture.nativeElement.querySelector('[data-testid="hand-area"]') as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
     const targetElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]') as HTMLElement;
     handZone.getBoundingClientRect = () => ({
@@ -1354,6 +1577,7 @@ describe('PlayerHandPanelComponent', () => {
       value: vi.fn(() => [handFan]),
     });
 
+    fixture.componentInstance.focusHand();
     fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard!);
     fixture.detectChanges();
     fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }));
@@ -1370,6 +1594,12 @@ describe('PlayerHandPanelComponent', () => {
       targetInstanceId: targetCard!.instanceId,
       placement: 'before',
     });
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 500, clientY: 220 }));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(handFan.classList).not.toContain('hand-fan-row');
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,

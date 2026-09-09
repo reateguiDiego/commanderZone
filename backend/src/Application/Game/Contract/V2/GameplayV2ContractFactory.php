@@ -558,6 +558,9 @@ final class GameplayV2ContractFactory
             'isTokenCopy' => ($card['isTokenCopy'] ?? false) === true,
             'isCommander' => ($card['isCommander'] ?? $zoneName === 'command') === true,
         ];
+        if (is_array($card['faceRuntimeStats'] ?? null)) {
+            $instance['faceRuntimeStats'] = array_values($card['faceRuntimeStats']);
+        }
         if (!$this->isHiddenPlaceholder($card)) {
             $instance['cardKey'] = $staticCard['cardKey'];
             $instance['printId'] = $staticCard['printId'];

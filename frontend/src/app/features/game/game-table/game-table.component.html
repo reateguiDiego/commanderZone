@@ -8,15 +8,28 @@
   (contextmenu)="store.openGameMenu($event)"
   (dragstart)="handleNativeDragStart($event)"
 >
-  <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
+  <app-game-table-header
+    (click)="$event.stopPropagation()"
+    (contextmenu)="$event.stopPropagation()"
+  />
 
-  <aside class="orientation-lock" data-testid="game-orientation-lock" role="status" aria-live="polite">
+  <aside
+    class="orientation-lock"
+    data-testid="game-orientation-lock"
+    role="status"
+    aria-live="polite"
+  >
     <lucide-icon name="rotate-cw" size="34" aria-hidden="true" />
     <strong>{{ 'shared.text.rotateYourDevice' | runtimeTranslate }}</strong>
     <span>{{ 'game.gameTable.gamesCanOnlyBePlayedInLandscape' | runtimeTranslate }}</span>
   </aside>
 
-  <aside class="unsupported-resolution-lock" data-testid="game-unsupported-resolution-lock" role="status" aria-live="polite">
+  <aside
+    class="unsupported-resolution-lock"
+    data-testid="game-unsupported-resolution-lock"
+    role="status"
+    aria-live="polite"
+  >
     <lucide-icon name="triangle-alert" size="34" aria-hidden="true" />
     <strong>{{ 'game.gameTable.thisTableNeedsALittleMoreRoom' | runtimeTranslate }}</strong>
     <span>
@@ -83,8 +96,17 @@
               (helperPreviewHidden)="store.hideCardPreview()"
               (helperContextRequested)="handleHelperContextRequest($event)"
               (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
-              (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
-              (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
+              (commanderDamageChanged)="
+                store.setCommanderDamage(
+                  $event.targetPlayerId,
+                  $event.sourcePlayerId,
+                  $event.commanderInstanceId,
+                  $event.delta
+                )
+              "
+              (playerCounterChanged)="
+                store.changePlayerCounter($event.playerId, $event.key, $event.delta)
+              "
             />
           }
 
@@ -150,7 +172,12 @@
                       [class.death-entry]="entry.appearance === 'death'"
                     >
                       <small>{{ logTime(entry.createdAt) }}</small>
-                      <strong>{{ entry.displayName ?? ('game.debug.system' | runtimeTranslate) }}</strong>
+                      <strong
+                        [style.--log-author-color]="
+                          playerNameColor(entry.subject?.playerId ?? entry.actorId)
+                        "
+                        >{{ entry.displayName ?? ('game.debug.system' | runtimeTranslate) }}</strong
+                      >
                       <span>
                         {{ entry.messagePrefix }}
                         @if (entry.card; as card) {
@@ -165,9 +192,23 @@
                       <small>{{ logTime(message.createdAt) }}</small>
                       <span class="chat-message-body">
                         <span class="chat-message-line">
-                          <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
+                          <strong
+                            class="chat-author-name"
+                            [style.--chat-author-color]="playerNameColor(message.userId)"
+                            >{{
+                            message.displayName
+                          }}</strong>
                           @if (message.targetDisplayName) {
-                            <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
+                            @let targetPrefix =
+                              'common.ui.messageTargetPrefix' | runtimeTranslate;
+                            @if (targetPrefix) {<span class="chat-message-target-prefix">{{ targetPrefix }}&nbsp;</span>}<strong
+                              class="chat-target-name"
+                              [style.--chat-target-color]="playerNameColor(message.targetPlayerId)"
+                              >{{ message.targetDisplayName }}</strong
+                            >
+                            <span class="chat-message-target-suffix">{{
+                              'common.ui.messageTargetSuffix' | runtimeTranslate
+                            }}</span>
                           }
                           <span class="chat-message-separator">:</span>
                           <span class="chat-message-text">{{ message.message }}</span>
@@ -176,7 +217,9 @@
                     </p>
                   }
                 } @empty {
-                  <p class="collapsed-empty"><span>{{ 'game.gameTable.noGameActionsYet' | runtimeTranslate }}</span></p>
+                  <p class="collapsed-empty">
+                    <span>{{ 'game.gameTable.noGameActionsYet' | runtimeTranslate }}</span>
+                  </p>
                 }
               } @else if (store.activeFloatingTab() === 'log') {
                 @for (entry of collapsedPreviewLogEntries(); track entry.id) {
@@ -187,7 +230,12 @@
                     [class.death-entry]="entry.appearance === 'death'"
                   >
                     <small>{{ logTime(entry.createdAt) }}</small>
-                      <strong>{{ entry.displayName ?? ('game.debug.system' | runtimeTranslate) }}</strong>
+                    <strong
+                      [style.--log-author-color]="
+                        playerNameColor(entry.subject?.playerId ?? entry.actorId)
+                      "
+                      >{{ entry.displayName ?? ('game.debug.system' | runtimeTranslate) }}</strong
+                    >
                     <span>
                       {{ entry.messagePrefix }}
                       @if (entry.card; as card) {
@@ -197,7 +245,9 @@
                     </span>
                   </p>
                 } @empty {
-                  <p class="collapsed-empty"><span>{{ 'game.gameTable.noGameActionsYet' | runtimeTranslate }}</span></p>
+                  <p class="collapsed-empty">
+                    <span>{{ 'game.gameTable.noGameActionsYet' | runtimeTranslate }}</span>
+                  </p>
                 }
               } @else {
                 @for (message of collapsedPreviewChatMessages(); track message.id ?? $index) {
@@ -205,9 +255,22 @@
                     <small>{{ logTime(message.createdAt) }}</small>
                     <span class="chat-message-body">
                       <span class="chat-message-line">
-                        <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
+                        <strong
+                          class="chat-author-name"
+                          [style.--chat-author-color]="playerNameColor(message.userId)"
+                          >{{
+                          message.displayName
+                        }}</strong>
                         @if (message.targetDisplayName) {
-                          <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
+                          @let targetPrefix = 'common.ui.messageTargetPrefix' | runtimeTranslate;
+                          @if (targetPrefix) {<span class="chat-message-target-prefix">{{ targetPrefix }}&nbsp;</span>}<strong
+                            class="chat-target-name"
+                            [style.--chat-target-color]="playerNameColor(message.targetPlayerId)"
+                            >{{ message.targetDisplayName }}</strong
+                          >
+                          <span class="chat-message-target-suffix">{{
+                            'common.ui.messageTargetSuffix' | runtimeTranslate
+                          }}</span>
                         }
                         <span class="chat-message-separator">:</span>
                         <span class="chat-message-text">{{ message.message }}</span>
@@ -215,25 +278,30 @@
                     </span>
                   </p>
                 } @empty {
-                  <p class="collapsed-empty"><span>{{ 'game.gameTable.noChatMessagesYet' | runtimeTranslate }}</span></p>
+                  <p class="collapsed-empty">
+                    <span>{{ 'game.gameTable.noChatMessagesYet' | runtimeTranslate }}</span>
+                  </p>
                 }
               }
             </div>
             @if (combineChatAndGameLog()) {
-              <div class="chat-panel-content floating-expanded-content" data-testid="game-activity-panel">
+              <div
+                class="chat-panel-content floating-expanded-content"
+                data-testid="game-activity-panel"
+              >
                 <app-game-activity-panel
                   [items]="gameActivityTimeline()"
                   [highlightedLogEntryIds]="highlightedLogEntryIds()"
                   [fadingLogEntryIds]="fadingLogEntryIds()"
                   [isChatMessageHighlighted]="activityChatMessageHighlighted"
                   [isChatMessageEvaporating]="activityChatMessageEvaporating"
-                  [playerColor]="chatAuthorColor"
+                  [playerColor]="playerNameColor"
                   [logTime]="logTime"
                   [canReactToChatMessage]="activityCanReactToChatMessage"
                   [reactionOptions]="chatReactionOptions"
                   [hasOwnChatReaction]="activityHasOwnChatReaction"
-                  [chatReactionCount]="chatReactionCount"
-                  [chatReactionUsers]="chatReactionUsers"
+                  [chatReactionCount]="activityChatReactionCount"
+                  [chatReactionUsers]="activityChatReactionUsers"
                   [hasAnyChatReaction]="activityHasAnyChatReaction"
                   [shouldShowChatReactionUsers]="activityShouldShowChatReactionUsers"
                   [loadingOlder]="activityHistoryLoadingOlder()"
@@ -244,7 +312,9 @@
                   (loadNewer)="loadNewerActivityHistory()"
                   (previewCard)="store.showCardPreview($event)"
                   (hidePreview)="store.hideCardPreview()"
-                  (reactionToggled)="toggleChatReaction($event.event, $event.message, $event.reaction)"
+                  (reactionToggled)="
+                    toggleChatReaction($event.event, $event.message, $event.reaction)
+                  "
                 />
                 <ng-container [ngTemplateOutlet]="chatComposer" />
               </div>
@@ -258,7 +328,7 @@
                 [loadingNewer]="logHistory.loadingNewer()"
                 [canLoadOlder]="logHistory.canLoadOlder()"
                 [canLoadNewer]="logHistory.canLoadNewer()"
-                [playerColor]="chatAuthorColor"
+                [playerColor]="playerNameColor"
                 [logTime]="logTime"
                 (loadOlder)="loadOlderLogHistory()"
                 (loadNewer)="loadNewerLogHistory()"
@@ -267,67 +337,44 @@
               />
             } @else {
               <div class="chat-panel-content floating-expanded-content" data-testid="chat-panel">
-                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed" (scroll)="handleChatHistoryScroll($event)">
+                <div
+                  #autoScrollFeed
+                  appPrettyScroll
+                  class="panel-feed"
+                  data-testid="chat-feed"
+                  (scroll)="handleChatHistoryScroll($event)"
+                >
                   @if (chatHistory.loadingOlder()) {
-                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
-                  }
-                  @for (message of snapshot.chat; track message.id ?? message.createdAt + message.userId) {
-                    <p
-                      class="chat-entry"
-                      data-testid="chat-message"
-                      [class.private-chat-message]="message.targetPlayerId"
-                      [class.new-message-highlight]="isChatMessageHighlighted(message, $index)"
-                      [class.new-message-evaporating]="isChatMessageEvaporating(message, $index)"
-                    >
-                      <small>{{ logTime(message.createdAt) }}</small>
-                      <span class="chat-message-body">
-                        <span class="chat-message-line">
-                          <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
-                          @if (message.targetDisplayName) {
-                            <em>{{ 'common.ui.messageTarget' | runtimeTranslate: { name: message.targetDisplayName } }}</em>
-                          }
-                          <span class="chat-message-separator">:</span>
-                          <span class="chat-message-text">{{ message.message }}</span>
-                        </span>
-                        @if (canReactToChatMessage(message)) {
-                          <span class="chat-reaction-overlay">
-                            @for (reaction of chatReactionOptions; track reaction.type) {
-                              <button
-                                type="button"
-                                class="chat-reaction"
-                                data-testid="chat-reaction"
-                                [class.active]="hasOwnChatReaction(message, reaction.type)"
-                                [disabled]="!message.id"
-                                [attr.aria-label]="reaction.label | runtimeTranslate"
-                                (click)="toggleChatReaction($event, message, reaction.type)"
-                              >
-                                <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
-                              </button>
-                            }
-                          </span>
-                        }
-                        @if (hasAnyChatReaction(message)) {
-                          <span class="chat-reaction-summary">
-                            @for (reaction of chatReactionOptions; track reaction.type) {
-                              @if (chatReactionCount(message, reaction.type) > 0) {
-                                <span class="chat-reaction-pill">
-                                  <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
-                                  <b>{{ chatReactionCount(message, reaction.type) }}</b>
-                                  @if (shouldShowChatReactionUsers(message, reaction.type)) {
-                                    <span class="chat-reaction-users" role="tooltip">
-                                      <b>{{ 'game.gameTable.reactedBy' | runtimeTranslate }}</b> {{ chatReactionUsers(message, reaction.type) }}
-                                    </span>
-                                  }
-                                </span>
-                              }
-                            }
-                          </span>
-                        }
-                      </span>
+                    <p class="history-loading" role="status">
+                      {{ 'gameLog.history.loading' | runtimeTranslate }}
                     </p>
                   }
+                  @for (
+                    message of snapshot.chat;
+                    track message.id ?? message.createdAt + message.userId
+                  ) {
+                    <app-game-chat-message
+                      [message]="message"
+                      [isHighlighted]="isChatMessageHighlighted(message, $index)"
+                      [isEvaporating]="isChatMessageEvaporating(message, $index)"
+                      [playerColor]="playerNameColor"
+                      [logTime]="logTime"
+                      [canReact]="activityCanReactToChatMessage"
+                      [reactionOptions]="chatReactionOptions"
+                      [hasOwnReaction]="activityHasOwnChatReaction"
+                      [reactionCount]="activityChatReactionCount"
+                      [reactionUsers]="activityChatReactionUsers"
+                      [hasAnyReaction]="activityHasAnyChatReaction"
+                      [shouldShowReactionUsers]="activityShouldShowChatReactionUsers"
+                      (reactionToggled)="
+                        toggleChatReaction($event.event, $event.message, $event.reaction)
+                      "
+                    />
+                  }
                   @if (chatHistory.loadingNewer()) {
-                    <p class="history-loading" role="status">{{ 'gameLog.history.loading' | runtimeTranslate }}</p>
+                    <p class="history-loading" role="status">
+                      {{ 'gameLog.history.loading' | runtimeTranslate }}
+                    </p>
                   }
                 </div>
                 <ng-container [ngTemplateOutlet]="chatComposer" />
@@ -351,7 +398,9 @@
                 [ngModel]="store.chatMessage()"
                 (ngModelChange)="store.setChatMessage($event)"
               />
-              <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
+              <button data-testid="chat-send" type="submit">
+                <lucide-icon name="send" size="16" />
+              </button>
             </form>
           </ng-template>
         </div>
@@ -424,7 +473,11 @@
             }
 
             @if (shouldShowRematchVotesButton()) {
-              <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
+              <button
+                class="rematch-votes-button secondary-button"
+                type="button"
+                (click)="openRematchModal(); $event.stopPropagation()"
+              >
                 <lucide-icon name="vote" size="16" />
                 <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
               </button>
@@ -471,22 +524,60 @@
             (battlefieldDropped)="handleZoneDrop($event)"
             (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
             (manaPoolMenuOpened)="store.openManaPoolMenu($event.event, $event.playerId)"
-            (cardPointerDown)="startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
-            (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
+            (cardPointerDown)="
+              startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)
+            "
+            (cardClicked)="
+              store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)
+            "
             (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
-            (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card, { forceOpenLeft: $event.forceOpenLeft })"
+            (cardMenuOpened)="
+              store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card, {
+                forceOpenLeft: $event.forceOpenLeft,
+              })
+            "
             (cardPreviewShown)="store.showCardPreview($event)"
             (cardPreviewRequested)="store.showImmediateCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
-            (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
-            (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
-            (cardBattleChanged)="store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)"
-            (cardSagaChanged)="store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)"
-            (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
-            (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
-            (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
-            (dungeonMarkerChanged)="store.changeDungeonMarker($event.playerId, $event.card, $event.marker)"
-            (dungeonMarkerPreviewChanged)="store.updateDungeonMarkerPreview($event.card, $event.marker)"
+            (cardPowerChanged)="
+              store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)
+            "
+            (cardToughnessChanged)="
+              store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)
+            "
+            (cardBattleChanged)="
+              store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)
+            "
+            (cardSagaChanged)="
+              store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)
+            "
+            (cardLoyaltyChanged)="
+              store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)
+            "
+            (cardCounterChanged)="
+              store.changeCardCounterForCard(
+                $event.playerId,
+                $event.zone,
+                $event.card,
+                $event.key,
+                $event.delta
+              )
+            "
+            (cardCounterDeleteRequested)="
+              store.openCounterDeleteMenu(
+                $event.event,
+                $event.playerId,
+                $event.zone,
+                $event.card,
+                $event.key
+              )
+            "
+            (dungeonMarkerChanged)="
+              store.changeDungeonMarker($event.playerId, $event.card, $event.marker)
+            "
+            (dungeonMarkerPreviewChanged)="
+              store.updateDungeonMarkerPreview($event.card, $event.marker)
+            "
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="handleManaLaneDrop($event)"
             (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
@@ -510,19 +601,27 @@
                 [readOnly]="isHandPlayerReadOnly()"
                 [showCardsFaceDown]="isHandPlayerReadOnly()"
                 [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
-                [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
+                [hasActiveCardDrag]="
+                  store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null
+                "
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 [motionActive]="handMotionActive()"
                 [motionLayoutMode]="handMotionLayoutMode()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="handleHandDropped($event)"
                 (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"
-                (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
+                (handCardClicked)="
+                  store.handleHandCardClick($event.event, $event.playerId, $event.card)
+                "
                 (handCardPointerReordered)="handleHandCardPointerReordered($event)"
-                (handCardPointerDragStarted)="store.closeContextMenuForCardDrag($event.card.instanceId)"
+                (handCardPointerDragStarted)="
+                  store.closeContextMenuForCardDrag($event.card.instanceId)
+                "
                 (handCardPointerMoved)="handleHandCardPointerMoved($event)"
                 (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
-                (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
+                (cardMenuOpened)="
+                  store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)
+                "
                 (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
               />
@@ -550,7 +649,9 @@
           [isZoneTransferPending]="isZoneTransferPending"
           [isCardTransferPending]="isCardTransferPending"
           [currentDraggingCardInstanceId]="store.draggingCardInstanceId()"
-          (zoneDragStart)="store.dragTopZoneCard($event.event, $event.player, $event.zone, $event.card)"
+          (zoneDragStart)="
+            store.dragTopZoneCard($event.event, $event.player, $event.zone, $event.card)
+          "
           (zoneDragEnd)="store.dragEnd()"
           (zoneDragOver)="store.allowDrop($event)"
           (zoneDropped)="handleZoneDrop($event)"
@@ -561,13 +662,23 @@
           (zoneOpened)="store.openZone($event.playerId, $event.zone)"
           (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
-          (commanderCastChanged)="store.changeCommanderCastCount($event.playerId, $event.commanderInstanceId, $event.delta)"
+          (commanderCastChanged)="
+            store.changeCommanderCastCount(
+              $event.playerId,
+              $event.commanderInstanceId,
+              $event.delta
+            )
+          "
           (cardPreviewShown)="store.showCardPreview($event)"
           (cardPreviewHidden)="store.hideCardPreview()"
         />
       }
 
-      <aside appPrettyScroll class="player-sidebar game-table-opponents" [class.opponents-open]="opponentsDrawerOpen()">
+      <aside
+        appPrettyScroll
+        class="player-sidebar game-table-opponents"
+        [class.opponents-open]="opponentsDrawerOpen()"
+      >
         <button
           class="drawer-handle opponents-drawer-handle"
           type="button"
@@ -709,7 +820,14 @@
         <app-modal
           [open]="true"
           [title]="'game.specialHelpers.dungeonReplacement.title' | runtimeTranslate"
-          [message]="'game.specialHelpers.dungeonReplacement.message' | runtimeTranslate:{ currentDungeon: replacement.currentDungeonName, nextDungeon: replacement.card.name }"
+          [message]="
+            'game.specialHelpers.dungeonReplacement.message'
+              | runtimeTranslate
+                : {
+                    currentDungeon: replacement.currentDungeonName,
+                    nextDungeon: replacement.card.name,
+                  }
+          "
           [primaryLabel]="'game.specialHelpers.dungeonReplacement.confirm' | runtimeTranslate"
           [secondaryLabel]="'shared.text.cancel' | runtimeTranslate"
           [primaryDisabled]="dungeonReplacementPending()"
@@ -816,7 +934,9 @@
               />
               <span>
                 <strong>{{ 'game.gameTable.randomOrder' | runtimeTranslate }}</strong>
-                <small>{{ 'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate }}</small>
+                <small>{{
+                  'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate
+                }}</small>
               </span>
             </label>
           }
@@ -850,7 +970,9 @@
               />
               <span>
                 <strong>{{ 'game.gameTable.randomOrder' | runtimeTranslate }}</strong>
-                <small>{{ 'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate }}</small>
+                <small>{{
+                  'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate
+                }}</small>
               </span>
             </label>
           }
@@ -878,9 +1000,15 @@
             @let battleValue = cardBattleValue(preview.card);
             @let loyaltyValue = cardLoyaltyValue(preview.card);
             @if (dungeonMarkerForCard(preview.card); as marker) {
-              <app-dungeon-location-pin [marker]="marker" [size]="dungeonPinSizeForWidth(preview.width)" />
+              <app-dungeon-location-pin
+                [marker]="marker"
+                [size]="dungeonPinSizeForWidth(preview.width)"
+              />
             }
-            <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
+            <app-card-marker-rail
+              [showTokenCopyMarker]="preview.card.isTokenCopy === true"
+              [counters]="cardCounters(preview.card)"
+            />
             @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
               <span class="power-toughness-overlay" aria-hidden="true">
                 <span>{{ cardPowerValue(preview.card) }}</span>
@@ -890,7 +1018,11 @@
               @if (battleValue !== null) {
                 <app-battle-counter [value]="battleValue" [pulse]="null" [entrySettling]="false" />
               } @else if (loyaltyValue !== null) {
-                <app-loyalty-counter [value]="loyaltyValue" [pulse]="null" [entrySettling]="false" />
+                <app-loyalty-counter
+                  [value]="loyaltyValue"
+                  [pulse]="null"
+                  [entrySettling]="false"
+                />
               }
             }
           </div>
@@ -936,7 +1068,11 @@
         @let previewCard = hoveredPreviewCard();
         <app-card-preview-overlay
           [card]="previewCard ?? preview.card"
-          [image]="preview.revealFaceDownCard ? store.faceDownPreviewImage(previewCard ?? preview.card) : store.cardImage(previewCard ?? preview.card)"
+          [image]="
+            preview.revealFaceDownCard
+              ? store.faceDownPreviewImage(previewCard ?? preview.card)
+              : store.cardImage(previewCard ?? preview.card)
+          "
           [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
           [sourceRect]="preview.sourceRect"
           [avoidRect]="contextMenuAvoidRect()"
@@ -944,7 +1080,9 @@
           [attachmentInfo]="hoveredPreviewAttachmentInfo()"
           [cardStateInfo]="hoveredPreviewCardStateInfo()"
           [revealLabel]="hoveredPreviewRevealLabel()"
-          [showFaceDownPill]="preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true"
+          [showFaceDownPill]="
+            preview.revealFaceDownCard === true && (previewCard ?? preview.card).faceDown === true
+          "
         />
       }
     }

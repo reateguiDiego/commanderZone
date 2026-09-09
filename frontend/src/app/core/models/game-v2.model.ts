@@ -6,6 +6,7 @@ import type {
   GameAttachment,
   GameBattlefieldStack,
   GameCompactCardRef,
+  GameCardInstance,
   GameCardPosition,
   GameControlPlaneState,
   GameDisconnectVotes,
@@ -138,6 +139,7 @@ export interface BootstrapInstanceV2 {
   defense?: number | string | null;
   saga?: number | null;
   activeFaceIndex?: number | null;
+  faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
   dungeonMarker?: { x: number; y: number } | null;
   revealedTo?: string[];
   revealMarker?: boolean;
@@ -328,6 +330,7 @@ export type GameplayPatchV2Operation =
       loyalty?: number | string | null;
       defense?: number | string | null;
       saga?: number | null;
+      faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
     }
   | {
       op: 'card.counters.patch';
@@ -337,6 +340,7 @@ export type GameplayPatchV2Operation =
       counters: Record<string, number>;
       power?: GamePowerToughnessValue;
       toughness?: GamePowerToughnessValue;
+      faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
     }
   | {
       op: 'zone.cards.add';
@@ -644,6 +648,7 @@ export type GameplayPatchV2Operation =
       loyalty?: number | string | null;
       defense?: number | string | null;
       saga?: number | null;
+      faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
     }
   | {
       op: 'card.counters.set';

@@ -283,7 +283,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     && !this.showPowerToughness()
   ));
   readonly sagaVisible = computed(() => !this.faceDown() && this.zone() === 'battlefield' && isSagaCard(this.card()));
-  readonly sagaValue = computed(() => (this.sagaVisible() ? (this.card().saga ?? this.sagaCounterValue()) : 1));
+  readonly sagaValue = computed(() => {
+    if (!this.sagaVisible()) {
+      return 1;
+    }
+    const card = this.card();
+    const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+
+    return card.faceRuntimeStats?.[index]?.saga ?? card.saga ?? this.sagaCounterValue();
+  });
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
   readonly battleRotated = computed(() => !this.faceDown() && isBattleCard(this.card()));
   readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);

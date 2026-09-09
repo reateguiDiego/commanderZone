@@ -326,6 +326,22 @@ describe('game table normalized v2 store', () => {
     expect(result.state.instances['battlefield-1'].counters).toEqual({ charge: 2 });
   });
 
+  it('projects face runtime stats from bootstrap instances', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['battlefield-1'] = {
+      ...bootstrap.instances['battlefield-1']!,
+      activeFaceIndex: 1,
+      faceRuntimeStats: [
+        { defaultPower: 2, defaultToughness: 2, defaultLoyalty: null, defaultDefense: null, power: 4, toughness: 3, loyalty: null, defense: null, saga: null },
+        { defaultPower: null, defaultToughness: null, defaultLoyalty: 3, defaultDefense: null, power: null, toughness: null, loyalty: 5, defense: null, saga: null },
+      ],
+    };
+
+    const snapshot = hydrateGameSnapshotFromV2State(createGameTableNormalizedV2State(bootstrap));
+
+    expect(snapshot.players['player-1'].zones.battlefield[0]?.faceRuntimeStats?.[1]?.loyalty).toBe(5);
+  });
+
   it('preserves zero-value counters from live patches and hydration', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{

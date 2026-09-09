@@ -398,6 +398,11 @@ export class GameTableSnapshotSelectors {
         return null;
       }
 
+      const runtimeStats = this.activeFaceRuntimeStats(card);
+      if (runtimeStats) {
+        return this.currentOrPrintedVariableStatValue(this.statValue(runtimeStats[key]), printedValue);
+      }
+
       return this.activeFaceVisualStatValue(this.statValue(card[key]), printedValue);
     }
 
@@ -412,6 +417,13 @@ export class GameTableSnapshotSelectors {
     }
 
     return this.currentOrPrintedVariableStatValue(currentValue, printedValue);
+  }
+
+  private activeFaceRuntimeStats(card: GameCardInstance) {
+    const stats = card.faceRuntimeStats ?? [];
+    const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+
+    return stats[index] ?? null;
   }
 
   private currentOrPrintedVariableStatValue(currentValue: GameCardStatValue, printedValue: GameCardStatValue): GameCardStatValue {

@@ -413,27 +413,25 @@ export class GameTableMotionService {
     const state = Flip.getState(elements);
 
     return () => {
-      window.requestAnimationFrame(() => {
-        this.runInContext(() => {
-          if (this.prefersReducedMotion()) {
-            return;
-          }
+      this.runInContext(() => {
+        if (this.prefersReducedMotion()) {
+          return;
+        }
 
-          const currentElements = this.handCardElements(root, selector);
-          if (currentElements.length === 0) {
-            return;
-          }
+        const currentElements = this.handCardElements(root, selector);
+        if (currentElements.length === 0) {
+          return;
+        }
 
-          Flip.killFlipsOf(currentElements, true);
-          Flip.from(state, {
-            absolute: false,
-            duration: 0.48,
-            ease: 'power3.out',
-            nested: true,
-            prune: true,
-            scale: false,
-            targets: currentElements,
-          });
+        Flip.killFlipsOf(currentElements, true);
+        Flip.from(state, {
+          absolute: false,
+          duration: 0.42,
+          ease: 'power2.inOut',
+          nested: true,
+          prune: true,
+          scale: false,
+          targets: currentElements,
         });
       });
     };

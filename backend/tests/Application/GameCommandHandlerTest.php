@@ -1243,6 +1243,39 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(3, $card['toughness']);
     }
 
+    public function testDoubleFacedRuntimeStatsOnlyChangeTheActiveFace(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('card-1', 'Front // Back', 'battlefield', 2, 2, 2, 2),
+                'activeFaceIndex' => 1,
+                'cardFaces' => [
+                    ['name' => 'Front', 'power' => '2', 'toughness' => '2'],
+                    ['name' => 'Back', 'power' => '5', 'toughness' => '4'],
+                ],
+                'faceRuntimeStats' => [
+                    ['defaultPower' => 2, 'defaultToughness' => 2, 'defaultLoyalty' => null, 'defaultDefense' => null, 'power' => 2, 'toughness' => 2, 'loyalty' => null, 'defense' => null, 'saga' => null],
+                    ['defaultPower' => 5, 'defaultToughness' => 4, 'defaultLoyalty' => null, 'defaultDefense' => null, 'power' => 5, 'toughness' => 4, 'loyalty' => null, 'defense' => null, 'saga' => null],
+                ],
+            ]],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => 'card-1', 'faceIndex' => 1, 'power' => 6, 'toughness' => 5,
+        ], $actor);
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => 'card-1', 'key' => '+1/+1', 'value' => 1,
+        ], $actor);
+
+        $stats = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['faceRuntimeStats'];
+        self::assertSame(2, $stats[0]['power']);
+        self::assertSame(2, $stats[0]['toughness']);
+        self::assertSame(7, $stats[1]['power']);
+        self::assertSame(6, $stats[1]['toughness']);
+    }
+
     public function testRegularTokenEvaporatesWithoutCopyPrefixWhenItLeavesBattlefieldForNonBattlefieldZone(): void
     {
         $actor = new User('owner@example.test', 'Owner');

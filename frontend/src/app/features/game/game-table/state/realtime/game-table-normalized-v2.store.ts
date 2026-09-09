@@ -1187,6 +1187,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
         ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
         ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        ...(operation.faceRuntimeStats !== undefined ? { faceRuntimeStats: operation.faceRuntimeStats.map((stats) => ({ ...stats })) } : {}),
         ...(operation.staticCard ? { staticCardPending: false } : {}),
       }));
       if (result.status === 'failed' || !operation.staticCard) {
@@ -1222,6 +1223,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         counters: { ...operation.counters },
         ...(operation.power !== undefined ? { power: operation.power } : {}),
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
+        ...(operation.faceRuntimeStats !== undefined ? { faceRuntimeStats: operation.faceRuntimeStats.map((stats) => ({ ...stats })) } : {}),
       }));
 
     case 'zone.cards.add':
@@ -1545,6 +1547,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         loyalty: operation.loyalty,
         defense: operation.defense,
         saga: operation.saga,
+        faceRuntimeStats: operation.faceRuntimeStats,
       });
 
     case 'card.counters.set':
@@ -2882,6 +2885,7 @@ function hydrateCardInstance(
     tapped: instance.tapped ?? false,
     faceDown: instance.faceDown ?? false,
     activeFaceIndex: instance.activeFaceIndex ?? undefined,
+    faceRuntimeStats: instance.faceRuntimeStats?.map((stats) => ({ ...stats })),
     dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
