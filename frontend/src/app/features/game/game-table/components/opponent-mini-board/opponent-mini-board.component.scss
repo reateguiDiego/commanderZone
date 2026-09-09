@@ -136,7 +136,7 @@
 .opponent-deck-title {
   min-width: 0;
   padding: 0.03rem 0 0.08rem 5px;
-  color: rgb(var(--highlight-rgb) / 94%);
+  color: var(--game-text);
   font-family: var(--font-display, inherit);
   font-size: 0.96rem;
   font-weight: 900;
