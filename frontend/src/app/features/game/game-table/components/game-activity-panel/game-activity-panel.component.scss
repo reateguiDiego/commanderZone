@@ -9,12 +9,12 @@
 .panel-feed {
   display: grid;
   align-content: start;
-  gap: 0.35rem;
+  gap: 0.25rem;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  padding: 0.6rem;
+  padding: 0.35rem;
   scrollbar-gutter: stable;
 }
 
@@ -29,18 +29,22 @@
   background: rgb(var(--game-text-rgb) / 5%);
 }
 
-.panel-feed p.private-chat-message {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--game-accent) 13%, transparent), rgb(var(--game-text-rgb) / 5%));
-}
-
 .panel-feed p.phase-entry {
   border: 1px solid rgb(var(--game-info-rgb) / 46%);
-  background: linear-gradient(90deg, rgb(var(--game-info-rgb) / 13%), rgb(var(--game-surface-rgb) / 72%));
+  background: linear-gradient(
+    90deg,
+    rgb(var(--game-info-rgb) / 13%),
+    rgb(var(--game-surface-rgb) / 72%)
+  );
 }
 
 .panel-feed p.turn-entry {
   border: 1px solid var(--game-accent-line);
-  background: linear-gradient(90deg, rgb(var(--game-accent-rgb) / 16%), rgb(var(--game-surface-rgb) / 72%));
+  background: linear-gradient(
+    90deg,
+    rgb(var(--game-accent-rgb) / 16%),
+    rgb(var(--game-surface-rgb) / 72%)
+  );
 }
 
 .panel-feed p.death-entry {
@@ -49,7 +53,9 @@
 }
 
 .panel-feed p.new-message-highlight {
-  box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 58%), 0 0 0.65rem rgb(var(--gold-rgb) / 28%);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 58%),
+    0 0 0.65rem rgb(var(--gold-rgb) / 28%);
 }
 
 .panel-feed p.new-message-evaporating {
@@ -70,7 +76,10 @@
 }
 
 .panel-feed strong {
-  color: color-mix(in srgb, var(--log-author-color, var(--chat-author-color, var(--game-accent))) 78%, var(--game-text));
+  color: var(
+    --log-author-color,
+    var(--chat-author-color, color-mix(in srgb, var(--cz-accent) 64%, var(--cz-primary)))
+  );
   font-size: 0.72rem;
   overflow-wrap: anywhere;
 }
@@ -82,89 +91,6 @@
   overflow-wrap: anywhere;
 }
 
-.chat-message-body {
-  position: relative;
-  display: grid;
-  line-height: 1.32;
-}
-
-.chat-message-body em {
-  margin-left: 0.16rem;
-  color: rgb(var(--game-text-rgb) / 74%);
-  font-style: normal;
-}
-
-.chat-message-separator {
-  margin-right: 0.3rem;
-  color: rgb(var(--game-text-rgb) / 58%);
-}
-
-.chat-reaction-overlay {
-  display: inline-flex;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 4;
-  gap: 0.1rem;
-  padding: 0.18rem;
-  border: 1px solid rgb(var(--gold-rgb) / 32%);
-  border-radius: 999px;
-  background: var(--game-surface-deep);
-  box-shadow: 0 0.6rem 1.1rem rgb(var(--shadow-rgb) / 58%);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-0.12rem);
-  visibility: hidden;
-}
-
-.chat-entry:hover .chat-reaction-overlay,
-.chat-entry:focus-within .chat-reaction-overlay {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  visibility: visible;
-}
-
-.chat-reaction {
-  display: grid;
-  place-items: center;
-  min-width: 2.05rem;
-  height: 1.88rem;
-  padding: 0 0.32rem;
-  border: 0;
-  border-radius: 999px;
-  background: rgb(var(--highlight-rgb) / 8%);
-  color: var(--game-text);
-}
-
-.chat-reaction:hover,
-.chat-reaction.active {
-  outline: 1px solid rgb(var(--gold-rgb) / 62%);
-  background: rgb(var(--gold-rgb) / 18%);
-}
-
-.chat-reaction-icon {
-  font-size: 1.5em;
-}
-
-.chat-reaction-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.18rem;
-}
-
-.chat-reaction-pill {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.12rem;
-  padding: 0.05rem 0.3rem;
-  border: 1px solid rgb(var(--gold-rgb) / 34%);
-  border-radius: 999px;
-  background: rgb(var(--gold-rgb) / 18%);
-}
-
-.chat-reaction-users,
 .log-card-list-popover {
   position: fixed;
   z-index: 7600;
@@ -176,17 +102,6 @@
   box-shadow: 0 0.75rem 1.4rem rgb(var(--shadow-rgb) / 62%);
   color: var(--game-text);
   font-size: 0.76rem;
-}
-
-.chat-reaction-users {
-  position: absolute;
-  top: calc(100% + 0.28rem);
-  left: 0;
-  display: none;
-}
-
-.chat-reaction-pill:hover .chat-reaction-users {
-  display: block;
 }
 
 .log-card-list-popover {

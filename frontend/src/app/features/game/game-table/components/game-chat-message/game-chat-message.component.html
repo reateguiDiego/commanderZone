@@ -1,0 +1,85 @@
+<p
+  class="chat-entry"
+  data-testid="chat-message"
+  [attr.data-activity-entry-id]="activityEntryId()"
+  [class.private-chat-message]="message().targetPlayerId"
+  [class.new-message-highlight]="isHighlighted()"
+  [class.new-message-evaporating]="isEvaporating()"
+  [class.reaction-overlay-dismissed]="reactionOverlayDismissed()"
+  (mouseenter)="showReactionOverlay($event)"
+  (mouseleave)="hideReactionOverlay()"
+>
+  <small>{{ logTime()(message().createdAt) }}</small>
+  <span class="chat-message-body">
+    <span class="chat-message-line">
+      <strong class="chat-author-name" [style.--chat-author-color]="playerColor()(message().userId)">{{
+        message().displayName
+      }}</strong>
+      @if (message().targetDisplayName) {
+        @let targetPrefix = 'common.ui.messageTargetPrefix' | runtimeTranslate;
+        @if (targetPrefix) {
+          <span class="chat-message-target-prefix">{{ targetPrefix }}</span
+          ><span class="chat-message-target-gap" aria-hidden="true"></span>
+        }<strong
+          class="chat-target-name"
+          [style.--chat-target-color]="playerColor()(message().targetPlayerId)"
+          >{{ message().targetDisplayName }}</strong
+        >
+        <span class="chat-message-target-suffix">{{
+          'common.ui.messageTargetSuffix' | runtimeTranslate
+        }}</span>
+      }
+      <span class="chat-message-separator">:</span>
+      <span class="chat-message-text">{{ message().message }}</span>
+    </span>
+    @if (reactionOverlay(); as overlay) {
+      <span
+        class="chat-reaction-overlay"
+        [style.right.px]="overlay.right"
+        [style.top.px]="overlay.top"
+      >
+        @for (reaction of reactionOptions(); track reaction.type) {
+          <button
+            type="button"
+            class="chat-reaction"
+            data-testid="chat-reaction"
+            [class.active]="hasOwnReaction()(message(), reaction.type)"
+            [disabled]="!message().id"
+            [attr.aria-label]="reaction.label | runtimeTranslate"
+            (click)="toggleReaction($event, reaction.type)"
+          >
+            <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+          </button>
+        }
+      </span>
+    }
+    @if (hasAnyReaction()(message())) {
+      <span class="chat-reaction-summary">
+        @for (reaction of reactionOptions(); track reaction.type) {
+          @if (reactionCount()(message(), reaction.type) > 0) {
+            <span
+              class="chat-reaction-pill"
+              (mouseenter)="showReactionUsers($event, reaction.type)"
+              (mouseleave)="hideReactionUsers($event)"
+            >
+              <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+              <b>{{ reactionCount()(message(), reaction.type) }}</b>
+            </span>
+          }
+        }
+      </span>
+    }
+    @if (reactionUsersTooltip(); as tooltip) {
+      <span
+        class="chat-reaction-users"
+        role="tooltip"
+        [style.left.px]="tooltip.left"
+        [style.top.px]="tooltip.top"
+        [style.width.px]="tooltip.width"
+      >
+        <b>{{ 'game.gameTable.reactedBy' | runtimeTranslate }}</b>
+        {{ tooltip.users }}
+      </span>
+    }
+  </span>
+</p>

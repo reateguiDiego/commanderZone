@@ -1,14 +1,25 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, ViewChild, input, output, signal } from '@angular/core';
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  ViewChild,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChatMessage, ChatReactionType, GameCardInstance } from '../../../../../core/models/game.model';
+import {
+  ChatMessage,
+  ChatReactionType,
+  GameCardInstance,
+} from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameActivityTimelineItem } from '../../utils/game-activity-timeline';
-
-export interface GameActivityReactionOption {
-  readonly type: ChatReactionType;
-  readonly label: string;
-  readonly emoji: string;
-}
+import {
+  GameChatMessageComponent,
+  type GameChatReactionOption,
+} from '../game-chat-message/game-chat-message.component';
 
 interface CardListPopover {
   readonly names: readonly string[];
@@ -23,7 +34,7 @@ interface ScrollAnchor {
 
 @Component({
   selector: 'app-game-activity-panel',
-  imports: [PrettyScrollDirective, RuntimeTranslatePipe],
+  imports: [GameChatMessageComponent, PrettyScrollDirective, RuntimeTranslatePipe],
   templateUrl: './game-activity-panel.component.html',
   styleUrl: './game-activity-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,17 +43,23 @@ export class GameActivityPanelComponent implements AfterViewChecked {
   readonly items = input.required<readonly GameActivityTimelineItem[]>();
   readonly highlightedLogEntryIds = input<readonly string[]>([]);
   readonly fadingLogEntryIds = input<readonly string[]>([]);
-  readonly isChatMessageHighlighted = input.required<(message: ChatMessage, sourceIndex: number) => boolean>();
-  readonly isChatMessageEvaporating = input.required<(message: ChatMessage, sourceIndex: number) => boolean>();
-  readonly playerColor = input.required<(playerId: string) => string>();
+  readonly isChatMessageHighlighted =
+    input.required<(message: ChatMessage, sourceIndex: number) => boolean>();
+  readonly isChatMessageEvaporating =
+    input.required<(message: ChatMessage, sourceIndex: number) => boolean>();
+  readonly playerColor = input.required<(playerId: string | null | undefined) => string>();
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly canReactToChatMessage = input.required<(message: ChatMessage) => boolean>();
-  readonly reactionOptions = input<readonly GameActivityReactionOption[]>([]);
-  readonly hasOwnChatReaction = input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
-  readonly chatReactionCount = input.required<(message: ChatMessage, reaction: ChatReactionType) => number>();
-  readonly chatReactionUsers = input.required<(message: ChatMessage, reaction: ChatReactionType) => string>();
+  readonly reactionOptions = input<readonly GameChatReactionOption[]>([]);
+  readonly hasOwnChatReaction =
+    input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
+  readonly chatReactionCount =
+    input.required<(message: ChatMessage, reaction: ChatReactionType) => number>();
+  readonly chatReactionUsers =
+    input.required<(message: ChatMessage, reaction: ChatReactionType) => string>();
   readonly hasAnyChatReaction = input.required<(message: ChatMessage) => boolean>();
-  readonly shouldShowChatReactionUsers = input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
+  readonly shouldShowChatReactionUsers =
+    input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
   readonly loadingOlder = input(false);
   readonly loadingNewer = input(false);
   readonly canLoadOlder = input(false);
@@ -52,7 +69,11 @@ export class GameActivityPanelComponent implements AfterViewChecked {
   readonly hidePreview = output<void>();
   readonly loadOlder = output<void>();
   readonly loadNewer = output<void>();
-  readonly reactionToggled = output<{ event: MouseEvent; message: ChatMessage; reaction: ChatReactionType }>();
+  readonly reactionToggled = output<{
+    event: MouseEvent;
+    message: ChatMessage;
+    reaction: ChatReactionType;
+  }>();
   readonly activeCardListPopover = signal<CardListPopover | null>(null);
 
   @ViewChild('feed') private readonly feed?: ElementRef<HTMLElement>;
@@ -65,7 +86,9 @@ export class GameActivityPanelComponent implements AfterViewChecked {
     }
 
     const element = this.feed?.nativeElement;
-    const anchor = element ? this.findActivityEntry(element, this.pendingHistoryAnchor.entryId) : null;
+    const anchor = element
+      ? this.findActivityEntry(element, this.pendingHistoryAnchor.entryId)
+      : null;
     if (element && anchor) {
       element.scrollTop += anchor.getBoundingClientRect().top - this.pendingHistoryAnchor.top;
     }
@@ -83,7 +106,10 @@ export class GameActivityPanelComponent implements AfterViewChecked {
     const viewportPadding = 12;
     this.activeCardListPopover.set({
       names,
-      left: Math.min(Math.max(viewportPadding, rect.left), Math.max(viewportPadding, window.innerWidth - 300 - viewportPadding)),
+      left: Math.min(
+        Math.max(viewportPadding, rect.left),
+        Math.max(viewportPadding, window.innerWidth - 300 - viewportPadding),
+      ),
       top: Math.min(rect.bottom + 8, Math.max(viewportPadding, window.innerHeight - 230)),
     });
   }
@@ -111,7 +137,10 @@ export class GameActivityPanelComponent implements AfterViewChecked {
       return;
     }
 
-    if (element.scrollTop + element.clientHeight >= element.scrollHeight - 72 && this.canLoadNewer()) {
+    if (
+      element.scrollTop + element.clientHeight >= element.scrollHeight - 72 &&
+      this.canLoadNewer()
+    ) {
       this.captureHistoryAnchor(element);
       this.loadNewer.emit();
     }
@@ -132,12 +161,18 @@ export class GameActivityPanelComponent implements AfterViewChecked {
   private firstVisibleActivityEntry(feed: HTMLElement): HTMLElement | null {
     const feedTop = feed.getBoundingClientRect().top;
 
-    return Array.from(feed.querySelectorAll<HTMLElement>('[data-activity-entry-id]'))
-      .find((entry) => entry.getBoundingClientRect().bottom >= feedTop) ?? null;
+    return (
+      Array.from(feed.querySelectorAll<HTMLElement>('[data-activity-entry-id]')).find(
+        (entry) => entry.getBoundingClientRect().bottom >= feedTop,
+      ) ?? null
+    );
   }
 
   private findActivityEntry(feed: HTMLElement, entryId: string): HTMLElement | null {
-    return Array.from(feed.querySelectorAll<HTMLElement>('[data-activity-entry-id]'))
-      .find((entry) => entry.dataset['activityEntryId'] === entryId) ?? null;
+    return (
+      Array.from(feed.querySelectorAll<HTMLElement>('[data-activity-entry-id]')).find(
+        (entry) => entry.dataset['activityEntryId'] === entryId,
+      ) ?? null
+    );
   }
 }
