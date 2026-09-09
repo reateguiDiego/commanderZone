@@ -835,7 +835,6 @@
     "playerSummaryPanel": {
       "lifeControls": "ライフコントロール",
       "playerCounters": "プレイヤーカウンター",
-      "autoApplyCommanderDamageToLife": "統率者ダメージを適用",
       "autoApplyCommanderDamageToLifeTooltip": "有効にすると、統率者ダメージの変更に合わせてそのプレイヤーのライフも調整します。",
       "otherCounters": "その他のカウンター",
       "openExtraPlayerCounters": "追加のプレイヤーカウンターを開く",
@@ -2060,23 +2059,27 @@
         "title": "ゲームプレイの設定",
         "showManaHelperOnStartup": {
           "label": "起動時にマナヘルパーを表示",
-          "description": "試合が始まったらマナヘルパーを開きます。"
+          "description": "対戦開始時にマナを数えるためのヘルパーを表示します。対戦中はいつでも非表示にしたり、再び表示したりできます。"
         },
         "enableManaRow": {
-          "label": "マナ列を有効にする",
-          "description": "ゲーム中に専用のマナ列を表示します。"
+          "label": "マナ用の列を表示",
+          "description": "戦場の一番下に、マナを生み出すカードを置く目安となるガイドを表示します。どの種類のカードでも置けますが、これは視覚的な補助にすぎません。"
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "有効にすると、対戦相手の統率者から受けるダメージでライフ総量が自動的に減少します。対戦中に簡単に調整できます。"
         },
         "gameAnimations": {
           "label": "ゲームアニメーション",
-          "description": "試合中に視覚的な動きとフィードバックのアニメーションを使用します。"
+          "description": "対戦中のすべての視覚的アニメーションをオンまたはオフにします。",
+          "warning": "対戦中にパフォーマンスの問題がある場合にのみ、無効にすることをおすすめします。"
         },
         "chatNotificationSounds": {
           "label": "チャット通知音",
-          "description": "新しいチャット通知が到着したときに音を鳴らします。"
+          "description": "未読の新しいチャット通知を受け取ったときに音を鳴らします。"
         },
         "combineChatAndGameLog": {
           "label": "チャットとゲームログを統合",
-          "description": "チャットメッセージとゲームアクションを時系列の1つのフィードに表示します。"
+          "description": "チャットメッセージとゲームアクションを1つのタブにまとめて表示します。"
         }
       },
       "deleteAccountWarning": "アカウントと、デッキや設定を含むすべての関連データを完全に削除します。この操作は元に戻すことができません。"
@@ -2209,6 +2212,7 @@
     },
     "text": {
       "users": "ユーザー",
+      "applyCommanderDamage": "統率者ダメージを適用",
       "reports": "通報",
       "notifications": "通知",
       "noUsersFound": "ユーザーが見つかりませんでした。",

@@ -58,6 +58,7 @@ interface GameSettingsToggleOption {
   readonly id: GameSettingsToggleId;
   readonly labelKey: string;
   readonly descriptionKey: string;
+  readonly warningKey: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -73,31 +74,37 @@ const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
     id: 'showManaHelperOnStartup',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description',
+    warningKey: '',
   },
   {
     id: 'enableManaRow',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.description',
+    warningKey: '',
   },
   {
     id: 'autoApplyCommanderDamageToLife',
-    labelKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLife',
-    descriptionKey: 'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip',
+    labelKey: 'shared.text.applyCommanderDamage',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.autoApplyCommanderDamageToLife.description',
+    warningKey: '',
   },
   {
     id: 'gameAnimations',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.description',
+    warningKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.warning',
   },
   {
     id: 'chatNotificationSounds',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.description',
+    warningKey: '',
   },
   {
     id: 'combineChatAndGameLog',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label',
     descriptionKey: 'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.description',
+    warningKey: '',
   },
 ];
 
@@ -457,7 +464,7 @@ export class DashboardSettingsModalComponent {
         this.reloadPage();
         return;
       }
-      this.statusMessage.set('Preferences saved.');
+      this.statusMessage.set(this.i18n.text('preferencesSaved'));
     } catch {
       this.restoreBaselineAppLanguage();
       this.errorMessage.set('No se pudieron guardar los cambios.');

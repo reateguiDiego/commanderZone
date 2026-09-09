@@ -129,11 +129,13 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('App language');
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
-    expect(fixture.nativeElement.textContent).toContain('Enable mana row');
+    expect(fixture.nativeElement.textContent).toContain('Show a mana row');
     expect(fixture.nativeElement.textContent).toContain('Combine chat and game log');
     expect(fixture.nativeElement.textContent).toContain('Apply commander damage');
     expect(fixture.nativeElement.textContent).toContain('Game animations');
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
+    expect(fixture.nativeElement.textContent).toContain('We recommend disabling them only if you experience performance issues during a match.');
+    expect(fixture.nativeElement.querySelector('.game-settings-toggle [role="switch"]')?.classList.contains('toggle--no-hover-feedback')).toBe(true);
   });
 
   it('saves gameplay preferences from the game tab through /me', async () => {

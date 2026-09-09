@@ -194,7 +194,9 @@
                   class="game-settings-toggle"
                   [label]="option.labelKey | runtimeTranslate"
                   [description]="option.descriptionKey | runtimeTranslate"
+                  [warning]="option.warningKey | runtimeTranslate"
                   [checked]="gameSettingsToggleState()[option.id]"
+                  [hoverFeedback]="false"
                   (checkedChange)="setGameSettingsToggle(option.id, $event)"
                 />
               }

@@ -835,7 +835,6 @@
     "playerSummaryPanel": {
       "lifeControls": "Controls de la vida",
       "playerCounters": "Comptadors de jugadors",
-      "autoApplyCommanderDamageToLife": "Aplica el dany de comandant",
       "autoApplyCommanderDamageToLifeTooltip": "Si està activat, els canvis de dany de comandant també ajusten les vides d'aquest jugador.",
       "otherCounters": "Altres comptadors",
       "openExtraPlayerCounters": "Obrir comptadors de jugadors addicionals",
@@ -2061,23 +2060,27 @@
         "title": "Preferències de joc",
         "showManaHelperOnStartup": {
           "label": "Mostra l'ajudant de mana a l'inici",
-          "description": "Obre l'ajudant de mana quan comença un partit."
+          "description": "Mostra l'ajudant per comptar mana en començar una partida. El pots amagar o tornar a mostrar quan vulguis durant la partida."
         },
         "enableManaRow": {
-          "label": "Activa la fila de mana",
-          "description": "Mostra la fila de mana dedicada durant els jocs."
+          "label": "Mostra una fila de mana",
+          "description": "Mostra una guia visual a la part inferior del camp de batalla per col·locar les cartes que produeixen mana. Hi pots col·locar qualsevol tipus de carta: és només una ajuda visual."
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "Si està activat, el dany dels comandants enemics reduirà automàticament el teu total de vides. El pots modificar fàcilment durant la partida."
         },
         "gameAnimations": {
           "label": "Animacions del joc",
-          "description": "Utilitzar moviments visuals i animacions de retroalimentació durant els partits."
+          "description": "Activa o desactiva totes les animacions visuals de la partida.",
+          "warning": "Recomanem desactivar-les només si tens problemes de rendiment durant la partida."
         },
         "chatNotificationSounds": {
           "label": "Sona la notificació del xat",
-          "description": "Reprodueix un so quan arribin noves notificacions de xat."
+          "description": "Reprodueix un so quan rebis notificacions noves de xat sense llegir."
         },
         "combineChatAndGameLog": {
           "label": "Combina el xat i el registre de partida",
-          "description": "Mostra missatges de xat i accions de partida junts en una única vista cronològica."
+          "description": "Mostra els missatges de xat i les accions de partida junts en una mateixa pestanya."
         }
       },
       "deleteAccountWarning": "Suprimeix permanentment el teu compte i totes les dades associades, incloses les baralles i les preferències. Aquesta acció no es pot desfer."
@@ -2265,6 +2268,7 @@
     },
     "text": {
       "users": "Usuaris",
+      "applyCommanderDamage": "Aplica el dany de comandant",
       "reports": "Denúncies",
       "notifications": "Notificacions",
       "noUsersFound": "No s'han trobat usuaris.",

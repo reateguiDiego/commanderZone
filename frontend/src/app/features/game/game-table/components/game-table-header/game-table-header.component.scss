@@ -3,7 +3,7 @@
   top: 0;
   right: 0;
   left: 0;
-  z-index: 10000 !important;
+  z-index: 2147483647 !important;
   display: block;
   min-width: 0;
   height: var(--game-table-header-peek-height, 0.8rem);
@@ -31,9 +31,11 @@
   pointer-events: none;
   transform: translateY(calc(-100% + var(--game-table-header-peek-height, 0.8rem)));
   transition:
+    clip-path 220ms ease,
     opacity 180ms ease,
     transform 220ms ease;
   will-change: transform;
+  clip-path: inset(calc(100% - var(--game-table-header-peek-height, 0.8rem)) 0 0);
 }
 
 :host::after {
@@ -69,9 +71,14 @@
 
 :host(:hover) .topbar,
 :host(:focus-within) .topbar {
+  clip-path: none;
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+:host:not(:hover):not(:focus-within) .player-identity-avatar {
+  visibility: hidden;
 }
 
 :host(:hover)::after,
