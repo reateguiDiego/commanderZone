@@ -447,7 +447,8 @@
       "signInWithGoogle": "Inloggen met Google",
       "registerWithGoogle": "Registreren met Google",
       "socialSignIn": "Sociale login",
-      "or": "of"
+      "or": "of",
+      "googleLinkRequired": "Er bestaat al een account voor dit e-mailadres. Log eerst in met je wachtwoord voordat je Google koppelt."
     },
     "emailVerificationPage": {
       "confirmingEmail": "E-mail bevestigen",
@@ -565,6 +566,9 @@
       "totalPlayers": "Totaal aantal spelers",
       "startedGames": "Gestarte partijen",
       "description": "Blader door actieve lobby's en doe direct mee aan een partij."
+    },
+    "roomRow": {
+      "leave": "Kamer verlaten"
     }
   },
   "community": {
@@ -629,7 +633,15 @@
       "commandersAriaLabel": "Commanders voor inspiratie",
       "cardsTitle": "Meest gespeelde kaarten",
       "mobileCardsTitle": "Topkaarten",
-      "cardsAriaLabel": "Kaarten om te ontdekken"
+      "cardsAriaLabel": "Kaarten om te ontdekken",
+      "usernameSearchEmpty": "Geen gebruikersnamen gevonden.",
+      "usernameSearchError": "Gebruikersnamen konden niet worden gezocht.",
+      "usernameSearchHint": "Typ minstens twee tekens om op gebruikersnaam te zoeken.",
+      "usernameSearchLabel": "Gebruikersnaam zoeken",
+      "usernameSearchLoading": "Gebruikersnamen zoeken...",
+      "usernameSearchLoginRequired": "Log in om gebruikersnamen te zoeken.",
+      "usernameSearchPlaceholder": "Gebruikersnaam zoeken...",
+      "usernameSearchResults": "Zoekresultaten voor gebruikersnamen"
     },
     "deckList": {
       "subtitle": "Ontdek openbare decks uit de community.",
@@ -637,7 +649,8 @@
       "allFormats": "Alle formaten",
       "filterBracket": "Bracket",
       "allBrackets": "Alle brackets",
-      "error": "Kan openbare decks niet laden."
+      "error": "Kan openbare decks niet laden.",
+      "paginationLabel": "Paginering van openbare decks"
     },
     "deckViewer": {
       "viewMode": {
@@ -649,6 +662,13 @@
         "other": "Anders",
         "includingMdfc": "{{ count }} inclusief MDFC"
       }
+    },
+    "user": {
+      "allColors": "Alle kleuren",
+      "empty": "Geen openbare decks voldoen aan deze filters.",
+      "error": "Dit openbare profiel kon niet worden geladen.",
+      "filterColors": "Kleuren",
+      "paginationLabel": "Paginering van gebruikersdecks"
     }
   },
   "game": {
@@ -872,7 +892,8 @@
         "main-1": "Main phase I",
         "combat": "Combat",
         "main-2": "Main phase II",
-        "end": "End step"
+        "end": "End step",
+        "draw": "Draw step"
       }
     },
     "debug": {
@@ -1079,7 +1100,8 @@
         "day": "Dag",
         "night": "Nacht",
         "citysBlessing": "City's blessing",
-        "dayNight": "Dag/Nacht"
+        "dayNight": "Dag/Nacht",
+        "monarch": "Monarch"
       },
       "dungeonReplacement": {
         "title": "Actieve dungeon vervangen?",
@@ -1258,6 +1280,15 @@
     },
     "game": {
       "concede": "{{ player }} toegekend."
+    },
+    "phase": {
+      "untap": "untap step",
+      "upkeep": "upkeep step",
+      "draw": "draw step",
+      "main-1": "first main phase",
+      "combat": "combat phase",
+      "main-2": "second main phase",
+      "end": "ending phase"
     }
   },
   "deckBuilder": {
@@ -1395,7 +1426,8 @@
       "sampleHand": "Voorbeeldhand",
       "sevenRandomCardsFromTheMainDeck": "Zeven willekeurige kaarten uit het hoofddek.",
       "drawAgain": "Trek opnieuw",
-      "noCardsAvailable": "Geen kaarten beschikbaar."
+      "noCardsAvailable": "Geen kaarten beschikbaar.",
+      "manaValue": "Mana value {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "Kopieer hoeveelheidscontroles",
@@ -1431,7 +1463,7 @@
       "noResolvedTokensForThisDeck": "Geen opgeloste tokens voor dit deck.",
       "unresolvedTokens": "Onopgeloste tokens",
       "validateWithBackend": "Valideer met server",
-      "warnings": "Waarschjeingen",
+      "warnings": "Waarschuwingen",
       "noFrontendDiagnosticsForTheCurrentDeck": "Geen interface-diagnostiek voor het huidige deck.",
       "noCardSearchResults": "Geen kaartzoekresultaten.",
       "futureCollection": "Toekomstige collectie",
@@ -1471,7 +1503,8 @@
       "validationCounts": "Kaarten: {{ total }} totaal ({{ commander }} Commander, {{ main }} main deck, {{ sideboard }} sideboard, {{ maybeboard }} maybeboard)",
       "validationFailed": "Commander-validatie mislukt",
       "validationPassed": "Commander-validatie geslaagd",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fabel van de spiegelbreker / Reflectie van Kiki-Jiki (NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fabel van de spiegelbreker / Reflectie van Kiki-Jiki (NEO) 141",
+      "noCommanderAssignedYet": "Er is nog geen commandant toegewezen."
     },
     "deckList": {
       "newDeckName": "Niejee decknaam",
@@ -1543,7 +1576,9 @@
       "common": {
         "unavailable": "Niet beschikbaar",
         "notAvailable": "Niet beschikbaar",
-        "available": "Beschikbaar"
+        "available": "Beschikbaar",
+        "no": "No",
+        "yes": "Yes"
       },
       "overview": {
         "aria": "Geavanceerd analyseoverzicht",
@@ -1598,7 +1633,9 @@
         "excellent": "Uitstekend",
         "critical": "Kritisch",
         "unknown": "Onbekend",
-        "info": "Info"
+        "info": "Info",
+        "good": "Good",
+        "warning": "Warning"
       },
       "health": {
         "eyebrow": "Deckgezondheid",
@@ -1618,35 +1655,54 @@
           "combos": "Combos",
           "consistency": "Samenhang",
           "typal": "Tribal",
-          "mana": "Mana"
+          "mana": "Mana",
+          "draw": "Draw",
+          "ramp": "Ramp",
+          "sacrifice": "Sacrifice",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Wincons",
+          "wipes": "Wipes"
         }
       },
       "metrics": {
         "eyebrow": "Decksignalen",
         "title": "Belangrijke statistieken",
         "unavailable": "Gedetailleerde metrische signalen zijn niet beschikbaar voor deze analyse.",
-        "trueTutors": "Echte docenten",
-        "boardWipes": "Board Wipes",
-        "sacOutlets": "Zakuitgangen",
-        "drawEffects": "Teken effecten",
-        "spotInteraction": "Interactie ter plaatse",
-        "outlets": "Stopcontacten",
-        "staxPieces": "Stax-stukken",
+        "trueTutors": "True tutors",
+        "boardWipes": "Board wipes",
+        "sacOutlets": "Sac outlets",
+        "drawEffects": "Draw effects",
+        "spotInteraction": "Spot interaction",
+        "outlets": "Outlets",
+        "staxPieces": "Stax pieces",
         "manaFixing": "Mana-fixing",
-        "typedTutors": "Getypte docenten",
-        "landTutors": "Landleraren",
+        "typedTutors": "Typed tutors",
+        "landTutors": "Land tutors",
         "rampSearch": "Ramp search",
-        "opponentTutors": "Docenten van de tegenstander",
-        "sacrificeOutlets": "Opofferingsmogelijkheden",
-        "oneShotSacrifice": "Eenmalig offer",
+        "opponentTutors": "Opponent tutors",
+        "sacrificeOutlets": "Sac outlets",
+        "oneShotSacrifice": "One-shot sacrifice",
         "selfSacrifice": "Zelfopoffering",
-        "sacrificePayoffs": "Offer uitbetalingen",
+        "sacrificePayoffs": "Sacrifice payoffs",
         "combatFinishers": "Bestrijd finishers",
         "infectThreats": "Bedreigingen infecteren",
         "extraCombatEngines": "Extra gevechtsmotoren",
         "tax": "Belasting",
         "symmetricalStaxRisk": "Symmetrisch staxrisico",
-        "typalCreatures": "Tribal creatures"
+        "typalCreatures": "Tribal creatures",
+        "burstMana": "Burst mana",
+        "completeCombos": "Complete combos",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "Keepable hands",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "One-shot mana",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "Kaartresolutie",
@@ -1655,7 +1711,8 @@
         "unmatchedAria": "Ongeëvenaarde kaarten",
         "unmatchedCount": "{{count}} ongeëvenaarde kaarten",
         "unmatchedCopy": "Sommige kaarten konden niet worden opgelost, dus rol- en combo-signalen kunnen onvolledig zijn.",
-        "cardCouldNotBeMatched": "Kaart kon niet worden gematcht."
+        "cardCouldNotBeMatched": "Kaart kon niet worden gematcht.",
+        "cards": "Cards"
       },
       "combos": {
         "eyebrow": "Bekende lijnen",
@@ -1671,7 +1728,9 @@
           "partialOneMissing": "Gedeeltelijk, één ontbreekt",
           "partialTwoMissing": "Gedeeltelijk, twee ontbrekend",
           "winLike": "Win-achtige combo's",
-          "lethalLoops": "Dodelijke lussen"
+          "lethalLoops": "Dodelijke lussen",
+          "complete": "Complete combos",
+          "infiniteMana": "Infinite mana"
         },
         "empty": {
           "noComplete": "Geen volledige combolijnen gedetecteerd.",
@@ -1684,7 +1743,8 @@
           "winLike": "Win-achtig",
           "infiniteDamage": "Oneindige schade",
           "requiresCommander": "Vereist commandant",
-          "requiresTemplate": "Vereist sjabloon"
+          "requiresTemplate": "Vereist sjabloon",
+          "infiniteMana": "Infinite mana"
         },
         "cardState": {
           "inDeck": "In deck"
@@ -1707,7 +1767,7 @@
           "zeroOrOneLand": "0-1 landt",
           "fivePlusLands": "5+ landen",
           "earlyInteraction": "Vroege interactie",
-          "drawOrSelection": "Tekenen of selecteren",
+          "drawOrSelection": "Draw or selection",
           "trueTutor": "Echte docent",
           "earlyPlay": "Vroeg spelen",
           "tooFewLands": "Te weinig gronden",
@@ -1730,7 +1790,8 @@
           "canCastOnCurve": "Can cast on curve",
           "missingColor": "Missing color",
           "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "Tapped-out delay"
+          "tappedOutDelay": "Tapped-out delay",
+          "keepableHands": "Keepable hands"
         },
         "turn1": "Turn 1",
         "turn2": "Turn 2",
@@ -1743,18 +1804,26 @@
         "qualityAria": "{{role}}-kwaliteit",
         "unavailable": "Gegevens over rolkwaliteit zijn niet beschikbaar voor deze analyse.",
         "cards": {
-          "winconsCombat": "Wincons / gevecht"
+          "winconsCombat": "Wincons / gevecht",
+          "ramp": "Ramp",
+          "sacrifice": "Sacrifice",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
           "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
-        "wipesSeparated": "Mass bounce en Conditional wipes zijn niet hetzelfde als Hard Board Wipes.",
+          "wipesSeparated": "Mass bounce en Conditional wipes zijn niet hetzelfde als Hard Board Wipes.",
           "sacrificeOneShot": "Eenmalig offer telt niet als een herhaalbare uitlaatklep."
         }
       },
       "quality": {
         "slow": "Langzaam",
-        "oneShot": "Eén schot"
+        "oneShot": "Eén schot",
+        "good": "Good",
+        "medium": "Medium",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "Tribal-identiteit",
@@ -1815,7 +1884,29 @@
           "bounceLand": "Bounce lands",
           "temple": "Temples",
           "gainLand": "Gain lands"
-        }
+        },
+        "baseAndAcceleration": "Mana base and acceleration",
+        "noColorDemand": "No color demand data available.",
+        "requirementsAndRisks": "Requirements and land risks",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "Average mana value",
+        "colorlessUtilityLands": "Colorless utility lands",
+        "colors": {
+          "black": "Black",
+          "blue": "Blue",
+          "colorless": "Colorless",
+          "green": "Green",
+          "red": "Red",
+          "white": "White"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "Rainbow sources",
+        "temporaryMana": "Temporary mana",
+        "treasureSources": "Treasure sources"
       },
       "boardWipes": {
         "title": "Board Wipe Analysis",
@@ -1859,7 +1950,13 @@
           "permanentBasedWipes": "Permanent-based wipes",
           "repeatableWipes": "Repeatable wipes",
           "combatOnlyWipes": "Combat-only wipes",
-          "selfPlanRiskWipes": "Own plan collision"
+          "selfPlanRiskWipes": "Own plan collision",
+          "answersIndestructible": "Answers indestructible",
+          "averageManaValue": "Average mana value",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "Hard",
@@ -1871,7 +1968,9 @@
           "damage": "Damage",
           "tuckShuffle": "Tuck / shuffle",
           "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "enchantmentWipe": "Enchantment wipe",
+          "answersIndestructible": "Answers indestructible",
+          "exile": "Exile"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1949,6 +2048,29 @@
           "graveyard_plan_risk": "Graveyard plan risk",
           "alternative_mass_mode": "Alternative mass mode"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} bevat kleuren buiten de kleuridentiteit van de command zone.",
+        "title": "Probleem met kleuridentiteit"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} is verboden in Commander.",
+        "notLegalDetail": "{{ card }} is niet legaal in Commander.",
+        "title": "Legaliteitsprobleem met commander"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "De beschikbare Oracle-tekst bevat geen duidelijke verwijzing naar Partner of Choose a Background.",
+        "title": "Commanderpaar moet worden beoordeeld"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} komt {{ quantity }} keer voor in het hoofddeck.",
+        "title": "Singleton-overtreding"
+      },
+      "tooManyCommanders": {
+        "detail": "Een Commander-deck mag één commander of een legale combinatie van twee kaarten hebben.",
+        "title": "Te veel commanders"
       }
     }
   },
@@ -2098,7 +2220,49 @@
       "avatarTiers": "Avatar-niveaus",
       "basicAvatars": "Basisavatars",
       "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Kies avatar"
+      "chooseAvatar": "Kies avatar",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "Avatarvoorbeeld geüpload",
@@ -2115,6 +2279,34 @@
       "nameStylePreview": "Naamstijlvoorbeeld",
       "nameStyleTiers": "Geef stijllagen een naam",
       "textColor": "Tekstkleur"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "Puur zwart, grijsschalen en heldere gouden accenten."
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "Competitief neon met elektrische accenten."
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "Heldere snoeppastels met sterker contrast."
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "Warme fantasytavernkleuren met leer, wijn, schatgoud en smaragdgroene buit."
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "Serieuze PvP-kleuren met plasma- en energieaccenten."
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "Magische natuurkleuren met smaragd en spreukenlicht."
+        }
+      }
     }
   },
   "modals": {
@@ -2232,7 +2424,7 @@
       "email": "E-mail",
       "created": "Created",
       "status": "Status",
-      "premium": "Premie",
+      "premium": "Premium",
       "actions": "Actions",
       "support": "Support",
       "admin": "Administrator",
@@ -2252,7 +2444,7 @@
       "countCards": "{{ count }}-kaarten",
       "giveTo": "Geef aan",
       "white": "Wit",
-      "blue": "Blaje",
+      "blue": "Blauw",
       "black": "Zwart",
       "red": "Rood",
       "green": "Groen",
@@ -2337,7 +2529,7 @@
       "artifact": "Artifact",
       "battle": "Battle",
       "land": "Land",
-      "warning": "Waarschjeing",
+      "warning": "Waarschuwing",
       "searchDecks": "Zoek decks",
       "noPublicDecksAvailableYet": "Er zijn nog geen openbare decks beschikbaar.",
       "searchByName": "Zoek op naam",
@@ -2370,7 +2562,7 @@
       "commanderDamage": "Commander damage",
       "power": "Power",
       "toughness": "Toughness",
-      "draw": "Teken",
+      "draw": "Trek",
       "errors": "Fouten",
       "yes": "ja",
       "no": "nee",
@@ -2488,6 +2680,11 @@
       "manaEfficiency": "Mana-efficiëntie",
       "detected": "Gedetecteerd",
       "notDetected": "Niet gedetecteerd"
+    },
+    "confidence": {
+      "high": "Hoog",
+      "medium": "Gemiddeld",
+      "low": "Laag"
     }
   },
   "errors": {

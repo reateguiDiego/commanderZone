@@ -447,7 +447,8 @@
       "signInWithGoogle": "Войти через Google",
       "registerWithGoogle": "Зарегистрироваться через Google",
       "socialSignIn": "Вход через соцсети",
-      "or": "или"
+      "or": "или",
+      "googleLinkRequired": "Для этого адреса уже есть учётная запись. Войдите с паролем, прежде чем привязывать Google."
     },
     "emailVerificationPage": {
       "confirmingEmail": "Подтверждение электронной почты",
@@ -565,6 +566,9 @@
       "totalPlayers": "Всего игроков",
       "startedGames": "Начатые партии",
       "description": "Просматривайте активные лобби и сразу присоединяйтесь к партии."
+    },
+    "roomRow": {
+      "leave": "Покинуть комнату"
     }
   },
   "community": {
@@ -629,7 +633,15 @@
       "commandersAriaLabel": "Командиры для вдохновения",
       "cardsTitle": "Самые популярные карты",
       "mobileCardsTitle": "Лучшие карты",
-      "cardsAriaLabel": "Карты для изучения"
+      "cardsAriaLabel": "Карты для изучения",
+      "usernameSearchEmpty": "Имена пользователей не найдены.",
+      "usernameSearchError": "Не удалось найти имена пользователей.",
+      "usernameSearchHint": "Введите не менее двух символов для поиска по имени пользователя.",
+      "usernameSearchLabel": "Поиск по имени пользователя",
+      "usernameSearchLoading": "Поиск имён пользователей...",
+      "usernameSearchLoginRequired": "Войдите, чтобы искать имена пользователей.",
+      "usernameSearchPlaceholder": "Поиск по имени пользователя...",
+      "usernameSearchResults": "Результаты поиска пользователей"
     },
     "deckList": {
       "subtitle": "Исследуйте общедоступные колоды сообщества.",
@@ -637,7 +649,8 @@
       "allFormats": "Все форматы",
       "filterBracket": "Брекет",
       "allBrackets": "Все брекеты",
-      "error": "Не удалось загрузить общедоступные колоды."
+      "error": "Не удалось загрузить общедоступные колоды.",
+      "paginationLabel": "Пагинация публичных колод"
     },
     "deckViewer": {
       "viewMode": {
@@ -649,6 +662,13 @@
         "other": "Другой",
         "includingMdfc": "{{ count }}, включая MDFC"
       }
+    },
+    "user": {
+      "allColors": "Все цвета",
+      "empty": "Нет публичных колод, соответствующих этим фильтрам.",
+      "error": "Не удалось загрузить этот публичный профиль.",
+      "filterColors": "Цвета",
+      "paginationLabel": "Пагинация колод пользователя"
     }
   },
   "game": {
@@ -872,7 +892,8 @@
         "main-1": "Первая главная фаза",
         "combat": "Бой",
         "main-2": "Вторая главная фаза",
-        "end": "Заключительный этап"
+        "end": "Заключительный этап",
+        "draw": "Шаг взятия карты"
       }
     },
     "debug": {
@@ -1079,7 +1100,8 @@
         "day": "День",
         "night": "Ночь",
         "citysBlessing": "Благословение города",
-        "dayNight": "День/Ночь"
+        "dayNight": "День/Ночь",
+        "monarch": "Монарх"
       },
       "dungeonReplacement": {
         "title": "Заменить активное подземелье?",
@@ -1258,6 +1280,15 @@
     },
     "game": {
       "concede": "{{ player }} предоставлен."
+    },
+    "phase": {
+      "untap": "Шаг разворота",
+      "upkeep": "Шаг поддержки",
+      "draw": "Шаг взятия карты",
+      "main-1": "Первая главная фаза",
+      "combat": "Фаза боя",
+      "main-2": "Вторая главная фаза",
+      "end": "Конечная фаза"
     }
   },
   "deckBuilder": {
@@ -1395,7 +1426,8 @@
       "sampleHand": "Тестовая рука",
       "sevenRandomCardsFromTheMainDeck": "Семь случайных карт из основной колоды.",
       "drawAgain": "Взять заново",
-      "noCardsAvailable": "Нет доступных карт."
+      "noCardsAvailable": "Нет доступных карт.",
+      "manaValue": "Мановая ценность {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "Скопировать управление количеством",
@@ -1471,7 +1503,8 @@
       "validationCounts": "Карт всего: {{ total }} ({{ commander }} командир, {{ main }} основная колода, {{ sideboard }} сайдборд, {{ maybeboard }} на рассмотрении)",
       "validationFailed": "Валидация Commander не пройдена",
       "validationPassed": "Валидация Commander пройдена",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
+      "noCommanderAssignedYet": "Командир ещё не назначен."
     },
     "deckList": {
       "newDeckName": "Новое название колоды",
@@ -1543,7 +1576,9 @@
       "common": {
         "unavailable": "Недоступно",
         "notAvailable": "Нет в наличии",
-        "available": "Доступный"
+        "available": "Доступный",
+        "no": "Нет",
+        "yes": "Да"
       },
       "overview": {
         "aria": "Обзор расширенного анализа",
@@ -1598,7 +1633,9 @@
         "excellent": "Отличный",
         "critical": "Критический",
         "unknown": "Неизвестный",
-        "info": "Информация"
+        "info": "Информация",
+        "good": "Хорошо",
+        "warning": "Предупреждение"
       },
       "health": {
         "eyebrow": "Здоровье колоды",
@@ -1618,7 +1655,14 @@
           "combos": "Combos",
           "consistency": "Последовательность",
           "typal": "Tribal",
-          "mana": "Mana"
+          "mana": "Mana",
+          "draw": "Добор карт",
+          "ramp": "Ramp",
+          "sacrifice": "Жертвоприношение",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Wincons",
+          "wipes": "Wipes"
         }
       },
       "metrics": {
@@ -1646,7 +1690,19 @@
         "extraCombatEngines": "Дополнительные боевые двигатели",
         "tax": "Налог",
         "symmetricalStaxRisk": "Симметричный статический риск",
-        "typalCreatures": "Племенные существа"
+        "typalCreatures": "Племенные существа",
+        "burstMana": "Взрывная мана",
+        "completeCombos": "Полные комбо",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "Руки для оставления",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "Одноразовая мана",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "Разрешение карты",
@@ -1655,7 +1711,8 @@
         "unmatchedAria": "Непревзойденные карты",
         "unmatchedCount": "{{count}} непревзойденные карты",
         "unmatchedCopy": "Некоторые карты не удалось определить, поэтому сигналы ролей и комбо могут быть неполными.",
-        "cardCouldNotBeMatched": "Карта не может быть сопоставлена."
+        "cardCouldNotBeMatched": "Карта не может быть сопоставлена.",
+        "cards": "Карты"
       },
       "combos": {
         "eyebrow": "Известные линии",
@@ -1671,7 +1728,9 @@
           "partialOneMissing": "Частично, один отсутствует",
           "partialTwoMissing": "Частично, два отсутствуют",
           "winLike": "Выигрышные комбинации",
-          "lethalLoops": "Смертельные петли"
+          "lethalLoops": "Смертельные петли",
+          "complete": "Полные комбо",
+          "infiniteMana": "Бесконечная мана"
         },
         "empty": {
           "noComplete": "Полных комбо-строк не обнаружено.",
@@ -1684,7 +1743,8 @@
           "winLike": "Беспроигрышный",
           "infiniteDamage": "Бесконечный урон",
           "requiresCommander": "Требуется командир",
-          "requiresTemplate": "Требуется шаблон"
+          "requiresTemplate": "Требуется шаблон",
+          "infiniteMana": "Бесконечная мана"
         },
         "cardState": {
           "inDeck": "В колоде"
@@ -1730,7 +1790,8 @@
           "canCastOnCurve": "Can cast on curve",
           "missingColor": "Missing color",
           "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "Задержка из-за повернутых земель"
+          "tappedOutDelay": "Задержка из-за повернутых земель",
+          "keepableHands": "Руки для оставления"
         },
         "turn1": "Turn 1",
         "turn2": "Turn 2",
@@ -1743,18 +1804,26 @@
         "qualityAria": "Качество {{role}}",
         "unavailable": "Данные о качестве ролей для данного анализа недоступны.",
         "cards": {
-          "winconsCombat": "Wincons / бой"
+          "winconsCombat": "Wincons / бой",
+          "ramp": "Ramp",
+          "sacrifice": "Жертвоприношение",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
           "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
-        "wipesSeparated": "Mass bounce и Conditional wipes — не то же самое, что Hard Board Wipes.",
+          "wipesSeparated": "Mass bounce и Conditional wipes — не то же самое, что Hard Board Wipes.",
           "sacrificeOneShot": "Одноразовая жертва не считается повторяемым выходом."
         }
       },
       "quality": {
         "slow": "Медленный",
-        "oneShot": "Один выстрел"
+        "oneShot": "Один выстрел",
+        "good": "Хорошо",
+        "medium": "Средне",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "Трайбовая идентичность",
@@ -1815,7 +1884,29 @@
           "bounceLand": "Bounce lands",
           "temple": "Temples",
           "gainLand": "Gain lands"
-        }
+        },
+        "baseAndAcceleration": "Манабаза и ускорение",
+        "noColorDemand": "Нет данных о требованиях к цветам.",
+        "requirementsAndRisks": "Требования и риски земель",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "Средняя мана-стоимость",
+        "colorlessUtilityLands": "Бесцветные служебные земли",
+        "colors": {
+          "black": "Чёрный",
+          "blue": "Синий",
+          "colorless": "Бесцветный",
+          "green": "Зелёный",
+          "red": "Красный",
+          "white": "Белый"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "Радужные источники",
+        "temporaryMana": "Временная мана",
+        "treasureSources": "Источники Сокровищ"
       },
       "boardWipes": {
         "title": "Board Wipe Analysis",
@@ -1859,7 +1950,13 @@
           "permanentBasedWipes": "Permanent-based wipes",
           "repeatableWipes": "Repeatable wipes",
           "combatOnlyWipes": "Combat-only wipes",
-          "selfPlanRiskWipes": "Own plan collision"
+          "selfPlanRiskWipes": "Own plan collision",
+          "answersIndestructible": "Обходит неразрушимость",
+          "averageManaValue": "Средняя мана-стоимость",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "Hard",
@@ -1871,7 +1968,9 @@
           "damage": "Damage",
           "tuckShuffle": "Tuck / shuffle",
           "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "enchantmentWipe": "Enchantment wipe",
+          "answersIndestructible": "Обходит неразрушимость",
+          "exile": "Изгнание"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1949,6 +2048,29 @@
           "graveyard_plan_risk": "Graveyard plan risk",
           "alternative_mass_mode": "Alternative mass mode"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} содержит цвета вне цветовой идентичности командной зоны.",
+        "title": "Проблема с цветовой идентичностью"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} запрещена в Commander.",
+        "notLegalDetail": "{{ card }} нелегальна в Commander.",
+        "title": "Проблема легальности командира"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "В доступном тексте Oracle нет явного указания на Partner или Choose a Background.",
+        "title": "Пара командиров требует проверки"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} встречается в основной колоде {{ quantity }} раз.",
+        "title": "Нарушение правила синглтона"
+      },
+      "tooManyCommanders": {
+        "detail": "В колоде Commander может быть один командир или легальная пара из двух карт.",
+        "title": "Слишком много командиров"
       }
     }
   },
@@ -2099,7 +2221,49 @@
       "avatarTiers": "Уровни аватара",
       "basicAvatars": "Базовые аватары",
       "premiumAvatars": "Премиум аватары",
-      "chooseAvatar": "Выбрать аватар"
+      "chooseAvatar": "Выбрать аватар",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "Предварительный просмотр загруженного аватара",
@@ -2116,6 +2280,34 @@
       "nameStylePreview": "Предварительный просмотр стиля имени",
       "nameStyleTiers": "Уровни стилей названий",
       "textColor": "Цвет текста"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "Чистый чёрный, оттенки серого и яркие золотые акценты."
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "Соревновательный неон с электрическими акцентами."
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "Яркие конфетные пастели с более сильным контрастом."
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "Тёплые цвета фэнтезийной таверны: кожа, вино, золото сокровищ и изумрудная добыча."
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "Строгая PvP-палитра с акцентами плазмы и энергии."
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "Волшебные природные цвета с изумрудом и светом заклинаний."
+        }
+      }
     }
   },
   "forms": {},
@@ -2544,6 +2736,11 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected"
+    },
+    "confidence": {
+      "high": "Высокая",
+      "medium": "Средняя",
+      "low": "Низкая"
     }
   }
 }

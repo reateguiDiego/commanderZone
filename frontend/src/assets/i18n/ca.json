@@ -447,7 +447,8 @@
       "signInWithGoogle": "Inicia sessió amb Google",
       "registerWithGoogle": "Registra't amb Google",
       "socialSignIn": "Inici de sessió social",
-      "or": "o"
+      "or": "o",
+      "googleLinkRequired": "Aquest correu ja té un compte. Inicia sessió amb la contrasenya abans d'enllaçar Google."
     },
     "emailVerificationPage": {
       "confirmingEmail": "Correu electrònic de confirmació",
@@ -565,6 +566,9 @@
       "totalPlayers": "Jugadors totals",
       "startedGames": "Partides començades",
       "description": "Navega pels lobbies actius i uneix-te a un partit a l'instant."
+    },
+    "roomRow": {
+      "leave": "Sortir de la sala"
     }
   },
   "community": {
@@ -629,7 +633,15 @@
       "commandersAriaLabel": "Per inspiració",
       "cardsTitle": "Cartes més jugades",
       "mobileCardsTitle": "Cartes més jugades",
-      "cardsAriaLabel": "Cartes per explorar"
+      "cardsAriaLabel": "Cartes per explorar",
+      "usernameSearchEmpty": "No s'han trobat noms d'usuari.",
+      "usernameSearchError": "No s'han pogut cercar noms d'usuari.",
+      "usernameSearchHint": "Escriu almenys dos caràcters per cercar per nom d'usuari.",
+      "usernameSearchLabel": "Cerca nom d'usuari",
+      "usernameSearchLoading": "Cercant noms d'usuari...",
+      "usernameSearchLoginRequired": "Inicia sessió per cercar noms d'usuari.",
+      "usernameSearchPlaceholder": "Cerca nom d'usuari...",
+      "usernameSearchResults": "Resultats de la cerca de noms d'usuari"
     },
     "deckList": {
       "subtitle": "Explorar les baralles públiques de la comunitat.",
@@ -637,7 +649,8 @@
       "allFormats": "Tots els formats",
       "filterBracket": "Bracket",
       "allBrackets": "Tots els brackets",
-      "error": "No s'han pogut carregar les baralles públiques."
+      "error": "No s'han pogut carregar les baralles públiques.",
+      "paginationLabel": "Paginació de baralles públiques"
     },
     "deckViewer": {
       "viewMode": {
@@ -649,6 +662,13 @@
         "other": "Altres",
         "includingMdfc": "{{ count }} inclòs MDFC"
       }
+    },
+    "user": {
+      "allColors": "Tots els colors",
+      "empty": "Cap baralla pública no coincideix amb aquests filtres.",
+      "error": "No s'ha pogut carregar aquest usuari públic.",
+      "filterColors": "Colors",
+      "paginationLabel": "Paginació de baralles de l'usuari"
     }
   },
   "game": {
@@ -872,7 +892,8 @@
         "main-1": "Main phase I",
         "combat": "Combat",
         "main-2": "Main phase II",
-        "end": "End step"
+        "end": "End step",
+        "draw": "Draw step"
       }
     },
     "debug": {
@@ -1079,7 +1100,8 @@
         "day": "Dia",
         "night": "Nit",
         "citysBlessing": "La benedicció de la ciutat",
-        "dayNight": "Dia/nit"
+        "dayNight": "Dia/nit",
+        "monarch": "Monarca"
       },
       "dungeonReplacement": {
         "title": "Substituir la masmorra activa?",
@@ -1258,6 +1280,15 @@
     },
     "game": {
       "concede": "{{ player }} va concedir."
+    },
+    "phase": {
+      "untap": "untap step",
+      "upkeep": "upkeep step",
+      "draw": "draw step",
+      "main-1": "first main phase",
+      "combat": "combat phase",
+      "main-2": "second main phase",
+      "end": "ending phase"
     }
   },
   "deckBuilder": {
@@ -1395,7 +1426,8 @@
       "sampleHand": "Mostra de mà",
       "sevenRandomCardsFromTheMainDeck": "Set cartes aleatòries de la baralla principal.",
       "drawAgain": "Roba de nou",
-      "noCardsAvailable": "No hi ha cartes disponibles."
+      "noCardsAvailable": "No hi ha cartes disponibles.",
+      "manaValue": "Mana value {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "Controls de quantitat de còpia",
@@ -1471,7 +1503,8 @@
       "validationCounts": "Cartes: {{ total }} total ({{ commander }} comandant, {{ main }} principal, {{ sideboard }} banqueta, {{ maybeboard }} en consideració)",
       "validationFailed": "Commander La validació ha fallat",
       "validationPassed": "Commander validació superada",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
+      "noCommanderAssignedYet": "Encara no s’ha assignat cap comandant."
     },
     "deckList": {
       "newDeckName": "Nou nom de la baralla",
@@ -1543,7 +1576,9 @@
       "common": {
         "unavailable": "No disponible",
         "notAvailable": "No disponible",
-        "available": "Disponible"
+        "available": "Disponible",
+        "no": "No",
+        "yes": "Yes"
       },
       "overview": {
         "aria": "Visió general de l'anàlisi avançada",
@@ -1598,7 +1633,9 @@
         "excellent": "Excel·lent",
         "critical": "Crític",
         "unknown": "Desconegut",
-        "info": "Info"
+        "info": "Info",
+        "good": "Good",
+        "warning": "Warning"
       },
       "health": {
         "eyebrow": "Salut de la baralla",
@@ -1618,7 +1655,14 @@
           "combos": "Combos",
           "consistency": "Coherència",
           "typal": "Tribal",
-          "mana": "Mana"
+          "mana": "Mana",
+          "draw": "Draw",
+          "ramp": "Ramp",
+          "sacrifice": "Sacrifice",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Wincons",
+          "wipes": "Wipes"
         }
       },
       "metrics": {
@@ -1646,7 +1690,19 @@
         "extraCombatEngines": "Motors de combat extra",
         "tax": "Tax",
         "symmetricalStaxRisk": "Risc d'estax simètric",
-        "typalCreatures": "Criatures tribals"
+        "typalCreatures": "Criatures tribals",
+        "burstMana": "Burst mana",
+        "completeCombos": "Complete combos",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "Keepable hands",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "One-shot mana",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "Resolució de cartes",
@@ -1655,7 +1711,8 @@
         "unmatchedAria": "Cartes no resoltes",
         "unmatchedCount": "{{count}} cartes no resoltes",
         "unmatchedCopy": "Algunes cartes no s'han pogut resoldre, de manera que els senyals de rol i combinació poden estar incomplets.",
-        "cardCouldNotBeMatched": "No s'ha pogut identificar la carta."
+        "cardCouldNotBeMatched": "No s'ha pogut identificar la carta.",
+        "cards": "Cards"
       },
       "combos": {
         "eyebrow": "Línies conegudes",
@@ -1671,7 +1728,9 @@
           "partialOneMissing": "Parcial, en falta una",
           "partialTwoMissing": "Parcial, en falten dues",
           "winLike": "Combos semblants a la victòria",
-          "lethalLoops": "Bucles letals"
+          "lethalLoops": "Bucles letals",
+          "complete": "Complete combos",
+          "infiniteMana": "Infinite mana"
         },
         "empty": {
           "noComplete": "No s'han detectat línies combinades completes.",
@@ -1684,7 +1743,8 @@
           "winLike": "Com la victòria",
           "infiniteDamage": "Dany infinit",
           "requiresCommander": "Requereix commander",
-          "requiresTemplate": "Requereix plantilla"
+          "requiresTemplate": "Requereix plantilla",
+          "infiniteMana": "Infinite mana"
         },
         "cardState": {
           "inDeck": "Al deck"
@@ -1730,7 +1790,8 @@
           "canCastOnCurve": "Can cast on curve",
           "missingColor": "Missing color",
           "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "Tapped-out delay"
+          "tappedOutDelay": "Tapped-out delay",
+          "keepableHands": "Keepable hands"
         },
         "turn1": "Turn 1",
         "turn2": "Turn 2",
@@ -1743,18 +1804,26 @@
         "qualityAria": "Qualitat de {{role}}",
         "unavailable": "Les dades de qualitat del rol no estan disponibles per a aquesta anàlisi.",
         "cards": {
-          "winconsCombat": "Condicions de victòria / combat"
+          "winconsCombat": "Condicions de victòria / combat",
+          "ramp": "Ramp",
+          "sacrifice": "Sacrifice",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
           "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
-        "wipesSeparated": "Mass bounce i Conditional wipes no són el mateix que Hard Board Wipes.",
+          "wipesSeparated": "Mass bounce i Conditional wipes no són el mateix que Hard Board Wipes.",
           "sacrificeOneShot": "El sacrifici d'un sol cop no compta com a sortida repetible."
         }
       },
       "quality": {
         "slow": "Lent",
-        "oneShot": "Un tir"
+        "oneShot": "Un tir",
+        "good": "Good",
+        "medium": "Medium",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "Identitat tribal",
@@ -1815,7 +1884,29 @@
           "bounceLand": "Bounce lands",
           "temple": "Temples",
           "gainLand": "Gain lands"
-        }
+        },
+        "baseAndAcceleration": "Mana base and acceleration",
+        "noColorDemand": "No color demand data available.",
+        "requirementsAndRisks": "Requirements and land risks",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "Average mana value",
+        "colorlessUtilityLands": "Colorless utility lands",
+        "colors": {
+          "black": "Black",
+          "blue": "Blue",
+          "colorless": "Colorless",
+          "green": "Green",
+          "red": "Red",
+          "white": "White"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "Rainbow sources",
+        "temporaryMana": "Temporary mana",
+        "treasureSources": "Treasure sources"
       },
       "boardWipes": {
         "title": "Anàlisi de Board Wipes",
@@ -1859,7 +1950,13 @@
           "permanentBasedWipes": "Permanent-based wipes",
           "repeatableWipes": "Repeatable wipes",
           "combatOnlyWipes": "Combat-only wipes",
-          "selfPlanRiskWipes": "Own plan collision"
+          "selfPlanRiskWipes": "Own plan collision",
+          "answersIndestructible": "Answers indestructible",
+          "averageManaValue": "Average mana value",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "Hard",
@@ -1871,7 +1968,9 @@
           "damage": "Damage",
           "tuckShuffle": "Tuck / shuffle",
           "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "enchantmentWipe": "Enchantment wipe",
+          "answersIndestructible": "Answers indestructible",
+          "exile": "Exile"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1949,6 +2048,29 @@
           "graveyard_plan_risk": "Graveyard plan risk",
           "alternative_mass_mode": "Alternative mass mode"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} inclou colors fora de la identitat de color de la zona de comandament.",
+        "title": "Problema d'identitat de color"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} està prohibida a Commander.",
+        "notLegalDetail": "{{ card }} no és legal a Commander.",
+        "title": "Problema de legalitat del comandant"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "El text Oracle disponible no conté referències clares a Partner ni a Background.",
+        "title": "Cal revisar la parella de comandants"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} apareix {{ quantity }} vegades a la baralla principal.",
+        "title": "Infracció de singleton"
+      },
+      "tooManyCommanders": {
+        "detail": "Una baralla Commander pot tenir un comandant o una parella legal de dues cartes.",
+        "title": "Massa comandants"
       }
     }
   },
@@ -2099,7 +2221,49 @@
       "avatarTiers": "Nivells d'avatar",
       "basicAvatars": "Avatars bàsics",
       "premiumAvatars": "Avatars premium",
-      "chooseAvatar": "Tria l'avatar"
+      "chooseAvatar": "Tria l'avatar",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "Vista prèvia de l'avatar carregat",
@@ -2116,6 +2280,34 @@
       "nameStylePreview": "Vista prèvia de l'estil del nom",
       "nameStyleTiers": "Nivells d'estil de nom",
       "textColor": "Color del text"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "Negre pur, escala de grisos i accents daurats brillants."
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "Neó competitiu amb accents elèctrics."
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "Pastels de llaminadures lluminosos amb més contrast."
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "Colors càlids de taverna fantàstica, amb cuir, vi, or de tresor i botí maragda."
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "Colors PvP seriosos amb accents de plasma i energia."
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "Colors de natura màgica, amb maragda i llum d'encanteri."
+        }
+      }
     }
   },
   "forms": {},
@@ -2544,6 +2736,11 @@
       "manaEfficiency": "Eficiència de mana",
       "detected": "Detectat",
       "notDetected": "No detectat"
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Mitjana",
+      "low": "Baixa"
     }
   }
 }
