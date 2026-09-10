@@ -1,6 +1,9 @@
 import { RenderMode } from '@angular/ssr';
 import { LEGAL_PRERENDER_ROUTES } from './core/legal/legal-routes';
-import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localization/seo-prerender-routes';
+import {
+  SEO_PRERENDER_ROUTES,
+  toAngularServerRoutePath,
+} from './core/localization/seo-prerender-routes';
 import { serverRoutes } from './app.routes.server';
 
 describe('server routes', () => {
@@ -19,7 +22,9 @@ describe('server routes', () => {
     expect(prerenderPaths).not.toContain('en');
 
     for (const locale of nonSeoLocaleCodes) {
-      expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
+      expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(
+        false,
+      );
     }
   });
 
@@ -27,23 +32,27 @@ describe('server routes', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
-    const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
+    const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) =>
+      toAngularServerRoutePath(path),
+    );
 
     expect(LEGAL_PRERENDER_ROUTES).toHaveLength(18);
     expect(prerenderPaths).toEqual(expect.arrayContaining(legalPrerenderPaths));
-    expect(prerenderPaths.filter((path) => legalPrerenderPaths.includes(path)).length).toBe(LEGAL_PRERENDER_ROUTES.length);
+    expect(prerenderPaths.filter((path) => legalPrerenderPaths.includes(path)).length).toBe(
+      LEGAL_PRERENDER_ROUTES.length,
+    );
     expect(SEO_PRERENDER_ROUTES).not.toContain('/privacy-policy/');
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
-  it('keeps the prerender list limited to SEO, legal, and public community routes', () => {
+  it('keeps the prerender list limited to static SEO and legal routes', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
     expect(SEO_PRERENDER_ROUTES).toHaveLength(90);
     expect(LEGAL_PRERENDER_ROUTES).toHaveLength(18);
-    expect(prerenderPaths).toEqual(expect.arrayContaining([
+    for (const communityPath of [
       'community',
       'community/decks',
       'community/top-commanders',
@@ -51,18 +60,24 @@ describe('server routes', () => {
       'community/users/:username',
       'community/commanders/:slug',
       'community/cards/:slug',
-    ]));
+    ]) {
+      expect(prerenderPaths).not.toContain(communityPath);
+    }
     expect(prerenderPaths).not.toContain('en');
     expect(prerenderPaths).not.toContain('auth/login');
     expect(prerenderPaths).not.toContain('auth/register');
   });
 
   it('keeps public auth entry pages in client render mode', () => {
-    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Client);
-    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Client);
+    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(
+      RenderMode.Client,
+    );
+    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(
+      RenderMode.Client,
+    );
   });
 
-  it('keeps private and dynamic runtime routes out of prerender mode', () => {
+  it('keeps private and community runtime routes out of prerender mode', () => {
     const clientOnlyPaths = [
       'auth/login',
       'auth/register',
@@ -74,7 +89,15 @@ describe('server routes', () => {
       'admin',
       'dashboard',
       'cards',
+      'community',
+      'community/decks',
       'community/decks/:slug/analysis',
+      'community/decks/:id',
+      'community/top-commanders',
+      'community/top-cards',
+      'community/users/:username',
+      'community/commanders/:slug',
+      'community/cards/:slug',
       'decks',
       'decks/:slug/analysis',
       'decks/:slug',
@@ -92,7 +115,7 @@ describe('server routes', () => {
     }
   });
 
-  it('prerenders public community discovery routes', () => {
+  it('keeps public community pages in client render mode', () => {
     for (const path of [
       'community',
       'community/decks',
@@ -102,16 +125,14 @@ describe('server routes', () => {
       'community/commanders/:slug',
       'community/cards/:slug',
     ]) {
-      expect(serverRoutes.find((route) => route.path === path)?.renderMode).toBe(RenderMode.Prerender);
+      expect(serverRoutes.find((route) => route.path === path)?.renderMode).toBe(RenderMode.Client);
     }
   });
 
-  it('server-renders public community deck details on demand', () => {
-    expect(serverRoutes.find((route) => route.path === 'community/decks/:id')?.renderMode).toBe(RenderMode.Server);
-  });
-
   it('keeps community advanced deck analysis in client render mode', () => {
-    expect(serverRoutes.find((route) => route.path === 'community/decks/:slug/analysis')?.renderMode).toBe(RenderMode.Client);
+    expect(
+      serverRoutes.find((route) => route.path === 'community/decks/:slug/analysis')?.renderMode,
+    ).toBe(RenderMode.Client);
   });
 
   it('uses server rendering with 404 status as the fallback server route', () => {

@@ -447,7 +447,8 @@
       "signInWithGoogle": "Iniciar sesión con Google",
       "registerWithGoogle": "Registrarse con Google",
       "socialSignIn": "Inicio de sesión social",
-      "or": "o"
+      "or": "o",
+      "googleLinkRequired": "Este correo ya tiene una cuenta. Inicia sesión con tu contraseña antes de vincular Google."
     },
     "emailVerificationPage": {
       "confirmingEmail": "Correo electrónico de confirmación",
@@ -565,6 +566,9 @@
       "totalPlayers": "Total de jugadores",
       "startedGames": "Partidas iniciadas",
       "description": "Explora salas activas y únete a una partida al instante."
+    },
+    "roomRow": {
+      "leave": "Abandonar sala"
     }
   },
   "community": {
@@ -629,7 +633,15 @@
       "commandersAriaLabel": "Comandantes para inspirarte",
       "cardsTitle": "Cartas más jugadas",
       "mobileCardsTitle": "Cartas destacadas",
-      "cardsAriaLabel": "Cartas para explorar"
+      "cardsAriaLabel": "Cartas para explorar",
+      "usernameSearchEmpty": "No se encontraron nombres de usuario.",
+      "usernameSearchError": "No se pudieron buscar nombres de usuario.",
+      "usernameSearchHint": "Escribe al menos dos caracteres para buscar por nombre de usuario.",
+      "usernameSearchLabel": "Buscar nombre de usuario",
+      "usernameSearchLoading": "Buscando nombres de usuario...",
+      "usernameSearchLoginRequired": "Inicia sesión para buscar nombres de usuario.",
+      "usernameSearchPlaceholder": "Buscar nombre de usuario...",
+      "usernameSearchResults": "Resultados de búsqueda de usuarios"
     },
     "deckList": {
       "subtitle": "Explora los mazos públicos de la comunidad.",
@@ -637,7 +649,8 @@
       "allFormats": "Todos los formatos",
       "filterBracket": "Bracket",
       "allBrackets": "Todos los brackets",
-      "error": "No se pudieron cargar los mazos públicos."
+      "error": "No se pudieron cargar los mazos públicos.",
+      "paginationLabel": "Paginación de mazos de la comunidad"
     },
     "deckViewer": {
       "viewMode": {
@@ -649,6 +662,13 @@
         "other": "Otro",
         "includingMdfc": "{{ count }} incluyendo MDFC"
       }
+    },
+    "user": {
+      "allColors": "Todos los colores",
+      "empty": "Ningún mazo público coincide con estos filtros.",
+      "error": "No se pudo cargar este perfil público.",
+      "filterColors": "Filtrar por colores",
+      "paginationLabel": "Paginación de mazos públicos"
     }
   },
   "game": {
@@ -872,7 +892,8 @@
         "main-1": "Primera fase principal",
         "combat": "Combate",
         "main-2": "Segunda fase principal",
-        "end": "Paso final"
+        "end": "Paso final",
+        "draw": "Paso de robar"
       }
     },
     "debug": {
@@ -1079,7 +1100,8 @@
         "day": "Día",
         "night": "Noche",
         "citysBlessing": "Bendición de la ciudad",
-        "dayNight": "Día/Noche"
+        "dayNight": "Día/Noche",
+        "monarch": "Monarca"
       },
       "dungeonReplacement": {
         "title": "¿Reemplazar mazmorra activa?",
@@ -1258,6 +1280,15 @@
       "library": "biblioteca",
       "command": "zona de mando",
       "zone": "zona"
+    },
+    "phase": {
+      "untap": "Paso de enderezar",
+      "upkeep": "Paso de mantenimiento",
+      "draw": "Paso de robar",
+      "main-1": "Primera fase principal",
+      "combat": "Fase de combate",
+      "main-2": "Segunda fase principal",
+      "end": "Fase final"
     }
   },
   "deckBuilder": {
@@ -1395,7 +1426,8 @@
       "sampleHand": "Mano de muestra",
       "sevenRandomCardsFromTheMainDeck": "Siete cartas aleatorias del mazo principal.",
       "drawAgain": "Robar de nuevo",
-      "noCardsAvailable": "No hay cartas disponibles."
+      "noCardsAvailable": "No hay cartas disponibles.",
+      "manaValue": "Valor de maná {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "Controles de cantidad de copias",
@@ -1471,7 +1503,8 @@
       "validationCounts": "Cartas: {{ total }} en total ({{ commander }} comandante, {{ main }} mazo principal, {{ sideboard }} banquillo, {{ maybeboard }} en consideración)",
       "validationFailed": "La validación de Commander falló",
       "validationPassed": "Validación de Commander aprobada",
-      "decklistTextareaExample": "1 Sol Ring (COV) 168\n1 Fábula del Rompeespejos / Reflejo de Kiki-Jiki (NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (COV) 168\n1 Fábula del Rompeespejos / Reflejo de Kiki-Jiki (NEO) 141",
+      "noCommanderAssignedYet": "Todavía no se ha asignado un comandante."
     },
     "deckList": {
       "newDeckName": "Nuevo nombre del mazo",
@@ -1543,7 +1576,9 @@
       "common": {
         "unavailable": "No disponible",
         "notAvailable": "No disponible",
-        "available": "Disponible"
+        "available": "Disponible",
+        "no": "No",
+        "yes": "Sí"
       },
       "overview": {
         "aria": "Descripción general del análisis avanzado",
@@ -1598,7 +1633,9 @@
         "excellent": "Excelente",
         "critical": "Crítico",
         "unknown": "Desconocido",
-        "info": "Info"
+        "info": "Info",
+        "good": "Buena",
+        "warning": "Advertencia"
       },
       "health": {
         "eyebrow": "Salud del mazo",
@@ -1618,7 +1655,14 @@
           "combos": "Combos",
           "consistency": "Consistencia",
           "typal": "Tribal",
-          "mana": "Maná"
+          "mana": "Maná",
+          "draw": "Robo de cartas",
+          "ramp": "Aceleración de maná",
+          "sacrifice": "Sacrificio",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Condiciones de victoria",
+          "wipes": "Limpiamesas"
         }
       },
       "metrics": {
@@ -1646,7 +1690,19 @@
         "extraCombatEngines": "Motores de combate extra",
         "tax": "Tax",
         "symmetricalStaxRisk": "Riesgo de estancamiento simétrico",
-        "typalCreatures": "Criaturas tribales"
+        "typalCreatures": "Criaturas tribales",
+        "burstMana": "Maná explosivo",
+        "completeCombos": "Combos completos",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "Manos conservables",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "Maná de un uso",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "Resolución de la tarjeta",
@@ -1655,7 +1711,8 @@
         "unmatchedAria": "Cartas sin resolver",
         "unmatchedCount": "{{count}} cartas sin resolver",
         "unmatchedCopy": "Algunas cartas no se pudieron resolver, por lo que las señales de roles y combos pueden estar incompletas.",
-        "cardCouldNotBeMatched": "La carta no se pudo emparejar."
+        "cardCouldNotBeMatched": "La carta no se pudo emparejar.",
+        "cards": "Cartas"
       },
       "combos": {
         "eyebrow": "Líneas conocidas",
@@ -1671,7 +1728,9 @@
           "partialOneMissing": "Parcial, falta una",
           "partialTwoMissing": "Parcial, faltan dos",
           "winLike": "Combos tipo victoria",
-          "lethalLoops": "Bucles letales"
+          "lethalLoops": "Bucles letales",
+          "complete": "Combos completos",
+          "infiniteMana": "Maná infinito"
         },
         "empty": {
           "noComplete": "No se detectaron líneas combinadas completas.",
@@ -1684,7 +1743,8 @@
           "winLike": "Tipo victoria",
           "infiniteDamage": "Daño infinito",
           "requiresCommander": "Requiere commander",
-          "requiresTemplate": "Requiere plantilla"
+          "requiresTemplate": "Requiere plantilla",
+          "infiniteMana": "Maná infinito"
         },
         "cardState": {
           "inDeck": "En el mazo"
@@ -1730,7 +1790,8 @@
           "canCastOnCurve": "Puede castear en curva",
           "missingColor": "Falta color",
           "missingManaValue": "Falta valor de maná",
-          "tappedOutDelay": "Retraso por tierras giradas"
+          "tappedOutDelay": "Retraso por tierras giradas",
+          "keepableHands": "Manos conservables"
         },
         "turn1": "Turno 1",
         "turn2": "Turno 2",
@@ -1743,18 +1804,26 @@
         "qualityAria": "Calidad de {{role}}",
         "unavailable": "Los datos de calidad de los roles no están disponibles para este análisis.",
         "cards": {
-          "winconsCombat": "Wincons / combate"
+          "winconsCombat": "Wincons / combate",
+          "ramp": "Ramp",
+          "sacrifice": "Sacrificio",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
           "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
-        "wipesSeparated": "Mass bounce y Conditional wipes no son lo mismo que Hard Board Wipes.",
+          "wipesSeparated": "Mass bounce y Conditional wipes no son lo mismo que Hard Board Wipes.",
           "sacrificeOneShot": "El sacrificio de un solo uso no cuenta como outlet repetible."
         }
       },
       "quality": {
         "slow": "Lenta",
-        "oneShot": "De un uso"
+        "oneShot": "De un uso",
+        "good": "Buena",
+        "medium": "Media",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "Identidad tribal",
@@ -1815,7 +1884,29 @@
           "bounceLand": "Bounce lands",
           "temple": "Temples",
           "gainLand": "Gain lands"
-        }
+        },
+        "baseAndAcceleration": "Base de maná y aceleración",
+        "noColorDemand": "No hay datos de requisitos de color.",
+        "requirementsAndRisks": "Requisitos y riesgos de maná",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "Valor de maná medio",
+        "colorlessUtilityLands": "Tierras de utilidad incoloras",
+        "colors": {
+          "black": "Negro",
+          "blue": "Azul",
+          "colorless": "Incoloro",
+          "green": "Verde",
+          "red": "Rojo",
+          "white": "Blanco"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "Fuentes arcoíris",
+        "temporaryMana": "Maná temporal",
+        "treasureSources": "Fuentes de tesoro"
       },
       "boardWipes": {
         "title": "Análisis de Board Wipes",
@@ -1859,7 +1950,13 @@
           "permanentBasedWipes": "Permanent-based wipes",
           "repeatableWipes": "Repeatable wipes",
           "combatOnlyWipes": "Combat-only wipes",
-          "selfPlanRiskWipes": "Own plan collision"
+          "selfPlanRiskWipes": "Own plan collision",
+          "answersIndestructible": "Responde a permanentes indestructibles",
+          "averageManaValue": "Valor de maná medio",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "Hard",
@@ -1871,7 +1968,9 @@
           "damage": "Damage",
           "tuckShuffle": "Tuck / shuffle",
           "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "enchantmentWipe": "Enchantment wipe",
+          "answersIndestructible": "Responde a permanentes indestructibles",
+          "exile": "Exilio"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1949,6 +2048,29 @@
           "graveyard_plan_risk": "Graveyard plan risk",
           "alternative_mass_mode": "Alternative mass mode"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} incluye colores fuera de la identidad de color de la zona de mando.",
+        "title": "Problema de identidad de color"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} está prohibida en Commander.",
+        "notLegalDetail": "{{ card }} no es legal en Commander.",
+        "title": "Problema de legalidad del comandante"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "El texto Oracle disponible no muestra referencias claras a camarada ni a «Elige un Trasfondo».",
+        "title": "La pareja de comandantes necesita revisión"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} aparece {{ quantity }} veces en el mazo principal.",
+        "title": "Infracción de singleton"
+      },
+      "tooManyCommanders": {
+        "detail": "Un mazo Commander puede llevar un comandante o una pareja legal de dos cartas.",
+        "title": "Demasiados comandantes"
       }
     }
   },
@@ -2099,7 +2221,49 @@
       "avatarTiers": "Niveles de avatar",
       "basicAvatars": "Avatares básicos",
       "premiumAvatars": "Avatares premium",
-      "chooseAvatar": "Elige avatar"
+      "chooseAvatar": "Elige avatar",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "Vista previa del avatar subido",
@@ -2116,6 +2280,34 @@
       "nameStylePreview": "Vista previa del estilo del nombre",
       "nameStyleTiers": "Niveles de estilo de nombre",
       "textColor": "Color del texto"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "Negro puro, escala de grises y acentos dorados brillantes."
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "Neón competitivo con acentos eléctricos."
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "Pasteles de caramelo luminosos con más contraste."
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "Cálidos colores de taberna fantástica, con cuero, vino, oro de tesoro y botín esmeralda."
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "Colores PvP serios con acentos de plasma y energía."
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "Colores de naturaleza mágica con esmeralda y luz de hechizo."
+        }
+      }
     }
   },
   "forms": {},
@@ -2544,6 +2736,11 @@
       "manaEfficiency": "Eficiencia de maná",
       "detected": "Detectado",
       "notDetected": "No detectado"
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
     }
   }
 }

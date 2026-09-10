@@ -447,7 +447,8 @@
       "signInWithGoogle": "Googleでログイン",
       "registerWithGoogle": "Googleで登録",
       "socialSignIn": "ソーシャルログイン",
-      "or": "または"
+      "or": "または",
+      "googleLinkRequired": "このメールアドレスにはすでにアカウントがあります。Google を連携する前に、パスワードでログインしてください。"
     },
     "emailVerificationPage": {
       "confirmingEmail": "メール確認中",
@@ -565,6 +566,9 @@
       "totalPlayers": "総プレイヤー数",
       "startedGames": "開始済みの試合",
       "description": "アクティブなロビーを探して、すぐに試合へ参加できます。"
+    },
+    "roomRow": {
+      "leave": "ルームを退出"
     }
   },
   "community": {
@@ -629,7 +633,15 @@
       "commandersAriaLabel": "参考用の統率者",
       "cardsTitle": "最もプレイされたカード",
       "mobileCardsTitle": "トップカード",
-      "cardsAriaLabel": "探索するカード"
+      "cardsAriaLabel": "探索するカード",
+      "usernameSearchEmpty": "ユーザー名が見つかりません。",
+      "usernameSearchError": "ユーザー名を検索できませんでした。",
+      "usernameSearchHint": "ユーザー名で検索するには、2文字以上入力してください。",
+      "usernameSearchLabel": "ユーザー名を検索",
+      "usernameSearchLoading": "ユーザー名を検索中...",
+      "usernameSearchLoginRequired": "ユーザー名を検索するにはログインしてください。",
+      "usernameSearchPlaceholder": "ユーザー名を検索...",
+      "usernameSearchResults": "ユーザー名の検索結果"
     },
     "deckList": {
       "subtitle": "コミュニティの公開デッキを探索してください。",
@@ -637,7 +649,8 @@
       "allFormats": "すべてのフォーマット",
       "filterBracket": "ブラケット",
       "allBrackets": "すべてのブラケット",
-      "error": "パブリックデッキを読み込めませんでした。"
+      "error": "パブリックデッキを読み込めませんでした。",
+      "paginationLabel": "公開デッキのページ送り"
     },
     "deckViewer": {
       "viewMode": {
@@ -649,6 +662,13 @@
         "other": "その他",
         "includingMdfc": "{{ count }} (MDFC を含む)"
       }
+    },
+    "user": {
+      "allColors": "すべての色",
+      "empty": "この条件に一致する公開デッキはありません。",
+      "error": "この公開プロフィールを読み込めませんでした。",
+      "filterColors": "色",
+      "paginationLabel": "ユーザーデッキのページ送り"
     }
   },
   "game": {
@@ -872,7 +892,8 @@
         "main-1": "第1メイン・フェイズ",
         "combat": "戦闘",
         "main-2": "第2メイン・フェイズ",
-        "end": "終了ステップ"
+        "end": "終了ステップ",
+        "draw": "ドロー・ステップ"
       }
     },
     "debug": {
@@ -1079,7 +1100,8 @@
         "day": "日",
         "night": "夜",
         "citysBlessing": "都市の承認",
-        "dayNight": "昼/夜"
+        "dayNight": "昼/夜",
+        "monarch": "統治者"
       },
       "dungeonReplacement": {
         "title": "アクティブなダンジョンを置き換えますか?",
@@ -1258,6 +1280,15 @@
     },
     "game": {
       "concede": "{{ player }} が付与されました。"
+    },
+    "phase": {
+      "untap": "アンタップ・ステップ",
+      "upkeep": "アップキープ・ステップ",
+      "draw": "ドロー・ステップ",
+      "main-1": "戦闘前メイン・フェイズ",
+      "combat": "戦闘フェイズ",
+      "main-2": "戦闘後メイン・フェイズ",
+      "end": "終了ステップ"
     }
   },
   "deckBuilder": {
@@ -1395,7 +1426,8 @@
       "sampleHand": "サンプルハンド",
       "sevenRandomCardsFromTheMainDeck": "メインデッキからランダムに選ばれた7枚のカード。",
       "drawAgain": "もう一度引く",
-      "noCardsAvailable": "利用できるカードはありません。"
+      "noCardsAvailable": "利用できるカードはありません。",
+      "manaValue": "マナ総量 {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "コピー数量制御",
@@ -1471,7 +1503,8 @@
       "validationCounts": "カード: 合計 {{ total }} 枚 (統率者 {{ commander }}、メイン {{ main }}、サイドボード {{ sideboard }}、検討中 {{ maybeboard }})",
       "validationFailed": "統率者デッキの検証に失敗しました",
       "validationPassed": "統率者デッキの検証に合格しました",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 鏡割りの寓話/キキジキの反射(NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 鏡割りの寓話/キキジキの反射(NEO) 141",
+      "noCommanderAssignedYet": "統率者がまだ指定されていません。"
     },
     "deckList": {
       "newDeckName": "新しいデッキ名",
@@ -1543,7 +1576,9 @@
       "common": {
         "unavailable": "利用不可",
         "notAvailable": "利用不可",
-        "available": "利用可能"
+        "available": "利用可能",
+        "no": "いいえ",
+        "yes": "はい"
       },
       "overview": {
         "aria": "高度な分析の概要",
@@ -1598,7 +1633,9 @@
         "excellent": "素晴らしい",
         "critical": "致命的",
         "unknown": "未知",
-        "info": "情報"
+        "info": "情報",
+        "good": "良好",
+        "warning": "警告"
       },
       "health": {
         "eyebrow": "デッキの健全性",
@@ -1618,7 +1655,14 @@
           "combos": "コンボ",
           "consistency": "一貫性",
           "typal": "部族",
-          "mana": "マナ"
+          "mana": "マナ",
+          "draw": "カード・ドロー",
+          "ramp": "Ramp",
+          "sacrifice": "生け贄",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Wincons",
+          "wipes": "Wipes"
         }
       },
       "metrics": {
@@ -1646,7 +1690,19 @@
         "extraCombatEngines": "追加の戦闘エンジン",
         "tax": "税",
         "symmetricalStaxRisk": "対称型スタックスのリスク",
-        "typalCreatures": "部族クリーチャー"
+        "typalCreatures": "部族クリーチャー",
+        "burstMana": "バーストマナ",
+        "completeCombos": "完成コンボ",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "キープ可能な初手",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "ワンショットマナ",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "カードの解像度",
@@ -1655,7 +1711,8 @@
         "unmatchedAria": "未照合のカード",
         "unmatchedCount": "未照合のカード: {{count}}枚",
         "unmatchedCopy": "一部のカードを照合できなかったため、役割とコンボのシグナルが不完全な場合があります。",
-        "cardCouldNotBeMatched": "カードを照合できませんでした。"
+        "cardCouldNotBeMatched": "カードを照合できませんでした。",
+        "cards": "カード"
       },
       "combos": {
         "eyebrow": "既知のコンボライン",
@@ -1671,7 +1728,9 @@
           "partialOneMissing": "部分的、1 つ欠落",
           "partialTwoMissing": "部分的、2 つ欠落",
           "winLike": "勝利に近いコンボ",
-          "lethalLoops": "リーサルループ"
+          "lethalLoops": "リーサルループ",
+          "complete": "完成コンボ",
+          "infiniteMana": "無限マナ"
         },
         "empty": {
           "noComplete": "完全なコンボ ラインが検出されませんでした。",
@@ -1684,7 +1743,8 @@
           "winLike": "勝ちっぽい",
           "infiniteDamage": "無限ダメージ",
           "requiresCommander": "指揮官が必要です",
-          "requiresTemplate": "テンプレートが必要です"
+          "requiresTemplate": "テンプレートが必要です",
+          "infiniteMana": "無限マナ"
         },
         "cardState": {
           "inDeck": "デッキ内"
@@ -1730,7 +1790,8 @@
           "canCastOnCurve": "マナカーブどおりに唱えられる",
           "missingColor": "不足している色",
           "missingManaValue": "不足しているマナ総量",
-          "tappedOutDelay": "タップインによる遅延"
+          "tappedOutDelay": "タップインによる遅延",
+          "keepableHands": "キープ可能な初手"
         },
         "turn1": "ターン1",
         "turn2": "ターン2",
@@ -1743,7 +1804,12 @@
         "qualityAria": "{{role}}の品質",
         "unavailable": "役割の品質データはこの分析には利用できません。",
         "cards": {
-          "winconsCombat": "勝ち筋 / 戦闘"
+          "winconsCombat": "勝ち筋 / 戦闘",
+          "ramp": "Ramp",
+          "sacrifice": "生け贄",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
@@ -1754,7 +1820,10 @@
       },
       "quality": {
         "slow": "遅い",
-        "oneShot": "ワンショット"
+        "oneShot": "ワンショット",
+        "good": "良好",
+        "medium": "普通",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "部族アイデンティティ",
@@ -1815,7 +1884,29 @@
           "bounceLand": "バウンスランド",
           "temple": "占術土地",
           "gainLand": "ゲインランド"
-        }
+        },
+        "baseAndAcceleration": "マナ基盤と加速",
+        "noColorDemand": "色マナ要求のデータはありません。",
+        "requirementsAndRisks": "必要条件と土地のリスク",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "平均マナ総量",
+        "colorlessUtilityLands": "無色のユーティリティ土地",
+        "colors": {
+          "black": "黒",
+          "blue": "青",
+          "colorless": "無色",
+          "green": "緑",
+          "red": "赤",
+          "white": "白"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "5色のマナ源",
+        "temporaryMana": "一時的なマナ",
+        "treasureSources": "宝物のマナ源"
       },
       "boardWipes": {
         "title": "全体除去の分析",
@@ -1859,7 +1950,13 @@
           "permanentBasedWipes": "パーマネント由来の全体除去",
           "repeatableWipes": "繰り返し使える全体除去",
           "combatOnlyWipes": "戦闘限定の全体除去",
-          "selfPlanRiskWipes": "自分のプランとの衝突"
+          "selfPlanRiskWipes": "自分のプランとの衝突",
+          "answersIndestructible": "破壊不能への対策",
+          "averageManaValue": "平均マナ総量",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "確実",
@@ -1871,7 +1968,9 @@
           "damage": "ダメージ",
           "tuckShuffle": "ライブラリーに戻す / 切り直す",
           "artifactWipe": "アーティファクト除去",
-          "enchantmentWipe": "エンチャント除去"
+          "enchantmentWipe": "エンチャント除去",
+          "answersIndestructible": "破壊不能への対策",
+          "exile": "追放"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1949,6 +2048,29 @@
           "graveyard_plan_risk": "墓地プランへのリスク",
           "alternative_mass_mode": "代替の大量対象モード"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} には統率領域の固有色に含まれない色があります。",
+        "title": "固有色に問題があります"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} は統率者戦で禁止されています。",
+        "notLegalDetail": "{{ card }} は統率者戦で使用できません。",
+        "title": "統率者の適法性に問題があります"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "利用可能なオラクル・テキストには、共闘または背景選択を示す明確な記述がありません。",
+        "title": "統率者の組み合わせを確認してください"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} がメインデッキに {{ quantity }} 枚入っています。",
+        "title": "ハイランダー違反"
+      },
+      "tooManyCommanders": {
+        "detail": "統率者デッキには統率者を1枚、または適法な2枚の組み合わせを指定できます。",
+        "title": "統率者が多すぎます"
       }
     }
   },
@@ -2098,7 +2220,49 @@
       "avatarTiers": "アバターの階層",
       "basicAvatars": "基本アバター",
       "premiumAvatars": "プレミアムアバター",
-      "chooseAvatar": "アバターを選択"
+      "chooseAvatar": "アバターを選択",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "アップロードされたアバターのプレビュー",
@@ -2115,6 +2279,34 @@
       "nameStylePreview": "名前スタイルのプレビュー",
       "nameStyleTiers": "名前スタイル層",
       "textColor": "文字の色"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "純粋な黒、グレースケール、鮮やかな金のアクセント。"
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "電気的なアクセントを効かせた競技向けネオン。"
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "コントラストを強めた鮮やかなキャンディーパステル。"
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "革、ワイン、宝の金、エメラルドの戦利品を思わせる温かなファンタジー酒場の色。"
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "プラズマとエネルギーのアクセントを添えた本格的な PvP カラー。"
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "エメラルドと呪文の光を使った魔法の自然色。"
+        }
+      }
     }
   },
   "modals": {
@@ -2370,7 +2562,7 @@
       "commanderDamage": "統率者ダメージ",
       "power": "パワー",
       "toughness": "タフネス",
-      "draw": "描く",
+      "draw": "引く",
       "errors": "エラー",
       "yes": "はい",
       "no": "いいえ",
@@ -2488,6 +2680,11 @@
       "manaEfficiency": "マナ効率",
       "detected": "検出済み",
       "notDetected": "未検出"
+    },
+    "confidence": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
     }
   },
   "errors": {
