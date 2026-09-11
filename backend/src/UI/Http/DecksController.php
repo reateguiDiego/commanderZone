@@ -8,7 +8,7 @@ use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckBracketSignalProvider;
-use App\Application\Deck\DeckBracketLabelProvider;
+use App\Application\Deck\OwnedDeckListQuery;
 use App\Application\Deck\DeckEditorTokenSnapshotService;
 use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
@@ -38,34 +38,36 @@ class DecksController extends ApiController
     private const MAX_DECK_NAME_LENGTH = 20;
 
     #[Route('/decks', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckBracketLabelProvider $bracketLabels): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, OwnedDeckListQuery $query): JsonResponse
     {
-        $criteria = ['owner' => $user];
-        if ($request->query->has('folderId')) {
-            $folderId = (string) $request->query->get('folderId');
-            if ($folderId === 'null' || $folderId === '') {
-                $criteria['folder'] = null;
-            } else {
-                $folder = $this->ownedFolder($folderId, $user, $entityManager);
-                if (!$folder) {
-                    return $this->fail('Folder not found.', 404);
-                }
-                $criteria['folder'] = $folder;
-            }
+        $filterFolder = $request->query->has('folderId');
+        $folderId = $request->query->getString('folderId');
+        $folderId = $folderId === '' || $folderId === 'null' ? null : $folderId;
+        if ($filterFolder && $folderId !== null && !$this->ownedFolder($folderId, $user, $entityManager)) {
+            return $this->fail('Folder not found.', 404);
         }
+        $limit = $request->query->getString('limit', '50');
+        if (!ctype_digit($limit) || (int) $limit < 1 || (int) $limit > 100) {
+            return $this->fail('Limit must be between 1 and 100.');
+        }
+        try {
+            $page = $query->page($user->id(), $folderId, $filterFolder, (int) $limit,
+                $request->query->has('cursor') ? $request->query->getString('cursor') : null);
+        } catch (\InvalidArgumentException $error) {
+            return $this->fail($error->getMessage());
+        }
+        $commanders = [];
+        foreach ($page['data'] as $deck) array_push($commanders, ...$deck['commanders']);
+        $localized = $this->localizeDeckCardPayloads($commanders, $user, $localization);
+        $offset = 0;
+        foreach ($page['data'] as &$deck) {
+            $count = count($deck['commanders']);
+            $deck['commanders'] = array_slice($localized, $offset, $count);
+            $offset += $count;
+        }
+        unset($deck);
 
-        $decks = $entityManager->getRepository(Deck::class)->findBy($criteria, ['id' => 'DESC']);
-        $cachedBracketLabels = $bracketLabels->labelsByDeckIds(array_map(static fn (Deck $deck): string => $deck->id(), $decks), true);
-
-        return $this->json(['data' => array_map(
-            function (Deck $deck) use ($cachedBracketLabels, $user, $localization): array {
-                $payload = $this->localizeDeckPayload($deck->toArray(), $user, $localization);
-                $payload['bracket'] = $cachedBracketLabels[$deck->id()] ?? null;
-
-                return $payload;
-            },
-            $decks,
-        )]);
+        return $this->json($page);
     }
 
     #[Route('/decks', methods: ['POST'])]

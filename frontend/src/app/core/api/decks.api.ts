@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable, expand, reduce } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { withGlobalLoading } from '../loading/loading-context';
 import {
@@ -48,14 +48,31 @@ export interface DeckVisualSelectionPayload {
   sleevesName?: string;
 }
 
+export interface OwnedDeckListPage extends DataResponse<Deck> {
+  nextCursor: string | null;
+}
+
+export interface OwnedDeckListOptions {
+  limit?: number;
+  cursor?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DecksApi {
   private readonly http = inject(HttpClient);
 
   list(folderId?: string | null, _skipGlobalLoading = false): Observable<DataResponse<Deck>> {
-    return folderId === undefined
-      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`)
-      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
+    // Existing deck/folder/room selectors need the complete collection.
+    return this.listPage(folderId).pipe(
+      expand(page => page.nextCursor ? this.listPage(folderId, { cursor: page.nextCursor }) : EMPTY, 1),
+      reduce((all, page) => ({ data: [...all.data, ...page.data] }), { data: [] } as DataResponse<Deck>),
+    );
+  }
+
+  listPage(folderId?: string | null, options: OwnedDeckListOptions = {}): Observable<OwnedDeckListPage> {
+    return this.http.get<OwnedDeckListPage>(`${API_BASE_URL}/decks`, {
+      params: { ...(folderId === undefined ? {} : { folderId: folderId ?? 'null' }), ...options },
+    });
   }
 
   create(

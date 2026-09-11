@@ -1835,26 +1835,45 @@ paths:
   /decks:
     get:
       tags: [Decks]
-      summary: List authenticated user's decks.
+      summary: List authenticated user's deck summaries, ordered by updated_at DESC then id DESC.
       parameters:
         - name: folderId
           in: query
           description: Use a folder UUID or the literal null for decks without folder.
           schema:
             type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque nextCursor from the previous page. Keep the same folder filter. Concurrent edits can move decks ahead of the cursor; restart pagination to refresh.
+          schema:
+            type: string
       responses:
         '200':
-          description: Deck list.
+          description: Bounded deck summary page, without cards. Bracket is null when no fresh cached analysis exists; listing never calculates analysis.
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, nextCursor]
                 properties:
+                  nextCursor:
+                    type: [string, 'null']
+                    description: Null on the last page.
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/DeckSummary'
+        '400':
+          description: Invalid limit, malformed cursor, or cursor from another owner/folder filter.
+        '404':
+          description: Folder does not exist or belongs to another user.
     post:
       tags: [Decks]
       summary: Create a deck.

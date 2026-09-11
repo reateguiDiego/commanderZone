@@ -15,6 +15,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_deck_slug', columns: ['slug'])]
 #[ORM\UniqueConstraint(name: 'uniq_deck_public_slug', columns: ['public_slug'])]
 #[ORM\Index(name: 'idx_deck_visibility_valid_updated_at', columns: ['visibility', 'is_valid', 'updated_at'])]
+#[ORM\Index(name: 'idx_deck_owner_folder_updated_id', columns: ['owner_id', 'folder_id', 'updated_at', 'id'])]
+#[ORM\Index(name: 'idx_deck_owner_updated_id', columns: ['owner_id', 'updated_at', 'id'])]
 class Deck
 {
     public const VISIBILITY_PRIVATE = 'private';

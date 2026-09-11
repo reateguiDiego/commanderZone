@@ -8,6 +8,7 @@ This baseline covers authenticated browser-like reads, independently from gamepl
 
 * Accounts: `test01@test.com` through `test500@test.com`, prepared by `scripts/seed-load-test-users.sql`; passwords are supplied only through the environment.
 * Every account has the existing seeded Commander deck and may already have folders, friends, messages, or room history.
+* The dedicated [owned-deck volume benchmark](owned-deck-list-performance.md) adds an isolated 1,000-deck / 100,000-card account fixture and records controller p95, query count, SQL rows, ORM hydration, payload bytes and before/after index plans. Run it alongside the navigation baseline; its timings exclude HTTP transport/authentication.
 * Record PostgreSQL row counts and database size before each comparison. Keep the same anonymized production snapshot for “before” and “after”.
 * Navigation runs do not create rooms or games. Set `CONTROL_USERS` only to reserve the first accounts for a separately executed gameplay control run.
 
