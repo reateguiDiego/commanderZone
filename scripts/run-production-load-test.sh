@@ -390,6 +390,7 @@ invoke_phase() {
     -e API_BASE_URL="$API_BASE_URL" \
     -e USERS="$phase_users" \
     -e USER_PASSWORD \
+    -e FRIEND_SEARCH_TERMS \
     -e RUN_ID="$run_id" \
     -e PHASE_NAME="users-$phase_users" \
     -e DECK_NAME="$DECK_NAME" \

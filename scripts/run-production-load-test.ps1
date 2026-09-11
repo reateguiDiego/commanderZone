@@ -395,6 +395,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
         "-e", "API_BASE_URL=$ApiBaseUrl",
         "-e", "USERS=$PhaseUsers",
         "-e", "USER_PASSWORD",
+        "-e", "FRIEND_SEARCH_TERMS",
         "-e", "RUN_ID=$RunId",
         "-e", "PHASE_NAME=users-$PhaseUsers",
         "-e", "DECK_NAME=$DeckName",

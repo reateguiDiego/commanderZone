@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Friendship\Friendship;
 use App\Domain\User\Role;
 use App\Domain\User\User;
 use App\Tests\Support\RecordingMercureHub;
@@ -9,11 +10,67 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class FriendsApiTest extends ApiTestCase
 {
+    public function testSearchAndPresenceHaveBoundedQueries(): void
+    {
+        $token = $this->registerAndLogin('viewer@example.test', 'Search Match 00');
+        $viewerId = $this->currentUserId($token);
+        $viewer = $this->entityManager->find(User::class, $viewerId);
+        $expected = [];
+        for ($i = 0; $i < 10; ++$i) {
+            $friend = new User('search'.$i.'@example.test', 'Search Match '.$i);
+            $friend->setPassword('unused');
+            $this->entityManager->persist($friend);
+            $relation = $i % 2 === 0 ? new Friendship($viewer, $friend) : new Friendship($friend, $viewer);
+            if ($i % 3 === 0) {
+                $relation->accept();
+            }
+            $this->entityManager->persist($relation);
+            $expected[$friend->id()] = $relation->status();
+        }
+        $this->entityManager->flush();
+        $db = $this->entityManager->getConnection();
+        $db->executeStatement('UPDATE app_user SET last_seen_at = CURRENT_TIMESTAMP');
+        $this->client->disableReboot();
+        $counter = static::getContainer()->get('doctrine.debug_data_holder');
+        $this->entityManager->clear();
+        $counter->reset();
+        $this->jsonRequest('GET', '/friends/search?q=sEaRcH', token: $token);
+        self::assertResponseIsSuccessful();
+        $rows = $this->jsonResponse()['data'];
+        self::assertCount(8, $rows);
+        foreach ($rows as $row) {
+            self::assertNotSame($viewerId, $row['id']);
+            self::assertSame($expected[$row['id']], $row['friendshipStatus']);
+        }
+        $queries = $counter->getData()['default'] ?? [];
+        self::assertNotEmpty($queries);
+        self::assertLessThanOrEqual(8, count($queries), json_encode($queries));
+        self::assertCount(1, array_filter($queries, static fn (array $q): bool => str_contains($q['sql'], 'LEFT JOIN friendship')), json_encode(array_column($queries, 'sql')));
+
+        $this->entityManager->clear();
+        $counter->reset();
+        $this->jsonRequest('GET', '/friends', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertCount(4, $this->jsonResponse()['data']);
+        foreach ($this->jsonResponse()['data'] as $row) {
+            self::assertSame('online', $row['friend']['presence']);
+        }
+        $queries = $counter->getData()['default'] ?? [];
+        self::assertNotEmpty($queries);
+        self::assertLessThanOrEqual(9, count($queries), json_encode($queries));
+        // Two fixed viewer activity checks plus one batched friend presence query.
+        self::assertCount(3, array_filter($queries, static fn (array $q): bool => str_contains($q['sql'], 'room_player')));
+    }
+
     public function testFriendRequestsCanBeAcceptedAndListedWithPresence(): void
     {
         $aliceToken = $this->registerAndLogin('alice@example.test', 'Alice');
         $bobToken = $this->registerAndLogin('bob@example.test', 'Bobby');
         $bobId = $this->currentUserId($bobToken);
+
+        $this->jsonRequest('GET', '/friends/search?q=BoB', token: $aliceToken);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->jsonResponse()['data'][0]['friendshipStatus']);
 
         $this->jsonRequest('POST', '/friends/requests', ['userId' => $bobId], $aliceToken);
         self::assertResponseStatusCodeSame(201);
@@ -28,6 +85,10 @@ class FriendsApiTest extends ApiTestCase
         self::assertSame('pending', $searchResult['friendshipStatus']);
         self::assertArrayNotHasKey('email', $searchResult);
 
+        $this->jsonRequest('GET', '/friends/search?q=ALICE', token: $bobToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame('pending', $this->jsonResponse()['data'][0]['friendshipStatus']);
+
         $this->jsonRequest('GET', '/friends/search?q=bob@example.test', token: $aliceToken);
         self::assertResponseIsSuccessful();
         self::assertSame([], $this->jsonResponse()['data']);
@@ -39,6 +100,10 @@ class FriendsApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $bobToken);
         self::assertResponseIsSuccessful();
         self::assertSame('accepted', $this->jsonResponse()['friendship']['status']);
+
+        $this->jsonRequest('GET', '/friends/search?q=alice', token: $bobToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame('accepted', $this->jsonResponse()['data'][0]['friendshipStatus']);
 
         $this->jsonRequest('GET', '/friends', token: $aliceToken);
         self::assertResponseIsSuccessful();

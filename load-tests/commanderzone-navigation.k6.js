@@ -10,6 +10,7 @@ const HOLD = __ENV.DURATION || '5m';
 const RAMP = __ENV.RAMP_DURATION || '1m';
 const THINK_SECONDS = Number.parseFloat(__ENV.THINK_SECONDS || '1');
 const CONTROL_USERS = Number.parseInt(__ENV.CONTROL_USERS || '0', 10);
+const FRIEND_SEARCH_TERMS = (__ENV.FRIEND_SEARCH_TERMS || 'es,test,test01,zznomatchzz').split(',');
 
 const endpointDuration = new Trend('cz_navigation_endpoint_ms', true);
 const endpointErrors = new Rate('cz_navigation_endpoint_errors');
@@ -78,6 +79,23 @@ export default function (data) {
   for (const [path, endpoint] of paths) {
     navigate(path, endpoint, user.token, user.control ? 'control' : 'navigation');
   }
+  const searches = http.batch(FRIEND_SEARCH_TERMS.map((term, index) => ({
+    method: 'GET',
+    url: `${API_BASE_URL}/friends/search?q=${encodeURIComponent(term)}`,
+    params: {
+      headers: { Authorization: `Bearer ${user.token}`, Accept: 'application/json' },
+      tags: { endpoint: 'friends_search', traffic_type: 'light_read', selectivity: String(index) },
+    },
+  })));
+  searches.forEach((response, index) => {
+    const tags = { endpoint: 'friends_search', traffic_type: 'light_read', selectivity: String(index) };
+    const failed = response.status !== 200;
+    endpointDuration.add(response.timings.duration, tags);
+    endpointErrors.add(failed, tags);
+    endpointRequests.add(1, tags);
+    responseBytes.add(response.body ? response.body.length : 0, tags);
+    check(response, { 'friend search returns at most eight matches': (r) => r.status === 200 && Array.isArray(r.json('data')) && r.json('data').length <= 8 }, tags);
+  });
   sleep(THINK_SECONDS);
 }
 

@@ -13,7 +13,7 @@ This baseline covers authenticated browser-like reads, independently from gamepl
 
 ## Navigation mix
 
-Each iteration makes one authenticated `GET` to `/me`, `/rooms`, `/rooms/current`, `/decks`, `/deck-folders`, `/friends`, `/messages`, `/community`, and `/community/decks`, followed by configurable think time. Endpoint and `traffic_type` tags remain stable so throughput, error rate, response bytes, and p50/p95/p99 can be compared independently.
+Each iteration makes one authenticated `GET` to `/me`, `/rooms`, `/rooms/current`, `/decks`, `/deck-folders`, `/friends`, `/messages`, `/community`, and `/community/decks`, then a concurrent batch of `/friends/search` requests, followed by configurable think time. `FRIEND_SEARCH_TERMS` defaults to `es,test,test01,zznomatchzz` for short, broad, selective, and absent terms. Endpoint and `traffic_type` tags remain stable so throughput, error rate, response bytes, and p50/p95/p99 can be compared independently; searches also carry a `selectivity` index tag. See [friend-search-performance.md](friend-search-performance.md) for query-count and PostgreSQL plan evidence.
 
 ## Configuration
 
