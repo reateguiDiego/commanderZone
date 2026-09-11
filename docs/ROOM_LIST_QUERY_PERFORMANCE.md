@@ -3,6 +3,8 @@
 `RoomListQuery` uses DBAL scalar rows. `active` means waiting without a game;
 `all` additionally includes the viewer's owned/joined started rooms with an active
 game. Archived rooms, finished games and unrelated started rooms are excluded.
+Finished means the durable `game.status` after lifecycle projection; the query
+does not inspect gameplay snapshots or infer closure from conceded players.
 Private waiting cards remain discoverable, with the host and other players masked
 for non-owners. Full decks, logs, game snapshots and account data are not loaded.
 
@@ -64,6 +66,13 @@ occupancy/rank would require a separate write-side consistency design.
 The migration was exercised up/down/up in the local test database. The full
 frontend suite passed (271 files, 2,622 tests), and `npm run build` succeeded
 with existing stylesheet budget warnings. OpenAPI parses successfully.
+
+The full backend run completed 1,295 tests / 13,842 assertions with one failure
+in the former list expectation, 13 PHPUnit deprecations and 79 PHPUnit notices.
+After updating that expectation to the explicit active/all contract, the final
+focused run passed all 5 tests / 282 assertions, including that scenario and
+the new query coverage. The separate load regression passed 6 assertions.
+The complete backend suite was not repeated after the test expectation update.
 
 The three existing public/private room browser E2Es were attempted, but the
 Docker API on port 8000 failed at user registration, before reaching rooms:
