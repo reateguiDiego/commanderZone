@@ -10,13 +10,23 @@ export interface JoinRoomOptions {
   readonly randomDeckOptionCount?: number;
 }
 
+export interface RoomListPage extends DataResponse<Room> {
+  readonly nextCursor: string | null;
+}
+
+export interface RoomListOptions {
+  readonly limit?: number;
+  readonly cursor?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RoomsApi {
   private readonly http = inject(HttpClient);
 
-  list(status: 'active' | 'all' = 'active', _skipGlobalLoading = false): Observable<DataResponse<Room>> {
-    return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`, {
-      params: { status },
+  // Compact cards: players contain no full deck; waitingLog is omitted.
+  list(status: 'active' | 'all' = 'active', _skipGlobalLoading = false, options: RoomListOptions = {}): Observable<RoomListPage> {
+    return this.http.get<RoomListPage>(`${API_BASE_URL}/rooms`, {
+      params: { status, ...options },
     });
   }
 

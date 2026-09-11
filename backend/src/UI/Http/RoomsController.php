@@ -21,6 +21,7 @@ use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Application\Room\Lifecycle\WaitingRoomLifecycleScheduler;
 use App\Application\Room\RoomDeckBracketPayloadEnricher;
+use App\Application\Room\RoomListQuery;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Game\Game;
@@ -51,43 +52,18 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, RoomListQuery $query): JsonResponse
     {
-        $status = (string) $request->query->get('status', 'active');
-        $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->leftJoin('room.players', 'player')
-            ->addSelect('player');
-
-        if (!in_array($status, ['active', 'all'], true)) {
-            return $this->fail('Unsupported room status filter.', 400);
+        $limit = (string) $request->query->get('limit', '50');
+        if (!preg_match('/^[1-9][0-9]{0,2}$/D', $limit)) {
+            return $this->fail('Invalid room limit (1-100).', 400);
         }
-
-        $queryBuilder
-            ->andWhere('room.status != :archived')
-            ->setParameter('archived', Room::STATUS_ARCHIVED);
-
-        $rooms = $queryBuilder
-            ->getQuery()
-            ->getResult();
-        usort($rooms, static fn (Room $left, Room $right): int => self::roomListRank($left) <=> self::roomListRank($right)
-            ?: $left->name() <=> $right->name());
-
-        $roomData = $this->localizeRoomArrays(
-            array_map(static fn (Room $room): array => $room->toArray(), $rooms),
-            $user,
-            $localization,
-        );
-        foreach ($rooms as $index => $room) {
-            if (!$room instanceof Room || !isset($roomData[$index])) {
-                continue;
-            }
-
-            $roomData[$index] = $this->maskPrivateRoomForList($roomData[$index], $room, $user);
+        try {
+            return $this->json($query->page($user->id(), (string) $request->query->get('status', 'active'), (int) $limit, $request->query->get('cursor')));
+        } catch (\InvalidArgumentException $exception) {
+            return $this->fail($exception->getMessage(), 400);
         }
-
-        return $this->json(['data' => array_values($roomData)]);
     }
-
     #[Route('/rooms/current', methods: ['GET'])]
     public function current(#[CurrentUser] User $user, ActiveRoomMembershipService $activeRoomMembership, CardLocalizationService $localization): JsonResponse
     {
@@ -1024,22 +1000,6 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         return Room::DEFAULT_MAX_PLAYERS;
     }
 
-    private function maskPrivateRoomForList(array $data, Room $room, User $viewer): array
-    {
-        if ($room->visibility() === Room::VISIBILITY_PRIVATE && $room->owner()->id() !== $viewer->id()) {
-            $data['owner'] = [
-                'id' => 'private-host-'.$room->id(),
-                'email' => '',
-                'displayName' => 'XXXX',
-                'displayNameStyle' => ['type' => 'plain', 'presetId' => 'plain'],
-                'roles' => ['ROLE_USER'],
-                'avatar' => ['type' => 'initial', 'imageUrl' => null],
-            ];
-        }
-
-        return $data;
-    }
-
     private function roomArray(Room $room, User $viewer, CardLocalizationService $localization): array
     {
         $payload = $this->localizeRoomArrays([$room->toArray()], $viewer, $localization)[0] ?? $room->toArray();
@@ -1221,19 +1181,6 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         }
 
         return null;
-    }
-
-    private static function roomListRank(Room $room): int
-    {
-        $visibilityRank = $room->visibility() === Room::VISIBILITY_PUBLIC ? 0 : 100;
-        $statusRank = match (true) {
-            $room->status() === Room::STATUS_WAITING && !$room->isFull() => 0,
-            $room->status() === Room::STATUS_WAITING => 10,
-            $room->status() === Room::STATUS_STARTED || $room->game() instanceof Game => 20,
-            default => 30,
-        };
-
-        return $visibilityRank + $statusRank;
     }
 
     private function startingLifeFromPayload(array $payload): int

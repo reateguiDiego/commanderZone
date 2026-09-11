@@ -3368,7 +3368,10 @@ SQL));
 
         $this->jsonRequest('GET', '/rooms', token: $ownerToken);
         self::assertResponseIsSuccessful();
-        self::assertContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+        self::assertNotContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+        $this->jsonRequest('GET', '/rooms?status=all', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
     }
 
     public function testPrivateChatMessagesAreOnlyProjectedForSenderAndRecipient(): void

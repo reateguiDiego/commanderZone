@@ -68,6 +68,21 @@ describe('RoomsComponent', () => {
     await Promise.resolve();
   }
 
+  it('appends cursor pages without duplicate rooms', async () => {
+    const first = roomFixture({ id: 'first' });
+    const second = roomFixture({ id: 'second' });
+    roomsApi.list.mockReturnValueOnce(of({ data: [first], nextCursor: 'page-2' }));
+    const fixture = TestBed.createComponent(RoomsComponent);
+    await flushInitialRoomLoad();
+    expect(fixture.componentInstance.nextCursor()).toBe('page-2');
+    roomsApi.list.mockReturnValueOnce(of({ data: [first, second], nextCursor: null }));
+    await fixture.componentInstance.loadMoreRooms();
+    expect(roomsApi.list).toHaveBeenLastCalledWith('active', true, { cursor: 'page-2' });
+    expect(fixture.componentInstance.nextCursor()).toBeNull();
+    expect(fixture.componentInstance.loadingMore()).toBe(false);
+    expect(fixture.componentInstance.rooms().map((room) => room.id)).toEqual(['first', 'second']);
+  });
+
   it('renders the rooms page', () => {
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();

@@ -2440,7 +2440,16 @@ paths:
   /rooms:
     get:
       tags: [Rooms]
-      summary: List active rooms, masking private room hosts for non-owners.
+      summary: List a cursor page of compact room cards.
+      description: >-
+        active includes waiting rooms without a game. all additionally includes started rooms
+        owned by the viewer or containing the viewer, with an active game. Archived rooms and
+        finished games are excluded. Private waiting cards remain visible; their host and other
+        players are masked for non-owners. No decks, waiting logs, account preferences or email
+        addresses are loaded. Order is public before private, then waiting with space, full waiting,
+        started, then name (PostgreSQL C collation) and id ascending. A cursor is bound to the viewer
+        and status. Pages are live, not a snapshot; occupancy/name/status changes may move a room
+        across the boundary, so clients should deduplicate IDs and refresh from the first page.
       parameters:
         - name: status
           in: query
@@ -2448,19 +2457,36 @@ paths:
             type: string
             enum: [active, all]
             default: active
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque nextCursor from the preceding page, with the same status and viewer.
+          schema:
+            type: string
+            maxLength: 1024
       responses:
         '200':
-          description: Active public and private rooms. Private room hosts are returned as XXXX unless the authenticated user owns the room.
+          description: Compact cards retaining room settings and player array shape; nextCursor is null at the end.
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, nextCursor]
                 properties:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Room'
+                      $ref: '#/components/schemas/RoomListCard'
+                  nextCursor:
+                    type: [string, 'null']
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
     post:
@@ -7536,6 +7562,87 @@ components:
         userId:
           type: string
           format: uuid
+    RoomListUser:
+      type: object
+      required: [id, email, displayName, roles, displayNameStyle, avatar]
+      properties:
+        id:
+          type: string
+          description: User ID or synthetic private-host/private-player identifier.
+        email:
+          type: string
+          const: ''
+        displayName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+            const: ROLE_USER
+        publicHandle:
+          type: [string, 'null']
+        publicPath:
+          type: [string, 'null']
+        displayNameStyle:
+          type: object
+        avatar:
+          type: object
+    RoomListCard:
+      type: object
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, mulliganRule, firstMulliganFree, players, gameId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner:
+          $ref: '#/components/schemas/RoomListUser'
+        status:
+          type: string
+          enum: [waiting, started]
+        visibility:
+          type: string
+          enum: [public, private]
+        format:
+          type: string
+        maxPlayers:
+          type: integer
+        startingLife:
+          type: integer
+        timerMode:
+          type: string
+          enum: [none, turn]
+        timerDurationSeconds:
+          type: integer
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
+        gameId:
+          type: [string, 'null']
+          format: uuid
+        players:
+          type: array
+          items:
+            type: object
+            required: [id, user, deckId, turnRoll, turnRolls]
+            properties:
+              id:
+                type: string
+                format: uuid
+              user:
+                $ref: '#/components/schemas/RoomListUser'
+              deckId:
+                type: [string, 'null']
+                format: uuid
+              turnRoll:
+                type: [integer, 'null']
+              turnRolls:
+                type: array
+                items:
+                  type: integer
     Room:
       type: object
       required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, mulliganRule, firstMulliganFree, players, waitingLog, createdAt, updatedAt]
