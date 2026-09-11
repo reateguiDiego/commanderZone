@@ -3,12 +3,14 @@
 namespace App\Tests\Integration;
 
 use App\Domain\User\Role;
+use App\Tests\Support\RecordingMercureHub;
 
 final class MessagesApiTest extends ApiTestCase
 {
     public function testNewlyRegisteredUserReceivesWelcomeMessage(): void
     {
         $token = $this->registerAndLogin('welcome-message@example.test', 'Welcome Message');
+        $this->assertMessageEventFor($this->currentUserId($token));
 
         $this->jsonRequest('GET', '/messages', token: $token);
 
@@ -46,6 +48,7 @@ final class MessagesApiTest extends ApiTestCase
         $recipientToken = $this->registerAndLogin('message-recipient@example.test', 'Message Recipient');
         $recipientId = $this->currentUserId($recipientToken);
         $emailCountBeforeSend = count(self::getMailerMessages());
+        RecordingMercureHub::reset();
 
         $this->jsonRequest('POST', '/admin/messages', [
             'recipientId' => $recipientId,
@@ -56,6 +59,7 @@ final class MessagesApiTest extends ApiTestCase
 
         self::assertResponseStatusCodeSame(201);
         self::assertSame(1, $this->jsonResponse()['sent']);
+        $this->assertMessageEventFor($recipientId);
         self::assertCount($emailCountBeforeSend, self::getMailerMessages());
 
         $this->jsonRequest('GET', '/messages', token: $recipientToken);
@@ -68,11 +72,25 @@ final class MessagesApiTest extends ApiTestCase
         self::assertNull($message['readAt']);
 
         $messageId = (string) $message['id'];
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/messages/'.$messageId.'/read', token: $adminToken);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], RecordingMercureHub::updates());
         $this->jsonRequest('POST', '/messages/'.$messageId.'/read', token: $recipientToken);
 
         self::assertResponseIsSuccessful();
         self::assertSame(1, $this->jsonResponse()['unreadCount']);
         self::assertNotNull($this->jsonResponse()['message']['readAt']);
+        $this->assertMessageEventFor($recipientId);
+    }
+
+    private function assertMessageEventFor(string $recipientId): void
+    {
+        $updates = RecordingMercureHub::updates();
+        self::assertCount(1, $updates);
+        self::assertSame(['messages/users/'.$recipientId], $updates[0]['topics']);
+        self::assertTrue($updates[0]['private']);
+        self::assertSame(['type' => 'message.list.changed'], json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR));
     }
 
     public function testAdminMessageCanAlsoBeDeliveredByEmailWithoutSkippingTheInternalMessage(): void
@@ -136,6 +154,7 @@ final class MessagesApiTest extends ApiTestCase
         $recipientToken = $this->registerAndLogin('email-only-recipient@example.test', 'Email Only Recipient');
         $recipientId = $this->currentUserId($recipientToken);
         $emailCountBeforeSend = count(self::getMailerMessages());
+        RecordingMercureHub::reset();
 
         $this->jsonRequest('POST', '/admin/messages', [
             'recipientId' => $recipientId,
@@ -150,6 +169,7 @@ final class MessagesApiTest extends ApiTestCase
         $email = self::getMailerMessage($emailCountBeforeSend);
         self::assertNotNull($email);
         self::assertEmailSubjectContains($email, 'Email only');
+        self::assertSame([], RecordingMercureHub::updates());
 
         $this->jsonRequest('GET', '/messages', token: $recipientToken);
 

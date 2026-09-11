@@ -19,6 +19,63 @@ tags:
   - name: Rooms
   - name: Games
 paths:
+  /friends/summary:
+    get:
+      tags: [Friends]
+      summary: Count the authenticated user's active friends and pending incoming requests and room invites.
+      description: Active friends include online and in-game friends seen within the last five minutes. Pending invites use the same filters as the incoming invite list.
+      responses:
+        '200':
+          description: Counts without friend or invite lists.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [onlineFriendsCount, incomingRequestsCount, roomInvitesCount]
+                properties:
+                  onlineFriendsCount:
+                    type: integer
+                    minimum: 0
+                  incomingRequestsCount:
+                    type: integer
+                    minimum: 0
+                  roomInvitesCount:
+                    type: integer
+                    minimum: 0
+        '401':
+          $ref: '#/components/responses/Error'
+  /messages/summary:
+    get:
+      tags: [Messages]
+      summary: Count all messages received by the authenticated user.
+      description: Counts include the entire inbox, beyond the 50-message list limit, without returning message bodies. Refetch after a private Mercure event on messages/users/{userId} with payload {"type":"message.list.changed"}. Events are published after internal message creation (including welcome messages) and marking a message read; email-only delivery does not publish an event.
+      responses:
+        '200':
+          description: Inbox counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totalCount, unreadCount]
+                properties:
+                  totalCount:
+                    type: integer
+                    minimum: 0
+                  unreadCount:
+                    type: integer
+                    minimum: 0
+        '401':
+          $ref: '#/components/responses/Error'
+  /realtime/mercure-cookie:
+    post:
+      tags: [Auth]
+      summary: Authorize personal Mercure subscriptions for the authenticated user.
+      description: The cookie permits friends/users/{userId}, rooms/invites/users/{userId}, and messages/users/{userId} for the authenticated user only. Existing public events remain subscribable. On incompatible local second-level domains the response succeeds without setting a cookie; private message events require a compatible cookie domain.
+      responses:
+        '204':
+          description: Subscription authorization processed.
+        '401':
+          $ref: '#/components/responses/Error'
   /admin/users:
     get:
       tags: [Admin]

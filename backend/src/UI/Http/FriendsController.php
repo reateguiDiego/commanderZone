@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Friendship\FriendPresenceService;
 use App\Domain\Friendship\Friendship;
+use App\Domain\Room\RoomInvite;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,6 +15,31 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class FriendsController extends ApiController
 {
+    #[Route('/friends/summary', methods: ['GET'])]
+    public function summary(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $onlineFriendsCount = (int) $entityManager->getRepository(Friendship::class)->createQueryBuilder('friendship')
+            ->select('COUNT(friendship.id)')
+            ->innerJoin('friendship.requester', 'requester')
+            ->innerJoin('friendship.recipient', 'recipient')
+            ->where('friendship.status = :status')
+            ->andWhere('(requester = :user AND recipient.lastSeenAt >= :activeSince) OR (recipient = :user AND requester.lastSeenAt >= :activeSince)')
+            ->setParameter('status', Friendship::STATUS_ACCEPTED)
+            ->setParameter('user', $user)
+            ->setParameter('activeSince', new \DateTimeImmutable('-5 minutes'))
+            ->getQuery()->getSingleScalarResult();
+
+        return $this->json([
+            'onlineFriendsCount' => $onlineFriendsCount,
+            'incomingRequestsCount' => $entityManager->getRepository(Friendship::class)->count([
+                'recipient' => $user, 'status' => Friendship::STATUS_PENDING,
+            ]),
+            'roomInvitesCount' => $entityManager->getRepository(RoomInvite::class)->count([
+                'recipient' => $user, 'status' => RoomInvite::STATUS_PENDING,
+            ]),
+        ]);
+    }
+
     #[Route('/friends/search', methods: ['GET'])]
     public function search(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
