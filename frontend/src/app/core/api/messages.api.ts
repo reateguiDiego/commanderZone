@@ -14,6 +14,10 @@ import { API_BASE_URL } from './api.config';
 export class MessagesApi {
   private readonly http = inject(HttpClient);
 
+  summary(): Observable<{ totalCount: number; unreadCount: number }> {
+    return this.http.get<{ totalCount: number; unreadCount: number }>(`${API_BASE_URL}/messages/summary`, { context: withoutGlobalLoading() });
+  }
+
   list(): Observable<MessagesResponse> {
     return this.http.get<MessagesResponse>(`${API_BASE_URL}/messages`, {
       context: withoutGlobalLoading(),

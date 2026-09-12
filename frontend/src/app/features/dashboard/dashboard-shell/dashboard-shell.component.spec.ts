@@ -21,7 +21,7 @@ import {
   Users,
   X,
 } from 'lucide-angular';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { MessagesApi } from '../../../core/api/messages.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -84,6 +84,7 @@ describe('DashboardShellComponent', () => {
         {
           provide: FriendsApi,
           useValue: {
+            summary: vi.fn().mockReturnValue(of({ onlineFriendsCount: 0, incomingRequestsCount: 0, roomInvitesCount: 0 })),
             list: vi.fn().mockReturnValue(of({ data: [] })),
             incoming: vi.fn().mockReturnValue(of({ data: [] })),
             outgoing: vi.fn().mockReturnValue(of({ data: [] })),
@@ -92,6 +93,7 @@ describe('DashboardShellComponent', () => {
         {
           provide: MessagesApi,
           useValue: {
+            summary: vi.fn().mockReturnValue(of({ totalCount: 0, unreadCount: 0 })),
             list: vi.fn().mockReturnValue(of({ data: [], unreadCount: 0 })),
             markRead: vi.fn().mockReturnValue(of({ message: null, unreadCount: 0 })),
           },
@@ -106,6 +108,7 @@ describe('DashboardShellComponent', () => {
           provide: MercureService,
           useValue: {
             roomInviteEvents: vi.fn().mockReturnValue(of()),
+            messageEvents: vi.fn().mockReturnValue(of()),
             friendEvents: vi.fn().mockReturnValue(of()),
           },
         },
@@ -118,6 +121,62 @@ describe('DashboardShellComponent', () => {
         },
       ],
     }).compileComponents();
+  });
+
+  it('keeps summaries fresh across real navigations and defers panel bodies', async () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    const friends = TestBed.inject(FriendsApi);
+    const messages = TestBed.inject(MessagesApi);
+    const router = TestBed.inject(Router);
+    for (const name of ['one', 'two', 'three']) await router.navigateByUrl('/community/users/' + name);
+    await fixture.whenStable();
+    expect(friends.summary).toHaveBeenCalledTimes(1);
+    expect(messages.summary).toHaveBeenCalledTimes(1);
+    expect(friends.list).not.toHaveBeenCalled();
+    expect(friends.incoming).not.toHaveBeenCalled();
+    expect(messages.list).not.toHaveBeenCalled();
+    fixture.componentInstance.toggleFriends(new MouseEvent('click'));
+    await fixture.whenStable();
+    expect(friends.list).toHaveBeenCalledTimes(1);
+    fixture.componentInstance.closeFriends();
+    fixture.componentInstance.toggleFriends(new MouseEvent('click'));
+    await fixture.whenStable();
+    expect(friends.list).toHaveBeenCalledTimes(1);
+    fixture.componentInstance.toggleMessages(new MouseEvent('click'));
+    await fixture.whenStable();
+    expect(messages.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates only invitations on Mercure and defers their body until opened', async () => {
+    const events = new Subject<{ type: string }>();
+    vi.mocked(TestBed.inject(MercureService).roomInviteEvents).mockReturnValue(events);
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    await fixture.whenStable();
+    events.next({ type: 'room.invite.created' });
+    await fixture.whenStable();
+    expect(TestBed.inject(FriendsApi).summary).toHaveBeenCalledTimes(2);
+    expect(TestBed.inject(FriendsApi).list).not.toHaveBeenCalled();
+    expect(TestBed.inject(MessagesApi).summary).toHaveBeenCalledTimes(1);
+    expect(TestBed.inject(RoomsApi).incomingInvites).not.toHaveBeenCalled();
+  });
+
+  it('preserves cache when public/private shells are recreated and clears it for a different user', async () => {
+    const first = TestBed.createComponent(DashboardShellComponent);
+    await first.componentInstance.friends.ensureSummaryLoaded();
+    await first.componentInstance.messages.ensureSummaryLoaded();
+    first.destroy();
+    const second = TestBed.createComponent(DashboardShellComponent);
+    await second.componentInstance.friends.ensureSummaryLoaded();
+    await second.componentInstance.messages.ensureSummaryLoaded();
+    expect(TestBed.inject(FriendsApi).summary).toHaveBeenCalledTimes(1);
+    expect(TestBed.inject(MessagesApi).summary).toHaveBeenCalledTimes(1);
+    second.destroy();
+    user.set({ id: 'user-2', email: 'other@example.com', displayName: 'Other', roles: ['ROLE_USER'] });
+    const third = TestBed.createComponent(DashboardShellComponent);
+    await third.componentInstance.friends.ensureSummaryLoaded();
+    await third.componentInstance.messages.ensureSummaryLoaded();
+    expect(TestBed.inject(FriendsApi).summary).toHaveBeenCalledTimes(2);
+    expect(TestBed.inject(MessagesApi).summary).toHaveBeenCalledTimes(2);
   });
 
   it('renders the authenticated shell', () => {

@@ -10,6 +10,10 @@ import { FriendSearchResult, Friendship } from '../models/friendship.model';
 export class FriendsApi {
   private readonly http = inject(HttpClient);
 
+  summary(): Observable<{ onlineFriendsCount: number; incomingRequestsCount: number; roomInvitesCount: number }> {
+    return this.http.get<{ onlineFriendsCount: number; incomingRequestsCount: number; roomInvitesCount: number }>(`${API_BASE_URL}/friends/summary`, { context: withoutGlobalLoading() });
+  }
+
   list(): Observable<DataResponse<Friendship>> {
     return this.http.get<DataResponse<Friendship>>(`${API_BASE_URL}/friends`, {
       context: withoutGlobalLoading(),

@@ -17,7 +17,7 @@
       [messagesOpen]="messagesOpen()"
       [pendingNotificationsCount]="friends.pendingNotificationsCount()"
       [onlineFriendsCount]="friends.onlineFriendsCount()"
-      [messagesCount]="messages.messages().length"
+      [messagesCount]="messages.totalCount()"
       [unreadMessagesCount]="messages.unreadCount()"
       [canAccessAdmin]="canAccessAdmin()"
       [authenticated]="auth.isAuthenticated()"
