@@ -75,8 +75,6 @@
                       [current]="isCurrentUser(player.user.id)"
                       [ready]="isPlayerReady(player)"
                       [selectorOpen]="isCurrentUser(player.user.id) && deckSelectorOpen()"
-                      [hasDeckArt]="shouldShowPlayerDeckArt(player)"
-                      [hasDualDeckArt]="hasDualPlayerDeckArt(player)"
                       [deckArtUrl]="playerDeckArt(player)"
                       [secondaryDeckArtUrl]="playerSecondaryDeckArt(player)"
                       [deckName]="playerDeckName(player)"
@@ -285,4 +283,3 @@
     (primary)="closeInvalidDeckModal()"
   />
 </section>
-

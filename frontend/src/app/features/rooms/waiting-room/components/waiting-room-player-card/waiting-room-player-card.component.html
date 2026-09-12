@@ -1,12 +1,12 @@
 @if (player(); as player) {
-  @if (deckArtUrl(); as deckArtUrl) {
-    @if (hasDualDeckArt() && secondaryDeckArtUrl(); as secondaryDeckArtUrl) {
+  @if (visibleDeckArtUrls(); as deckArtUrls) {
+    @if (deckArtUrls.length === 2) {
       <div class="player-dual-deck-art" aria-hidden="true">
-        <img class="player-dual-deck-art-image" [src]="deckArtUrl" alt="" />
-        <img class="player-dual-deck-art-image" [src]="secondaryDeckArtUrl" alt="" />
+        <img class="player-dual-deck-art-image" [src]="deckArtUrls[0]" alt="" (error)="markDeckArtUnavailable(deckArtUrls[0])" />
+        <img class="player-dual-deck-art-image" [src]="deckArtUrls[1]" alt="" (error)="markDeckArtUnavailable(deckArtUrls[1])" />
       </div>
     } @else {
-      <img class="player-deck-art" [src]="deckArtUrl" alt="" aria-hidden="true" />
+      <img class="player-deck-art" [src]="deckArtUrls[0]" alt="" aria-hidden="true" (error)="markDeckArtUnavailable(deckArtUrls[0])" />
     }
     <div class="player-deck-art-overlay" aria-hidden="true"></div>
   }

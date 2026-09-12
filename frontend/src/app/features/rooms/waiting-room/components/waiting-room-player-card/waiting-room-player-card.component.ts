@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckBracketLabel } from '../../../../../core/models/deck-analysis.model';
 import { RoomPlayer } from '../../../../../core/models/room.model';
@@ -20,8 +20,6 @@ export class WaitingRoomPlayerCardComponent {
   readonly current = input(false);
   readonly ready = input(false);
   readonly selectorOpen = input(false);
-  readonly hasDeckArt = input(false);
-  readonly hasDualDeckArt = input(false);
   readonly deckArtUrl = input<string | null>(null);
   readonly secondaryDeckArtUrl = input<string | null>(null);
   readonly deckName = input('game.opponentMiniBoard.deckPending');
@@ -37,6 +35,15 @@ export class WaitingRoomPlayerCardComponent {
   readonly canKick = input(false);
   readonly kicking = input(false);
 
+  private readonly unavailableDeckArtUrls = signal<readonly string[]>([]);
+  readonly visibleDeckArtUrls = computed<readonly string[] | null>(() => {
+    const unavailableUrls = this.unavailableDeckArtUrls();
+    const artUrls = [this.deckArtUrl(), this.secondaryDeckArtUrl()]
+      .filter((url): url is string => !!url && !unavailableUrls.includes(url));
+
+    return artUrls.length > 0 ? artUrls : null;
+  });
+
   readonly deckSelectorToggled = output<void>();
   readonly deckSelectorClosed = output<void>();
   readonly selectedDeckIdChange = output<string>();
@@ -44,6 +51,14 @@ export class WaitingRoomPlayerCardComponent {
   readonly randomDeckRequested = output<void>();
   readonly rollRequested = output<void>();
   readonly kickRequested = output<RoomPlayer>();
+
+  markDeckArtUnavailable(url: string): void {
+    if (this.unavailableDeckArtUrls().includes(url)) {
+      return;
+    }
+
+    this.unavailableDeckArtUrls.update((unavailableUrls) => [...unavailableUrls, url]);
+  }
 
   rollLabel(player: RoomPlayer): string {
     const rolls = Array.isArray(player.turnRolls) && player.turnRolls.length > 0

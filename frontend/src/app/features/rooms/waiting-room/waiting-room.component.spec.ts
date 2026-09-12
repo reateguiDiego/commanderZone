@@ -210,6 +210,40 @@ describe('WaitingRoomComponent', () => {
     expect(deckArtImages[1]?.src).toContain('silas-art.jpg');
   });
 
+  it('keeps the available commander art when the other image cannot be loaded', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.decks.set([
+      deck('deck-user-1', 'Partners', {
+        commanders: [commanderCard(), secondCommanderCard()],
+      }),
+    ]);
+    component.currentRoom.set(room({
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: 'deck-user-1',
+          turnRoll: null,
+        },
+      ],
+    }));
+    fixture.detectChanges();
+
+    const firstDeckArtImage = renderedPlayerCards(fixture)[0]?.querySelector<HTMLImageElement>('.player-dual-deck-art-image');
+    firstDeckArtImage?.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+
+    const playerCard = renderedPlayerCards(fixture)[0] ?? null;
+    const remainingDeckArt = playerCard?.querySelector<HTMLImageElement>('.player-deck-art') ?? null;
+
+    expect(playerCard?.querySelector('.player-dual-deck-art')).toBeNull();
+    expect(remainingDeckArt?.src).toContain('silas-art.jpg');
+  });
+
   it('renders the selected deck bracket for every player in the waiting room', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
@@ -829,4 +863,3 @@ function secondCommanderCard(): Card {
     collectorNumber: '1',
   };
 }
-
