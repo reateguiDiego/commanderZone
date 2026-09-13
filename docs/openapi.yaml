@@ -1894,6 +1894,18 @@ paths:
       tags: [Decks]
       summary: List authenticated user's deck summaries, ordered by updated_at DESC then id DESC.
       parameters:
+        - name: q
+          in: query
+          schema: {type: string, maxLength: 100}
+          description: Case-insensitive substring of the deck name.
+        - name: color
+          in: query
+          schema: {type: string, enum: [all, W, U, B, R, G, C], default: all}
+          description: Commander color identity; C also matches decks without colored commanders.
+        - name: sort
+          in: query
+          schema: {type: string, enum: [updated-desc, name-asc, name-desc], default: updated-desc}
+          description: Deterministic SQL ordering with id as tie-breaker. Name uses lowercase C collation.
         - name: folderId
           in: query
           description: Use a folder UUID or the literal null for decks without folder.
@@ -1908,7 +1920,7 @@ paths:
             default: 50
         - name: cursor
           in: query
-          description: Opaque nextCursor from the previous page. Keep the same folder filter. Concurrent edits can move decks ahead of the cursor; restart pagination to refresh.
+          description: Opaque nextCursor from the previous page. Keep the same folder, search, color and sort filters. Concurrent edits can move decks ahead of the cursor; restart pagination to refresh.
           schema:
             type: string
       responses:
@@ -2009,6 +2021,40 @@ paths:
                   deck:
                     $ref: '#/components/schemas/Deck'
         '404':
+          $ref: '#/components/responses/Error'
+  /decks/summary:
+    get:
+      tags: [Decks]
+      summary: Aggregate the authenticated owner's complete deck collection.
+      responses:
+        '200':
+          description: Global counts, independent of list pagination and filters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, public, private, folders, manaColorStats]
+                properties:
+                  total: {type: integer}
+                  public: {type: integer}
+                  private: {type: integer}
+                  folders:
+                    type: array
+                    items:
+                      type: object
+                      required: [folderId, count]
+                      properties:
+                        folderId: {type: [string, 'null']}
+                        count: {type: integer}
+                  manaColorStats:
+                    type: array
+                    items:
+                      type: object
+                      required: [color, percentage]
+                      properties:
+                        color: {type: string, enum: [W, U, B, R, G, C]}
+                        percentage: {type: integer}
+        '401':
           $ref: '#/components/responses/Error'
   /decks/{id}:
     get:
@@ -2131,6 +2177,11 @@ paths:
             type: string
             enum: [bracket]
       responses:
+        '503':
+          description: Calculation busy or deck changed repeatedly during analysis. Retry after the indicated delay.
+          headers:
+            Retry-After:
+              schema: {type: integer, minimum: 1}
         '200':
           description: Deck analysis.
           content:
@@ -2153,6 +2204,11 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
+        '503':
+          description: Calculation busy or deck changed repeatedly during analysis. Retry after the indicated delay.
+          headers:
+            Retry-After:
+              schema: {type: integer, minimum: 1}
         '200':
           description: Advanced deck analysis.
           content:
@@ -5328,6 +5384,7 @@ components:
           type: integer
           minimum: 0
         bracket:
+          description: Available snapshot label, or null when no current label exists. Lists do not calculate missing analyses.
           allOf:
             - $ref: '#/components/schemas/DeckBracketLabel'
           nullable: true

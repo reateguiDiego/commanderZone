@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Carrega més",
     "ui": {
       "userActions": "Accions d'usuari",
       "reportUser": "Denuncia l'usuari",

@@ -67,6 +67,27 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         self::assertNotNull($firstCard->oracleId());
     }
 
+    public function testMutationDuringCalculationRetriesBeforePublishing(): void
+    {
+        [$deck] = $this->deckFixture('during-calculation');
+        $calculator = new class($this->connection()) implements DeckAdvancedAnalysisCalculatorInterface {
+            public int $calls = 0;
+            public function __construct(private readonly \Doctrine\DBAL\Connection $connection) {}
+            public function calculate(DeckAdvancedAnalysisContext $context): array
+            {
+                if (++$this->calls === 1) {
+                    $this->connection->executeStatement('UPDATE deck_card SET quantity = quantity + 1 WHERE deck_id = :id', ['id' => $context->deck->id()]);
+                }
+                return ['label' => 'attempt '.$this->calls];
+            }
+        };
+        $result = $this->service()->analyze($deck, $calculator);
+        self::assertSame(2, $calculator->calls);
+        self::assertSame('attempt 2', $result['label']);
+        self::assertTrue($this->service()->analyze($deck, $calculator)['snapshot']['hit']);
+        self::assertSame(2, $calculator->calls);
+    }
+
     public function testAnalyzerVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('analyzer-version');

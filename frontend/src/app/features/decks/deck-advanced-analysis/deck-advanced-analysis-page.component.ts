@@ -26,6 +26,7 @@ interface DeckAdvancedAnalysisNavigationState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
+  private loadRevision = 0;
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly decksApi = inject(DecksApi);
@@ -48,10 +49,12 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    ++this.loadRevision;
     this.pageHeader.clear(this);
   }
 
   async load(): Promise<void> {
+    const revision = ++this.loadRevision;
     const identifier = this.routeIdentifier();
     if (!identifier) {
       this.analysis.set(null);
@@ -69,18 +72,20 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
 
     try {
       const deck = await this.resolveDeck(identifier);
+      if (revision !== this.loadRevision) return;
       this.deckId.set(deck.id);
       this.deckName.set(deck.name);
       this.deck.set(deck);
       this.setPageHeader(deck.name);
 
       const analysis = await firstValueFrom(this.decksApi.getDeckAdvancedAnalysis(deck.id));
+      if (revision !== this.loadRevision) return;
       this.analysis.set(analysis);
       this.deckId.set(analysis.deckId || deck.id);
     } catch (error) {
-      this.errorMessage.set(this.errorMessageFor(error));
+      if (revision === this.loadRevision) this.errorMessage.set(this.errorMessageFor(error));
     } finally {
-      this.loading.set(false);
+      if (revision === this.loadRevision) this.loading.set(false);
     }
   }
 

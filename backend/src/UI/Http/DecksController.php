@@ -52,7 +52,10 @@ class DecksController extends ApiController
         }
         try {
             $page = $query->page($user->id(), $folderId, $filterFolder, (int) $limit,
-                $request->query->has('cursor') ? $request->query->getString('cursor') : null);
+                $request->query->has('cursor') ? $request->query->getString('cursor') : null, [
+                    'q' => $request->query->getString('q'), 'color' => $request->query->getString('color', 'all'),
+                    'sort' => $request->query->getString('sort', 'updated-desc'),
+                ]);
         } catch (\InvalidArgumentException $error) {
             return $this->fail($error->getMessage());
         }
@@ -68,6 +71,12 @@ class DecksController extends ApiController
         unset($deck);
 
         return $this->json($page);
+    }
+
+    #[Route('/decks/summary', methods: ['GET'], priority: 10)]
+    public function summary(#[CurrentUser] User $user, OwnedDeckListQuery $query): JsonResponse
+    {
+        return $this->json($query->summary($user->id()));
     }
 
     #[Route('/decks', methods: ['POST'])]

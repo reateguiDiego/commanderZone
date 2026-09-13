@@ -13,8 +13,6 @@ use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 
 final class CommunityService
 {
@@ -38,7 +36,7 @@ final class CommunityService
         private readonly EntityManagerInterface $entityManager,
         private readonly CardLocalizationService $localization,
         private readonly DeckBracketLabelProvider $bracketLabels,
-        private readonly CacheInterface $cache,
+        private readonly CommunityCache $cache,
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
     )
@@ -94,7 +92,6 @@ final class CommunityService
             $this->cacheKey('decks', ['lang' => $requestedLanguage, 'filters' => $normalizedFilters, 'page' => $page]),
             self::DECK_LIST_CACHE_TTL_SECONDS,
             function () use ($normalizedFilters, $page, $requestedLanguage): array {
-                $this->ensureBracketLabelsForMatchingDecks($normalizedFilters);
                 $deckPage = $this->listPublicValidDeckPage($normalizedFilters, $page);
 
                 return [
@@ -195,6 +192,8 @@ SQL,
             throw $error;
         }
 
+        $this->cache->invalidate(['community.home', 'community.decks', 'community.user.'.$deck->owner()->id()]);
+
         return [
             'deck' => [
                 'id' => $deck->id(),
@@ -244,6 +243,8 @@ SQL,
 
             throw $error;
         }
+
+        $this->cache->invalidate(['community.home', 'community.decks', 'community.user.'.$source->owner()->id()]);
 
         $payload = $copy->toArray(true);
         $payload['commanders'] = $this->localizeCardPayloads(
@@ -402,6 +403,7 @@ SQL,
                     'hasMore' => $deckPage['hasMore'],
                 ];
             },
+            ['community.user.'.$user->id()],
         );
     }
 
@@ -419,35 +421,6 @@ SQL,
     public function cardDetail(string $slug, ?string $requestedLanguage): ?array
     {
         return $this->cardDiscoveryDetail($slug, false, $requestedLanguage);
-    }
-
-    /**
-     * Ensures that filtering is complete before pagination, including decks whose
-     * bracket snapshot has not yet been requested by a visitor.
-     *
-     * @param array{q:string,commander:string,format:string,bracket:string,colors:string} $filters
-     */
-    private function ensureBracketLabelsForMatchingDecks(array $filters): void
-    {
-        if ($filters['bracket'] === '' || !$this->isValidBracket($filters['bracket'])) {
-            return;
-        }
-
-        $unfilteredFilters = $filters;
-        $unfilteredFilters['bracket'] = '';
-        $query = $this->publicDeckListQuery($unfilteredFilters);
-        if ($query === null) {
-            return;
-        }
-
-        $deckIds = $this->stringIds(
-            $this->entityManager->getConnection()->fetchFirstColumn(
-                'SELECT d.id '.$query['fromWhereSql'],
-                $query['params'],
-            ),
-        );
-
-        $this->bracketLabels->labelsByDeckIds($deckIds, true);
     }
 
     /**
@@ -884,7 +857,7 @@ SQL,
             $summaries[] = $this->mapDeckSummaryFromArray($grouped[$deckId]);
         }
 
-        $cachedBracketLabels = $this->bracketLabels->labelsByDeckIds($deckIds, true);
+        $cachedBracketLabels = $this->bracketLabels->labelsByDeckIds($deckIds);
 
         return array_map(
             static function (array $summary) use ($cachedBracketLabels): array {
@@ -1751,6 +1724,13 @@ SQL,
      */
     private function cacheKey(string $prefix, array $parts): string
     {
+        if (array_key_exists('lang', $parts)) {
+            $parts['lang'] = strtolower(trim((string) $parts['lang'])) ?: 'en';
+        }
+        if (is_array($parts['filters'] ?? null)) {
+            ksort($parts['filters']);
+            if (mb_strlen((string) ($parts['filters']['q'] ?? '')) > 100) $prefix = 'uncached-'.$prefix;
+        }
         ksort($parts);
 
         return 'community.'.$prefix.'.'.hash('sha256', (string) json_encode($parts, JSON_THROW_ON_ERROR));
@@ -1823,16 +1803,8 @@ SQL,
         return $stringValue === '' ? null : $stringValue;
     }
 
-    private function remember(string $cacheKey, int $ttlSeconds, callable $resolver): mixed
+    private function remember(string $cacheKey, int $ttlSeconds, callable $resolver, array $tags = []): mixed
     {
-        if ($this->environment === 'test') {
-            return $resolver();
-        }
-
-        return $this->cache->get($cacheKey, function (ItemInterface $item) use ($ttlSeconds, $resolver): mixed {
-            $item->expiresAfter($ttlSeconds);
-
-            return $resolver();
-        });
+        return $this->cache->remember($cacheKey, $ttlSeconds, $resolver, $tags);
     }
 }

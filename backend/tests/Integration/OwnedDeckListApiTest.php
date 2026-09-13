@@ -4,6 +4,36 @@ namespace App\Tests\Integration;
 
 final class OwnedDeckListApiTest extends ApiTestCase
 {
+    public function testSearchOrderingAndSummaryUseTheCompleteOwnedCollection(): void
+    {
+        $token = $this->registerAndLogin('list-filters@example.test');
+        foreach (['Alpha', 'beta', 'Alpine', '100%'] as $name) {
+            $this->jsonRequest('POST', '/decks', ['name' => $name, 'visibility' => $name === 'Alpha' ? 'public' : 'private'], $token);
+            self::assertResponseStatusCodeSame(201);
+        }
+        $this->jsonRequest('GET', '/decks?sort=name-asc&q=al&limit=1', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Alpha', $this->jsonResponse()['data'][0]['name']);
+        $cursor = urlencode($this->jsonResponse()['nextCursor']);
+        $this->jsonRequest('GET', '/decks?sort=name-asc&q=al&limit=1&cursor='.$cursor, token: $token);
+        self::assertSame('Alpine', $this->jsonResponse()['data'][0]['name']);
+        self::assertNull($this->jsonResponse()['nextCursor']);
+        foreach (['sort=name-desc&q=al', 'sort=name-asc&q=beta', 'sort=name-asc&q=al&color=W'] as $filters) {
+            $this->jsonRequest('GET', '/decks?'.$filters.'&cursor='.$cursor, token: $token);
+            self::assertResponseStatusCodeSame(400);
+        }
+        $this->jsonRequest('GET', '/decks?q=%25', token: $token);
+        self::assertCount(1, $this->jsonResponse()['data']);
+        $this->jsonRequest('GET', '/decks?color=C', token: $token);
+        self::assertCount(4, $this->jsonResponse()['data']);
+        $this->jsonRequest('GET', '/decks/summary', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['total' => 4, 'public' => 1, 'private' => 3, 'folders' => [['folderId' => null, 'count' => 4]], 'manaColorStats' => []], $this->jsonResponse());
+        $other = $this->registerAndLogin('list-empty@example.test', 'Other');
+        $this->jsonRequest('GET', '/decks/summary', token: $other);
+        self::assertSame(0, $this->jsonResponse()['total']);
+    }
+
     public function testCursorContractAndFolderOwnership(): void
     {
         $token = $this->registerAndLogin('owned-list@example.test');

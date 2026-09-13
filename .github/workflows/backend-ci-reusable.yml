@@ -62,3 +62,33 @@ jobs:
 
       - name: Run gameplay performance smoke
         run: APP_ENV=test php bin/console app:gameplay:baseline --suite=smoke --iterations=1 --fail-on-regression --output=var/perf/gameplay-smoke.json --raw-output=var/perf/gameplay-smoke.ndjson
+
+      - name: Setup Node for load gates
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate load supervision
+        run: node --test ../scripts/load-test-gates.test.mjs
+
+      - name: Navigation performance smoke
+        run: |
+          export APP_ENV=test
+          export PHP_CLI_SERVER_WORKERS=5
+          export USER_PASSWORD="$(openssl rand -hex 24)"
+          php bin/seed-navigation-smoke.php
+          php -S 127.0.0.1:8000 -t public bin/navigation-smoke-router.php > var/navigation-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:8000/me; then break; fi
+            sleep 1
+          done
+          bash ../scripts/run-navigation-load-smoke.sh
+
+      - name: Upload navigation measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: navigation-performance
+          path: reports/navigation-smoke/

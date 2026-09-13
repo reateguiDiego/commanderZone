@@ -25,7 +25,7 @@ param(
 
     [int] $CommandIntervalMs = 2000,
 
-    [string] $K6Image = "grafana/k6:latest",
+    [string] $K6Image = "grafana/k6:2.1.0",
 
     [switch] $ConfirmProduction,
 
@@ -34,6 +34,8 @@ param(
     [switch] $LocalDryRun,
 
     [switch] $SkipServerMetrics,
+
+    [string] $SnapshotDir = "",
 
     [switch] $Help
 )
@@ -146,7 +148,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         }
 
         try {
-            $inspectCommand = "cd $quotedPath && $compose ps -q $services | xargs -r docker inspect --format '{{json .}}'"
+            $inspectCommand = "cd $quotedPath && $compose ps -q $services | xargs -r docker inspect --format '{`"Name`":{{json .Name}},`"RestartCount`":{{.RestartCount}},`"State`":{{json .State}},`"Config`":{`"Labels`":{{json .Config.Labels}}}}'"
             $snapshot.dockerInspect = @(ConvertFrom-JsonLines (Invoke-RemoteCommand $inspectCommand))
         } catch {
             $snapshot.errors += "docker inspect: $($_.Exception.Message)"
@@ -304,7 +306,7 @@ function Test-ServerGate([object] $Delta) {
     }
 
     $postgres = $Delta.postgres
-    foreach ($key in @("deadlocks", "waitingLocks")) {
+    foreach ($key in @("database.deadlocks")) {
         $property = $postgres.PSObject.Properties[$key]
         if ($null -ne $property -and [double] $property.Value -gt 0.0) {
             $failures += "postgres $key delta is $($property.Value)"
@@ -361,8 +363,10 @@ function Assert-Safety {
         throw "Set LOAD_TEST_USER_PASSWORD or pass -UserPassword. Do not commit seeded user credentials."
     }
 
+    if (-not (Test-CommandAvailable "node")) { throw "Node.js 22+ is required for load supervision." }
     $uri = [Uri] $ApiBaseUrl
     $isProductionApi = $uri.Host -eq "api.commanderzone.com"
+    if ($isProductionApi -and $SkipServerMetrics) { throw "Production requires server metrics." }
     if ($isProductionApi -and -not $ConfirmProduction) {
         throw "Production target requires -ConfirmProduction."
     }
@@ -387,15 +391,21 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     $dryRunValue = if ($LocalDryRun) { "1" } else { "0" }
     $k6LogPath = Join-Path $phaseDir "k6-output.log"
     $k6Script = if ($Scenario -eq "navigation") { "/scripts/commanderzone-navigation.k6.js" } else { "/scripts/commanderzone-production.k6.js" }
+    $containerName = "$RunId-$PhaseUsers"
     $dockerArgs = @(
         "run",
         "--rm",
+        "--name", $containerName,
         "--pull=missing",
         "-e", "K6_NO_USAGE_REPORT=true",
         "-e", "API_BASE_URL=$ApiBaseUrl",
         "-e", "USERS=$PhaseUsers",
         "-e", "USER_PASSWORD",
         "-e", "FRIEND_SEARCH_TERMS",
+        "-e", "NAVIGATION_MIX",
+        "-e", "ANALYSIS_STATE",
+        "-e", "ANALYSIS_FIXTURES",
+        "-e", "DEPLOYED_COMMIT",
         "-e", "RUN_ID=$RunId",
         "-e", "PHASE_NAME=users-$PhaseUsers",
         "-e", "DECK_NAME=$DeckName",
@@ -406,13 +416,23 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
         "-v", "$((Resolve-Path $phaseDir).Path):/reports",
         $K6Image,
         "run",
+        "--out", "json=/reports/k6-points.ndjson",
         $k6Script
     )
 
     $previousDockerPassword = $env:USER_PASSWORD
     $env:USER_PASSWORD = $UserPassword
     try {
-        & docker @dockerArgs 2>&1 | Tee-Object -FilePath $k6LogPath
+        $configPath = Join-Path $phaseDir "supervisor-config.json"
+        $shellExe = (Get-Process -Id $PID).Path
+        @{
+            reportDir = $phaseDir; containerName = $containerName; requireMetrics = -not [bool]$SkipServerMetrics
+            command = @("docker") + $dockerArgs
+            snapshotCommand = @($shellExe, "-NoProfile", "-File", $PSCommandPath, "-SnapshotDir", $phaseDir,
+                "-ProductionHost", $ProductionHost, "-ProductionPath", $ProductionPath, "-SshUser", $SshUser,
+                "-RuntimeMetricsUrl", $RuntimeMetricsUrl)
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
+        & node (Join-Path $PSScriptRoot "supervise-load.mjs") $configPath
         $k6ExitCode = $LASTEXITCODE
     } finally {
         if ($null -eq $previousDockerPassword) {
@@ -440,6 +460,11 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     return ($k6ExitCode -eq 0 -and $serverGateFailures.Count -eq 0)
 }
 
+if ($SnapshotDir) {
+    $null = Collect-ServerSnapshot $SnapshotDir "live"
+    exit 0
+}
+
 Assert-Safety
 
 $phases = if ($AllPhases) { @(50, 100, 280, 500) } else { @($Users) }
@@ -456,6 +481,7 @@ foreach ($phase in $phases) {
     $passed = Invoke-Phase $phase $runId $reportRoot
     if (-not $passed) {
         $allPassed = $false
+        break
     }
 }
 

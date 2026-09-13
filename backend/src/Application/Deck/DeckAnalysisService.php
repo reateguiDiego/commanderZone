@@ -8,6 +8,8 @@ use App\Domain\Deck\DeckCard;
 
 class DeckAnalysisService
 {
+    private array $manaCostCache = [];
+    private array $primaryTypeCache = [];
     private const COLORS = ['W', 'U', 'B', 'R', 'G', 'C'];
     private const COLORED = ['W', 'U', 'B', 'R', 'G'];
     private const PRIMARY_TYPES = [
@@ -32,6 +34,8 @@ class DeckAnalysisService
      */
     public function analyze(Deck $deck, array $options = []): array
     {
+        $this->manaCostCache = [];
+        $this->primaryTypeCache = [];
         $options = $this->normalizeOptions($options);
         $entries = $this->analysisEntries($deck, $options);
         $expanded = $this->expand($entries);
@@ -94,6 +98,8 @@ class DeckAnalysisService
     public function parseManaCost(?string $cost): array
     {
         $raw = $cost ?? '';
+        if (isset($this->manaCostCache[$raw])) return $this->manaCostCache[$raw];
+        if (count($this->manaCostCache) >= 256) $this->manaCostCache = [];
         $parsed = [
             'raw' => $raw,
             'genericAmount' => 0,
@@ -137,19 +143,21 @@ class DeckAnalysisService
             }
         }
 
-        return $parsed;
+        return $this->manaCostCache[$raw] = $parsed;
     }
 
     public function getPrimaryType(Card $card): string
     {
         $typeLine = mb_strtolower($card->typeLine() ?? '');
+        if (isset($this->primaryTypeCache[$typeLine])) return $this->primaryTypeCache[$typeLine];
+        if (count($this->primaryTypeCache) >= 256) $this->primaryTypeCache = [];
         foreach (['land', 'creature', 'planeswalker', 'artifact', 'enchantment', 'battle', 'instant', 'sorcery'] as $type) {
             if (preg_match(sprintf('/(^|\s)%s(\s|$)/', preg_quote($type, '/')), $typeLine) === 1) {
-                return $type;
+                return $this->primaryTypeCache[$typeLine] = $type;
             }
         }
 
-        return 'other';
+        return $this->primaryTypeCache[$typeLine] = 'other';
     }
 
     public function hypergeometricAtLeast(int $populationSize, int $successStates, int $draws, int $minSuccesses): float

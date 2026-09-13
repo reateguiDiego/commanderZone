@@ -51,7 +51,12 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
     public function query(string $sql): Result
     {
         $startedAt = hrtime(true);
-        $result = parent::query($sql);
+        try {
+            $result = parent::query($sql);
+        } catch (\Throwable $error) {
+            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            throw $error;
+        }
         $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, $result->rowCount());
 
         return $result;
@@ -60,7 +65,12 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
     public function exec(string $sql): int|string
     {
         $startedAt = hrtime(true);
-        $rows = parent::exec($sql);
+        try {
+            $rows = parent::exec($sql);
+        } catch (\Throwable $error) {
+            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            throw $error;
+        }
         $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, (int) $rows);
 
         return $rows;
@@ -77,7 +87,12 @@ final class SqlMetricsStatement extends AbstractStatementMiddleware
     public function execute(): Result
     {
         $startedAt = hrtime(true);
-        $result = parent::execute();
+        try {
+            $result = parent::execute();
+        } catch (\Throwable $error) {
+            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            throw $error;
+        }
         $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, $result->rowCount());
 
         return $result;
