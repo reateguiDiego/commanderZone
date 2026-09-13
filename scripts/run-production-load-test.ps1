@@ -137,7 +137,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
 
     if (-not [string]::IsNullOrWhiteSpace($ProductionHost)) {
         $quotedPath = ShellQuote $ProductionPath
-        $compose = "docker compose --env-file .env.prod -f docker-compose.prod.yml"
+        $compose = 'docker compose --env-file .env.prod -f docker-compose.yml $(if test -f docker-compose.prod.yml; then printf "%s" "-f docker-compose.prod.yml"; fi)'
         $services = "api websocket game-runtime database"
 
         try {

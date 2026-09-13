@@ -148,7 +148,8 @@ json_number() {
 
 collect_restart_counts() {
   local output="$1"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   (cd "$PRODUCTION_PATH" && "${compose[@]}" ps -q api websocket game-runtime database \
     | xargs -r docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}={{ .RestartCount }}') > "$output" || true
 }
@@ -172,7 +173,8 @@ restart_count() {
 collect_server_snapshot() {
   local phase_dir="$1"
   local label="$2"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   local errors_file="$phase_dir/server-errors-$label.txt"
   : > "$errors_file"
 
@@ -359,8 +361,8 @@ assert_safety() {
     echo "Non-production target requires --allow-non-production or --local-dry-run." >&2
     exit 2
   fi
-  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ! -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then
-    echo "Production metrics require docker-compose.prod.yml under --production-path, or explicit --skip-server-metrics." >&2
+  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ( ! -f "$PRODUCTION_PATH/docker-compose.yml" || ! -f "$PRODUCTION_PATH/.env.prod" ) ]]; then
+    echo "Production metrics require docker-compose.yml and .env.prod under --production-path; docker-compose.prod.yml is an optional override." >&2
     exit 2
   fi
 }
