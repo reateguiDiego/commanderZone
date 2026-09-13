@@ -16,6 +16,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         private readonly DeckBoardWipeAnalyzer $boardWipeAnalyzer,
         private readonly DeckConsistencySimulator $consistencySimulator,
         private readonly DeckAdvancedIssueDetector $issueDetector,
+        private readonly ?\App\Infrastructure\Observability\RequestPerformanceContext $performance = null,
     ) {
     }
 
@@ -24,31 +25,31 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
      */
     public function calculate(DeckAdvancedAnalysisContext $context): array
     {
-        $cards = $this->resolver->resolve($context->deck->id());
+        $cards = $this->measure('resolve', fn () => $this->resolver->resolve($context->deck->id()));
         $resolvedCards = $cards['resolvedCards'];
         $unmatchedCards = $cards['unmatchedCards'];
         $metrics = $this->metricsAggregator->aggregate($resolvedCards, $unmatchedCards);
         $metrics['mana'] = $this->manaSourceAnalyzer->analyze($context->deck->id(), $resolvedCards);
-        $comboResult = $this->comboDetector->detect(
+        $comboResult = $this->measure('combos', fn () => $this->comboDetector->detect(
             $this->oracleIds($resolvedCards),
             $resolvedCards,
             $this->commanderOracleIds($resolvedCards),
             $this->deckColorIdentity($resolvedCards),
-        );
+        ));
         $typal = $this->typalAnalyzer->analyze($resolvedCards);
         $archetypeResult = $this->archetypeAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos'], $typal);
         $metrics['boardWipes'] = $this->boardWipeAnalyzer->analyze($resolvedCards, $archetypeResult['archetypes']);
         $metrics = $this->metricsAggregator->withBoardWipeMetrics($metrics, $metrics['boardWipes']);
         $power = $this->powerAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos']);
         $archetypes = $archetypeResult['archetypes'];
-        $consistencyResult = $this->consistencySimulator->simulate($resolvedCards, $comboResult['combos'], [
+        $consistencyResult = $this->measure('monte_carlo', fn () => $this->consistencySimulator->simulate($resolvedCards, $comboResult['combos'], [
             'runs' => $context->monteCarloRuns,
             'seed' => $context->monteCarloSeed,
             'monteCarloVersion' => $context->monteCarloVersion,
             'mana' => $metrics['mana'],
             'wantsEarlyInteraction' => $this->wantsEarlyInteraction($archetypes, $power),
             'comboDeckLikely' => $this->comboDeckLikely($archetypes, $comboResult['combos']),
-        ]);
+        ]));
         $issues = [
             ...$this->issueDetector->detect($metrics, $comboResult['combos'], $archetypes, $power, $consistencyResult['consistency'], $unmatchedCards, $typal),
             ...$archetypeResult['issues'],
@@ -80,6 +81,11 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             'issues' => $issues,
             'unmatchedCards' => $unmatchedCards,
         ];
+    }
+
+    private function measure(string $stage, callable $operation): mixed
+    {
+        return $this->performance?->measure('analysis.advanced.'.$stage, $operation) ?? $operation();
     }
 
     /**

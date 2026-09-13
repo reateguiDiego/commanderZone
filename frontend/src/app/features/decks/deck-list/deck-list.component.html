@@ -262,6 +262,12 @@
     }
   </section>
 
+  @if (store.nextCursor()) {
+    <button czButton="secondary" type="button" [disabled]="store.loadingMore()" (click)="store.loadPage(true)">
+      {{ 'common.loadMore' | runtimeTranslate }}
+    </button>
+  }
+
   <app-modal
     [open]="store.createModalOpen()"
     [title]="createModalTitle()"

@@ -20,7 +20,6 @@ import { DashboardPageContextComponent } from './components/dashboard-page-conte
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [FriendsStore, MessagesStore],
 })
 export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
@@ -37,7 +36,9 @@ export class DashboardShellComponent implements OnDestroy {
   readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? runtimeTranslationFallback('shared.text.player'));
   readonly canAccessAdmin = computed(() => userCanAccessAdmin(this.auth.user()));
   private roomInviteSubscription?: Subscription;
+  private messageSubscription?: Subscription;
   private friendSubscription?: Subscription;
+  private headerUserId: string | null | undefined;
 
   constructor() {
     const closeFriendsOnOutsidePointer = (event: PointerEvent) => this.closeFriendsOnOutsidePointer(event.target);
@@ -79,6 +80,7 @@ export class DashboardShellComponent implements OnDestroy {
 
     this.closeMessages();
     this.friendsOpen.set(true);
+    void this.friends.ensureSummaryLoaded();
     void this.friends.ensureLoaded();
   }
 
@@ -92,6 +94,7 @@ export class DashboardShellComponent implements OnDestroy {
 
     this.closeFriends();
     this.messagesOpen.set(true);
+    void this.messages.ensureSummaryLoaded();
     void this.messages.ensureLoaded();
   }
 
@@ -123,6 +126,8 @@ export class DashboardShellComponent implements OnDestroy {
     this.stopRoomInviteSync();
     this.stopFriendSync();
     await this.auth.logout();
+    this.friends.setUser(null);
+    this.messages.setUser(null);
     await this.router.navigate(['/auth/login']);
   }
 
@@ -152,7 +157,9 @@ export class DashboardShellComponent implements OnDestroy {
 
     this.roomInviteSubscription = this.mercure.roomInviteEvents(userId).subscribe({
       next: () => {
-        void this.friends.load();
+        this.friends.handleRoomInviteEvent();
+        void this.friends.ensureSummaryLoaded();
+        if (this.friendsOpen()) void this.friends.ensureLoaded();
       },
       error: () => {
         // Fallback remains periodic loads on navigation/open dropdown.
@@ -161,11 +168,21 @@ export class DashboardShellComponent implements OnDestroy {
   }
 
   private stopFriendSync(): void {
+    this.messageSubscription?.unsubscribe();
+    this.messageSubscription = undefined;
     this.friendSubscription?.unsubscribe();
     this.friendSubscription = undefined;
   }
 
   private syncAuthenticatedHeaderState(): void {
+    const userId = this.auth.isAuthenticated() ? this.auth.user()?.id ?? null : null;
+    if (this.headerUserId !== userId) {
+      this.stopRoomInviteSync();
+      this.stopFriendSync();
+      this.headerUserId = userId;
+    }
+    this.friends.setUser(userId);
+    this.messages.setUser(userId);
     if (!this.auth.isAuthenticated()) {
       this.closeFriends();
       this.closeMessages();
@@ -174,10 +191,11 @@ export class DashboardShellComponent implements OnDestroy {
       return;
     }
 
-    void this.friends.ensureLoaded();
-    void this.messages.ensureLoaded();
+    void this.friends.ensureSummaryLoaded();
+    void this.messages.ensureSummaryLoaded();
     this.startRoomInviteSync();
     this.startFriendSync();
+    this.startMessageSync();
   }
 
   private startFriendSync(): void {
@@ -192,10 +210,25 @@ export class DashboardShellComponent implements OnDestroy {
     this.friendSubscription = this.mercure.friendEvents(userId).subscribe({
       next: (event) => {
         this.friends.handleRealtimeEvent(event);
+        void this.friends.ensureSummaryLoaded();
+        if (this.friendsOpen()) void this.friends.ensureLoaded();
       },
       error: () => {
         // User-triggered actions and the initial load remain the fallback.
       },
+    });
+  }
+
+  private startMessageSync(): void {
+    const userId = this.auth.user()?.id;
+    if (!userId || this.messageSubscription) return;
+    this.messageSubscription = this.mercure.messageEvents(userId).subscribe({
+      next: () => {
+        this.messages.handleRealtimeEvent();
+        void this.messages.ensureSummaryLoaded();
+        if (this.messagesOpen()) void this.messages.ensureLoaded();
+      },
+      error: () => { this.messageSubscription = undefined; },
     });
   }
 

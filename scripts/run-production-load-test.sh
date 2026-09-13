@@ -12,12 +12,13 @@ USER_PASSWORD="${LOAD_TEST_USER_PASSWORD:-}"
 DECK_NAME="Load Test Deck"
 DURATION_MINUTES=10
 COMMAND_INTERVAL_MS=2000
-K6_IMAGE="grafana/k6:latest"
+K6_IMAGE="grafana/k6:2.1.0"
 CONFIRM_PRODUCTION=0
 ALLOW_NON_PRODUCTION=0
 LOCAL_DRY_RUN=0
 SKIP_SERVER_METRICS=0
 SCENARIO="navigation"
+SNAPSHOT_DIR=""
 
 usage() {
   cat <<'USAGE'
@@ -45,6 +46,7 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --snapshot-dir) SNAPSHOT_DIR="${2:?}"; shift 2 ;;
     --users)
       USERS="${2:?--users requires a value}"
       shift 2
@@ -146,7 +148,8 @@ json_number() {
 
 collect_restart_counts() {
   local output="$1"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   (cd "$PRODUCTION_PATH" && "${compose[@]}" ps -q api websocket game-runtime database \
     | xargs -r docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}={{ .RestartCount }}') > "$output" || true
 }
@@ -170,7 +173,8 @@ restart_count() {
 collect_server_snapshot() {
   local phase_dir="$1"
   local label="$2"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   local errors_file="$phase_dir/server-errors-$label.txt"
   : > "$errors_file"
 
@@ -190,7 +194,7 @@ collect_server_snapshot() {
     2>> "$errors_file" || echo "docker stats failed" >> "$errors_file"
 
   (cd "$PRODUCTION_PATH" && "${compose[@]}" ps -q api websocket game-runtime database \
-    | xargs -r docker inspect --format '{{json .}}') \
+    | xargs -r docker inspect --format '{"Name":{{json .Name}},"RestartCount":{{.RestartCount}},"State":{{json .State}},"Config":{"Labels":{{json .Config.Labels}}}}') \
     > "$phase_dir/docker-inspect-$label.ndjson" \
     2>> "$errors_file" || echo "docker inspect failed" >> "$errors_file"
 
@@ -328,6 +332,7 @@ write_operator_summary() {
 assert_safety() {
   require_command docker
   require_command curl
+  require_command node
 
   if ! is_allowed_users "$USERS"; then
     echo "--users must be one of 50, 100, 280, or 500. Received: $USERS" >&2
@@ -345,6 +350,9 @@ assert_safety() {
   if [[ "$API_BASE_URL" == "https://api.commanderzone.com"* ]]; then
     is_production=1
   fi
+  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" == "1" ]]; then
+    echo "Production requires server metrics." >&2; exit 2
+  fi
   if [[ "$is_production" == "1" && "$CONFIRM_PRODUCTION" != "1" ]]; then
     echo "Production target requires --confirm-production." >&2
     exit 2
@@ -353,8 +361,8 @@ assert_safety() {
     echo "Non-production target requires --allow-non-production or --local-dry-run." >&2
     exit 2
   fi
-  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ! -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then
-    echo "Production metrics require docker-compose.prod.yml under --production-path, or explicit --skip-server-metrics." >&2
+  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ( ! -f "$PRODUCTION_PATH/docker-compose.yml" || ! -f "$PRODUCTION_PATH/.env.prod" ) ]]; then
+    echo "Production metrics require docker-compose.yml and .env.prod under --production-path; docker-compose.prod.yml is an optional override." >&2
     exit 2
   fi
 }
@@ -382,25 +390,18 @@ invoke_phase() {
   local docker_uid docker_gid
   docker_uid="$(id -u)"
   docker_gid="$(id -g)"
-  USER_PASSWORD="$USER_PASSWORD" docker run \
-    --rm \
-    --pull=missing \
-    --user "$docker_uid:$docker_gid" \
-    -e K6_NO_USAGE_REPORT=true \
-    -e API_BASE_URL="$API_BASE_URL" \
-    -e USERS="$phase_users" \
-    -e USER_PASSWORD \
-    -e RUN_ID="$run_id" \
-    -e PHASE_NAME="users-$phase_users" \
-    -e DECK_NAME="$DECK_NAME" \
-    -e DURATION="$duration" \
-    -e DRY_RUN="$dry_run_value" \
-    -e COMMAND_INTERVAL_MS="$COMMAND_INTERVAL_MS" \
-    -v "$REPO_ROOT/load-tests:/scripts:ro" \
-    -v "$phase_dir:/reports" \
-    "$K6_IMAGE" \
-    run "/scripts/$k6_script" \
-    2>&1 | tee "$phase_dir/k6-output.log" || k6_exit_code="${PIPESTATUS[0]}"
+  local container_name="$run_id-$phase_users"
+  local config="$phase_dir/supervisor-config.json"
+  local -a docker_args=(run --rm --pull=missing --name "$container_name" --user "$docker_uid:$docker_gid"
+    -e K6_NO_USAGE_REPORT=true -e "API_BASE_URL=$API_BASE_URL" -e "USERS=$phase_users" -e USER_PASSWORD
+    -e FRIEND_SEARCH_TERMS -e NAVIGATION_MIX -e ANALYSIS_STATE -e ANALYSIS_FIXTURES -e DEPLOYED_COMMIT
+    -e "RUN_ID=$run_id" -e "PHASE_NAME=users-$phase_users" -e "DECK_NAME=$DECK_NAME"
+    -e "DURATION=$duration" -e "DRY_RUN=$dry_run_value" -e "COMMAND_INTERVAL_MS=$COMMAND_INTERVAL_MS"
+    -v "$REPO_ROOT/load-tests:/scripts:ro" -v "$phase_dir:/reports" "$K6_IMAGE"
+    run --out json=/reports/k6-points.ndjson "/scripts/$k6_script")
+  node -e 'const fs=require("fs"); const [file,dir,name,skip,script,production,runtime,...args]=process.argv.slice(1); fs.writeFileSync(file,JSON.stringify({reportDir:dir,containerName:name,requireMetrics:skip!=="1",command:["docker",...args],snapshotCommand:["bash",script,"--snapshot-dir",dir,"--production-path",production,"--runtime-metrics-url",runtime]}));' \
+    "$config" "$phase_dir" "$container_name" "$SKIP_SERVER_METRICS" "$SCRIPT_DIR/run-production-load-test.sh" "$PRODUCTION_PATH" "$RUNTIME_METRICS_URL" "${docker_args[@]}"
+  USER_PASSWORD="$USER_PASSWORD" node "$SCRIPT_DIR/supervise-load.mjs" "$config" || k6_exit_code=$?
 
   collect_server_snapshot "$phase_dir" after
   write_server_delta "$phase_dir"
@@ -411,6 +412,11 @@ invoke_phase() {
   fi
   return 0
 }
+
+if [[ -n "$SNAPSHOT_DIR" ]]; then
+  collect_server_snapshot "$SNAPSHOT_DIR" live
+  exit 0
+fi
 
 assert_safety
 
@@ -430,6 +436,7 @@ all_passed=0
 for phase in "${phases[@]}"; do
   if ! invoke_phase "$phase" "$run_id" "$report_root"; then
     all_passed=1
+    break
   fi
 done
 

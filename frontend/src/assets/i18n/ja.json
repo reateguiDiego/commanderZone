@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "さらに読み込む",
     "ui": {
       "userActions": "ユーザー操作",
       "reportUser": "ユーザーを通報",

@@ -73,8 +73,7 @@ export class RoomBrowserComponent {
         const matchesFormat = formatFilter === 'all' || room.format === formatFilter;
 
         return matchesName && matchesOwner && matchesVisibility && matchesStatus && matchesFormat;
-      })
-      .sort((left, right) => this.roomSortRank(left) - this.roomSortRank(right) || left.name.localeCompare(right.name));
+      });
   });
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRooms().length / ROOMS_PAGE_SIZE)));
   readonly currentPage = computed(() => Math.min(this.page(), this.totalPages()));
@@ -141,13 +140,6 @@ export class RoomBrowserComponent {
 
   private normalizeFilter(value: string): string {
     return value.trim().toLowerCase();
-  }
-
-  private roomSortRank(room: Room): number {
-    const visibilityRank = room.visibility === 'public' ? 0 : 100;
-    const statusRank = { open: 0, full: 10, started: 20 }[this.statusKey(room)];
-
-    return visibilityRank + statusRank;
   }
 
   private roomCapacity(room: Room): number {

@@ -37,8 +37,7 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame(1, $response['publicDeckCount']);
         self::assertSame($publicValidDeckId, $response['decks'][0]['id']);
         self::assertSame('https://cards.scryfall.io/art_crop/front/home-commander.jpg', $response['decks'][0]['cropImage']);
-        self::assertContains($response['decks'][0]['bracket']['bracket'], [1, 2, 3, 4, 5]);
-        self::assertNotSame('', $response['decks'][0]['bracket']['label']);
+        self::assertNull($response['decks'][0]['bracket'], 'List reads do not calculate missing brackets.');
         self::assertCount(3, $response['commanders']);
         self::assertCount(3, $response['cards']);
     }
@@ -70,8 +69,7 @@ class CommunityApiTest extends ApiTestCase
         self::assertCount(1, $response['decks']);
         self::assertSame($matchingDeckId, $response['decks'][0]['id']);
         self::assertSame(['G'], $response['decks'][0]['colorIdentity']);
-        self::assertContains($response['decks'][0]['bracket']['bracket'], [1, 2, 3, 4, 5]);
-        self::assertNotSame('', $response['decks'][0]['bracket']['label']);
+        self::assertNull($response['decks'][0]['bracket'], 'List reads do not calculate missing brackets.');
         self::assertSame(1, $response['page']);
         self::assertSame(20, $response['limit']);
         self::assertSame(1, $response['total']);
@@ -317,10 +315,16 @@ class CommunityApiTest extends ApiTestCase
             ['deckId' => $deckId],
         ));
 
+        $this->jsonRequest('GET', '/community/decks');
+        self::assertSame(0, $this->jsonResponse()['decks'][0]['likes']);
+
         $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $firstToken);
         self::assertResponseIsSuccessful();
         self::assertSame(1, $this->jsonResponse()['deck']['likes']);
         self::assertTrue($this->jsonResponse()['deck']['likedByViewer']);
+        $this->jsonRequest('GET', '/community/decks');
+        self::assertSame(1, $this->jsonResponse()['decks'][0]['likes']);
+
 
         $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $firstToken);
         self::assertResponseIsSuccessful();

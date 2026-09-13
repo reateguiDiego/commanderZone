@@ -464,7 +464,7 @@ class Card
         return array_values(array_filter($faces, static fn (mixed $face): bool => is_array($face)));
     }
 
-    private function normalizeCardFace(array $face): array
+    public static function normalizeCardFace(array $face): array
     {
         return [
             'name' => isset($face['name']) && is_scalar($face['name']) ? (string) $face['name'] : null,

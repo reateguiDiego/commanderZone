@@ -24,17 +24,19 @@ final class DeckAnalysisDataVersionProvider
      */
     public function currentVersions(): array
     {
-        $semanticVersion = $this->version(self::KEY_SEMANTIC);
-        $boardWipeVersion = $this->version(self::KEY_BOARD_WIPE);
+        $versions = $this->connection->fetchAllKeyValue('SELECT key, version FROM deck_analysis_data_version');
+        $read = static fn (string $key): string => is_string($versions[$key] ?? null) && trim($versions[$key]) !== '' ? $versions[$key] : self::DEFAULT_VERSION;
+        $semanticVersion = $read(self::KEY_SEMANTIC);
+        $boardWipeVersion = $read(self::KEY_BOARD_WIPE);
         if ($boardWipeVersion !== self::DEFAULT_VERSION) {
             $semanticVersion .= '|'.self::KEY_BOARD_WIPE.':'.$boardWipeVersion;
         }
 
         return [
             self::KEY_SEMANTIC => $semanticVersion,
-            self::KEY_MANA => $this->version(self::KEY_MANA),
-            self::KEY_COMBO => $this->version(self::KEY_COMBO),
-            self::KEY_RULES => $this->version(self::KEY_RULES),
+            self::KEY_MANA => $read(self::KEY_MANA),
+            self::KEY_COMBO => $read(self::KEY_COMBO),
+            self::KEY_RULES => $read(self::KEY_RULES),
         ];
     }
 

@@ -222,19 +222,32 @@ export class AddCardToDeckModalComponent {
     }
   }
 
-  private async loadDecksForModal(): Promise<void> {
-    if (this.decks().length > 0 || this.loadingDecks()) {
+  readonly deckSearch = signal('');
+  private deckPageRevision = 0;
+
+  searchDecks(value: string): void {
+    this.deckSearch.set(value.slice(0, 100));
+    void this.loadDecksForModal(false, true);
+  }
+
+  readonly nextDeckCursor = signal<string | null>(null);
+
+  async loadDecksForModal(append = false, reset = false): Promise<void> {
+    if (!reset && ((!append && this.decks().length > 0) || this.loadingDecks())) {
       return;
     }
 
+    const revision = append ? this.deckPageRevision : ++this.deckPageRevision;
     this.loadingDecks.set(true);
     try {
-      const response = await firstValueFrom(this.decksApi.list());
-      this.decks.set(response.data);
+      const response = await firstValueFrom(this.decksApi.list(undefined, false, { cursor: append ? this.nextDeckCursor() ?? undefined : undefined, q: this.deckSearch(), sort: 'name-asc' }));
+      if (revision !== this.deckPageRevision) return;
+      this.decks.set([...new Map([...(append ? this.decks() : []), ...response.data].map(deck => [deck.id, deck])).values()]);
+      this.nextDeckCursor.set(response.nextCursor ?? null);
     } catch {
-      this.errorKey.set('deckBuilder.cards.cardSearch.addToDeck.couldNotLoadDecks');
+      if (revision === this.deckPageRevision) this.errorKey.set('deckBuilder.cards.cardSearch.addToDeck.couldNotLoadDecks');
     } finally {
-      this.loadingDecks.set(false);
+      if (revision === this.deckPageRevision) this.loadingDecks.set(false);
     }
   }
 

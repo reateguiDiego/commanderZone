@@ -12,10 +12,10 @@ final class DeckAnalysisDeckHasher
     {
     }
 
-    public function hash(Deck $deck): string
+    public function hash(Deck $deck, array $options = []): string
     {
         $items = [];
-        foreach ($this->deckRows($deck->id()) as $row) {
+        foreach ($this->deckRows($deck->id(), $options) as $row) {
             $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
             $cardId = $this->stringOrNull($row['card_id'] ?? null);
             $items[] = [
@@ -38,7 +38,7 @@ final class DeckAnalysisDeckHasher
     /**
      * @return iterable<array<string,mixed>>
      */
-    private function deckRows(string $deckId): iterable
+    private function deckRows(string $deckId, array $options): iterable
     {
         return $this->connection->executeQuery(
             <<<'SQL'
@@ -51,13 +51,15 @@ SELECT
 FROM deck_card
 LEFT JOIN card ON card.id = deck_card.card_id
 WHERE deck_card.deck_id = :deck_id
-  AND deck_card.section IN (:main_section, :commander_section)
+  AND deck_card.section IN (:sections)
 SQL,
             [
                 'deck_id' => $deckId,
-                'main_section' => DeckCard::SECTION_MAIN,
-                'commander_section' => DeckCard::SECTION_COMMANDER,
+                'sections' => [DeckCard::SECTION_MAIN, DeckCard::SECTION_COMMANDER,
+                    ...(!empty($options['includeSideboard']) ? [DeckCard::SECTION_SIDEBOARD] : []),
+                    ...(!empty($options['includeMaybeboard']) ? [DeckCard::SECTION_MAYBEBOARD] : [])],
             ],
+            ['sections' => \Doctrine\DBAL\ArrayParameterType::STRING],
         )->iterateAssociative();
     }
 

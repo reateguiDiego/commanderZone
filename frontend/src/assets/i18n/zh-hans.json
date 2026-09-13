@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "加载更多",
     "ui": {
       "userActions": "用户操作",
       "reportUser": "举报用户",

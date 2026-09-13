@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Charger plus",
     "ui": {
       "userActions": "User actions",
       "reportUser": "Report user",

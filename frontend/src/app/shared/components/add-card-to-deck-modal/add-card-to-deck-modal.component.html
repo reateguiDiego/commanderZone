@@ -16,6 +16,10 @@
     (close)="requestClose()"
   >
     <section class="add-to-deck-modal">
+      <label class="card-modal-field">
+        <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
+        <input type="search" maxlength="100" [value]="deckSearch()" (input)="searchDecks($any($event.target).value)" />
+      </label>
       @if (loadingCard() || loadingDecks()) {
         <app-global-loader />
       } @else if (decks().length === 0) {
@@ -54,6 +58,9 @@
           </article>
         }
 
+        @if (nextDeckCursor()) {
+          <button type="button" [disabled]="loadingDecks()" (click)="loadDecksForModal(true)">{{ 'common.loadMore' | runtimeTranslate }}</button>
+        }
         <app-format-select
           class="card-modal-select"
           name="addToDeckDeck"

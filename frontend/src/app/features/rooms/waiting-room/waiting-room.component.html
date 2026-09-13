@@ -99,6 +99,16 @@
                       (rollRequested)="openRollModal()"
                       (kickRequested)="requestKickPlayer(room, $event)"
                     />
+                    @if (isCurrentUser(player.user.id) && deckSelectorOpen()) {
+                      <label>
+                        <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
+                        <input type="search" maxlength="100" [value]="deckSearch()" (input)="searchDecks($any($event.target).value)" />
+                      </label>
+                    }
+                    @if (isCurrentUser(player.user.id) && deckSelectorOpen() && nextDeckCursor()) {
+                      <button type="button" [disabled]="loadingDeckPage()" (click)="loadDecks(true)">{{ 'common.loadMore' | runtimeTranslate }}</button>
+                    }
+
               }
               @for (seatIndex of seatIndexes; track seatIndex) {
                 @if (seatIndex >= room.players.length && shouldRenderOpenSeat(room, seatIndex)) {

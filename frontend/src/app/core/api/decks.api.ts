@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { defer, finalize, Observable, shareReplay } from 'rxjs';
+import { AuthStore } from '../auth/auth.store';
 import { API_BASE_URL } from './api.config';
 import { withGlobalLoading } from '../loading/loading-context';
 import {
@@ -48,14 +49,58 @@ export interface DeckVisualSelectionPayload {
   sleevesName?: string;
 }
 
+export interface OwnedDeckListPage extends DataResponse<Deck> {
+  nextCursor: string | null;
+}
+
+export interface OwnedDeckListOptions {
+  limit?: number;
+  cursor?: string;
+  q?: string;
+  color?: string;
+  sort?: 'updated-desc' | 'name-asc' | 'name-desc';
+}
+
+export interface OwnedDeckSummary {
+  total: number;
+  public: number;
+  private: number;
+  folders: { folderId: string | null; count: number }[];
+  manaColorStats: { color: 'W' | 'U' | 'B' | 'R' | 'G' | 'C'; percentage: number }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DecksApi {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthStore);
+  private readonly analysisRequests = new Map<string, Observable<unknown>>();
 
-  list(folderId?: string | null, _skipGlobalLoading = false): Observable<DataResponse<Deck>> {
-    return folderId === undefined
-      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`)
-      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
+  private shareAnalysis<T>(key: string, request: () => Observable<T>): Observable<T> {
+    return defer(() => {
+      const scopedKey = `${this.auth.token() ?? ''}|${key}`;
+      const pending = this.analysisRequests.get(scopedKey);
+      if (pending) return pending as Observable<T>;
+      const shared = request().pipe(
+        finalize(() => { if (this.analysisRequests.get(scopedKey) === shared) this.analysisRequests.delete(scopedKey); }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+      this.analysisRequests.set(scopedKey, shared);
+      return shared;
+    });
+  }
+
+  list(folderId?: string | null, _skipGlobalLoading = false, options: OwnedDeckListOptions = {}): Observable<OwnedDeckListPage> {
+    return this.listPage(folderId, options);
+  }
+
+  summary(): Observable<OwnedDeckSummary> {
+    return this.http.get<OwnedDeckSummary>(`${API_BASE_URL}/decks/summary`);
+  }
+
+  listPage(folderId?: string | null, options: OwnedDeckListOptions = {}): Observable<OwnedDeckListPage> {
+    return this.http.get<OwnedDeckListPage>(`${API_BASE_URL}/decks`, {
+      params: { ...(folderId === undefined ? {} : { folderId: folderId ?? 'null' }), ...options },
+    });
   }
 
   create(
@@ -65,10 +110,12 @@ export class DecksApi {
     format: DeckFormat['id'] = 'commander',
     visuals: DeckVisualSelectionPayload = {},
   ): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility, format, ...visuals });
   }
 
   quickBuild(payload: { name: string; folderId?: string | null; visibility?: DeckVisibility; format?: DeckFormat['id']; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
+    this.analysisRequests.clear();
     return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/quick-build`, payload);
   }
 
@@ -90,23 +137,23 @@ export class DecksApi {
       }
     }
 
-    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`, {
+    return this.shareAnalysis(`${id}|basic|${JSON.stringify(Object.entries(params).sort())}`, () => this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`, {
       context: withGlobalLoading(),
       params,
-    });
+    }));
   }
 
   bracketAnalysis(id: string): Observable<DeckBracketAnalysisResponse> {
-    return this.http.get<DeckBracketAnalysisResponse>(`${API_BASE_URL}/decks/${id}/analysis`, {
+    return this.shareAnalysis(`${id}|bracket`, () => this.http.get<DeckBracketAnalysisResponse>(`${API_BASE_URL}/decks/${id}/analysis`, {
       context: withGlobalLoading(),
       params: { view: 'bracket' },
-    });
+    }));
   }
 
   getDeckAdvancedAnalysis(deckId: string): Observable<AdvancedAnalysisResponse> {
-    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/decks/${deckId}/analysis/advanced`, {
+    return this.shareAnalysis(`${deckId}|advanced`, () => this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/decks/${deckId}/analysis/advanced`, {
       context: withGlobalLoading(),
-    });
+    }));
   }
 
   sections(id: string): Observable<DeckSectionsResponse> {
@@ -126,6 +173,7 @@ export class DecksApi {
   }
 
   rename(id: string, name: string): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { name });
   }
 
@@ -136,10 +184,12 @@ export class DecksApi {
     backgroundName?: string;
     sleevesName?: string;
   }): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, payload);
   }
 
   delete(id: string): Observable<void> {
+    this.analysisRequests.clear();
     return this.http.delete<void>(`${API_BASE_URL}/decks/${id}`);
   }
 
@@ -158,22 +208,27 @@ export class DecksApi {
       payload.commanders = commanderSelection.commanders;
     }
 
+    this.analysisRequests.clear();
     return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/${id}/import`, payload);
   }
 
   addCard(id: string, payload: DeckCardMutationPayload): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.post<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards`, payload);
   }
 
   updateCards(id: string, cards: DeckCardBatchMutationPayload[]): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards`, { cards });
   }
 
   replaceCommanders(id: string, cards: CommanderReplacementPayload[]): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.put<DeckResponse>(`${API_BASE_URL}/decks/${id}/commanders`, { cards });
   }
 
   updateCard(id: string, deckCardId: string, payload: { quantity?: number; section?: DeckSection }): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}`, payload);
   }
 
@@ -182,14 +237,17 @@ export class DecksApi {
   }
 
   selectPrinting(id: string, deckCardId: string, scryfallId: string): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}/printing`, { scryfallId });
   }
 
   removeCard(id: string, deckCardId: string): Observable<DeckResponse> {
+    this.analysisRequests.clear();
     return this.http.delete<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}`);
   }
 
   validateCommander(id: string, _skipGlobalLoading = false): Observable<CommanderValidationResponse> {
+    this.analysisRequests.clear();
     return this.http.post<CommanderValidationResponse>(`${API_BASE_URL}/decks/${id}/validate-commander`, {});
   }
 }

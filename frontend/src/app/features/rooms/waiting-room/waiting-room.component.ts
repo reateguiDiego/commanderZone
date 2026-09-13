@@ -516,6 +516,16 @@ export class WaitingRoomComponent implements OnDestroy {
       return;
     }
 
+    if (this.deckSearch()) {
+      this.deckSearch.set('');
+      await this.loadDecks(false, true);
+    }
+    // Random selection is an explicit whole-catalog action, unlike opening the selector.
+    while (this.nextDeckCursor()) {
+      const previousCursor = this.nextDeckCursor();
+      await this.loadDecks(true);
+      if (this.nextDeckCursor() === previousCursor) return;
+    }
     const legalDecks = this.legalDeckOptions();
     if (legalDecks.length === 0) {
       this.error.set('errors.runtime.no-legal-commander-decks-available');
@@ -845,12 +855,30 @@ export class WaitingRoomComponent implements OnDestroy {
     return seatIndex < this.roomCapacity(room);
   }
 
-  private async loadDecks(): Promise<void> {
+  readonly deckSearch = signal('');
+  private deckPageRevision = 0;
+
+  searchDecks(value: string): void {
+    this.deckSearch.set(value.slice(0, 100));
+    void this.loadDecks(false, true);
+  }
+
+  readonly nextDeckCursor = signal<string | null>(null);
+  readonly loadingDeckPage = signal(false);
+
+  async loadDecks(append = false, reset = false): Promise<void> {
+    if (this.loadingDeckPage() && !reset) return;
+    const revision = append ? this.deckPageRevision : ++this.deckPageRevision;
+    this.loadingDeckPage.set(true);
     try {
-      const response = await firstValueFrom(this.decksApi.list(undefined, true));
-      this.decks.set(response.data);
+      const response = await firstValueFrom(this.decksApi.list(undefined, true, { cursor: append ? this.nextDeckCursor() ?? undefined : undefined, q: this.deckSearch(), sort: 'name-asc' }));
+      if (revision !== this.deckPageRevision) return;
+      this.decks.set([...new Map([...(append ? this.decks() : []), ...response.data].map(deck => [deck.id, deck])).values()]);
+      this.nextDeckCursor.set(response.nextCursor ?? null);
     } catch {
-      this.error.set('errors.runtime.could-not-load-decks');
+      if (revision === this.deckPageRevision) this.error.set('errors.runtime.could-not-load-decks');
+    } finally {
+      if (revision === this.deckPageRevision) this.loadingDeckPage.set(false);
     }
   }
 

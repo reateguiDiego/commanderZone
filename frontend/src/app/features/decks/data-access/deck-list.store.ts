@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
-import { DecksApi } from '../../../core/api/decks.api';
+import { DecksApi, OwnedDeckSummary } from '../../../core/api/decks.api';
 import { ApiError } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
@@ -58,6 +58,10 @@ export class DeckListStore {
   private readonly zone = inject(NgZone);
 
   readonly decks = signal<Deck[]>([]);
+  readonly nextCursor = signal<string | null>(null);
+  readonly loadingMore = signal(false);
+  readonly summary = signal<OwnedDeckSummary | null>(null);
+  private pageRevision = 0;
   readonly folders = signal<DeckFolder[]>([]);
   readonly formats = signal<DeckFormat[]>([]);
   readonly loading = signal(false);
@@ -121,10 +125,10 @@ export class DeckListStore {
   ));
   readonly selectedFormat = computed(() => this.formats().find((format) => format.id === this.newDeckFormatId) ?? null);
   readonly hasDeckListContent = computed(() => this.decks().length > 0 || this.folders().length > 0);
-  readonly totalDeckCount = computed(() => this.decks().length);
-  readonly publicDeckCount = computed(() => this.decks().filter((deck) => deck.visibility === 'public').length);
-  readonly privateDeckCount = computed(() => this.decks().filter((deck) => (deck.visibility ?? 'private') === 'private').length);
-  readonly manaColorStats = computed<readonly DeckManaColorStat[]>(() => this.buildManaColorStats());
+  readonly totalDeckCount = computed(() => this.summary()?.total ?? this.decks().length);
+  readonly publicDeckCount = computed(() => this.summary()?.public ?? this.decks().filter((deck) => deck.visibility === 'public').length);
+  readonly privateDeckCount = computed(() => this.summary()?.private ?? this.decks().filter((deck) => (deck.visibility ?? 'private') === 'private').length);
+  readonly manaColorStats = computed<readonly DeckManaColorStat[]>(() => this.summary()?.manaColorStats ?? this.buildManaColorStats());
   readonly visibleFolders = computed(() => this.filteredFolders());
   readonly visibleUnfiledDecks = computed(() => this.filterAndSortDecks(this.unfiledSection().decks));
   readonly visibleRootItems = computed<DeckListRootItem[]>(() => (
@@ -213,25 +217,58 @@ export class DeckListStore {
   }
 
   async reloadAll(): Promise<void> {
+    const revision = ++this.pageRevision;
+    this.loadingMore.set(false);
     this.loading.set(true);
     this.error.set(null);
 
     try {
-      const [decksResponse, foldersResponse, formatsResponse] = await Promise.all([
-        firstValueFrom(this.decksApi.list()),
+      const [decksResponse, foldersResponse, formatsResponse, summary]  = await Promise.all([
+        firstValueFrom(this.decksApi.list(this.currentFolderId(), false, this.pageOptions())),
         firstValueFrom(this.deckFoldersApi.list()),
         firstValueFrom(this.deckFormatsApi.list()),
+        firstValueFrom(this.decksApi.summary()),
       ]);
+      if (revision !== this.pageRevision) return;
       this.decks.set(decksResponse.data);
+      this.nextCursor.set(decksResponse.nextCursor ?? null);
+      this.summary.set(summary);
       this.folders.set(foldersResponse.data);
       this.formats.set(formatsResponse.data);
       if (!this.formats().some((format) => format.id === this.newDeckFormatId) && this.formats().length > 0) {
         this.newDeckFormatId = this.formats()[0].id;
       }
     } catch {
-      this.error.set('errors.runtime.could-not-load-decks');
+      if (revision === this.pageRevision) this.error.set('errors.runtime.could-not-load-decks');
     } finally {
+      if (revision === this.pageRevision) this.loading.set(false);
+    }
+  }
+
+  private pageOptions() {
+    return { q: this.searchQuery().trim(), color: this.colorFilter(), sort: this.sortMode() };
+  }
+
+  async loadPage(append = false): Promise<void> {
+    if (append && (!this.nextCursor() || this.loadingMore())) return;
+    const revision = append ? this.pageRevision : ++this.pageRevision;
+    const cursor = append ? this.nextCursor()! : undefined;
+    if (!append) {
+      this.nextCursor.set(null);
       this.loading.set(false);
+    }
+    this.loadingMore.set(true);
+    this.error.set(null);
+    try {
+      const page = await firstValueFrom(this.decksApi.list(this.currentFolderId(), false, { ...this.pageOptions(), cursor }));
+      if (revision !== this.pageRevision) return;
+      const data = append ? [...this.decks(), ...page.data] : page.data;
+      this.decks.set([...new Map(data.map(deck => [deck.id, deck])).values()]);
+      this.nextCursor.set(page.nextCursor ?? null);
+    } catch {
+      if (revision === this.pageRevision) this.error.set('errors.runtime.could-not-load-decks');
+    } finally {
+      if (revision === this.pageRevision) this.loadingMore.set(false);
     }
   }
 
@@ -308,6 +345,7 @@ export class DeckListStore {
     try {
       await firstValueFrom(this.decksApi.delete(deck.id));
       this.decks.set(this.decks().filter((candidate) => candidate.id !== deck.id));
+      void this.reloadAll();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not delete the created deck.'));
     } finally {
@@ -463,14 +501,17 @@ export class DeckListStore {
 
   setSearchQuery(query: string): void {
     this.searchQuery.set(query.slice(0, this.maxDeckSearchLength));
+    void this.loadPage();
   }
 
   setColorFilter(filter: DeckListColorFilter): void {
     this.colorFilter.set(filter);
+    void this.loadPage();
   }
 
   setSortMode(sortMode: DeckListSortMode): void {
     this.sortMode.set(sortMode);
+    void this.loadPage();
   }
 
   hasSelectedCommanderSlots(): boolean {
@@ -553,8 +594,10 @@ export class DeckListStore {
       await firstValueFrom(this.deckFoldersApi.delete(folder.id));
       this.folders.set(this.folders().filter((candidate) => candidate.id !== folder.id));
       this.decks.set(this.decks().map((deck) => deck.folderId === folder.id ? { ...deck, folderId: null } : deck));
+      void this.reloadAll();
       if (this.currentFolderId() === folder.id) {
         this.currentFolderId.set(null);
+    void this.loadPage();
       }
       if (this.newDeckFolderId === folder.id) {
         this.newDeckFolderId = '';
@@ -596,6 +639,7 @@ export class DeckListStore {
       this.createdMissing.set([]);
       this.createdImportMessage.set(null);
       this.decks.set([deck, ...this.decks()]);
+      void this.reloadAll();
 
       if (this.newDeckCreateEmpty) {
         this.closeCreateModal();
@@ -639,6 +683,7 @@ export class DeckListStore {
       this.createdMissing.set(response.missing);
       this.createdImportMessage.set(`${parsedCards} parsed cards, ${importedCards} imported, ${response.missing.length} missing.`);
       this.decks.set(this.decks().map((candidate) => candidate.id === response.deck.id ? response.deck : candidate));
+      void this.reloadAll();
       return true;
     } catch (error) {
       this.createdImportMessage.set(this.apiErrorMessage(error, 'Could not import deck.'));
@@ -661,10 +706,12 @@ export class DeckListStore {
 
   enterFolder(folderId: string): void {
     this.currentFolderId.set(folderId);
+    void this.loadPage();
   }
 
   leaveFolder(): void {
     this.currentFolderId.set(null);
+    void this.loadPage();
   }
 
   openDeck(deck: Deck): void {
@@ -680,7 +727,7 @@ export class DeckListStore {
   }
 
   folderDeckCount(folderId: string): number {
-    return this.decks().filter((deck) => deck.folderId === folderId).length;
+    return this.summary()?.folders.find(folder => folder.folderId === folderId)?.count ?? this.decks().filter((deck) => deck.folderId === folderId).length;
   }
 
   deckCommanderImage(deck: Deck): string | null {
@@ -780,6 +827,7 @@ export class DeckListStore {
     try {
       const response = await firstValueFrom(this.decksApi.rename(deck.id, name));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
+      void this.reloadAll();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not rename deck.'));
     } finally {
@@ -808,6 +856,7 @@ export class DeckListStore {
       };
       const response = await firstValueFrom(this.decksApi.update(deck.id, payload));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
+      void this.reloadAll();
       this.closeDeckEditModal();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not update deck.'));
@@ -828,6 +877,7 @@ export class DeckListStore {
     try {
       await firstValueFrom(this.decksApi.delete(deck.id));
       this.decks.set(this.decks().filter((candidate) => candidate.id !== deck.id));
+      void this.reloadAll();
       this.closeDeleteModal();
     } catch (error) {
       if (this.apiErrorCode(error) === 'deck.in_use') {

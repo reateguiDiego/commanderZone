@@ -1,3 +1,4 @@
+import { FreshResource } from '../../../core/api/fresh-resource';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -31,7 +32,7 @@ export const FRIEND_PRESENCE_LABELS: Record<FriendPresence, string> = {
   offline: 'Offline',
 };
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class FriendsStore {
   private readonly friendsApi = inject(FriendsApi);
   private readonly roomsApi = inject(RoomsApi);
@@ -45,8 +46,27 @@ export class FriendsStore {
   private readonly loadingState = signal(false);
   private readonly searchingState = signal(false);
   private readonly errorState = signal<string | null>(null);
-  private loaded = false;
+  private readonly resources = {
+    friends: new FreshResource(), incoming: new FreshResource(),
+    outgoing: new FreshResource(), invites: new FreshResource(), summary: new FreshResource(),
+  };
+  readonly resourceStates = this.resources;
+  private readonly summaryCounts = signal<{ onlineFriendsCount: number; incomingRequestsCount: number; roomInvitesCount: number } | null>(null);
   private searchVersion = 0;
+  private userId: string | null | undefined;
+
+  setUser(userId: string | null): void {
+    if (this.userId === userId) return;
+    this.userId = userId;
+    Object.values(this.resources).forEach((resource) => resource.reset());
+    this.friendsState.set([]);
+    this.incomingState.set([]);
+    this.outgoingState.set([]);
+    this.roomInvitesState.set([]);
+    this.summaryCounts.set(null);
+    this.loadingState.set(false);
+    this.resetTransientState();
+  }
 
   readonly searchOpen = signal(false);
   readonly searchQuery = signal('');
@@ -57,15 +77,15 @@ export class FriendsStore {
   readonly error = this.errorState.asReadonly();
 
   readonly onlineFriendsCount = computed(() =>
-    this.friendsState().filter((friendship) => {
+    this.summaryCounts()?.onlineFriendsCount ?? this.friendsState().filter((friendship) => {
       const presence = friendship.friend?.presence ?? 'offline';
 
       return presence === 'online' || presence === 'in_game';
     }).length,
   );
 
-  readonly incomingRequestsCount = computed(() => this.incomingState().length);
-  readonly roomInvitesCount = computed(() => this.roomInvitesState().length);
+  readonly incomingRequestsCount = computed(() => this.summaryCounts()?.incomingRequestsCount ?? this.incomingState().length);
+  readonly roomInvitesCount = computed(() => this.summaryCounts()?.roomInvitesCount ?? this.roomInvitesState().length);
   readonly pendingNotificationsCount = computed(() => this.incomingRequestsCount() + this.roomInvitesCount());
 
   readonly rows = computed<FriendListRow[]>(() => {
@@ -154,28 +174,33 @@ export class FriendsStore {
     return rows;
   });
 
+  async ensureSummaryLoaded(): Promise<void> {
+    this.errorState.set(null);
+    try {
+      await this.resources.summary.load(() => firstValueFrom(this.friendsApi.summary()), (value) => this.summaryCounts.set(value));
+    } catch {
+      this.errorState.set('Could not load friends.');
+    }
+  }
+
+  private invalidate(...keys: ('friends' | 'incoming' | 'outgoing' | 'invites')[]): void {
+    keys.forEach((key) => this.resources[key].invalidate());
+    this.resources.summary.invalidate();
+  }
+
+  handleRoomInviteEvent(): void { this.invalidate('invites'); }
+
   async load(): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
-
-    try {
-      const [friends, incoming, outgoing, roomInvites] = await Promise.all([
-        firstValueFrom(this.friendsApi.list()),
-        firstValueFrom(this.friendsApi.incoming()),
-        firstValueFrom(this.friendsApi.outgoing()),
-        firstValueFrom(this.roomsApi.incomingInvites()),
-      ]);
-
-      this.friendsState.set(friends.data);
-      this.incomingState.set(incoming.data);
-      this.outgoingState.set(outgoing.data);
-      this.roomInvitesState.set(roomInvites.data);
-      this.loaded = true;
-    } catch {
-      this.errorState.set('Could not load friends.');
-    } finally {
-      this.loadingState.set(false);
-    }
+    const results = await Promise.allSettled([
+      this.resources.friends.load(() => firstValueFrom(this.friendsApi.list()), (r) => this.friendsState.set(r.data)),
+      this.resources.incoming.load(() => firstValueFrom(this.friendsApi.incoming()), (r) => this.incomingState.set(r.data)),
+      this.resources.outgoing.load(() => firstValueFrom(this.friendsApi.outgoing()), (r) => this.outgoingState.set(r.data)),
+      this.resources.invites.load(() => firstValueFrom(this.roomsApi.incomingInvites()), (r) => this.roomInvitesState.set(r.data)),
+    ]);
+    if (results.some((r) => r.status === 'rejected')) this.errorState.set('Could not load friends.');
+    this.loadingState.set(false);
   }
 
   async updateSearch(query: string): Promise<void> {
@@ -213,21 +238,24 @@ export class FriendsStore {
     await this.runAction('Could not send friend request.', async () => {
       await firstValueFrom(this.friendsApi.requestUser(userId));
       this.closeSearch();
-      await this.load();
+      this.invalidate('outgoing');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
   async acceptRequest(friendshipId: string): Promise<void> {
     await this.runAction('Could not accept friend request.', async () => {
       await firstValueFrom(this.friendsApi.accept(friendshipId));
-      await this.load();
+      this.invalidate('friends', 'incoming');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
   async declineRequest(friendshipId: string): Promise<void> {
     await this.runAction('Could not decline friend request.', async () => {
       await firstValueFrom(this.friendsApi.decline(friendshipId));
-      await this.load();
+      this.invalidate('incoming');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
@@ -237,28 +265,32 @@ export class FriendsStore {
       if (response.room) {
         await this.router.navigate(['/rooms', response.room.id, 'waiting']);
       }
-      await this.load();
+      this.invalidate('invites');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     }, true);
   }
 
   async declineRoomInvite(inviteId: string): Promise<void> {
     await this.runAction('Could not decline room invite.', async () => {
       await firstValueFrom(this.roomsApi.declineInvite(inviteId));
-      await this.load();
+      this.invalidate('invites');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
   async cancelRequest(friendshipId: string): Promise<void> {
     await this.runAction('Could not cancel friend request.', async () => {
       await firstValueFrom(this.friendsApi.cancel(friendshipId));
-      await this.load();
+      this.invalidate('outgoing');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
   async removeFriend(userId: string): Promise<void> {
     await this.runAction('Could not remove friend.', async () => {
       await firstValueFrom(this.friendsApi.remove(userId));
-      await this.load();
+      this.invalidate('friends');
+      await Promise.all([this.load(), this.ensureSummaryLoaded()]);
     });
   }
 
@@ -268,10 +300,14 @@ export class FriendsStore {
 
   handleRealtimeEvent(event: FriendRealtimeEvent): void {
     if (event.type === 'friend.list.changed') {
-      void this.load();
+      this.invalidate('friends', 'incoming', 'outgoing');
       return;
     }
 
+    // A summary may be newer than the cached list: applying a presence delta
+    // against that list could count the same transition twice.
+    this.resources.summary.invalidate();
+    this.resources.friends.invalidatePendingRead();
     this.friendsState.update((friendships) =>
       friendships.map((friendship) => {
         if (friendship.friend?.id !== event.user.id) {
@@ -292,13 +328,7 @@ export class FriendsStore {
     );
   }
 
-  async ensureLoaded(): Promise<void> {
-    if (this.loaded) {
-      return;
-    }
-
-    await this.load();
-  }
+  ensureLoaded(): Promise<void> { return this.load(); }
 
   toggleSearch(): void {
     if (this.searchOpen()) {

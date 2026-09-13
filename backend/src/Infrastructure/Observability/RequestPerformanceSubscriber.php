@@ -34,6 +34,7 @@ final readonly class RequestPerformanceSubscriber implements EventSubscriberInte
         $request->attributes->set(self::START_ATTRIBUTE, hrtime(true));
         $request->attributes->set(self::ID_ATTRIBUTE, $requestId);
         $this->context->reset();
+        memory_reset_peak_usage();
     }
 
     public function onResponse(ResponseEvent $event): void

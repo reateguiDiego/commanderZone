@@ -9,7 +9,7 @@ use Symfony\Component\Mercure\Update;
 class RecordingMercureHub implements HubInterface
 {
     /**
-     * @var list<array{topics:array<int,string>,data:string,id:?string}>
+     * @var list<array{topics:array<int,string>,data:string,id:?string,private:bool}>
      */
     private static array $updates = [];
 
@@ -19,7 +19,7 @@ class RecordingMercureHub implements HubInterface
     }
 
     /**
-     * @return list<array{topics:array<int,string>,data:string,id:?string}>
+     * @return list<array{topics:array<int,string>,data:string,id:?string,private:bool}>
      */
     public static function updates(): array
     {
@@ -42,6 +42,7 @@ class RecordingMercureHub implements HubInterface
             'topics' => $update->getTopics(),
             'data' => $update->getData(),
             'id' => $update->getId(),
+            'private' => $update->isPrivate(),
         ];
 
         return 'recorded';

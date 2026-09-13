@@ -722,6 +722,14 @@ describe('API services', () => {
     request.flush({ data: [] });
   });
 
+  it('sends the room cursor and limit and retains page metadata', () => {
+    let nextCursor: string | null | undefined;
+    TestBed.inject(RoomsApi).list('all', true, { cursor: 'opaque', limit: 2 }).subscribe((page) => nextCursor = page.nextCursor);
+    const request = http.expectOne(`${API_BASE_URL}/rooms?status=all&cursor=opaque&limit=2`);
+    request.flush({ data: [], nextCursor: null });
+    expect(nextCursor).toBeNull();
+  });
+
   it('handles room invites through existing room endpoints', () => {
     const rooms = TestBed.inject(RoomsApi);
 

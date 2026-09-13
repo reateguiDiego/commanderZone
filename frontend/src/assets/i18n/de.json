@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Mehr laden",
     "ui": {
       "userActions": "Benutzeraktionen",
       "reportUser": "Benutzer melden",
