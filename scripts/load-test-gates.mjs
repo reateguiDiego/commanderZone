@@ -20,7 +20,8 @@ export function normalizeSnapshot(value, detail = null) {
 }
 export function readSnapshot(dir, label) {
   const ps = json(path.join(dir, `server-metrics-${label}.json`));
-  if (ps) return normalizeSnapshot(ps);
+  // Bash writes a file manifest here; PowerShell embeds the metric values.
+  if (ps && !ps.files) return normalizeSnapshot(ps);
   const pg = json(path.join(dir, `postgres-${label}.json`));
   const detail = json(path.join(dir, `postgres-detail-${label}.json`)) ?? json(path.join(dir, `postgres-details-${label}.json`));
   let restarts = null;
