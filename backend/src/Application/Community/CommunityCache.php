@@ -20,11 +20,13 @@ final class CommunityCache
         $family = explode('.', $key)[1] ?? 'unknown';
         if (str_starts_with($family, 'uncached-')) return $resolver();
         $computed = false;
-        $value = $this->cache->get($key, function (ItemInterface $item) use ($ttl, $resolver, $tags, $family, &$computed): mixed {
-            $computed = true;
-            $item->expiresAfter($ttl);
-            $item->tag($tags !== [] ? $tags : ['community.'.$family]);
-            return $this->performance->measure('community.'.$family.'.compute', $resolver);
+        $value = $this->performance->measure('community.'.$family.'.lookup', function () use ($key, $ttl, $resolver, $tags, $family, &$computed): mixed {
+            return $this->cache->get($key, function (ItemInterface $item) use ($ttl, $resolver, $tags, $family, &$computed): mixed {
+                $computed = true;
+                $item->expiresAfter($ttl);
+                $item->tag($tags !== [] ? $tags : ['community.'.$family]);
+                return $this->performance->measure('community.'.$family.'.compute', $resolver);
+            });
         });
         return $this->performance->measure('community.'.$family.'.'.($computed ? 'miss' : 'hit'), fn () => $value);
     }

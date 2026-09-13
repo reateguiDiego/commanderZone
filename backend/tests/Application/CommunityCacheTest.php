@@ -10,6 +10,44 @@ use Symfony\Component\Cache\Adapter\TagAwareAdapter;
 
 final class CommunityCacheTest extends TestCase
 {
+    public function testLookupIncludesTimeSpentWaitingForACachedValue(): void
+    {
+        $performance = new RequestPerformanceContext();
+        $adapter = $this->createMock(\Symfony\Contracts\Cache\TagAwareCacheInterface::class);
+        $adapter->expects(self::once())->method('get')->willReturnCallback(function (): string {
+            // Simulate an adapter waiting for another process to populate the key.
+            usleep(30_000);
+            return 'shared';
+        });
+        $cache = new CommunityCache($adapter, $performance);
+        self::assertSame('shared', $cache->remember('community.home.waiting', 60, function (): never {
+            self::fail('A cache hit must not recompute the value.');
+        }));
+        $stages = $performance->metrics()['stages'];
+        self::assertGreaterThanOrEqual(20, $stages['community.home.lookup']['duration_ms']);
+        self::assertSame(1, $stages['community.home.hit']['calls']);
+        self::assertArrayNotHasKey('community.home.compute', $stages);
+    }
+
+    public function testLookupRecordsFailedCalculations(): void
+    {
+        $performance = new RequestPerformanceContext();
+        $cache = new CommunityCache(new TagAwareAdapter(new ArrayAdapter()), $performance);
+        try {
+            $cache->remember('community.home.error', 60, function () use ($performance): never {
+                $performance->recordQuery(1, 0, true);
+                throw new \RuntimeException('failed');
+            });
+            self::fail('The calculation error must propagate.');
+        } catch (\RuntimeException $error) {
+            self::assertSame('failed', $error->getMessage());
+        }
+        $stages = $performance->metrics()['stages'];
+        self::assertSame(1, $stages['community.home.lookup']['queries']);
+        self::assertSame(1, $stages['community.home.compute']['queries']);
+        self::assertArrayNotHasKey('community.home.hit', $stages);
+    }
+
     public function testIndependentProcessesShareOneColdCalculation(): void
     {
         $directory = dirname(__DIR__, 2).'/var/community-cache-test-'.bin2hex(random_bytes(8));

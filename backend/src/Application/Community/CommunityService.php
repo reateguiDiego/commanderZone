@@ -631,11 +631,7 @@ SQL;
     private function randomCardPreviews(string $whereSql, int $limit, ?string $requestedLanguage): array
     {
         $rows = $this->entityManager->getConnection()->fetchAllAssociative(
-            sprintf(
-                'SELECT card.id, card.scryfall_id, card.name, card.printed_name, card.colors, card.image_uris, card.card_faces, card.type_line FROM card WHERE %s ORDER BY RANDOM() LIMIT %d',
-                $whereSql,
-                max(1, $limit),
-            ),
+            CommunityCardPreviewSql::select($whereSql, $limit),
         );
 
         return $this->mapCardPreviewRows($rows, $requestedLanguage);
@@ -660,11 +656,7 @@ SQL;
         }
 
         $rows = $this->entityManager->getConnection()->fetchAllAssociative(
-            sprintf(
-                'SELECT card.id, card.scryfall_id, card.name, card.printed_name, card.colors, card.image_uris, card.card_faces, card.type_line FROM card WHERE %s ORDER BY RANDOM() LIMIT %d',
-                $query['whereSql'],
-                max(1, $limit),
-            ),
+            CommunityCardPreviewSql::select($query['whereSql'], $limit),
             $query['params'],
         );
 
