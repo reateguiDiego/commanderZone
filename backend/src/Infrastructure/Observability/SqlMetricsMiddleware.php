@@ -32,7 +32,16 @@ final class SqlMetricsDriver extends AbstractDriverMiddleware
 
     public function connect(#[SensitiveParameter] array $params): Driver\Connection
     {
-        return new SqlMetricsConnection(parent::connect($params), $this->context);
+        $started = hrtime(true);
+        try {
+            $connection = parent::connect($params);
+        } catch (\Throwable $error) {
+            $this->context->recordConnection((hrtime(true) - $started) / 1_000_000, true);
+            throw $error;
+        }
+        $this->context->recordConnection((hrtime(true) - $started) / 1_000_000);
+
+        return new SqlMetricsConnection($connection, $this->context);
     }
 }
 

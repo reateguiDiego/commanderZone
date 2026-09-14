@@ -11,6 +11,9 @@ export function normalizeSnapshot(value, detail = null) {
     deadlocks: pg?.database?.deadlocks ?? pg?.deadlocks ?? null,
     connections: pg?.pool?.used ?? detail?.pool?.used ?? null,
     maxConnections: pg?.pool?.max ?? detail?.pool?.max ?? null,
+    dbSessions: pg?.database?.sessions ?? pg?.sessions ?? null,
+    dbSessionTimeMs: pg?.database?.session_time ?? pg?.sessionTimeMs ?? null,
+    dbStatsReset: pg?.database?.stats_reset ?? pg?.statsReset ?? null,
     waitingLocks: pg?.waitingLocks ?? (Array.isArray(pg?.locks) ? pg.locks.filter(l => l.granted === false).reduce((n, l) => n + Number(l.count), 0) : null),
     queueFull: counters?.['actor.queue_full_count'] ?? counters?.queue_full_count ?? null,
     restarts: value?.restarts ?? (Array.isArray(value?.dockerInspect) ? Object.fromEntries(value.dockerInspect.map(c => [c.Name, c.RestartCount])) : null),
@@ -26,7 +29,10 @@ export function readSnapshot(dir, label) {
   const detail = json(path.join(dir, `postgres-detail-${label}.json`)) ?? json(path.join(dir, `postgres-details-${label}.json`));
   let restarts = null;
   try { restarts = Object.fromEntries(fs.readFileSync(path.join(dir, `restarts-${label}.txt`), 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => { const [key, value] = line.split('='); return [key, Number(value)]; })); } catch {}
-  return normalizeSnapshot({ capturedAt: pg?.capturedAt, postgres: pg, runtime: json(path.join(dir, `runtime-${label}.json`)), restarts }, detail);
+  let dockerStats = [];
+  try { dockerStats = fs.readFileSync(path.join(dir, `docker-stats-${label}.ndjson`), 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)); } catch {}
+  return normalizeSnapshot({ capturedAt: pg?.capturedAt, postgres: pg, runtime: json(path.join(dir, `runtime-${label}.json`)), restarts,
+    php: json(path.join(dir, `php-${label}.json`)), dockerStats }, detail);
 }
 export function serverFailures(before, after) {
   const failures = [];

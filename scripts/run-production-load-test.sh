@@ -198,6 +198,9 @@ collect_server_snapshot() {
     > "$phase_dir/docker-inspect-$label.ndjson" \
     2>> "$errors_file" || echo "docker inspect failed" >> "$errors_file"
 
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T api php < "$SCRIPT_DIR/collect-php-metrics.php") \
+    > "$phase_dir/php-$label.json" 2>> "$errors_file" || echo "PHP metrics unavailable" >> "$errors_file"
+
   collect_restart_counts "$phase_dir/restarts-$label.txt"
 
   local runtime_url="$RUNTIME_METRICS_URL"
@@ -208,7 +211,7 @@ collect_server_snapshot() {
     2>> "$errors_file" || echo "runtime metrics failed" >> "$errors_file"
 
   local sql
-  sql="select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
+  sql="select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'sessions', (select sessions from pg_stat_database where datname=current_database()), 'sessionTimeMs', (select session_time from pg_stat_database where datname=current_database()), 'statsReset', (select stats_reset from pg_stat_database where datname=current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
   (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') \
     > "$phase_dir/postgres-$label.json" \
     2>> "$errors_file" || echo "postgres metrics failed" >> "$errors_file"
@@ -216,7 +219,10 @@ collect_server_snapshot() {
   local detail_sql
   detail_sql="select json_build_object('activity',coalesce((select json_agg(x) from (select state,wait_event_type,wait_event,count(*) from pg_stat_activity where datname=current_database() group by 1,2,3) x),'[]'::json),'waits',coalesce((select json_agg(x) from (select wait_event_type,wait_event,count(*) from pg_stat_activity where wait_event is not null group by 1,2) x),'[]'::json),'locks',coalesce((select json_agg(x) from (select locktype,mode,granted,count(*) from pg_locks group by 1,2,3) x),'[]'::json),'pool',json_build_object('used',(select count(*) from pg_stat_activity),'max',(select setting::int from pg_settings where name='max_connections'),'utilization',(select round(count(*)::numeric/(select setting::numeric from pg_settings where name='max_connections'),4) from pg_stat_activity)))::text;"
   (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$detail_sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') > "$phase_dir/postgres-detail-$label.json" 2>> "$errors_file" || echo "postgres detail metrics failed" >> "$errors_file"
-  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select json_agg(x)::text from (select queryid,calls,total_exec_time,mean_exec_time,rows,left(query,500) query from pg_stat_statements order by total_exec_time desc limit 25) x"') > "$phase_dir/pg-stat-statements-$label.json" 2>> "$errors_file" || echo "pg_stat_statements unavailable" >> "$errors_file"
+  local statements_limit="" statements_complete=true
+  if [[ "$label" == "live" ]]; then statements_limit="ORDER BY total_exec_time DESC LIMIT 25"; statements_complete=false; fi
+  local statements_sql="select json_build_object('complete',$statements_complete,'capturedAt',now(),'statsReset',(select stats_reset from pg_stat_statements_info),'dealloc',(select dealloc from pg_stat_statements_info),'statements',coalesce((select json_agg(x) from (select dbid,userid,toplevel,queryid::text queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_written,query from pg_stat_statements where dbid=(select oid from pg_database where datname=current_database()) $statements_limit) x),'[]'::json))::text"
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$statements_sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -v ON_ERROR_STOP=1 -c "$CZLT_SQL"') > "$phase_dir/pg-stat-statements-$label.json" 2>> "$errors_file" || echo "pg_stat_statements unavailable" >> "$errors_file"
 
   cat > "$phase_dir/server-metrics-$label.json" <<JSON
 {
@@ -225,6 +231,8 @@ collect_server_snapshot() {
   "productionPath": "$PRODUCTION_PATH",
   "files": {
     "dockerStats": "docker-stats-$label.ndjson",
+    "php": "php-$label.json",
+    "postgresStatements": "pg-stat-statements-$label.json",
     "dockerInspect": "docker-inspect-$label.ndjson",
     "runtime": "runtime-$label.json",
     "postgres": "postgres-$label.json",
@@ -404,6 +412,7 @@ invoke_phase() {
   USER_PASSWORD="$USER_PASSWORD" node "$SCRIPT_DIR/supervise-load.mjs" "$config" || k6_exit_code=$?
 
   collect_server_snapshot "$phase_dir" after
+  node "$SCRIPT_DIR/sql-load-delta.mjs" "$phase_dir" > "$phase_dir/sql-delta-summary.txt" 2>&1 || true
   write_server_delta "$phase_dir"
   write_operator_summary "$phase_dir" "$phase_users" "$k6_exit_code"
 
