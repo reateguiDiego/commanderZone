@@ -26,6 +26,21 @@ test('advanced calculations have a separate stop budget', () => {
   assert.ok(httpFailures(points).length);
 });
 
+test('HTTP gates work without Object.groupBy during setup and mixed traffic', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(Object, 'groupBy');
+  Object.defineProperty(Object, 'groupBy', { value: undefined, configurable: true });
+  try {
+    assert.deepEqual(httpFailures([]), []);
+    const samples = type => Array.from({ length: 20 }, () => ({
+      metric: 'cz_navigation_endpoint_ms', data: { value: 3000, tags: { traffic_type: type } },
+    }));
+    assert.deepEqual(httpFailures([...samples('deck_analysis'), ...samples('light_read')]), ['HTTP latency: light_read']);
+  } finally {
+    if (descriptor) Object.defineProperty(Object, 'groupBy', descriptor);
+    else delete Object.groupBy;
+  }
+});
+
 test('Bash manifest loads separate metric files instead of masking them', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cz-load-gates-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

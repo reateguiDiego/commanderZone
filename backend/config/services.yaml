@@ -114,6 +114,11 @@ services:
     App\Infrastructure\Observability\SqlMetricsMiddleware:
         tags: ['doctrine.middleware']
 
+    App\Infrastructure\Database\PersistentSessionMiddleware:
+        # Wrapped before metrics, so connection timing includes session cleanup.
+        tags:
+            - { name: doctrine.middleware, priority: 100 }
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
