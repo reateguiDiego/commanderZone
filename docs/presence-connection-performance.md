@@ -1,5 +1,10 @@
 # Presence, connections and community diagnostics — 2026-09-13
 
+Follow-up: card maintenance and the persistent-connection trial completed on
+2026-09-14. The trial passed the 50-user gates; see
+[the current results and configurable implementation](persistent-database-connections.md).
+The pending actions below describe the original diagnostic patch.
+
 ## Production findings
 
 The 50-user navigation run `czlt-20260913-165245` completed but failed its

@@ -50,8 +50,14 @@ export function serverFailures(before, after) {
 }
 export function httpFailures(points) {
   const failures = [];
-  const byType = Object.groupBy(points.filter(p => p.metric === 'cz_navigation_endpoint_ms'), p => p.data.tags.traffic_type);
-  for (const [type, values] of Object.entries(byType)) {
+  const byType = new Map();
+  for (const point of points) {
+    if (point.metric !== 'cz_navigation_endpoint_ms') continue;
+    const type = point.data.tags.traffic_type;
+    if (!byType.has(type)) byType.set(type, []);
+    byType.get(type).push(point);
+  }
+  for (const [type, values] of byType) {
     if (values.length < 10) continue;
     const sorted = values.map(p => p.data.value).sort((a,b) => a-b);
     if (sorted[Math.ceil(sorted.length * .95) - 1] > (type === 'deck_analysis' ? 5000 : 2000)) failures.push(`HTTP latency: ${type}`);
