@@ -42,10 +42,11 @@ Stable-phase percentiles extracted read-only from the persistent run's raw
 
 ## Configuration
 
-`DATABASE_PERSISTENT=0` is the default. Set `DATABASE_PERSISTENT=1` to enable
-`PDO::ATTR_PERSISTENT` in Doctrine. The base Compose file passes this variable
-only to the `api` service; runtime and background services retain their existing
-configuration. Do not add it to those services without separate validation.
+The base Compose file enables `DATABASE_PERSISTENT=1` by default for the `api`
+service. An explicit `DATABASE_PERSISTENT=0` in the deployment environment
+disables it. Doctrine retains a fallback of `0` outside Compose; runtime and
+background services retain their existing configuration. Do not enable it for
+those services without separate validation.
 
 The production overlay is not tracked in this checkout. Verify that it preserves
 the API environment mapping. Merely changing `.env.prod` does not update an
