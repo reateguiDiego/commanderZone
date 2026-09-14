@@ -157,6 +157,7 @@ export function landStackDropTarget(
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   blockedInstanceIds: ReadonlySet<string> = new Set<string>(),
+  minimumOverlapRatio?: number,
 ): LandStackDropTarget | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
   if (!dragged || !isStackableBattlefieldCard(dragged) || blockedInstanceIds.has(draggedInstanceId)) {
@@ -165,7 +166,7 @@ export function landStackDropTarget(
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
   const groups = buildLandStackGroups(targetCards, stacks, positionFor);
-  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
+  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio);
   if (!target || !isStackableBattlefieldCard(target)) {
     return null;
   }
@@ -205,6 +206,7 @@ export function fullLandStackDropTarget(
   draggedInstanceId: string,
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  minimumOverlapRatio?: number,
 ): LandStackGroup | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
   if (!isStackableBattlefieldCard(dragged)) {
@@ -213,7 +215,7 @@ export function fullLandStackDropTarget(
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
   const groups = buildLandStackGroups(targetCards, stacks, positionFor);
-  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
+  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio);
   const targetStack = target ? landStackGroupContaining(groups, target.instanceId) : null;
   if (!targetStack || targetStack.members.length < MAX_STACK_SIZE) {
     return null;
@@ -333,6 +335,7 @@ function bestDropTarget(
   draggedInstanceId: string,
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  minimumOverlapRatio?: number,
 ): GameCardInstance | null {
   const cardWidth = DEFAULT_BATTLEFIELD_CARD_SIZE.width;
   const cardHeight = DEFAULT_BATTLEFIELD_CARD_SIZE.height;
@@ -349,7 +352,12 @@ function bestDropTarget(
 
       const dx = Math.abs(draggedPosition.x - position.x);
       const dy = Math.abs(draggedPosition.y - position.y);
-      if (dx > maxHorizontalDistance || dy > maxVerticalDistance) {
+      const overlap = ((cardWidth - dx) * (cardHeight - dy)) / (cardWidth * cardHeight);
+      if (minimumOverlapRatio === undefined) {
+        if (dx > maxHorizontalDistance || dy > maxVerticalDistance) {
+          return null;
+        }
+      } else if (overlap < minimumOverlapRatio) {
         return null;
       }
 

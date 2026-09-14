@@ -1,0 +1,25 @@
+// Shared with the existing aggressive Square presentation.
+@mixin hand-surface {
+  --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
+  --hand-card-preview-height: 9.7rem;
+  --hand-row-card-drop: 0.9rem;
+  --hand-compact-visible-height: calc(
+    var(--game-zone-row-height, 5.45rem) - var(--hand-row-card-drop)
+  );
+  --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
+  --hand-row-expanded-extra-height: 0rem;
+  --hand-reveal-offset: 0rem;
+  min-height: var(--game-zone-row-height, 5.45rem);
+  height: var(--game-zone-row-height, 5.45rem);
+  max-height: var(--game-zone-row-height, 5.45rem);
+  margin-top: 0;
+  overflow: visible;
+  pointer-events: auto;
+  clip-path: inset(-8rem 0 0 0);
+}
+
+@mixin zone-badge {
+  min-width: 0.95rem;
+  height: 0.95rem;
+  font-size: 0.54rem;
+}

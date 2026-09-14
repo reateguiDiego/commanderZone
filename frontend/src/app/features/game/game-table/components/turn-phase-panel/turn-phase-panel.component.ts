@@ -5,7 +5,13 @@ import { GameSnapshot } from '../../../../../core/models/game.model';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { CompactCheckboxComponent } from '../../../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { PlayerView } from '../../game-table.store';
+import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { PlayersOrderComponent } from './players-order/players-order.component';
+
+interface NextTurnPlayer {
+  readonly id: string;
+  readonly name: string;
+}
 
 @Component({
   selector: 'app-turn-phase-panel',
@@ -25,8 +31,10 @@ export class TurnPhasePanelComponent {
   readonly players = input.required<ReadonlyArray<PlayerView>>();
   readonly phases = input.required<ReadonlyArray<string>>();
   readonly currentPlayerId = input.required<string | null>();
+  readonly playerColor = input.required<(playerId: string) => string>();
   readonly isPhasePast = input.required<(phase: string) => boolean>();
   readonly canAdvance = input.required<boolean>();
+  readonly gridLayout = input(false);
   readonly followActiveTurnPlayer = input(false);
   readonly advancePhase = output<void>();
   readonly passTurn = output<void>();
@@ -42,11 +50,35 @@ export class TurnPhasePanelComponent {
 
     return displayName || null;
   });
+  readonly nextTurnPlayer = computed<NextTurnPlayer | null>(() => {
+    const activePlayerId = this.turn().activePlayerId;
+    const activePlayers = this.players().filter((player) => !playerIsDefeated(player));
+    const activePlayerIndex = activePlayers.findIndex((player) => player.id === activePlayerId);
+
+    if (activePlayerIndex < 0 || activePlayers.length < 2) {
+      return null;
+    }
+
+    const player = activePlayers[(activePlayerIndex + 1) % activePlayers.length];
+
+    return player
+      ? {
+          id: player.id,
+          name: player.state.user.displayName.trim() || 'Unknown player',
+        }
+      : null;
+  });
 
   isCurrentTurnPlayer(): boolean {
     const currentPlayerId = this.currentPlayerId();
 
     return currentPlayerId !== null && currentPlayerId === this.turn().activePlayerId;
+  }
+
+  activeTurnPlayerColor(): string | null {
+    const activePlayerId = this.turn().activePlayerId;
+
+    return activePlayerId ? this.playerColor()(activePlayerId) : null;
   }
 
   nextPhaseKey(): string {

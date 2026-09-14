@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "Torn {{ turnNumber }}",
       "upcomingTurnLabel": "En {{ count }}",
+      "nextPlayerLabel": "Jugador següent:",
       "currentTurnTitle": "{{ name }} té el torn",
       "upcomingTurnTitle": "{{ name }} és a {{ count }} torn(s) de distància"
     },

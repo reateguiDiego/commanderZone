@@ -1,20 +1,32 @@
 <div class="battlefield-zoom-controls" data-testid="battlefield-zoom-controls">
-  @if (!isExpanded()) {
+  @if (!isExpanded() && hasAvailableControls()) {
     <button
       class="zoom-toggle-button"
       type="button"
       [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
-      [attr.aria-label]="'game.battlefieldZoomControls.openBattlefieldZoomControls' | runtimeTranslate"
+      [attr.aria-label]="
+        'game.battlefieldZoomControls.openBattlefieldZoomControls' | runtimeTranslate
+      "
       aria-expanded="false"
       (click)="toggleExpanded()"
     >
       <lucide-icon name="search" size="14" aria-hidden="true" />
     </button>
-  } @else {
-    <div class="zoom-popover" data-testid="battlefield-zoom-popover" [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate">
+  } @else if (hasAvailableControls()) {
+    <div
+      class="zoom-popover"
+      data-testid="battlefield-zoom-popover"
+      [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+    >
       @if (shouldShowViewLayoutControls()) {
-        <div class="zoom-view-actions" [attr.aria-label]="'game.battlefieldZoomControls.viewLabel' | runtimeTranslate" role="group">
-          <span class="zoom-section-label">{{ 'game.battlefieldZoomControls.viewLabel' | runtimeTranslate }}</span>
+        <div
+          class="zoom-view-actions"
+          [attr.aria-label]="'game.battlefieldZoomControls.viewLabel' | runtimeTranslate"
+          role="group"
+        >
+          <span class="zoom-section-label">{{
+            'game.battlefieldZoomControls.viewLabel' | runtimeTranslate
+          }}</span>
 
           <div class="zoom-view-buttons">
             <button
@@ -46,53 +58,61 @@
         </div>
       }
 
-      <div class="zoom-slider-section">
-        <span class="zoom-section-label">{{ 'game.battlefieldZoomControls.zoomLabel' | runtimeTranslate }}</span>
+      @if (showZoom()) {
+        <div class="zoom-slider-section">
+          <span class="zoom-section-label">{{
+            'game.battlefieldZoomControls.zoomLabel' | runtimeTranslate
+          }}</span>
 
-        <div class="zoom-slider-row">
-          <span
-            class="zoom-slider-shell"
-            data-testid="battlefield-zoom-default-mark"
-            [style.--zoom-current-position]="currentZoomPosition()"
-            [style.--zoom-default-position]="defaultZoomPosition()"
-            (pointerdown)="startSliderDrag($event)"
-            (pointermove)="moveSliderDrag($event)"
-            (pointerup)="endSliderDrag($event)"
-            (pointercancel)="endSliderDrag($event)"
-            (lostpointercapture)="cancelSliderDrag()"
-          >
-            <span class="zoom-track" aria-hidden="true">
-              <span class="zoom-default-mark"></span>
-              <span class="zoom-thumb">
-                <i [appMtgIcon]="zoomThumbSymbol" mtgIconKind="cost" aria-hidden="true"></i>
+          <div class="zoom-slider-row">
+            <span
+              class="zoom-slider-shell"
+              data-testid="battlefield-zoom-default-mark"
+              [style.--zoom-current-position]="currentZoomPosition()"
+              [style.--zoom-default-position]="defaultZoomPosition()"
+              (pointerdown)="startSliderDrag($event)"
+              (pointermove)="moveSliderDrag($event)"
+              (pointerup)="endSliderDrag($event)"
+              (pointercancel)="endSliderDrag($event)"
+              (lostpointercapture)="cancelSliderDrag()"
+            >
+              <span class="zoom-track" aria-hidden="true">
+                <span class="zoom-default-mark"></span>
+                <span class="zoom-thumb">
+                  <i [appMtgIcon]="zoomThumbSymbol" mtgIconKind="cost" aria-hidden="true"></i>
+                </span>
               </span>
+              <input
+                class="zoom-slider"
+                data-testid="battlefield-zoom-slider"
+                type="range"
+                [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+                [attr.aria-label]="
+                  'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate
+                "
+                [min]="minZoomPercent()"
+                [max]="maxZoomPercent()"
+                [step]="zoomStepPercent()"
+                [value]="zoomPercent()"
+                (input)="handleZoomInput($event)"
+              />
             </span>
-            <input
-              class="zoom-slider"
-              data-testid="battlefield-zoom-slider"
-              type="range"
-              [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
-              [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
-              [min]="minZoomPercent()"
-              [max]="maxZoomPercent()"
-              [step]="zoomStepPercent()"
-              [value]="zoomPercent()"
-              (input)="handleZoomInput($event)"
-            />
-          </span>
 
-          <button
-            class="reset-button"
-            type="button"
-            [title]="'game.battlefieldZoomControls.resetZoom' | runtimeTranslate"
-            [attr.aria-label]="'game.battlefieldZoomControls.resetBattlefieldZoom' | runtimeTranslate"
-            [disabled]="!canResetZoom()"
-            (click)="resetZoom.emit()"
-          >
-            <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
-          </button>
+            <button
+              class="reset-button"
+              type="button"
+              [title]="'game.battlefieldZoomControls.resetZoom' | runtimeTranslate"
+              [attr.aria-label]="
+                'game.battlefieldZoomControls.resetBattlefieldZoom' | runtimeTranslate
+              "
+              [disabled]="!canResetZoom()"
+              (click)="resetZoom.emit()"
+            >
+              <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-      </div>
+      }
     </div>
   }
 </div>

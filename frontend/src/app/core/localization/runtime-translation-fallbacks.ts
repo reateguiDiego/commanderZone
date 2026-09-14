@@ -1464,6 +1464,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.playerCounters.tickets': 'Tickets',
   'game.playersOrder.currentTurnLabel': 'Turn {{ turnNumber }}',
   'game.playersOrder.currentTurnTitle': '{{ name }} has the turn',
+  'game.playersOrder.nextPlayerLabel': 'Next player:',
   'game.playersOrder.turnOrder': 'Turn order',
   'game.playersOrder.upcomingTurnLabel': 'In {{ count }}',
   'game.playersOrder.upcomingTurnTitle': '{{ name }} is {{ count }} turn(s) away',

@@ -3,6 +3,9 @@
 
 <div
   class="hand-area"
+  [class.compact-cell]="compact()"
+  [class.is-turn-active]="isTurnActive()"
+  [class.hand-at-top]="handPosition() === 'top'"
   data-testid="hand-area"
   [attr.data-player-id]="handPlayer.id"
   [attr.data-motion-zone]="handPlayer.id + ':hand'"

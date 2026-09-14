@@ -21,8 +21,10 @@ export interface PointerCardSize {
 
 export interface PointerDropTargetOptions {
   includeHand?: boolean;
+  sourcePlayerId?: string;
   draggedCard?: GameCardInstance | null;
   knownCommanderInstanceIds?: ReadonlySet<string>;
+  useBattlefieldCardSize?: boolean;
 }
 
 export interface HandPointerDropPreview {
@@ -64,7 +66,7 @@ export class GameTablePointerDragService {
     for (const element of this.elementsFromPoint(event.clientX, event.clientY)) {
       const playerTarget = element.closest<HTMLElement>('[data-player-drop-target]');
       const playerTargetId = playerTarget?.dataset['playerDropTarget'];
-      if (playerTargetId) {
+      if (playerTargetId && playerTargetId !== options.sourcePlayerId) {
         return {
           targetPlayerId: playerTargetId,
           toZone: 'battlefield',
@@ -82,7 +84,10 @@ export class GameTablePointerDragService {
       const battlefield = target.classList.contains('battlefield')
         ? target
         : target.closest<HTMLElement>('.battlefield');
-      const manaLane = this.manaLaneForCardTop(battlefield, event.clientX, event.clientY, cardSize);
+      const battlefieldCardSize = options.useBattlefieldCardSize === true
+        ? this.battlefieldCardSize(battlefield, cardSize)
+        : cardSize;
+      const manaLane = this.manaLaneForCardTop(battlefield, event.clientX, event.clientY, battlefieldCardSize, cardSize);
       const effectiveRawZone = manaLane ? 'mana' : rawZone;
       const toZone = effectiveRawZone === 'mana' ? 'battlefield' : effectiveRawZone;
       if (!this.isGameZone(toZone) || !canDropCardOnZone(toZone, options.draggedCard ?? null, options.knownCommanderInstanceIds)) {
@@ -95,7 +100,7 @@ export class GameTablePointerDragService {
         kind: 'zone',
         rawZone: effectiveRawZone,
         ...(toZone === 'battlefield'
-          ? { position: this.battlefieldPointerPosition(manaLane ?? target, event, cardSize) }
+          ? { position: this.battlefieldPointerPosition(manaLane ?? target, event, cardSize, battlefieldCardSize) }
           : {}),
       };
     }
@@ -149,7 +154,8 @@ export class GameTablePointerDragService {
   private battlefieldPointerPosition(
     target: HTMLElement,
     event: PointerEvent,
-    cardSize: PointerCardSize,
+    sourceCardSize: PointerCardSize,
+    battlefieldCardSize: PointerCardSize,
   ): { x: number; y: number } | undefined {
     const battlefield = target.classList.contains('battlefield')
       ? target
@@ -161,16 +167,16 @@ export class GameTablePointerDragService {
     const bounds = battlefield.getBoundingClientRect();
     const manaLane = target.closest<HTMLElement>('[data-mana-lane]');
     const manaLaneBounds = manaLane?.getBoundingClientRect();
-    const offsetX = cardSize.offsetX ?? cardSize.width / 2;
-    const offsetY = cardSize.offsetY ?? cardSize.height / 2;
+    const offsetX = sourceCardSize.offsetX ?? sourceCardSize.width / 2;
+    const offsetY = sourceCardSize.offsetY ?? sourceCardSize.height / 2;
     const rawX = Math.round(event.clientX - bounds.left - offsetX);
     const rawY = manaLaneBounds
-      ? Math.round(manaLaneBounds.bottom - bounds.top - cardSize.height)
+      ? Math.round(manaLaneBounds.bottom - bounds.top - battlefieldCardSize.height)
       : Math.round(event.clientY - bounds.top - offsetY);
 
     return {
-      x: Math.max(0, Math.min(Math.round(bounds.width - cardSize.width), rawX)),
-      y: Math.max(0, Math.min(Math.round(bounds.height - cardSize.height), rawY)),
+      x: Math.max(0, Math.min(Math.round(bounds.width - battlefieldCardSize.width), rawX)),
+      y: Math.max(0, Math.min(Math.round(bounds.height - battlefieldCardSize.height), rawY)),
     };
   }
 
@@ -179,6 +185,7 @@ export class GameTablePointerDragService {
     clientX: number,
     clientY: number,
     cardSize: PointerCardSize,
+    sourceCardSize: PointerCardSize = cardSize,
   ): HTMLElement | null {
     const manaLane = battlefield?.querySelector<HTMLElement>('[data-mana-lane]');
     if (!manaLane) {
@@ -186,8 +193,8 @@ export class GameTablePointerDragService {
     }
 
     const bounds = manaLane.getBoundingClientRect();
-    const offsetX = cardSize.offsetX ?? cardSize.width / 2;
-    const offsetY = cardSize.offsetY ?? cardSize.height / 2;
+    const offsetX = sourceCardSize.offsetX ?? sourceCardSize.width / 2;
+    const offsetY = sourceCardSize.offsetY ?? sourceCardSize.height / 2;
     const cardLeft = clientX - offsetX;
     const cardTop = clientY - offsetY;
     const cardRight = cardLeft + cardSize.width;
@@ -196,6 +203,50 @@ export class GameTablePointerDragService {
     const topEdgeInLaneBand = cardTop >= bounds.top - topEdgeMagnetDistance && cardTop <= bounds.bottom;
 
     return horizontalOverlap && topEdgeInLaneBand ? manaLane : null;
+  }
+
+  private battlefieldCardSize(battlefield: HTMLElement | null, fallback: PointerCardSize): PointerCardSize {
+    const card = battlefield?.querySelector<HTMLElement>('[data-testid="game-card"][data-card-instance-id]');
+    const bounds = card?.getBoundingClientRect();
+    if (card && bounds && bounds.width > 0 && bounds.height > 0) {
+      return {
+        width: Math.max(1, Math.round(card.offsetWidth || bounds.width)),
+        height: Math.max(1, Math.round(card.offsetHeight || bounds.height)),
+      };
+    }
+
+    const configuredWidth = battlefield
+      ? this.cssLengthInPixels(getComputedStyle(battlefield).getPropertyValue('--battlefield-card-width'))
+      : null;
+    if (!configuredWidth) {
+      return fallback;
+    }
+
+    return {
+      width: configuredWidth,
+      height: Math.max(1, Math.round(configuredWidth / 0.716)),
+    };
+  }
+
+  private cssLengthInPixels(value: string): number | null {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    if (value.trim().endsWith('px')) {
+      return Math.round(parsed);
+    }
+
+    if (value.trim().endsWith('rem')) {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+      return Number.isFinite(rootFontSize) && rootFontSize > 0
+        ? Math.round(parsed * rootFontSize)
+        : null;
+    }
+
+    return null;
   }
 
   private isGameZone(zone: string): zone is GameZoneName {

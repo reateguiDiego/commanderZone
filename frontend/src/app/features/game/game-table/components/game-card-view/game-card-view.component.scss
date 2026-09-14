@@ -519,7 +519,7 @@
   transform:
     translateX(calc(-50% + (var(--hand-row-distance, 0) * var(--hand-row-card-step, var(--c))) + var(--hand-shift-x, 0px)))
     translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px) - var(--hand-pivot-offset)))
-    rotate(0deg)
+    rotate(var(--hand-card-rotation, 0deg))
     translateZ(0);
 }
 

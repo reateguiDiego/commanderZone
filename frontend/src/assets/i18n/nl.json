@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "Beurt {{ turnNumber }}",
       "upcomingTurnLabel": "In {{ count }}",
+      "nextPlayerLabel": "Volgende speler:",
       "currentTurnTitle": "{{ name }} is aan de beurt",
       "upcomingTurnTitle": "{{ name }} is {{ count }} beurt(en) verwijderd"
     },

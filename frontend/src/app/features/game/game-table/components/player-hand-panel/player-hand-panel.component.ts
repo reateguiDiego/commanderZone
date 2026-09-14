@@ -113,6 +113,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private suppressHandHoverUntilPointerLeaves = false;
   private readonly handInteractionSuspended = signal(false);
   private suppressedClickInstanceId: string | null = null;
+  readonly compact = input(false);
+  readonly isTurnActive = input(false);
   readonly player = input.required<PlayerView>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
@@ -129,6 +131,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   readonly externalRevealAllowed = input(true);
   readonly motionActive = input(false);
   readonly motionLayoutMode = input<'fan' | 'row' | null>(null);
+  readonly handPosition = input<'top' | 'bottom'>('bottom');
 
   readonly handDragOver = output<HandZoneDropEvent>();
   readonly handDropped = output<HandZoneDropEvent>();
@@ -1615,8 +1618,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       offsetX: drag.offsetX,
       offsetY: drag.offsetY,
     }, {
+      sourcePlayerId: drag.playerId,
       draggedCard: drag.card,
       knownCommanderInstanceIds: this.knownCommanderIds(),
+      useBattlefieldCardSize: this.compact(),
     });
     if (target && !insideOwnHand) {
       return {

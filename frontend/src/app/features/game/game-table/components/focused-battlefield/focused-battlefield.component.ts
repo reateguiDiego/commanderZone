@@ -149,6 +149,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
+  /** Local display transform used by upper Grid seats. */
+  readonly verticallyInverted = input(false);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
@@ -465,8 +467,21 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   displayedCardPosition(card: GameCardInstance): { x: number; y: number } | null {
     this.layoutKey();
     this.measuredLayoutVersion();
-    return this.permanentStackDisplayPositions().get(card.instanceId)
+    const position = this.permanentStackDisplayPositions().get(card.instanceId)
       ?? this.fitPositionInsideBattlefield(card.instanceId, this.cardPosition()(card));
+
+    return this.verticallyInverted()
+      ? this.invertedDisplayPosition(card.instanceId, position)
+      : position;
+  }
+
+  displayedAlignmentGuideY(y: number): number {
+    if (!this.verticallyInverted()) {
+      return y;
+    }
+
+    const battlefieldHeight = this.battlefieldHeight();
+    return battlefieldHeight > 0 ? Math.max(0, Math.round(battlefieldHeight - y)) : y;
   }
 
   isLandStackDropTarget(playerId: string, card: GameCardInstance): boolean {
@@ -599,6 +614,25 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return shiftY > 0 ? { ...position, y: position.y - shiftY } : position;
   }
 
+  private invertedDisplayPosition(
+    instanceId: string,
+    position: { x: number; y: number } | null,
+  ): { x: number; y: number } | null {
+    if (!position) {
+      return null;
+    }
+
+    const battlefieldHeight = this.battlefieldHeight();
+    if (battlefieldHeight <= 0) {
+      return position;
+    }
+
+    return {
+      x: position.x,
+      y: Math.max(0, Math.round(battlefieldHeight - this.measuredCardSize(instanceId).height - position.y)),
+    };
+  }
+
   private stackVisualOffsetY(): number {
     const zoomPercent = Math.max(
       MIN_BATTLEFIELD_ZOOM_PERCENT,
@@ -679,7 +713,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       return 0;
     }
 
-    const battlefieldHeight = Math.round(battlefield.clientHeight || battlefield.getBoundingClientRect().height);
+    const battlefieldHeight = this.battlefieldHeight();
     if (battlefieldHeight <= 0) {
       return 0;
     }
@@ -699,15 +733,55 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return Math.min(Math.round(maxBottom - battlefieldHeight), Math.max(0, Math.round(minTop)));
   }
 
+  private battlefieldHeight(): number {
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    return battlefield
+      ? Math.round(battlefield.clientHeight || battlefield.getBoundingClientRect().height)
+      : 0;
+  }
+
   private measuredCardSize(instanceId: string): { width: number; height: number } {
-    const element = Array.from(this.battlefieldRoot?.nativeElement.querySelectorAll<HTMLElement>(
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    const element = Array.from(battlefield?.querySelectorAll<HTMLElement>(
       '[data-testid="game-card"][data-card-instance-id]',
     ) ?? []).find((candidate) => candidate.dataset['cardInstanceId'] === instanceId);
     const bounds = element?.getBoundingClientRect();
+    if (element && bounds && bounds.width > 0 && bounds.height > 0) {
+      return {
+        width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
+        height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
+      };
+    }
+
+    const configuredWidth = battlefield
+      ? this.cssLengthInPixels(getComputedStyle(battlefield).getPropertyValue('--battlefield-card-width'))
+      : null;
+    const width = configuredWidth ?? 116;
 
     return {
-      width: Math.max(1, Math.round(element?.offsetWidth || bounds?.width || 116)),
-      height: Math.max(1, Math.round(element?.offsetHeight || bounds?.height || 162)),
+      width,
+      height: Math.max(1, Math.round(width / 0.716)),
     };
+  }
+
+  private cssLengthInPixels(value: string): number | null {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    if (value.trim().endsWith('px')) {
+      return Math.round(parsed);
+    }
+
+    if (value.trim().endsWith('rem')) {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+      return Number.isFinite(rootFontSize) && rootFontSize > 0
+        ? Math.round(parsed * rootFontSize)
+        : null;
+    }
+
+    return null;
   }
 }

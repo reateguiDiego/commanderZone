@@ -1,3 +1,4 @@
+import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
 import { inject, Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameCardPosition, GameSnapshot } from '../../../../../core/models/game.model';
 import {
@@ -44,15 +45,42 @@ export class GameTableBattlefieldState {
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
   private readonly selectors = inject(GameTableSnapshotSelectors);
 
+  private readonly tableLayout = inject(GameTableLayoutState, { optional: true });
+
   readonly layoutSize = signal<BattlefieldSize>(DEFAULT_BATTLEFIELD_SIZE);
 
   cardPosition(card: GameCardInstance): { x: number; y: number } | null {
     const playerId = card.controllerId ?? card.ownerId ?? '';
-    const cardSize = isRatioPosition(card.position)
-      ? this.battlefieldCardSize(playerId, card.instanceId)
-      : undefined;
+    const gridSize =
+      this.tableLayout?.mode() === 'grid'
+        ? (this.tableLayout.rectangle(playerId) ?? DEFAULT_BATTLEFIELD_SIZE)
+        : null;
+    const cardSize =
+      gridSize || isRatioPosition(card.position)
+        ? this.battlefieldCardSize(playerId, card.instanceId)
+        : undefined;
 
-    return this.selectors.cardPosition(card, this.layoutSize(), cardSize);
+    const position = this.selectors.cardPosition(card, gridSize ?? this.layoutSize(), cardSize);
+    if (!gridSize || !position || isRatioPosition(card.position)) {
+      return position;
+    }
+    // Legacy pixel positions are only clamped for display; switching views never writes them.
+    return {
+      x: Math.max(
+        0,
+        Math.min(
+          position.x,
+          gridSize.width - (cardSize?.width ?? DEFAULT_BATTLEFIELD_CARD_SIZE.width),
+        ),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          position.y,
+          gridSize.height - (cardSize?.height ?? DEFAULT_BATTLEFIELD_CARD_SIZE.height),
+        ),
+      ),
+    };
   }
 
   setLayoutSize(size: BattlefieldSize): void {
@@ -65,6 +93,9 @@ export class GameTableBattlefieldState {
   }
 
   reflowBattlefieldCardPositions(context: GameTableBattlefieldContext): void {
+    if (this.tableLayout?.mode() === 'grid') {
+      return;
+    }
     const snapshot = context.snapshot();
     if (!snapshot) {
       return;
@@ -556,15 +587,55 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldCardSize(playerId: string, instanceId: string): { width: number; height: number } {
-    const cardElement = Array.from(this.battlefieldElement(playerId)?.querySelectorAll<HTMLElement>(
+    const battlefield = this.battlefieldElement(playerId);
+    const cardElements = Array.from(battlefield?.querySelectorAll<HTMLElement>(
       '[data-testid="game-card"][data-card-instance-id]',
-    ) ?? []).find((element) => element.dataset['cardInstanceId'] === instanceId);
+    ) ?? []);
+    const cardElement = cardElements.find((element) => element.dataset['cardInstanceId'] === instanceId)
+      ?? cardElements[0];
     const bounds = cardElement?.getBoundingClientRect();
 
+    if (cardElement && bounds && bounds.width > 0 && bounds.height > 0) {
+      return {
+        width: Math.max(1, Math.round(cardElement.offsetWidth || bounds.width)),
+        height: Math.max(1, Math.round(cardElement.offsetHeight || bounds.height)),
+      };
+    }
+
+    return this.battlefieldFallbackCardSize(battlefield);
+  }
+
+  private battlefieldFallbackCardSize(battlefield: HTMLElement | null): { width: number; height: number } {
+    const configuredWidth = battlefield
+      ? this.cssLengthInPixels(getComputedStyle(battlefield).getPropertyValue('--battlefield-card-width'))
+      : null;
+    const width = configuredWidth ?? DEFAULT_BATTLEFIELD_CARD_SIZE.width;
+
     return {
-      width: Math.max(1, Math.round(cardElement?.offsetWidth || bounds?.width || DEFAULT_BATTLEFIELD_CARD_SIZE.width)),
-      height: Math.max(1, Math.round(cardElement?.offsetHeight || bounds?.height || DEFAULT_BATTLEFIELD_CARD_SIZE.height)),
+      width,
+      height: Math.max(1, Math.round(width / 0.716)),
     };
+  }
+
+  private cssLengthInPixels(value: string): number | null {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    if (value.trim().endsWith('px')) {
+      return Math.round(parsed);
+    }
+
+    if (value.trim().endsWith('rem')) {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+      return Number.isFinite(rootFontSize) && rootFontSize > 0
+        ? Math.round(parsed * rootFontSize)
+        : null;
+    }
+
+    return null;
   }
 
   private battlefieldElement(playerId: string): HTMLElement | null {

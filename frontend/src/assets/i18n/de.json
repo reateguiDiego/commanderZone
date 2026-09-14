@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "Zug {{ turnNumber }}",
       "upcomingTurnLabel": "Noch {{ count }}",
+      "nextPlayerLabel": "Nächster Spieler:",
       "currentTurnTitle": "{{ name }} ist an der Reihe",
       "upcomingTurnTitle": "{{ name }} ist in {{ count }} Zug/Zügen dran"
     },

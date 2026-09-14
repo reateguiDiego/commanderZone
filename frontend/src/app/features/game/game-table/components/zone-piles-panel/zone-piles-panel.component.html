@@ -2,6 +2,8 @@
 
 <footer
   class="zone-dock game-table-zones"
+  [class.compact-cell]="compact()"
+  [class.is-turn-active]="isTurnActive()"
   data-testid="zone-piles"
   [attr.data-motion-zone]="currentPlayer.id + ':zones'"
 >

@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "Ход {{ turnNumber }}",
       "upcomingTurnLabel": "Через {{ count }} ход(а)",
+      "nextPlayerLabel": "Следующий игрок:",
       "currentTurnTitle": "Сейчас ход {{ name }}",
       "upcomingTurnTitle": "{{ name }} будет ходить через {{ count }} ход(а)"
     },

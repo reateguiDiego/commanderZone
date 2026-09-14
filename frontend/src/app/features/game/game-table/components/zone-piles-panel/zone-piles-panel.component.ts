@@ -92,6 +92,8 @@ export class ZonePilesPanelComponent {
   private pointerDragStartedInstanceId: string | null = null;
   private suppressedClickZone: GameZoneName | null = null;
 
+  readonly compact = input(false);
+  readonly isTurnActive = input(false);
   readonly player = input.required<PlayerView>();
   readonly zones = input.required<ReadonlyArray<GameZoneName>>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();

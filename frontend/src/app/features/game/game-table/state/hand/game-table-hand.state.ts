@@ -20,6 +20,7 @@ export interface GameTableHandContext {
   readonly canControlOwnedCard: (playerId: string, card: GameCardInstance) => boolean;
   readonly playerName: (playerId: string) => string;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
+  readonly stackDropOverlapRatio?: () => number | null;
   readonly snapBattlefieldPosition: (
     playerId: string,
     instanceId: string,
@@ -263,6 +264,7 @@ export class GameTableHandState {
         return battlefieldContext.cardPosition(card);
       },
       attachmentRelationInstanceIds(snapshot?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (!target) {
       return null;
@@ -305,7 +307,7 @@ export class GameTableHandState {
       }
 
       return battlefieldContext.cardPosition(card);
-    });
+    }, context.stackDropOverlapRatio?.() ?? undefined);
     if (!target) {
       return null;
     }

@@ -1,0 +1,72 @@
+<section
+  class="player-cell"
+  data-testid="grid-player-panel"
+  [attr.data-player-id]="playerSeat().player.id"
+  [attr.data-player-drop-target]="playerSeat().player.id"
+  [attr.data-seat]="playerSeat().seat"
+  [attr.data-player-count]="playerCount()"
+  [class.is-current]="playerSeat().seat === 'current'"
+  [class.is-turn-owner]="isTurnOwner()"
+  [class.is-top-row]="isTopRow()"
+  [class.drop-target-active]="isPlayerDropHighlighted()(playerSeat().player.id)"
+  (dragover)="dropAllowed.emit($event)"
+  (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
+>
+  <div class="player-cell-summary">
+    <app-player-summary-panel
+      class="player-summary-panel-context"
+      [player]="playerSeat().player"
+      [players]="summaryBindings().players"
+      [colorAccent]="summaryBindings().colorAccent"
+      [deckLabel]="summaryBindings().deckLabel"
+      [manaSymbols]="summaryBindings().manaSymbols"
+      [playerCounterValue]="summaryBindings().playerCounterValue"
+      [canEditCounters]="summaryBindings().canEditCounters(playerSeat().player.id)"
+      [gridLayout]="summaryCompact()"
+      [isTurnActive]="isTurnOwner()"
+      [autoApplyCommanderDamageToLife]="summaryBindings().autoApplyCommanderDamageToLife"
+      [specialEntities]="summaryBindings().specialEntities(playerSeat().player.id)"
+      (helperPreviewRequested)="summaryBindings().showHelperPreview($event)"
+      (helperPreviewHidden)="summaryBindings().hideHelperPreview()"
+      (helperContextRequested)="summaryBindings().openHelperContext($event.event, $event.entity)"
+      (lifeChanged)="summaryBindings().changeLife($event.playerId, $event.delta)"
+      (commanderDamageChanged)="
+        summaryBindings().changeCommanderDamage(
+          $event.targetPlayerId,
+          $event.sourcePlayerId,
+          $event.commanderInstanceId,
+          $event.delta
+        )
+      "
+      (playerCounterChanged)="
+        summaryBindings().changePlayerCounter($event.playerId, $event.key, $event.delta)
+      "
+    />
+  </div>
+  @if (showTurnStatusPill()) {
+    <div
+      class="player-cell-turn-status"
+      [class.is-active-turn]="isTurnOwner()"
+      data-testid="grid-turn-status"
+      role="status"
+    >
+      @if (isTurnOwner()) {
+        {{ 'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate }}
+      } @else {
+        {{ 'game.playersOrder.upcomingTurnLabel' | runtimeTranslate: { count: turnDistance() ?? 0 } }}
+      }
+    </div>
+  }
+  <div class="player-cell-battlefield">
+    <ng-container
+      [ngTemplateOutlet]="regions().battlefield"
+      [ngTemplateOutletContext]="context()"
+    />
+  </div>
+  <div class="player-cell-zones">
+    <ng-container [ngTemplateOutlet]="regions().zones" [ngTemplateOutletContext]="context()" />
+  </div>
+  <div class="player-cell-hand">
+    <ng-container [ngTemplateOutlet]="regions().hand" [ngTemplateOutletContext]="context()" />
+  </div>
+</section>

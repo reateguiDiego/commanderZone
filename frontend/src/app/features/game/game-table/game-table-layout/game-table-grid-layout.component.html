@@ -1,0 +1,20 @@
+@let count = seats().length;
+@if (count === 1 || count === 2 || count === 3 || count === 4) {
+  <div [class]="'player-grid grid--' + count + '-players'" data-testid="game-table-grid">
+    @for (entry of seatTurnEntries(); track entry.seat.player.id) {
+      <app-grid-player-battlefield
+        [playerSeat]="entry.seat"
+        [playerCount]="count"
+        [regions]="regions()"
+        [summaryBindings]="summaryBindings()"
+        [isTurnOwner]="entry.turnDistance === 0"
+        [turnDistance]="entry.turnDistance"
+        [isPlayerDropHighlighted]="isPlayerDropHighlighted()"
+        [style.grid-area]="entry.seat.seat"
+        (dropAllowed)="dropAllowed.emit($event)"
+        (playerDropped)="playerDropped.emit($event)"
+        (battlefieldSizeChanged)="battlefieldSizeChanged.emit($event)"
+      />
+    }
+  </div>
+}

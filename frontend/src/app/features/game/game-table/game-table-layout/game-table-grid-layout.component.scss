@@ -1,0 +1,32 @@
+:host {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.player-grid {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.grid--1-players {
+  grid-template-areas: 'current';
+}
+.grid--2-players {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-areas: 'opponent-1' 'current';
+}
+.grid--3-players,
+.grid--4-players {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+.grid--3-players {
+  grid-template-areas: 'opponent-1 opponent-2' 'current current';
+}
+.grid--4-players {
+  grid-template-areas: 'opponent-1 opponent-2' 'opponent-3 current';
+}

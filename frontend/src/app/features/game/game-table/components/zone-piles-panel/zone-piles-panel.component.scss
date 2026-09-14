@@ -1,3 +1,4 @@
+@use '../../game-table-layout/compact-player-regions' as compact;
 :host {
   display: contents;
 }
@@ -814,9 +815,7 @@
 
   .zone-count-badge,
   .commander-cast-count {
-    min-width: 0.95rem;
-    height: 0.95rem;
-    font-size: 0.54rem;
+    @include compact.zone-badge;
   }
 
   .zone-stack:hover {
@@ -834,5 +833,101 @@
 
   .zone-stack.draggable-zone:hover:not(.dragging-zone-card):not(.drop-target-active) .zone-art {
     box-shadow: none;
+  }
+}
+
+.zone-dock.compact-cell {
+  width: 100%;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  padding: 0;
+  overflow: hidden;
+  .zone-stack {
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.18rem;
+  }
+  [data-testid="zone-pile"] {
+    gap: 0.04rem;
+    align-content: center;
+  }
+  .zone-pile-label {
+    min-height: 0.82rem;
+    font-size: 0.54rem;
+  }
+  .zone-pile-logo {
+    height: 0.74rem;
+  }
+  .zone-art {
+    width: min(4.8rem, 88%);
+  }
+  .zone-count-badge,
+  .commander-cast-count {
+    min-width: 1.12rem;
+    height: 1.12rem;
+    font-size: 0.62rem;
+  }
+}
+
+.zone-dock.compact-cell.is-turn-active {
+  position: relative;
+  overflow: visible;
+  box-shadow: inset 0 0 1rem rgb(var(--game-accent-rgb) / 20%);
+  animation: active-turn-zone-dock 5.2s ease-in-out infinite;
+}
+
+.zone-dock.compact-cell.is-turn-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 20;
+  width: 5px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--game-accent) 22%, transparent) 0%,
+    var(--game-accent) 28%,
+    #fff8dd 42%,
+    var(--game-accent) 56%,
+    color-mix(in srgb, var(--game-accent) 22%, transparent) 76%,
+    var(--game-accent) 100%
+  );
+  background-size: 100% 240%;
+  box-shadow: 0 0 0.48rem rgb(var(--game-accent-rgb) / 42%);
+  pointer-events: none;
+  animation: active-turn-zone-fuse 5.2s linear infinite;
+}
+
+.zone-dock.compact-cell.is-turn-active .zone-stack {
+  border-color: rgb(var(--game-accent-rgb) / 52%);
+}
+
+@keyframes active-turn-zone-dock {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0.62rem rgb(var(--game-accent-rgb) / 12%);
+  }
+
+  50% {
+    box-shadow: inset 0 0 1.35rem rgb(var(--game-accent-rgb) / 32%);
+  }
+}
+
+@keyframes active-turn-zone-fuse {
+  from {
+    background-position-y: 0;
+  }
+
+  to {
+    background-position-y: 240%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zone-dock.compact-cell.is-turn-active,
+  .zone-dock.compact-cell.is-turn-active::after {
+    animation: none;
   }
 }

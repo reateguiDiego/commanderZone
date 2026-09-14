@@ -84,6 +84,18 @@ describe('GameArrowLayerComponent', () => {
     expect(fixture.nativeElement.querySelector('.game-arrow')).toBeNull();
   });
 
+  it('connects real battlefields for every player in Grid', async () => {
+    const snapshot = gameSnapshot('owner', 'target', 'spectator');
+    const { fixture, root } = await renderArrowLayer(snapshot, 'spectator');
+    fixture.componentRef.setInput('allBattlefieldsVisible', true);
+    addMeasuredCard(root, 'owner', 'from-card', 'battlefield', rect(60, 70, 80, 112));
+    addMeasuredCard(root, 'target', 'to-card', 'battlefield', rect(300, 160, 80, 112));
+    await measure(fixture);
+    const arrow = arrowGroup(fixture);
+    expect(arrow.getAttribute('data-owner-render-mode')).toBe('focused-battlefield');
+    expect(arrow.getAttribute('data-target-render-mode')).toBe('focused-battlefield');
+  });
+
   it('uses the requested surface when real and mini copies share an instance id', async () => {
     const snapshot = gameSnapshot('owner', 'target');
     const { fixture, root } = await renderArrowLayer(snapshot, 'owner');

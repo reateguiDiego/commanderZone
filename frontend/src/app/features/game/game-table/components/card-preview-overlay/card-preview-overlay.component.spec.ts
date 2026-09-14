@@ -170,6 +170,40 @@ describe('CardPreviewOverlayComponent', () => {
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
   });
+
+  it('moves the preview below the hovered card when the default position overlaps it', async () => {
+    const fixture = await renderPreview({
+      sourceRect: { left: 650, top: 400, right: 750, bottom: 500, width: 100, height: 100 },
+    });
+    fixture.componentRef.setInput('battlefieldRect', {
+      left: 0,
+      top: 0,
+      right: 900,
+      bottom: 1000,
+      width: 900,
+      height: 1000,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.previewStyle().top).toBe(514);
+  });
+
+  it('moves the preview above the hovered card when there is no room below it', async () => {
+    const fixture = await renderPreview({
+      sourceRect: { left: 650, top: 600, right: 750, bottom: 700, width: 100, height: 100 },
+    });
+    fixture.componentRef.setInput('battlefieldRect', {
+      left: 0,
+      top: 0,
+      right: 900,
+      bottom: 1000,
+      width: 900,
+      height: 1000,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.previewStyle().top).toBeCloseTo(183.664, 3);
+  });
 });
 
 async function renderPreview(options: {

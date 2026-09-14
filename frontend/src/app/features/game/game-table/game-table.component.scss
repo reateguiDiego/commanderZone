@@ -114,6 +114,10 @@
   z-index: 240;
 }
 
+.game-screen > app-game-table-header.grid-layout-header {
+  --game-table-header-peek-height: 2px;
+}
+
 .game-screen > app-arrow-target-dialog {
   position: fixed;
   inset: 0;
@@ -843,4 +847,47 @@
   }
 }
 
+.table-surface.layout-grid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: calc(var(--game-log-overlay-peek-height) * 0.5) minmax(0, 1fr);
+  grid-template-areas: "mainTop" "board";
+  // Keep only the clearance required by the active-turn fuse outside each cell.
+  padding-bottom: 5px;
+}
 
+.table-surface.layout-grid .player-strip > app-turn-phase-panel {
+  grid-column: span 2;
+  --turn-phase-panel-max-width: none;
+}
+
+.table-surface.layout-grid
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within)) {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.table-surface.layout-grid
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within))
+  header {
+  min-height: 0;
+}
+
+.table-surface.layout-grid
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within))
+  .floating-collapsed-preview {
+  align-content: center;
+}
+
+.table-surface.layout-grid .floating-panel .floating-collapsed-preview > p:not(:last-child) {
+  display: none;
+}
+
+.grid-layout-surface {
+  position: relative;
+  grid-area: board;
+  min-width: 0;
+  min-height: 0;
+  > .battlefield-zoom-host {
+    top: 0.1rem;
+    right: 0.4rem;
+  }
+}

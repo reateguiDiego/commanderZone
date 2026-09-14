@@ -111,6 +111,10 @@
   pointer-events: none;
 }
 
+.battlefield.battlefield-vertically-inverted .mana-lane {
+  inset: 0 0 auto;
+}
+
 .mana-lane.mana-lane-helper-only {
   min-height: 0;
   padding: 0;
@@ -124,6 +128,12 @@
   z-index: 2;
   pointer-events: auto;
   transform: translateY(calc(-50% - var(--focused-mana-pool-stack-clearance)));
+}
+
+.battlefield.battlefield-vertically-inverted .mana-pool-panel-anchor {
+  top: auto;
+  bottom: 0;
+  transform: translateY(calc(50% + var(--focused-mana-pool-stack-clearance)));
 }
 
 .mana-lane.drag-over {

@@ -36,6 +36,9 @@ import { GameTableCoreState } from './game-table-core.state';
 import { gameTableErrorMessage } from './game-table-error-message.util';
 import { updateGameSnapshotCards } from './game-snapshot-mutation';
 import { GameTableToastState } from './game-table-toast.state';
+import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
+
+const GRID_STACK_DROP_OVERLAP_RATIO = 0.7;
 
 export interface GameTableContextSource {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
@@ -75,6 +78,7 @@ export class GameTableContextStore {
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
   private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
+  private readonly tableLayout = inject(GameTableLayoutState, { optional: true });
   private source: GameTableContextSource | null = null;
 
   bind(source: GameTableContextSource): void {
@@ -286,6 +290,7 @@ export class GameTableContextStore {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
@@ -316,6 +321,7 @@ export class GameTableContextStore {
       battlefieldDragContext: () => this.battlefieldDrag(),
       pointerDragActionContext: () => this.pointerDragAction(),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
       hideCardPreview: () => this.uiState.hideCardPreview(),
@@ -350,6 +356,7 @@ export class GameTableContextStore {
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       playerName: (playerId) => this.playersStore.playerName(playerId),
       battlefieldDragContext: () => this.battlefieldDrag(),
+      stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       moveLocalCardsFromHandToBattlefield: (playerId, targetPlayerId, movedInstanceIds, position) =>
@@ -391,6 +398,7 @@ export class GameTableContextStore {
       isManaLaneHighlighted: (playerId) => this.dragDropStore.isManaLaneHighlighted(playerId),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       landStackDetachSource: () => this.dragDropStore.landStackDetachSource(),
       attachmentStackDetachSource: () => this.dragDropStore.attachmentStackDetachSource(),
       canControlPlayer: (playerId) => this.playersStore.canControlPlayer(playerId, this.interaction()),
@@ -601,6 +609,10 @@ export class GameTableContextStore {
 
   private errorMessage(error: unknown): string {
     return gameTableErrorMessage(error);
+  }
+
+  private stackDropOverlapRatio(): number | null {
+    return this.tableLayout?.mode() === 'grid' ? GRID_STACK_DROP_OVERLAP_RATIO : null;
   }
 
   private handleCommandBlocked(

@@ -169,12 +169,14 @@ export class GameTableZonePointerDragService {
   ): PointerDropTarget | null {
     const target = this.pointerDrag.zoneTargetAt(event, dropCardSize, {
       includeHand: true,
+      sourcePlayerId: source.playerId,
       draggedCard: source.card,
       knownCommanderInstanceIds,
     });
     const normalizedBattlefieldTarget = target?.toZone === 'battlefield'
       ? this.pointerDrag.zoneTargetAt(event, battlefieldDropCardSize, {
           includeHand: true,
+          sourcePlayerId: source.playerId,
           draggedCard: source.card,
           knownCommanderInstanceIds,
         })

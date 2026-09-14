@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "第 {{ turnNumber }} 回合",
       "upcomingTurnLabel": "{{ count }} 回合后",
+      "nextPlayerLabel": "下一位玩家：",
       "currentTurnTitle": "轮到 {{ name }}",
       "upcomingTurnTitle": "{{ name }} 距离当前还有 {{ count }} 回合"
     },

@@ -1,3 +1,6 @@
+import type { BattlefieldLayoutRect } from './game-table-layout/game-table-grid-seat.model';
+import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
+import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   RuntimeTranslatePipe,
@@ -413,18 +416,6 @@ interface ArrowTargetDialogRequest {
   readonly targetCount: number;
 }
 
-interface BattlefieldLayoutSize {
-  readonly width: number;
-  readonly height: number;
-}
-
-interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
-}
-
 interface ContextMenuAvoidRect {
   readonly left: number;
   readonly top: number;
@@ -576,6 +567,7 @@ interface MotionSourceRect {
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
     BattlefieldZoomControlsComponent,
+    GameTableGridLayoutComponent,
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
@@ -601,6 +593,7 @@ interface MotionSourceRect {
     TabListComponent,
   ],
   providers: [
+    GameTableLayoutState,
     GameTableStore,
     GameTableCoreState,
     GameTableCommandStore,
@@ -700,6 +693,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
+  readonly tableLayout = inject(GameTableLayoutState);
+  readonly squareBattlefieldSizeChanged = (rect: BattlefieldLayoutRect): void => this.updateBattlefieldLayoutSize(rect);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly aggressiveCompactViewport = signal(false);
   readonly effectiveBattlefieldZoomPercent = computed(() =>
@@ -747,6 +742,20 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.commanderCastCount(player, commander);
   readonly playerCounterValue = (player: PlayerView, key: string): number =>
     this.store.playerCounterValue(player.id, key);
+  readonly gridHelperContextRequested = (event: MouseEvent, entity: GameSpecialEntity): void =>
+    this.handleHelperContextRequest({ event, entity });
+  readonly gridLifeChanged = (playerId: string, delta: number): void =>
+    void this.store.changeLife(playerId, delta, { debounce: false });
+  readonly gridCommanderDamageChanged = (
+    targetPlayerId: string,
+    sourcePlayerId: string,
+    commanderInstanceId: string,
+    delta: number,
+  ): void =>
+    void this.store.setCommanderDamage(targetPlayerId, sourcePlayerId, commanderInstanceId, delta);
+  readonly gridPlayerCounterChanged = (playerId: string, key: string, delta: number): void =>
+    void this.store.changePlayerCounter(playerId, key, delta);
+  readonly hideGridHelperPreview = (): void => this.store.hideCardPreview();
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string =>
     this.store.gameBackgroundImage(player);
@@ -1132,9 +1141,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     reaction: ChatReactionType,
   ): boolean => this.shouldShowChatReactionUsers(message, reaction);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
+  readonly presentedPlayer = computed(() =>
+    this.tableLayout.mode() === 'grid' ? this.store.currentPlayer() : this.store.focusedPlayer(),
+  );
   readonly tableBackgroundImage = computed(
     () =>
-      `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`,
+      `url("${this.store.gameBackgroundImage(this.presentedPlayer() ?? this.store.currentPlayer())}")`,
   );
   readonly focusedOpponentPlayer = computed<PlayerView | null>(() => {
     const currentPlayer = this.store.currentPlayer();
@@ -1285,6 +1297,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   >;
 
   constructor() {
+    this.tableLayout.connect({ players: this.store.players, currentPlayer: this.store.currentPlayer });
     this.e2eStaticCardCacheTools.install();
 
     this.realtimeAnimationSubscriptions.add(
@@ -2173,7 +2186,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     operation: Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
       return;
     }
 
@@ -2193,7 +2206,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     operation: Extract<GameSnapshotPatchOperation, { op: 'cards.state.set' }>,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
       return;
     }
 
@@ -2216,7 +2229,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     >,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(state.playerId, state.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(state.playerId, state.zone)) {
       return;
     }
 
@@ -2377,25 +2390,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     for (const operation of event.patch.operations) {
       switch (operation.op) {
         case 'card.move':
-          if (this.shouldAnimateFocusedBattlefield(operation.to.playerId, operation.to.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.to.playerId, operation.to.zone)) {
             punchCardIds.add(operation.instanceId);
           }
           break;
         case 'card.create':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             punchCardIds.add(operation.card.instanceId);
           }
           break;
         case 'card.counters.set':
         case 'card.stats.set':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             punchCardIds.add(operation.instanceId);
           }
           break;
         case 'card.state.set':
           if (
             operation.counters !== undefined &&
-            this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)
+            this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)
           ) {
             punchCardIds.add(operation.instanceId);
           }
@@ -2431,7 +2444,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           }
           break;
         case 'zone.cards.add':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             operation.cards.forEach((card) => punchCardIds.add(card.instanceId));
           }
           break;
@@ -2490,7 +2503,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     zone: GameZoneName,
     instanceId: string,
   ): void {
-    if (this.shouldAnimateFocusedBattlefield(playerId, zone)) {
+    if (this.shouldAnimateVisibleBattlefield(playerId, zone)) {
       instanceIds.add(instanceId);
     }
   }
@@ -2524,8 +2537,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     });
   }
 
-  private shouldAnimateFocusedBattlefield(playerId: string, zone: GameZoneName): boolean {
-    return zone === 'battlefield' && this.store.focusedPlayer()?.id === playerId;
+  private shouldAnimateVisibleBattlefield(playerId: string, zone: GameZoneName): boolean {
+    return (
+      zone === 'battlefield' &&
+      (this.tableLayout.mode() === 'grid' || this.store.focusedPlayer()?.id === playerId)
+    );
   }
 
   private realtimeBattlefieldCardSelector(instanceId: string): string {
@@ -3849,7 +3865,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private canAnimateManaComets(playerId: string): boolean {
     return (
       this.gamePreferences.gameAnimations &&
-      this.store.focusedPlayer()?.id === playerId &&
+      (this.tableLayout.mode() === 'grid' || this.store.focusedPlayer()?.id === playerId) &&
       this.canControlPlayer(playerId) &&
       !this.store.isManaPoolHidden(playerId)
     );
@@ -3903,6 +3919,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         sourceInstanceId: event.movedInstanceId,
         targetPlayerId: event.targetPlayerId,
         targetZone: event.rawZone === 'mana' ? 'mana' : event.toZone,
+        battlefieldPosition: this.tableLayout.mode() === 'grid' && event.toZone === 'battlefield'
+          ? event.position
+          : undefined,
       });
     }
 
@@ -3933,6 +3952,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       );
     }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  handleGridBattlefieldDrop(event: ZoneDropEvent): void {
+    const sourcePlayerId = this.handDragPayload(event.event)?.playerId;
+    if (sourcePlayerId && sourcePlayerId !== event.playerId) {
+      this.handlePlayerDrop(event);
+      return;
+    }
+
+    this.handleZoneDrop(event);
   }
 
   handleZonePointerDragStarted(event: ZonePointerDragStartedEvent): void {
@@ -4438,6 +4467,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   focusPlayerBattlefield(playerId: string): void {
+    if (this.tableLayout.mode() === 'grid') {
+      return;
+    }
     const focused = this.store.focusPlayer(playerId);
     if (focused) {
       this.refreshFocusedPlayerView(playerId);
@@ -5016,6 +5048,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private syncFollowActiveTurnPlayer(activePlayerId: string | null | undefined): void {
+    if (this.tableLayout.mode() === 'grid') {
+      return;
+    }
     if (!this.followActiveTurnPlayer()) {
       this.lastFocusedTurnPlayerId = null;
       return;

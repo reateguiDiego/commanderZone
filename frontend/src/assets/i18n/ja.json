@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "ターン {{ turnNumber }}",
       "upcomingTurnLabel": "{{ count }}内",
+      "nextPlayerLabel": "次のプレイヤー:",
       "currentTurnTitle": "{{ name }} のターンです",
       "upcomingTurnTitle": "{{ name }} まであと {{ count }} ターン"
     },

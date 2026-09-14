@@ -4,6 +4,7 @@ import { User } from '../../../../../core/models/user.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from '../../services/game-table-command.service';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
+import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
 import { GameTableBattlefieldContext, GameTableBattlefieldState } from './game-table-battlefield.state';
 
 describe('GameTableBattlefieldState', () => {
@@ -14,6 +15,7 @@ describe('GameTableBattlefieldState', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableBattlefieldState,
+        GameTableLayoutState,
         GameTableSnapshotSelectors,
         {
           provide: GameTableBattlefieldDragCoordinatorService,
@@ -74,6 +76,41 @@ describe('GameTableBattlefieldState', () => {
     state.reflowBattlefieldCardPositions(context());
 
     expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toEqual({ x: 200, y: 60 });
+  });
+
+  it('clamps legacy positions per Grid cell without rewriting the snapshot or Square geometry', () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [card('legacy', 'Legacy', { x: 900, y: 800 })],
+    });
+    const layout = TestBed.inject(GameTableLayoutState);
+    const players = [{ id: 'player-1', state: currentSnapshot.players['player-1']! }];
+    layout.connect({ players: () => players, currentPlayer: () => players[0] });
+    state.setLayoutSize({ width: 1200, height: 900 });
+    layout.select('grid');
+    const legacy = currentSnapshot.players['player-1']!.zones.battlefield[0]!;
+    document.body.innerHTML =
+      '<section class="battlefield" data-player-id="player-1"><div data-testid="game-card" data-card-instance-id="legacy"></div></section>';
+    const element = document.querySelector<HTMLElement>('[data-card-instance-id="legacy"]')!;
+    Object.defineProperty(element, 'offsetWidth', { value: 100 });
+    Object.defineProperty(element, 'offsetHeight', { value: 140 });
+    layout.recordSize({
+      playerId: 'player-1',
+      rect: { width: 300, height: 200, left: 0, top: 0, right: 300, bottom: 200 },
+    });
+    expect(state.cardPosition(legacy)).toEqual({ x: 200, y: 60 });
+    layout.recordSize({
+      playerId: 'player-1',
+      rect: { width: 240, height: 180, left: 0, top: 0, right: 240, bottom: 180 },
+    });
+    expect(state.cardPosition(legacy)).toEqual({ x: 140, y: 40 });
+    const before = structuredClone(currentSnapshot);
+    state.reflowBattlefieldCardPositions(context());
+    expect(currentSnapshot).toEqual(before);
+    expect(TestBed.inject(GameTableCommandService).send).not.toHaveBeenCalled();
+    expect(state.layoutSize()).toEqual({ width: 1200, height: 900 });
+    layout.select('square');
+    expect(state.cardPosition(legacy)).toEqual({ x: 900, y: 800 });
   });
 
   it('does not rewrite land stack positions during reflow because the view clamps the stack as one group', () => {

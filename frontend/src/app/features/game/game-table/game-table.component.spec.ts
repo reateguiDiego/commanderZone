@@ -1,3 +1,4 @@
+import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
 import { Component, importProvidersFrom, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
@@ -565,7 +566,101 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('switches the live table between Square and Grid while preserving zoom, privacy and individual geometry', async () => {
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+    });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2'].zoneCounts!.hand = 2;
+    snapshot.players['user-1'].zones.battlefield[0].position = { x: 1, y: 1, unit: 'ratio' };
+    snapshot.players['user-2'].zones.battlefield[0].position = { x: 1, y: 1, unit: 'ratio' };
+    component.store.loading.set(false);
+    component.store.snapshot.set(snapshot);
+    component.battlefieldZoom.setZoomPercent(111);
+    component.store.focusPlayer('user-2');
+    fixture.detectChanges();
+    const squareSize = component.battlefieldLayoutSize();
+    const command = vi.spyOn(component.store, 'command');
+    const click = (selector: string): void => {
+      const button = fixture.nativeElement.querySelector(selector) as HTMLButtonElement;
+      expect(button).not.toBeNull();
+      button.click();
+      fixture.detectChanges();
+    };
+    click('.zoom-toggle-button');
+    click('[data-testid="battlefield-zoom-grid-button"]');
+    const squareFocus = component.store.focusedPlayer()?.id;
+    component.focusPlayerBattlefield('user-1');
+    expect(component.store.focusedPlayer()?.id).toBe(squareFocus);
+    expect(component.presentedPlayer()?.id).toBe('user-1');
+    const forest = {
+      ...snapshot.players['user-1'].zones.battlefield[0],
+      name: 'Forest',
+      typeLine: 'Basic Land — Forest',
+      oracleText: '{T}: Add {G}.',
+      tapped: false,
+    };
+    component.store.showManaPool('user-1');
+    expect(
+      component.store.automaticTapManaSuggestion('user-1', 'battlefield', forest),
+    ).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-sidebar')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-board')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('app-focused-battlefield')).toHaveLength(2);
+    const hands = fixture.debugElement.queryAll(By.directive(PlayerHandPanelComponent));
+    expect(
+      hands.map((hand) => ({
+        id: hand.componentInstance.player().id,
+        readOnly: hand.componentInstance.readOnly(),
+        faceDown: hand.componentInstance.showCardsFaceDown(),
+      })),
+    ).toEqual([
+      { id: 'user-2', readOnly: true, faceDown: true },
+      { id: 'user-1', readOnly: false, faceDown: false },
+    ]);
+    const rect = (width: number) => ({
+      width,
+      height: 300,
+      left: 0,
+      top: 0,
+      right: width,
+      bottom: 300,
+    });
+    component.tableLayout.recordSize({ playerId: 'user-1', rect: rect(700) });
+    component.tableLayout.recordSize({ playerId: 'user-2', rect: rect(400) });
+    const localPosition = component.store.cardPosition(
+      snapshot.players['user-1'].zones.battlefield[0],
+    );
+    const opponentPosition = component.store.cardPosition(
+      snapshot.players['user-2'].zones.battlefield[0],
+    );
+    expect(localPosition!.x - opponentPosition!.x).toBe(300);
+    component.tableLayout.recordSize({ playerId: 'user-2', rect: rect(200) });
+    expect(component.store.cardPosition(snapshot.players['user-1'].zones.battlefield[0])).toEqual(
+      localPosition,
+    );
+    expect(component.battlefieldLayoutSize()).toEqual(squareSize);
+    click('.zoom-toggle-button');
+    click('[data-testid="battlefield-zoom-square-button"]');
+    expect(fixture.nativeElement.querySelector('.player-sidebar')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-game-table-grid-layout')).toBeNull();
+    expect(component.battlefieldZoom.zoomPercent()).toBe(111);
+    expect(component.store.focusedPlayer()?.id).toBe('user-2');
+    expect(component.presentedPlayer()?.id).toBe('user-2');
+    expect(command).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
   it('uses the historical aggressive compact media query for narrow low-height viewports', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const matchMedia = vi.fn(
       (query: string): MediaQueryList => ({
         matches: query === '(max-width: 1180px) and (max-height: 768px)',
@@ -594,7 +689,13 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(true);
     expect(
       fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]'),
-    ).toBeNull();
+    ).not.toBeNull();
+    const zoomToggle = fixture.nativeElement.querySelector('.zoom-toggle-button') as HTMLButtonElement;
+    expect(zoomToggle).not.toBeNull();
+    zoomToggle.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-slider"]')).toBeNull();
 
     fixture.destroy();
   });

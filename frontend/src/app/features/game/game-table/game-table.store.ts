@@ -53,6 +53,7 @@ import { GameTableWebsocketGameplayService } from './services/game-table-websock
 import { GameTableStaticCardResolverV2Service } from './services/game-table-static-card-resolver-v2.service';
 import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
+import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
 import { GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
@@ -113,6 +114,7 @@ export class GameTableStore implements OnDestroy {
   private readonly toastState = inject(GameTableToastState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
   private readonly manaPoolState = inject(GameTableManaPoolState);
+  private readonly tableLayout = inject(GameTableLayoutState, { optional: true });
   private readonly uiState = inject(GameTableUiState);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
@@ -580,7 +582,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   private isManaPoolVisibleForPlayer(playerId: string): boolean {
-    return this.focusedPlayerId() === playerId
+    return (this.tableLayout?.mode() === 'grid' || this.focusedPlayerId() === playerId)
       && this.canControlPlayer(playerId)
       && !this.isManaPoolHidden(playerId);
   }

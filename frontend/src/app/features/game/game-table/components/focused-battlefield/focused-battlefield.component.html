@@ -11,6 +11,8 @@
   [attr.data-game-drop-zone]="'battlefield'"
   [attr.data-motion-zone]="focusedPlayer.id + ':battlefield'"
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
+  [class.battlefield-vertically-inverted]="verticallyInverted()"
+  [attr.data-battlefield-vertically-inverted]="verticallyInverted() ? '' : null"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"
   appGameTableLongPress
@@ -96,7 +98,7 @@
     />
   }
   @if (activeAlignmentGuide; as guide) {
-    <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
+    <div class="alignment-guide" [style.top.px]="displayedAlignmentGuideY(guide.y)" aria-hidden="true"></div>
   }
   @if (showManaRow() || (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id))) {
     <div

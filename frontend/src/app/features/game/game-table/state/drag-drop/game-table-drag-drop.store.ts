@@ -48,6 +48,7 @@ export interface GameTableDragDropContext {
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
   readonly pointerDragActionContext: () => GameTablePointerDragActionContext;
   readonly cardPosition: (card: GameCardInstance) => { x: number; y: number } | null;
+  readonly stackDropOverlapRatio?: () => number | null;
   readonly updateLocalCardPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void;
   readonly hideCardPreview: () => void;
   readonly clearCardPreview: () => void;
@@ -514,13 +515,13 @@ export class GameTableDragDropStore {
     const player = context.players().find((candidate) => candidate.id === selected.playerId);
     const blockedByAttachments = attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []);
     const target = player
-      ? landStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition, blockedByAttachments)
+      ? landStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition, blockedByAttachments, context.stackDropOverlapRatio?.() ?? undefined)
       : null;
 
     if (!target) {
       if (
         player
-        && fullLandStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition)
+        && fullLandStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition, context.stackDropOverlapRatio?.() ?? undefined)
         && !this.isDetachingLandStackCard()
       ) {
         if (clearOnMiss) {
@@ -568,6 +569,7 @@ export class GameTableDragDropStore {
         instanceId,
         position,
         context.cardPosition,
+        context.stackDropOverlapRatio?.() ?? undefined,
       )
       : null;
 
@@ -625,6 +627,7 @@ export class GameTableDragDropStore {
       dropPosition,
       positionFor,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (landTarget) {
       this.scheduleLandStackDropPreview({
@@ -636,7 +639,7 @@ export class GameTableDragDropStore {
       return true;
     }
 
-    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], sourceCard.instanceId, dropPosition, positionFor)) {
+    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], sourceCard.instanceId, dropPosition, positionFor, context.stackDropOverlapRatio?.() ?? undefined)) {
       this.clearLandStackDropPreview();
       return true;
     }
@@ -648,6 +651,7 @@ export class GameTableDragDropStore {
       sourceCard.instanceId,
       dropPosition,
       positionFor,
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (attachmentTarget) {
       this.scheduleLandStackDropPreview({
@@ -701,6 +705,7 @@ export class GameTableDragDropStore {
       target.position,
       positionFor,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (landTarget) {
       this.scheduleLandStackDropPreview({
@@ -712,7 +717,7 @@ export class GameTableDragDropStore {
       return true;
     }
 
-    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], source.card.instanceId, target.position, positionFor)) {
+    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], source.card.instanceId, target.position, positionFor, context.stackDropOverlapRatio?.() ?? undefined)) {
       this.clearLandStackDropPreview();
       return true;
     }
@@ -724,6 +729,7 @@ export class GameTableDragDropStore {
       source.card.instanceId,
       target.position,
       positionFor,
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (attachmentTarget) {
       this.scheduleLandStackDropPreview({

@@ -54,19 +54,20 @@
   pointer-events: none;
 }
 
-:host::before {
-  content: "";
+.header-reveal-trigger {
   position: absolute;
-  top: 0.11rem;
+  top: 0;
   left: 50%;
-  z-index: 1;
-  width: 0.38rem;
-  height: 0.38rem;
-  border-right: 2px solid var(--gold);
-  border-bottom: 2px solid var(--gold);
+  z-index: 2;
+  display: grid;
+  width: 1.5rem;
+  height: 1rem;
+  place-items: start center;
+  color: var(--gold);
   filter: drop-shadow(0 1px 0 rgb(var(--highlight-rgb) / 24%));
-  pointer-events: none;
-  transform: translateX(-50%) rotate(45deg);
+  pointer-events: auto;
+  transform: translateX(-50%);
+  transition: opacity 180ms ease;
 }
 
 :host(:hover) .topbar,
@@ -83,8 +84,8 @@
 
 :host(:hover)::after,
 :host(:focus-within)::after,
-:host(:hover)::before,
-:host(:focus-within)::before {
+:host(:hover) .header-reveal-trigger,
+:host(:focus-within) .header-reveal-trigger {
   opacity: 0;
 }
 

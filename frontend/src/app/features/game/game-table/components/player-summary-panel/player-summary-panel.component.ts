@@ -9,6 +9,7 @@ import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/pl
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../../game-table.store';
 import { GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS } from '../../services/game-table-debounced-value-commands.service';
+import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { clampPlayerLife } from '../../utils/player-life-bounds';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
 
@@ -89,6 +90,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   private nextFeedbackId = 0;
 
   readonly playerCounterTrackers = PLAYER_COUNTER_TRACKERS;
+  readonly playerNameColor = gamePlayerNameColor;
   readonly player = input.required<PlayerView>();
   readonly players = input.required<readonly PlayerView[]>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
@@ -96,6 +98,8 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly gridLayout = input(false);
+  readonly isTurnActive = input(false);
   readonly autoApplyCommanderDamageToLifeDefault = input(true, { alias: 'autoApplyCommanderDamageToLife' });
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
   readonly contextLabel = input<string | null>(null);

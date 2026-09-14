@@ -877,6 +877,7 @@
     "playersOrder": {
       "currentTurnLabel": "Tournez {{ turnNumber }}",
       "upcomingTurnLabel": "Dans {{ count }}",
+      "nextPlayerLabel": "Joueur suivant :",
       "currentTurnTitle": "{{ name }} a le tour",
       "upcomingTurnTitle": "{{ name }} est à {{ count }} à un tour(s)"
     },

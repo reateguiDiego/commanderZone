@@ -138,6 +138,16 @@ describe('attachment stack layout', () => {
     expect(deliberateTarget?.targetCard.instanceId).toBe('target');
   });
 
+  it('requires near-complete overlap when a stricter drop threshold is supplied', () => {
+    const target = card('target', 100, 80);
+    const lightOverlap = card('equipment', 130, 100);
+    const nearCompleteOverlap = card('equipment', 120, 100);
+
+    expect(attachmentDropTarget([lightOverlap, target], [], [], 'equipment', { x: 130, y: 100 }, positionFor, 0.7)).toBeNull();
+    expect(attachmentDropTarget([nearCompleteOverlap, target], [], [], 'equipment', { x: 120, y: 100 }, positionFor, 0.7)?.targetCard.instanceId)
+      .toBe('target');
+  });
+
   it('uses the attachment stack target when dropping over attached equipment', () => {
     const target = attachmentDropTarget(
       [card('equipment-new', 90, 50), card('target', 100, 80), card('equipment-a', 100, 62)],

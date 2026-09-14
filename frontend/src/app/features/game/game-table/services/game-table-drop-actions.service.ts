@@ -35,6 +35,7 @@ export interface GameTableDropActionContext {
   suppressCardPreview(): void;
   setError(message: string): void;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  stackDropOverlapRatio?(): number | null;
   snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): void;
@@ -493,6 +494,7 @@ export class GameTableDropActionsService {
       dropPosition,
       positionFor,
       attachmentRelationInstanceIds(snapshot?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (landTarget) {
       const moves = createLandStackMoves(landTarget, droppedCard);
@@ -510,6 +512,7 @@ export class GameTableDropActionsService {
       sourceCard.instanceId,
       dropPosition,
       positionFor,
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (!attachmentTarget) {
       return null;

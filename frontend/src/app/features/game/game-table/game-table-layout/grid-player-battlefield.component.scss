@@ -1,0 +1,349 @@
+@property --active-turn-border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:host {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+:host:has(.is-turn-owner) {
+  position: relative;
+  z-index: 51;
+  overflow: visible;
+}
+
+:host:has(.is-turn-owner)::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: 50;
+  padding: 5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--active-turn-border-angle, 0deg),
+    color-mix(in srgb, var(--game-accent) 28%, transparent),
+    var(--game-accent),
+    #fff8dd,
+    var(--game-accent) 32%,
+    color-mix(in srgb, var(--game-accent) 28%, transparent) 55%,
+    var(--game-accent) 78%,
+    #fff8dd,
+    var(--game-accent)
+  );
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: active-turn-border-orbit 5.2s linear infinite;
+}
+
+.player-cell {
+  --battlefield-card-width: 5.04rem;
+  --battlefield-gap: 0.525rem;
+  --battlefield-mana-lane-height: 7.84rem;
+  --game-zone-row-height: 6.5rem;
+  --game-zone-dock-width: 7.2rem;
+  --game-zone-dock-overlap: 0px;
+  --game-hand-left-reserve: 0px;
+  --game-hand-right-reserve: 0px;
+  --game-hand-left-extension: 0px;
+  --bottom-gap: 0px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--game-zone-dock-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
+  grid-template-areas: 'zones battlefield' 'zones hand';
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--game-line-soft);
+  background: rgb(var(--game-surface-deep-rgb) / 38%);
+}
+
+.player-cell:has(.extra-actions-open) {
+  z-index: 100;
+  overflow: visible;
+}
+.player-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.is-current {
+  border-color: var(--game-accent);
+}
+.is-turn-owner {
+  border-color: color-mix(in srgb, var(--game-accent) 82%, #fff2c9);
+}
+.is-turn-owner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-shadow: inset 0 0 1.45rem rgb(var(--game-accent-rgb) / 48%);
+  pointer-events: none;
+  animation: active-turn-border-aura 5.2s ease-in-out infinite;
+}
+.is-top-row {
+  grid-template-rows: var(--game-zone-row-height) minmax(0, 1fr);
+  grid-template-areas: 'zones hand' 'zones battlefield';
+}
+.player-cell-header {
+  display: none;
+}
+.player-cell-summary {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.35rem;
+  z-index: 31;
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 0.08rem;
+  width: min(19rem, calc(100% - var(--game-zone-dock-width) - 0.8rem));
+  pointer-events: auto;
+}
+
+.player-cell-turn-status {
+  position: absolute;
+  top: 0.55rem;
+  left: calc(var(--game-zone-dock-width) + 0.55rem);
+  z-index: 32;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  max-width: min(8.5rem, calc(100% - var(--game-zone-dock-width) - 1.1rem));
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.18rem 0.56rem;
+  border: 1px solid rgb(var(--cz-info-rgb) / 56%);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgb(var(--cz-info-rgb) / 24%), rgb(var(--cz-info-rgb) / 10%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 12%),
+    0 0.35rem 0.9rem rgb(var(--shadow-rgb) / 22%);
+  color: var(--cz-info);
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.035em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.player-cell-turn-status.is-active-turn {
+  border-color: var(--cz-info);
+  background: linear-gradient(135deg, var(--cz-info), color-mix(in srgb, var(--cz-info) 72%, var(--cz-primary)));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 28%),
+    0 0 0 0.16rem rgb(var(--cz-info-rgb) / 14%),
+    0 0 1.35rem rgb(var(--cz-info-rgb) / 54%);
+  color: var(--cz-on-accent);
+  animation: active-turn-status-pulse 2.9s ease-in-out infinite;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel.player-summary-panel-grid {
+  display: contents;
+}
+
+.player-cell-summary:has(.player-summary-panel-grid) {
+  top: 1.05rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+}
+
+// Grid keeps the complete summary's original geometry, without its avatar.
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-avatar {
+  display: none;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-copy {
+  grid-column: 1 / 3;
+  transform: translateX(0.45rem);
+}
+
+.player-cell-summary ::ng-deep .grid-player-name {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.08rem);
+  z-index: 1;
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  font-size: 0.64rem;
+  font-weight: 950;
+  line-height: 1;
+  padding: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid .player-extra-actions {
+  --extra-actions-menu-width: min(24.375rem, calc(100vw - 1rem));
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls {
+  border-color: var(--life-control-border-active);
+  animation: active-turn-life-controls 5.2s ease-in-out infinite;
+}
+.is-top-row .player-cell-summary {
+  top: auto;
+  bottom: 0.25rem;
+}
+
+.is-top-row .player-cell-summary:has(.player-summary-panel-grid) {
+  bottom: 1.05rem;
+}
+
+.is-top-row .player-cell-summary ::ng-deep .grid-player-name {
+  top: calc(100% + 0.08rem);
+  bottom: auto;
+}
+
+.is-top-row .player-cell-turn-status {
+  top: auto;
+  bottom: 0.55rem;
+}
+.player-cell-battlefield,
+.player-cell-zones,
+.player-cell-hand {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+.player-cell-battlefield {
+  grid-area: battlefield;
+  grid-template-areas: 'battlefield';
+}
+.player-cell-zones {
+  grid-area: zones;
+  grid-template-areas: 'zones';
+}
+.player-cell-hand {
+  grid-area: hand;
+  grid-template-areas: 'hand';
+  position: relative;
+  z-index: 40;
+  overflow: visible;
+}
+
+// Square reserves hover headroom inside the hand surface. Grid needs the same
+// geometry, anchored toward the owning battlefield. These properties must win
+// over the shared compact defaults, whose stylesheet is injected afterwards.
+.player-cell-hand ::ng-deep .hand-area.compact-cell {
+  --hand-row-visible-height: var(--game-zone-row-height);
+  --hand-row-card-drop: -0.55rem;
+  --hand-row-card-visible-slice: calc(var(--hand-row-visible-height) - var(--hand-row-card-drop));
+  --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) {
+  align-self: end !important;
+  min-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  max-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:not(.hand-dragging):has(.hand-row-expanded) {
+  transform: translateY(calc(-1 * var(--hand-row-hover-headroom)));
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) .hand-row-expanded {
+  min-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  max-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  padding-top: var(--hand-row-hover-headroom) !important;
+}
+
+.is-top-row .player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) {
+  align-self: start !important;
+  transform: none;
+}
+
+@keyframes active-turn-border-orbit {
+  0% {
+    --active-turn-border-angle: 0deg;
+  }
+
+  100% {
+    --active-turn-border-angle: 1turn;
+  }
+}
+
+@keyframes active-turn-border-aura {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0.72rem rgb(var(--game-accent-rgb) / 28%);
+  }
+
+  50% {
+    box-shadow: inset 0 0 1.7rem rgb(var(--game-accent-rgb) / 58%);
+  }
+}
+
+@keyframes active-turn-life-controls {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 16%),
+      inset 0 -1px 0 rgb(var(--shadow-rgb) / 56%),
+      0 0 0.62rem rgb(var(--game-accent-rgb) / 22%);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 20%),
+      inset 0 -1px 0 rgb(var(--shadow-rgb) / 52%),
+      0 0 1.2rem rgb(var(--game-accent-rgb) / 48%);
+  }
+}
+
+@keyframes active-turn-status-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 28%),
+      0 0 0 0.16rem rgb(var(--cz-info-rgb) / 14%),
+      0 0 1.05rem rgb(var(--cz-info-rgb) / 42%);
+  }
+
+  48% {
+    transform: scale(1.055);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 34%),
+      0 0 0 0.32rem rgb(var(--cz-info-rgb) / 18%),
+      0 0 1.8rem rgb(var(--cz-info-rgb) / 68%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host:has(.is-turn-owner)::after,
+  .is-turn-owner::before,
+  .player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls,
+  .player-cell-turn-status.is-active-turn {
+    animation: none;
+  }
+}

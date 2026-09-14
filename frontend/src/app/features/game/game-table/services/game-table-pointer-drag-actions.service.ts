@@ -40,6 +40,7 @@ export interface GameTablePointerDragActionContext {
   isManaLaneHighlighted(playerId: string): boolean;
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  stackDropOverlapRatio?(): number | null;
   landStackDetachSource(): LandStackDetachSource | null;
   attachmentStackDetachSource(): AttachmentStackDetachSource | null;
   canControlPlayer(playerId: string): boolean;
@@ -278,6 +279,7 @@ export class GameTablePointerDragActionsService {
       draggedPosition,
       context.cardPosition,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (!target) {
       return false;
@@ -381,6 +383,7 @@ export class GameTablePointerDragActionsService {
       draggedPosition,
       context.cardPosition,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (!target || this.isOriginalDetachStackTarget(detachSource, target.targetCard.instanceId)) {
       return false;
@@ -486,6 +489,7 @@ export class GameTablePointerDragActionsService {
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
+      context.stackDropOverlapRatio?.() ?? undefined,
     ) !== null;
   }
 
@@ -509,6 +513,7 @@ export class GameTablePointerDragActionsService {
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
+      context.stackDropOverlapRatio?.() ?? undefined,
     );
     if (!target) {
       return false;

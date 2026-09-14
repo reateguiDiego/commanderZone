@@ -82,6 +82,7 @@ export interface GameArrowMenuEvent {
 export class GameArrowLayerComponent implements AfterViewInit, OnDestroy {
   readonly snapshot = input<GameSnapshot | null>(null);
   readonly focusedPlayerId = input<string | null>(null);
+  readonly allBattlefieldsVisible = input(false);
   readonly players = input<readonly PlayerView[]>([]);
   readonly rootElement = input<HTMLElement | null>(null);
 
@@ -108,7 +109,7 @@ export class GameArrowLayerComponent implements AfterViewInit, OnDestroy {
       .join('|');
     const arrowsKey = snapshot?.arrows.map((arrow) => `${arrow.id}:${arrow.fromInstanceId}:${arrow.toInstanceId}:${arrow.color}`).join('|') ?? '';
 
-    return `${snapshot?.version ?? 0}:${focusedPlayerId}:${arrowsKey}:${playersKey}`;
+    return `${snapshot?.version ?? 0}:${focusedPlayerId}:${this.allBattlefieldsVisible()}:${arrowsKey}:${playersKey}`;
   });
 
   constructor(private readonly changeDetector: ChangeDetectorRef) {
@@ -347,7 +348,7 @@ export class GameArrowLayerComponent implements AfterViewInit, OnDestroy {
   }
 
   private renderMode(playerId: string): ArrowRenderMode {
-    return playerId === this.focusedPlayerId() ? 'focused-battlefield' : 'mini-battlefield';
+    return this.allBattlefieldsVisible() || playerId === this.focusedPlayerId() ? 'focused-battlefield' : 'mini-battlefield';
   }
 
   private arrowSurfaceCenters(root: HTMLElement, rootRect: DOMRect): ReadonlyMap<string, ArrowSurfaceCenter> {
