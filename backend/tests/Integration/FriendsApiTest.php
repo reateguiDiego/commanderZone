@@ -10,6 +10,36 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class FriendsApiTest extends ApiTestCase
 {
+    public function testExpiredPresenceReconnectsImmediatelyWithCurrentGameStatus(): void
+    {
+        $alice = $this->registerAndLogin('activity-friend@example.test', 'Activity Friend');
+        $bob = $this->registerAndLogin('activity-player@example.test', 'Activity Player');
+        $aliceId = $this->currentUserId($alice);
+        $bobId = $this->currentUserId($bob);
+        $em = self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        $a = $em->find(User::class, $aliceId);
+        $b = $em->find(User::class, $bobId);
+        $friendship = new \App\Domain\Friendship\Friendship($a, $b);
+        $friendship->accept();
+        $em->persist($friendship);
+        $room = new \App\Domain\Room\Room($b);
+        $em->persist($room);
+        $em->persist(new \App\Domain\Room\RoomPlayer($room, $b));
+        $b->markSeen(new \DateTimeImmutable('-6 minutes'));
+        $em->flush();
+        $em->getConnection()->executeStatement('UPDATE room SET status = :status WHERE id = :id', ['status' => \App\Domain\Room\Room::STATUS_STARTED, 'id' => $room->id()]);
+        RecordingMercureHub::reset();
+        $this->jsonRequest('GET', '/me', token: $bob);
+        self::assertResponseIsSuccessful();
+        $updates = array_values(array_filter(RecordingMercureHub::updates(), static fn (array $u): bool => (json_decode($u['data'], true)['type'] ?? null) === 'friend.presence.changed'));
+        self::assertCount(1, $updates);
+        self::assertSame('in_game', json_decode($updates[0]['data'], true)['user']['presence']);
+        RecordingMercureHub::reset();
+        $this->jsonRequest('GET', '/me', token: $bob);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], RecordingMercureHub::updates());
+    }
+
     public function testSearchAndPresenceHaveBoundedQueries(): void
     {
         $token = $this->registerAndLogin('viewer@example.test', 'Search Match 00');
@@ -58,8 +88,8 @@ class FriendsApiTest extends ApiTestCase
         $queries = $counter->getData()['default'] ?? [];
         self::assertNotEmpty($queries);
         self::assertLessThanOrEqual(9, count($queries), json_encode($queries));
-        // Two fixed viewer activity checks plus one batched friend presence query.
-        self::assertCount(3, array_filter($queries, static fn (array $q): bool => str_contains($q['sql'], 'room_player')));
+        // An already-online viewer needs no extra presence queries.
+        self::assertCount(1, array_filter($queries, static fn (array $q): bool => str_contains($q['sql'], 'room_player')));
     }
 
     public function testFriendRequestsCanBeAcceptedAndListedWithPresence(): void

@@ -9,6 +9,9 @@ final class RequestPerformanceContext
     private int $rows = 0;
     private array $stages = [];
     private int $failedQueries = 0;
+    private float $connectionDurationMs = 0.0;
+    private int $connectionCount = 0;
+    private int $failedConnections = 0;
 
     public function reset(): void
     {
@@ -17,6 +20,16 @@ final class RequestPerformanceContext
         $this->rows = 0;
         $this->stages = [];
         $this->failedQueries = 0;
+        $this->connectionDurationMs = 0.0;
+        $this->connectionCount = 0;
+        $this->failedConnections = 0;
+    }
+
+    public function recordConnection(float $durationMs, bool $failed = false): void
+    {
+        $this->connectionDurationMs += $durationMs;
+        ++$this->connectionCount;
+        $this->failedConnections += (int) $failed;
     }
 
     public function recordQuery(float $durationMs, int $rows = 0, bool $failed = false): void
@@ -53,6 +66,9 @@ final class RequestPerformanceContext
             'query_count' => $this->queryCount,
             'rows' => $this->rows,
             'failed_queries' => $this->failedQueries,
+            'db_connection_duration_ms' => round($this->connectionDurationMs, 3),
+            'db_connection_count' => $this->connectionCount,
+            'db_failed_connections' => $this->failedConnections,
             'stages' => $this->stages,
             'peak_memory_bytes' => memory_get_peak_usage(true),
         ];

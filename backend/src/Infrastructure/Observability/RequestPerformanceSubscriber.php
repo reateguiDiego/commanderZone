@@ -46,13 +46,18 @@ final readonly class RequestPerformanceSubscriber implements EventSubscriberInte
         $response->headers->set('X-Request-ID', $requestId);
         $startedAt = (int) $request->attributes->get(self::START_ATTRIBUTE, hrtime(true));
         $content = $response->getContent();
+        $entry = $request->server->get('CZ_PHP_ENTRY_NS');
+        $entry = is_int($entry) && $entry > 0 && $entry <= $startedAt ? $entry : null;
+        $finishedAt = hrtime(true);
 
         $this->logger->info('http_request_completed', array_merge($this->context->metrics(), [
             'request_id' => $requestId,
             'method' => $request->getMethod(),
             'route' => (string) $request->attributes->get('_route', 'unmatched'),
             'status' => $response->getStatusCode(),
-            'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 3),
+            'duration_ms' => round(($finishedAt - $startedAt) / 1_000_000, 3),
+            'php_bootstrap_ms' => $entry === null ? null : round(($startedAt - $entry) / 1_000_000, 3),
+            'php_to_response_ms' => $entry === null ? null : round(($finishedAt - $entry) / 1_000_000, 3),
             'response_bytes' => is_string($content) ? strlen($content) : 0,
         ]));
     }

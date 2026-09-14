@@ -123,6 +123,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         capturedAt = (Get-Date).ToUniversalTime().ToString("o")
         label = $Label
         productionHost = $ProductionHost
+        php = @{ status = 'unavailable' }
         dockerStats = @()
         dockerInspect = @()
         runtime = $null
@@ -155,6 +156,13 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         }
 
         try {
+            $phpPayload = (Invoke-RemoteCommand "cd $quotedPath && $compose exec -T api php < scripts/collect-php-metrics.php") -join "`n"
+            $snapshot.php = $phpPayload | ConvertFrom-Json
+        } catch {
+            $snapshot.errors += "PHP metrics unavailable: $($_.Exception.Message)"
+        }
+
+        try {
             $runtimeUrl = if ([string]::IsNullOrWhiteSpace($RuntimeMetricsUrl)) { "http://127.0.0.1:8091/metrics" } else { $RuntimeMetricsUrl }
             $runtimeCommand = "curl -fsS $(ShellQuote $runtimeUrl)"
             $runtimePayload = (Invoke-RemoteCommand $runtimeCommand) -join "`n"
@@ -173,7 +181,9 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
             if (-not [string]::IsNullOrWhiteSpace($dbPayload)) {
                 $snapshot.postgres = $dbPayload | ConvertFrom-Json
             }
-            $statementsSql = "select coalesce(json_agg(x),'[]'::json)::text from (select queryid,calls,total_exec_time,mean_exec_time,rows,left(query,500) query from pg_stat_statements order by total_exec_time desc limit 25) x;"
+            $statementsComplete = if ($Label -eq 'live') { 'false' } else { 'true' }
+            $statementsLimit = if ($Label -eq 'live') { 'ORDER BY total_exec_time DESC LIMIT 25' } else { '' }
+            $statementsSql = "select json_build_object('complete',$statementsComplete,'capturedAt',now(),'statsReset',(select stats_reset from pg_stat_statements_info),'dealloc',(select dealloc from pg_stat_statements_info),'statements',coalesce((select json_agg(x) from (select dbid,userid,toplevel,queryid::text queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_written,query from pg_stat_statements where dbid=(select oid from pg_database where datname=current_database()) $statementsLimit) x),'[]'::json))::text"
             $statementsInner = "psql -U ""`$POSTGRES_USER"" -d ""`$POSTGRES_DB"" -At -c ""$statementsSql"""
             try {
                 $statementsPayload = (Invoke-RemoteCommand "cd $quotedPath && $compose exec -T database sh -lc $(ShellQuote $statementsInner)") -join "`n"
@@ -443,6 +453,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     }
 
     $after = Collect-ServerSnapshot $phaseDir "after"
+    & node (Join-Path $PSScriptRoot "sql-load-delta.mjs") $phaseDir *> (Join-Path $phaseDir "sql-delta-summary.txt")
     $serverDelta = New-ServerDelta $before $after $phaseDir
     $serverGateFailures = @(Test-ServerGate $serverDelta)
     Write-OperatorSummary $phaseDir $PhaseUsers $k6ExitCode $serverDelta $serverGateFailures

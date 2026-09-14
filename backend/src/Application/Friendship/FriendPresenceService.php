@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class FriendPresenceService
 {
+    public const ONLINE_WINDOW_SECONDS = 300;
     public const STATUS_ONLINE = 'online';
     public const STATUS_IN_GAME = 'in_game';
     public const STATUS_OFFLINE = 'offline';
@@ -33,7 +34,7 @@ class FriendPresenceService
 
         $statusesByUserId = [];
         $activeUsers = [];
-        $activeSince = new \DateTimeImmutable('-5 minutes');
+        $activeSince = new \DateTimeImmutable('-'.self::ONLINE_WINDOW_SECONDS.' seconds');
 
         foreach ($users as $user) {
             $lastSeenAt = $user->lastSeenAt();
