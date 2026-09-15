@@ -139,6 +139,8 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $friend = $this->jsonResponse()['data'][0]['friend'];
         self::assertSame('Bobby', $friend['displayName']);
+        self::assertSame('Bobby', $friend['username']);
+        self::assertSame('/community/users/Bobby', $friend['canonicalPath']);
         self::assertSame('initial', $friend['avatar']['type']);
         self::assertSame('B', $friend['avatar']['initial']['letter']);
         self::assertContains($friend['presence'], ['online', 'in_game']);

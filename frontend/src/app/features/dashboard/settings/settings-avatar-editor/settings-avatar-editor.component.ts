@@ -9,7 +9,6 @@ import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
 import { PremiumBadgeComponent } from '../../../../shared/ui/premium-badge/premium-badge.component';
-import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 
 type PendingAvatarType = 'current' | 'initial' | 'preset';
 type AvatarTierTab = 'basic' | 'premium';
@@ -20,7 +19,7 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent, TooltipComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -57,6 +56,7 @@ export class SettingsAvatarEditorComponent {
   readonly initialTextColor = signal(DEFAULT_INITIAL_TEXT_COLOR);
   readonly initialControlsOpen = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly loadedPresetAvatarIds = signal<ReadonlySet<string>>(new Set());
   readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
 
   readonly initial = computed(() => this.displayName().trim().slice(0, 1).toUpperCase() || 'P');
@@ -136,6 +136,13 @@ export class SettingsAvatarEditorComponent {
 
     return this.pendingType() === 'initial' || this.pendingType() === 'preset';
   });
+  readonly activeTierImagesReady = computed(() => {
+    const avatars = this.activeTier() === 'basic'
+      ? this.basicPresetAvatars
+      : this.premiumPresetAvatars;
+
+    return avatars.every((avatar) => this.loadedPresetAvatarIds().has(avatar.id));
+  });
 
   chooseInitial(): void {
     this.errorMessage.set(null);
@@ -165,6 +172,16 @@ export class SettingsAvatarEditorComponent {
     if (tier === 'basic' || tier === 'premium') {
       this.switchTier(tier);
     }
+  }
+
+  markPresetAvatarImageLoaded(avatarId: string): void {
+    this.loadedPresetAvatarIds.update((loadedAvatarIds) => {
+      if (loadedAvatarIds.has(avatarId)) {
+        return loadedAvatarIds;
+      }
+
+      return new Set(loadedAvatarIds).add(avatarId);
+    });
   }
 
   updateInitialLetter(value: string): void {

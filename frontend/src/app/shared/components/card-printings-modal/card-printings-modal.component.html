@@ -18,6 +18,9 @@
     } @else if (errorKey()) {
       <p class="card-printings-modal__notice card-printings-modal__notice--error">{{ errorKey()! | runtimeTranslate }}</p>
     } @else {
+      <p class="card-printings-modal__notice">
+        {{ 'deckBuilder.cards.cardSearch.printings.count' | runtimeTranslate: { count: printings().length } }}
+      </p>
       <div class="card-printings-grid">
         @for (printing of printings(); track printing.scryfallId) {
           <article class="card-printing" [class.card-printing--battle]="isBattle(printing)">

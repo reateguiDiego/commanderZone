@@ -7,6 +7,7 @@ import { CardPreviewResultsComponent } from './card-preview-results.component';
 
 describe('CardPreviewResultsComponent', () => {
   beforeEach(async () => {
+    vi.stubGlobal('Image', loadedImageStub());
     await TestBed.configureTestingModule({
       imports: [CardPreviewResultsComponent],
       providers: [
@@ -14,6 +15,11 @@ describe('CardPreviewResultsComponent', () => {
         { provide: DeviceProfileService, useValue: { isMobile: signal(true), isDesktopLayout: signal(false), hasCoarsePointer: signal(true), hasHover: signal(false) } },
       ],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('opens the shared context menu for interactive results and emits the selected action', async () => {
@@ -122,6 +128,7 @@ describe('CardPreviewResultsComponent', () => {
     toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('https://cards.test/kolvori-back.jpg');
@@ -130,6 +137,7 @@ describe('CardPreviewResultsComponent', () => {
     toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('https://cards.test/kolvori-front.jpg');
@@ -161,6 +169,7 @@ describe('CardPreviewResultsComponent', () => {
     toggle.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
     toggle.dispatchEvent(new Event('touchend', { bubbles: true, cancelable: true }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('https://cards.test/kolvori-back.jpg');
@@ -179,5 +188,18 @@ function cardFace(name: string, imageUrl: string): CardFace {
     loyalty: null,
     colors: [],
     imageUris: { normal: imageUrl },
+  };
+}
+
+function loadedImageStub() {
+  return class {
+    complete = true;
+    naturalWidth = 1;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    set src(_value: string) {
+      this.onload?.();
+    }
   };
 }

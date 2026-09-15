@@ -29,4 +29,12 @@ describe('SettingsAvatarUploadComponent', () => {
       'Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.',
     );
   });
+
+  it('keeps avatar file upload disabled', () => {
+    const fixture = TestBed.createComponent(SettingsAvatarUploadComponent);
+    fixture.detectChanges();
+
+    const chooseImageButton = fixture.nativeElement.querySelector('.upload-card button') as HTMLButtonElement;
+    expect(chooseImageButton.disabled).toBe(true);
+  });
 });

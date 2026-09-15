@@ -30,8 +30,9 @@
           <h4>{{ 'settings.settingsAvatarUpload.imageFile' | runtimeTranslate }}</h4>
           <p>{{ 'settings.settingsAvatarUpload.pngJpgWebpOrAnotherBrowserSupported' | runtimeTranslate }}</p>
         </div>
-        <input #fileInput class="file-input" type="file" accept="image/*" (change)="onFileSelected($event)" />
-        <button czButton="secondary" class="secondary-button" type="button" [disabled]="saving()" (click)="openFilePicker(fileInput)">
+        <input #fileInput class="file-input" type="file" accept="image/*" disabled (change)="onFileSelected($event)" />
+        <!-- //TODO: Reactivar la subida cuando exista un flujo de moderación de avatares. -->
+        <button czButton="secondary" class="secondary-button" type="button" disabled (click)="openFilePicker(fileInput)">
           <lucide-icon name="upload" size="16" />
           {{ 'settings.settingsAvatarUpload.chooseImage' | runtimeTranslate }}
         </button>

@@ -5,6 +5,8 @@ export type FriendPresence = 'online' | 'in_game' | 'offline';
 
 export interface FriendUser {
   id: string;
+  username?: string;
+  canonicalPath?: string;
   displayName: string;
   displayNameStyle?: UserDisplayNameStyle;
   avatar?: UserAvatar;

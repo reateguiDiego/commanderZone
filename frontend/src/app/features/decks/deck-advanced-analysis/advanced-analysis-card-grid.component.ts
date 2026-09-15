@@ -113,6 +113,10 @@ export class AdvancedAnalysisCardGridComponent implements DeckViewStore {
     return hasAlternateCardFace(card);
   }
 
+  isFaceFlipped(card: Card): boolean {
+    return this.flippedFaces()[card.scryfallId] ?? false;
+  }
+
   displayCardName(card: Card): string {
     return this.displayCardFace(card)?.name ?? card.name;
   }

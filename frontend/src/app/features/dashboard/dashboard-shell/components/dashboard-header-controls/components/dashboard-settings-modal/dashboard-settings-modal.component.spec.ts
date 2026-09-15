@@ -112,6 +112,8 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('6/20');
     expect(fixture.nativeElement.querySelector('.modal-title-icon')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.settings-action-label')).toHaveLength(6);
+    expect(fixture.nativeElement.querySelectorAll('.settings-action-label.cz-text-fit')).toHaveLength(6);
 
     const generalText = fixture.nativeElement.textContent as string;
     expect(generalText.indexOf('App language')).toBeLessThan(generalText.indexOf('Card language'));

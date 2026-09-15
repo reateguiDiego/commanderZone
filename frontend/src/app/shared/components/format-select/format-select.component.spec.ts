@@ -97,6 +97,30 @@ describe('FormatSelectComponent', () => {
     expect(fixture.nativeElement.querySelector('.format-select-search-input')).toBeNull();
   });
 
+  it('positions the open menu relative to the viewport', async () => {
+    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      bottom: 120,
+      height: 40,
+      left: 24,
+      right: 224,
+      top: 80,
+      width: 200,
+      x: 24,
+      y: 80,
+      toJSON: () => ({}),
+    });
+
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.format-select-menu') as HTMLElement;
+    expect(menu.classList.contains('is-positioned')).toBe(true);
+    expect(menu.style.left).toBe('24px');
+  });
+
   it('returns focus to the trigger before hiding the dropdown menu', () => {
     fixture.nativeElement.querySelector('.format-select-trigger').click();
     fixture.detectChanges();

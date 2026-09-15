@@ -78,8 +78,12 @@
                 />
               </div>
               <div class="settings-profile-actions">
-                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.changeAvatar' | runtimeTranslate }}</button>
-                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.changeName' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">
+                  <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'settings.dashboardSettingsModal.changeAvatar' | runtimeTranslate }}</span>
+                </button>
+                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">
+                  <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'settings.dashboardSettingsModal.changeName' | runtimeTranslate }}</span>
+                </button>
               </div>
             </section>
 
@@ -165,17 +169,17 @@
               @if (!deleteConfirmationOpen()) {
                 <button czButton="primary" czButtonTone="danger" class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount($event)">
                   <lucide-icon name="trash2" size="16" />
-                  {{ 'settings.dashboardSettingsModal.deleteAccount' | runtimeTranslate }}
+                  <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'settings.dashboardSettingsModal.deleteAccount' | runtimeTranslate }}</span>
                 </button>
               } @else {
                 <div class="delete-confirmation">
                   <span>{{ 'settings.dashboardSettingsModal.areYouSureYouWantToPermanently' | runtimeTranslate }}</span>
                   <div class="delete-actions">
                     <button czButton="secondary" type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
-                      {{ 'shared.text.cancel' | runtimeTranslate }}
+                      <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'shared.text.cancel' | runtimeTranslate }}</span>
                     </button>
                     <button czButton="primary" czButtonTone="danger" czButtonSize="sm" type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
-                      {{ (deleteInProgress() ? 'common.ui.deleting' : 'settings.dashboardSettingsModal.deleteAccount') | runtimeTranslate }}
+                      <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ (deleteInProgress() ? 'common.ui.deleting' : 'settings.dashboardSettingsModal.deleteAccount') | runtimeTranslate }}</span>
                     </button>
                   </div>
                 </div>
@@ -194,7 +198,7 @@
                   class="game-settings-toggle"
                   [label]="option.labelKey | runtimeTranslate"
                   [description]="option.descriptionKey | runtimeTranslate"
-                  [warning]="option.warningKey | runtimeTranslate"
+                  [warning]="option.warningKey ? (option.warningKey | runtimeTranslate) : ''"
                   [checked]="gameSettingsToggleState()[option.id]"
                   [hoverFeedback]="false"
                   (checkedChange)="setGameSettingsToggle(option.id, $event)"

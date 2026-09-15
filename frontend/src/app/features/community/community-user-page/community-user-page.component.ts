@@ -72,11 +72,13 @@ export class CommunityUserPageComponent implements OnDestroy {
   readonly total = signal(0);
   readonly totalPages = signal(1);
   readonly hasMore = signal(false);
+  private readonly hasAppliedDeckFilters = signal(false);
   readonly sendingFriendRequest = signal(false);
   readonly actionFeedback = signal<string | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly formats = signal<readonly DeckFormat[]>(this.cache.peekFormats() ?? []);
   readonly visibleDecks = computed(() => this.decks());
+  readonly filtersVisible = computed(() => this.total() > 0 || this.hasAppliedDeckFilters());
   readonly formatOptions = computed<readonly FormatSelectOption[]>(() => [
     { id: '', name: 'community.deckList.allFormats' },
     ...this.formats().map((format) => ({ id: format.id, name: format.name })),
@@ -239,7 +241,9 @@ export class CommunityUserPageComponent implements OnDestroy {
     this.error.set(null);
 
     try {
-      const response = await firstValueFrom(this.api.user(this.username(), this.filters()));
+      const filters = this.filters();
+      const hasAppliedDeckFilters = this.hasDeckFilters(filters);
+      const response = await firstValueFrom(this.api.user(this.username(), filters));
       if (!this.isActiveLoad(loadVersion)) {
         return;
       }
@@ -249,6 +253,7 @@ export class CommunityUserPageComponent implements OnDestroy {
       this.total.set(response.total);
       this.totalPages.set(response.totalPages);
       this.hasMore.set(response.hasMore);
+      this.hasAppliedDeckFilters.set(hasAppliedDeckFilters);
       this.seo.apply({
         path: response.user.canonicalPath,
         title: `${response.user.displayName} Commander Decks | CommanderZone`,
@@ -273,6 +278,7 @@ export class CommunityUserPageComponent implements OnDestroy {
     this.total.set(0);
     this.totalPages.set(1);
     this.hasMore.set(false);
+    this.hasAppliedDeckFilters.set(false);
     this.searchQuery.set('');
     this.commanderQuery.set('');
     this.selectedFormat.set('');
@@ -295,5 +301,9 @@ export class CommunityUserPageComponent implements OnDestroy {
       lang: this.languagePreferences.cardLanguage().trim() || undefined,
       page: this.page(),
     };
+  }
+
+  private hasDeckFilters(filters: CommunityDeckListFilters): boolean {
+    return Boolean(filters.q || filters.commander || filters.format || filters.colors);
   }
 }

@@ -4831,6 +4831,11 @@ components:
         id:
           type: string
           format: uuid
+        username:
+          type: string
+        canonicalPath:
+          type: string
+          example: /community/users/Alice-Player
         displayName:
           type: string
         displayNameStyle:

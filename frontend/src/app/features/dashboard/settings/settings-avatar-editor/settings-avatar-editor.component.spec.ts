@@ -90,6 +90,27 @@ describe('SettingsAvatarEditorComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.premium-avatar').length).toBe(30);
   });
 
+  it('hides avatar options until the active tier images load', () => {
+    const fixture = TestBed.createComponent(SettingsAvatarEditorComponent);
+    fixture.detectChanges();
+
+    const basicTier = fixture.nativeElement.querySelector('.basic-tier') as HTMLElement;
+    expect(basicTier.classList.contains('is-pending')).toBe(true);
+
+    const basicAvatarImages = fixture.nativeElement.querySelectorAll('.basic-tier .preset-avatar img');
+    basicAvatarImages.forEach((image: HTMLImageElement) => image.dispatchEvent(new Event('load')));
+    fixture.detectChanges();
+
+    expect(basicTier.classList.contains('is-pending')).toBe(false);
+
+    fixture.componentInstance.switchTier('premium');
+    fixture.detectChanges();
+
+    const premiumTier = fixture.nativeElement.querySelector('.premium-grid').parentElement as HTMLElement;
+    expect(premiumTier.classList.contains('is-pending')).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('app-tooltip')).toHaveLength(0);
+  });
+
   it('shows the user name as current selection text', () => {
     const fixture = TestBed.createComponent(SettingsAvatarEditorComponent);
     fixture.componentRef.setInput('displayName', 'Commander Pilot');
