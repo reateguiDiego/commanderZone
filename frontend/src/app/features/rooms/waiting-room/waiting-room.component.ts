@@ -871,7 +871,10 @@ export class WaitingRoomComponent implements OnDestroy {
     const revision = append ? this.deckPageRevision : ++this.deckPageRevision;
     this.loadingDeckPage.set(true);
     try {
-      const response = await firstValueFrom(this.decksApi.list(undefined, true, { cursor: append ? this.nextDeckCursor() ?? undefined : undefined, q: this.deckSearch(), sort: 'name-asc' }));
+      const options = append
+        ? { cursor: this.nextDeckCursor()!, q: this.deckSearch(), sort: 'name-asc' as const }
+        : { q: this.deckSearch(), sort: 'name-asc' as const };
+      const response = await firstValueFrom(this.decksApi.list(undefined, true, options));
       if (revision !== this.deckPageRevision) return;
       this.decks.set([...new Map([...(append ? this.decks() : []), ...response.data].map(deck => [deck.id, deck])).values()]);
       this.nextDeckCursor.set(response.nextCursor ?? null);
