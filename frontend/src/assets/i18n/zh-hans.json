@@ -1314,7 +1314,7 @@
         "details": {
           "close": "关闭详情",
           "couldNotLoad": "无法加载此卡。",
-          "oracleText": "Oracle 规则叙述",
+          "oracleText": "文本",
           "legalFormats": "合法赛制",
           "illegalFormats": "非法赛制",
           "noLegalFormats": "本地目录中没有合法格式。",
@@ -1335,6 +1335,7 @@
         },
         "printings": {
           "title": "{{ card }} 的版本",
+          "count": "版本数量：{{ count }}",
           "empty": "未找到此牌的版本。",
           "couldNotLoad": "无法加载牌的版本。"
         },

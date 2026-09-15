@@ -1314,7 +1314,7 @@
         "details": {
           "close": "Details schließen",
           "couldNotLoad": "Diese Karte konnte nicht geladen werden.",
-          "oracleText": "Oracle-Text",
+          "oracleText": "Text",
           "legalFormats": "Zulässige Formate",
           "illegalFormats": "Nicht zulässige Formate",
           "noLegalFormats": "Keine zulässigen Formate im lokalen Katalog.",
@@ -1335,6 +1335,7 @@
         },
         "printings": {
           "title": "Drucke von {{ card }}",
+          "count": "Drucke: {{ count }}",
           "empty": "Für diese Karte wurden keine Drucke gefunden.",
           "couldNotLoad": "Kartendrucke konnten nicht geladen werden."
         },

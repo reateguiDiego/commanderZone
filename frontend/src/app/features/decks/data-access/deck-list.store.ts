@@ -252,7 +252,9 @@ export class DeckListStore {
   async loadPage(append = false): Promise<void> {
     if (append && (!this.nextCursor() || this.loadingMore())) return;
     const revision = append ? this.pageRevision : ++this.pageRevision;
-    const cursor = append ? this.nextCursor()! : undefined;
+    const options = append
+      ? { ...this.pageOptions(), cursor: this.nextCursor()! }
+      : this.pageOptions();
     if (!append) {
       this.nextCursor.set(null);
       this.loading.set(false);
@@ -260,7 +262,7 @@ export class DeckListStore {
     this.loadingMore.set(true);
     this.error.set(null);
     try {
-      const page = await firstValueFrom(this.decksApi.list(this.currentFolderId(), false, { ...this.pageOptions(), cursor }));
+      const page = await firstValueFrom(this.decksApi.list(this.currentFolderId(), false, options));
       if (revision !== this.pageRevision) return;
       const data = append ? [...this.decks(), ...page.data] : page.data;
       this.decks.set([...new Map(data.map(deck => [deck.id, deck])).values()]);

@@ -28,7 +28,21 @@
   line-height: 1.1;
   text-align: center;
   white-space: normal;
+}
+
+.settings-action-label {
+  display: -webkit-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  font-size: calc(1em * var(--cz-text-fit-scale, 1));
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .language-preferences .app-disclaimer-callout {

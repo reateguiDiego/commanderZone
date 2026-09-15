@@ -10,10 +10,13 @@ import { RoomsApi } from '../../../core/api/rooms.api';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 
 export type FriendListRowKind = 'incoming' | 'pending' | 'friend' | 'room-invite';
+export const FRIENDS_LOAD_ERROR = 'Could not load friends.';
 
 export interface FriendListRow {
   id: string;
   kind: FriendListRowKind;
+  username?: string;
+  canonicalPath?: string;
   displayName: string;
   displayNameStyle?: UserDisplayNameStyle;
   detail: string;
@@ -104,6 +107,8 @@ export class FriendsStore {
       ...this.incomingState().map((friendship) => ({
         id: friendship.id,
         kind: 'incoming' as const,
+        username: friendship.requester.username,
+        canonicalPath: friendship.requester.canonicalPath,
         displayName: friendship.requester.displayName,
         displayNameStyle: friendship.requester.displayNameStyle,
         detail: 'Friend request received',
@@ -114,6 +119,8 @@ export class FriendsStore {
       ...this.outgoingState().map((friendship) => ({
         id: friendship.id,
         kind: 'pending' as const,
+        username: friendship.recipient.username,
+        canonicalPath: friendship.recipient.canonicalPath,
         displayName: friendship.recipient.displayName,
         displayNameStyle: friendship.recipient.displayNameStyle,
         detail: 'Friend request pending',
@@ -126,6 +133,8 @@ export class FriendsStore {
       rows.push({
         id: friendId,
         kind: 'friend',
+        username: friendship.friend?.username,
+        canonicalPath: friendship.friend?.canonicalPath,
         displayName: friendship.friend?.displayName ?? 'Friend',
         displayNameStyle: friendship.friend?.displayNameStyle,
         detail: this.presenceLabel(friendship.friend?.presence),
@@ -179,7 +188,7 @@ export class FriendsStore {
     try {
       await this.resources.summary.load(() => firstValueFrom(this.friendsApi.summary()), (value) => this.summaryCounts.set(value));
     } catch {
-      this.errorState.set('Could not load friends.');
+      this.errorState.set(FRIENDS_LOAD_ERROR);
     }
   }
 
@@ -199,7 +208,7 @@ export class FriendsStore {
       this.resources.outgoing.load(() => firstValueFrom(this.friendsApi.outgoing()), (r) => this.outgoingState.set(r.data)),
       this.resources.invites.load(() => firstValueFrom(this.roomsApi.incomingInvites()), (r) => this.roomInvitesState.set(r.data)),
     ]);
-    if (results.some((r) => r.status === 'rejected')) this.errorState.set('Could not load friends.');
+    if (results.some((r) => r.status === 'rejected')) this.errorState.set(FRIENDS_LOAD_ERROR);
     this.loadingState.set(false);
   }
 

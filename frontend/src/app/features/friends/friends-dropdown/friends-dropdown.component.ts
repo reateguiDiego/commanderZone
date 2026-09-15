@@ -1,15 +1,16 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerInfoComponent } from '../../../shared/ui/player-info/player-info.component';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
-import { FriendListRow } from '../data-access/friends.store';
+import { FRIENDS_LOAD_ERROR, FriendListRow, FriendsStore } from '../data-access/friends.store';
 import { FriendshipStatus } from '../../../core/models/friendship.model';
-import { FriendsStore } from '../data-access/friends.store';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 import { FriendSearchAutofocusDirective } from './friend-search-autofocus.directive';
+import { communityUserProfilePath } from '../../../shared/ui/player-profile-navigation';
 
 type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 
@@ -31,11 +32,16 @@ type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 })
 export class FriendsDropdownComponent {
   readonly store = inject(FriendsStore);
+  private readonly router = inject(Router);
   private readonly onlineOpenOverride = signal<boolean | null>(null);
   private readonly disconnectedOpenOverride = signal<boolean | null>(null);
   private readonly incomingRequestsOpenOverride = signal<boolean | null>(null);
   private readonly sentRequestsOpenOverride = signal<boolean | null>(null);
   readonly activeTab = signal<FriendsDropdownTab>('friends');
+  readonly visibleError = computed(() => {
+    const error = this.store.error();
+    return error === FRIENDS_LOAD_ERROR ? null : error;
+  });
   readonly friendsRows = computed(() => this.store.rows().filter((row) => row.kind === 'friend'));
   readonly onlineFriendsRows = computed(() =>
     this.friendsRows().filter((row) => row.presence === 'online' || row.presence === 'in_game'),
@@ -192,6 +198,13 @@ export class FriendsDropdownComponent {
         return 'navigation.friends.friendsDropdown.declinedStatus';
       default:
         return 'shared.text.sendFriendRequest';
+    }
+  }
+
+  viewProfile(canonicalPath: string | null | undefined, username: string | null | undefined): void {
+    const profilePath = communityUserProfilePath(canonicalPath, username);
+    if (profilePath) {
+      void this.router.navigateByUrl(profilePath);
     }
   }
 

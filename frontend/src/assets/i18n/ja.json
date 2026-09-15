@@ -1314,7 +1314,7 @@
         "details": {
           "close": "詳細を閉じる",
           "couldNotLoad": "このカードを読み込みできませんでした。",
-          "oracleText": "Oracle テキスト",
+          "oracleText": "テキスト",
           "legalFormats": "使用可能なフォーマット",
           "illegalFormats": "使用不可のフォーマット",
           "noLegalFormats": "ローカルカタログに使用可能なフォーマットはありません。",
@@ -1335,6 +1335,7 @@
         },
         "printings": {
           "title": "{{ card }} の印刷",
+          "count": "印刷数: {{ count }}",
           "empty": "このカードの印刷は見つかりませんでした。",
           "couldNotLoad": "カード印刷を読み込めませんでした。"
         },

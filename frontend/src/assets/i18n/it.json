@@ -1314,7 +1314,7 @@
         "details": {
           "close": "Chiudi i dettagli",
           "couldNotLoad": "Impossibile caricare questa carta.",
-          "oracleText": "Testo Oracle",
+          "oracleText": "Testo",
           "legalFormats": "Formati legali",
           "illegalFormats": "Formati illegali",
           "noLegalFormats": "Nessun formato legale nel catalogo locale.",
@@ -1335,6 +1335,7 @@
         },
         "printings": {
           "title": "Stampe di {{card}}",
+          "count": "Stampe: {{ count }}",
           "empty": "Nessuna stampa trovata per questa carta.",
           "couldNotLoad": "Impossibile caricare le stampe delle carte."
         },

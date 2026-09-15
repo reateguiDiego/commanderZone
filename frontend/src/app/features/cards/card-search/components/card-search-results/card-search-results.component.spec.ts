@@ -14,6 +14,7 @@ describe('CardSearchResultsComponent', () => {
   beforeEach(async () => {
     vi.stubGlobal('innerWidth', 1024);
     vi.stubGlobal('innerHeight', 768);
+    vi.stubGlobal('Image', loadedImageStub());
 
     await TestBed.configureTestingModule({
       imports: [CardSearchResultsComponent],
@@ -163,8 +164,18 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
   });
 
-  it('hides the hover preview as soon as the user clicks anywhere', () => {
+  it('hides the hover preview as soon as the user clicks anywhere', async () => {
     vi.useFakeTimers();
+    vi.stubGlobal('Image', class {
+      complete = true;
+      naturalWidth = 1;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onload?.();
+      }
+    });
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
     fixture.componentRef.setInput('results', [cardFixture()]);
     fixture.componentRef.setInput('searched', true);
@@ -174,6 +185,7 @@ describe('CardSearchResultsComponent', () => {
     const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     result.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 120, clientY: 80 }));
     vi.advanceTimersByTime(180);
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.card-hover-preview')).not.toBeNull();
@@ -218,7 +230,7 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Sol Ring');
   });
 
-  it('keeps the flip gesture inside the toggle on mobile interaction sequences', () => {
+  it('keeps the flip gesture inside the toggle on mobile interaction sequences', async () => {
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
     fixture.componentRef.setInput('results', [cardFixture({
       imageUris: {},
@@ -239,6 +251,7 @@ describe('CardSearchResultsComponent', () => {
     toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('/face-back.jpg');
@@ -247,13 +260,14 @@ describe('CardSearchResultsComponent', () => {
     toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('/face-front.jpg');
     expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
   });
 
-  it('does not treat overlay toggle mouse clicks as result clicks', () => {
+  it('does not treat overlay toggle mouse clicks as result clicks', async () => {
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
     fixture.componentRef.setInput('results', [cardFixture({
       imageUris: {},
@@ -276,6 +290,7 @@ describe('CardSearchResultsComponent', () => {
     toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
     toggle.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(image()?.getAttribute('src')).toBe('/face-back.jpg');
@@ -302,6 +317,19 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('No cards found.');
   });
 });
+
+function loadedImageStub() {
+  return class {
+    complete = true;
+    naturalWidth = 1;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    set src(_value: string) {
+      this.onload?.();
+    }
+  };
+}
 
 function cardFixture(overrides: Partial<Card> = {}): Card {
   return {

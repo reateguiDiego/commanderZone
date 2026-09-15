@@ -6,10 +6,11 @@ import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/co
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../../shared/ui/global-loader/global-loader.component';
+import { TextFitDirective } from '../../../../shared/ui/text-fit/text-fit.directive';
 
 @Component({
   selector: 'app-settings-language-preferences',
-  imports: [FormatSelectComponent, RuntimeTranslatePipe, CzButtonDirective, GlobalLoaderComponent],
+  imports: [FormatSelectComponent, RuntimeTranslatePipe, CzButtonDirective, GlobalLoaderComponent, TextFitDirective],
   templateUrl: './settings-language-preferences.component.html',
   styleUrl: './settings-language-preferences.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

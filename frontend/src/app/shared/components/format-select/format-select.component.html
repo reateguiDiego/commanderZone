@@ -33,13 +33,21 @@
 
     @if (menuVisible()) {
       <div
+        #menu
         class="format-select-menu"
         appPrettyScroll
         role="listbox"
         [class.is-open]="dropdownOpen()"
         [class.is-closing]="menuClosing()"
+        [class.is-positioned]="menuViewportPosition() !== null"
+        [class.opens-up]="menuViewportPosition()?.opensUp"
         [attr.aria-label]="visibleLabel() | runtimeTranslate"
         [attr.aria-hidden]="!dropdownOpen() ? 'true' : null"
+        [style.top.px]="menuViewportPosition()?.top"
+        [style.bottom.px]="menuViewportPosition()?.bottom"
+        [style.left.px]="menuViewportPosition()?.left"
+        [style.width.px]="menuViewportPosition()?.width"
+        [style.max-height.px]="menuViewportPosition()?.maxHeight"
       >
         @if (searchable()) {
           <div class="format-select-search">
