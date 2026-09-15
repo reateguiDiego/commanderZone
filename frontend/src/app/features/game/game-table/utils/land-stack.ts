@@ -1,5 +1,5 @@
 import { GameBattlefieldStack, GameCardInstance } from '../../../../core/models/game.model';
-import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
+import { BattlefieldCardSize, DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
 import { buildPermanentStackPresentationGroups } from './permanent-stack-presentation';
 
 export type LandStackRole = 'top' | 'under';
@@ -158,6 +158,7 @@ export function landStackDropTarget(
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   blockedInstanceIds: ReadonlySet<string> = new Set<string>(),
   minimumOverlapRatio?: number,
+  cardSize: BattlefieldCardSize = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): LandStackDropTarget | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
   if (!dragged || !isStackableBattlefieldCard(dragged) || blockedInstanceIds.has(draggedInstanceId)) {
@@ -166,7 +167,7 @@ export function landStackDropTarget(
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
   const groups = buildLandStackGroups(targetCards, stacks, positionFor);
-  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio);
+  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio, cardSize);
   if (!target || !isStackableBattlefieldCard(target)) {
     return null;
   }
@@ -207,6 +208,7 @@ export function fullLandStackDropTarget(
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   minimumOverlapRatio?: number,
+  cardSize: BattlefieldCardSize = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): LandStackGroup | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
   if (!isStackableBattlefieldCard(dragged)) {
@@ -215,7 +217,7 @@ export function fullLandStackDropTarget(
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
   const groups = buildLandStackGroups(targetCards, stacks, positionFor);
-  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio);
+  const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor, minimumOverlapRatio, cardSize);
   const targetStack = target ? landStackGroupContaining(groups, target.instanceId) : null;
   if (!targetStack || targetStack.members.length < MAX_STACK_SIZE) {
     return null;
@@ -336,9 +338,10 @@ function bestDropTarget(
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   minimumOverlapRatio?: number,
+  cardSize: BattlefieldCardSize = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): GameCardInstance | null {
-  const cardWidth = DEFAULT_BATTLEFIELD_CARD_SIZE.width;
-  const cardHeight = DEFAULT_BATTLEFIELD_CARD_SIZE.height;
+  const cardWidth = cardSize.width;
+  const cardHeight = cardSize.height;
   const maxHorizontalDistance = cardWidth * (1 - DROP_OVERLAP_RATIO);
   const maxVerticalDistance = cardHeight * (1 - DROP_OVERLAP_RATIO);
 

@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} hat eine Spielsteinkopie erzeugt."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} ist zum Monarchen geworden.", "passed": "{{ actor }} hat {{ player }} die Monarchie übergeben.", "removed": "{{ actor }} hat die Monarchenbezeichnung entfernt." },
+      "initiative": { "claimed": "{{ player }} hat die Initiative übernommen.", "passed": "{{ actor }} hat {{ player }} die Initiative übergeben.", "removed": "{{ actor }} hat die Initiative entfernt." },
+      "citysBlessing": { "granted": "{{ player }} hat den Segen der Stadt erhalten.", "removed": "{{ actor }} hat {{ player }} den Segen der Stadt entfernt." },
+      "dayNight": { "startedDay": "{{ actor }} hat den Tag/Nacht-Zyklus am Tag begonnen.", "startedNight": "{{ actor }} hat den Tag/Nacht-Zyklus in der Nacht begonnen.", "setDay": "{{ actor }} hat den Tag/Nacht-Status auf Tag geändert.", "setNight": "{{ actor }} hat den Tag/Nacht-Status auf Nacht geändert.", "removed": "{{ actor }} hat Tag/Nacht entfernt." },
+      "ring": { "created": "{{ player }} hat den Ring erhalten.", "removed": "{{ actor }} hat den Ring entfernt." },
+      "dungeon": { "entered": "{{ player }} hat {{ cardName }} betreten.", "advanced": "{{ actor }} ist in einem Dungeon vorangeschritten.", "removed": "{{ actor }} hat den Dungeon {{ cardName }} entfernt." },
+      "emblem": { "created": "{{ player }} hat das Emblem {{ cardName }} erstellt.", "removed": "{{ actor }} hat das Emblem {{ cardName }} entfernt." },
+      "helper": { "created": "{{ actor }} hat eine Spielmechanik hinzugefügt.", "updated": "{{ actor }} hat eine Spielmechanik aktualisiert.", "removed": "{{ actor }} hat eine Spielmechanik entfernt." }
+    },
     "game": {
       "concede": "{{ player }} hat aufgegeben."
     },

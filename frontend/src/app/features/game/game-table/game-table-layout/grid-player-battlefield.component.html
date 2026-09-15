@@ -8,6 +8,7 @@
   [class.is-current]="playerSeat().seat === 'current'"
   [class.is-turn-owner]="isTurnOwner()"
   [class.is-top-row]="isTopRow()"
+  [class.zone-row-presentation]="useSquareZonePresentation()"
   [class.drop-target-active]="isPlayerDropHighlighted()(playerSeat().player.id)"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
@@ -43,30 +44,37 @@
       "
     />
   </div>
-  @if (showTurnStatusPill()) {
+  @if (turnStatus(); as status) {
     <div
       class="player-cell-turn-status"
-      [class.is-active-turn]="isTurnOwner()"
+      [class.is-active-turn]="status.isActive"
+      [class.is-upcoming-turn]="!status.isActive"
       data-testid="grid-turn-status"
       role="status"
     >
-      @if (isTurnOwner()) {
-        {{ 'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate }}
-      } @else {
-        {{ 'game.playersOrder.upcomingTurnLabel' | runtimeTranslate: { count: turnDistance() ?? 0 } }}
+      @for (statusKey of [status.key]; track statusKey) {
+        <span class="player-cell-turn-status-content">
+          @if (status.isActive) {
+            {{ 'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate }}
+          } @else {
+            {{ 'game.playersOrder.upcomingTurnLabel' | runtimeTranslate: { count: status.distance } }}
+          }
+        </span>
       }
     </div>
   }
-  <div class="player-cell-battlefield">
-    <ng-container
-      [ngTemplateOutlet]="regions().battlefield"
-      [ngTemplateOutletContext]="context()"
-    />
-  </div>
-  <div class="player-cell-zones">
-    <ng-container [ngTemplateOutlet]="regions().zones" [ngTemplateOutletContext]="context()" />
-  </div>
-  <div class="player-cell-hand">
-    <ng-container [ngTemplateOutlet]="regions().hand" [ngTemplateOutletContext]="context()" />
+  <div class="player-cell-layout">
+    <div class="player-cell-battlefield">
+      <ng-container
+        [ngTemplateOutlet]="regions().battlefield"
+        [ngTemplateOutletContext]="context()"
+      />
+    </div>
+    <div class="player-cell-zones">
+      <ng-container [ngTemplateOutlet]="regions().zones" [ngTemplateOutletContext]="context()" />
+    </div>
+    <div class="player-cell-hand">
+      <ng-container [ngTemplateOutlet]="regions().hand" [ngTemplateOutletContext]="context()" />
+    </div>
   </div>
 </section>

@@ -1,5 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, NgZone, OnChanges, OnDestroy, SimpleChanges, computed, inject, input, output, signal } from '@angular/core';
+import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { PlayerSummaryPanelComponent } from '../components/player-summary-panel/player-summary-panel.component';
 import type {
@@ -12,6 +13,12 @@ import type {
   PlayerRegionTemplates,
 } from './game-table-grid-seat.model';
 
+interface GridTurnStatus {
+  readonly distance: number;
+  readonly isActive: boolean;
+  readonly key: string;
+}
+
 @Component({
   selector: 'app-grid-player-battlefield',
   imports: [NgTemplateOutlet, PlayerSummaryPanelComponent, RuntimeTranslatePipe],
@@ -19,13 +26,16 @@ import type {
   styleUrl: './grid-player-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy {
+export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly ngZone = inject(NgZone);
   private battlefieldLayoutFingerprint: string | null = null;
   private collisionCheckFrame: number | null = null;
   private battlefieldMutationObserver: MutationObserver | null = null;
+  private layoutResizeObserver: ResizeObserver | null = null;
   private summaryProtectedArea: DOMRect | null = null;
   private handDragPreviewVisible = false;
+  private turnStatusAnimationFrame: number | null = null;
 
   readonly playerSeat = input.required<GridSeat>();
   readonly playerCount = input.required<GridPlayerCount>();
@@ -33,6 +43,7 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
   readonly isPlayerDropHighlighted = input<(playerId: string) => boolean>(() => false);
   readonly summaryCompact = signal(false);
+  readonly useSquareZonePresentation = signal(false);
   // Keep this input while the development server replaces the old header template.
   // The previous template reads it during HMR; the Grid layout no longer renders
   // any turn-owner header UI.
@@ -50,9 +61,22 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
 
     return seat === 'opponent-1' || (seat === 'opponent-2' && this.playerCount() > 2);
   });
-  readonly showTurnStatusPill = computed(() =>
-    this.isTurnOwner() || (this.playerCount() > 2 && this.turnDistance() !== null),
-  );
+  // Every seat keeps its pill mounted. On a turn change, the pill changes
+  // state in place instead of the old active pill disappearing while a new
+  // one is created in another battlefield.
+  readonly turnStatus = computed<GridTurnStatus | null>(() => {
+    const distance = this.turnDistance();
+    const isActive = this.isTurnOwner();
+    if (distance === null || (!isActive && this.playerCount() <= 2)) {
+      return null;
+    }
+
+    return {
+      distance,
+      isActive,
+      key: isActive ? 'active' : `upcoming-${distance}`,
+    };
+  });
   readonly reportSize = (rect: BattlefieldLayoutRect): void => {
     this.battlefieldSizeChanged.emit({ playerId: this.playerSeat().player.id, rect });
   };
@@ -62,10 +86,23 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
     battlefieldVerticallyInverted: this.isTopRow(),
     isTurnOwner: this.isTurnOwner(),
     handPosition: this.isTopRow() ? 'top' : 'bottom',
+    zoneCompact: !this.useSquareZonePresentation(),
     reportSize: this.reportSize,
   }));
 
   ngAfterViewInit(): void {
+    const playerCell = this.host.nativeElement.querySelector<HTMLElement>('.player-cell');
+    const playerGrid = this.host.nativeElement.closest<HTMLElement>('.player-grid');
+    if (playerGrid && typeof ResizeObserver !== 'undefined') {
+      this.layoutResizeObserver = new ResizeObserver(([entry]) => {
+        if (entry) {
+          this.syncZonePresentation(entry.contentRect.height);
+        }
+      });
+      this.layoutResizeObserver.observe(playerGrid);
+      this.syncZonePresentation(playerGrid.getBoundingClientRect().height);
+    }
+
     const battlefield = this.host.nativeElement.querySelector<HTMLElement>('.player-cell-battlefield');
     if (!battlefield || typeof MutationObserver === 'undefined') {
       return;
@@ -79,6 +116,14 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
       attributeFilter: ['class', 'style'],
     });
     this.scheduleSummaryCollisionCheck();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const turnStatusChanged = [changes['isTurnOwner'], changes['turnDistance']]
+      .some((change) => change !== undefined && !change.firstChange);
+    if (turnStatusChanged) {
+      this.scheduleTurnStatusAnimation();
+    }
   }
 
   ngDoCheck(): void {
@@ -102,10 +147,17 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
   ngOnDestroy(): void {
     this.battlefieldMutationObserver?.disconnect();
     this.battlefieldMutationObserver = null;
+    this.layoutResizeObserver?.disconnect();
+    this.layoutResizeObserver = null;
     if (this.collisionCheckFrame !== null) {
       window.cancelAnimationFrame(this.collisionCheckFrame);
       this.collisionCheckFrame = null;
     }
+    if (this.turnStatusAnimationFrame !== null) {
+      window.cancelAnimationFrame(this.turnStatusAnimationFrame);
+      this.turnStatusAnimationFrame = null;
+    }
+    gsap.killTweensOf(this.turnStatusElements());
   }
 
   @HostListener('window:pointermove')
@@ -124,6 +176,67 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnDestroy 
     return this.playerSeat().player.state.zones.battlefield
       .map((card) => `${card.instanceId}:${card.position?.x ?? ''}:${card.position?.y ?? ''}:${card.position?.unit ?? ''}`)
       .join('|');
+  }
+
+  private syncZonePresentation(cellHeight: number): void {
+    const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const useSquarePresentation = cellHeight <= rootFontSize * 60;
+    if (this.useSquareZonePresentation() !== useSquarePresentation) {
+      this.ngZone.run(() => this.useSquareZonePresentation.set(useSquarePresentation));
+    }
+  }
+
+  private scheduleTurnStatusAnimation(): void {
+    if (this.prefersReducedMotion()) {
+      return;
+    }
+    if (this.turnStatusAnimationFrame !== null) {
+      window.cancelAnimationFrame(this.turnStatusAnimationFrame);
+    }
+
+    this.turnStatusAnimationFrame = window.requestAnimationFrame(() => {
+      this.turnStatusAnimationFrame = null;
+      const pill = this.host.nativeElement.querySelector<HTMLElement>('.player-cell-turn-status');
+      const content = pill?.querySelector<HTMLElement>('.player-cell-turn-status-content');
+      if (!pill || !content) {
+        return;
+      }
+
+      this.ngZone.runOutsideAngular(() => {
+        gsap.killTweensOf([pill, content]);
+        gsap.timeline()
+          .fromTo(
+            pill,
+            { filter: 'brightness(0.9) saturate(0.78)' },
+            { filter: 'brightness(1.24) saturate(1.18)', duration: 0.14, ease: 'power2.out', yoyo: true, repeat: 1, clearProps: 'filter' },
+          )
+          .fromTo(
+            content,
+            { autoAlpha: 0, x: -10, y: 4, scale: 0.82, filter: 'blur(4px)' },
+            {
+              autoAlpha: 1,
+              x: 0,
+              y: 0,
+              scale: 1,
+              filter: 'blur(0px)',
+              duration: 0.56,
+              ease: 'back.out(1.6)',
+              clearProps: 'transform,opacity,visibility,filter',
+            },
+            0,
+          );
+      });
+    });
+  }
+
+  private turnStatusElements(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(
+      '.player-cell-turn-status, .player-cell-turn-status-content',
+    ));
+  }
+
+  private prefersReducedMotion(): boolean {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   }
 
   private scheduleSummaryCollisionCheck(): void {

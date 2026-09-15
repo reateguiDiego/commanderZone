@@ -828,9 +828,9 @@
 
 .hand-area.compact-cell {
   @include compact.hand-surface;
-  --hand-card-row-width: 4.3rem;
-  --hand-card-row-step: 3.7rem;
-  --hand-card-preview-height: 6rem;
+  --hand-card-row-width: var(--grid-hand-card-width, 4.3rem);
+  --hand-card-row-step: calc(var(--hand-card-row-width) - var(--grid-hand-card-overlap, 0.6rem));
+  --hand-card-preview-height: var(--grid-hand-card-preview-height, 6rem);
   --hand-hidden-offset: 0rem;
   --hand-row-card-drop: 0.3rem;
   --hand-reveal-offset: 0rem;

@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} a créé une copie du jeton."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} est devenu le monarque.", "passed": "{{ actor }} a donné la monarchie à {{ player }}.", "removed": "{{ actor }} a retiré la désignation de monarque." },
+      "initiative": { "claimed": "{{ player }} a pris l'initiative.", "passed": "{{ actor }} a donné l'initiative à {{ player }}.", "removed": "{{ actor }} a retiré l'initiative." },
+      "citysBlessing": { "granted": "{{ player }} a reçu la bénédiction de la cité.", "removed": "{{ actor }} a retiré la bénédiction de la cité à {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} a démarré le cycle jour/nuit de jour.", "startedNight": "{{ actor }} a démarré le cycle jour/nuit de nuit.", "setDay": "{{ actor }} a réglé l'état jour/nuit sur le jour.", "setNight": "{{ actor }} a réglé l'état jour/nuit sur la nuit.", "removed": "{{ actor }} a retiré jour/nuit." },
+      "ring": { "created": "{{ player }} a reçu l'Anneau.", "removed": "{{ actor }} a retiré l'Anneau." },
+      "dungeon": { "entered": "{{ player }} est entré dans {{ cardName }}.", "advanced": "{{ actor }} a progressé dans un donjon.", "removed": "{{ actor }} a retiré le donjon {{ cardName }}." },
+      "emblem": { "created": "{{ player }} a créé l'emblème {{ cardName }}.", "removed": "{{ actor }} a retiré l'emblème {{ cardName }}." },
+      "helper": { "created": "{{ actor }} a ajouté une mécanique de jeu.", "updated": "{{ actor }} a mis à jour une mécanique de jeu.", "removed": "{{ actor }} a retiré une mécanique de jeu." }
+    },
     "game": {
       "concede": "{{ player }} accordé."
     },

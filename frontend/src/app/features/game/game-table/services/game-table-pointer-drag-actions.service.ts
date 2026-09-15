@@ -16,7 +16,7 @@ import {
   landStackDropTarget,
   landStackGroupContaining,
 } from '../utils/land-stack';
-import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
+import { BattlefieldCardSize } from '../utils/battlefield-position';
 import { GameTableMotionService } from './game-table-motion.service';
 import {
   AttachmentStackDetachSource,
@@ -40,6 +40,7 @@ export interface GameTablePointerDragActionContext {
   isManaLaneHighlighted(playerId: string): boolean;
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  battlefieldCardSize(playerId: string): BattlefieldCardSize;
   stackDropOverlapRatio?(): number | null;
   landStackDetachSource(): LandStackDetachSource | null;
   attachmentStackDetachSource(): AttachmentStackDetachSource | null;
@@ -92,7 +93,7 @@ export class GameTablePointerDragActionsService {
 
     if (draggingWholeLandStack && (targetPlayerId || !drag.dropZone || drag.dropZone === 'battlefield')) {
       const stackPosition = context.isManaLaneHighlighted(drag.playerId)
-        ? this.manaLanePositionForDrag(drag.playerId, drag.position)
+        ? this.manaLanePositionForDrag(context, drag.playerId, drag.position)
         : drag.position;
       await this.moveSelectedBattlefieldPositions(context, dragGroup, drag.instanceId, stackPosition, false);
       context.endCardDrag();
@@ -211,10 +212,10 @@ export class GameTablePointerDragActionsService {
     }
 
     const position = manaDrop
-      ? this.manaLanePositionForDrag(drag.playerId, drag.position)
+      ? this.manaLanePositionForDrag(context, drag.playerId, drag.position)
       : isDetachingLandStackCard
         ? detachedManaDrop
-          ? this.manaLanePositionForDrag(drag.playerId, detachedDropPosition)
+          ? this.manaLanePositionForDrag(context, drag.playerId, detachedDropPosition)
           : this.battlefieldDrag.positionWithAlignmentGuide(
             context.battlefieldDragContext(),
             drag.playerId,
@@ -224,7 +225,7 @@ export class GameTablePointerDragActionsService {
           )
         : isDetachingAttachmentStackCard
           ? detachedManaDrop
-            ? this.manaLanePositionForDrag(drag.playerId, detachedAttachmentDropPosition)
+            ? this.manaLanePositionForDrag(context, drag.playerId, detachedAttachmentDropPosition)
             : this.battlefieldDrag.positionWithAlignmentGuide(
               context.battlefieldDragContext(),
               drag.playerId,
@@ -280,13 +281,14 @@ export class GameTablePointerDragActionsService {
       context.cardPosition,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
       context.stackDropOverlapRatio?.() ?? undefined,
+      context.battlefieldCardSize(playerId),
     );
     if (!target) {
       return false;
     }
 
     const stackTopPosition = target.nextSize === 3 && this.battlefieldDrag.isManaLanePosition(playerId, target.targetPosition)
-      ? this.manaLanePositionForDrag(playerId, target.targetPosition)
+      ? this.manaLanePositionForDrag(context, playerId, target.targetPosition)
       : target.targetPosition;
     const moves = createLandStackMoves(target, dragged, stackTopPosition);
     if (moves.length === 0) {
@@ -384,13 +386,14 @@ export class GameTablePointerDragActionsService {
       context.cardPosition,
       attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []),
       context.stackDropOverlapRatio?.() ?? undefined,
+      context.battlefieldCardSize(playerId),
     );
     if (!target || this.isOriginalDetachStackTarget(detachSource, target.targetCard.instanceId)) {
       return false;
     }
 
     const stackTopPosition = target.nextSize === 3 && this.battlefieldDrag.isManaLanePosition(playerId, target.targetPosition)
-      ? this.manaLanePositionForDrag(playerId, target.targetPosition)
+      ? this.manaLanePositionForDrag(context, playerId, target.targetPosition)
       : target.targetPosition;
     const stackMoves = createLandStackMoves(target, dragged, stackTopPosition);
     if (stackMoves.length === 0) {
@@ -490,6 +493,7 @@ export class GameTablePointerDragActionsService {
       draggedPosition,
       context.cardPosition,
       context.stackDropOverlapRatio?.() ?? undefined,
+      context.battlefieldCardSize(playerId),
     ) !== null;
   }
 
@@ -514,6 +518,7 @@ export class GameTablePointerDragActionsService {
       draggedPosition,
       context.cardPosition,
       context.stackDropOverlapRatio?.() ?? undefined,
+      context.battlefieldCardSize(playerId),
     );
     if (!target) {
       return false;
@@ -773,13 +778,14 @@ export class GameTablePointerDragActionsService {
   }
 
   private manaLanePositionForDrag(
+    context: GameTablePointerDragActionContext,
     playerId: string,
     position: { x: number; y: number },
   ): { x: number; y: number } {
     return this.battlefieldDrag.positionWithManaLaneBottom(
       playerId,
       position,
-      DEFAULT_BATTLEFIELD_CARD_SIZE.height,
+      context.battlefieldCardSize(playerId).height,
     );
   }
 

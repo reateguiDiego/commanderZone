@@ -23,6 +23,28 @@
   -webkit-touch-callout: none;
 }
 
+// In Grid the summary is a sibling of the battlefield. Do not trap the
+// mechanics overlay in the battlefield's base stacking context: its own
+// z-index must be able to clear the summary while ordinary cards stay below.
+:host-context(.player-cell) .battlefield {
+  z-index: auto;
+}
+
+// A lifted battlefield card must clear Grid's reduced player summary. The
+// battlefield is normally a lower stacking context, so raise it only for the
+// active hover; the card's own z-index still remains above mechanics cards.
+.battlefield:has(.game-card.battlefield-preview-active) {
+  z-index: 40;
+}
+
+.battlefield-card-size-probe {
+  position: absolute;
+  width: var(--game-card-view-width);
+  aspect-ratio: 0.716;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .drop-target-active {
   box-shadow: inset 0 0 0 2px var(--game-accent);
 }

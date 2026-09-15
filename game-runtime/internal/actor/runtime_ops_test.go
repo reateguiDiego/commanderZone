@@ -145,6 +145,79 @@ func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
 	}
 }
 
+func TestGameMechanicCommandsEmitTranslatedSemanticLogEntries(t *testing.T) {
+	game := testState()
+	cases := []struct {
+		name    string
+		command string
+		payload map[string]any
+		key     string
+	}{
+		{"monarch claimed", "helper.created", map[string]any{"template": "monarch", "ownerPlayerId": "p1"}, "gameLog.mechanic.monarch.claimed"},
+		{"monarch passed", "helper.created", map[string]any{"template": "monarch", "ownerPlayerId": "p2"}, "gameLog.mechanic.monarch.passed"},
+		{"monarch removed", "helper.removed", map[string]any{"template": "monarch", "ownerPlayerId": "p1"}, "gameLog.mechanic.monarch.removed"},
+		{"initiative claimed", "helper.created", map[string]any{"template": "initiative", "ownerPlayerId": "p1"}, "gameLog.mechanic.initiative.claimed"},
+		{"initiative passed", "helper.created", map[string]any{"template": "initiative", "ownerPlayerId": "p2"}, "gameLog.mechanic.initiative.passed"},
+		{"initiative removed", "helper.removed", map[string]any{"template": "initiative", "ownerPlayerId": "p1"}, "gameLog.mechanic.initiative.removed"},
+		{"city blessing granted", "helper.created", map[string]any{"template": "citys_blessing", "ownerPlayerId": "p1"}, "gameLog.mechanic.citysBlessing.granted"},
+		{"city blessing removed", "helper.removed", map[string]any{"template": "citys_blessing", "ownerPlayerId": "p1"}, "gameLog.mechanic.citysBlessing.removed"},
+		{"day night started", "helper.created", map[string]any{"template": "day_night", "state": map[string]any{"mode": "day"}}, "gameLog.mechanic.dayNight.startedDay"},
+		{"day night started at night", "helper.created", map[string]any{"template": "day_night", "state": map[string]any{"mode": "night"}}, "gameLog.mechanic.dayNight.startedNight"},
+		{"day night set", "helper.updated", map[string]any{"template": "day_night", "state": map[string]any{"mode": "day"}}, "gameLog.mechanic.dayNight.setDay"},
+		{"day night set to night", "helper.updated", map[string]any{"template": "day_night", "state": map[string]any{"mode": "night"}}, "gameLog.mechanic.dayNight.setNight"},
+		{"day night removed", "helper.removed", map[string]any{"template": "day_night"}, "gameLog.mechanic.dayNight.removed"},
+		{"ring", "card.token.created", map[string]any{"playerId": "p1", "name": "The Ring // The Ring Tempts You"}, "gameLog.mechanic.ring.created"},
+		{"dungeon", "card.token.created", map[string]any{"playerId": "p1", "name": "Undercity", "tokenMeta": map[string]any{"flags": map[string]any{"isDungeon": true}}}, "gameLog.mechanic.dungeon.entered"},
+		{"dungeon advanced", "card.dungeon_marker.changed", map[string]any{"playerId": "p1"}, "gameLog.mechanic.dungeon.advanced"},
+		{"emblem", "card.token.created", map[string]any{"playerId": "p1", "name": "Chandra Emblem", "tokenMeta": map[string]any{"flags": map[string]any{"isEmblem": true}}}, "gameLog.mechanic.emblem.created"},
+	}
+
+	for index, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			command := protocol.CommandEnvelopeV2{
+				GameID:         "game-1",
+				ClientActionID: fmt.Sprintf("mechanic-log-%d", index),
+				Type:           testCase.command,
+				Payload:        testCase.payload,
+			}
+			entries := runtimeEventLogEntries(&game, command, testCase.payload, "p1", 2, time.Now())
+			if len(entries) != 1 {
+				t.Fatalf("entries = %#v, want one log entry", entries)
+			}
+			if entries[0]["i18nKey"] != testCase.key {
+				t.Fatalf("i18nKey = %#v, want %q", entries[0]["i18nKey"], testCase.key)
+			}
+		})
+	}
+}
+
+func TestHelperCommandsAppendGameLogPatches(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	created := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "citys-blessing-create", "helper.created", map[string]any{
+		"template":      "citys_blessing",
+		"scope":         "player",
+		"ownerPlayerId": "p1",
+	}), "p1")
+	if created.Err != nil {
+		t.Fatalf("helper create failed: %v", created.Err)
+	}
+	createEntry := requireRuntimeLogEntry(t, created)
+	if createEntry["i18nKey"] != "gameLog.mechanic.citysBlessing.granted" {
+		t.Fatalf("create log = %#v", createEntry)
+	}
+
+	removed := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "citys-blessing-remove", "helper.removed", map[string]any{
+		"entityId": "helper-citys-blessing-create",
+	}), "p1")
+	if removed.Err != nil {
+		t.Fatalf("helper remove failed: %v", removed.Err)
+	}
+	removeEntry := requireRuntimeLogEntry(t, removed)
+	if removeEntry["i18nKey"] != "gameLog.mechanic.citysBlessing.removed" {
+		t.Fatalf("remove log = %#v", removeEntry)
+	}
+}
+
 func TestDiceRolledEmitsServerResultPatchAndGameLog(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dice-d20", "dice.rolled", map[string]any{
@@ -3841,6 +3914,119 @@ func TestHelpersCreateUpdateRemoveWithoutStaticPayload(t *testing.T) {
 	}
 	if len(gameActor.Snapshot().Relations.Helpers) != 0 {
 		t.Fatalf("helper not removed: %#v", gameActor.Snapshot().Relations.Helpers)
+	}
+}
+
+func TestCurrentMonarchCanPassItToAnotherPlayer(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	claimed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "monarch-claimed", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p1")
+	if claimed.Err != nil {
+		t.Fatalf("claiming monarch failed: %v", claimed.Err)
+	}
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "monarch-passed", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p2",
+	}), "p1")
+	if passed.Err != nil {
+		t.Fatalf("passing monarch failed: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing monarch helper update patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected one global designation, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p2" {
+			t.Fatalf("monarch owner got %q want p2", ownerPlayerID)
+		}
+	}
+
+	rejected := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "monarch-unauthorized", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p2",
+	}), "p1")
+	if !errors.Is(rejected.Err, ErrActorPermission) {
+		t.Fatalf("non-holder should not pass monarch, got %v", rejected.Err)
+	}
+}
+
+func TestCurrentMonarchCanPassAndConsolidatesLegacyDuplicates(t *testing.T) {
+	game := testState()
+	game.Relations.Helpers = map[string]state.Relation{
+		"helper-monarch-p1":  {ID: "helper-monarch-p1", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p1"}},
+		"helper-monarch-p2":  {ID: "helper-monarch-p2", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p2"}},
+		"helper-monarch-old": {ID: "helper-monarch-old", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p1"}},
+	}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "monarch-passed-legacy", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p2")
+	if passed.Err != nil {
+		t.Fatalf("legacy monarch holder could not pass: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing monarch helper update patch: %#v", passed.Patches)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.remove"); patch == nil {
+		t.Fatalf("missing legacy monarch cleanup patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected legacy monarchs to consolidate, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p1" {
+			t.Fatalf("monarch owner got %q want p1", ownerPlayerID)
+		}
+	}
+}
+
+func TestCurrentInitiativeHolderCanPassAndConsolidatesLegacyDuplicates(t *testing.T) {
+	game := testState()
+	game.Relations.Helpers = map[string]state.Relation{
+		"helper-initiative-p1":  {ID: "helper-initiative-p1", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p1"}},
+		"helper-initiative-p2":  {ID: "helper-initiative-p2", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p2"}},
+		"helper-initiative-old": {ID: "helper-initiative-old", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p1"}},
+	}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "initiative-passed-legacy", "helper.created", map[string]any{
+		"template":      "initiative",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p2")
+	if passed.Err != nil {
+		t.Fatalf("legacy initiative holder could not pass: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing initiative helper update patch: %#v", passed.Patches)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.remove"); patch == nil {
+		t.Fatalf("missing legacy initiative cleanup patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected legacy initiatives to consolidate, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p1" {
+			t.Fatalf("initiative owner got %q want p1", ownerPlayerID)
+		}
 	}
 }
 

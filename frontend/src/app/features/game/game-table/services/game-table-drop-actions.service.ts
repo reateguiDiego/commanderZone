@@ -4,6 +4,7 @@ import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.
 import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../utils/attachment-stack';
 import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { createLandStackMoves, landStackDropTarget } from '../utils/land-stack';
+import { BattlefieldCardSize } from '../utils/battlefield-position';
 import { GameTableDragService } from './game-table-drag.service';
 
 export interface PendingBattlefieldMove {
@@ -35,6 +36,7 @@ export interface GameTableDropActionContext {
   suppressCardPreview(): void;
   setError(message: string): void;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  battlefieldCardSize(playerId: string): BattlefieldCardSize;
   stackDropOverlapRatio?(): number | null;
   snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
@@ -98,9 +100,18 @@ export class GameTableDropActionsService {
       ...(isMultiMove ? { instanceIds } : { instanceId: dragged.instanceId }),
     };
     const rawDropZone = this.rawDropZone(event);
-    const dropPosition = this.drag.dropPosition(event, toZone);
+    const dropGeometry = this.drag.dropGeometry(event, toZone);
+    const dropPosition = dropGeometry?.position ?? null;
     const battlefieldRelationMove = dropPosition
-      ? this.battlefieldRelationMove(context, dragged, movedCards[0] ?? null, targetPlayerId, toZone, dropPosition)
+      ? this.battlefieldRelationMove(
+        context,
+        dragged,
+        movedCards[0] ?? null,
+        targetPlayerId,
+        toZone,
+        dropPosition,
+        dropGeometry?.cardSize ?? context.battlefieldCardSize(targetPlayerId),
+      )
       : null;
     if (dropPosition) {
       payload['position'] = battlefieldRelationMove
@@ -465,6 +476,7 @@ export class GameTableDropActionsService {
     targetPlayerId: string,
     toZone: GameZoneName,
     dropPosition: { x: number; y: number },
+    cardSize: BattlefieldCardSize,
   ): { readonly kind: 'land' | 'attachment'; readonly position: GameCardPosition; readonly targetInstanceId?: string } | null {
     if (
       toZone !== 'battlefield'
@@ -495,6 +507,7 @@ export class GameTableDropActionsService {
       positionFor,
       attachmentRelationInstanceIds(snapshot?.attachments ?? []),
       context.stackDropOverlapRatio?.() ?? undefined,
+      cardSize,
     );
     if (landTarget) {
       const moves = createLandStackMoves(landTarget, droppedCard);
@@ -513,6 +526,7 @@ export class GameTableDropActionsService {
       dropPosition,
       positionFor,
       context.stackDropOverlapRatio?.() ?? undefined,
+      cardSize,
     );
     if (!attachmentTarget) {
       return null;

@@ -248,6 +248,7 @@ export class GameTableContextStore {
       selectedCards: () => this.selectedCards(),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
     };
@@ -290,6 +291,7 @@ export class GameTableContextStore {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
@@ -321,6 +323,7 @@ export class GameTableContextStore {
       battlefieldDragContext: () => this.battlefieldDrag(),
       pointerDragActionContext: () => this.pointerDragAction(),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
@@ -357,6 +360,7 @@ export class GameTableContextStore {
       playerName: (playerId) => this.playersStore.playerName(playerId),
       battlefieldDragContext: () => this.battlefieldDrag(),
       stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
+      battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       moveLocalCardsFromHandToBattlefield: (playerId, targetPlayerId, movedInstanceIds, position) =>
@@ -398,6 +402,7 @@ export class GameTableContextStore {
       isManaLaneHighlighted: (playerId) => this.dragDropStore.isManaLaneHighlighted(playerId),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
       landStackDetachSource: () => this.dragDropStore.landStackDetachSource(),
       attachmentStackDetachSource: () => this.dragDropStore.attachmentStackDetachSource(),

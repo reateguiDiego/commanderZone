@@ -475,13 +475,15 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       : position;
   }
 
-  displayedAlignmentGuideY(y: number): number {
+  displayedAlignmentGuideY(y: number, referenceInstanceIds: readonly string[]): number {
     if (!this.verticallyInverted()) {
       return y;
     }
 
     const battlefieldHeight = this.battlefieldHeight();
-    return battlefieldHeight > 0 ? Math.max(0, Math.round(battlefieldHeight - y)) : y;
+    const referenceCardHeight = this.measuredCardSize(referenceInstanceIds[0] ?? '').height;
+
+    return battlefieldHeight > 0 ? Math.max(0, Math.round(battlefieldHeight - referenceCardHeight - y)) : y;
   }
 
   isLandStackDropTarget(playerId: string, card: GameCardInstance): boolean {

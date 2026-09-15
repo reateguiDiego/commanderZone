@@ -845,10 +845,14 @@
   overflow: hidden;
   .zone-stack {
     min-width: 0;
+    min-height: 0;
+    height: 100%;
     overflow: hidden;
     padding: 0.18rem;
   }
   [data-testid="zone-pile"] {
+    min-height: 0;
+    height: 100%;
     gap: 0.04rem;
     align-content: center;
   }
@@ -868,6 +872,23 @@
     height: 1.12rem;
     font-size: 0.62rem;
   }
+}
+
+// The upper Grid row is the opposite side of the table. Its horizontal dock
+// already swaps sides with the hand; turn its contents too so the whole row
+// is the 180-degree counterpart of the bottom player. Vertical Grid docks
+// keep their existing presentation.
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) {
+  transform: rotate(180deg);
+  transform-origin: 50% 50%;
+}
+
+// Zone cards follow the upper player's orientation, while dock labels and
+// counters remain readable for the local viewer.
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-pile-label,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-count-badge,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .commander-cast-count {
+  transform: rotate(180deg);
 }
 
 .zone-dock.compact-cell.is-turn-active {

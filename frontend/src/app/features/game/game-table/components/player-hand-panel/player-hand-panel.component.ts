@@ -8,6 +8,7 @@ import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget 
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
 import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
+import { measuredBattlefieldCardSize } from '../../utils/battlefield-position';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -617,10 +618,15 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     const target = this.handPointerSourceElement(event);
     target?.setPointerCapture?.(event.pointerId);
     const bounds = visualBounds;
-    const cardWidth = bounds?.width || 103;
-    const cardHeight = bounds?.height || 144;
-    const offsetX = bounds && bounds.width > 0 ? Math.max(0, Math.min(cardWidth, event.clientX - bounds.left)) : cardWidth / 2;
-    const offsetY = bounds && bounds.height > 0 ? Math.max(0, Math.min(cardHeight, event.clientY - bounds.top)) : cardHeight / 2;
+    const cardSize = this.battlefieldCardSizeFor(playerId);
+    const cardWidth = cardSize.width;
+    const cardHeight = cardSize.height;
+    const offsetX = bounds && bounds.width > 0
+      ? Math.max(0, Math.min(cardWidth, ((event.clientX - bounds.left) / bounds.width) * cardWidth))
+      : cardWidth / 2;
+    const offsetY = bounds && bounds.height > 0
+      ? Math.max(0, Math.min(cardHeight, ((event.clientY - bounds.top) / bounds.height) * cardHeight))
+      : cardHeight / 2;
     this.clearReorderPreviewTimer();
     this.keepHandRevealedDuringOwnPointerDrag();
     this.cardPreviewHidden.emit();
@@ -843,6 +849,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
   private canInteractWithHandCard(card: GameCardInstance): boolean {
     return !this.readOnly() && card.hidden !== true;
+  }
+
+  private battlefieldCardSizeFor(playerId: string): { width: number; height: number } {
+    const battlefield = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
+      .find((element) => element.dataset['playerId'] === playerId)
+      ?? null;
+
+    return measuredBattlefieldCardSize(battlefield);
   }
 
   private visualHandCards(cards: readonly GameCardInstance[], playerId: string): readonly GameCardInstance[] {

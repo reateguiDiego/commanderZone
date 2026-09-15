@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameTableBattlefieldDragState } from '../state/drag-drop/game-table-battlefield-drag.state';
-import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
+import { BattlefieldCardSize, DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
 import { buildAttachmentStackGroups } from '../utils/attachment-stack';
 import { canDropCardsOnZone, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { buildLandStackGroups } from '../utils/land-stack';
@@ -31,6 +31,7 @@ export interface GameTableBattlefieldDragContext {
   selectedCards(): readonly BattlefieldDragSelection[];
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  battlefieldCardSize(playerId: string): BattlefieldCardSize;
   updateLocalCardPosition(playerId: string, instanceId: string, position: { x: number; y: number }): void;
 }
 
@@ -65,10 +66,11 @@ export class GameTableBattlefieldDragCoordinatorService {
     const card = context.findCard(selected.playerId, 'battlefield', instanceId);
     const position = card ? context.cardPosition(card) : null;
 
-    if (this.isCardTopNearManaLane(event, selected.playerId, instanceId, position)) {
+    const cardSize = context.battlefieldCardSize(selected.playerId);
+    if (this.isCardTopNearManaLane(event, selected.playerId, position, cardSize)) {
       this.state.setManaLaneDropPlayer(selected.playerId);
       this.state.setAlignmentGuide(null);
-      const manaPosition = position ? this.positionWithManaLaneBottom(selected.playerId, position) : null;
+      const manaPosition = position ? this.positionWithManaLaneBottom(selected.playerId, position, cardSize.height) : null;
       if (manaPosition) {
         context.updateLocalCardPosition(selected.playerId, instanceId, manaPosition);
       }
@@ -442,8 +444,8 @@ export class GameTableBattlefieldDragCoordinatorService {
   private isCardTopNearManaLane(
     event: PointerEvent,
     playerId: string,
-    instanceId: string,
     position: { x: number; y: number } | null | undefined,
+    cardSize: BattlefieldCardSize,
   ): boolean {
     if (!position) {
       return false;
@@ -461,12 +463,9 @@ export class GameTableBattlefieldDragCoordinatorService {
 
     const bounds = manaLane.getBoundingClientRect();
     const battlefieldBounds = battlefield.getBoundingClientRect();
-    const cardElement = Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"]'))
-      .find((element) => element.dataset['cardInstanceId'] === instanceId);
-    const cardWidth = cardElement?.offsetWidth || cardElement?.getBoundingClientRect().width || 116;
     const cardLeft = battlefieldBounds.left + position.x;
     const cardTop = battlefieldBounds.top + position.y;
-    const horizontalOverlap = cardLeft + cardWidth >= bounds.left && cardLeft <= bounds.right;
+    const horizontalOverlap = cardLeft + cardSize.width >= bounds.left && cardLeft <= bounds.right;
     const topEdgeMagnetDistance = 12;
     const topEdgeInLaneBand = cardTop >= bounds.top - topEdgeMagnetDistance && cardTop <= bounds.bottom;
 

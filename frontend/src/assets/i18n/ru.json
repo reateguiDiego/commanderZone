@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} создал копию токена."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} стал монархом.", "passed": "{{ actor }} передал монархию игроку {{ player }}.", "removed": "{{ actor }} удалил статус монарха." },
+      "initiative": { "claimed": "{{ player }} получил инициативу.", "passed": "{{ actor }} передал инициативу игроку {{ player }}.", "removed": "{{ actor }} удалил инициативу." },
+      "citysBlessing": { "granted": "{{ player }} получил благословение города.", "removed": "{{ actor }} удалил благословение города игрока {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} запустил цикл день/ночь с дня.", "startedNight": "{{ actor }} запустил цикл день/ночь с ночи.", "setDay": "{{ actor }} сменил состояние день/ночь на день.", "setNight": "{{ actor }} сменил состояние день/ночь на ночь.", "removed": "{{ actor }} удалил день/ночь." },
+      "ring": { "created": "{{ player }} получил Кольцо.", "removed": "{{ actor }} удалил Кольцо." },
+      "dungeon": { "entered": "{{ player }} вошёл в {{ cardName }}.", "advanced": "{{ actor }} продвинулся в подземелье.", "removed": "{{ actor }} удалил подземелье {{ cardName }}." },
+      "emblem": { "created": "{{ player }} создал эмблему {{ cardName }}.", "removed": "{{ actor }} удалил эмблему {{ cardName }}." },
+      "helper": { "created": "{{ actor }} добавил игровую механику.", "updated": "{{ actor }} обновил игровую механику.", "removed": "{{ actor }} удалил игровую механику." }
+    },
     "game": {
       "concede": "{{ player }} предоставлен."
     },

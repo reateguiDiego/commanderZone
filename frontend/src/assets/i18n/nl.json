@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} werd de monarch.", "passed": "{{ actor }} gaf het monarchschap aan {{ player }}.", "removed": "{{ actor }} heeft de monarch-aanduiding verwijderd." },
+      "initiative": { "claimed": "{{ player }} nam het initiatief.", "passed": "{{ actor }} gaf het initiatief aan {{ player }}.", "removed": "{{ actor }} heeft het initiatief verwijderd." },
+      "citysBlessing": { "granted": "{{ player }} ontving de zegen van de stad.", "removed": "{{ actor }} heeft de zegen van de stad van {{ player }} verwijderd." },
+      "dayNight": { "startedDay": "{{ actor }} heeft de dag/nachtcyclus overdag gestart.", "startedNight": "{{ actor }} heeft de dag/nachtcyclus 's nachts gestart.", "setDay": "{{ actor }} heeft de dag/nachtstatus op dag gezet.", "setNight": "{{ actor }} heeft de dag/nachtstatus op nacht gezet.", "removed": "{{ actor }} heeft dag/nacht verwijderd." },
+      "ring": { "created": "{{ player }} ontving de Ring.", "removed": "{{ actor }} heeft de Ring verwijderd." },
+      "dungeon": { "entered": "{{ player }} betrad {{ cardName }}.", "advanced": "{{ actor }} ging verder in een kerker.", "removed": "{{ actor }} heeft de kerker {{ cardName }} verwijderd." },
+      "emblem": { "created": "{{ player }} maakte het embleem {{ cardName }}.", "removed": "{{ actor }} heeft het embleem {{ cardName }} verwijderd." },
+      "helper": { "created": "{{ actor }} heeft een spelmechaniek toegevoegd.", "updated": "{{ actor }} heeft een spelmechaniek bijgewerkt.", "removed": "{{ actor }} heeft een spelmechaniek verwijderd." }
+    },
     "game": {
       "concede": "{{ player }} toegekend."
     },

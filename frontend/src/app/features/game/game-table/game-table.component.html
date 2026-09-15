@@ -236,10 +236,10 @@
         (cardPreviewHidden)="store.hideCardPreview()"
       />
     </ng-template>
-    <ng-template #zonesRegion let-player let-grid="grid" let-isTurnOwner="isTurnOwner">
+    <ng-template #zonesRegion let-player let-grid="grid" let-isTurnOwner="isTurnOwner" let-zoneCompact="zoneCompact">
       <app-zone-piles-panel
         [player]="player"
-        [compact]="grid"
+        [compact]="grid && zoneCompact !== false"
         [isTurnActive]="grid && isTurnOwner === true"
         [zones]="store.dockZones"
         [colorAccent]="colorAccent"

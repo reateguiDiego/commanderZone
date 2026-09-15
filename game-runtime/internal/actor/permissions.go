@@ -89,6 +89,9 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 			return ErrActorPermission
 		}
 	}
+	if command.Type == "helper.created" && a.canCreateGlobalDesignation(command.Payload, actorID) {
+		return nil
+	}
 	if key, ok := ownPlayerPayloadCommands[command.Type]; ok {
 		if command.Type == "library.shuffle" && command.Payload["reason"] == "revealed-library-closed" {
 			return nil
@@ -123,6 +126,26 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 		return err
 	}
 	return nil
+}
+
+// canCreateGlobalDesignation mirrors the manual-table rule used by the PHP
+// command handler: a player may claim an unassigned designation for themselves,
+// or its current holder may pass it to another player.
+func (a *GameActor) canCreateGlobalDesignation(payload map[string]any, actorID string) bool {
+	template := strings.TrimSpace(optionalString(payload, "template"))
+	if !isGlobalDesignationTemplate(template) {
+		return false
+	}
+
+	targetPlayerID := strings.TrimSpace(optionalString(payload, "ownerPlayerId"))
+	if targetPlayerID == "" {
+		targetPlayerID = actorID
+	}
+	if targetPlayerID == actorID {
+		return true
+	}
+
+	return actorOwnsGlobalDesignation(a.state, template, actorID)
 }
 
 func (a *GameActor) requirePayloadPlayer(payload map[string]any, key string, actorID string) error {

@@ -848,8 +848,10 @@
 }
 
 .table-surface.layout-grid {
+  --grid-layout-main-top-height: calc(var(--game-log-overlay-peek-height) * 0.5);
+
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: calc(var(--game-log-overlay-peek-height) * 0.5) minmax(0, 1fr);
+  grid-template-rows: var(--grid-layout-main-top-height) minmax(0, 1fr);
   grid-template-areas: "mainTop" "board";
   // Keep only the clearance required by the active-turn fuse outside each cell.
   padding-bottom: 5px;

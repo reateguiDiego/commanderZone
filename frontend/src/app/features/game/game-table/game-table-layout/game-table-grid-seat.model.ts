@@ -32,6 +32,8 @@ export interface PlayerRegionContext {
   readonly battlefieldVerticallyInverted?: boolean;
   readonly isTurnOwner?: boolean;
   readonly handPosition?: 'top' | 'bottom';
+  /** When false, the zones render with Square's regular horizontal presentation. */
+  readonly zoneCompact?: boolean;
   readonly reportSize?: (rect: BattlefieldLayoutRect) => void;
 }
 

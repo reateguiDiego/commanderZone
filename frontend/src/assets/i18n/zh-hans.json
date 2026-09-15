@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} 创建了令牌副本。"
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} 成为了君主。", "passed": "{{ actor }} 将君主身份交给了 {{ player }}。", "removed": "{{ actor }} 移除了君主身份。" },
+      "initiative": { "claimed": "{{ player }} 获得了先手。", "passed": "{{ actor }} 将先手交给了 {{ player }}。", "removed": "{{ actor }} 移除了先手。" },
+      "citysBlessing": { "granted": "{{ player }} 获得了城市的祝福。", "removed": "{{ actor }} 移除了 {{ player }} 的城市祝福。" },
+      "dayNight": { "startedDay": "{{ actor }} 以白天开始了昼夜循环。", "startedNight": "{{ actor }} 以夜晚开始了昼夜循环。", "setDay": "{{ actor }} 将昼夜状态改为白天。", "setNight": "{{ actor }} 将昼夜状态改为夜晚。", "removed": "{{ actor }} 移除了昼夜状态。" },
+      "ring": { "created": "{{ player }} 获得了至尊戒。", "removed": "{{ actor }} 移除了至尊戒。" },
+      "dungeon": { "entered": "{{ player }} 进入了 {{ cardName }}。", "advanced": "{{ actor }} 在地下城中前进。", "removed": "{{ actor }} 移除了地下城 {{ cardName }}。" },
+      "emblem": { "created": "{{ player }} 创建了徽记 {{ cardName }}。", "removed": "{{ actor }} 移除了徽记 {{ cardName }}。" },
+      "helper": { "created": "{{ actor }} 添加了游戏机制。", "updated": "{{ actor }} 更新了游戏机制。", "removed": "{{ actor }} 移除了游戏机制。" }
+    },
     "game": {
       "concede": "授予 {{ player }}。"
     },

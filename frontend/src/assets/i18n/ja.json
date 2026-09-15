@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} がトークンのコピーを作成しました。"
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} が統治者になりました。", "passed": "{{ actor }} が {{ player }} に統治者を譲りました。", "removed": "{{ actor }} が統治者の指定を取り除きました。" },
+      "initiative": { "claimed": "{{ player }} がイニシアチブを得ました。", "passed": "{{ actor }} が {{ player }} にイニシアチブを譲りました。", "removed": "{{ actor }} がイニシアチブを取り除きました。" },
+      "citysBlessing": { "granted": "{{ player }} が都市の承認を得ました。", "removed": "{{ actor }} が {{ player }} の都市の承認を取り除きました。" },
+      "dayNight": { "startedDay": "{{ actor }} が昼/夜サイクルを昼として開始しました。", "startedNight": "{{ actor }} が昼/夜サイクルを夜として開始しました。", "setDay": "{{ actor }} が昼/夜の状態を昼に変更しました。", "setNight": "{{ actor }} が昼/夜の状態を夜に変更しました。", "removed": "{{ actor }} が昼/夜を取り除きました。" },
+      "ring": { "created": "{{ player }} が指輪を受け取りました。", "removed": "{{ actor }} が指輪を取り除きました。" },
+      "dungeon": { "entered": "{{ player }} が {{ cardName }} に入りました。", "advanced": "{{ actor }} がダンジョンを進みました。", "removed": "{{ actor }} がダンジョン {{ cardName }} を取り除きました。" },
+      "emblem": { "created": "{{ player }} が紋章 {{ cardName }} を作成しました。", "removed": "{{ actor }} が紋章 {{ cardName }} を取り除きました。" },
+      "helper": { "created": "{{ actor }} がゲームメカニズムを追加しました。", "updated": "{{ actor }} がゲームメカニズムを更新しました。", "removed": "{{ actor }} がゲームメカニズムを取り除きました。" }
+    },
     "game": {
       "concede": "{{ player }} が付与されました。"
     },

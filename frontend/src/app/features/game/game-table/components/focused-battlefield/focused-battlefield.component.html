@@ -24,6 +24,7 @@
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
 >
+  <span class="battlefield-card-size-probe" data-battlefield-card-size-probe aria-hidden="true"></span>
   @for (card of battlefieldCards(); track card.instanceId) {
     @let stackPresentation = stackPresentationView(card);
     @let displayPosition = displayedCardPosition(card);
@@ -98,7 +99,7 @@
     />
   }
   @if (activeAlignmentGuide; as guide) {
-    <div class="alignment-guide" [style.top.px]="displayedAlignmentGuideY(guide.y)" aria-hidden="true"></div>
+    <div class="alignment-guide" [style.top.px]="displayedAlignmentGuideY(guide.y, guide.referenceInstanceIds)" aria-hidden="true"></div>
   }
   @if (showManaRow() || (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id))) {
     <div

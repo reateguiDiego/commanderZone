@@ -25,6 +25,17 @@
   pointer-events: none;
 }
 
+// Upper Grid battlefields are locally inverted, so mechanic cards belong on
+// their opposite edge as well. Square and lower Grid battlefields keep top.
+:host-context(.is-top-row) .battlefield-mechanics-overlay {
+  top: auto;
+  bottom: 0;
+}
+
+:host-context(.player-cell) .battlefield-mechanics-overlay {
+  right: var(--grid-mechanics-summary-clearance, 0px);
+}
+
 .battlefield-mechanics-overlay__card {
   flex: 0 0 auto;
   pointer-events: auto;

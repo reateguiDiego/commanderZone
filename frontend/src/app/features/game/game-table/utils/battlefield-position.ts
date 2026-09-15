@@ -58,6 +58,32 @@ export function sameBattlefieldPosition(left: GameCardPosition, right: GameCardP
   return left.x === right.x && left.y === right.y && (left.unit ?? 'pixel') === (right.unit ?? 'pixel');
 }
 
+/**
+ * Returns the layout size of a card on a specific battlefield. The invisible
+ * probe keeps this correct even before that battlefield has a permanent.
+ */
+export function measuredBattlefieldCardSize(
+  battlefield: HTMLElement | null,
+  instanceId?: string,
+): BattlefieldCardSize {
+  const cards = Array.from(battlefield?.querySelectorAll<HTMLElement>(
+    '[data-testid="game-card"][data-card-instance-id]',
+  ) ?? []);
+  const card = cards.find((element) => element.dataset['cardInstanceId'] === instanceId)
+    ?? cards[0]
+    ?? battlefield?.querySelector<HTMLElement>('[data-battlefield-card-size-probe]')
+    ?? null;
+  const bounds = card?.getBoundingClientRect();
+  if (card && bounds && bounds.width > 0 && bounds.height > 0) {
+    return {
+      width: Math.max(1, Math.round(card.offsetWidth || bounds.width)),
+      height: Math.max(1, Math.round(card.offsetHeight || bounds.height)),
+    };
+  }
+
+  return DEFAULT_BATTLEFIELD_CARD_SIZE;
+}
+
 function availableAxis(containerSize: number, cardSize: number): number {
   return Math.max(1, Math.round(containerSize - cardSize));
 }

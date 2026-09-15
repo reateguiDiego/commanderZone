@@ -1254,6 +1254,16 @@
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} became the monarch.", "passed": "{{ actor }} gave the monarch to {{ player }}.", "removed": "{{ actor }} removed the monarch designation." },
+      "initiative": { "claimed": "{{ player }} took the initiative.", "passed": "{{ actor }} gave the initiative to {{ player }}.", "removed": "{{ actor }} removed the initiative." },
+      "citysBlessing": { "granted": "{{ player }} got the city's blessing.", "removed": "{{ actor }} removed {{ player }}'s city's blessing." },
+      "dayNight": { "startedDay": "{{ actor }} started the day/night cycle as day.", "startedNight": "{{ actor }} started the day/night cycle as night.", "setDay": "{{ actor }} changed the day/night state to day.", "setNight": "{{ actor }} changed the day/night state to night.", "removed": "{{ actor }} removed day/night." },
+      "ring": { "created": "{{ player }} received The Ring.", "removed": "{{ actor }} removed The Ring." },
+      "dungeon": { "entered": "{{ player }} entered {{ cardName }}.", "advanced": "{{ actor }} advanced in a dungeon.", "removed": "{{ actor }} removed dungeon {{ cardName }}." },
+      "emblem": { "created": "{{ player }} created emblem {{ cardName }}.", "removed": "{{ actor }} removed emblem {{ cardName }}." },
+      "helper": { "created": "{{ actor }} added a game mechanic.", "updated": "{{ actor }} updated a game mechanic.", "removed": "{{ actor }} removed a game mechanic." }
+    },
     "turn": {
       "changed": "{{ previousPlayer }} finished their turn. {{ player }}'s turn begins.",
       "phaseChanged": "{{ actor }} advanced to the {{ phase }} phase."

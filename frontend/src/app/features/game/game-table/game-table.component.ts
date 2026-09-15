@@ -1403,6 +1403,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngAfterViewInit(): void {
     if (this.gameScreen) {
+      this.tableLayout.observeViewport(this.gameScreen.nativeElement);
       this.motion.init(this.gameScreen);
     }
     if (this.gamePreferences.chatNotificationSounds) {

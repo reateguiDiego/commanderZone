@@ -1279,6 +1279,16 @@
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
     },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} s'ha convertit en monarca.", "passed": "{{ actor }} ha donat la monarquia a {{ player }}.", "removed": "{{ actor }} ha eliminat la designació de monarca." },
+      "initiative": { "claimed": "{{ player }} ha pres la iniciativa.", "passed": "{{ actor }} ha donat la iniciativa a {{ player }}.", "removed": "{{ actor }} ha eliminat la iniciativa." },
+      "citysBlessing": { "granted": "{{ player }} ha obtingut la benedicció de la ciutat.", "removed": "{{ actor }} ha eliminat la benedicció de la ciutat de {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} ha iniciat el cicle dia/nit de dia.", "startedNight": "{{ actor }} ha iniciat el cicle dia/nit de nit.", "setDay": "{{ actor }} ha canviat l'estat de dia/nit a dia.", "setNight": "{{ actor }} ha canviat l'estat de dia/nit a nit.", "removed": "{{ actor }} ha eliminat l'estat de dia/nit." },
+      "ring": { "created": "{{ player }} ha rebut l'Anell.", "removed": "{{ actor }} ha eliminat l'Anell." },
+      "dungeon": { "entered": "{{ player }} ha entrat a {{ cardName }}.", "advanced": "{{ actor }} ha avançat en una masmorra.", "removed": "{{ actor }} ha eliminat la masmorra {{ cardName }}." },
+      "emblem": { "created": "{{ player }} ha creat l'emblema {{ cardName }}.", "removed": "{{ actor }} ha eliminat l'emblema {{ cardName }}." },
+      "helper": { "created": "{{ actor }} ha afegit una mecànica de joc.", "updated": "{{ actor }} ha actualitzat una mecànica de joc.", "removed": "{{ actor }} ha eliminat una mecànica de joc." }
+    },
     "game": {
       "concede": "{{ player }} va concedir."
     },

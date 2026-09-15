@@ -2,10 +2,12 @@ import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-
 import { inject, Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameCardPosition, GameSnapshot } from '../../../../../core/models/game.model';
 import {
+  BattlefieldCardSize,
   BattlefieldSize,
   DEFAULT_BATTLEFIELD_CARD_SIZE,
   DEFAULT_BATTLEFIELD_SIZE,
   isRatioPosition,
+  measuredBattlefieldCardSize,
   ratioBattlefieldPosition,
   sameBattlefieldPosition,
 } from '../../utils/battlefield-position';
@@ -586,56 +588,12 @@ export class GameTableBattlefieldState {
     };
   }
 
-  private battlefieldCardSize(playerId: string, instanceId: string): { width: number; height: number } {
-    const battlefield = this.battlefieldElement(playerId);
-    const cardElements = Array.from(battlefield?.querySelectorAll<HTMLElement>(
-      '[data-testid="game-card"][data-card-instance-id]',
-    ) ?? []);
-    const cardElement = cardElements.find((element) => element.dataset['cardInstanceId'] === instanceId)
-      ?? cardElements[0];
-    const bounds = cardElement?.getBoundingClientRect();
-
-    if (cardElement && bounds && bounds.width > 0 && bounds.height > 0) {
-      return {
-        width: Math.max(1, Math.round(cardElement.offsetWidth || bounds.width)),
-        height: Math.max(1, Math.round(cardElement.offsetHeight || bounds.height)),
-      };
-    }
-
-    return this.battlefieldFallbackCardSize(battlefield);
+  private battlefieldCardSize(playerId: string, instanceId?: string): BattlefieldCardSize {
+    return measuredBattlefieldCardSize(this.battlefieldElement(playerId), instanceId);
   }
 
-  private battlefieldFallbackCardSize(battlefield: HTMLElement | null): { width: number; height: number } {
-    const configuredWidth = battlefield
-      ? this.cssLengthInPixels(getComputedStyle(battlefield).getPropertyValue('--battlefield-card-width'))
-      : null;
-    const width = configuredWidth ?? DEFAULT_BATTLEFIELD_CARD_SIZE.width;
-
-    return {
-      width,
-      height: Math.max(1, Math.round(width / 0.716)),
-    };
-  }
-
-  private cssLengthInPixels(value: string): number | null {
-    const parsed = Number.parseFloat(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return null;
-    }
-
-    if (value.trim().endsWith('px')) {
-      return Math.round(parsed);
-    }
-
-    if (value.trim().endsWith('rem')) {
-      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-
-      return Number.isFinite(rootFontSize) && rootFontSize > 0
-        ? Math.round(parsed * rootFontSize)
-        : null;
-    }
-
-    return null;
+  battlefieldCardSizeFor(playerId: string): BattlefieldCardSize {
+    return this.battlefieldCardSize(playerId);
   }
 
   private battlefieldElement(playerId: string): HTMLElement | null {
