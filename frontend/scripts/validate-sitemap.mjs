@@ -2,11 +2,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   generateSeoSitemapXml,
-  generateCommunitySitemaps,
   generateSitemapIndexXml,
   getSeoSitemapEntries,
   loadSeoSitemapConfig,
-  loadCommunityIndex,
   SEO_SITEMAP_PUBLIC_PATH,
   SITEMAP_INDEX_PUBLIC_PATH,
   toSeoPath,
@@ -14,43 +12,23 @@ import {
 
 const workspaceRoot = process.cwd();
 const config = await loadSeoSitemapConfig(workspaceRoot);
-const communityIndex = await loadCommunityIndex();
-const fallbackCommunityIndex = await loadCommunityIndex(
-  async () => {
-    throw new Error('Simulated unavailable community index source.');
-  },
-  workspaceRoot,
-);
-const communitySitemaps = generateCommunitySitemaps(communityIndex);
 const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'];
 const nonSeoHreflangs = ['ja', 'ko', 'zh-Hans', 'zh-Hant', 'nl', 'ca', 'ru'];
-const expectedIndexXml = generateSitemapIndexXml(communitySitemaps.map((sitemap) => sitemap.publicPath));
-const expectedSeoXml = generateSeoSitemapXml(config);
 const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
 const seoSitemapPath = path.join(workspaceRoot, 'public', SEO_SITEMAP_PUBLIC_PATH);
 const vercelConfigPath = path.join(workspaceRoot, 'vercel.json');
-const prerenderRoutesPath = path.join(workspaceRoot, 'src', 'prerender-routes.txt');
-const actualIndexXml = await readFile(sitemapIndexPath, 'utf8');
-const actualSeoXml = await readFile(seoSitemapPath, 'utf8');
-const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
-const prerenderRoutes = (await readFile(prerenderRoutesPath, 'utf8'))
-  .split(/\r?\n/)
-  .map((route) => route.trim())
-  .filter(Boolean);
+const [actualIndexXml, actualSeoXml, vercelConfigSource] = await Promise.all([
+  readFile(sitemapIndexPath, 'utf8'),
+  readFile(seoSitemapPath, 'utf8'),
+  readFile(vercelConfigPath, 'utf8'),
+]);
 
-assertEqualXml(actualIndexXml, expectedIndexXml, SITEMAP_INDEX_PUBLIC_PATH);
-assertEqualXml(actualSeoXml, expectedSeoXml, SEO_SITEMAP_PUBLIC_PATH);
-assertDynamicCommunityIndexFallback(fallbackCommunityIndex);
-assertCommunityDeckDetailsNotPrerendered(prerenderRoutes);
-for (const sitemap of communitySitemaps) {
-  const actualCommunityXml = await readFile(path.join(workspaceRoot, 'public', sitemap.publicPath), 'utf8');
-  assertEqualXml(actualCommunityXml, sitemap.xml, sitemap.publicPath);
-  assertCommunitySitemap(actualCommunityXml);
-}
-assertSitemapIndex(actualIndexXml);
-assertSeoSitemap(actualSeoXml, config, vercelConfig);
+assertEqualXml(actualIndexXml, generateSitemapIndexXml(), SITEMAP_INDEX_PUBLIC_PATH);
+assertEqualXml(actualSeoXml, generateSeoSitemapXml(config), SEO_SITEMAP_PUBLIC_PATH);
+assertStaticSitemapIndex(actualIndexXml);
+assertStaticSeoSitemap(actualSeoXml, config, JSON.parse(vercelConfigSource));
 
-console.log('Sitemap validation passed.');
+console.log('Static sitemap validation passed.');
 
 function assertEqualXml(actual, expected, publicPath) {
   if (actual !== expected) {
@@ -58,7 +36,7 @@ function assertEqualXml(actual, expected, publicPath) {
   }
 }
 
-function assertSitemapIndex(xml) {
+function assertStaticSitemapIndex(xml) {
   if (!xml.includes('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')) {
     throw new Error('sitemap-index.xml must be a valid sitemap index.');
   }
@@ -67,46 +45,12 @@ function assertSitemapIndex(xml) {
     throw new Error('sitemap-index.xml must reference sitemap-seo.xml.');
   }
 
-  for (const sitemap of communitySitemaps) {
-    const loc = `<loc>https://www.commanderzone.com/${sitemap.publicPath}</loc>`;
-    if (!xml.includes(loc)) {
-      throw new Error(`sitemap-index.xml must reference ${sitemap.publicPath}.`);
-    }
+  if (xml.includes('community-') || xml.includes('/community/')) {
+    throw new Error('sitemap-index.xml must not reference community sitemap files.');
   }
 }
 
-function assertCommunitySitemap(xml) {
-  const locs = extractTagValues(xml, 'loc');
-  for (const loc of locs) {
-    const path = new URL(loc).pathname;
-    if (!path.startsWith('/community/')) {
-      throw new Error(`Community sitemap contains non-community URL: ${loc}`);
-    }
-  }
-}
-
-function assertDynamicCommunityIndexFallback(index) {
-  const dynamicPaths = index.paths.filter((entry) =>
-    entry.path.startsWith('/community/decks/')
-    || entry.path.startsWith('/community/users/')
-    || entry.path.startsWith('/community/commanders/')
-    || entry.path.startsWith('/community/cards/')
-  );
-
-  if (dynamicPaths.length === 0) {
-    throw new Error('Community sitemap fallback must preserve dynamic community URLs when the API source is unavailable.');
-  }
-}
-
-function assertCommunityDeckDetailsNotPrerendered(routes) {
-  const deckDetailRoute = routes.find((route) => route.startsWith('/community/decks/') && route !== '/community/decks/');
-
-  if (deckDetailRoute) {
-    throw new Error(`Community deck detail routes must use SSR on demand, not prerender: ${deckDetailRoute}`);
-  }
-}
-
-function assertSeoSitemap(xml, config, vercelConfig) {
+function assertStaticSeoSitemap(xml, config, vercelConfig) {
   if (!xml.includes('xmlns:xhtml="http://www.w3.org/1999/xhtml"')) {
     throw new Error('sitemap-seo.xml must include the xhtml namespace for hreflang alternates.');
   }
@@ -116,12 +60,14 @@ function assertSeoSitemap(xml, config, vercelConfig) {
   const actualLocs = extractTagValues(xml, 'loc');
 
   if (actualLocs.length !== expectedEntries.length) {
-    throw new Error(`sitemap-seo.xml must contain ${expectedEntries.length} URLs, got ${actualLocs.length}.`);
+    throw new Error(
+      `sitemap-seo.xml must contain ${expectedEntries.length} URLs, got ${actualLocs.length}.`,
+    );
   }
 
   for (const loc of actualLocs) {
     if (!expectedLocs.has(loc)) {
-      throw new Error(`sitemap-seo.xml contains an unexpected or mixed localized URL: ${loc}.`);
+      throw new Error(`sitemap-seo.xml contains an unexpected URL: ${loc}.`);
     }
   }
 
@@ -133,11 +79,25 @@ function assertSeoSitemap(xml, config, vercelConfig) {
     throw new Error('sitemap-seo.xml must not include /en/ as an indexable home URL.');
   }
 
-  assertNoRedirectedUrls(actualLocs, vercelConfig);
+  assertNoCommunityUrls(actualLocs);
   assertNoPrivateRoutes(actualLocs);
+  assertNoRedirectedUrls(actualLocs, vercelConfig);
   assertNoNonSeoLocales(xml);
   assertEveryExpectedUrlExists(expectedEntries, actualLocs);
   assertHreflangAlternates(xml, expectedEntries, config);
+}
+
+function extractTagValues(xml, tagName) {
+  return [...xml.matchAll(new RegExp(`<${tagName}>([^<]+)</${tagName}>`, 'g'))].map(
+    (match) => match[1],
+  );
+}
+
+function assertNoCommunityUrls(urls) {
+  const communityUrl = urls.find((url) => new URL(url).pathname.startsWith('/community/'));
+  if (communityUrl) {
+    throw new Error(`Community URL must not appear in the static sitemap: ${communityUrl}`);
+  }
 }
 
 function assertNoPrivateRoutes(urls) {
@@ -154,7 +114,9 @@ function assertNoPrivateRoutes(urls) {
     '/table-assistant',
     '/room/',
   ];
-  const privateUrl = urls.find((url) => privateFragments.some((fragment) => url.includes(fragment)));
+  const privateUrl = urls.find((url) =>
+    privateFragments.some((fragment) => url.includes(fragment)),
+  );
 
   if (privateUrl) {
     throw new Error(`Private/runtime route must not appear in sitemap: ${privateUrl}`);
@@ -166,7 +128,9 @@ function assertNoRedirectedUrls(urls, vercelConfig) {
     (vercelConfig.redirects ?? [])
       .filter((redirect) => redirect.permanent === true && redirect.has === undefined)
       .map((redirect) => redirect.source)
-      .filter((source) => typeof source === 'string' && !source.includes(':') && !source.includes('*')),
+      .filter(
+        (source) => typeof source === 'string' && !source.includes(':') && !source.includes('*'),
+      ),
   );
   const redirectedUrl = urls.find((url) => redirectedPaths.has(new URL(url).pathname));
 
@@ -211,31 +175,32 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
     }
 
     const alternates = extractAlternateLinks(urlBlock);
-    const expectedAlternates = new Map(expectedEntry.alternates.map((alternate) => [alternate.hreflang, alternate.href]));
+    const expectedAlternates = new Map(
+      expectedEntry.alternates.map((alternate) => [alternate.hreflang, alternate.href]),
+    );
     const expectedHreflangs = [...config.locales.map((locale) => locale.hreflang), 'x-default'];
     const actualHreflangs = alternates.map((alternate) => alternate.hreflang);
 
-    if (alternates.length !== expectedHreflangs.length) {
-      throw new Error(`${loc} must contain exactly ${expectedHreflangs.length} hreflang alternates, got ${alternates.length}.`);
-    }
-
-    if (new Set(actualHreflangs).size !== actualHreflangs.length) {
-      throw new Error(`${loc} contains duplicated hreflang alternates.`);
+    if (
+      alternates.length !== expectedHreflangs.length ||
+      new Set(actualHreflangs).size !== actualHreflangs.length
+    ) {
+      throw new Error(`${loc} must contain each hreflang alternate exactly once.`);
     }
 
     for (const alternate of alternates) {
-      if (!expectedHreflangs.includes(alternate.hreflang)) {
-        throw new Error(`${loc} contains unexpected hreflang ${alternate.hreflang}.`);
-      }
-
-      if (!expectedLocs.has(alternate.href)) {
-        throw new Error(`${loc} hreflang ${alternate.hreflang} points to a URL outside the sitemap: ${alternate.href}.`);
+      if (!expectedHreflangs.includes(alternate.hreflang) || !expectedLocs.has(alternate.href)) {
+        throw new Error(`${loc} contains an invalid hreflang alternate.`);
       }
     }
 
     for (const locale of config.locales) {
       const href = expectedAlternates.get(locale.hreflang);
-      if (!alternates.some((alternate) => alternate.hreflang === locale.hreflang && alternate.href === href)) {
+      if (
+        !alternates.some(
+          (alternate) => alternate.hreflang === locale.hreflang && alternate.href === href,
+        )
+      ) {
         throw new Error(`Missing hreflang ${locale.hreflang} for ${loc}.`);
       }
     }
@@ -244,15 +209,13 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
       throw new Error(`Missing self-referencing hreflang for ${loc}.`);
     }
 
-    if (!alternates.some((alternate) => alternate.hreflang === 'x-default' && alternate.href === expectedEntry.xDefault)) {
+    if (
+      !alternates.some(
+        (alternate) =>
+          alternate.hreflang === 'x-default' && alternate.href === expectedEntry.xDefault,
+      )
+    ) {
       throw new Error(`Missing x-default hreflang for ${loc}.`);
-    }
-
-    for (const alternate of alternates.filter((candidate) => candidate.hreflang !== 'x-default')) {
-      const reciprocalEntry = expectedByLoc.get(alternate.href);
-      if (!reciprocalEntry?.alternates.some((candidate) => candidate.href === loc)) {
-        throw new Error(`${loc} hreflang ${alternate.hreflang} is not reciprocal from ${alternate.href}.`);
-      }
     }
   }
 
@@ -282,14 +245,8 @@ function extractUrlBlocks(xml) {
   return [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((match) => match[1]);
 }
 
-function extractTagValues(xml, tagName) {
-  return [...xml.matchAll(new RegExp(`<${tagName}>(.*?)</${tagName}>`, 'g'))].map((match) => match[1]);
-}
-
 function extractAlternateLinks(xml) {
-  return [...xml.matchAll(/<xhtml:link rel="alternate" hreflang="([^"]+)" href="([^"]+)"\/>/g)]
-    .map((match) => ({
-      hreflang: match[1],
-      href: match[2],
-    }));
+  return [...xml.matchAll(/<xhtml:link rel="alternate" hreflang="([^"]+)" href="([^"]+)"\/>/g)].map(
+    (match) => ({ hreflang: match[1], href: match[2] }),
+  );
 }

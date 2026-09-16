@@ -111,6 +111,12 @@
   pointer-events: none;
 }
 
+.mana-lane.mana-lane-helper-only {
+  min-height: 0;
+  padding: 0;
+  border-color: transparent;
+}
+
 .mana-pool-panel-anchor {
   position: absolute;
   right: 0.6rem;

@@ -564,7 +564,6 @@
           [card]="preview.card"
           [battle]="isBattlePreviewCard(preview.card)"
           variant="detail"
-          [preferLarge]="true"
           [showToggle]="false"
           [controlledFlipped]="store.isFaceFlipped(preview.card)"
         />
@@ -734,7 +733,12 @@
                         (click)="store.selectPrintVersion(card)"
                       >
                         @if (store.printVersionImage(card); as imageUrl) {
-                          <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+                          <img
+                            [src]="imageUrl"
+                            [alt]="card.name"
+                            [appPreloadCardAlternateFace]="card"
+                            loading="lazy"
+                          />
                         } @else {
                           <span class="card-fallback tall">{{ card.name }}</span>
                         }

@@ -24,7 +24,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-angular';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
@@ -67,6 +67,7 @@ describe('DeckListComponent', () => {
           provide: DecksApi,
           useValue: {
             list: vi.fn().mockReturnValue(of({ data: [] })),
+            summary: vi.fn().mockReturnValue(of(null)),
             create: vi.fn().mockReturnValue(of({ deck: savedDeck() })),
             quickBuild: vi.fn().mockReturnValue(of({ deck: savedDeck(), missing: [] })),
             importDecklist: vi.fn().mockReturnValue(of({
@@ -91,6 +92,7 @@ describe('DeckListComponent', () => {
           provide: DeckFoldersApi,
           useValue: {
             list: vi.fn().mockReturnValue(of({ data: [] })),
+            summary: vi.fn().mockReturnValue(of(null)),
             create: vi.fn().mockReturnValue(of({ folder: savedFolder() })),
             rename: vi.fn().mockReturnValue(of({ folder: savedFolder() })),
             delete: vi.fn().mockReturnValue(of(undefined)),
@@ -103,6 +105,42 @@ describe('DeckListComponent', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('loads only the requested next page and preserves the cursor on failure', async () => {
+    const api = TestBed.inject(DecksApi);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const store = fixture.componentInstance.store;
+    await store.reloadAll();
+    const deck = savedDeck();
+    store.decks.set([deck]);
+    store.nextCursor.set('next');
+    vi.mocked(api.list).mockReturnValueOnce(throwError(() => new Error('offline')));
+    await store.loadPage(true);
+    expect(store.nextCursor()).toBe('next');
+    expect(store.decks()).toEqual([deck]);
+    vi.mocked(api.list).mockReturnValueOnce(of({ data: [deck, { ...deck, id: 'second' }], nextCursor: null }));
+    await store.loadPage(true);
+    expect(store.decks().map(item => item.id)).toEqual([deck.id, 'second']);
+    expect(store.nextCursor()).toBeNull();
+    expect(api.list).toHaveBeenLastCalledWith(null, false, expect.objectContaining({ cursor: 'next' }));
+  });
+
+  it('discards a late page when a newer filter response has arrived', async () => {
+    const api = TestBed.inject(DecksApi);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const store = fixture.componentInstance.store;
+    await store.reloadAll();
+    const oldPage = new Subject<{ data: Deck[]; nextCursor: string | null }>();
+    vi.mocked(api.list).mockReturnValueOnce(oldPage);
+    const older = store.loadPage();
+    vi.mocked(api.list).mockReturnValueOnce(of({ data: [{ ...savedDeck(), id: 'new' }], nextCursor: null }));
+    await store.loadPage();
+    oldPage.next({ data: [{ ...savedDeck(), id: 'old' }], nextCursor: 'obsolete' });
+    await older;
+    expect(store.decks().map(item => item.id)).toEqual(['new']);
+    expect(store.nextCursor()).toBeNull();
+    expect(store.loadingMore()).toBe(false);
   });
 
   it('selects public visibility by default in the create deck modal', async () => {

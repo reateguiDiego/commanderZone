@@ -73,7 +73,6 @@ export class AuthPageComponent implements AfterViewInit {
   readonly loginIdentifierFeedbackReady = signal(false);
   readonly registerEmailFeedbackReady = signal(false);
   readonly loginPasswordVisible = signal(false);
-  readonly loginAutocompleteReady = signal(false);
   readonly registerPasswordVisible = signal(false);
   readonly registerConfirmPasswordVisible = signal(false);
   readonly registerPasswordsMatch = signal(false);
@@ -159,10 +158,6 @@ export class AuthPageComponent implements AfterViewInit {
     if (tabId === 'login' || tabId === 'register') {
       this.setMode(tabId);
     }
-  }
-
-  enableLoginAutocomplete(): void {
-    this.loginAutocompleteReady.set(true);
   }
 
   showRegisterPasswordRequirements(): void {

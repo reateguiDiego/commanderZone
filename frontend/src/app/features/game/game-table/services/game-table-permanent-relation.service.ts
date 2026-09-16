@@ -52,11 +52,18 @@ export class GameTablePermanentRelationService {
     return this.attachmentForEquipment(snapshot, equipmentInstanceId) !== null;
   }
 
+  isBattlefieldStacked(snapshot: GameSnapshot | null, instanceId: string): boolean {
+    return (snapshot?.battlefieldStacks ?? []).some((stack) =>
+      stack.stackedInstanceId === instanceId || stack.stackTopInstanceId === instanceId,
+    );
+  }
+
   canAttachSource(snapshot: GameSnapshot | null, card: GameCardInstance | null | undefined): boolean {
     return !!card
       && !this.isLandPermanent(card)
       && !isDayNightCard(card)
       && !isGameplayCard(card)
+      && !this.isBattlefieldStacked(snapshot, card.instanceId)
       && this.attachmentsForTarget(snapshot, card.instanceId).length === 0;
   }
 

@@ -259,11 +259,32 @@ func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() err
 		runtimesvc.WithOwnershipRenewBefore(renewBefore),
 		runtimesvc.WithLogger(logger),
 	}
+	if source := authoritativeSnapshotSourceFromEnv(logger); source != nil {
+		serviceOptions = append(serviceOptions, runtimesvc.WithAuthoritativeSnapshotSource(source))
+	}
 	if sink := lifecycleSinkFromEnv(logger); sink != nil {
 		serviceOptions = append(serviceOptions, runtimesvc.WithLifecycleSink(sink, 1))
 	}
 	logger.Info("game runtime ownership policy", "mode", ownershipMode, "instanceId", instanceID)
 	return runtimesvc.NewServiceWithStoreAndOptions(store, 128, nil, serviceOptions...), closePersistence
+}
+
+func authoritativeSnapshotSourceFromEnv(logger *slog.Logger) persistence.AuthoritativeSnapshotSource {
+	url := strings.TrimSpace(os.Getenv("GAME_RUNTIME_SNAPSHOT_URL"))
+	if url == "" {
+		logger.Warn("GAME_RUNTIME_SNAPSHOT_URL is not configured; checksum recovery will remain unavailable")
+		return nil
+	}
+	source, err := persistence.NewHTTPAuthoritativeSnapshotSource(
+		url,
+		os.Getenv("GAME_RUNTIME_TICKET_SECRET"),
+		envDuration(os.Getenv("GAME_RUNTIME_SNAPSHOT_TIMEOUT"), 5*time.Second),
+	)
+	if err != nil {
+		logger.Error("invalid runtime snapshot recovery configuration", "error", err)
+		return nil
+	}
+	return source
 }
 
 func lifecycleSinkFromEnv(logger *slog.Logger) lifecycle.Sink {

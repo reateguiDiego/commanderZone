@@ -1,10 +1,10 @@
 import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameControlPlaneState, GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
-import { BootstrapV2 } from '../../../../core/models/game-v2.model';
+import { BootstrapV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
 import { GameTableGameRealtimeService, GameTableRealtimeHandlers } from './game-table-game-realtime.service';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
@@ -210,6 +210,53 @@ describe('GameTableSessionService', () => {
       result: 'applied',
       currentVersion: 7,
     }));
+  });
+
+  it('discards an older V2 bootstrap that resolves after a newer websocket patch', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const staleBootstrap = bootstrapV2();
+    let latestSnapshot = normalizedV2Store.applyBootstrap(staleBootstrap);
+    const setSnapshot = vi.fn((nextSnapshot: GameSnapshot) => {
+      latestSnapshot = nextSnapshot;
+    });
+    const sessionContext = context(latestSnapshot, setSnapshot);
+    sessionContext.snapshot = () => latestSnapshot;
+    sessionContext.setSnapshot = setSnapshot;
+    const bootstrapResponse = new Subject<BootstrapV2>();
+    gamesApi.bootstrapV2.mockReturnValue(bootstrapResponse);
+
+    const refetch = service.refetch(sessionContext, true, 'websocket.request_resync');
+    const websocketPatch: PatchEnvelopeV2 = {
+      gameId: 'game-1',
+      version: 7,
+      visibility: 'public',
+      ops: [
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'graveyard', count: 1 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'exile', count: 2 },
+      ],
+    };
+    const patchResult = normalizedV2Store.applyPatch(websocketPatch);
+    if (patchResult.status !== 'applied') {
+      throw new Error('Expected the websocket patch to be applied.');
+    }
+    sessionContext.setSnapshot(patchResult.snapshot);
+    setSnapshot.mockClear();
+
+    bootstrapResponse.next(staleBootstrap);
+    bootstrapResponse.complete();
+    await refetch;
+
+    expect(setSnapshot).not.toHaveBeenCalled();
+    expect(logHistory.reset).not.toHaveBeenCalled();
+    expect(chatHistory.reset).not.toHaveBeenCalled();
+    expect(latestSnapshot.version).toBe(7);
+    expect(latestSnapshot.players['player-1']?.zoneCounts).toMatchObject({
+      library: 97,
+      graveyard: 1,
+      exile: 2,
+    });
+    expect(normalizedV2Store.state()?.lastAppliedVersion).toBe(7);
   });
 
   it('sends known static catalog keys and hydrates omitted static cards from cache', async () => {

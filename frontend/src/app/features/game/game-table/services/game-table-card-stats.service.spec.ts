@@ -45,6 +45,30 @@ describe('GameTableCardStatsService', () => {
     }, true);
   });
 
+  it('changes only the active face runtime stats and sends its face index', async () => {
+    const baseCard = card({
+      activeFaceIndex: 1,
+      faceRuntimeStats: [
+        { defaultPower: 2, defaultToughness: 2, defaultLoyalty: null, defaultDefense: null, power: 2, toughness: 2, loyalty: null, defense: null, saga: null },
+        { defaultPower: 5, defaultToughness: 4, defaultLoyalty: null, defaultDefense: null, power: 5, toughness: 4, loyalty: null, defense: null, saga: null },
+      ],
+    });
+    const command = vi.fn(async () => undefined);
+    const updates: Array<{ power: number; toughness: number; faceIndex?: number }> = [];
+    const context = statsContext(baseCard, command, {
+      updateLocalCardPowerToughness: (_playerId, _zone, _instanceId, power, toughness, faceIndex) => {
+        updates.push({ power, toughness, faceIndex });
+      },
+    });
+
+    await service.changePower(context, 'player-1', 'battlefield', baseCard, 1);
+    vi.advanceTimersByTime(450);
+    await Promise.resolve();
+
+    expect(updates).toEqual([{ power: 6, toughness: 4, faceIndex: 1 }]);
+    expect(command).toHaveBeenCalledWith('card.power_toughness.changed', expect.objectContaining({ power: 6, toughness: 4, faceIndex: 1 }), true);
+  });
+
   it('accumulates quick loyalty clicks over the pending value', async () => {
     const baseCard = card({ loyalty: 3 });
     const command = vi.fn(async () => undefined);

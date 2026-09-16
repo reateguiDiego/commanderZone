@@ -214,8 +214,12 @@ func (CardPowerToughnessChangedApplier) Apply(_ context.Context, game *state.Gam
 	if err != nil {
 		return nil, err
 	}
-	if instance.MutableStats == nil {
-		instance.MutableStats = map[string]any{}
+	stats := activeFaceRuntimeStats(&instance, command.Payload)
+	if stats == nil {
+		if instance.MutableStats == nil {
+			instance.MutableStats = map[string]any{}
+		}
+		stats = instance.MutableStats
 	}
 	patch := map[string]any{
 		"instanceId": instanceID,
@@ -227,10 +231,15 @@ func (CardPowerToughnessChangedApplier) Apply(_ context.Context, game *state.Gam
 		if !hasPayloadKey(command.Payload, key) {
 			continue
 		}
-		eventPayload["previous"+strings.ToUpper(key[:1])+key[1:]] = instance.MutableStats[key]
-		instance.MutableStats[key] = command.Payload[key]
+		eventPayload["previous"+strings.ToUpper(key[:1])+key[1:]] = stats[key]
+		stats[key] = command.Payload[key]
 		patch[key] = command.Payload[key]
 		eventPayload[key] = command.Payload[key]
+	}
+	if len(instance.FaceRuntimeStats) > 0 {
+		patch["faceRuntimeStats"] = instance.FaceRuntimeStats
+		eventPayload["faceRuntimeStats"] = instance.FaceRuntimeStats
+		eventPayload["faceIndex"] = activeFaceRuntimeStatsIndex(instance, command.Payload)
 	}
 	if cardName, ok := command.Payload["cardName"].(string); ok && strings.TrimSpace(cardName) != "" {
 		eventPayload["cardName"] = strings.TrimSpace(cardName)

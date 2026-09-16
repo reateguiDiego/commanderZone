@@ -2,6 +2,7 @@ import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Biohazard, ChevronDown, Circle, Crown, Flag, Library, LucideAngularModule, Minus, Plus, Radiation, Sparkles, Tickets, Zap } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import {
   PLAYER_SUMMARY_ACTION_DEBOUNCE_MS,
@@ -183,6 +184,24 @@ describe('PlayerSummaryPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.counter-feedback')).toBeNull();
+  });
+
+  it('uses a concise commander damage label while retaining the detailed tooltip', () => {
+    const fixture = createFixture();
+
+    extraToggle(fixture).click();
+    fixture.detectChanges();
+
+    const checkbox = fixture.nativeElement.querySelector('[data-testid="auto-apply-commander-damage-to-life"]') as HTMLInputElement;
+    const checkboxHost = checkbox.closest('app-compact-checkbox');
+    const tooltip = fixture.debugElement.query(
+      (debugElement) =>
+        debugElement.componentInstance instanceof TooltipComponent &&
+        debugElement.nativeElement.parentElement === checkboxHost,
+    );
+
+    expect(checkboxHost?.querySelector('.compact-checkbox__label')?.textContent?.trim()).toBe('Apply commander damage');
+    expect(tooltip.componentInstance.text()).toBe("When enabled, commander damage changes also adjust that player's life total.");
   });
 
   it('can disable automatic life changes for commander damage', () => {

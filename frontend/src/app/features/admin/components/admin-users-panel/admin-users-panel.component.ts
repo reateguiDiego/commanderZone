@@ -261,7 +261,7 @@ export class AdminUsersPanelComponent {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.api.listUsers(this.listQuery())
+    this.api.listUsers(this.listQuery(useInitialPresenceFallback))
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -276,13 +276,9 @@ export class AdminUsersPanelComponent {
             return;
           }
 
-          if (useInitialPresenceFallback && this.appliedPresenceFilter() === 'active' && response.total === 0) {
-            this.presenceFilter.set('recently_created');
-            this.appliedPresenceFilter.set('recently_created');
-            this.currentPage.set(1);
-            this.loadUsers();
-
-            return;
+          if (useInitialPresenceFallback) {
+            this.presenceFilter.set(response.appliedStatus);
+            this.appliedPresenceFilter.set(response.appliedStatus);
           }
 
           this.users.set(response.users);
@@ -562,8 +558,8 @@ export class AdminUsersPanelComponent {
     return key ? this.translateText(key) : status;
   }
 
-  lastConnectionDaysAgoLabel(lastConnectedAt: string): string {
-    const timestamp = Date.parse(lastConnectedAt);
+  relativeDaysAgoLabel(date: string): string {
+    const timestamp = Date.parse(date);
     const elapsedDays = Number.isFinite(timestamp)
       ? Math.max(0, Math.floor((Date.now() - timestamp) / AdminUsersPanelComponent.DAY_MS))
       : 0;
@@ -692,12 +688,13 @@ export class AdminUsersPanelComponent {
     this.loadUsers();
   }
 
-  private listQuery(): AdminUsersListQuery {
+  private listQuery(fallbackWhenNoOtherActive: boolean): AdminUsersListQuery {
     return {
       query: this.appliedSearchQuery(),
       role: this.appliedRoleFilter(),
       premiumTier: this.appliedPremiumTierFilter(),
       status: this.appliedPresenceFilter(),
+      fallbackWhenNoOtherActive,
       sort: this.appliedSortField(),
       direction: this.appliedSortDirection(),
       page: this.currentPage(),

@@ -115,6 +115,11 @@
   gap: 0.42rem;
 }
 
+.preset-tier.is-pending {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .basic-tier {
   grid-template-columns: repeat(auto-fit, minmax(5.8rem, 1fr));
   overflow: visible;

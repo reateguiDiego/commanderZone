@@ -46,7 +46,7 @@
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
-  z-index: 10000;
+  z-index: 2147483647;
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
@@ -158,16 +158,4 @@
   height: 1.3rem;
   border-radius: 999px;
   object-fit: cover;
-}
-
-@media (max-width: 1400px), (orientation: portrait) {
-  .header-menu-dropdown {
-    position: static;
-  }
-
-  .header-menu-panel {
-    right: 0.75rem;
-    left: 0.75rem;
-    z-index: 300;
-  }
 }

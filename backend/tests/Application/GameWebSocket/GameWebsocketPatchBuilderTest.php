@@ -1106,6 +1106,13 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'attachedToInstanceId' => 'battlefield-2',
             'createdAt' => '2026-01-01T00:00:00+00:00',
         ]];
+        $snapshot['battlefieldStacks'] = [[
+            'id' => 'battlefield-stack-1',
+            'ownerId' => $actor->id(),
+            'stackedInstanceId' => 'battlefield-1',
+            'stackTopInstanceId' => 'battlefield-2',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
         $game->replaceSnapshot($snapshot);
 
         $message = $this->applyAndBuildProjected($game, $actor, 'card.moved', [
@@ -1117,6 +1124,31 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         self::assertContains(['op' => 'arrow.remove', 'id' => 'arrow-1'], $message['operations']);
         self::assertContains(['op' => 'attachment.remove', 'id' => 'attachment-1'], $message['operations']);
+        self::assertContains(['op' => 'battlefieldStack.remove', 'id' => 'battlefield-stack-1'], $message['operations']);
+    }
+
+    public function testBuildsBattlefieldStackRelationPatchesAndPrunesThemWhenCardsLeaveBattlefield(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['typeLine'] = 'Basic Land - Forest';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][1]['typeLine'] = 'Basic Land - Island';
+        $game->replaceSnapshot($snapshot);
+
+        $created = $this->applyAndBuild($game, $actor, 'battlefield_stack.created', [
+            'stackedInstanceId' => 'battlefield-1',
+            'stackTopInstanceId' => 'battlefield-2',
+        ], 'action-battlefield-stack-add');
+
+        self::assertSame('battlefieldStack.add', $created['operations'][0]['op']);
+        self::assertSame('battlefield-1', $created['operations'][0]['battlefieldStack']['stackedInstanceId']);
+
+        $removed = $this->applyAndBuild($game, $actor, 'battlefield_stack.removed', [
+            'id' => $created['operations'][0]['battlefieldStack']['id'],
+        ], 'action-battlefield-stack-remove');
+
+        self::assertSame('battlefieldStack.remove', $removed['operations'][0]['op']);
+        self::assertSame($created['operations'][0]['battlefieldStack']['id'], $removed['operations'][0]['id']);
     }
 
     public function testBuildsConcedePatchWithoutGameStatusSnapshotField(): void

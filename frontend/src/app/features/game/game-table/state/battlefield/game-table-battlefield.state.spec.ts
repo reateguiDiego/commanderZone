@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameCardPosition, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameCardPosition, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from '../../services/game-table-command.service';
@@ -83,6 +83,10 @@ describe('GameTableBattlefieldState', () => {
         { ...card('top', 'Forest', { x: 100, y: 198 }), typeLine: 'Basic Land - Forest' },
         { ...card('middle', 'Island', { x: 110, y: 184 }), typeLine: 'Basic Land - Island' },
         { ...card('bottom', 'Swamp', { x: 120, y: 170 }), typeLine: 'Basic Land - Swamp' },
+      ],
+      battlefieldStacks: [
+        stack('stack-middle', 'middle', 'top'),
+        stack('stack-bottom', 'bottom', 'top'),
       ],
     });
     document.body.innerHTML = `
@@ -240,6 +244,7 @@ describe('GameTableBattlefieldState', () => {
 function snapshot(options: {
   hand: GameCardInstance[];
   battlefield: GameCardInstance[];
+  battlefieldStacks?: GameBattlefieldStack[];
   zoneCounts?: Partial<Record<'hand' | 'battlefield', number>>;
 }): GameSnapshot {
   return {
@@ -251,9 +256,19 @@ function snapshot(options: {
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
     stack: [],
     arrows: [],
+    battlefieldStacks: options.battlefieldStacks ?? [],
     chat: [],
     eventLog: [],
     createdAt: '2026-05-19T00:00:00+00:00',
+  };
+}
+
+function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }
 

@@ -1,4 +1,13 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, ViewChild, input, output, signal } from '@angular/core';
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  ViewChild,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
@@ -30,7 +39,7 @@ export class GameLogPanelComponent implements AfterViewChecked {
   readonly loadingNewer = input(false);
   readonly canLoadOlder = input(false);
   readonly canLoadNewer = input(false);
-  readonly playerColor = input<(playerId: string) => string>(() => '');
+  readonly playerColor = input<(playerId: string | null | undefined) => string>(() => '');
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly previewCard = output<GameCardInstance>();
   readonly hidePreview = output<void>();
@@ -46,7 +55,9 @@ export class GameLogPanelComponent implements AfterViewChecked {
     if (this.pendingHistoryAnchor !== null) {
       if (!this.loadingOlder() && !this.loadingNewer()) {
         const element = this.feed?.nativeElement;
-        const anchor = element ? this.findLogEntry(element, this.pendingHistoryAnchor.entryId) : null;
+        const anchor = element
+          ? this.findLogEntry(element, this.pendingHistoryAnchor.entryId)
+          : null;
         if (element && anchor) {
           element.scrollTop += anchor.getBoundingClientRect().top - this.pendingHistoryAnchor.top;
         }
@@ -101,7 +112,11 @@ export class GameLogPanelComponent implements AfterViewChecked {
   }
 
   private loadNewerWhenNearBottom(feed: HTMLElement | undefined): void {
-    if (!feed || !this.canLoadNewer() || feed.scrollTop + feed.clientHeight < feed.scrollHeight - 72) {
+    if (
+      !feed ||
+      !this.canLoadNewer() ||
+      feed.scrollTop + feed.clientHeight < feed.scrollHeight - 72
+    ) {
       return;
     }
 
@@ -124,13 +139,18 @@ export class GameLogPanelComponent implements AfterViewChecked {
   private firstVisibleLogEntry(feed: HTMLElement): HTMLElement | null {
     const feedTop = feed.getBoundingClientRect().top;
 
-    return Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]'))
-      .find((entry) => entry.getBoundingClientRect().bottom >= feedTop) ?? null;
+    return (
+      Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]')).find(
+        (entry) => entry.getBoundingClientRect().bottom >= feedTop,
+      ) ?? null
+    );
   }
 
   private findLogEntry(feed: HTMLElement, entryId: string): HTMLElement | null {
-    return Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]'))
-      .find((entry) => entry.dataset['logEntryId'] === entryId) ?? null;
+    return (
+      Array.from(feed.querySelectorAll<HTMLElement>('[data-log-entry-id]')).find(
+        (entry) => entry.dataset['logEntryId'] === entryId,
+      ) ?? null
+    );
   }
-
 }

@@ -4,6 +4,7 @@ import { Ban, Circle, Crown, Eye, Flag, Library, LucideAngularModule, Sparkles }
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { OpponentMiniBoardComponent } from './opponent-mini-board.component';
 import { PlayerView } from '../../game-table.store';
+import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 
 describe('OpponentMiniBoardComponent', () => {
   let fixture: ComponentFixture<OpponentMiniBoardComponent>;
@@ -44,7 +45,14 @@ describe('OpponentMiniBoardComponent', () => {
   it('renders the opponent username below the deck title', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="opponent-user-name"]')?.textContent?.trim()).toBe('Opponent');
+    const username = fixture.nativeElement.querySelector(
+      '[data-testid="opponent-user-name"]',
+    ) as HTMLElement;
+
+    expect(username.textContent?.trim()).toBe('Opponent');
+    expect(username.style.getPropertyValue('--opponent-user-name-color')).toBe(
+      gamePlayerNameColor('user-2'),
+    );
   });
 
   it('renders an offline pill below the active turn pill when the opponent is offline', () => {

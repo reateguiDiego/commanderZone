@@ -50,7 +50,7 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "card.token.created", "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
 		return replayViaApplier(game, event, appliers)
-	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
+	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "battlefield_stack.created", "battlefield_stack.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
 	case "game.concede":
 		return replayViaApplier(game, event, appliers)

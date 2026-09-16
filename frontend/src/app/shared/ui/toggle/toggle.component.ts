@@ -11,8 +11,10 @@ export class ToggleComponent {
   readonly disabled = input(false);
   readonly label = input('');
   readonly description = input('');
+  readonly warning = input('');
   readonly ariaLabel = input<string | null>(null);
   readonly compact = input(false);
+  readonly hoverFeedback = input(true);
   readonly checkedChange = output<boolean>();
 
   toggle(): void {

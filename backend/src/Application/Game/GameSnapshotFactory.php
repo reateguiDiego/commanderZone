@@ -127,6 +127,8 @@ class GameSnapshotFactory
 
         $snapshot = [
             'version' => 1,
+            // Snapshots created before this marker retain the legacy root-stat behaviour.
+            'faceRuntimeStatsVersion' => 1,
             'ownerId' => $room->owner()->id(),
             'gamePhase' => 'MULLIGAN',
             'mulligan' => [
@@ -148,6 +150,7 @@ class GameSnapshotFactory
             'stack' => [],
             'arrows' => [],
             'attachments' => [],
+            'battlefieldStacks' => [],
             'specialEntities' => [],
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,
@@ -186,7 +189,7 @@ class GameSnapshotFactory
         $basePower = $this->powerToughnessStat($card->power());
         $baseToughness = $this->powerToughnessStat($card->toughness());
 
-        return [
+        $instance = [
             'instanceId' => Uuid::v7()->toRfc4122(),
             'ownerId' => $ownerId,
             'controllerId' => $ownerId,
@@ -217,6 +220,42 @@ class GameSnapshotFactory
             'zone' => $zone,
             'isCommander' => $isCommander,
         ];
+        $faceRuntimeStats = $this->faceRuntimeStats($card);
+        if ($faceRuntimeStats !== []) {
+            $instance['faceRuntimeStats'] = $faceRuntimeStats;
+        }
+
+        return $instance;
+    }
+
+    /**
+     * @return list<array{defaultPower:int|string|null,defaultToughness:int|string|null,defaultLoyalty:int|string|null,defaultDefense:int|string|null,power:int|string|null,toughness:int|string|null,loyalty:int|string|null,defense:int|string|null,saga:int|null}>
+     */
+    private function faceRuntimeStats(\App\Domain\Card\Card $card): array
+    {
+        $faces = $card->cardFaces();
+        if (count($faces) < 2) {
+            return [];
+        }
+
+        return array_values(array_map(function (array $face): array {
+            $defaultPower = $this->powerToughnessStat($face['power'] ?? null);
+            $defaultToughness = $this->powerToughnessStat($face['toughness'] ?? null);
+            $defaultLoyalty = $this->printedStat($face['loyalty'] ?? null);
+            $defaultDefense = $this->printedStat($face['defense'] ?? null);
+
+            return [
+                'defaultPower' => $defaultPower,
+                'defaultToughness' => $defaultToughness,
+                'defaultLoyalty' => $defaultLoyalty,
+                'defaultDefense' => $defaultDefense,
+                'power' => $this->gameplayStat($defaultPower),
+                'toughness' => $this->gameplayStat($defaultToughness),
+                'loyalty' => $this->gameplayStat($defaultLoyalty),
+                'defense' => $this->gameplayStat($defaultDefense),
+                'saga' => stripos((string) ($face['typeLine'] ?? ''), 'saga') !== false ? 1 : null,
+            ];
+        }, $faces));
     }
 
     /**

@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
-import { loadCommunityIndex } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
 const localeConfigPath = path.join(workspaceRoot, 'src/app/core/localization/locale-config.ts');
@@ -14,7 +13,6 @@ const publicStaticPathsOutputPath = path.join(workspaceRoot, 'src/app/core/routi
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
 const legalRoutes = extractLegalRoutes(await readSourceFile(legalRoutesPath));
-const communityIndex = await loadCommunityIndex();
 const routes = Object.values(seoRoutes).flatMap((route) =>
   localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale], route.routeKey)),
 );
@@ -23,11 +21,8 @@ const combinedRoutes = [...new Set([
   ...Object.values(legalRoutes).flatMap((route) =>
     localeCodes.map((locale) => toLegalPath(locale, route.slugs[locale])),
   ),
-  ...communityIndex.paths
-    .filter((entry) => !isCommunityDeckDetailRoute(entry.path))
-    .map((entry) => entry.path),
 ])];
-const publicStaticRoutes = combinedRoutes.filter((route) => route !== '/community/' && !route.startsWith('/community/'));
+const publicStaticRoutes = combinedRoutes;
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
 validateCombinedRoutes(combinedRoutes);
@@ -273,22 +268,10 @@ function validateCombinedRoutes(routes) {
       throw new Error(`Combined prerender route must be normalized: ${route}`);
     }
 
-    if (isCommunityPublicRoute(route)) {
-      continue;
-    }
-
     if (forbiddenFragments.some((forbiddenRoute) => route.includes(forbiddenRoute))) {
       throw new Error(`Internal route must not be prerendered: ${route}`);
     }
   }
-}
-
-function isCommunityPublicRoute(route) {
-  return route === '/community/' || route.startsWith('/community/');
-}
-
-function isCommunityDeckDetailRoute(route) {
-  return route.startsWith('/community/decks/') && route !== '/community/decks/';
 }
 
 function toPublicStaticPathsSource(routes) {

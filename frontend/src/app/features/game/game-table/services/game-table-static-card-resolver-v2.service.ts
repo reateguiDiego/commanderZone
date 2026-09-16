@@ -557,14 +557,7 @@ function previewImageUri(imageUris: CardImageUris | Record<string, string> | und
     return null;
   }
 
-  for (const size of ['normal', 'large', 'png', 'small'] as const) {
-    const uri = imageUris[size]?.trim();
-    if (uri) {
-      return uri;
-    }
-  }
-
-  return null;
+  return imageUris.normal?.trim() || null;
 }
 
 function previewImageForCard(

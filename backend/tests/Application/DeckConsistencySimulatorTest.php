@@ -7,6 +7,12 @@ use PHPUnit\Framework\TestCase;
 
 final class DeckConsistencySimulatorTest extends TestCase
 {
+    public function testTenThousandRunsPreserveThePreOptimizationResult(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../Fixtures/consistency-performance.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertEquals($fixture['result'], (new DeckConsistencySimulator())->simulate($fixture['cards'], [], $fixture['options']));
+    }
+
     public function testLandCountsShapeOpeningHands(): void
     {
         $lowLand = $this->simulate([

@@ -1,7 +1,8 @@
-import { GameAttachment, GameCardInstance } from '../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
 import { isDayNightCard, isGameplayCard, isTheRingCard } from './gameplay-card-kind';
 import { buildLandStackGroups, landStackGroupContaining, landStackOffsetX, landStackOffsetY } from './land-stack';
+import { buildPermanentStackPresentationGroups } from './permanent-stack-presentation';
 
 export interface AttachmentStackMove {
   readonly instanceId: string;
@@ -53,12 +54,13 @@ const DROP_OVERLAP_RATIO = 0.32;
 export function attachmentDropTarget(
   cards: readonly GameCardInstance[],
   attachments: readonly GameAttachment[],
+  battlefieldStacks: readonly GameBattlefieldStack[],
   equipmentInstanceId: string,
   equipmentPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
 ): AttachmentDropTarget | null {
   const equipment = cards.find((card) => card.instanceId === equipmentInstanceId);
-  const landGroups = buildLandStackGroups(cards, positionFor);
+  const landGroups = buildLandStackGroups(cards, battlefieldStacks, positionFor);
   if (
     !equipment
     || isLandPermanent(equipment)
@@ -165,48 +167,23 @@ export function buildAttachmentStackGroups(
   attachments: readonly GameAttachment[],
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
 ): AttachmentStackGroup[] {
-  const cardsById = new Map(cards.map((card) => [card.instanceId, card]));
-  const attachmentsByTarget = new Map<string, GameAttachment[]>();
-
-  for (const attachment of attachments) {
-    if (!cardsById.has(attachment.attachedToInstanceId) || !cardsById.has(attachment.equipmentInstanceId)) {
-      continue;
-    }
-    attachmentsByTarget.set(attachment.attachedToInstanceId, [
-      ...(attachmentsByTarget.get(attachment.attachedToInstanceId) ?? []),
-      attachment,
-    ]);
-  }
-
-  return [...attachmentsByTarget.entries()]
-    .map(([targetInstanceId, targetAttachments]): AttachmentStackGroup | null => {
-      const targetCard = cardsById.get(targetInstanceId);
-      const targetPosition = targetCard ? positionFor(targetCard) : null;
-      if (!targetCard || !targetPosition || targetAttachments.length === 0) {
-        return null;
-      }
-
-      const members: AttachmentStackMember[] = [
-        { card: targetCard, position: targetPosition, layer: 0, role: 'target' },
-        ...targetAttachments
-          .map((attachment, index): AttachmentStackMember | null => {
-            const card = cardsById.get(attachment.equipmentInstanceId);
-            const position = card ? positionFor(card) : null;
-
-            return card && position
-              ? { card, position, layer: index + 1, role: 'equipment' }
-              : null;
-          })
-          .filter((member): member is AttachmentStackMember => member !== null),
-      ];
-
-      return {
-        id: members.map((member) => member.card.instanceId).join(':'),
-        targetCard,
-        members,
-      };
-    })
-    .filter((group): group is AttachmentStackGroup => group !== null && group.members.length > 1);
+  return buildPermanentStackPresentationGroups(
+    cards,
+    attachments.map((attachment) => ({
+      targetInstanceId: attachment.attachedToInstanceId,
+      layeredInstanceId: attachment.equipmentInstanceId,
+    })),
+    positionFor,
+  ).map((group) => ({
+    id: group.id,
+    targetCard: group.targetCard,
+    members: group.members.map((member): AttachmentStackMember => ({
+      card: member.card,
+      position: member.position,
+      layer: member.layer,
+      role: member.role === 'target' ? 'target' : 'equipment',
+    })),
+  }));
 }
 
 export function attachmentStackViewFor(groups: readonly AttachmentStackGroup[], instanceId: string): AttachmentStackView | null {

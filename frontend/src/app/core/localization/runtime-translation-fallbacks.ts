@@ -384,7 +384,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
     'No illegal formats in the local catalog.',
   'deckBuilder.cards.cardSearch.details.noLegalFormats': 'No legal formats in the local catalog.',
   'deckBuilder.cards.cardSearch.details.noOracleText': 'No oracle text available.',
-  'deckBuilder.cards.cardSearch.details.oracleText': 'Oracle text',
+  'deckBuilder.cards.cardSearch.details.oracleText': 'Text',
   'deckBuilder.cards.cardSearch.filtersAriaLabel': 'Card search filters',
   'deckBuilder.cards.cardSearch.form.activeFilters': 'active filters',
   'deckBuilder.cards.cardSearch.form.artifact': 'Artifact',
@@ -471,6 +471,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'deckBuilder.cards.cardSearch.noCardsFound': 'No cards found.',
   'deckBuilder.cards.cardSearch.printings.close': 'Close',
   'deckBuilder.cards.cardSearch.printings.couldNotLoad': 'Could not load card printings.',
+  'deckBuilder.cards.cardSearch.printings.count': 'Printings: {{ count }}',
   'deckBuilder.cards.cardSearch.printings.empty': 'No editions found for this card.',
   'deckBuilder.cards.cardSearch.printings.title': 'Printings of {{ card }}',
   'deckBuilder.cards.cardSearch.search': 'Search',
@@ -906,8 +907,9 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'deckBuilder.deckEditor.current': 'Current',
   'deckBuilder.deckEditor.deckEditorSections': 'Deck editor sections',
   'deckBuilder.deckEditor.decklistTextareaExample':
-    '1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141',
+    '1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141',
   'deckBuilder.deckEditor.deckName': 'Deck name',
+  'deckBuilder.deckEditor.noCommanderAssignedYet': 'No commander assigned yet.',
   'deckBuilder.deckEditor.derivedTokens': 'Derived tokens',
   'deckBuilder.deckEditor.errors': 'Errors',
   'deckBuilder.deckEditor.fromSourceCard': 'From {{ name }}',
@@ -1309,6 +1311,13 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'gameLog.fragment.counter.changed': 'set {{ counter }} to {{ value }}.',
   'gameLog.fragment.cardCounter.changed': 'set {{ counter }} counters to {{ value }}.',
   'gameLog.fragment.turn.changed': "finished their turn. {{ player }}'s turn begins.",
+  'gameLog.phase.untap': 'untap step',
+  'gameLog.phase.upkeep': 'upkeep step',
+  'gameLog.phase.draw': 'draw step',
+  'gameLog.phase.main-1': 'first main phase',
+  'gameLog.phase.combat': 'combat phase',
+  'gameLog.phase.main-2': 'second main phase',
+  'gameLog.phase.end': 'ending phase',
   'gameLog.fragment.turn.phaseChanged': 'advanced to the {{ phase }} phase.',
   'gameLog.fragment.disconnect.expelled': 'was expelled after a disconnect vote.',
   'gameLog.fragment.game.concede': 'conceded.',
@@ -1459,7 +1468,6 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.playersOrder.turnOrder': 'Turn order',
   'game.playersOrder.upcomingTurnLabel': 'In {{ count }}',
   'game.playersOrder.upcomingTurnTitle': '{{ name }} is {{ count }} turn(s) away',
-  'game.playerSummaryPanel.autoApplyCommanderDamageToLife': 'Apply commander damage to life total',
   'game.playerSummaryPanel.autoApplyCommanderDamageToLifeTooltip':
     "When enabled, commander damage changes also adjust that player's life total.",
   'game.playerSummaryPanel.commanderDamage': 'Commander damage',
@@ -1708,6 +1716,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.roomInvitesPanel.pendingRoomInvites': 'Pending room invites',
   'rooms.roomRow.full': 'Full',
   'rooms.roomRow.join': 'Join',
+  'rooms.roomRow.leave': 'Leave room',
   'rooms.roomRow.open': 'Open',
   'rooms.roomRow.started': 'Started',
   'rooms.rooms.deckRequired': 'Deck required',
@@ -1815,20 +1824,25 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'settings.dashboardSettingsModal.emailAvailable': 'Email available',
   'settings.dashboardSettingsModal.enterValidEmail': 'Enter a valid email.',
   'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.description':
-    'Play a sound when new chat notifications arrive.',
+    'Play a sound when you receive new unread chat notifications.',
   'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label':
     'Chat notification sounds',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.description':
+    'Show chat messages and game actions together in a single tab.',
+  'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label':
+    'Combine chat and game log',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.description':
-    'Show the dedicated mana row during games.',
-  'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Enable mana row',
+    'Show a visual guide at the bottom of the battlefield for placing mana-producing cards. You can place any type of card there; it is only a visual aid.',
+  'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Show a mana row',
+  'settings.dashboardSettingsModal.gameSettings.autoApplyCommanderDamageToLife.description':
+    'When enabled, damage from opposing commanders automatically reduces your life total. You can easily adjust it during the match.',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.description':
-    'Use visual movement and feedback animations during matches.',
+    'Turn all visual game animations on or off.',
   'settings.dashboardSettingsModal.gameSettings.gameAnimations.label': 'Game animations',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description':
-    'Keep mana in your mana pool while resolving stacked actions.',
-  'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label': 'Preserve mana pool',
+  'settings.dashboardSettingsModal.gameSettings.gameAnimations.warning':
+    'We recommend disabling them only if you experience performance issues during a match.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description':
-    'Open the mana helper when a match starts.',
+    'Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label':
     'Show mana helper on startup',
   'settings.dashboardSettingsModal.gameSettings.title': 'Gameplay preferences',
@@ -2146,6 +2160,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'admin.notifications.previewEmpty': 'Your message preview will appear here.',
   'admin.notifications.send': 'Send',
   'admin.notifications.messageSent': 'Message sent to {{ count }} user(s).',
+  'admin.notifications.recipientCount': 'This message will be received by {{ count }} user(s).',
   'admin.notifications.snippets.heading': 'Title',
   'admin.notifications.snippets.imageDescription': 'Image description',
   'admin.notifications.snippets.linkText': 'Link text',
@@ -2299,7 +2314,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'common.ui.impersonating': 'Impersonating {{ name }}',
   'common.ui.stop': 'Stop',
   'common.ui.averageManaValueWithoutLands': 'Average mana value without lands: {{ value }}',
-  'common.ui.messageTarget': 'to {{ name }}',
+  'common.ui.messageTargetPrefix': 'to',
+  'common.ui.messageTargetSuffix': '',
   'common.ui.roomNotice': 'Room {{ name }}',
   'common.ui.revealed': 'Revealed',
   'common.ui.revealedCard': 'Revealed card',
@@ -2722,6 +2738,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'shared.text.adjustValue': 'Adjust value',
   'shared.text.increaseValue': 'Increase value',
   'shared.text.decreaseValue': 'Decrease value',
+  'shared.text.applyCommanderDamage': 'Apply commander damage',
   'shared.text.commanderDamage': 'Commander damage',
   'shared.text.power': 'Power',
   'shared.text.toughness': 'Toughness',

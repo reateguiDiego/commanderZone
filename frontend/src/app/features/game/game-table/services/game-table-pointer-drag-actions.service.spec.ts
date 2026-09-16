@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTableMotionService } from './game-table-motion.service';
@@ -262,16 +262,22 @@ describe('GameTablePointerDragActionsService', () => {
 
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 110, y: 182 });
     expect(pulseLandStack).toHaveBeenCalledWith(['target', 'dragged'], 'stack');
-    expect(commands).toEqual([{
-      type: 'cards.position.changed',
-      payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
-        positions: [
-          { instanceId: 'dragged', position: { x: 110, y: 182, unit: 'ratio' } },
-        ],
+    expect(commands).toEqual([
+      {
+        type: 'cards.position.changed',
+        payload: {
+          playerId: 'player-1',
+          zone: 'battlefield',
+          positions: [
+            { instanceId: 'dragged', position: { x: 110, y: 182, unit: 'ratio' } },
+          ],
+        },
       },
-    }]);
+      {
+        type: 'battlefield_stack.created',
+        payload: { stackedInstanceId: 'dragged', stackTopInstanceId: 'target' },
+      },
+    ]);
   });
 
   it('adds a third land to the bottom of an existing stack', async () => {
@@ -289,7 +295,7 @@ describe('GameTablePointerDragActionsService', () => {
         land('under', 100, 182),
         land('dragged', 260, 200),
       ],
-    });
+    }, [stack('stack-under', 'under', 'top')]);
     const updateLocalCardPosition = vi.fn();
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
@@ -316,6 +322,10 @@ describe('GameTablePointerDragActionsService', () => {
         ],
       },
     });
+    expect(commands[1]).toEqual({
+      type: 'battlefield_stack.created',
+      payload: { stackedInstanceId: 'dragged', stackTopInstanceId: 'top' },
+    });
   });
 
   it('anchors a three-card land stack to the mana row bottom when adding the third land there', async () => {
@@ -335,7 +345,7 @@ describe('GameTablePointerDragActionsService', () => {
         land('under', 100, 182),
         land('dragged', 260, 200),
       ],
-    });
+    }, [stack('stack-under', 'under', 'top')]);
     const updateLocalCardPosition = vi.fn();
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
@@ -366,6 +376,10 @@ describe('GameTablePointerDragActionsService', () => {
         ],
       },
     });
+    expect(commands[1]).toEqual({
+      type: 'battlefield_stack.created',
+      payload: { stackedInstanceId: 'dragged', stackTopInstanceId: 'top' },
+    });
   });
 
   it('ignores a land drop over a full three-card stack', async () => {
@@ -384,7 +398,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('bottom', 100, 164),
         land('dragged', 260, 200),
       ],
-    });
+    }, [
+      stack('stack-under', 'under', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const command = vi.fn(async () => undefined);
     const updateLocalCardPosition = vi.fn();
     const refetch = vi.fn(async () => undefined);
@@ -565,7 +582,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('under', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-under', 'under', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const updateLocalCardPosition = vi.fn();
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
@@ -617,7 +637,7 @@ describe('GameTablePointerDragActionsService', () => {
         land('top', 100, 200),
         land('under', 100, 182),
       ],
-    });
+    }, [stack('stack-under', 'under', 'top')]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -629,6 +649,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-under',
         detachedInstanceId: 'under',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -644,16 +665,19 @@ describe('GameTablePointerDragActionsService', () => {
       { x: 260, y: 200 },
       null,
     );
-    expect(commands).toEqual([{
-      type: 'cards.position.changed',
-      payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
-        positions: [
-          { instanceId: 'under', position: { x: 260, y: 200, unit: 'ratio' } },
-        ],
+    expect(commands).toEqual([
+      {
+        type: 'cards.position.changed',
+        payload: {
+          playerId: 'player-1',
+          zone: 'battlefield',
+          positions: [
+            { instanceId: 'under', position: { x: 260, y: 200, unit: 'ratio' } },
+          ],
+        },
       },
-    }]);
+      { type: 'battlefield_stack.removed', payload: { id: 'stack-under' } },
+    ]);
   });
 
   it('moves every card from a whole land stack to hand when dropped over hand', async () => {
@@ -669,7 +693,7 @@ describe('GameTablePointerDragActionsService', () => {
     });
     const snapshot = snapshotWith({
       battlefield: [top, under],
-    });
+    }, [stack('stack-under', 'under', 'top')]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
     const markPendingTransfer = vi.fn();
 
@@ -711,7 +735,7 @@ describe('GameTablePointerDragActionsService', () => {
     });
     const snapshot = snapshotWith({
       battlefield: [top, under],
-    });
+    }, [stack('stack-under', 'under', 'top')]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag(context(
@@ -754,7 +778,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('middle', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -773,6 +800,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-middle',
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -813,7 +841,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('bottom', 100, 164),
         land('target', 420, 200),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -825,6 +856,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-middle',
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -864,7 +896,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('middle', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -876,6 +911,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-middle',
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -885,18 +921,21 @@ describe('GameTablePointerDragActionsService', () => {
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
 
-    expect(commands).toEqual([{
-      type: 'cards.position.changed',
-      payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
-        positions: [
-          { instanceId: 'middle', position: { x: 260, y: 200, unit: 'ratio' } },
-          { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
-        ],
+    expect(commands).toEqual([
+      {
+        type: 'cards.position.changed',
+        payload: {
+          playerId: 'player-1',
+          zone: 'battlefield',
+          positions: [
+            { instanceId: 'middle', position: { x: 260, y: 200, unit: 'ratio' } },
+            { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
+            { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
+          ],
+        },
       },
-    }]);
+      { type: 'battlefield_stack.removed', payload: { id: 'stack-middle' } },
+    ]);
   });
 
   it('extracts the bottom stack card without moving it back into the stack', async () => {
@@ -915,7 +954,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('middle', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -927,6 +969,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-bottom',
         detachedInstanceId: 'bottom',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -936,18 +979,21 @@ describe('GameTablePointerDragActionsService', () => {
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
 
-    expect(commands).toEqual([{
-      type: 'cards.position.changed',
-      payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
-        positions: [
-          { instanceId: 'bottom', position: { x: 260, y: 214, unit: 'ratio' } },
-          { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'middle', position: { x: 110, y: 182, unit: 'ratio' } },
-        ],
+    expect(commands).toEqual([
+      {
+        type: 'cards.position.changed',
+        payload: {
+          playerId: 'player-1',
+          zone: 'battlefield',
+          positions: [
+            { instanceId: 'bottom', position: { x: 260, y: 214, unit: 'ratio' } },
+            { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
+            { instanceId: 'middle', position: { x: 110, y: 182, unit: 'ratio' } },
+          ],
+        },
       },
-    }]);
+      { type: 'battlefield_stack.removed', payload: { id: 'stack-bottom' } },
+    ]);
   });
 
   it('clamps extracted stack cards to the mana row when the preview is in mana row', async () => {
@@ -968,7 +1014,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('middle', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
     const markPendingManaDrop = vi.fn();
 
@@ -987,6 +1036,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-middle',
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -1029,7 +1079,10 @@ describe('GameTablePointerDragActionsService', () => {
         land('middle', 100, 182),
         land('bottom', 100, 164),
       ],
-    });
+    }, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
 
     await service.endCardPointerDrag({
@@ -1041,6 +1094,7 @@ describe('GameTablePointerDragActionsService', () => {
       ),
       landStackDetachSource: () => ({
         playerId: 'player-1',
+        stackId: 'stack-middle',
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
@@ -1117,7 +1171,10 @@ function context(
   };
 }
 
-function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>): GameSnapshot {
+function snapshotWith(
+  zones: Partial<Record<GameZoneName, GameCardInstance[]>>,
+  battlefieldStacks: readonly GameBattlefieldStack[] = [],
+): GameSnapshot {
   return {
     version: 1,
     players: {
@@ -1139,6 +1196,7 @@ function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>):
     turn: { activePlayerId: 'player-1', phase: 'main', number: 1 },
     stack: [],
     arrows: [],
+    battlefieldStacks: [...battlefieldStacks],
     chat: [],
     eventLog: [],
     createdAt: '',
@@ -1188,5 +1246,14 @@ function land(instanceId: string, x: number, y: number): GameCardInstance {
     ...card(instanceId, instanceId, 'battlefield'),
     typeLine: 'Basic Land - Forest',
     position: { x, y },
+  };
+}
+
+function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }

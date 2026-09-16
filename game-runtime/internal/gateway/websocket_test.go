@@ -312,6 +312,10 @@ func TestWebSocketRoutesChatMessageThroughActivityStore(t *testing.T) {
 	})
 	defer playerB.Close()
 
+	// Dial completes the HTTP upgrade before the server necessarily registers B.
+	// Wait for both clients to be admitted before broadcasting this live chat patch.
+	readUntil(t, playerA, "connection_state")
+	readUntil(t, playerB, "connection_state")
 	writeCommand(t, playerA, command(gameID, 1, "chat-action", "chat.message", map[string]any{"message": "hello table"}, nil))
 	for label, conn := range map[string]*websocket.Conn{"A": playerA, "B": playerB} {
 		message := readUntil(t, conn, "patch.v2")

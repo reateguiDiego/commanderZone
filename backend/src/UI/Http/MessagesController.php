@@ -7,6 +7,7 @@ use App\Application\Message\AdminMessageDelivery;
 use App\Domain\Message\UserMessage;
 use App\Domain\User\Role;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\MessageEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,6 +18,21 @@ class MessagesController extends ApiController
 {
     private const MAX_SUBJECT_LENGTH = 30;
     private const MAX_BODY_LENGTH = 200000;
+    private const RECIPIENT_NEVER_CONNECTED = 'never_connected';
+    private const RECIPIENT_RECENTLY_CONNECTED = 'recently_connected';
+    private const RECIPIENT_RECENTLY_CREATED = 'recently_created';
+    private const RECIPIENT_TIER_0 = 'tier_0';
+    private const RECIPIENT_TIER_1 = 'tier_1';
+    private const RECIPIENT_TIER_2 = 'tier_2';
+    private const RECIPIENT_TIER_3 = 'tier_3';
+
+    /** @var array<string, string> */
+    private const RECIPIENT_TIER_MAP = [
+        self::RECIPIENT_TIER_0 => User::PREMIUM_TIER_NONE,
+        self::RECIPIENT_TIER_1 => User::PREMIUM_TIER_1,
+        self::RECIPIENT_TIER_2 => User::PREMIUM_TIER_2,
+        self::RECIPIENT_TIER_3 => User::PREMIUM_TIER_3,
+    ];
 
     public function __construct(private readonly AdminMessageMailer $adminMessageMailer)
     {
@@ -42,8 +58,20 @@ class MessagesController extends ApiController
         ]);
     }
 
+    #[Route('/messages/summary', methods: ['GET'])]
+    public function summary(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $counts = $entityManager->getRepository(UserMessage::class)->createQueryBuilder('message')
+            ->select('COUNT(message.id) AS totalCount', 'COALESCE(SUM(CASE WHEN message.readAt IS NULL THEN 1 ELSE 0 END), 0) AS unreadCount')
+            ->where('message.recipient = :recipient')
+            ->setParameter('recipient', $user)
+            ->getQuery()->getSingleResult();
+
+        return $this->json(['totalCount' => (int) $counts['totalCount'], 'unreadCount' => (int) $counts['unreadCount']]);
+    }
+
     #[Route('/messages/{id}/read', methods: ['POST'])]
-    public function markRead(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function markRead(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, MessageEventPublisher $publisher): JsonResponse
     {
         $message = $entityManager->getRepository(UserMessage::class)->find($id);
         if (!$message instanceof UserMessage || $message->recipient()->id() !== $user->id()) {
@@ -52,6 +80,7 @@ class MessagesController extends ApiController
 
         $message->markRead();
         $entityManager->flush();
+        $publisher->publishListChanged($user);
 
         return $this->json([
             'message' => $message->toArray(),
@@ -64,6 +93,7 @@ class MessagesController extends ApiController
         Request $request,
         #[CurrentUser] User $actor,
         EntityManagerInterface $entityManager,
+        MessageEventPublisher $publisher,
     ): JsonResponse {
         if (!$actor->hasRole(Role::ADMIN) && !$actor->hasRole(Role::OWNER)) {
             return $this->fail('Admin access is required.', 403);
@@ -95,9 +125,12 @@ class MessagesController extends ApiController
             return $this->fail('delivery must be one of: internal, email, both.');
         }
 
-        $recipients = $recipientId === 'all'
-            ? $this->allUsers($entityManager)
-            : $this->singleRecipient($recipientId, $entityManager);
+        if ($recipientId === 'all') {
+            $recipients = $this->allUsers($entityManager);
+        } else {
+            $recipients = $this->segmentRecipients($recipientId, $entityManager)
+                ?? $this->singleRecipient($recipientId, $entityManager);
+        }
 
         if ($recipients === []) {
             return $this->fail('Recipient not found.', 404);
@@ -108,6 +141,9 @@ class MessagesController extends ApiController
                 $entityManager->persist(new UserMessage($actor, $recipient, $subject, $body));
             }
             $entityManager->flush();
+            foreach ($recipients as $recipient) {
+                $publisher->publishListChanged($recipient);
+            }
         }
 
         if ($delivery->sendsEmail()) {
@@ -140,6 +176,43 @@ class MessagesController extends ApiController
         $user = $entityManager->getRepository(User::class)->find($recipientId);
 
         return $user instanceof User ? [$user] : [];
+    }
+
+    /**
+     * @return list<User>|null Null when the recipient is not a predefined segment.
+     */
+    private function segmentRecipients(string $recipientId, EntityManagerInterface $entityManager): ?array
+    {
+        $queryBuilder = $entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->orderBy('user.displayName', 'ASC');
+
+        if ($recipientId === self::RECIPIENT_NEVER_CONNECTED) {
+            $queryBuilder->where('user.lastSeenAt IS NULL');
+        } elseif ($recipientId === self::RECIPIENT_RECENTLY_CONNECTED) {
+            $now = new \DateTimeImmutable();
+            $queryBuilder
+                ->where('user.lastSeenAt >= :recentSince')
+                ->andWhere('user.lastSeenAt <= :now')
+                ->setParameter('recentSince', $now->modify('-7 days'))
+                ->setParameter('now', $now);
+        } elseif ($recipientId === self::RECIPIENT_RECENTLY_CREATED) {
+            $now = new \DateTimeImmutable();
+            $queryBuilder
+                ->where('user.createdAt >= :recentSince')
+                ->andWhere('user.createdAt <= :now')
+                ->setParameter('recentSince', $now->modify('-7 days'))
+                ->setParameter('now', $now);
+        } elseif (isset(self::RECIPIENT_TIER_MAP[$recipientId])) {
+            $queryBuilder
+                ->where('user.premiumTier = :premiumTier')
+                ->setParameter('premiumTier', self::RECIPIENT_TIER_MAP[$recipientId]);
+        } else {
+            return null;
+        }
+
+        $users = $queryBuilder->getQuery()->getResult();
+
+        return array_values(array_filter($users, static fn (mixed $user): bool => $user instanceof User));
     }
 
     private function unreadCount(User $user, EntityManagerInterface $entityManager): int

@@ -9,8 +9,8 @@
     (tabSelected)="selectTabFromList($event)"
   />
 
-  @if (store.error()) {
-    <p class="dropdown-notice error">{{ store.error()! | runtimeTranslate }}</p>
+  @if (visibleError()) {
+    <p class="dropdown-notice error">{{ visibleError()! | runtimeTranslate }}</p>
   }
 
   @if (currentTab() === 'requests') {
@@ -176,7 +176,7 @@
     <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.userSearchResults' | runtimeTranslate">
       @if (searchReady()) {
         @for (result of store.searchResults(); track result.id) {
-          <div class="friend-table-row search-row">
+          <div class="friend-table-row search-row interactive-row">
             <span class="row-main">
               <app-player-info
                 class="friend-player-info"
@@ -190,15 +190,27 @@
               <span class="row-marker search-marker"></span>
             </span>
 
-            @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
-              <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
-                <button class="add-friend-action" type="button" [disabled]="store.loading()" (click)="store.sendRequest(result.id)">
-                  <lucide-icon name="user-plus" size="17" />
+            <span class="search-actions">
+              <app-tooltip [text]="'admin.users.viewProfile' | runtimeTranslate">
+                <button
+                  class="profile-action"
+                  type="button"
+                  [attr.aria-label]="'admin.users.viewProfileFor' | runtimeTranslate: { name: result.displayName }"
+                  (click)="viewProfile(result.canonicalPath, result.username)"
+                >
+                  <lucide-icon name="eye" size="16" aria-hidden="true" />
                 </button>
               </app-tooltip>
-            } @else {
-              <span class="row-status search-status">{{ friendshipStatusKey(result.friendshipStatus) | runtimeTranslate }}</span>
-            }
+              @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
+                <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
+                  <button class="add-friend-action" type="button" [disabled]="store.loading()" (click)="store.sendRequest(result.id)">
+                    <lucide-icon name="user-plus" size="17" />
+                  </button>
+                </app-tooltip>
+              } @else {
+                <span class="row-status search-status">{{ friendshipStatusKey(result.friendshipStatus) | runtimeTranslate }}</span>
+              }
+            </span>
           </div>
         } @empty {
           <p class="dropdown-notice">{{ 'shared.text.noUsersFound' | runtimeTranslate }}</p>
@@ -234,11 +246,23 @@
                     <span class="row-marker" [class.online]="row.presence === 'online'" [class.in-game]="row.presence === 'in_game'"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
-                  <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
-                    <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
-                      <lucide-icon name="trash-2" size="14" />
-                    </button>
-                  </app-tooltip>
+                  <span class="friend-actions">
+                    <app-tooltip [text]="'admin.users.viewProfile' | runtimeTranslate">
+                      <button
+                        class="profile-action"
+                        type="button"
+                        [attr.aria-label]="'admin.users.viewProfileFor' | runtimeTranslate: { name: row.displayName }"
+                        (click)="viewProfile(row.canonicalPath, row.username)"
+                      >
+                        <lucide-icon name="eye" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
+                    <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
+                      <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                        <lucide-icon name="trash-2" size="14" />
+                      </button>
+                    </app-tooltip>
+                  </span>
                 </div>
               }
             </div>
@@ -275,11 +299,23 @@
                     <span class="row-marker"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
-                  <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
-                    <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
-                      <lucide-icon name="trash-2" size="14" />
-                    </button>
-                  </app-tooltip>
+                  <span class="friend-actions">
+                    <app-tooltip [text]="'admin.users.viewProfile' | runtimeTranslate">
+                      <button
+                        class="profile-action"
+                        type="button"
+                        [attr.aria-label]="'admin.users.viewProfileFor' | runtimeTranslate: { name: row.displayName }"
+                        (click)="viewProfile(row.canonicalPath, row.username)"
+                      >
+                        <lucide-icon name="eye" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
+                    <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
+                      <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                        <lucide-icon name="trash-2" size="14" />
+                      </button>
+                    </app-tooltip>
+                  </span>
                 </div>
               }
             </div>

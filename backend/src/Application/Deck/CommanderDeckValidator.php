@@ -3,11 +3,19 @@
 namespace App\Application\Deck;
 
 use App\Domain\Card\Card;
+use App\Domain\Card\CommanderPairingAbility;
+use App\Domain\Card\CommanderPairingCapability;
+use App\Domain\Card\CommanderPairingCapabilityParser;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 
 class CommanderDeckValidator
 {
+    public function __construct(
+        private readonly CommanderPairingCapabilityParser $pairingCapabilityParser = new CommanderPairingCapabilityParser(),
+    ) {
+    }
+
     /**
      * @return array{
      *   valid:bool,
@@ -190,23 +198,34 @@ class CommanderDeckValidator
 
     private function isLegalCommanderPair(Card $first, Card $second): bool
     {
-        if ($this->hasGenericPartner($first) && $this->hasGenericPartner($second) && $this->canBeCommander($first) && $this->canBeCommander($second)) {
+        $firstCapability = $this->pairingCapabilityParser->parse($first->oracleText());
+        $secondCapability = $this->pairingCapabilityParser->parse($second->oracleText());
+
+        if ($firstCapability->is(CommanderPairingAbility::GenericPartner)
+            && $secondCapability->is(CommanderPairingAbility::GenericPartner)
+            && $this->canBeCommander($first)
+            && $this->canBeCommander($second)) {
             return true;
         }
 
-        if ($this->isNamedPartnerPair($first, $second) && $this->canBeCommander($first) && $this->canBeCommander($second)) {
+        if ($this->isNamedPartnerPair($first, $firstCapability, $second, $secondCapability)
+            && $this->canBeCommander($first)
+            && $this->canBeCommander($second)) {
             return true;
         }
 
-        if ($this->hasFriendsForever($first) && $this->hasFriendsForever($second) && $this->canBeCommander($first) && $this->canBeCommander($second)) {
+        if ($firstCapability->is(CommanderPairingAbility::FriendsForever)
+            && $secondCapability->is(CommanderPairingAbility::FriendsForever)
+            && $this->canBeCommander($first)
+            && $this->canBeCommander($second)) {
             return true;
         }
 
-        if ($this->isChooseBackgroundPair($first, $second)) {
+        if ($this->isChooseBackgroundPair($first, $firstCapability, $second, $secondCapability)) {
             return true;
         }
 
-        return $this->isDoctorsCompanionPair($first, $second);
+        return $this->isDoctorsCompanionPair($first, $firstCapability, $second, $secondCapability);
     }
 
     private function canBeCommander(Card $card): bool
@@ -226,42 +245,28 @@ class CommanderDeckValidator
         return preg_match('/\bcan be your commander\b/', $this->normalizedText($card->oracleText())) === 1;
     }
 
-    private function hasGenericPartner(Card $card): bool
+    private function isNamedPartnerPair(
+        Card $first,
+        CommanderPairingCapability $firstCapability,
+        Card $second,
+        CommanderPairingCapability $secondCapability,
+    ): bool
     {
-        return preg_match('/(^|\n)\s*partner(?:\s*\(|\s*$)/', $this->normalizedText($card->oracleText())) === 1;
+        return $firstCapability->is(CommanderPairingAbility::NamedPartner)
+            && $secondCapability->is(CommanderPairingAbility::NamedPartner)
+            && $firstCapability->partnerName === $this->normalizedCardName($second)
+            && $secondCapability->partnerName === $this->normalizedCardName($first);
     }
 
-    private function isNamedPartnerPair(Card $first, Card $second): bool
+    private function isChooseBackgroundPair(
+        Card $first,
+        CommanderPairingCapability $firstCapability,
+        Card $second,
+        CommanderPairingCapability $secondCapability,
+    ): bool
     {
-        return $this->partnerWithName($first) === $this->normalizedCardName($second)
-            && $this->partnerWithName($second) === $this->normalizedCardName($first);
-    }
-
-    private function partnerWithName(Card $card): ?string
-    {
-        if (preg_match('/(^|\n)\s*partner with ([^\n(]+)/', $this->normalizedText($card->oracleText()), $matches) !== 1) {
-            return null;
-        }
-
-        $name = trim($matches[2], " \t\n\r\0\x0B.");
-
-        return $name !== '' ? Card::normalizeName($name) : null;
-    }
-
-    private function hasFriendsForever(Card $card): bool
-    {
-        return str_contains($this->normalizedText($card->oracleText()), 'friends forever');
-    }
-
-    private function isChooseBackgroundPair(Card $first, Card $second): bool
-    {
-        return ($this->hasChooseBackground($first) && $this->canBeCommander($first) && $this->isBackground($second))
-            || ($this->hasChooseBackground($second) && $this->canBeCommander($second) && $this->isBackground($first));
-    }
-
-    private function hasChooseBackground(Card $card): bool
-    {
-        return str_contains($this->normalizedText($card->oracleText()), 'choose a background');
+        return ($firstCapability->is(CommanderPairingAbility::ChooseBackground) && $this->canBeCommander($first) && $this->isBackground($second))
+            || ($secondCapability->is(CommanderPairingAbility::ChooseBackground) && $this->canBeCommander($second) && $this->isBackground($first));
     }
 
     private function isBackground(Card $card): bool
@@ -269,15 +274,15 @@ class CommanderDeckValidator
         return str_contains($this->normalizedText($card->typeLine()), 'background');
     }
 
-    private function isDoctorsCompanionPair(Card $first, Card $second): bool
+    private function isDoctorsCompanionPair(
+        Card $first,
+        CommanderPairingCapability $firstCapability,
+        Card $second,
+        CommanderPairingCapability $secondCapability,
+    ): bool
     {
-        return ($this->hasDoctorsCompanion($first) && $this->isLegendaryCreature($first) && $this->isDoctorCommander($second))
-            || ($this->hasDoctorsCompanion($second) && $this->isLegendaryCreature($second) && $this->isDoctorCommander($first));
-    }
-
-    private function hasDoctorsCompanion(Card $card): bool
-    {
-        return str_contains($this->normalizedText($card->oracleText()), "doctor's companion");
+        return ($firstCapability->is(CommanderPairingAbility::DoctorsCompanion) && $this->isLegendaryCreature($first) && $this->isDoctorCommander($second))
+            || ($secondCapability->is(CommanderPairingAbility::DoctorsCompanion) && $this->isLegendaryCreature($second) && $this->isDoctorCommander($first));
     }
 
     private function isDoctorCommander(Card $card): bool

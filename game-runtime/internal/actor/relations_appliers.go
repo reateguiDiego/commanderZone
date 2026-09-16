@@ -201,6 +201,69 @@ func (AttachmentRemovedApplier) Apply(_ context.Context, game *state.GameState, 
 	return map[string]any{"id": id, "metrics": relationsMetrics(start, ops, emitter)}, nil
 }
 
+type BattlefieldStackCreatedApplier struct{}
+
+func (BattlefieldStackCreatedApplier) Type() string { return "battlefield_stack.created" }
+
+func (BattlefieldStackCreatedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	stackedInstanceID, err := stringField(command.Payload, "stackedInstanceId")
+	if err != nil {
+		return nil, err
+	}
+	stackTopInstanceID, err := stringField(command.Payload, "stackTopInstanceId")
+	if err != nil {
+		return nil, err
+	}
+	id := optionalString(command.Payload, "id")
+	if id == "" {
+		id = "battlefield-stack-" + command.ClientActionID
+	}
+	relation := state.BattlefieldStack{
+		ID:                 id,
+		OwnerID:            actorPlayerID(command),
+		StackedInstanceID:  stackedInstanceID,
+		StackTopInstanceID: stackTopInstanceID,
+		CreatedAt:          nowUTC().Format(time.RFC3339Nano),
+	}
+	ops := state.NewRelationsOps()
+	if err := ops.AddBattlefieldStack(game, relation); err != nil {
+		return nil, err
+	}
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefieldStack.add", Data: map[string]any{"battlefieldStack": battlefieldStackPatch(relation)}})
+	return map[string]any{"id": id, "stackedInstanceId": stackedInstanceID, "stackTopInstanceId": stackTopInstanceID, "metrics": relationsMetrics(start, ops, emitter)}, nil
+}
+
+type BattlefieldStackRemovedApplier struct{}
+
+func (BattlefieldStackRemovedApplier) Type() string { return "battlefield_stack.removed" }
+
+func (BattlefieldStackRemovedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	id := optionalString(command.Payload, "id")
+	if id == "" {
+		stackedInstanceID, err := stringField(command.Payload, "stackedInstanceId")
+		if err != nil {
+			return nil, err
+		}
+		for relationID, relation := range game.Relations.BattlefieldStacks {
+			if relation.StackedInstanceID == stackedInstanceID {
+				id = relationID
+				break
+			}
+		}
+	}
+	if id == "" {
+		return nil, state.ErrMissingRelation
+	}
+	ops := state.NewRelationsOps()
+	if _, err := ops.RemoveBattlefieldStack(game, id); err != nil {
+		return nil, err
+	}
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefieldStack.remove", Data: map[string]any{"id": id}})
+	return map[string]any{"id": id, "metrics": relationsMetrics(start, ops, emitter)}, nil
+}
+
 type HelperCreatedApplier struct{}
 
 func (HelperCreatedApplier) Type() string { return "helper.created" }
@@ -305,6 +368,16 @@ func attachmentPatch(relation state.Relation) map[string]any {
 		"equipmentInstanceId":  relation.SourceID,
 		"attachedToInstanceId": relation.TargetID,
 		"createdAt":            stringFromMap(relation.Meta, "createdAt"),
+	})
+}
+
+func battlefieldStackPatch(relation state.BattlefieldStack) map[string]any {
+	return compactMap(map[string]any{
+		"id":                 relation.ID,
+		"ownerId":            relation.OwnerID,
+		"stackedInstanceId":  relation.StackedInstanceID,
+		"stackTopInstanceId": relation.StackTopInstanceID,
+		"createdAt":          relation.CreatedAt,
 	})
 }
 

@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LucideAngularModule, Minus, Plus, RotateCcw, X } from 'lucide-angular';
-import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
 
@@ -193,6 +193,100 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'equipment').classList).not.toContain('attachment-stack-aura');
   });
 
+  it('keeps attachment interaction rules scoped to actual attachments', async () => {
+    const equipment = { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact', tapped: false } satisfies GameCardInstance;
+    const landTop = { instanceId: 'land-top', name: 'Plains', typeLine: 'Basic Land - Plains', tapped: false } satisfies GameCardInstance;
+    const landUnder = { instanceId: 'land-under', name: 'Island', typeLine: 'Basic Land - Island', tapped: false } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        equipment,
+        landTop,
+        landUnder,
+      ],
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+      battlefieldStacks: [battlefieldStack('stack-1', 'land-under', 'land-top')],
+      cardPosition: (card) => ({ x: card.instanceId === 'land-under' ? 110 : 100, y: 200 }),
+    });
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    fixture.componentInstance.onCardDoubleClick(new MouseEvent('dblclick'), 'player-1', equipment);
+    fixture.componentInstance.onCardDoubleClick(new MouseEvent('dblclick'), 'player-1', landUnder);
+
+    expect(doubleClicked).toHaveBeenCalledTimes(1);
+    expect(doubleClicked).toHaveBeenCalledWith(expect.objectContaining({ card: landUnder }));
+  });
+
+  it('renders a three-card land stack through the attachment presentation', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 200 }],
+      ['land-under-a', { x: 110, y: 182 }],
+      ['land-under-b', { x: 120, y: 164 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Command Tower', typeLine: 'Land', tapped: false },
+        { instanceId: 'land-under-a', name: 'Island', typeLine: 'Basic Land - Island', tapped: false },
+        { instanceId: 'land-under-b', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+      ],
+      battlefieldStacks: [
+        battlefieldStack('stack-a', 'land-under-a', 'land-top'),
+        battlefieldStack('stack-b', 'land-under-b', 'land-top'),
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+
+    expect(cardElement(fixture, 'land-top').classList).toContain('attachment-stack-target');
+    expect(cardElement(fixture, 'land-under-a').classList).toContain('attachment-stack-equipment');
+    expect(cardElement(fixture, 'land-under-b').classList).toContain('attachment-stack-equipment');
+    expect(cardElement(fixture, 'land-top').classList).not.toContain('land-stack-card');
+
+    cardElement(fixture, 'land-under-a').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'land-top').classList).toContain('attachment-stack-aura');
+    expect(cardElement(fixture, 'land-under-b').classList).toContain('attachment-stack-aura');
+  });
+
+  it('uses identical display offsets for three-card stacks and attachments', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 200 }],
+      ['land-under-a', { x: 400, y: 600 }],
+      ['land-under-b', { x: 20, y: 20 }],
+      ['attachment-target', { x: 300, y: 200 }],
+      ['attachment-a', { x: 420, y: 600 }],
+      ['attachment-b', { x: 20, y: 20 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Command Tower', typeLine: 'Land', tapped: false },
+        { instanceId: 'land-under-a', name: 'Island', typeLine: 'Basic Land - Island', tapped: false },
+        { instanceId: 'land-under-b', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+        { instanceId: 'attachment-target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        { instanceId: 'attachment-a', name: 'Sword', typeLine: 'Artifact - Equipment', tapped: false },
+        { instanceId: 'attachment-b', name: 'Hammer', typeLine: 'Artifact - Equipment', tapped: false },
+      ],
+      battlefieldStacks: [
+        battlefieldStack('stack-a', 'land-under-a', 'land-top'),
+        battlefieldStack('stack-b', 'land-under-b', 'land-top'),
+      ],
+      attachments: [
+        attachment('attachment-a', 'attachment-a', 'attachment-target'),
+        attachment('attachment-b', 'attachment-b', 'attachment-target'),
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+    const displayPositions = fixture.componentInstance.permanentStackDisplayPositions();
+
+    expect(displayPositions.get('land-top')).toEqual({ x: 100, y: 200 });
+    expect(displayPositions.get('land-under-a')).toEqual({ x: 110, y: 182 });
+    expect(displayPositions.get('land-under-b')).toEqual({ x: 120, y: 164 });
+    expect(displayPositions.get('attachment-target')).toEqual({ x: 300, y: 200 });
+    expect(displayPositions.get('attachment-a')).toEqual({ x: 310, y: 182 });
+    expect(displayPositions.get('attachment-b')).toEqual({ x: 320, y: 164 });
+  });
+
   it('does not pull the dragged land into a transient stack layout before drop', async () => {
     const positions = new Map([
       ['land-top', { x: 100, y: 200 }],
@@ -316,6 +410,7 @@ interface RenderFocusedBattlefieldOptions {
   layoutKey?: unknown;
   zoomPercent?: number;
   attachments?: readonly GameAttachment[];
+  battlefieldStacks?: readonly GameBattlefieldStack[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
   cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
   isCurrentPlayer?: (playerId: string) => boolean;
@@ -365,6 +460,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('layoutKey', options.layoutKey ?? null);
   fixture.componentRef.setInput('zoomPercent', options.zoomPercent ?? 100);
   fixture.componentRef.setInput('attachments', options.attachments ?? []);
+  fixture.componentRef.setInput('battlefieldStacks', options.battlefieldStacks ?? []);
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.detectChanges();
 
@@ -385,6 +481,15 @@ function attachment(id: string, equipmentInstanceId: string, attachedToInstanceI
     equipmentInstanceId,
     attachedToInstanceId,
     createdAt: '2026-05-29T00:00:00+00:00',
+  };
+}
+
+function battlefieldStack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }
 

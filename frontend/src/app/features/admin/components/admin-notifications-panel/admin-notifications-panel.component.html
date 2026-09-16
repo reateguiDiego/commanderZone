@@ -16,6 +16,43 @@
       (valueChange)="selectRecipient($event)"
     />
 
+    <div class="recipient-quick-select" role="group" [attr.aria-label]="'admin.notifications.recipient' | runtimeTranslate">
+      <div class="recipient-quick-select__row">
+        @for (recipient of primaryQuickRecipientOptions; track recipient.id) {
+          <button
+            type="button"
+            czButton="secondary"
+            czButtonSize="sm"
+            [czButtonActive]="selectedQuickRecipientId() === recipient.id"
+            [disabled]="loadingUsers() || sending()"
+            (click)="toggleQuickRecipient(recipient.id)"
+          >
+            {{ recipient.labelKey | runtimeTranslate }}
+          </button>
+        }
+      </div>
+      <div class="recipient-quick-select__row recipient-quick-select__row--tiers">
+        @for (recipient of tierQuickRecipientOptions; track recipient.id) {
+        <button
+          type="button"
+          czButton="secondary"
+          czButtonSize="sm"
+          [czButtonActive]="selectedQuickRecipientId() === recipient.id"
+          [disabled]="loadingUsers() || sending()"
+          (click)="toggleQuickRecipient(recipient.id)"
+        >
+          {{ recipient.labelKey | runtimeTranslate }}
+        </button>
+        }
+      </div>
+    </div>
+
+    @if (quickRecipientAudience(); as audience) {
+      <p class="recipient-audience" role="status">
+        {{ 'admin.notifications.recipientCount' | runtimeTranslate: { count: audience.count } }}
+      </p>
+    }
+
     <label class="field">
       <span>{{ 'shared.text.subject' | runtimeTranslate }}</span>
       <input type="text" formControlName="subject" autocomplete="off" maxlength="30" />

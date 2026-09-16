@@ -1,10 +1,6 @@
-export type AppThemeId =
-  | 'sunrise'
-  | 'arcade-neon-clash'
-  | 'candy-summoners'
-  | 'treasure-tavern'
-  | 'cyber-duel-arena'
-  | 'mystic-grove';
+import { type AppThemeId } from './theme-id';
+
+export { DEFAULT_APP_THEME_ID, isAppThemeId, type AppThemeId } from './theme-id';
 
 export interface AppThemePalette {
   readonly bg: string;
@@ -29,8 +25,6 @@ export interface AppTheme {
   readonly palette: AppThemePalette;
   readonly functional: AppThemeFunctionalColors;
 }
-
-export const DEFAULT_APP_THEME_ID: AppThemeId = 'sunrise';
 
 export const APP_THEMES: readonly AppTheme[] = [
   {
@@ -76,18 +70,18 @@ export const APP_THEMES: readonly AppTheme[] = [
     labelKey: 'settings.themeSettingsPanel.themes.candySummoners.label',
     descriptionKey: 'settings.themeSettingsPanel.themes.candySummoners.description',
     palette: {
-      bg: '#CBB8E8',
-      surface: '#E8A6C8',
-      primary: '#5A2EA6',
-      secondary: '#006E8F',
-      accent: '#B0185A',
-      text: '#000000',
+      bg: '#C6C0C9',
+      surface: '#CFC9D2',
+      primary: '#780049',
+      secondary: '#004249',
+      accent: '#780049',
+      text: '#3D3542',
     },
     functional: {
-      success: '#006B4A',
-      danger: '#B0003A',
-      warning: '#6F3B00',
-      info: '#0057B8',
+      success: '#004628',
+      danger: '#800018',
+      warning: '#5B3200',
+      info: '#003677',
     },
   },
   {
@@ -95,18 +89,18 @@ export const APP_THEMES: readonly AppTheme[] = [
     labelKey: 'settings.themeSettingsPanel.themes.treasureTavern.label',
     descriptionKey: 'settings.themeSettingsPanel.themes.treasureTavern.description',
     palette: {
-      bg: '#3A1F0B',
-      surface: '#5A3212',
-      primary: '#007C89',
-      secondary: '#7A1232',
-      accent: '#D99A2B',
-      text: '#FFF1D6',
+      bg: '#10171B',
+      surface: '#1A252A',
+      primary: '#65D6C2',
+      secondary: '#B7A2E8',
+      accent: '#E1B768',
+      text: '#F3EEE4',
     },
     functional: {
-      success: '#005F3B',
-      danger: '#E0112D',
-      warning: '#7A1232',
-      info: '#0F52BA',
+      success: '#79D5A5',
+      danger: '#FF8795',
+      warning: '#F2C66D',
+      info: '#86BFFF',
     },
   },
   {
@@ -148,10 +142,6 @@ export const APP_THEMES: readonly AppTheme[] = [
     },
   },
 ] as const;
-
-export function isAppThemeId(value: string): value is AppThemeId {
-  return APP_THEMES.some((theme) => theme.id === value);
-}
 
 export function appThemeById(value: string | null | undefined): AppTheme {
   return APP_THEMES.find((theme) => theme.id === value) ?? APP_THEMES[0];

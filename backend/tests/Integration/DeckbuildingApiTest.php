@@ -2037,6 +2037,80 @@ TXT,
         self::assertCount(2, $response['deck']['commanders']);
     }
 
+    public function testDecklistImportWithExplicitCommandersKeepsLastLegendaryCardInMainDeck(): void
+    {
+        $token = $this->registerAndLogin('explicit-commanders-last-legendary@example.test', 'Explicit Commanders');
+        $firstCommander = $this->seedCard('50000000-0000-0000-0000-000000000011', 'First Selected Commander', [
+            'type_line' => 'Legendary Creature - Human Wizard',
+            'set' => 'tst',
+            'collector_number' => '11',
+        ]);
+        $secondCommander = $this->seedCard('50000000-0000-0000-0000-000000000012', 'Second Selected Commander', [
+            'type_line' => 'Legendary Creature - Human Warrior',
+            'set' => 'tst',
+            'collector_number' => '12',
+        ]);
+        $solRing = $this->seedCard('50000000-0000-0000-0000-000000000013', 'Sol Ring', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '13',
+        ]);
+        $ragavan = $this->seedCard('50000000-0000-0000-0000-000000000014', 'Ragavan, Nimble Pilferer', [
+            'type_line' => 'Legendary Creature - Monkey Pirate',
+            'set' => 'tst',
+            'collector_number' => '14',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Keep Last Legend'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'commanderScryfallIds' => [$firstCommander->scryfallId(), $secondCommander->scryfallId()],
+            'decklist' => "1 Sol Ring\n1 Ragavan, Nimble Pilferer",
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame(2, $response['summary']['parsedCards']);
+        self::assertSame(4, $response['summary']['totalCards']);
+        self::assertSame(2, $response['summary']['mainCount']);
+        self::assertSame(2, $response['summary']['commanderCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $solRing->scryfallId(), 'main')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $ragavan->scryfallId(), 'main')['quantity']);
+        self::assertCount(2, $response['deck']['commanders']);
+    }
+
+    public function testDecklistImportReportsExplicitCommanderSelectionConflict(): void
+    {
+        $token = $this->registerAndLogin('explicit-commanders-conflict@example.test', 'Commander Conflict');
+        $selectedCommander = $this->seedCard('50000000-0000-0000-0000-000000000021', 'Selected Commander', [
+            'type_line' => 'Legendary Creature - Human Wizard',
+            'set' => 'tst',
+            'collector_number' => '21',
+        ]);
+        $this->seedCard('50000000-0000-0000-0000-000000000022', 'Decklist Commander', [
+            'type_line' => 'Legendary Creature - Human Warrior',
+            'set' => 'tst',
+            'collector_number' => '22',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Cmdr Conflict'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'commanderScryfallIds' => [$selectedCommander->scryfallId()],
+            'decklist' => "Commander\n1 Decklist Commander",
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(
+            'Selected commanders do not match the decklist commander section: Decklist Commander. Update the selection or the decklist and import again.',
+            $this->jsonResponse()['error'],
+        );
+    }
+
     public function testDecklistImportMatchesExplicitSelectedCommanderAcrossPreferredLanguagePrints(): void
     {
         $token = $this->registerAndLogin('selected-commander-language-print@example.test', 'Commander Lang');

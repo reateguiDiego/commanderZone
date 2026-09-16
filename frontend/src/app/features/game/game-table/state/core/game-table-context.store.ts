@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthStore } from '../../../../../core/auth/auth.store';
-import { GameCardInstance, GameCommandType, GameControlPlaneState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardFaceRuntimeStats, GameCardInstance, GameCommandType, GameControlPlaneState, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragContext } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCardActionContext } from '../../services/game-table-card-actions.service';
@@ -255,13 +255,13 @@ export class GameTableContextStore {
     return {
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
-      updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness) =>
-        this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness),
-      updateLocalCardBattleValue: (playerId, zone, instanceId, defense) =>
-        this.updateLocalCardBattleValue(playerId, zone, instanceId, defense),
-      updateLocalCardSagaValue: (playerId, zone, instanceId, saga) =>
-        this.updateLocalCardSagaValue(playerId, zone, instanceId, saga),
-      updateLocalCardLoyalty: (playerId, zone, instanceId, loyalty) => this.updateLocalCardLoyalty(playerId, zone, instanceId, loyalty),
+      updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness, faceIndex) =>
+        this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness, faceIndex),
+      updateLocalCardBattleValue: (playerId, zone, instanceId, defense, faceIndex) =>
+        this.updateLocalCardBattleValue(playerId, zone, instanceId, defense, faceIndex),
+      updateLocalCardSagaValue: (playerId, zone, instanceId, saga, faceIndex) =>
+        this.updateLocalCardSagaValue(playerId, zone, instanceId, saga, faceIndex),
+      updateLocalCardLoyalty: (playerId, zone, instanceId, loyalty, faceIndex) => this.updateLocalCardLoyalty(playerId, zone, instanceId, loyalty, faceIndex),
       setError: (message) => this.core.error.set(message),
       command: (type, payload, force) => source.command(type, payload, force),
     };
@@ -483,28 +483,38 @@ export class GameTableContextStore {
     return this.core.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
   }
 
-  private updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void {
+  private updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number, faceIndex?: number): void {
     this.updateLocalCard(playerId, zone, instanceId, (card) =>
-      card.power === power && card.toughness === toughness ? card : { ...card, power, toughness },
+      this.withLocalFaceRuntimeStats(card, faceIndex, { power, toughness }),
     );
   }
 
-  private updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void {
+  private updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number, faceIndex?: number): void {
     this.updateLocalCard(playerId, zone, instanceId, (card) =>
-      card.defense === defense ? card : { ...card, defense },
+      this.withLocalFaceRuntimeStats(card, faceIndex, { defense }),
     );
   }
 
-  private updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number): void {
+  private updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number, faceIndex?: number): void {
     this.updateLocalCard(playerId, zone, instanceId, (card) =>
-      card.saga === saga ? card : { ...card, saga },
+      this.withLocalFaceRuntimeStats(card, faceIndex, { saga }),
     );
   }
 
-  private updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number): void {
+  private updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number, faceIndex?: number): void {
     this.updateLocalCard(playerId, zone, instanceId, (card) =>
-      card.loyalty === loyalty ? card : { ...card, loyalty },
+      this.withLocalFaceRuntimeStats(card, faceIndex, { loyalty }),
     );
+  }
+
+  private withLocalFaceRuntimeStats(card: GameCardInstance, faceIndex: number | undefined, values: Partial<GameCardFaceRuntimeStats>): GameCardInstance {
+    if (faceIndex === undefined || !card.faceRuntimeStats?.[faceIndex]) {
+      return { ...card, ...values };
+    }
+    const faceRuntimeStats = [...card.faceRuntimeStats];
+    faceRuntimeStats[faceIndex] = { ...faceRuntimeStats[faceIndex], ...values };
+
+    return { ...card, faceRuntimeStats };
   }
 
   private updateLocalCard(

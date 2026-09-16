@@ -28,13 +28,17 @@ export class RuntimeTranslatePipe implements PipeTransform {
       .subscribe(() => this.changeDetectorRef.markForCheck());
   }
 
-  transform(key: string, params?: Record<string, unknown>): string {
+  transform(key: string | null | undefined, params?: Record<string, unknown>): string {
+    if (!key?.trim()) {
+      return '';
+    }
+
     if (!this.translate) {
       return runtimeTranslationFallback(key, params);
     }
 
     const translated = this.translate.instant(key, params);
-    if (typeof translated !== 'string' || translated === key) {
+    if (typeof translated !== 'string' || translated.trim() === '' || translated === key) {
       return runtimeTranslationFallback(key, params);
     }
 

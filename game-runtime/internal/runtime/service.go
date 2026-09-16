@@ -20,18 +20,19 @@ var ErrActorStateNotFound = errors.New("runtime actor state not found")
 var ErrActorClosing = errors.New("runtime actor is closing")
 
 type Service struct {
-	mu                  sync.RWMutex
-	actors              map[string]*actor.GameActor
-	cancels             map[string]context.CancelFunc
-	leases              map[string]OwnershipLease
-	closing             map[string]struct{}
-	connections         map[string]int
-	actorStoppedHook    func(string)
-	store               persistence.EventStore
-	queueSize           int
-	appliers            []actor.Applier
-	lifecycleSink       lifecycle.Sink
-	lifecycleGeneration int64
+	mu                          sync.RWMutex
+	actors                      map[string]*actor.GameActor
+	cancels                     map[string]context.CancelFunc
+	leases                      map[string]OwnershipLease
+	closing                     map[string]struct{}
+	connections                 map[string]int
+	actorStoppedHook            func(string)
+	store                       persistence.EventStore
+	queueSize                   int
+	appliers                    []actor.Applier
+	lifecycleSink               lifecycle.Sink
+	lifecycleGeneration         int64
+	authoritativeSnapshotSource persistence.AuthoritativeSnapshotSource
 
 	instanceID  string
 	ownership   OwnershipManager
@@ -108,6 +109,14 @@ func WithLifecycleSink(sink lifecycle.Sink, generation int64) ServiceOption {
 		if generation > 0 {
 			s.lifecycleGeneration = generation
 		}
+	}
+}
+
+// WithAuthoritativeSnapshotSource configures the cold recovery path used only
+// when the local compact snapshot cannot pass checksum verification.
+func WithAuthoritativeSnapshotSource(source persistence.AuthoritativeSnapshotSource) ServiceOption {
+	return func(s *Service) {
+		s.authoritativeSnapshotSource = source
 	}
 }
 
@@ -322,7 +331,14 @@ func (s *Service) recoverState(ctx context.Context, gameID string, initial *stat
 	hasBase := false
 	snapshot, ok, err := s.store.LatestSnapshot(ctx, gameID)
 	if err != nil {
-		return state.GameState{}, err
+		if !errors.Is(err, persistence.ErrSnapshotChecksumMismatch) || s.authoritativeSnapshotSource == nil {
+			return state.GameState{}, err
+		}
+		snapshot, err = s.recoverAuthoritativeSnapshot(ctx, gameID)
+		if err != nil {
+			return state.GameState{}, fmt.Errorf("recover authoritative compact snapshot after local checksum failure: %w", err)
+		}
+		ok = true
 	}
 	if ok {
 		base = snapshot.State
@@ -352,6 +368,28 @@ func (s *Service) recoverState(ctx context.Context, gameID string, initial *stat
 		return base, nil
 	}
 	return actor.ReplayEvents(base, events, s.appliers)
+}
+
+func (s *Service) recoverAuthoritativeSnapshot(ctx context.Context, gameID string) (persistence.CompactSnapshot, error) {
+	recovered, err := s.authoritativeSnapshotSource.Load(ctx, gameID)
+	if err != nil {
+		return persistence.CompactSnapshot{}, err
+	}
+	if recovered.GameID != gameID || recovered.Version < 1 {
+		return persistence.CompactSnapshot{}, fmt.Errorf("invalid authoritative snapshot identity for %s", gameID)
+	}
+
+	// Re-sign in the runtime's canonical representation. This is a one-time,
+	// best-effort cache repair: a transient write failure must not reject a
+	// valid authoritative game state and kill the active table.
+	runtimeSnapshot, err := persistence.NewCompactSnapshot(recovered.State)
+	if err != nil {
+		return persistence.CompactSnapshot{}, err
+	}
+	if err := s.store.SaveSnapshot(ctx, runtimeSnapshot); err != nil {
+		s.logger.Warn("runtime snapshot signature repair could not be persisted", "gameId", gameID, "error", err)
+	}
+	return runtimeSnapshot, nil
 }
 
 func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {

@@ -22,6 +22,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->client = static::createClient();
         $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
         $this->resetDatabase();
+        static::getContainer()->get('cache.community')->clear();
         RecordingMercureHub::reset();
     }
 

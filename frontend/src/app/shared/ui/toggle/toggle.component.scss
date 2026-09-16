@@ -40,6 +40,13 @@
   line-height: 1.32;
 }
 
+.toggle-warning {
+  color: var(--cz-danger);
+  font-size: var(--toggle-description-font-size, 0.86rem);
+  font-weight: 700;
+  line-height: 1.32;
+}
+
 .toggle-switch {
   position: relative;
   display: block;
@@ -80,7 +87,7 @@
     box-shadow 170ms ease;
 }
 
-.toggle:hover .toggle-switch {
+.toggle:not(.toggle--no-hover-feedback):hover .toggle-switch {
   border-color: rgb(var(--cz-accent-rgb) / 68%);
   box-shadow:
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),

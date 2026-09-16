@@ -74,56 +74,58 @@
       </div>
     </header>
 
-    <form class="community-user-filters" (ngSubmit)="applyFilters()">
-      <label class="community-user-filter-field">
-        <span>{{ 'shared.text.searchByName' | runtimeTranslate }}</span>
-        <input
-          name="userDeckSearchQuery"
-          type="search"
-          [placeholder]="'shared.text.searchDecksLabel' | runtimeTranslate"
-          [ngModel]="searchQuery()"
-          (ngModelChange)="setSearchQuery($event)"
-        />
-      </label>
+    @if (filtersVisible()) {
+      <form class="community-user-filters" (ngSubmit)="applyFilters()">
+        <label class="community-user-filter-field">
+          <span>{{ 'shared.text.searchByName' | runtimeTranslate }}</span>
+          <input
+            name="userDeckSearchQuery"
+            type="search"
+            [placeholder]="'shared.text.searchDecksLabel' | runtimeTranslate"
+            [ngModel]="searchQuery()"
+            (ngModelChange)="setSearchQuery($event)"
+          />
+        </label>
 
-      <label class="community-user-filter-field">
-        <span>{{ 'shared.text.commander' | runtimeTranslate }}</span>
-        <app-card-autocomplete
-          [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
-          actionLabel="shared.text.select"
-          [filters]="{ commanderCandidate: true }"
-          [query]="commanderQuery()"
-          (queryChange)="setCommanderQuery($event)"
-          (cardSelected)="selectCommanderFilter($event)"
-        />
-      </label>
+        <label class="community-user-filter-field">
+          <span>{{ 'shared.text.commander' | runtimeTranslate }}</span>
+          <app-card-autocomplete
+            [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
+            actionLabel="shared.text.select"
+            [filters]="{ commanderCandidate: true }"
+            [query]="commanderQuery()"
+            (queryChange)="setCommanderQuery($event)"
+            (cardSelected)="selectCommanderFilter($event)"
+          />
+        </label>
 
-      <div class="community-user-filter-select">
-        <app-format-select
-          name="userDeckFormat"
-          label="shared.text.format"
-          [options]="formatOptions()"
-          [value]="selectedFormat()"
-          (valueChange)="setSelectedFormat($event)"
-        />
-      </div>
+        <div class="community-user-filter-select">
+          <app-format-select
+            name="userDeckFormat"
+            label="shared.text.format"
+            [options]="formatOptions()"
+            [value]="selectedFormat()"
+            (valueChange)="setSelectedFormat($event)"
+          />
+        </div>
 
-      <div class="community-user-filter-select">
-        <app-format-select
-          name="userDeckColors"
-          labelKey="community.user.filterColors"
-          [options]="colorOptions"
-          [value]="selectedColor()"
-          (valueChange)="setSelectedColor($event)"
-        />
-      </div>
+        <div class="community-user-filter-select">
+          <app-format-select
+            name="userDeckColors"
+            labelKey="community.user.filterColors"
+            [options]="colorOptions"
+            [value]="selectedColor()"
+            (valueChange)="setSelectedColor($event)"
+          />
+        </div>
 
-      <div class="community-user-filter-actions">
-        <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
-          {{ 'shared.text.search' | runtimeTranslate }}
-        </button>
-      </div>
-    </form>
+        <div class="community-user-filter-actions">
+          <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
+            {{ 'shared.text.search' | runtimeTranslate }}
+          </button>
+        </div>
+      </form>
+    }
 
     @if (loading()) {
       <app-global-loader />

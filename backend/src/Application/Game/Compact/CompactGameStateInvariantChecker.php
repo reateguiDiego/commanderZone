@@ -110,6 +110,19 @@ final class CompactGameStateInvariantChecker
             }
         }
 
+        foreach (is_array($relations['battlefieldStacks'] ?? null) ? $relations['battlefieldStacks'] : [] as $stackId => $stack) {
+            $stackedInstanceId = (string) ($stack['stackedInstanceId'] ?? '');
+            $stackTopInstanceId = (string) ($stack['stackTopInstanceId'] ?? '');
+            foreach ([$stackedInstanceId, $stackTopInstanceId] as $instanceId) {
+                if ($instanceId === '') {
+                    continue;
+                }
+                if (($loc[$instanceId]['zone'] ?? null) !== 'battlefield') {
+                    $issues[] = sprintf('battlefield stack %s references non-battlefield instance %s.', (string) $stackId, $instanceId);
+                }
+            }
+        }
+
         foreach (is_array($relations['arrows'] ?? null) ? $relations['arrows'] : [] as $arrowId => $arrow) {
             $fromInstanceId = (string) ($arrow['fromInstanceId'] ?? '');
             $toInstanceId = (string) ($arrow['toInstanceId'] ?? '');
@@ -128,6 +141,8 @@ final class CompactGameStateInvariantChecker
             ...$issues,
             ...$this->checkRelationIndex($relationIndexes['attachmentsByEquipment'] ?? null, $relations['attachments'] ?? null, 'equipmentInstanceId', 'attachmentsByEquipment'),
             ...$this->checkRelationIndex($relationIndexes['attachmentsByTarget'] ?? null, $relations['attachments'] ?? null, 'attachedToInstanceId', 'attachmentsByTarget'),
+            ...$this->checkRelationIndex($relationIndexes['battlefieldStacksByTop'] ?? null, $relations['battlefieldStacks'] ?? null, 'stackTopInstanceId', 'battlefieldStacksByTop'),
+            ...$this->checkRelationIndex($relationIndexes['battlefieldStacksByCard'] ?? null, $relations['battlefieldStacks'] ?? null, 'stackedInstanceId', 'battlefieldStacksByCard'),
             ...$this->checkRelationIndex($relationIndexes['arrowsBySource'] ?? null, $relations['arrows'] ?? null, 'fromInstanceId', 'arrowsBySource'),
             ...$this->checkRelationIndex($relationIndexes['arrowsByTarget'] ?? null, $relations['arrows'] ?? null, 'toInstanceId', 'arrowsByTarget'),
         ];

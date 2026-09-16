@@ -288,6 +288,32 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertTrue($snapshot['players']['owner-id']['zones']['command'][0]['hasRulings']);
     }
 
+    public function testInitializesIndependentRuntimeStatsForEveryDoubleFacedCardFace(): void
+    {
+        $card = new Card('33333333-3333-4333-8333-333333333333');
+        $card->updateFromScryfall([
+            'id' => '33333333-3333-4333-8333-333333333333',
+            'name' => 'Front // Back',
+            'type_line' => 'Legendary Creature - Test // Legendary Planeswalker - Test',
+            'oracle_text' => 'Test text',
+            'legalities' => ['commander' => 'legal'],
+            'layout' => 'transform',
+            'card_faces' => [
+                ['name' => 'Front', 'type_line' => 'Legendary Creature - Test', 'power' => '2', 'toughness' => '3'],
+                ['name' => 'Back', 'type_line' => 'Legendary Planeswalker - Test', 'loyalty' => '4'],
+            ],
+        ]);
+
+        $snapshot = $this->snapshotWithCommander($card);
+        $instance = $snapshot['players']['owner-id']['zones']['command'][0];
+
+        self::assertSame(1, $snapshot['faceRuntimeStatsVersion']);
+        self::assertSame(2, $instance['faceRuntimeStats'][0]['defaultPower']);
+        self::assertSame(3, $instance['faceRuntimeStats'][0]['toughness']);
+        self::assertSame(4, $instance['faceRuntimeStats'][1]['defaultLoyalty']);
+        self::assertSame(4, $instance['faceRuntimeStats'][1]['loyalty']);
+    }
+
     /**
      * @param array<string,mixed> $faceStats
      * @param list<array<string,mixed>> $cardFaces

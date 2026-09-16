@@ -40,7 +40,6 @@
   box-shadow:
     0 18px 42px rgb(var(--cz-bg-rgb) / 28%),
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%);
-  perspective: 900px;
   transition:
     border-color 180ms ease,
     background 180ms ease,
@@ -76,12 +75,6 @@
   height: 100%;
   padding: 0.75rem;
   text-align: center;
-}
-
-.commander-card-image img,
-.commander-card-fallback {
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
 }
 
 .quantity-badge,

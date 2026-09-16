@@ -18,7 +18,13 @@
     [class.preview-mode-vertical]="previewMode() === 'vertical'"
   >
     @if (image(); as cardImage) {
-      <img [src]="cardImage" [alt]="card().name" [class.battle-preview-rotated]="battlePreviewRotated()" />
+      <img
+        [src]="cardImage"
+        [alt]="card().name"
+        [class.battle-preview-rotated]="battlePreviewRotated()"
+        [appPreloadCardAlternateFace]="card()"
+        [cardVisibleFaceIndex]="card().activeFaceIndex ?? 0"
+      />
     } @else {
       <span class="card-preview-fallback" [class.battle-preview-rotated]="battlePreviewRotated()">{{ card().name }}</span>
     }

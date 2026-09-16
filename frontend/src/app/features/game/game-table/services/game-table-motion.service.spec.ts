@@ -2,6 +2,8 @@ import { ElementRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
+import { AuthStore } from '../../../../core/auth/auth.store';
+import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 import { GameTableMotionService } from './game-table-motion.service';
 
 describe('GameTableMotionService', () => {
@@ -11,9 +13,19 @@ describe('GameTableMotionService', () => {
   let gsapFromToSpy: ReturnType<typeof vi.spyOn>;
   let gsapToSpy: ReturnType<typeof vi.spyOn>;
   let gsapTimelineSpy: ReturnType<typeof vi.spyOn>;
+  let gameAnimationsEnabled = true;
+  const authStore = {
+    user: vi.fn(),
+  };
 
   beforeEach(() => {
     stubMatchMedia(() => false);
+    gameAnimationsEnabled = true;
+    authStore.user.mockReset().mockImplementation(() => ({
+      preferences: {
+        game: { gameAnimations: gameAnimationsEnabled },
+      },
+    }));
 
     flipFromSpy = vi.spyOn(Flip, 'from').mockImplementation((_state, vars) => {
       vars?.onComplete?.();
@@ -36,7 +48,11 @@ describe('GameTableMotionService', () => {
     });
     gsapTimelineSpy = vi.spyOn(gsap, 'timeline');
     TestBed.configureTestingModule({
-      providers: [GameTableMotionService],
+      providers: [
+        GameTableMotionService,
+        GameTableSessionPreferencesStore,
+        { provide: AuthStore, useValue: authStore },
+      ],
     });
 
     service = TestBed.inject(GameTableMotionService);
@@ -71,6 +87,28 @@ describe('GameTableMotionService', () => {
       targets: [card],
     });
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('does not initialize or execute visual motion when the game session disabled animations', () => {
+    service.destroy();
+    gameAnimationsEnabled = false;
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        GameTableMotionService,
+        GameTableSessionPreferencesStore,
+        { provide: AuthStore, useValue: authStore },
+      ],
+    });
+    service = TestBed.inject(GameTableMotionService);
+    service.init(new ElementRef(host));
+
+    service.punchCard('card-1');
+    const playFlip = service.prepareCardFlip();
+    playFlip();
+
+    expect(gsapFromToSpy).not.toHaveBeenCalled();
+    expect(flipFromSpy).not.toHaveBeenCalled();
   });
 
   it('uses GSAP to flip the previous face out before showing the next face', () => {
@@ -262,26 +300,21 @@ describe('GameTableMotionService', () => {
 
   it('runs hand layout FLIP below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
-    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      callback(0);
-      return 1;
-    });
     const card = addHandCard(host, 'card-1');
 
-    try {
-      const playFlip = service.prepareHandLayoutFlip(host);
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+    const playFlip = service.prepareHandLayoutFlip(host);
 
-      playFlip();
+    playFlip();
 
-      expect(flipFromSpy).toHaveBeenCalledOnce();
-      expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
-        duration: 0.48,
-        ease: 'power3.out',
-        targets: [card],
-      });
-    } finally {
-      animationFrame.mockRestore();
-    }
+    expect(flipFromSpy).toHaveBeenCalledOnce();
+    expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
+      duration: 0.42,
+      ease: 'power2.inOut',
+      targets: [card],
+    });
+    expect(animationFrame).not.toHaveBeenCalled();
+    animationFrame.mockRestore();
   });
 
   it('uses layered GSAP pulses when creating a land stack', () => {

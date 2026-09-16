@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
@@ -79,7 +79,7 @@ interface ResolvedHandPointerDrag {
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, OnDestroy {
+export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly pointerDragService = inject(GameTablePointerDragService);
@@ -87,8 +87,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private readonly revealDelayMs = 200;
   private readonly handHoverOpenDelayMs = 180;
   private readonly handHoverCloseDelayMs = 260;
-  private readonly handDropRevealOpenDelayMs = 1000;
-  private readonly handDropRevealCloseDelayMs = 1000;
   private readonly reorderPreviewDelayMs = 120;
   private readonly postMotionHoldMs = 240;
   private readonly reorderHorizontalThreshold = 22;
@@ -98,13 +96,13 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private revealTimer: number | null = null;
   private handHoverTimer: number | null = null;
   private handHoverClearTimer: number | null = null;
-  private handDropRevealTimer: number | null = null;
-  private handDropHideTimer: number | null = null;
   private reorderPreviewTimer: number | null = null;
   private postMotionHoldTimer: number | null = null;
   private pendingReorderPreview: HandPointerDropPreview | null = null;
   private previousHandCount: number | null = null;
   private previousHandLayoutMode: 'fan' | 'row' | null = null;
+  private renderedHandLayoutMode: 'fan' | 'row' | null = null;
+  private pendingHandLayoutFlip: (() => void) | null = null;
   private previousMotionActive = false;
   private pendingRowScrollAnchor: { scrollProgress: number } | null = null;
   private lastPointerPosition: { clientX: number; clientY: number } | null = null;
@@ -112,6 +110,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private retainedHandDropPreview: { targetInstanceId: string; placement: 'before' | 'after' } | null = null;
   private focusInside = false;
   private pointerInside = false;
+  private suppressHandHoverUntilPointerLeaves = false;
+  private readonly handInteractionSuspended = signal(false);
   private suppressedClickInstanceId: string | null = null;
   readonly player = input.required<PlayerView>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
@@ -145,7 +145,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly handRevealed = signal(false);
   readonly handHovered = signal(false);
   readonly handDropReceiverRevealed = signal(false);
-  readonly externalDropRowLocked = signal(false);
+  private readonly externalDropHandoffActive = signal(false);
   readonly pointerDrag = signal<HandPointerDrag | null>(null);
   readonly activeHandHoverInstanceId = signal<string | null>(null);
   readonly displayHandCards = computed<readonly GameCardInstance[]>(() => {
@@ -175,11 +175,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
   });
   readonly handLayoutMode = computed<'fan' | 'row'>(() => {
-    if (this.externalDropRowLocked() && !this.readOnly() && !this.showCardsFaceDown()) {
+    if (this.handInteractionSuspended()) {
+      return 'fan';
+    }
+
+    const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
+    if (externalDragActive && this.isExternalHandDropReceiverHighlighted() && !this.readOnly() && !this.showCardsFaceDown()) {
       return 'row';
     }
 
-    if (this.isExternalHandDropReceiverHighlighted() && !this.readOnly() && !this.showCardsFaceDown()) {
+    if (this.externalDropHandoffActive() && !this.readOnly() && !this.showCardsFaceDown()) {
       return 'row';
     }
 
@@ -196,27 +201,44 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return 'row';
     }
 
-    if (this.isHandDropReceiverVisuallyHighlighted()) {
-      return 'row';
+    if (externalDragActive) {
+      return 'fan';
     }
 
-    const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
-    if (externalDragActive) {
-      return this.previousHandLayoutMode === 'row' ? 'row' : 'fan';
+    if (this.isHandDropReceiverVisuallyHighlighted()) {
+      return 'row';
     }
 
     return (this.handHovered() || this.hasOpenHandContextMenu()) && this.isHandVisuallyRevealed() ? 'row' : 'fan';
   });
 
-  ngAfterViewChecked(): void {
+  ngDoCheck(): void {
     this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
+
+    const nextLayoutMode = this.handLayoutMode();
+    if (this.renderedHandLayoutMode === null
+      || this.pendingHandLayoutFlip !== null
+      || nextLayoutMode === this.renderedHandLayoutMode) {
+      return;
+    }
+
+    this.pendingHandLayoutFlip = this.prepareHandLayoutFlip();
+  }
+
+  ngAfterViewChecked(): void {
+    const renderedLayoutMode = this.handLayoutMode();
+    this.playPendingHandLayoutFlip(renderedLayoutMode);
+
+    if (this.externalDropHandoffActive() && !this.motionActive() && !this.previousMotionActive) {
+      this.finishExternalDropHandoff();
+    }
 
     const actualHand = this.player().state.zones.hand;
     const hand = this.displayHandCards();
     const handCount = hand.length;
     const currentLayoutMode = this.handLayoutMode();
     const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
-    const skipRowAnchorAdjustments = externalDragActive || this.externalDropRowLocked();
+    const skipRowAnchorAdjustments = externalDragActive;
     if (this.motionActive()) {
       this.previousHandCount = handCount;
       this.previousHandLayoutMode = currentLayoutMode;
@@ -242,18 +264,17 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       this.keepVisibleHandLockedForMotion();
       this.clearRevealTimer();
       this.clearHandHoverTimers();
-      this.clearHandDropRevealTimers();
       this.clearPostMotionHoldTimer();
       this.previousMotionActive = true;
       return;
     }
 
-    if (!this.hasActiveCardDrag() && this.externalDropRowLocked()) {
-      this.externalDropRowLocked.set(false);
-    }
-
     if (this.previousMotionActive) {
       this.previousMotionActive = false;
+      if (this.externalDropHandoffActive()) {
+        this.finishExternalDropHandoff();
+        return;
+      }
       this.syncHandHoverAfterMotion();
       return;
     }
@@ -263,12 +284,23 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
+    if (this.suppressHandHoverUntilPointerLeaves) {
+      return;
+    }
+
     if (this.isExternalCardDrag() && !this.externalRevealAllowed()) {
       this.hideHand();
       return;
     }
 
-    if (this.pointerInside && !this.interactionFrozen() && this.canRevealFromPointer()) {
+    if (this.isExternalCardDrag()) {
+      return;
+    }
+
+    if (this.pointerInside
+      && !this.suppressHandHoverUntilPointerLeaves
+      && !this.interactionFrozen()
+      && this.canRevealFromPointer()) {
       this.scheduleHandReveal();
       return;
     }
@@ -281,7 +313,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   ngOnDestroy(): void {
     this.clearRevealTimer();
     this.clearHandHoverTimers();
-    this.clearHandDropRevealTimers();
     this.clearReorderPreviewTimer();
     this.clearPostMotionHoldTimer();
   }
@@ -331,6 +362,30 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     this.syncHandHoverFromCoordinates(event.clientX, event.clientY);
+  }
+
+  @HostListener('document:visibilitychange')
+  handleDocumentVisibilityChange(): void {
+    if (document.visibilityState === 'visible') {
+      return;
+    }
+
+    this.handInteractionSuspended.set(true);
+    this.externalDropHandoffActive.set(false);
+    this.handDropReceiverRevealed.set(false);
+    this.suppressHandHoverUntilPointerLeaves = false;
+    this.pointerInside = false;
+    this.focusInside = false;
+    this.lastPointerPosition = null;
+    this.previousHandLayoutMode = 'fan';
+    this.clearRevealTimer();
+    this.clearHandHoverTimers();
+    this.clearPostMotionHoldTimer();
+    this.activeHandHoverInstanceId.set(null);
+    this.handHovered.set(false);
+    this.handRevealed.set(false);
+    this.cardPreviewHidden.emit();
+    this.changeDetectorRef.markForCheck();
   }
 
   @HostListener('window:pointerup', ['$event'])
@@ -387,7 +442,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       }
     }
     this.pointerDrag.set(null);
-    this.syncHandHoverFromCoordinates(event.clientX, event.clientY);
+    this.collapseHandAfterDragTransfer();
   }
 
   @HostListener('window:pointercancel', ['$event'])
@@ -406,21 +461,22 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   handleExternalHandDragOver(event: DragEvent, playerId: string): void {
     event.stopPropagation();
+    this.rememberPointerPosition(event.clientX, event.clientY);
     this.pendingRowScrollAnchor = null;
-    this.externalDropRowLocked.set(true);
     this.revealHandForExternalDrop();
     this.handDragOver.emit({ event, playerId });
   }
 
   handleExternalHandDrop(event: DragEvent, playerId: string): void {
     event.stopPropagation();
+    this.rememberPointerPosition(event.clientX, event.clientY);
     this.pendingRowScrollAnchor = null;
-    this.externalDropRowLocked.set(true);
     this.revealHandForExternalDrop();
     this.handDropped.emit({ event, playerId });
   }
 
   enterHand(event?: MouseEvent): void {
+    this.resumeHandInteraction(event);
     this.pointerInside = true;
     if (this.motionActive()) {
       return;
@@ -429,6 +485,17 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.rememberRowScrollAnchor(event);
     if (this.hasOwnPointerDrag()) {
       this.keepHandRevealedDuringOwnPointerDrag();
+      return;
+    }
+
+    if (this.suppressHandHoverUntilPointerLeaves) {
+      return;
+    }
+
+    if (this.isExternalCardDrag()) {
+      if (!this.externalRevealAllowed()) {
+        this.hideHand();
+      }
       return;
     }
 
@@ -441,16 +508,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   leaveHand(event?: MouseEvent): void {
-    if (this.motionActive()) {
-      return;
-    }
-
     if (this.isRelatedTargetInsideHand(event)) {
       this.pointerInside = true;
       return;
     }
 
+    this.resumeHandInteraction(event);
     this.pointerInside = false;
+    if (this.motionActive()) {
+      return;
+    }
+
+    this.suppressHandHoverUntilPointerLeaves = false;
     const wasHandHovered = this.handHovered();
     this.scheduleHandHoverClose();
     if (this.hasOwnPointerDrag()) {
@@ -472,6 +541,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   enterHandScrollArea(event?: MouseEvent): void {
+    this.resumeHandInteraction(event);
     this.pointerInside = true;
     if (this.motionActive()) {
       return;
@@ -486,16 +556,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   leaveHandScrollArea(event?: MouseEvent): void {
-    if (this.motionActive()) {
-      return;
-    }
-
     if (this.isRelatedTargetInsideHand(event)) {
       this.pointerInside = true;
       return;
     }
 
+    this.resumeHandInteraction(event);
     this.pointerInside = false;
+    if (this.motionActive()) {
+      return;
+    }
+
+    this.suppressHandHoverUntilPointerLeaves = false;
     this.scheduleHandHoverClose();
   }
 
@@ -640,10 +712,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   isHandVisuallyRevealed(): boolean {
-    if (this.externalDropRowLocked()) {
-      return true;
-    }
-
     if (this.showCardsFaceDown()) {
       return true;
     }
@@ -751,7 +819,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const drag = this.pointerDrag();
 
     return this.handDropReceiverRevealed()
-      || this.externalDropRowLocked()
       || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
   }
 
@@ -974,13 +1041,13 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   private scheduleHandReveal(): void {
-    if (this.handRevealed() || this.revealTimer !== null) {
+    if (this.suppressHandHoverUntilPointerLeaves || this.handRevealed() || this.revealTimer !== null) {
       return;
     }
 
     this.clearRevealTimer();
     this.revealTimer = window.setTimeout(() => {
-      this.updateHoverLayoutWithFlip(() => this.handRevealed.set(true));
+      this.updateHandLayoutWithFlip(() => this.handRevealed.set(true));
       this.revealTimer = null;
     }, this.revealDelayMs);
   }
@@ -1009,6 +1076,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
+    if (this.externalDropHandoffActive()) {
+      this.previousHandLayoutMode = 'row';
+      return;
+    }
+
+    if (this.suppressHandHoverUntilPointerLeaves) {
+      this.previousHandLayoutMode = 'fan';
+      this.handRevealed.set(false);
+      this.handHovered.set(false);
+      return;
+    }
+
     if (this.motionLayoutMode() === 'fan') {
       this.previousHandLayoutMode = 'fan';
       this.handHovered.set(false);
@@ -1018,7 +1097,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const shouldKeepRow = this.isHandVisuallyRevealed()
       || this.handHovered()
       || this.handDropReceiverRevealed()
-      || this.externalDropRowLocked()
       || this.previousHandLayoutMode === 'row';
 
     if (!shouldKeepRow) {
@@ -1031,11 +1109,20 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   private syncHandHoverFromCoordinates(clientX: number, clientY: number): void {
-    if (this.motionActive() || this.hasOwnPointerDrag()) {
+    if (this.motionActive() || this.hasOwnPointerDrag() || this.isExternalCardDrag()) {
       return;
     }
 
-    if (this.isPointInsideHandHoverBounds(clientX, clientY)) {
+    const pointerInsideHand = this.isPointInsideHandHoverBounds(clientX, clientY);
+    if (this.suppressHandHoverUntilPointerLeaves) {
+      if (pointerInsideHand) {
+        return;
+      }
+
+      this.suppressHandHoverUntilPointerLeaves = false;
+    }
+
+    if (pointerInsideHand) {
       this.pointerInside = true;
       if (!this.interactionFrozen() && this.canRevealFromPointer()) {
         this.scheduleHandReveal();
@@ -1071,7 +1158,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   private rememberPointerPosition(clientX: number, clientY: number): void {
-    this.lastPointerPosition = { clientX, clientY };
+    this.resumeHandInteraction({ clientX, clientY });
+  }
+
+  private resumeHandInteraction(pointer?: { readonly clientX: number; readonly clientY: number }): void {
+    this.handInteractionSuspended.set(false);
+    if (pointer) {
+      this.lastPointerPosition = pointer;
+    }
   }
 
   private isPointInsideHandHoverBounds(clientX: number, clientY: number): boolean {
@@ -1149,75 +1243,24 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.handHoverClearTimer = null;
   }
 
-  private clearHandDropRevealTimers(): void {
-    this.clearHandDropRevealTimer();
-    this.clearHandDropHideTimer();
-  }
-
-  private clearHandDropRevealTimer(): void {
-    if (this.handDropRevealTimer === null) {
-      return;
-    }
-
-    window.clearTimeout(this.handDropRevealTimer);
-    this.handDropRevealTimer = null;
-  }
-
-  private clearHandDropHideTimer(): void {
-    if (this.handDropHideTimer === null) {
-      return;
-    }
-
-    window.clearTimeout(this.handDropHideTimer);
-    this.handDropHideTimer = null;
-  }
-
   private syncHandDropReceiverReveal(highlighted: boolean): void {
     const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
-    if (!externalDragActive && this.externalDropRowLocked()) {
-      this.externalDropRowLocked.set(false);
-      this.handDropReceiverRevealed.set(false);
-    }
-
-    if (externalDragActive && highlighted) {
-      this.clearHandDropRevealTimers();
-      this.externalDropRowLocked.set(true);
-      if (!this.handDropReceiverRevealed()) {
-        this.handDropReceiverRevealed.set(true);
-      }
+    const shouldReveal = externalDragActive && highlighted;
+    const wasRevealed = this.handDropReceiverRevealed();
+    if (wasRevealed === shouldReveal) {
       return;
     }
 
-    if (this.externalDropRowLocked()) {
-      this.clearHandDropRevealTimers();
-      if (!this.handDropReceiverRevealed()) {
-        this.handDropReceiverRevealed.set(true);
-      }
-      return;
-    }
-
-    if (highlighted) {
-      this.clearHandDropHideTimer();
-      if (this.handDropReceiverRevealed() || this.handDropRevealTimer !== null) {
+    this.handDropReceiverRevealed.set(shouldReveal);
+    if (wasRevealed) {
+      if (externalDragActive) {
+        this.collapseHandAfterDragTransfer({ animateLayout: false });
         return;
       }
 
-      this.handDropRevealTimer = window.setTimeout(() => {
-        this.handDropReceiverRevealed.set(true);
-        this.handDropRevealTimer = null;
-      }, this.handDropRevealOpenDelayMs);
-      return;
+      this.externalDropHandoffActive.set(true);
+      this.collapseHandAfterDragTransfer({ animateLayout: false });
     }
-
-    this.clearHandDropRevealTimer();
-    if (!this.handDropReceiverRevealed() || this.handDropHideTimer !== null) {
-      return;
-    }
-
-    this.handDropHideTimer = window.setTimeout(() => {
-      this.handDropReceiverRevealed.set(false);
-      this.handDropHideTimer = null;
-    }, this.handDropRevealCloseDelayMs);
   }
 
   private scheduleHandHoverClose(): void {
@@ -1233,7 +1276,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       }
 
       this.clearRevealTimer();
-      this.updateHoverLayoutWithFlip(() => {
+      this.updateHandLayoutWithFlip(() => {
         this.handHovered.set(false);
         if (!this.interactionFrozen()) {
           this.handRevealed.set(false);
@@ -1244,7 +1287,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   private scheduleHandRowOpen(): void {
-    if (this.readOnly() || this.interactionFrozen() || !this.canRevealFromPointer()) {
+    if (this.suppressHandHoverUntilPointerLeaves
+      || this.isExternalCardDrag()
+      || this.readOnly()
+      || this.interactionFrozen()
+      || !this.canRevealFromPointer()) {
       return;
     }
 
@@ -1254,45 +1301,107 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     this.handHoverTimer = window.setTimeout(() => {
-      this.updateHoverLayoutWithFlip(() => this.handHovered.set(true));
+      this.clearRevealTimer();
+      this.updateHandLayoutWithFlip(() => {
+        this.handRevealed.set(true);
+        this.handHovered.set(true);
+      });
       this.handHoverTimer = null;
     }, this.handHoverOpenDelayMs);
   }
 
-  private updateHoverLayoutWithFlip(update: () => void): void {
+  private updateHandLayoutWithFlip(update: () => void): void {
     const previousLayoutMode = this.handLayoutMode();
-    const playFlip = this.prepareHoverLayoutFlip();
+    const playFlip = this.prepareHandLayoutFlip();
+    // Signals can cause Angular to check the view synchronously. Queue the
+    // prepared FLIP before changing them so that check can consume it after
+    // rendering the new layout.
+    this.pendingHandLayoutFlip = playFlip;
 
     update();
+    this.changeDetectorRef.markForCheck();
 
-    if (previousLayoutMode === this.handLayoutMode()) {
-      return;
+    const nextLayoutMode = this.handLayoutMode();
+    if (previousLayoutMode === nextLayoutMode && this.pendingHandLayoutFlip === playFlip) {
+      this.pendingHandLayoutFlip = null;
     }
-
-    playFlip();
   }
 
-  private prepareHoverLayoutFlip(): () => void {
-    if (this.motionActive()
-      || this.readOnly()
-      || this.showCardsFaceDown()
-      || this.displayHandCards().length === 0) {
+  private prepareHandLayoutFlip(): () => void {
+    if (this.readOnly() || this.showCardsFaceDown() || this.displayHandCards().length === 0) {
       return () => undefined;
     }
 
     return this.motion?.prepareHandLayoutFlip(this.host.nativeElement) ?? (() => undefined);
   }
 
+  private playPendingHandLayoutFlip(renderedLayoutMode: 'fan' | 'row'): void {
+    const playFlip = this.pendingHandLayoutFlip;
+    this.pendingHandLayoutFlip = null;
+
+    if (playFlip) {
+      playFlip();
+    }
+
+    this.renderedHandLayoutMode = renderedLayoutMode;
+  }
+
   private revealHandForExternalDrop(): void {
-    this.pointerInside = true;
     if (this.motionActive() || this.readOnly() || this.interactionFrozen() || !this.canRevealFromPointer()) {
       return;
     }
 
     this.clearHandHoverTimers();
     this.clearRevealTimer();
-    this.handRevealed.set(true);
-    this.handHovered.set(true);
+    this.handDropReceiverRevealed.set(true);
+  }
+
+  private finishExternalDropHandoff(): void {
+    const pointerInsideHand = this.isLastPointerInsideHandArea();
+
+    this.suppressHandHoverUntilPointerLeaves = false;
+    this.focusInside = false;
+    this.clearRevealTimer();
+    this.clearHandHoverTimers();
+    this.updateHandLayoutWithFlip(() => {
+      this.externalDropHandoffActive.set(false);
+      this.pointerInside = pointerInsideHand;
+      this.handHovered.set(pointerInsideHand);
+      if (!this.interactionFrozen()) {
+        this.handRevealed.set(pointerInsideHand);
+      }
+    });
+  }
+
+  private collapseHandAfterDragTransfer(options: {
+    readonly animateLayout?: boolean;
+  } = {}): void {
+    const animateLayout = options.animateLayout ?? true;
+    this.suppressHandHoverUntilPointerLeaves = true;
+    this.pointerInside = false;
+    this.clearRevealTimer();
+    this.clearHandHoverTimers();
+    const collapse = () => {
+      this.handHovered.set(false);
+      if (!this.interactionFrozen()) {
+        this.handRevealed.set(false);
+      }
+    };
+
+    if (!animateLayout) {
+      collapse();
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.updateHandLayoutWithFlip(collapse);
+  }
+
+  private isLastPointerInsideHandArea(): boolean {
+    const pointer = this.lastPointerPosition;
+    const bounds = this.handAreaElement()?.getBoundingClientRect();
+
+    return Boolean(pointer && bounds && this.isInsideBounds(pointer.clientX, pointer.clientY, bounds));
   }
 
   private holdHandAfterMotionIfNeeded(): void {
@@ -1332,6 +1441,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
+    this.focusInside = false;
     this.pointerInside = true;
     this.clearHandHoverTimers();
     this.clearRevealTimer();

@@ -72,10 +72,7 @@
             <input
               type="text"
               autocomplete="username"
-              [readOnly]="!loginAutocompleteReady()"
               formControlName="identifier"
-              (pointerdown)="enableLoginAutocomplete()"
-              (focus)="enableLoginAutocomplete()"
             />
             @if (loginIdentifierInvalid()) {
               <span class="field-error">
@@ -91,10 +88,7 @@
               <input
                 [type]="loginPasswordVisible() ? 'text' : 'password'"
                 autocomplete="current-password"
-                [readOnly]="!loginAutocompleteReady()"
                 formControlName="password"
-                (pointerdown)="enableLoginAutocomplete()"
-                (focus)="enableLoginAutocomplete()"
               />
               <button
                 type="button"

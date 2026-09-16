@@ -64,6 +64,8 @@ func DefaultAppliers() []Applier {
 		ArrowRemovedApplier{},
 		AttachmentCreatedApplier{},
 		AttachmentRemovedApplier{},
+		BattlefieldStackCreatedApplier{},
+		BattlefieldStackRemovedApplier{},
 		HelperCreatedApplier{},
 		HelperUpdatedApplier{},
 		HelperRemovedApplier{},
@@ -246,7 +248,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	} else {
 		instance.Counters[counter] = value
 	}
-	statPatch, hasStatPatch := applyPowerToughnessCounterDelta(&instance, counter, value-previousValue)
+	statPatch, hasStatPatch := applyPowerToughnessCounterDelta(&instance, counter, value-previousValue, command.Payload)
 	game.Instances[instanceID] = instance
 	patch := map[string]any{
 		"instanceId": instanceID,
@@ -255,6 +257,9 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"counter":    counter,
 		"value":      value,
 		"counters":   cloneIntMapAny(instance.Counters),
+	}
+	if len(instance.FaceRuntimeStats) > 0 {
+		patch["faceIndex"] = activeFaceRuntimeStatsIndex(instance, command.Payload)
 	}
 	if hasStatPatch {
 		for key, value := range statPatch {
@@ -266,6 +271,9 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"playerId":   location.PlayerID,
 		"zone":       location.Zone,
 		"counters":   cloneIntMapAny(instance.Counters),
+	}
+	if len(instance.FaceRuntimeStats) > 0 {
+		patchData["faceIndex"] = activeFaceRuntimeStatsIndex(instance, command.Payload)
 	}
 	if hasStatPatch {
 		for key, value := range statPatch {
@@ -316,7 +324,7 @@ func randomIntInclusive(minimum int, maximum int) (int, error) {
 	return minimum + int(value.Int64()), nil
 }
 
-func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int) (map[string]any, bool) {
+func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int, payload map[string]any) (map[string]any, bool) {
 	modifier := 0
 	switch counter {
 	case "+1/+1":
@@ -329,14 +337,40 @@ func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counte
 	if delta == 0 {
 		return nil, false
 	}
-	if instance.MutableStats == nil {
-		instance.MutableStats = map[string]any{}
+	stats := activeFaceRuntimeStats(instance, payload)
+	if stats == nil {
+		if instance.MutableStats == nil {
+			instance.MutableStats = map[string]any{}
+		}
+		stats = instance.MutableStats
 	}
-	power := numericMutableStat(instance.MutableStats["power"]) + (delta * modifier)
-	toughness := numericMutableStat(instance.MutableStats["toughness"]) + (delta * modifier)
-	instance.MutableStats["power"] = power
-	instance.MutableStats["toughness"] = toughness
-	return map[string]any{"power": power, "toughness": toughness}, true
+	power := numericMutableStat(stats["power"]) + (delta * modifier)
+	toughness := numericMutableStat(stats["toughness"]) + (delta * modifier)
+	stats["power"] = power
+	stats["toughness"] = toughness
+	patch := map[string]any{"power": power, "toughness": toughness}
+	if len(instance.FaceRuntimeStats) > 0 {
+		patch["faceRuntimeStats"] = instance.FaceRuntimeStats
+	}
+	return patch, true
+}
+
+func activeFaceRuntimeStats(instance *state.CardInstanceRuntime, payload map[string]any) map[string]any {
+	if len(instance.FaceRuntimeStats) == 0 {
+		return nil
+	}
+	faceIndex := activeFaceRuntimeStatsIndex(*instance, payload)
+	if faceIndex < 0 || faceIndex >= len(instance.FaceRuntimeStats) {
+		return nil
+	}
+	return instance.FaceRuntimeStats[faceIndex]
+}
+
+func activeFaceRuntimeStatsIndex(instance state.CardInstanceRuntime, payload map[string]any) int {
+	if requestedIndex, ok := intField(payload, "faceIndex"); ok {
+		return requestedIndex
+	}
+	return instance.ActiveFace
 }
 
 func numericMutableStat(value any) int {

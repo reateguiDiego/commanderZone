@@ -31,7 +31,11 @@
       } @else {
         <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">{{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}</strong>
       }
-      <span class="opponent-user-name" data-testid="opponent-user-name">{{ opponent.state.user.displayName }}</span>
+      <span
+        class="opponent-user-name"
+        data-testid="opponent-user-name"
+        [style.--opponent-user-name-color]="playerNameColor(opponent.id)"
+      >{{ opponent.state.user.displayName }}</span>
     </span>
     @if (targetingPill(); as pill) {
       <span

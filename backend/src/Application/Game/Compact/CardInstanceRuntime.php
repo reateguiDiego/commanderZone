@@ -8,6 +8,7 @@ final readonly class CardInstanceRuntime
      * @param array<string,mixed>|null $tokenMeta
      * @param array<string,int>        $counters
      * @param array{power:int|string|null,toughness:int|string|null,loyalty:int|string|null,defense:int|string|null,saga:int|string|null} $mutableStats
+     * @param list<array<string,int|string|null>> $faceRuntimeStats
      * @param array<string,int|float|string>|null $position
      * @param list<string>             $visibleTo
      * @param array{x:float,y:float}|null $dungeonMarker
@@ -25,6 +26,7 @@ final readonly class CardInstanceRuntime
         public int $rotation,
         public array $counters,
         public array $mutableStats,
+        public array $faceRuntimeStats,
         public ?array $position,
         public bool $faceDown,
         public int $activeFace,
@@ -68,6 +70,7 @@ final readonly class CardInstanceRuntime
                 'defense' => self::stat($card['defense'] ?? null),
                 'saga' => self::stat($card['saga'] ?? null),
             ],
+            self::faceRuntimeStats($card['faceRuntimeStats'] ?? null),
             is_array($card['position'] ?? null) ? $card['position'] : null,
             (bool) ($card['faceDown'] ?? false),
             max(0, (int) ($card['activeFaceIndex'] ?? 0)),
@@ -95,6 +98,7 @@ final readonly class CardInstanceRuntime
             'rotation' => $this->rotation,
             'counters' => $this->counters,
             'mutableStats' => $this->mutableStats,
+            'faceRuntimeStats' => $this->faceRuntimeStats,
             'faceDown' => $this->faceDown,
             'activeFace' => $this->activeFace,
             'visibleTo' => $this->visibleTo,
@@ -128,5 +132,25 @@ final readonly class CardInstanceRuntime
         }
 
         return is_numeric($value) ? (int) $value : (string) $value;
+    }
+
+    /** @return list<array<string,int|string|null>> */
+    private static function faceRuntimeStats(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+        $stats = [];
+        foreach ($value as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+            $normalized = [];
+            foreach (['defaultPower', 'defaultToughness', 'defaultLoyalty', 'defaultDefense', 'power', 'toughness', 'loyalty', 'defense', 'saga'] as $key) {
+                $normalized[$key] = self::stat($face[$key] ?? null);
+            }
+            $stats[] = $normalized;
+        }
+        return $stats;
     }
 }

@@ -229,7 +229,9 @@ export class AddCardToDeckModalComponent {
 
     this.loadingDecks.set(true);
     try {
-      const response = await firstValueFrom(this.decksApi.list());
+      const response = await firstValueFrom(this.decksApi.list(undefined, false, {
+        sort: 'name-asc',
+      }));
       this.decks.set(response.data);
     } catch {
       this.errorKey.set('deckBuilder.cards.cardSearch.addToDeck.couldNotLoadDecks');

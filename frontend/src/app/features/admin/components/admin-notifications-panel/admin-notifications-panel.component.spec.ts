@@ -5,7 +5,7 @@ import { of } from 'rxjs';
 import { MessagesApi } from '../../../../core/api/messages.api';
 import { ROLE_USER } from '../../../../core/auth/user-roles';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
-import { AdminUser } from '../../data-access/admin-users.models';
+import { AdminUser, AdminUsersSummary } from '../../data-access/admin-users.models';
 import { AdminNotificationsPanelComponent } from './admin-notifications-panel.component';
 
 describe('AdminNotificationsPanelComponent', () => {
@@ -29,6 +29,18 @@ describe('AdminNotificationsPanelComponent', () => {
     localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: '2026-07-01T10:00:00+00:00',
   };
+  const usersSummary: AdminUsersSummary = {
+    total: 10,
+    online: 2,
+    recentlyConnected: 4,
+    recentlyCreated: 2,
+    neverConnected: 3,
+    totalDecks: 12,
+    tier0: 4,
+    tier1: 3,
+    tier2: 2,
+    tier3: 1,
+  };
 
   beforeEach(async () => {
     messagesApi = {
@@ -39,7 +51,7 @@ describe('AdminNotificationsPanelComponent', () => {
       imports: [AdminNotificationsPanelComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ Upload })),
-        { provide: AdminUsersApi, useValue: { listUsers: vi.fn().mockReturnValue(of({ users: [user] })) } },
+        { provide: AdminUsersApi, useValue: { listUsers: vi.fn().mockReturnValue(of({ users: [user], summary: usersSummary })) } },
         { provide: MessagesApi, useValue: messagesApi },
       ],
     }).compileComponents();
@@ -50,10 +62,66 @@ describe('AdminNotificationsPanelComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders all and user recipients in the shared select', () => {
+  it('renders all, quick segments, and user recipients in the shared select', () => {
     const options = openRecipientOptions(fixture);
 
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['All users', 'CommanderZone']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual([
+      'All users',
+      'Never connected',
+      'Online last 7 days',
+      'New users last 7 days',
+      'Tier 0',
+      'Tier 1',
+      'Tier 2',
+      'Tier 3',
+      'CommanderZone',
+    ]);
+
+    const quickRows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.recipient-quick-select__row'));
+    expect(quickRows).toHaveLength(2);
+    expect(Array.from(quickRows[0].querySelectorAll('button')).map((button) => button.textContent?.trim())).toEqual([
+      'All users',
+      'Never connected',
+      'Online last 7 days',
+      'New users last 7 days',
+    ]);
+    expect(Array.from(quickRows[1].querySelectorAll('button')).map((button) => button.textContent?.trim())).toEqual([
+      'Tier 0',
+      'Tier 1',
+      'Tier 2',
+      'Tier 3',
+    ]);
+  });
+
+  it('toggles a quick recipient segment and previews its audience', () => {
+    clickQuickRecipient(fixture, 'Never connected');
+
+    const recipientInput = fixture.nativeElement.querySelector('app-format-select input[name="recipient"]') as HTMLInputElement;
+    expect(recipientInput.value).toBe('never_connected');
+    expect(fixture.nativeElement.textContent).toContain('This message will be received by 3 user(s).');
+
+    const selectedButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.recipient-quick-select button'))
+      .find((button) => button.textContent?.includes('Never connected'));
+    expect(selectedButton?.classList).toContain('cz-button--active');
+
+    clickQuickRecipient(fixture, 'Never connected');
+
+    expect(recipientInput.value).toBe('all');
+    expect(selectedButton?.classList).not.toContain('cz-button--active');
+    expect(fixture.nativeElement.textContent).not.toContain('This message will be received by 3 user(s).');
+  });
+
+  it('sends a selected quick recipient segment as the recipient', () => {
+    clickQuickRecipient(fixture, 'Never connected');
+    setInputValue(fixture, 'input[formControlName="subject"]', 'Server notice');
+    setInputValue(fixture, 'textarea[formControlName="body"]', 'Maintenance tonight.');
+
+    const submit = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Send')) as HTMLButtonElement;
+    submit.click();
+    fixture.detectChanges();
+
+    expect(messagesApi.sendAdminMessage).toHaveBeenCalledWith(expect.objectContaining({ recipientId: 'never_connected' }));
   });
 
   it('preselects a recipient from the provided username', () => {
@@ -128,6 +196,13 @@ describe('AdminNotificationsPanelComponent', () => {
 
 function clickButton(fixture: ComponentFixture<AdminNotificationsPanelComponent>, text: string): void {
   const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+    .find((candidate) => candidate.textContent?.includes(text)) as HTMLButtonElement | undefined;
+  button?.click();
+  fixture.detectChanges();
+}
+
+function clickQuickRecipient(fixture: ComponentFixture<AdminNotificationsPanelComponent>, text: string): void {
+  const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.recipient-quick-select button'))
     .find((candidate) => candidate.textContent?.includes(text)) as HTMLButtonElement | undefined;
   button?.click();
   fixture.detectChanges();

@@ -175,6 +175,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
         ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
         ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
+        ...(operation.faceRuntimeStats !== undefined ? { faceRuntimeStats: operation.faceRuntimeStats.map((stats) => ({ ...stats })) } : {}),
       }));
 
     case 'cards.state.set':
@@ -263,6 +264,15 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
 
     case 'attachments.set':
       return { status: 'applied', snapshot: { ...snapshot, attachments: [...operation.attachments] } };
+
+    case 'battlefieldStack.add':
+      return addBattlefieldStack(snapshot, operation.battlefieldStack);
+
+    case 'battlefieldStack.remove':
+      return removeBattlefieldStack(snapshot, operation.id);
+
+    case 'battlefieldStacks.set':
+      return { status: 'applied', snapshot: { ...snapshot, battlefieldStacks: [...operation.battlefieldStacks] } };
 
     case 'specialEntity.add':
       return {
@@ -578,6 +588,30 @@ function removeAttachment(snapshot: GameSnapshot, id: string): OperationResult {
   }
 
   return { status: 'applied', snapshot: { ...snapshot, attachments: attachments.filter((entry) => entry.id !== id) } };
+}
+
+function addBattlefieldStack(
+  snapshot: GameSnapshot,
+  battlefieldStack: NonNullable<GameSnapshot['battlefieldStacks']>[number],
+): OperationResult {
+  const battlefieldStacks = snapshot.battlefieldStacks ?? [];
+  if (battlefieldStacks.some((entry) => entry.id === battlefieldStack.id)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+
+  return { status: 'applied', snapshot: { ...snapshot, battlefieldStacks: [...battlefieldStacks, battlefieldStack] } };
+}
+
+function removeBattlefieldStack(snapshot: GameSnapshot, id: string): OperationResult {
+  const battlefieldStacks = snapshot.battlefieldStacks ?? [];
+  if (!battlefieldStacks.some((entry) => entry.id === id)) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    snapshot: { ...snapshot, battlefieldStacks: battlefieldStacks.filter((entry) => entry.id !== id) },
+  };
 }
 
 function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): OperationResult {

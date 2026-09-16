@@ -33,6 +33,7 @@
       "previewEmpty": "Your message preview will appear here.",
       "send": "Send",
       "messageSent": "Message sent to {{ count }} user(s).",
+      "recipientCount": "此消息将由 {{ count }} 位用户接收。",
       "snippets": {
         "imageDescription": "Image description",
         "linkText": "Link text",
@@ -198,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "加载更多",
     "ui": {
       "userActions": "用户操作",
       "reportUser": "举报用户",
@@ -208,7 +210,8 @@
       "impersonating": "正在模拟 {{ name }}",
       "stop": "停止",
       "averageManaValueWithoutLands": "不含地牌的平均法术力值：{{ value }}",
-      "messageTarget": "发送给 {{ name }}",
+      "messageTargetPrefix": "发送给",
+      "messageTargetSuffix": "",
       "roomNotice": "房间 {{ name }}",
       "revealed": "已展示",
       "revealedCard": "已展示的卡牌",
@@ -445,7 +448,8 @@
       "signInWithGoogle": "使用 Google 登录",
       "registerWithGoogle": "使用 Google 注册",
       "socialSignIn": "社交登录",
-      "or": "或"
+      "or": "或",
+      "googleLinkRequired": "此邮箱已有帐户。关联 Google 前，请先使用密码登录。"
     },
     "emailVerificationPage": {
       "confirmingEmail": "确认电子邮件",
@@ -563,6 +567,9 @@
       "totalPlayers": "玩家总数",
       "startedGames": "已开始的对局",
       "description": "浏览活跃大厅并立即加入对局。"
+    },
+    "roomRow": {
+      "leave": "离开房间"
     }
   },
   "community": {
@@ -627,7 +634,15 @@
       "commandersAriaLabel": "指挥官的灵感",
       "cardsTitle": "最常用牌",
       "mobileCardsTitle": "热门牌",
-      "cardsAriaLabel": "探索牌"
+      "cardsAriaLabel": "探索牌",
+      "usernameSearchEmpty": "未找到用户名。",
+      "usernameSearchError": "无法搜索用户名。",
+      "usernameSearchHint": "请输入至少两个字符以按用户名搜索。",
+      "usernameSearchLabel": "搜索用户名",
+      "usernameSearchLoading": "正在搜索用户名...",
+      "usernameSearchLoginRequired": "请先登录再搜索用户名。",
+      "usernameSearchPlaceholder": "搜索用户名...",
+      "usernameSearchResults": "用户名搜索结果"
     },
     "deckList": {
       "subtitle": "探索社区的公共平台。",
@@ -635,7 +650,8 @@
       "allFormats": "所有格式",
       "filterBracket": "分组",
       "allBrackets": "所有分组",
-      "error": "无法加载公共套牌。"
+      "error": "无法加载公共套牌。",
+      "paginationLabel": "公开套牌分页"
     },
     "deckViewer": {
       "viewMode": {
@@ -647,6 +663,13 @@
         "other": "其他",
         "includingMdfc": "{{ count }} 包括 MDFC"
       }
+    },
+    "user": {
+      "allColors": "所有颜色",
+      "empty": "没有公开套牌符合这些筛选条件。",
+      "error": "无法加载此公开资料。",
+      "filterColors": "颜色",
+      "paginationLabel": "用户套牌分页"
     }
   },
   "game": {
@@ -664,7 +687,11 @@
       "openBattlefieldZoomControls": "打开战场缩放控件",
       "battlefieldZoom": "战场变焦",
       "resetBattlefieldZoom": "重置战场缩放",
-      "resetZoom": "重置变焦"
+      "resetZoom": "重置变焦",
+      "squareLayout": "方形布局",
+      "gridLayout": "网格布局",
+      "viewLabel": "视图：",
+      "zoomLabel": "缩放："
     },
     "cardPreviewOverlay": {
       "cardPreviewDetails": "牌预览详情",
@@ -833,7 +860,6 @@
     "playerSummaryPanel": {
       "lifeControls": "生命控制",
       "playerCounters": "玩家指示物",
-      "autoApplyCommanderDamageToLife": "自动扣减生命",
       "autoApplyCommanderDamageToLifeTooltip": "启用后，指挥官伤害的变化也会调整该玩家的生命值。",
       "otherCounters": "其他指示物",
       "openExtraPlayerCounters": "打开玩家额外指示物",
@@ -867,7 +893,8 @@
         "main-1": "第一主阶段",
         "combat": "战斗",
         "main-2": "第二主阶段",
-        "end": "结束步骤"
+        "end": "结束步骤",
+        "draw": "抓牌步骤"
       }
     },
     "debug": {
@@ -1074,7 +1101,8 @@
         "day": "天",
         "night": "夜晚",
         "citysBlessing": "城市祝福",
-        "dayNight": "白天/夜晚"
+        "dayNight": "白天/夜晚",
+        "monarch": "君主"
       },
       "dungeonReplacement": {
         "title": "更换活动地下城？",
@@ -1253,6 +1281,15 @@
     },
     "game": {
       "concede": "授予 {{ player }}。"
+    },
+    "phase": {
+      "untap": "重置步骤",
+      "upkeep": "维持步骤",
+      "draw": "抓牌步骤",
+      "main-1": "战斗前行动阶段",
+      "combat": "战斗阶段",
+      "main-2": "战斗后行动阶段",
+      "end": "结束步骤"
     }
   },
   "deckBuilder": {
@@ -1277,7 +1314,7 @@
         "details": {
           "close": "关闭详情",
           "couldNotLoad": "无法加载此卡。",
-          "oracleText": "Oracle 规则叙述",
+          "oracleText": "文本",
           "legalFormats": "合法赛制",
           "illegalFormats": "非法赛制",
           "noLegalFormats": "本地目录中没有合法格式。",
@@ -1298,6 +1335,7 @@
         },
         "printings": {
           "title": "{{ card }} 的版本",
+          "count": "版本数量：{{ count }}",
           "empty": "未找到此牌的版本。",
           "couldNotLoad": "无法加载牌的版本。"
         },
@@ -1390,7 +1428,8 @@
       "sampleHand": "测试手牌",
       "sevenRandomCardsFromTheMainDeck": "主套牌中的七张随机牌。",
       "drawAgain": "重新抓牌",
-      "noCardsAvailable": "没有可用的卡。"
+      "noCardsAvailable": "没有可用的卡。",
+      "manaValue": "法术力值 {{ value }}"
     },
     "deckCardMenu": {
       "copyQuantityControls": "复制数量控制",
@@ -1466,7 +1505,8 @@
       "validationCounts": "牌数：共 {{ total }}（{{ commander }} 指挥官，{{ main }} 主套牌，{{ sideboard }} 备牌，{{ maybeboard }} 候选）",
       "validationFailed": "Commander 验证失败",
       "validationPassed": "Commander 验证通过",
-      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
+      "noCommanderAssignedYet": "尚未指定指挥官。"
     },
     "deckList": {
       "newDeckName": "新套牌名称",
@@ -1484,7 +1524,7 @@
       "commanderEnlargedPreview": "指挥官放大预览",
       "deckListLabel": "套牌列表",
       "yourDeckListFeelsALittleEmpty": "你的套牌列表感觉有点空。跳进去开始建造吧！",
-      "noDecksInThisFolderYet": "此文件夹中还没有牌​​组。",
+      "noDecksInThisFolderYet": "此文件夹中还没有牌组。",
       "missingCards": "丢失的牌",
       "folder": "文件夹",
       "noFolder": "无文件夹",
@@ -1538,7 +1578,9 @@
       "common": {
         "unavailable": "不可用",
         "notAvailable": "无法使用",
-        "available": "可用的"
+        "available": "可用的",
+        "no": "否",
+        "yes": "是"
       },
       "overview": {
         "aria": "高级分析概述",
@@ -1593,7 +1635,9 @@
         "excellent": "出色的",
         "critical": "批判的",
         "unknown": "未知",
-        "info": "信息"
+        "info": "信息",
+        "good": "良好",
+        "warning": "警告"
       },
       "health": {
         "eyebrow": "甲板健康",
@@ -1613,7 +1657,14 @@
           "combos": "Combos",
           "consistency": "一致性",
           "typal": "Tribal",
-          "mana": "Mana"
+          "mana": "Mana",
+          "draw": "抓牌",
+          "ramp": "Ramp",
+          "sacrifice": "牺牲",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wincons": "Wincons",
+          "wipes": "Wipes"
         }
       },
       "metrics": {
@@ -1641,7 +1692,19 @@
         "extraCombatEngines": "额外的战斗引擎",
         "tax": "税",
         "symmetricalStaxRisk": "对称税务风险",
-        "typalCreatures": "部族生物"
+        "typalCreatures": "部族生物",
+        "burstMana": "爆发法术力",
+        "completeCombos": "完整连招",
+        "conditionalWipes": "Conditional wipes",
+        "fastMana": "Fast mana",
+        "keepableHands": "可保留的起手牌",
+        "massBounce": "Mass bounce",
+        "oneShotMana": "一次性法术力",
+        "permanentRamp": "Permanent ramp",
+        "pseudoWipes": "Pseudo wipes",
+        "rituals": "Rituals",
+        "stax": "Stax",
+        "wincons": "Wincons"
       },
       "cardResolution": {
         "title": "卡片分辨率",
@@ -1650,7 +1713,8 @@
         "unmatchedAria": "无与伦比的卡牌",
         "unmatchedCount": "{{count}} 不匹配的卡",
         "unmatchedCopy": "有些卡牌无法解析，因此角色和组合信号可能不完整。",
-        "cardCouldNotBeMatched": "卡无法匹配。"
+        "cardCouldNotBeMatched": "卡无法匹配。",
+        "cards": "牌张"
       },
       "combos": {
         "eyebrow": "已知线路",
@@ -1666,7 +1730,9 @@
           "partialOneMissing": "部分，缺失一处",
           "partialTwoMissing": "部分，两处缺失",
           "winLike": "类似胜利的连击",
-          "lethalLoops": "致命循环"
+          "lethalLoops": "致命循环",
+          "complete": "完整连招",
+          "infiniteMana": "无限法术力"
         },
         "empty": {
           "noComplete": "未检测到完整的组合线。",
@@ -1679,7 +1745,8 @@
           "winLike": "胜利般的",
           "infiniteDamage": "无限伤害",
           "requiresCommander": "需要指挥官",
-          "requiresTemplate": "需要模板"
+          "requiresTemplate": "需要模板",
+          "infiniteMana": "无限法术力"
         },
         "cardState": {
           "inDeck": "在套牌中"
@@ -1725,7 +1792,8 @@
           "canCastOnCurve": "Can cast on curve",
           "missingColor": "Missing color",
           "missingManaValue": "Missing mana value",
-          "tappedOutDelay": "横置地延误"
+          "tappedOutDelay": "横置地延误",
+          "keepableHands": "可保留的起手牌"
         },
         "turn1": "Turn 1",
         "turn2": "Turn 2",
@@ -1738,18 +1806,26 @@
         "qualityAria": "{{role}}质量",
         "unavailable": "角色质量数据不可用于此分析。",
         "cards": {
-          "winconsCombat": "Wincons / 战斗"
+          "winconsCombat": "Wincons / 战斗",
+          "ramp": "Ramp",
+          "sacrifice": "牺牲",
+          "stax": "Stax",
+          "tutors": "Tutors",
+          "wipes": "Wipes"
         },
         "messages": {
           "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
           "tutorsSeparated": "Land tutors and opponent tutors are separated from true tutors.",
-        "wipesSeparated": "Mass bounce 和 Conditional wipes 不同于 Hard Board Wipes。",
+          "wipesSeparated": "Mass bounce 和 Conditional wipes 不同于 Hard Board Wipes。",
           "sacrificeOneShot": "一击牺牲不算是可重复的出路。"
         }
       },
       "quality": {
         "slow": "慢的",
-        "oneShot": "一击"
+        "oneShot": "一击",
+        "good": "良好",
+        "medium": "中等",
+        "premium": "Premium"
       },
       "typal": {
         "eyebrow": "部族定位",
@@ -1810,7 +1886,29 @@
           "bounceLand": "Bounce lands",
           "temple": "Temples",
           "gainLand": "Gain lands"
-        }
+        },
+        "baseAndAcceleration": "法术力基础与加速",
+        "noColorDemand": "没有颜色需求的数据。",
+        "requirementsAndRisks": "要求与地牌风险",
+        "artifactFixing": "Artifact fixing",
+        "averageManaValue": "平均法术力值",
+        "colorlessUtilityLands": "无色功能地",
+        "colors": {
+          "black": "黑色",
+          "blue": "蓝色",
+          "colorless": "无色",
+          "green": "绿色",
+          "red": "红色",
+          "white": "白色"
+        },
+        "conditionalFixing": "Conditional fixing",
+        "creatureFixing": "Creature fixing",
+        "fastMana": "Fast mana",
+        "fetchlands": "Fetchlands",
+        "landRampFixing": "Land-ramp fixing",
+        "rainbowSources": "五色法术力源",
+        "temporaryMana": "临时法术力",
+        "treasureSources": "珍宝来源"
       },
       "boardWipes": {
         "title": "Board Wipe Analysis",
@@ -1854,7 +1952,13 @@
           "permanentBasedWipes": "Permanent-based wipes",
           "repeatableWipes": "Repeatable wipes",
           "combatOnlyWipes": "Combat-only wipes",
-          "selfPlanRiskWipes": "Own plan collision"
+          "selfPlanRiskWipes": "Own plan collision",
+          "answersIndestructible": "能处理不灭",
+          "averageManaValue": "平均法术力值",
+          "conditionalWipes": "Conditional wipes",
+          "massBounce": "Mass bounce",
+          "opponentCompensationWipes": "Opponent compensation",
+          "pseudoTotal": "Pseudo wipes"
         },
         "badges": {
           "hard": "Hard",
@@ -1866,7 +1970,9 @@
           "damage": "Damage",
           "tuckShuffle": "Tuck / shuffle",
           "artifactWipe": "Artifact wipe",
-          "enchantmentWipe": "Enchantment wipe"
+          "enchantmentWipe": "Enchantment wipe",
+          "answersIndestructible": "能处理不灭",
+          "exile": "放逐"
         },
         "issues": {
           "low_hard_board_wipes": {
@@ -1944,6 +2050,29 @@
           "graveyard_plan_risk": "Graveyard plan risk",
           "alternative_mass_mode": "Alternative mass mode"
         }
+      }
+    },
+    "clientCommanderValidation": {
+      "colorIdentityIssue": {
+        "detail": "{{ card }} 包含统帅区标识色以外的颜色。",
+        "title": "标识色问题"
+      },
+      "commanderLegalityIssue": {
+        "bannedDetail": "{{ card }} 在指挥官赛制中已被禁用。",
+        "notLegalDetail": "{{ card }} 在指挥官赛制中不合法。",
+        "title": "指挥官合法性问题"
+      },
+      "commanderPairNeedsReview": {
+        "detail": "可用的 Oracle 文本没有明确提及拍档或背景选择。",
+        "title": "需要检查指挥官组合"
+      },
+      "singletonViolation": {
+        "detail": "{{ card }} 在主套牌中出现了 {{ quantity }} 次。",
+        "title": "违反单例规则"
+      },
+      "tooManyCommanders": {
+        "detail": "一副指挥官套牌可以指定一位指挥官，或一组合法的两张牌组合。",
+        "title": "指挥官过多"
       }
     }
   },
@@ -2059,23 +2188,27 @@
         "title": "游戏偏好",
         "showManaHelperOnStartup": {
           "label": "启动时显示法术力助手",
-          "description": "比赛开始时打开法术力助手。"
+          "description": "对局开始时显示用于计算法术力的助手。你可以在对局中随时将其隐藏或再次显示。"
         },
         "enableManaRow": {
-          "label": "启用法术力行",
-          "description": "在游戏期间显示专用法术力行。"
+          "label": "显示法术力行",
+          "description": "在战场底部显示一个视觉指引，帮助放置能产生法术力的卡牌。你可以将任何类型的卡牌放在那里；它仅作视觉辅助。"
+        },
+        "autoApplyCommanderDamageToLife": {
+          "description": "启用后，敌方指挥官造成的伤害会自动减少你的生命值。你可以在对局中随时轻松调整。"
         },
         "gameAnimations": {
           "label": "游戏动画",
-          "description": "在比赛期间使用视觉运动和反馈动画。"
+          "description": "开启或关闭对局中的所有视觉动画。",
+          "warning": "仅当你在对局中遇到性能问题时，才建议关闭它们。"
         },
         "chatNotificationSounds": {
           "label": "聊天通知声音",
-          "description": "当新的聊天通知到达时播放声音。"
+          "description": "收到新的未读聊天通知时播放声音。"
         },
-        "preserveManaPool": {
-          "label": "保留法术力池",
-          "description": "在解决堆叠动作时，将法术力保留在法术力池中。"
+        "combineChatAndGameLog": {
+          "label": "合并聊天和游戏日志",
+          "description": "在同一个标签页中一起显示聊天消息和游戏操作。"
         }
       },
       "deleteAccountWarning": "永久删除您的帐户和所有相关数据，包括套牌和偏好设置。此操作无法撤消。"
@@ -2090,7 +2223,49 @@
       "avatarTiers": "头像等级",
       "basicAvatars": "基本头像",
       "premiumAvatars": "高级头像",
-      "chooseAvatar": "选择头像"
+      "chooseAvatar": "选择头像",
+      "presetAvatar": {
+        "arcane-duelist": "Arcane Duelist",
+        "storm-seer": "Storm Seer",
+        "verdant-warden": "Verdant Warden",
+        "rune-knight": "Rune Knight",
+        "ember-marshal": "Ember Marshal",
+        "moonlit-necromancer": "Moonlit Necromancer",
+        "infernal-noble": "Infernal Noble",
+        "moonstone-seer": "Moonstone Seer",
+        "obsidian-geomancer": "Obsidian Geomancer",
+        "tidecaller-oracle": "Tidecaller Oracle",
+        "black-clad-mage": "Black-Clad Mage",
+        "elderwood-ent": "Elderwood Ent",
+        "abyssal-overlord": "Abyssal Overlord",
+        "spectral-dragon-sage": "Spectral Dragon Sage",
+        "serpent-assassin": "Serpent Assassin",
+        "friendly-robot": "Friendly Robot",
+        "radiant-paladin": "Radiant Paladin",
+        "porcelain-priestess": "Porcelain Priestess",
+        "rootbound-dryad": "Rootbound Dryad",
+        "ironroot-boar": "Ironroot Boar",
+        "leonine-champion": "Leonine Champion",
+        "wandering-blade": "Wandering Blade",
+        "mind-illusionist": "Mind Illusionist",
+        "nightblade-agent": "Nightblade Agent",
+        "chaos-court-mage": "Chaos Court Mage",
+        "dragonblood-shaman": "Dragonblood Shaman",
+        "emerald-prophet": "Emerald Prophet",
+        "temporal-scholar": "Temporal Scholar",
+        "crimson-patriarch": "Crimson Patriarch",
+        "golden-lawkeeper": "Golden Lawkeeper",
+        "sky-law-artificer": "Sky-Law Artificer",
+        "sunlit-archon": "Sunlit Archon",
+        "living-metal-sage": "Living Metal Sage",
+        "volcanic-forger": "Volcanic Forger",
+        "nightmare-oracle": "Nightmare Oracle",
+        "hawk-wildwarden": "Hawk Wildwarden",
+        "moonlit-vampire": "Moonlit Vampire",
+        "elder-dragon-tyrant": "Elder Dragon Tyrant",
+        "shadow-necromancer": "Shadow Necromancer",
+        "wild-beastmaster": "Wild Beastmaster"
+      }
     },
     "settingsAvatarUpload": {
       "uploadedAvatarPreview": "上传头像预览",
@@ -2107,6 +2282,34 @@
       "nameStylePreview": "名称样式预览",
       "nameStyleTiers": "名称样式层级",
       "textColor": "文字颜色"
+    },
+    "themeSettingsPanel": {
+      "themes": {
+        "sunrise": {
+          "label": "Sunrise",
+          "description": "纯黑、灰阶与明亮的金色点缀。"
+        },
+        "arcadeNeonClash": {
+          "label": "Arcade Neon Clash",
+          "description": "带电光点缀的竞技霓虹。"
+        },
+        "candySummoners": {
+          "label": "Candy Summoners",
+          "description": "对比更鲜明的明亮糖果粉彩。"
+        },
+        "treasureTavern": {
+          "label": "Treasure Tavern",
+          "description": "温暖的奇幻酒馆色彩：皮革、葡萄酒、宝藏金与翡翠战利品。"
+        },
+        "cyberDuelArena": {
+          "label": "Cyber Duel Arena",
+          "description": "带等离子与能量点缀的严肃 PvP 色彩。"
+        },
+        "mysticGrove": {
+          "label": "Mystic Grove",
+          "description": "以翡翠与法术之光呈现的魔法自然色彩。"
+        }
+      }
     }
   },
   "forms": {},
@@ -2263,6 +2466,7 @@
     },
     "text": {
       "users": "Users",
+      "applyCommanderDamage": "应用指挥官伤害",
       "reports": "Reports",
       "notifications": "Notifications",
       "noUsersFound": "没有找到用户。",
@@ -2297,11 +2501,11 @@
       "colorless": "无色",
       "countCards": "{{ count }} 卡",
       "giveTo": "给予",
-      "white": "白色的",
-      "blue": "蓝色的",
-      "black": "黑色的",
-      "red": "红色的",
-      "green": "绿色的",
+      "white": "白色",
+      "blue": "蓝色",
+      "black": "黑色",
+      "red": "红色",
+      "green": "绿色",
       "public": "公开",
       "private": "私密",
       "visibility": "可见性",
@@ -2534,6 +2738,11 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected"
+    },
+    "confidence": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
     }
   }
 }

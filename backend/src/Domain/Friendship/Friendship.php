@@ -133,6 +133,8 @@ class Friendship
     {
         $data = [
             'id' => $user->id(),
+            'username' => $user->publicHandle(),
+            'canonicalPath' => $user->publicPath(),
             'displayName' => $user->displayName(),
             'displayNameStyle' => $user->displayNameStyle(),
             'avatar' => $user->avatar(),

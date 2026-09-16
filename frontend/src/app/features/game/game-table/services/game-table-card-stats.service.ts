@@ -8,6 +8,7 @@ interface PendingPowerToughnessChange {
   cardName: string;
   power: number;
   toughness: number;
+  faceIndex?: number;
 }
 
 interface PendingLoyaltyChange {
@@ -16,6 +17,7 @@ interface PendingLoyaltyChange {
   instanceId: string;
   cardName: string;
   loyalty: number;
+  faceIndex?: number;
 }
 
 interface PendingBattleChange {
@@ -24,6 +26,7 @@ interface PendingBattleChange {
   instanceId: string;
   cardName: string;
   defense: number;
+  faceIndex?: number;
 }
 
 interface PendingSagaChange {
@@ -32,15 +35,16 @@ interface PendingSagaChange {
   instanceId: string;
   cardName: string;
   saga: number;
+  faceIndex?: number;
 }
 
 export interface GameTableCardStatsContext {
   canControlOwnedCard(playerId: string, card: GameCardInstance): boolean;
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
-  updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void;
-  updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void;
-  updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number): void;
-  updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number): void;
+  updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number, faceIndex?: number): void;
+  updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number, faceIndex?: number): void;
+  updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number, faceIndex?: number): void;
+  updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number, faceIndex?: number): void;
   setError(message: string): void;
   command(type: GameCommandType, payload: Record<string, unknown>, force?: boolean): Promise<void>;
 }
@@ -68,19 +72,22 @@ export class GameTableCardStatsService {
       return;
     }
 
-    const key = this.battleKey(playerId, zone, card.instanceId);
+    const faceIndex = this.activeFaceRuntimeIndex(card);
+    const key = this.battleKey(playerId, zone, card.instanceId, faceIndex);
     const pendingChange = this.pendingBattleChanges.get(key);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentDefense = pendingChange?.defense ?? this.numericStat(currentCard.defense) ?? this.numericStat(currentCard.defaultDefense) ?? 0;
+    const currentStats = this.activeFaceRuntimeStats(currentCard, faceIndex);
+    const currentDefense = pendingChange?.defense ?? this.numericStat(currentStats?.defense ?? currentCard.defense) ?? this.numericStat(currentStats?.defaultDefense ?? currentCard.defaultDefense) ?? 0;
     const nextDefense = Math.max(-1, Math.min(99, currentDefense + delta));
 
-    context.updateLocalCardBattleValue(playerId, zone, card.instanceId, nextDefense);
+    context.updateLocalCardBattleValue(playerId, zone, card.instanceId, nextDefense, faceIndex);
     this.pendingBattleChanges.set(key, {
       playerId,
       zone,
       instanceId: card.instanceId,
       cardName: card.name,
       defense: nextDefense,
+      faceIndex,
     });
     this.scheduleFlush(key, () => void this.flushBattleChange(context, key));
   }
@@ -91,19 +98,21 @@ export class GameTableCardStatsService {
       return;
     }
 
-    const key = this.sagaKey(playerId, zone, card.instanceId);
+    const faceIndex = this.activeFaceRuntimeIndex(card);
+    const key = this.sagaKey(playerId, zone, card.instanceId, faceIndex);
     const pendingChange = this.pendingSagaChanges.get(key);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentSaga = pendingChange?.saga ?? currentCard.saga ?? 1;
+    const currentSaga = pendingChange?.saga ?? this.activeFaceRuntimeStats(currentCard, faceIndex)?.saga ?? currentCard.saga ?? 1;
     const nextSaga = Math.max(1, Math.min(9, currentSaga + delta));
 
-    context.updateLocalCardSagaValue(playerId, zone, card.instanceId, nextSaga);
+    context.updateLocalCardSagaValue(playerId, zone, card.instanceId, nextSaga, faceIndex);
     this.pendingSagaChanges.set(key, {
       playerId,
       zone,
       instanceId: card.instanceId,
       cardName: card.name,
       saga: nextSaga,
+      faceIndex,
     });
     this.scheduleFlush(key, () => void this.flushSagaChange(context, key));
   }
@@ -114,18 +123,21 @@ export class GameTableCardStatsService {
       return;
     }
 
-    const key = this.loyaltyKey(playerId, zone, card.instanceId);
+    const faceIndex = this.activeFaceRuntimeIndex(card);
+    const key = this.loyaltyKey(playerId, zone, card.instanceId, faceIndex);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentLoyalty = this.pendingLoyaltyChanges.get(key)?.loyalty ?? this.numericStat(currentCard.loyalty) ?? this.numericStat(currentCard.defaultLoyalty) ?? 0;
+    const currentStats = this.activeFaceRuntimeStats(currentCard, faceIndex);
+    const currentLoyalty = this.pendingLoyaltyChanges.get(key)?.loyalty ?? this.numericStat(currentStats?.loyalty ?? currentCard.loyalty) ?? this.numericStat(currentStats?.defaultLoyalty ?? currentCard.defaultLoyalty) ?? 0;
     const nextLoyalty = currentLoyalty + delta;
 
-    context.updateLocalCardLoyalty(playerId, zone, card.instanceId, nextLoyalty);
+    context.updateLocalCardLoyalty(playerId, zone, card.instanceId, nextLoyalty, faceIndex);
     this.pendingLoyaltyChanges.set(key, {
       playerId,
       zone,
       instanceId: card.instanceId,
       cardName: card.name,
       loyalty: nextLoyalty,
+      faceIndex,
     });
     this.scheduleFlush(key, () => void this.flushLoyaltyChange(context, key));
   }
@@ -154,15 +166,17 @@ export class GameTableCardStatsService {
       return;
     }
 
-    const key = this.powerToughnessKey(playerId, zone, card.instanceId);
+    const faceIndex = this.activeFaceRuntimeIndex(card);
+    const key = this.powerToughnessKey(playerId, zone, card.instanceId, faceIndex);
     const pendingChange = this.pendingChanges.get(key);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentPower = pendingChange?.power ?? this.numericStat(currentCard.power) ?? this.numericStat(currentCard.defaultPower) ?? 0;
-    const currentToughness = pendingChange?.toughness ?? this.numericStat(currentCard.toughness) ?? this.numericStat(currentCard.defaultToughness) ?? 0;
+    const currentStats = this.activeFaceRuntimeStats(currentCard, faceIndex);
+    const currentPower = pendingChange?.power ?? this.numericStat(currentStats?.power ?? currentCard.power) ?? this.numericStat(currentStats?.defaultPower ?? currentCard.defaultPower) ?? 0;
+    const currentToughness = pendingChange?.toughness ?? this.numericStat(currentStats?.toughness ?? currentCard.toughness) ?? this.numericStat(currentStats?.defaultToughness ?? currentCard.defaultToughness) ?? 0;
     const nextPower = stat === 'power' ? currentPower + delta : currentPower;
     const nextToughness = stat === 'toughness' ? currentToughness + delta : currentToughness;
 
-    context.updateLocalCardPowerToughness(playerId, zone, card.instanceId, nextPower, nextToughness);
+    context.updateLocalCardPowerToughness(playerId, zone, card.instanceId, nextPower, nextToughness, faceIndex);
     this.pendingChanges.set(key, {
       playerId,
       zone,
@@ -170,6 +184,7 @@ export class GameTableCardStatsService {
       cardName: card.name,
       power: nextPower,
       toughness: nextToughness,
+      faceIndex,
     });
     this.scheduleFlush(key, () => void this.flushPowerToughnessChange(context, key));
   }
@@ -189,6 +204,7 @@ export class GameTableCardStatsService {
       cardName: change.cardName,
       power: change.power,
       toughness: change.toughness,
+      ...(change.faceIndex !== undefined ? { faceIndex: change.faceIndex } : {}),
     }, true);
   }
 
@@ -206,6 +222,7 @@ export class GameTableCardStatsService {
       instanceId: change.instanceId,
       cardName: change.cardName,
       defense: change.defense,
+      ...(change.faceIndex !== undefined ? { faceIndex: change.faceIndex } : {}),
     }, true);
   }
 
@@ -223,6 +240,7 @@ export class GameTableCardStatsService {
       instanceId: change.instanceId,
       cardName: change.cardName,
       saga: change.saga,
+      ...(change.faceIndex !== undefined ? { faceIndex: change.faceIndex } : {}),
     }, true);
   }
 
@@ -240,6 +258,7 @@ export class GameTableCardStatsService {
       instanceId: change.instanceId,
       cardName: change.cardName,
       loyalty: change.loyalty,
+      ...(change.faceIndex !== undefined ? { faceIndex: change.faceIndex } : {}),
     }, true);
   }
 
@@ -260,19 +279,33 @@ export class GameTableCardStatsService {
     return Number.isFinite(numericValue) ? numericValue : null;
   }
 
-  private powerToughnessKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `pt:${playerId}:${zone}:${instanceId}`;
+  private activeFaceRuntimeIndex(card: GameCardInstance): number | undefined {
+    if (!card.faceRuntimeStats?.length) {
+      return undefined;
+    }
+
+    const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+
+    return card.faceRuntimeStats[index] ? index : undefined;
   }
 
-  private loyaltyKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `loyalty:${playerId}:${zone}:${instanceId}`;
+  private activeFaceRuntimeStats(card: GameCardInstance, faceIndex: number | undefined) {
+    return faceIndex === undefined ? undefined : card.faceRuntimeStats?.[faceIndex];
   }
 
-  private battleKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `battle:${playerId}:${zone}:${instanceId}`;
+  private powerToughnessKey(playerId: string, zone: GameZoneName, instanceId: string, faceIndex?: number): string {
+    return `pt:${playerId}:${zone}:${instanceId}:${faceIndex ?? 'root'}`;
   }
 
-  private sagaKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `saga:${playerId}:${zone}:${instanceId}`;
+  private loyaltyKey(playerId: string, zone: GameZoneName, instanceId: string, faceIndex?: number): string {
+    return `loyalty:${playerId}:${zone}:${instanceId}:${faceIndex ?? 'root'}`;
+  }
+
+  private battleKey(playerId: string, zone: GameZoneName, instanceId: string, faceIndex?: number): string {
+    return `battle:${playerId}:${zone}:${instanceId}:${faceIndex ?? 'root'}`;
+  }
+
+  private sagaKey(playerId: string, zone: GameZoneName, instanceId: string, faceIndex?: number): string {
+    return `saga:${playerId}:${zone}:${instanceId}:${faceIndex ?? 'root'}`;
   }
 }

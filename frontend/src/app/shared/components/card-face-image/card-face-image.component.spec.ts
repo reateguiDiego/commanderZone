@@ -14,6 +14,7 @@ describe('CardFaceImageComponent', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   beforeEach(async () => {
@@ -21,6 +22,16 @@ describe('CardFaceImageComponent', () => {
     isDesktopLayout = signal(true);
     hasCoarsePointer = signal(false);
     hasHover = signal(true);
+    vi.stubGlobal('Image', class {
+      complete = true;
+      naturalWidth = 1;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onload?.();
+      }
+    });
 
     await TestBed.configureTestingModule({
       imports: [CardFaceImageComponent],
@@ -39,7 +50,7 @@ describe('CardFaceImageComponent', () => {
     expect(fixture.nativeElement.querySelector('.card-face-image__toggle')).toBeNull();
   });
 
-  it('toggles to the alternate face image for double-faced cards', () => {
+  it('toggles to the alternate face image for double-faced cards', async () => {
     const fixture = createComponent(cardFixture({
       imageUris: {},
       cardFaces: [
@@ -55,12 +66,13 @@ describe('CardFaceImageComponent', () => {
 
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-back.jpg');
   });
 
-  it('updates the battle rotation class from the visible face after flipping', () => {
+  it('updates the battle rotation class from the visible face after flipping', async () => {
     const fixture = createComponent(cardFixture({
       typeLine: 'Battle - Siege',
       imageUris: {},
@@ -77,12 +89,13 @@ describe('CardFaceImageComponent', () => {
     mockGsapFlipAnimation();
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).classList.contains('card-face-image--battle')).toBe(false);
   });
 
-  it('keeps allowing repeated toggles after the first flip', () => {
+  it('keeps allowing repeated toggles after the first flip', async () => {
     const fixture = createComponent(cardFixture({
       imageUris: {},
       cardFaces: [
@@ -96,28 +109,142 @@ describe('CardFaceImageComponent', () => {
 
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-back.jpg');
 
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-front.jpg');
   });
 
-  it('uses the large image when readability is preferred', () => {
+  it('uses the normal image when other variants are available', () => {
     const fixture = createComponent(cardFixture({
       imageUris: {
         normal: '/normal.jpg',
         large: '/large.jpg',
       },
     }));
-    fixture.componentRef.setInput('preferLarge', true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/large.jpg');
+    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/normal.jpg');
   });
 
-  it('syncs the visible face from the controlled input for hover previews', () => {
+  it('uses the small image only when requested for a thumbnail', () => {
+    const fixture = createComponent(cardFixture({
+      imageUris: {
+        small: '/small.jpg',
+        normal: '/normal.jpg',
+      },
+    }));
+    fixture.componentRef.setInput('imageResolution', 'small');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/small.jpg');
+  });
+
+  it('preloads the normal alternate face after the visible face has loaded', () => {
+    const requestedUrls: string[] = [];
+    vi.stubGlobal('Image', class {
+      complete = true;
+      naturalWidth = 1;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      decoding = 'auto';
+      fetchPriority = 'auto';
+
+      set src(value: string) {
+        requestedUrls.push(value);
+        this.onload?.();
+      }
+    });
+    const fixture = createComponent(cardFixture({
+      imageUris: {},
+      cardFaces: [
+        cardFace('Front', '/preload-front.jpg'),
+        cardFace('Back', '/preload-back.jpg'),
+      ],
+    }));
+    fixture.detectChanges();
+
+    const image = fixture.nativeElement.querySelector('img') as HTMLImageElement;
+    expect(requestedUrls).toEqual([]);
+
+    image.dispatchEvent(new Event('load'));
+
+    expect(requestedUrls).toEqual(['/preload-back.jpg']);
+  });
+
+  it('does not preload an alternate face for a small thumbnail', () => {
+    const requestedUrls: string[] = [];
+    vi.stubGlobal('Image', class {
+      complete = true;
+      naturalWidth = 1;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      decoding = 'auto';
+      fetchPriority = 'auto';
+
+      set src(value: string) {
+        requestedUrls.push(value);
+        this.onload?.();
+      }
+    });
+    const fixture = createComponent(cardFixture({
+      imageUris: { small: '/preload-small-front.jpg' },
+      cardFaces: [
+        cardFace('Front', '/preload-small-front.jpg'),
+        cardFace('Back', '/preload-small-back.jpg'),
+      ],
+    }));
+    fixture.componentRef.setInput('imageResolution', 'small');
+    fixture.detectChanges();
+
+    const image = fixture.nativeElement.querySelector('img') as HTMLImageElement;
+    image.dispatchEvent(new Event('load'));
+
+    expect(requestedUrls).toEqual([]);
+  });
+
+  it('enables the 3D rendering class only while a card face is flipping', async () => {
+    const fixture = createComponent(cardFixture({
+      imageUris: {},
+      cardFaces: [
+        cardFace('Front', '/face-front.jpg'),
+        cardFace('Back', '/face-back.jpg'),
+      ],
+    }));
+    const completions: Array<() => void> = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.spyOn(gsap, 'killTweensOf').mockImplementation(() => undefined);
+    vi.spyOn(gsap, 'set').mockImplementation(() => undefined as never);
+    vi.spyOn(gsap, 'to').mockImplementation((_target, vars) => {
+      completions.push(() => vars.onComplete?.());
+      return { kill: vi.fn() } as unknown as gsap.core.Tween;
+    });
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
+    toggle.click();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).classList.contains('card-face-image--flipping')).toBe(true);
+
+    completions[0]?.();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).classList.contains('card-face-image--flipping')).toBe(true);
+
+    completions[1]?.();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).classList.contains('card-face-image--flipping')).toBe(false);
+  });
+
+  it('syncs the visible face from the controlled input for hover previews', async () => {
     const fixture = createComponent(cardFixture({
       imageUris: {},
       cardFaces: [
@@ -129,12 +256,13 @@ describe('CardFaceImageComponent', () => {
 
     mockGsapFlipAnimation();
     fixture.componentRef.setInput('controlledFlipped', true);
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-back.jpg');
   });
 
-  it('skips GSAP and flips instantly on mobile devices', () => {
+  it('skips GSAP and flips instantly on mobile devices', async () => {
     isMobile.set(true);
     isDesktopLayout.set(false);
     hasCoarsePointer.set(true);
@@ -155,13 +283,14 @@ describe('CardFaceImageComponent', () => {
 
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(gsapToSpy).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-back.jpg');
   });
 
-  it('skips GSAP on compact layouts even if the browser reports hover', () => {
+  it('skips GSAP on compact layouts even if the browser reports hover', async () => {
     isDesktopLayout.set(false);
     hasCoarsePointer.set(true);
     hasHover.set(true);
@@ -181,6 +310,7 @@ describe('CardFaceImageComponent', () => {
 
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     toggle.click();
+    await Promise.resolve();
     fixture.detectChanges();
 
     expect(gsapToSpy).not.toHaveBeenCalled();

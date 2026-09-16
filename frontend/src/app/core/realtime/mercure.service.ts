@@ -223,6 +223,39 @@ export class MercureService {
     });
   }
 
+  messageEvents(userId: string): Observable<{ type: 'message.list.changed' }> {
+    return new Observable<{ type: 'message.list.changed' }>((subscriber) => {
+      let source: EventSource | null = null;
+      let closed = false;
+      const url = `${MERCURE_URL}?topic=${encodeURIComponent(`messages/users/${userId}`)}`;
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
+          if (closed) {
+            return;
+          }
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
+
+          source.onmessage = (message) => {
+            try {
+              subscriber.next(JSON.parse(message.data) as { type: 'message.list.changed' });
+            } catch (error) {
+              subscriber.error(error);
+            }
+          };
+
+          source.onerror = () => {
+            // EventSource reconnects; navigation/open refreshes expired message data.
+          };
+        })
+        .catch((error) => subscriber.error(error));
+
+      return () => {
+        closed = true;
+        source?.close();
+      };
+    });
+  }
+
   private async prepareMercureConnection(): Promise<boolean> {
     if (!this.shouldUseCredentials()) {
       return false;

@@ -3,6 +3,7 @@
 namespace App\Tests\Integration;
 
 use App\Domain\User\Role;
+use App\Domain\User\User;
 
 final class AdminUsersApiTest extends ApiTestCase
 {
@@ -47,6 +48,7 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame(1, $this->jsonResponse()['page']);
         self::assertSame($this->jsonResponse()['total'], $this->jsonResponse()['limit']);
         self::assertSame(1, $this->jsonResponse()['totalPages']);
+        self::assertSame('all', $this->jsonResponse()['appliedStatus']);
         self::assertArrayHasKey('summary', $this->jsonResponse());
         self::assertArrayHasKey('countries', $this->jsonResponse());
         self::assertArrayHasKey('localizationSummary', $this->jsonResponse());
@@ -138,6 +140,49 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame('Target First', $response['users'][0]['displayName']);
         self::assertSame(2, $response['users'][0]['deckCounts']['total']);
         self::assertSame(3, $response['summary']['totalDecks']);
+    }
+
+    public function testInitialActiveListFallsBackToRecentlyCreatedWhenActorIsTheOnlyActiveUser(): void
+    {
+        $ownerToken = $this->ownerToken('active-fallback-owner@example.test', 'Fallback Owner');
+        $this->currentUserId($ownerToken);
+        $targetToken = $this->registerAndLogin('active-fallback-target@example.test', 'Fallback Target');
+        $targetId = $this->currentUserId($targetToken);
+        $target = $this->entityManager->getRepository(User::class)->find($targetId);
+
+        self::assertInstanceOf(User::class, $target);
+        $target->markOffline();
+        $this->entityManager->flush();
+
+        $this->jsonRequest(
+            'GET',
+            '/admin/users?status=active&fallbackWhenNoOtherActive=true&page=1&limit=30',
+            token: $ownerToken,
+        );
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame('recently_created', $response['appliedStatus']);
+        self::assertSame($targetId, $this->adminUserById($response['users'], $targetId)['id']);
+    }
+
+    public function testInitialActiveListKeepsActiveWhenAnotherUserIsActive(): void
+    {
+        $ownerToken = $this->ownerToken('active-peer-owner@example.test', 'Active Owner');
+        $this->currentUserId($ownerToken);
+        $peerToken = $this->registerAndLogin('active-peer@example.test', 'Active Peer');
+        $peerId = $this->currentUserId($peerToken);
+
+        $this->jsonRequest(
+            'GET',
+            '/admin/users?status=active&fallbackWhenNoOtherActive=true&page=1&limit=30',
+            token: $ownerToken,
+        );
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame('active', $response['appliedStatus']);
+        self::assertSame($peerId, $this->adminUserById($response['users'], $peerId)['id']);
     }
 
     /**

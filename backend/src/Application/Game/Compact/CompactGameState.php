@@ -12,6 +12,7 @@ final readonly class CompactGameState
      * @param array<string,mixed> $visibility
      * @param array{
      *   attachments:array<string,array<string,mixed>>,
+     *   battlefieldStacks:array<string,array<string,mixed>>,
      *   arrows:array<string,array<string,mixed>>,
      *   helpers:array<string,array<string,mixed>>,
      *   indexes?:array<string,array<string,list<string>>>

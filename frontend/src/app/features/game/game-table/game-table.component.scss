@@ -33,7 +33,7 @@
   --game-info: var(--cz-info);
   --game-info-rgb: var(--cz-info-rgb);
   --game-on-accent: var(--cz-on-accent);
-  --game-shadow-rgb: 0 0 0;
+  --game-shadow-rgb: var(--cz-game-shadow-rgb, 0 0 0);
   --game-highlight-rgb: 255 255 255;
   --gold: var(--game-accent);
   --gold-rgb: var(--game-accent-rgb);
@@ -61,7 +61,7 @@
   --surface-3: color-mix(in srgb, var(--game-surface-soft) 76%, var(--game-text) 24%);
   --line: var(--game-line-soft);
   --game-table-header-peek-height: 0.8rem;
-  --game-log-overlay-peek-height: 104px;
+  --game-log-overlay-peek-height: 112px;
   --game-zone-row-height: 10.9rem;
   --game-side-column-width: 340px;
   --game-top-summary-column: minmax(10rem, 2fr);
@@ -527,7 +527,7 @@
     background-color 220ms ease;
 }
 
-.floating-panel[data-active-tab='log'] {
+.floating-panel[data-active-tab='log']:not(.combined-activity-panel) {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -592,6 +592,32 @@
   grid-template-columns: minmax(0, 1fr);
   padding: 0.2rem;
   border-bottom: 1px solid var(--game-line-soft);
+}
+
+.floating-panel.combined-activity-panel .floating-handle {
+  display: flex;
+  align-items: center;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.6rem;
+  background: rgb(var(--game-surface-rgb) / 52%);
+}
+
+.combined-activity-title {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--game-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.combined-activity-title-separator {
+  color: var(--game-accent);
 }
 
 .floating-panel header app-tab-list {

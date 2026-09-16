@@ -177,11 +177,18 @@ export class GameTableDropActionsService {
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
     }
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
-    if (battlefieldRelationMove?.kind === 'attachment') {
-      await context.command('attachment.created', {
-        equipmentInstanceId: dragged.instanceId,
-        attachedToInstanceId: battlefieldRelationMove.targetInstanceId,
-      });
+    if (battlefieldRelationMove?.targetInstanceId) {
+      if (battlefieldRelationMove.kind === 'attachment') {
+        await context.command('attachment.created', {
+          equipmentInstanceId: dragged.instanceId,
+          attachedToInstanceId: battlefieldRelationMove.targetInstanceId,
+        });
+      } else {
+        await context.command('battlefield_stack.created', {
+          stackedInstanceId: dragged.instanceId,
+          stackTopInstanceId: battlefieldRelationMove.targetInstanceId,
+        });
+      }
     }
     await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId, dragged.instanceIds);
     this.endCompletedDrag(context);
@@ -481,6 +488,7 @@ export class GameTableDropActionsService {
     };
     const landTarget = landStackDropTarget(
       cards,
+      snapshot?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,
@@ -490,12 +498,15 @@ export class GameTableDropActionsService {
       const moves = createLandStackMoves(landTarget, droppedCard);
       const droppedMove = moves.find((move) => move.card.instanceId === sourceCard.instanceId);
 
-      return droppedMove ? { kind: 'land', position: droppedMove.position } : null;
+      return droppedMove
+        ? { kind: 'land', position: droppedMove.position, targetInstanceId: landTarget.targetCard.instanceId }
+        : null;
     }
 
     const attachmentTarget = attachmentDropTarget(
       cards,
       snapshot?.attachments ?? [],
+      snapshot?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,

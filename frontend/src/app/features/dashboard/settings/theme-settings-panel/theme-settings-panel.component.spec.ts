@@ -66,6 +66,45 @@ describe('ThemeSettingsPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('settingsSaveDisclaimer');
   });
 
+  it.each([
+    {
+      themeId: 'treasure-tavern' as const,
+      palette: {
+        bg: '#10171B',
+        surface: '#1A252A',
+        primary: '#65D6C2',
+        secondary: '#B7A2E8',
+        accent: '#E1B768',
+        text: '#F3EEE4',
+      },
+    },
+    {
+      themeId: 'candy-summoners' as const,
+      palette: {
+        bg: '#C6C0C9',
+        surface: '#CFC9D2',
+        primary: '#780049',
+        secondary: '#004249',
+        accent: '#780049',
+        text: '#3D3542',
+      },
+    },
+  ])('applies the $themeId palette to the selected theme option', ({ themeId, palette }) => {
+    const fixture = TestBed.createComponent(ThemeSettingsPanelComponent);
+
+    fixture.componentInstance.previewTheme(themeId);
+    fixture.detectChanges();
+
+    const selectedButton = fixture.nativeElement.querySelector('.theme-option.selected') as HTMLButtonElement;
+
+    expect(selectedButton.style.getPropertyValue('--theme-bg')).toBe(palette.bg);
+    expect(selectedButton.style.getPropertyValue('--theme-surface')).toBe(palette.surface);
+    expect(selectedButton.style.getPropertyValue('--theme-primary')).toBe(palette.primary);
+    expect(selectedButton.style.getPropertyValue('--theme-secondary')).toBe(palette.secondary);
+    expect(selectedButton.style.getPropertyValue('--theme-accent')).toBe(palette.accent);
+    expect(selectedButton.style.getPropertyValue('--theme-text')).toBe(palette.text);
+  });
+
   it('emits the saved account theme after the explicit API update succeeds', async () => {
     const fixture = TestBed.createComponent(ThemeSettingsPanelComponent);
     const savedThemes: AppThemeId[] = [];

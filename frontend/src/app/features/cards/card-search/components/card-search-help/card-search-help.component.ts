@@ -3,10 +3,11 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, i
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 
 @Component({
   selector: 'app-card-search-help',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective, PrettyScrollDirective],
   templateUrl: './card-search-help.component.html',
   styleUrl: './card-search-help.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

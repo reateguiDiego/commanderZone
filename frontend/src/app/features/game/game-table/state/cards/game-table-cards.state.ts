@@ -244,6 +244,21 @@ export class GameTableCardsState {
     }
 
     const modifier = key === '+1/+1' ? 1 : -1;
+    const activeFaceIndex = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+    const activeRuntimeStats = card.faceRuntimeStats?.[activeFaceIndex];
+    if (activeRuntimeStats) {
+      const faceRuntimeStats = [...card.faceRuntimeStats!];
+      const powerBase = Number.isFinite(Number(activeRuntimeStats.power)) ? Number(activeRuntimeStats.power) : Number(activeRuntimeStats.defaultPower ?? 0);
+      const toughnessBase = Number.isFinite(Number(activeRuntimeStats.toughness)) ? Number(activeRuntimeStats.toughness) : Number(activeRuntimeStats.defaultToughness ?? 0);
+      faceRuntimeStats[activeFaceIndex] = {
+        ...activeRuntimeStats,
+        power: powerBase + (delta * modifier),
+        toughness: toughnessBase + (delta * modifier),
+      };
+
+      return { ...card, faceRuntimeStats };
+    }
+
     const powerBase = Number.isFinite(Number(card.power)) ? Number(card.power) : Number(card.defaultPower ?? 0);
     const toughnessBase = Number.isFinite(Number(card.toughness)) ? Number(card.toughness) : Number(card.defaultToughness ?? 0);
     return {

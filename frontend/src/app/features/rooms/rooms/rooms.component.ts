@@ -41,6 +41,9 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
   readonly rooms = signal<Room[]>([]);
+  readonly nextCursor = signal<string | null>(null);
+  readonly loadingMore = signal(false);
+  private roomListGeneration = 0;
   readonly formats = signal<DeckFormat[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
   readonly routeToast = signal<string | null>(null);
@@ -94,13 +97,34 @@ export class RoomsComponent implements OnInit, OnDestroy {
   }
 
   async loadRooms(skipGlobalLoading = false): Promise<void> {
+    const generation = ++this.roomListGeneration;
     try {
       const response = await firstValueFrom(this.roomsApi.list('active', skipGlobalLoading));
+      if (generation !== this.roomListGeneration) return;
       this.rooms.set(response.data);
+      this.nextCursor.set(response.nextCursor ?? null);
       this.syncCurrentRoom(response.data);
       this.updatePageHeader();
     } catch {
       this.error.set('errors.runtime.could-not-load-rooms');
+    }
+  }
+
+  async loadMoreRooms(): Promise<void> {
+    const cursor = this.nextCursor();
+    if (!cursor || this.loadingMore()) return;
+    const generation = this.roomListGeneration;
+    this.loadingMore.set(true);
+    try {
+      const response = await firstValueFrom(this.roomsApi.list('active', true, { cursor }));
+      if (generation !== this.roomListGeneration) return;
+      this.rooms.update((rooms) => [...rooms, ...response.data.filter((room) => !rooms.some((existing) => existing.id === room.id))]);
+      this.nextCursor.set(response.nextCursor);
+      this.updatePageHeader();
+    } catch {
+      this.error.set('errors.runtime.could-not-load-rooms');
+    } finally {
+      this.loadingMore.set(false);
     }
   }
 

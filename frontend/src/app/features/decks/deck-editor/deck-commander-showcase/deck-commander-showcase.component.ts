@@ -7,10 +7,11 @@ import { DeckCard } from '../../../../core/models/deck.model';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
+import { PreloadCardAlternateFaceDirective } from '../../../../shared/directives/preload-card-alternate-face.directive';
 
 @Component({
   selector: 'app-deck-commander-showcase',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent, PreloadCardAlternateFaceDirective],
   templateUrl: './deck-commander-showcase.component.html',
   styleUrl: './deck-commander-showcase.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

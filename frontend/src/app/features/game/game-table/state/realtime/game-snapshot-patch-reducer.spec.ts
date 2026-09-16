@@ -623,6 +623,7 @@ describe('game snapshot patch reducer', () => {
       stack: [{ id: 'stack-old', kind: 'card', card: card('stack-card'), createdAt: '2026-01-01T00:00:04.000Z' }],
       arrows: [{ id: 'arrow-old', ownerId: 'player-1', fromInstanceId: 'battlefield-1', toInstanceId: 'battlefield-2', color: 'yellow', createdAt: '2026-01-01T00:00:05.000Z' }],
       attachments: [{ id: 'attachment-old', ownerId: 'player-1', equipmentInstanceId: 'battlefield-1', attachedToInstanceId: 'battlefield-2', createdAt: '2026-01-01T00:00:06.000Z' }],
+      battlefieldStacks: [{ id: 'battlefield-stack-old', ownerId: 'player-1', stackedInstanceId: 'battlefield-1', stackTopInstanceId: 'battlefield-2', createdAt: '2026-01-01T00:00:06.500Z' }],
     };
 
     const result = applyGameSnapshotPatch(snapshot, patch([
@@ -632,15 +633,19 @@ describe('game snapshot patch reducer', () => {
       { op: 'arrow.add', arrow: { id: 'arrow-new', ownerId: 'player-1', fromInstanceId: 'battlefield-2', toInstanceId: 'battlefield-1', color: 'blue', createdAt: '2026-01-01T00:00:08.000Z' } },
       { op: 'attachment.remove', id: 'attachment-old' },
       { op: 'attachment.add', attachment: { id: 'attachment-new', ownerId: 'player-1', equipmentInstanceId: 'battlefield-2', attachedToInstanceId: 'battlefield-1', createdAt: '2026-01-01T00:00:09.000Z' } },
+      { op: 'battlefieldStack.remove', id: 'battlefield-stack-old' },
+      { op: 'battlefieldStack.add', battlefieldStack: { id: 'battlefield-stack-new', ownerId: 'player-1', stackedInstanceId: 'battlefield-2', stackTopInstanceId: 'battlefield-1', createdAt: '2026-01-01T00:00:09.500Z' } },
     ]));
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.stack.map((entry) => entry.id)).toEqual(['stack-new']);
     expect(result.snapshot.arrows).toEqual([expect.objectContaining({ id: 'arrow-new', ownerId: 'player-1' })]);
     expect(result.snapshot.attachments).toEqual([expect.objectContaining({ id: 'attachment-new', ownerId: 'player-1' })]);
+    expect(result.snapshot.battlefieldStacks).toEqual([expect.objectContaining({ id: 'battlefield-stack-new', ownerId: 'player-1' })]);
     expect(snapshot.stack.map((entry) => entry.id)).toEqual(['stack-old']);
     expect(snapshot.arrows.map((entry) => entry.id)).toEqual(['arrow-old']);
     expect(snapshot.attachments?.map((entry) => entry.id)).toEqual(['attachment-old']);
+    expect(snapshot.battlefieldStacks?.map((entry) => entry.id)).toEqual(['battlefield-stack-old']);
   });
 
   it('updates player status without mutating sleeves or background', () => {

@@ -1,4 +1,4 @@
-<section class="admin-shell" aria-labelledby="admin-title">
+<section class="admin-shell" [class.admin-shell--users]="activeSection() === 'users'" aria-labelledby="admin-title">
   <aside class="admin-aside" [attr.aria-label]="'admin.navigation.sectionsAriaLabel' | runtimeTranslate">
     <div class="admin-aside-heading">
       <span class="admin-icon" aria-hidden="true">
@@ -26,10 +26,14 @@
     </nav>
   </aside>
 
-  <main class="admin-content" [class.admin-content--top]="contentPinnedToTop()">
+  <main
+    class="admin-content"
+    [class.admin-content--top]="contentPinnedToTop()"
+    [class.admin-content--users]="activeSection() === 'users'"
+  >
     @switch (activeSection()) {
       @case ('users') {
-        <app-admin-users-panel (sendMessageRequested)="openNotificationsForUser($event)" />
+        <app-admin-users-panel class="admin-users-content" (sendMessageRequested)="openNotificationsForUser($event)" />
       }
       @case ('reports') {
         <app-admin-reports-panel (sendMessageRequested)="openNotificationsForUser($event)" />

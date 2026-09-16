@@ -107,6 +107,8 @@ final readonly class GameWebsocketPatchBuilder
             'arrow.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows'),
             'attachment.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
             'attachment.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
+            'battlefield_stack.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefieldStack.add', 'battlefieldStack.remove', 'battlefieldStacks.set', 'battlefieldStack', 'battlefieldStacks'),
+            'battlefield_stack.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefieldStack.add', 'battlefieldStack.remove', 'battlefieldStacks.set', 'battlefieldStack', 'battlefieldStacks'),
             'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
@@ -1138,7 +1140,8 @@ final readonly class GameWebsocketPatchBuilder
     {
         $arrowOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows');
         $attachmentOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments');
-        if ($arrowOperations === null || $attachmentOperations === null) {
+        $battlefieldStackOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefieldStack.add', 'battlefieldStack.remove', 'battlefieldStacks.set', 'battlefieldStack', 'battlefieldStacks');
+        if ($arrowOperations === null || $attachmentOperations === null || $battlefieldStackOperations === null) {
             return null;
         }
 
@@ -1146,6 +1149,7 @@ final readonly class GameWebsocketPatchBuilder
             ...$operations,
             ...$arrowOperations,
             ...$attachmentOperations,
+            ...$battlefieldStackOperations,
             ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
@@ -1678,6 +1682,9 @@ final readonly class GameWebsocketPatchBuilder
             if (!$onlyChanged || ($previousCard[$stat] ?? null) !== ($nextCard[$stat] ?? null)) {
                 $operation[$stat] = $nextCard[$stat] ?? null;
             }
+        }
+        if (($previousCard['faceRuntimeStats'] ?? null) !== ($nextCard['faceRuntimeStats'] ?? null)) {
+            $operation['faceRuntimeStats'] = is_array($nextCard['faceRuntimeStats'] ?? null) ? $nextCard['faceRuntimeStats'] : [];
         }
 
         return count($operation) > 4 ? $operation : null;

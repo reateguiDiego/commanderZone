@@ -11,6 +11,7 @@ import { LoyaltyCounterComponent } from '../game-card-view/loyalty-counter/loyal
 import { SagaCounterComponent } from '../game-card-view/saga-counter/saga-counter.component';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard } from '../../utils/gameplay-card-kind';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 
 interface BattlefieldRect {
   readonly left: number;
@@ -60,6 +61,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
     LoyaltyCounterComponent,
     SagaCounterComponent,
     TooltipComponent,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './card-preview-overlay.component.html',
   styleUrl: './card-preview-overlay.component.scss',

@@ -71,6 +71,27 @@ describe('GameTableCardsState', () => {
     expect(setViewportReflowSnapshot).toHaveBeenCalledOnce();
   });
 
+  it('updates only the active face runtime stats when a P/T counter is queued', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([{
+      ...cardWithCounters({ '+1/+1': 0 }),
+      activeFaceIndex: 1,
+      faceRuntimeStats: [
+        { defaultPower: 2, defaultToughness: 2, defaultLoyalty: null, defaultDefense: null, power: 2, toughness: 2, loyalty: null, defense: null, saga: null },
+        { defaultPower: 5, defaultToughness: 4, defaultLoyalty: null, defaultDefense: null, power: 5, toughness: 4, loyalty: null, defense: null, saga: null },
+      ],
+    }]));
+
+    state.queueCardCounter({
+      setViewportReflowSnapshot: (next) => core.snapshot.set(next), errorMessage: () => 'error', refetch: vi.fn(), command: vi.fn(),
+    }, { playerId: 'player-1', zone: 'battlefield', instanceId: 'card-1', key: '+1/+1', value: 1 });
+
+    const stats = core.snapshot()?.players['player-1']?.zones.battlefield[0]?.faceRuntimeStats;
+    expect(stats?.[0]?.power).toBe(2);
+    expect(stats?.[1]?.power).toBe(6);
+    expect(stats?.[1]?.toughness).toBe(5);
+  });
+
   it('keeps a zero-value card counter marker when initialized from the context menu', () => {
     vi.useFakeTimers();
     core.snapshot.set(snapshot([cardWithCounters({})]));

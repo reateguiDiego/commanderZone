@@ -350,6 +350,7 @@ export type GameSnapshotPatchOperation =
         loyalty?: GameCardInstance['loyalty'];
         defense?: GameCardInstance['defense'];
         saga?: GameCardInstance['saga'];
+        faceRuntimeStats?: GameCardInstance['faceRuntimeStats'];
       }
   | {
       op: 'cards.state.set';
@@ -464,6 +465,18 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'attachments.set';
       attachments: NonNullable<GameSnapshot['attachments']>;
+    }
+  | {
+      op: 'battlefieldStack.add';
+      battlefieldStack: NonNullable<GameSnapshot['battlefieldStacks']>[number];
+    }
+  | {
+      op: 'battlefieldStack.remove';
+      id: string;
+    }
+  | {
+      op: 'battlefieldStacks.set';
+      battlefieldStacks: NonNullable<GameSnapshot['battlefieldStacks']>;
     }
   | {
       op: 'rematch.set';

@@ -31,10 +31,10 @@ class AuthApiTest extends ApiTestCase
             'game' => [
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
-                'enableStackMana' => false,
                 'autoApplyCommanderDamageToLife' => true,
                 'gameAnimations' => true,
                 'chatNotificationSounds' => true,
+                'combineChatAndGameLog' => false,
             ],
         ], $this->jsonResponse()['user']['preferences']);
         self::assertSame(['ROLE_USER'], $this->jsonResponse()['user']['roles']);
@@ -70,20 +70,20 @@ class AuthApiTest extends ApiTestCase
             'gamePreferences' => [
                 'showManaHelperOnStartup' => true,
                 'enableManaRow' => false,
-                'enableStackMana' => true,
                 'autoApplyCommanderDamageToLife' => false,
                 'gameAnimations' => false,
                 'chatNotificationSounds' => false,
+                'combineChatAndGameLog' => true,
             ],
         ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame([
             'showManaHelperOnStartup' => true,
             'enableManaRow' => false,
-            'enableStackMana' => true,
             'autoApplyCommanderDamageToLife' => false,
             'gameAnimations' => false,
             'chatNotificationSounds' => false,
+            'combineChatAndGameLog' => true,
         ], $this->jsonResponse()['user']['preferences']['game']);
 
         $this->jsonRequest('PATCH', '/me', [
@@ -290,6 +290,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
 
         $token = $this->registerAndLogin('mercure@example.test', 'Mercure User');
+        $userId = $this->currentUserId($token);
         $this->client->request(
             'POST',
             'http://127.0.0.1/realtime/mercure-cookie',
@@ -306,6 +307,18 @@ class AuthApiTest extends ApiTestCase
 
         $cookies = $this->client->getResponse()->headers->getCookies();
         self::assertNotEmpty($cookies);
+        foreach ($cookies as $cookie) {
+            if ($cookie->getName() !== 'mercureAuthorization') {
+                continue;
+            }
+            $parts = explode('.', $cookie->getValue());
+            $claims = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true, flags: JSON_THROW_ON_ERROR);
+            self::assertSame([
+                'friends/users/'.$userId,
+                'rooms/invites/users/'.$userId,
+                'messages/users/'.$userId,
+            ], $claims['mercure']['subscribe']);
+        }
         self::assertTrue(
             array_any(
                 $cookies,
@@ -680,10 +693,10 @@ class AuthApiTest extends ApiTestCase
             'game' => [
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
-                'enableStackMana' => false,
                 'autoApplyCommanderDamageToLife' => true,
                 'gameAnimations' => true,
                 'chatNotificationSounds' => true,
+                'combineChatAndGameLog' => false,
             ],
         ], $this->jsonResponse()['user']['preferences']);
 

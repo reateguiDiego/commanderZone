@@ -28,6 +28,7 @@
             <app-format-select
               class="visibility-filter-select"
               name="roomVisibilityFilter"
+              menuPositioning="absolute"
               [labelHidden]="true"
               labelKey="shared.text.visibility"
               [options]="visibilityFilterOptions"
@@ -40,6 +41,7 @@
             <app-format-select
               class="status-filter-select"
               name="roomStatusFilter"
+              menuPositioning="absolute"
               [labelHidden]="true"
               labelKey="shared.text.status"
               [options]="statusFilterOptions"
@@ -51,6 +53,7 @@
         <app-format-select
           class="format-filter-select"
           name="roomFormatFilter"
+          menuPositioning="absolute"
           labelKey="shared.text.format"
           allLabel="shared.text.all"
           [formats]="formats()"

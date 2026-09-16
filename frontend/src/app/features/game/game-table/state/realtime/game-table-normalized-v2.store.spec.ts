@@ -326,6 +326,22 @@ describe('game table normalized v2 store', () => {
     expect(result.state.instances['battlefield-1'].counters).toEqual({ charge: 2 });
   });
 
+  it('projects face runtime stats from bootstrap instances', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['battlefield-1'] = {
+      ...bootstrap.instances['battlefield-1']!,
+      activeFaceIndex: 1,
+      faceRuntimeStats: [
+        { defaultPower: 2, defaultToughness: 2, defaultLoyalty: null, defaultDefense: null, power: 4, toughness: 3, loyalty: null, defense: null, saga: null },
+        { defaultPower: null, defaultToughness: null, defaultLoyalty: 3, defaultDefense: null, power: null, toughness: null, loyalty: 5, defense: null, saga: null },
+      ],
+    };
+
+    const snapshot = hydrateGameSnapshotFromV2State(createGameTableNormalizedV2State(bootstrap));
+
+    expect(snapshot.players['player-1'].zones.battlefield[0]?.faceRuntimeStats?.[1]?.loyalty).toBe(5);
+  });
+
   it('preserves zero-value counters from live patches and hydration', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -479,6 +495,16 @@ describe('game table normalized v2 store', () => {
         },
       },
       {
+        op: 'battlefieldStack.add',
+        battlefieldStack: {
+          id: 'battlefield-stack-runtime',
+          ownerId: 'player-1',
+          stackedInstanceId: 'battlefield-1',
+          stackTopInstanceId: 'commander-1',
+          createdAt: '2026-01-01T00:00:04.500Z',
+        },
+      },
+      {
         op: 'helper.add',
         entity: {
           id: 'helper-runtime',
@@ -508,6 +534,7 @@ describe('game table normalized v2 store', () => {
     expect(result.state.stack.byId['stack-runtime']?.sourceInstanceId).toBe('battlefield-1');
     expect(result.state.relations.arrows['arrow-runtime']?.fromInstanceId).toBe('battlefield-1');
     expect(result.state.relations.attachments['attachment-runtime']?.attachedToInstanceId).toBe('commander-1');
+    expect(result.state.relations.battlefieldStacks['battlefield-stack-runtime']?.stackTopInstanceId).toBe('commander-1');
     expect(result.state.relations.specialEntities['helper-runtime']?.state).toEqual({ label: 'Updated Helper' });
     expect(JSON.stringify(result.state.relations.specialEntities['helper-runtime'])).not.toContain('oracleText');
     expect(JSON.stringify(result.state.relations.specialEntities['helper-runtime'])).not.toContain('imageUris');
@@ -517,6 +544,7 @@ describe('game table normalized v2 store', () => {
       { op: 'stack.item.remove', id: 'stack-runtime' },
       { op: 'arrow.remove', id: 'arrow-runtime' },
       { op: 'attachment.remove', id: 'attachment-runtime' },
+      { op: 'battlefieldStack.remove', id: 'battlefield-stack-runtime' },
       { op: 'helper.remove', id: 'helper-runtime' },
     ]));
 
@@ -524,6 +552,7 @@ describe('game table normalized v2 store', () => {
     expect(removed.state.stack.byId['stack-runtime']).toBeUndefined();
     expect(removed.state.relations.arrows['arrow-runtime']).toBeUndefined();
     expect(removed.state.relations.attachments['attachment-runtime']).toBeUndefined();
+    expect(removed.state.relations.battlefieldStacks['battlefield-stack-runtime']).toBeUndefined();
     expect(removed.state.relations.specialEntities['helper-runtime']).toBeUndefined();
   });
 

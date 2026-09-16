@@ -32,10 +32,12 @@
   background:
     radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--player-accent) 22%, transparent), transparent 62%),
     rgb(var(--game-surface-deep-rgb) / 91%);
-  box-shadow:
+  box-shadow: var(
+    --cz-game-surface-shadow,
     0 1rem 2rem rgb(var(--shadow-rgb) / 34%),
-    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%);
-  backdrop-filter: blur(12px);
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%)
+  );
+  backdrop-filter: var(--cz-game-backdrop-filter, blur(12px));
 }
 
 .player-summary-context-label {
@@ -160,9 +162,11 @@
 }
 
 .player-avatar {
-  filter:
+  filter: var(
+    --cz-game-icon-filter,
     drop-shadow(0 0.62rem 0.82rem rgb(var(--shadow-rgb) / 30%))
-    drop-shadow(0 0 0.5rem color-mix(in srgb, var(--player-accent) 24%, transparent));
+      drop-shadow(0 0 0.5rem color-mix(in srgb, var(--player-accent) 24%, transparent))
+  );
 }
 
 .player-copy {
@@ -216,7 +220,10 @@
   --life-control-border-active: rgb(var(--game-accent-rgb) / 82%);
   --life-control-step-color: var(--game-accent);
   --life-control-step-hover-bg: rgb(var(--game-accent-rgb) / 18%);
-  --life-control-text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 82%);
+  --life-control-text-shadow: var(
+    --cz-game-text-shadow,
+    0 1px 0 rgb(var(--shadow-rgb) / 82%)
+  );
 
   position: relative;
   display: grid;
@@ -234,11 +241,13 @@
   background:
     radial-gradient(circle at 50% 0%, rgb(var(--game-accent-rgb) / 18%), transparent 68%),
     linear-gradient(180deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 98%));
-  box-shadow:
+  box-shadow: var(
+    --cz-game-surface-shadow,
     inset 0 1px 0 rgb(var(--highlight-rgb) / 12%),
     inset 0 -1px 0 rgb(var(--shadow-rgb) / 64%),
     0 0.56rem 1rem rgb(var(--shadow-rgb) / 34%),
-    0 0 0.9rem rgb(var(--game-accent-rgb) / 12%);
+    0 0 0.9rem rgb(var(--game-accent-rgb) / 12%)
+  );
 }
 
 .player-summary-special-entity-strip {
@@ -263,12 +272,14 @@
 .life-controls:focus-within,
 .life-controls:hover {
   border-color: var(--life-control-border-active);
-  box-shadow:
+  box-shadow: var(
+    --cz-game-surface-shadow,
     inset 0 1px 0 rgb(var(--highlight-rgb) / 16%),
     inset 0 -1px 0 rgb(var(--shadow-rgb) / 56%),
     0 0.68rem 1.12rem rgb(var(--shadow-rgb) / 36%),
     0 0 0 1px rgb(var(--game-accent-rgb) / 22%),
-    0 0 1.15rem rgb(var(--game-accent-rgb) / 20%);
+    0 0 1.15rem rgb(var(--game-accent-rgb) / 20%)
+  );
 }
 
 .life-stepper {
@@ -304,32 +315,40 @@
   color: var(--game-text);
   font-size: 1.34rem;
   line-height: 1;
-  text-shadow:
+  text-shadow: var(
+    --cz-game-text-shadow,
     var(--life-control-text-shadow),
-    0 0 0.72rem rgb(var(--game-accent-rgb) / 30%);
+    0 0 0.72rem rgb(var(--game-accent-rgb) / 30%)
+  );
 }
 
 .life-total-gain {
   color: color-mix(in srgb, var(--game-success) 78%, var(--player-accent));
-  text-shadow:
+  text-shadow: var(
+    --cz-game-text-shadow,
     0 1px 0 rgb(var(--shadow-rgb) / 78%),
     0 0 0.8rem rgb(var(--game-success-rgb) / 42%),
-    0 0 1.2rem color-mix(in srgb, var(--player-accent) 28%, transparent);
+    0 0 1.2rem color-mix(in srgb, var(--player-accent) 28%, transparent)
+  );
 }
 
 .life-total-damage {
   color: color-mix(in srgb, var(--game-danger) 72%, var(--game-text));
-  text-shadow:
+  text-shadow: var(
+    --cz-game-text-shadow,
     0 1px 0 rgb(var(--shadow-rgb) / 78%),
     0 0 0.8rem rgb(var(--game-danger-rgb) / 46%),
-    0 0 1.2rem color-mix(in srgb, var(--player-accent) 20%, transparent);
+    0 0 1.2rem color-mix(in srgb, var(--player-accent) 20%, transparent)
+  );
 }
 
 .life-total-neutral {
   color: var(--game-text);
-  text-shadow:
+  text-shadow: var(
+    --cz-game-text-shadow,
     0 1px 0 rgb(var(--shadow-rgb) / 78%),
-    0 0 0.78rem rgb(var(--game-accent-rgb) / 38%);
+    0 0 0.78rem rgb(var(--game-accent-rgb) / 38%)
+  );
 }
 
 .life-step-button {
@@ -376,9 +395,10 @@
 
 .life-step-button:hover lucide-icon {
   color: var(--game-text);
-  filter:
-    drop-shadow(0 0 0.38rem var(--life-control-step-hover-bg))
-    brightness(1.12);
+  filter: var(
+    --cz-game-icon-filter,
+    drop-shadow(0 0 0.38rem var(--life-control-step-hover-bg)) brightness(1.12)
+  );
 }
 
 .life-step-button:active,
@@ -788,8 +808,10 @@
 
 .commander-damage-life-toggle {
   justify-self: end;
-  width: min(100%, 15.8rem);
+  min-width: 0;
+  max-width: 100%;
   margin-top: 0.08rem;
+  --compact-checkbox-width: min(100%, 15.8rem);
   --compact-checkbox-justify: start;
   --compact-checkbox-accent-rgb: var(--game-accent-rgb);
 }

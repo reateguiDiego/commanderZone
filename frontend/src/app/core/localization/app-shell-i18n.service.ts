@@ -27,6 +27,7 @@ type AppShellTextKey =
   | 'cardLanguageFallbackDisclaimer'
   | 'visualTheme'
   | 'settingsSaveDisclaimer'
+  | 'preferencesSaved'
   | 'premiumComingSoon';
 
 const APP_SHELL_TEXTS = {
@@ -55,6 +56,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% of cards are available in {language}. Cards we cannot serve in that language will be shown in English.',
     visualTheme: 'Visual theme',
     settingsSaveDisclaimer: 'You have unsaved changes. Save to keep them.',
+    preferencesSaved: 'Preferences saved.',
     premiumComingSoon: 'Premium is coming soon.',
   },
   es: {
@@ -82,6 +84,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: 'El {percentage}% de las cartas está disponible en {language}. Las cartas que no podamos servir en ese idioma se mostrarán en inglés.',
     visualTheme: 'Tema visual',
     settingsSaveDisclaimer: 'Tienes cambios sin guardar. Guarda para conservarlos.',
+    preferencesSaved: 'Preferencias guardadas.',
     premiumComingSoon: 'Premium llegará pronto.',
   },
   de: {
@@ -109,6 +112,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% der Karten sind auf {language} verfügbar. Karten, die wir nicht in dieser Sprache bereitstellen können, werden auf Englisch angezeigt.',
     visualTheme: 'Visuelles Design',
     settingsSaveDisclaimer: 'Du hast ungespeicherte Änderungen. Speichere, um sie zu behalten.',
+    preferencesSaved: 'Einstellungen gespeichert.',
     premiumComingSoon: 'Premium kommt bald.',
   },
   fr: {
@@ -136,6 +140,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% des cartes sont disponibles en {language}. Les cartes que nous ne pouvons pas fournir dans cette langue seront affichées en anglais.',
     visualTheme: 'Thème visuel',
     settingsSaveDisclaimer: 'Vous avez des modifications non enregistrées. Enregistrez pour les conserver.',
+    preferencesSaved: 'Préférences enregistrées.',
     premiumComingSoon: 'Premium arrive bientôt.',
   },
   it: {
@@ -163,6 +168,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: 'Il {percentage}% delle carte è disponibile in {language}. Le carte che non possiamo fornire in quella lingua verranno mostrate in inglese.',
     visualTheme: 'Tema visivo',
     settingsSaveDisclaimer: 'Hai modifiche non salvate. Salva per conservarle.',
+    preferencesSaved: 'Preferenze salvate.',
     premiumComingSoon: 'Premium arriverà presto.',
   },
   pt: {
@@ -190,6 +196,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% das cartas estão disponíveis em {language}. As cartas que não pudermos servir nesse idioma serão exibidas em inglês.',
     visualTheme: 'Tema visual',
     settingsSaveDisclaimer: 'Você tem alterações não salvas. Salve para mantê-las.',
+    preferencesSaved: 'Preferências salvas.',
     premiumComingSoon: 'Premium chegará em breve.',
   },
   ja: {
@@ -217,6 +224,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{language}で利用できるカードは{percentage}%です。その言語で表示できないカードは英語で表示されます。',
     visualTheme: 'ビジュアルテーマ',
     settingsSaveDisclaimer: '未保存の変更があります。保存すると変更が保持されます。',
+    preferencesSaved: '設定を保存しました。',
     premiumComingSoon: 'Premium は近日公開です。',
   },
   zhs: {
@@ -244,6 +252,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% 的卡牌可使用{language}显示。无法以该语言提供的卡牌将以英语显示。',
     visualTheme: '视觉主题',
     settingsSaveDisclaimer: '你有未保存的更改。保存后才能保留。',
+    preferencesSaved: '偏好设置已保存。',
     premiumComingSoon: 'Premium 即将推出。',
   },
   nl: {
@@ -271,6 +280,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% van de kaarten is beschikbaar in {language}. Kaarten die we niet in die taal kunnen leveren, worden in het Engels getoond.',
     visualTheme: 'Visueel thema',
     settingsSaveDisclaimer: 'Je hebt niet-opgeslagen wijzigingen. Sla op om ze te bewaren.',
+    preferencesSaved: 'Voorkeuren opgeslagen.',
     premiumComingSoon: 'Premium komt binnenkort.',
   },
   ca: {
@@ -298,6 +308,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: 'El {percentage}% de les cartes està disponible en {language}. Les cartes que no puguem servir en aquest idioma es mostraran en anglès.',
     visualTheme: 'Tema visual',
     settingsSaveDisclaimer: 'Tens canvis sense desar. Desa per conservar-los.',
+    preferencesSaved: 'Preferències desades.',
     premiumComingSoon: 'Premium arribarà aviat.',
   },
   ru: {
@@ -325,6 +336,7 @@ const APP_SHELL_TEXTS = {
     cardLanguageFallbackDisclaimer: '{percentage}% карт доступно на языке {language}. Карты, которые мы не можем показать на этом языке, будут отображаться на английском.',
     visualTheme: 'Визуальная тема',
     settingsSaveDisclaimer: 'У вас есть несохраненные изменения. Сохраните их, чтобы не потерять.',
+    preferencesSaved: 'Предпочтения сохранены.',
     premiumComingSoon: 'Premium скоро появится.',
   },
 } as const satisfies Record<SupportedLanguageCode, Record<AppShellTextKey, string>>;

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
@@ -257,7 +257,7 @@ describe('GameTableDragDropStore', () => {
   it('does not select the whole land stack when the top card only starts a battlefield pointer drag', () => {
     const top = land('top', 100, 200);
     const under = land('under', 100, 180);
-    const ctx = context([playerView([top, under])]);
+    const ctx = context([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
 
     store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', top);
 
@@ -267,7 +267,7 @@ describe('GameTableDragDropStore', () => {
   it('selects the whole land stack once the top card drag actually moves', () => {
     const top = land('top', 100, 200);
     const under = land('under', 100, 180);
-    const ctx = context([playerView([top, under])]);
+    const ctx = context([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
     dragService.moveCardPointerDrag.mockReturnValue('top');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
     dragState.setActiveDropTarget({ playerId: 'player-1', zone: 'graveyard' });
@@ -286,7 +286,7 @@ describe('GameTableDragDropStore', () => {
     const dragged = land('dragged', 340, 200);
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([dragged, top, under])]);
+    const ctx = context([playerView([dragged, top, under])], null, [stack('stack-under', 'under', 'top')]);
     dragService.moveCardPointerDrag.mockReturnValue('dragged');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 214, width: 103, height: 144 });
 
@@ -303,7 +303,7 @@ describe('GameTableDragDropStore', () => {
   it('keeps mana lane targeting while dragging a whole land stack over mana row', () => {
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([top, under])]);
+    const ctx = context([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
     dragService.moveCardPointerDrag.mockReturnValue('top');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
     updateBattlefieldDragAid.mockImplementation(() => {
@@ -340,7 +340,7 @@ describe('GameTableDragDropStore', () => {
   it('marks an under land as a detach source when it starts a battlefield pointer drag', () => {
     const top = land('top', 100, 200);
     const under = land('under', 100, 180);
-    const ctx = context([playerView([top, under])]);
+    const ctx = context([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
 
     store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', under);
 
@@ -355,7 +355,10 @@ describe('GameTableDragDropStore', () => {
     const top = land('top', 100, 200);
     const middle = land('middle', 100, 182);
     const bottom = land('bottom', 100, 164);
-    const ctx = context([playerView([top, middle, bottom])]);
+    const ctx = context([playerView([top, middle, bottom])], null, [
+      stack('stack-middle', 'middle', 'top'),
+      stack('stack-bottom', 'bottom', 'top'),
+    ]);
 
     store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', bottom);
 
@@ -423,7 +426,7 @@ describe('GameTableDragDropStore', () => {
     const battlefield = document.createElement('div');
     battlefield.dataset['gameDropZone'] = 'battlefield';
     battlefield.dataset['playerId'] = 'player-1';
-    const ctx = context([playerView([top, under], [dragged])]);
+    const ctx = context([playerView([top, under], [dragged])], null, [stack('stack-under', 'under', 'top')]);
     dragService.dragPayload.mockReturnValue({
       playerId: 'player-1',
       zone: 'hand',
@@ -655,7 +658,7 @@ describe('GameTableDragDropStore', () => {
     const dragged = land('dragged', 340, 200);
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([dragged, top, under])]);
+    const ctx = context([playerView([dragged, top, under])], null, [stack('stack-under', 'under', 'top')]);
     dragService.moveCardPointerDrag.mockReturnValue('dragged');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
 
@@ -697,7 +700,7 @@ describe('GameTableDragDropStore', () => {
     const dragged = land('dragged', 0, 0);
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([top, under], [dragged])]);
+    const ctx = context([playerView([top, under], [dragged])], null, [stack('stack-under', 'under', 'top')]);
 
     const underCardElement = document.createElement('button');
     underCardElement.setAttribute('data-testid', 'game-card');
@@ -744,7 +747,7 @@ describe('GameTableDragDropStore', () => {
     const dragged = land('dragged', 0, 0);
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([top, under], [dragged])]);
+    const ctx = context([playerView([top, under], [dragged])], null, [stack('stack-under', 'under', 'top')]);
 
     store.updatePointerDropTarget(ctx, {
       kind: 'zone',
@@ -862,7 +865,7 @@ describe('GameTableDragDropStore', () => {
     vi.useFakeTimers();
     const top = land('top', 100, 200);
     const under = land('under', 100, 182);
-    const ctx = context([playerView([top, under])]);
+    const ctx = context([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
     dragService.moveCardPointerDrag.mockReturnValue('under');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 182, width: 103, height: 144 });
 
@@ -904,10 +907,18 @@ describe('GameTableDragDropStore', () => {
     expect(setPendingBattlefieldMove).toHaveBeenCalledWith(null);
   });
 
-  function context(players: PlayerView[] = [], snapshot: GameSnapshot | null = null): GameTableDragDropContext {
+  function context(
+    players: PlayerView[] = [],
+    snapshot: GameSnapshot | null = null,
+    battlefieldStacks: readonly GameBattlefieldStack[] = [],
+  ): GameTableDragDropContext {
+    const snapshotWithStacks = snapshot ?? (battlefieldStacks.length > 0
+      ? ({ battlefieldStacks } as GameSnapshot)
+      : null);
+
     return {
       zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
-      snapshot: () => snapshot,
+      snapshot: () => snapshotWithStacks,
       players: () => players,
       selectedCards: () => selectedCards,
       setSelectedCards: (cards) => {
@@ -957,6 +968,15 @@ function land(instanceId: string, x: number, y: number): GameCardInstance {
     ...card(instanceId),
     typeLine: 'Basic Land - Forest',
     position: { x, y },
+  };
+}
+
+function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string): GameBattlefieldStack {
+  return {
+    id,
+    stackedInstanceId,
+    stackTopInstanceId,
+    createdAt: '2026-09-08T10:00:00+00:00',
   };
 }
 
