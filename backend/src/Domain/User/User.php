@@ -559,7 +559,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $letter !== '' ? $letter : 'P';
     }
 
-    private static function urlUsername(string $displayName): string
+    public static function urlUsername(string $displayName): string
     {
         $username = preg_replace('/\s+/', '-', trim($displayName)) ?? '';
 

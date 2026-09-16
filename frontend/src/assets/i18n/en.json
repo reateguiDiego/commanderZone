@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Load more",
     "ui": {
       "userActions": "User actions",
       "reportUser": "Report user",
@@ -1324,7 +1325,7 @@
         "details": {
           "close": "Close details",
           "couldNotLoad": "Could not load this card.",
-          "oracleText": "Oracle text",
+          "oracleText": "Text",
           "legalFormats": "Legal formats",
           "illegalFormats": "Illegal formats",
           "noLegalFormats": "No legal formats in the local catalog.",
@@ -1345,6 +1346,7 @@
         },
         "printings": {
           "title": "Printings of {{ card }}",
+          "count": "Printings: {{ count }}",
           "empty": "No printings found for this card.",
           "couldNotLoad": "Could not load card printings."
         },

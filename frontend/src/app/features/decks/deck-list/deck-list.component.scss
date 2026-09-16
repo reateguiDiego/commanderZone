@@ -204,7 +204,7 @@
   width: 100%;
   --format-select-menu-left: 0;
   --format-select-menu-right: auto;
-  --format-select-menu-width: max(100%, 16rem);
+  --format-select-menu-width: max(var(--format-select-trigger-width), 16rem);
   --format-select-menu-overflow-x: hidden;
   --format-select-option-white-space: normal;
 }
@@ -698,7 +698,7 @@
 
 .commander-floating-preview {
   position: fixed;
-  z-index: 12100;
+  z-index: 13100;
   width: min(18rem, 70vw);
   max-height: 80dvh;
   border: 1px solid rgb(var(--cz-primary-rgb) / 46%);

@@ -1,5 +1,9 @@
 framework:
     cache:
+        pools:
+            cache.community:
+                adapter: cache.adapter.filesystem
+                tags: true
         # Unique name of your app: used to compute stable namespaces for cache keys.
         #prefix_seed: your_vendor_name/app_name
 

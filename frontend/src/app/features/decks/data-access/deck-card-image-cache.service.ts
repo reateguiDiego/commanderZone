@@ -63,7 +63,7 @@ export class DeckCardImageCache {
     }
 
     try {
-      const response = await firstValueFrom(this.cardsApi.image(card.scryfallId, 'normal'));
+      const response = await firstValueFrom(this.cardsApi.image(card.scryfallId));
       return response.uri;
     } catch {
       return null;

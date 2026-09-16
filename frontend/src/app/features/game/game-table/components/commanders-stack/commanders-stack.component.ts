@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 export interface CommandersStackCard {
@@ -28,7 +29,7 @@ interface CommandersStackCardMouseEvent {
 
 @Component({
   selector: 'app-commanders-stack',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, PreloadCardAlternateFaceDirective],
   templateUrl: './commanders-stack.component.html',
   styleUrl: './commanders-stack.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

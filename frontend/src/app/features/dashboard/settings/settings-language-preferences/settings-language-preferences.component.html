@@ -6,7 +6,7 @@
       type="button"
       (click)="themeChangeRequested.emit()"
     >
-      {{ 'settings.dashboardSettingsModal.changeTheme' | runtimeTranslate }}
+      <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'settings.dashboardSettingsModal.changeTheme' | runtimeTranslate }}</span>
     </button>
 
     <button
@@ -15,7 +15,7 @@
       type="button"
       (click)="premiumRequested.emit()"
     >
-      {{ 'settings.dashboardSettingsModal.becomePremium' | runtimeTranslate }}
+      <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ 'settings.dashboardSettingsModal.becomePremium' | runtimeTranslate }}</span>
     </button>
 
     <button
@@ -25,7 +25,7 @@
       [disabled]="passwordChangeDisabled()"
       (click)="passwordChangeRequested.emit()"
     >
-      {{ passwordChangeLabelKey() | runtimeTranslate }}
+      <span class="settings-action-label" czTextFit czTextFitMinScale="0.78">{{ passwordChangeLabelKey() | runtimeTranslate }}</span>
     </button>
   </div>
 

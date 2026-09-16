@@ -6,10 +6,11 @@ import { DeckCard } from '../../../../core/models/deck.model';
 import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { DeckEditorStore } from '../../data-access/deck-editor.store';
+import { PreloadCardAlternateFaceDirective } from '../../../../shared/directives/preload-card-alternate-face.directive';
 
 @Component({
   selector: 'app-deck-card-menu',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, GameChangerIconComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, GameChangerIconComponent, PrettyScrollDirective, PreloadCardAlternateFaceDirective],
   templateUrl: './deck-card-menu.component.html',
   styleUrl: './deck-card-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

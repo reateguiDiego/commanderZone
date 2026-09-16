@@ -7,6 +7,7 @@ use App\Application\Message\AdminMessageDelivery;
 use App\Domain\Message\UserMessage;
 use App\Domain\User\Role;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\MessageEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -57,8 +58,20 @@ class MessagesController extends ApiController
         ]);
     }
 
+    #[Route('/messages/summary', methods: ['GET'])]
+    public function summary(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $counts = $entityManager->getRepository(UserMessage::class)->createQueryBuilder('message')
+            ->select('COUNT(message.id) AS totalCount', 'COALESCE(SUM(CASE WHEN message.readAt IS NULL THEN 1 ELSE 0 END), 0) AS unreadCount')
+            ->where('message.recipient = :recipient')
+            ->setParameter('recipient', $user)
+            ->getQuery()->getSingleResult();
+
+        return $this->json(['totalCount' => (int) $counts['totalCount'], 'unreadCount' => (int) $counts['unreadCount']]);
+    }
+
     #[Route('/messages/{id}/read', methods: ['POST'])]
-    public function markRead(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function markRead(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, MessageEventPublisher $publisher): JsonResponse
     {
         $message = $entityManager->getRepository(UserMessage::class)->find($id);
         if (!$message instanceof UserMessage || $message->recipient()->id() !== $user->id()) {
@@ -67,6 +80,7 @@ class MessagesController extends ApiController
 
         $message->markRead();
         $entityManager->flush();
+        $publisher->publishListChanged($user);
 
         return $this->json([
             'message' => $message->toArray(),
@@ -79,6 +93,7 @@ class MessagesController extends ApiController
         Request $request,
         #[CurrentUser] User $actor,
         EntityManagerInterface $entityManager,
+        MessageEventPublisher $publisher,
     ): JsonResponse {
         if (!$actor->hasRole(Role::ADMIN) && !$actor->hasRole(Role::OWNER)) {
             return $this->fail('Admin access is required.', 403);
@@ -126,6 +141,9 @@ class MessagesController extends ApiController
                 $entityManager->persist(new UserMessage($actor, $recipient, $subject, $body));
             }
             $entityManager->flush();
+            foreach ($recipients as $recipient) {
+                $publisher->publishListChanged($recipient);
+            }
         }
 
         if ($delivery->sendsEmail()) {

@@ -4,6 +4,7 @@ import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-t
 import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
 import { CardFaceToggleButtonComponent } from '../../../../../shared/components/card-face-toggle-button/card-face-toggle-button.component';
 import { cardFaceImage, hasAlternateCardFace } from '../../../../../shared/utils/card-faces';
+import { preloadImage } from '../../../../../shared/utils/image-preload';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { GameChangerIconComponent } from '../../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { CardSearchViewMode } from '../../card-search.models';
@@ -63,9 +64,11 @@ export class CardSearchResultsComponent implements OnDestroy {
   ];
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingHoverPreview: PendingCardHoverPreview | null = null;
+  private hoverPreviewRequestVersion = 0;
 
   ngOnDestroy(): void {
     this.clearHoverPreviewTimer();
+    this.hoverPreviewRequestVersion += 1;
   }
 
   image(card: Card): string | null {
@@ -139,8 +142,9 @@ export class CardSearchResultsComponent implements OnDestroy {
       return;
     }
 
-    if (this.hoverPreview()) {
-      this.updateHoverPreview(event.clientX, event.clientY, card);
+    const preview = this.hoverPreview();
+    if (preview) {
+      this.updateHoverPreview(event.clientX, event.clientY, card, preview.imageUrl);
       return;
     }
 
@@ -151,6 +155,7 @@ export class CardSearchResultsComponent implements OnDestroy {
 
   hideHoverPreview(): void {
     this.clearHoverPreviewTimer();
+    this.hoverPreviewRequestVersion += 1;
     this.pendingHoverPreview = null;
     this.hoverPreview.set(null);
   }
@@ -205,6 +210,7 @@ export class CardSearchResultsComponent implements OnDestroy {
   private scheduleHoverPreview(event: MouseEvent, card: Card): void {
     this.pendingHoverPreview = this.pendingPreviewFromEvent(event, card);
     this.clearHoverPreviewTimer();
+    const requestVersion = ++this.hoverPreviewRequestVersion;
     this.hoverPreviewTimer = setTimeout(() => {
       const pending = this.pendingHoverPreview;
       this.hoverPreviewTimer = null;
@@ -212,12 +218,31 @@ export class CardSearchResultsComponent implements OnDestroy {
         return;
       }
 
-      this.updateHoverPreview(pending.clientX, pending.clientY, pending.card);
+      void this.showLoadedHoverPreview(pending, requestVersion);
     }, HOVER_PREVIEW_DELAY_MS);
   }
 
-  private updateHoverPreview(clientX: number, clientY: number, card: Card): void {
-    const imageUrl = this.image(card);
+  private async showLoadedHoverPreview(pending: PendingCardHoverPreview, requestVersion: number): Promise<void> {
+    const imageUrl = cardFaceImage(pending.card, this.isFaceFlipped(pending.card));
+    if (!await preloadImage(imageUrl)) {
+      return;
+    }
+
+    const latestPending = this.pendingHoverPreview;
+    if (
+      requestVersion !== this.hoverPreviewRequestVersion
+      || !latestPending
+      || latestPending.card.scryfallId !== pending.card.scryfallId
+      || this.viewMode() !== 'list'
+      || this.contextMenu()
+    ) {
+      return;
+    }
+
+    this.updateHoverPreview(latestPending.clientX, latestPending.clientY, latestPending.card, imageUrl);
+  }
+
+  private updateHoverPreview(clientX: number, clientY: number, card: Card, imageUrl: string | null): void {
     const previewWidth = HOVER_PREVIEW_WIDTH_PX;
     const previewHeight = HOVER_PREVIEW_HEIGHT_PX;
     const margin = 12;

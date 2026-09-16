@@ -21,6 +21,7 @@ export interface DeckViewStore {
   moveCardPreview(event: MouseEvent): void;
   hideCardPreview(): void;
   hasAlternateFace(card: Card): boolean;
+  isFaceFlipped(card: Card): boolean;
   displayCardName(card: Card): string;
   displayCardListName(card: Card): string;
   displayCardTypeLine(card: Card): string | null;

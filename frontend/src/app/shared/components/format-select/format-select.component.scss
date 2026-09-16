@@ -7,7 +7,7 @@
 
 :host(.is-open),
 :host(.is-closing) {
-  z-index: var(--format-select-open-z-index, 100);
+  z-index: 9998;
 }
 
 .format-select-field {
@@ -109,14 +109,12 @@
 }
 
 .format-select-menu {
-  position: absolute;
-  z-index: var(--format-select-menu-z-index, 50);
-  top: calc(100% + 0.45rem);
-  left: var(--format-select-menu-left, 0);
-  right: var(--format-select-menu-right, 0);
+  position: fixed;
+  z-index: 9998;
+  visibility: hidden;
   display: grid;
   gap: 0.18rem;
-  width: var(--format-select-menu-width, auto);
+  width: var(--format-select-menu-width, var(--format-select-trigger-width, auto));
   min-width: var(--format-select-menu-min-width, 0);
   max-width: var(--format-select-menu-max-width, none);
   max-height: var(--format-select-menu-max-height, 14rem);
@@ -137,6 +135,18 @@
   transform-origin: top center;
   will-change: opacity, transform, filter;
   animation: cz-format-select-menu-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.format-select-menu.is-positioned {
+  visibility: visible;
+}
+
+.format-select-menu.is-absolute {
+  position: absolute;
+}
+
+.format-select-menu.opens-up {
+  transform-origin: bottom center;
 }
 
 .format-select-search {

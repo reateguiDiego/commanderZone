@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Carrega més",
     "ui": {
       "userActions": "Accions d'usuari",
       "reportUser": "Denuncia l'usuari",
@@ -1324,7 +1325,7 @@
         "details": {
           "close": "Tanca els detalls",
           "couldNotLoad": "No s'ha pogut carregar aquesta carta.",
-          "oracleText": "Text oracle",
+          "oracleText": "Text",
           "legalFormats": "Formats legals",
           "illegalFormats": "Formats il·legals",
           "noLegalFormats": "No hi ha formats legals al catàleg local.",
@@ -1345,6 +1346,7 @@
         },
         "printings": {
           "title": "Impressions de {{ card }}",
+          "count": "Impressions: {{ count }}",
           "empty": "No s'han trobat impressions per a aquesta carta.",
           "couldNotLoad": "No s'han pogut carregar les impressions de la carta."
         },

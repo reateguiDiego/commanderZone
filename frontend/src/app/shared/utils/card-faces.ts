@@ -1,5 +1,7 @@
-import { Card, CardFace, CardImageUris } from '../../core/models/card.model';
-import { bestCardFaceImage, bestCardImage } from './card-image';
+import { CardFace, CardImageUris } from '../../core/models/card.model';
+import { bestCardFaceImage, bestCardFaceThumbnailImage, bestCardImage, bestCardThumbnailImage } from './card-image';
+
+export type CardFaceImageResolution = 'small' | 'normal';
 
 export interface CardFaceImageSource {
   readonly name: string;
@@ -23,34 +25,20 @@ export function cardDisplayFace(card: CardFaceImageSource | null | undefined, fl
   return faces[flipped ? 1 : 0] ?? null;
 }
 
-export function cardFaceImage(card: CardFaceImageSource | null | undefined, flipped: boolean): string | null {
+export function cardFaceImage(
+  card: CardFaceImageSource | null | undefined,
+  flipped: boolean,
+  resolution: CardFaceImageResolution = 'normal',
+): string | null {
   if (!card) {
     return null;
   }
 
-  if (!flipped) {
-    return bestCardImage(card) ?? bestCardFaceImage(card.cardFaces?.[0]);
-  }
-
-  return bestCardFaceImage(card.cardFaces?.[1]);
-}
-
-export function readableCardFaceImage(card: CardFaceImageSource | null | undefined, flipped: boolean): string | null {
-  if (!card) {
-    return null;
-  }
+  const imageForFace = resolution === 'small' ? bestCardFaceThumbnailImage : bestCardFaceImage;
 
   if (!flipped) {
-    return readableImageUri(card.imageUris) ?? bestCardImage(card) ?? bestCardFaceImage(card.cardFaces?.[0]);
+    return (resolution === 'small' ? bestCardThumbnailImage(card) : bestCardImage(card)) ?? imageForFace(card.cardFaces?.[0]);
   }
 
-  return readableImageUri(card.cardFaces?.[1]?.imageUris) ?? bestCardFaceImage(card.cardFaces?.[1]);
-}
-
-function readableImageUri(imageUris: Card['imageUris'] | null | undefined): string | null {
-  if (!imageUris) {
-    return null;
-  }
-
-  return imageUris.large ?? imageUris.png ?? imageUris.normal ?? imageUris.small ?? null;
+  return imageForFace(card.cardFaces?.[1]);
 }

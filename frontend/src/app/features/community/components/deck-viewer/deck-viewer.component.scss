@@ -61,12 +61,6 @@
   height: 100%;
 }
 
-.card-hover-preview app-card-face-image,
-.card-hover-preview .card-fallback {
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
 @media (max-width: 720px) {
   .deck-summary {
     display: grid;

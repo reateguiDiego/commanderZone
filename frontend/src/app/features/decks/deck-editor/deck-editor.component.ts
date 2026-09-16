@@ -38,6 +38,7 @@ import { CardFaceImageComponent } from '../../../shared/components/card-face-ima
 import { DECK_VIEW_STORE } from './deck-view-store.token';
 import { DECK_ANALYSIS_STORE } from './deck-analysis-panel/deck-analysis-store.token';
 import { deckEditorIdentifier } from '../utils/deck-route';
+import { PreloadCardAlternateFaceDirective } from '../../../shared/directives/preload-card-alternate-face.directive';
 
 @Component({
   selector: 'app-deck-editor',
@@ -61,6 +62,7 @@ import { deckEditorIdentifier } from '../utils/deck-route';
     TabListComponent,
     TooltipComponent,
     CardFaceImageComponent,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',

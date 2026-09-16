@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { MessagesApi } from '../../../core/api/messages.api';
 import { UserMessage } from '../../../core/models/message.model';
 import { MessagesStore } from './messages.store';
@@ -22,6 +22,28 @@ describe('MessagesStore', () => {
         { provide: MessagesApi, useValue: api },
       ],
     });
+  });
+
+  it('deduplicates callers, caches successful reads, invalidates and retries errors', async () => {
+    const pending = new Subject<{ data: UserMessage[]; unreadCount: number }>();
+    api.list.mockReturnValueOnce(pending).mockReturnValue(of({ data: [], unreadCount: 0 }));
+    const store = TestBed.inject(MessagesStore);
+    const requests = [store.load(), store.ensureLoaded(), store.load()];
+    await Promise.resolve();
+    expect(api.list).toHaveBeenCalledTimes(1);
+    pending.next({ data: [], unreadCount: 0 });
+    await Promise.all(requests);
+    await store.ensureLoaded();
+    expect(api.list).toHaveBeenCalledTimes(1);
+    store.handleRealtimeEvent();
+    expect(store.state()).toBe('stale');
+    api.list.mockReturnValueOnce(throwError(() => new Error('offline')));
+    await store.ensureLoaded();
+    expect(store.error()).toBeTruthy();
+    await store.ensureLoaded();
+    expect(api.list).toHaveBeenCalledTimes(3);
+    expect(store.state()).toBe('loaded');
+    expect(store.error()).toBeNull();
   });
 
   it('loads unread messages without marking them read', async () => {

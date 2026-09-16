@@ -64,7 +64,12 @@
     @if (menu.showImagePreview) {
       <aside class="card-menu-image-preview" [attr.aria-label]="'deckBuilder.deckCardMenu.selectedCardPreview' | runtimeTranslate">
         @if (store.displayCardImageUrl(entry().card); as imageUrl) {
-          <img [src]="imageUrl" [alt]="store.displayCardName(entry().card)" />
+          <img
+            [src]="imageUrl"
+            [alt]="store.displayCardName(entry().card)"
+            [appPreloadCardAlternateFace]="entry().card"
+            [cardVisibleFaceIndex]="store.isFaceFlipped(entry().card) ? 1 : 0"
+          />
         } @else {
           <div class="card-menu-image-fallback">{{ store.displayCardName(entry().card) }}</div>
         }

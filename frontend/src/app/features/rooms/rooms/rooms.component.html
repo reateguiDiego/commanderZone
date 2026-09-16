@@ -39,6 +39,9 @@
           (createRequested)="openCreateRoomModal()"
         />
       </app-room-browser>
+      @if (nextCursor()) {
+        <button type="button" class="btn" [disabled]="loadingMore()" (click)="loadMoreRooms()">{{ 'common.actions.next' | runtimeTranslate }}</button>
+      }
     </div>
   </div>
 

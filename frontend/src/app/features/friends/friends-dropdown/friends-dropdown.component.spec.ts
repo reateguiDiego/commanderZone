@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Check, ChevronDown, ChevronUp, LucideAngularModule, Search, Trash2, UserPlus, X } from 'lucide-angular';
+import { Check, ChevronDown, ChevronUp, Eye, LucideAngularModule, Search, Trash2, UserPlus, X } from 'lucide-angular';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -15,7 +15,7 @@ describe('FriendsDropdownComponent', () => {
       providers: [
         FriendsStore,
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronDown, ChevronUp, Search, Trash2, UserPlus, X })),
+        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronDown, ChevronUp, Eye, Search, Trash2, UserPlus, X })),
         {
           provide: FriendsApi,
           useValue: {
@@ -23,6 +23,7 @@ describe('FriendsDropdownComponent', () => {
             incoming: vi.fn().mockReturnValue(of({ data: [] })),
             outgoing: vi.fn().mockReturnValue(of({ data: [] })),
             remove: vi.fn().mockReturnValue(of({})),
+            search: vi.fn().mockReturnValue(of({ data: [] })),
           },
         },
         {
@@ -196,6 +197,55 @@ describe('FriendsDropdownComponent', () => {
     expect(friendsApi.remove).toHaveBeenCalledWith('friend-offline-1');
   });
 
+  it('navigates to a friend public profile from the eye action', async () => {
+    const friendsApi = TestBed.inject(FriendsApi) as unknown as { list: ReturnType<typeof vi.fn> };
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    friendsApi.list.mockReturnValue(of({ data: [acceptedFriend('Offline 1', 'offline')] }));
+
+    const store = TestBed.inject(FriendsStore);
+    await store.load();
+
+    const fixture = TestBed.createComponent(FriendsDropdownComponent);
+    fixture.detectChanges();
+
+    const profileButton = fixture.nativeElement.querySelector('.friend-row .profile-action') as HTMLButtonElement | null;
+    expect(profileButton).not.toBeNull();
+
+    profileButton?.click();
+
+    expect(navigateSpy).toHaveBeenCalledWith('/community/users/Offline-1');
+  });
+
+  it('places the profile action before a search result friend request action', async () => {
+    const friendsApi = TestBed.inject(FriendsApi) as unknown as { search: ReturnType<typeof vi.fn> };
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    friendsApi.search.mockReturnValue(of({
+      data: [{
+        id: 'search-user-1',
+        username: 'Search-User',
+        canonicalPath: '/community/users/Search-User',
+        displayName: 'Search User',
+        friendshipStatus: null,
+      }],
+    }));
+
+    const fixture = TestBed.createComponent(FriendsDropdownComponent);
+    fixture.componentInstance.selectTab('search');
+    await fixture.componentInstance.store.updateSearch('se');
+    fixture.detectChanges();
+
+    const actions = Array.from(fixture.nativeElement.querySelectorAll('.search-actions button') as NodeListOf<HTMLButtonElement>);
+    expect(actions).toHaveLength(2);
+    expect(actions[0].classList.contains('profile-action')).toBe(true);
+    expect(actions[1].classList.contains('add-friend-action')).toBe(true);
+
+    actions[0].click();
+
+    expect(navigateSpy).toHaveBeenCalledWith('/community/users/Search-User');
+  });
+
   it('navigates to the invited room waiting page after accepting a room invite', async () => {
     const roomsApi = TestBed.inject(RoomsApi) as unknown as {
       acceptInvite: ReturnType<typeof vi.fn>;
@@ -284,7 +334,13 @@ function acceptedFriend(displayName: string, presence: 'online' | 'in_game' | 'o
     status: 'accepted' as const,
     requester: { id: 'user-1', displayName: 'Alberto' },
     recipient: { id: `friend-${id}`, displayName },
-    friend: { id: `friend-${id}`, displayName, presence },
+    friend: {
+      id: `friend-${id}`,
+      username: displayName.replace(/\s+/g, '-'),
+      canonicalPath: `/community/users/${displayName.replace(/\s+/g, '-')}`,
+      displayName,
+      presence,
+    },
     createdAt: '',
     updatedAt: '',
   };

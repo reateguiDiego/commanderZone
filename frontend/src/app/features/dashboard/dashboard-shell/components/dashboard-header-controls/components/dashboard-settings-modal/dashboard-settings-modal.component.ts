@@ -38,6 +38,7 @@ import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-
 import { SettingsLanguagePreferencesComponent } from '../../../../../settings/settings-language-preferences/settings-language-preferences.component';
 import { ThemeSettingsPanelComponent } from '../../../../../settings/theme-settings-panel/theme-settings-panel.component';
 import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
+import { TextFitDirective } from '../../../../../../../shared/ui/text-fit/text-fit.directive';
 
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
@@ -124,6 +125,7 @@ const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
     SettingsLanguagePreferencesComponent,
     ThemeSettingsPanelComponent,
     CzButtonDirective,
+    TextFitDirective,
   ],
   templateUrl: './dashboard-settings-modal.component.html',
   styleUrl: './dashboard-settings-modal.component.scss',

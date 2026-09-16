@@ -475,8 +475,45 @@
   pointer-events: none;
 }
 
+.friend-actions,
+.search-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 0.35rem;
+}
+
+.friend-actions app-tooltip,
+.search-actions app-tooltip {
+  display: flex;
+}
+
+.profile-action {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  border: 1px solid rgb(var(--cz-warning-rgb) / 38%);
+  border-radius: 8px;
+  background: rgb(var(--cz-warning-rgb) / 12%);
+  color: var(--cz-warning);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profile-action:hover,
+.profile-action:focus-visible {
+  border-color: rgb(var(--cz-warning-rgb) / 62%);
+  background: rgb(var(--cz-warning-rgb) / 20%);
+}
+
 .interactive-row:hover .row-delete-action,
-.interactive-row:focus-within .row-delete-action {
+.interactive-row:focus-within .row-delete-action,
+.interactive-row:hover .profile-action,
+.interactive-row:focus-within .profile-action {
   opacity: 1;
   pointer-events: auto;
 }
@@ -723,7 +760,8 @@
 }
 
 @media (hover: none), (pointer: coarse) {
-  .row-delete-action {
+  .row-delete-action,
+  .profile-action {
     opacity: 1;
     pointer-events: auto;
   }
@@ -731,6 +769,7 @@
   .action-button,
   .icon-action,
   .row-delete-action,
+  .profile-action,
   .add-friend-action {
     min-width: 2.75rem;
     min-height: 2.75rem;

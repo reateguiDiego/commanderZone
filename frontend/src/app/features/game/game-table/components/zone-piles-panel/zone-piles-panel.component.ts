@@ -15,6 +15,7 @@ import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-sp
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -79,6 +80,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
     GameTableLongPressDirective,
     MTGIconComponent,
     LucideAngularModule,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',

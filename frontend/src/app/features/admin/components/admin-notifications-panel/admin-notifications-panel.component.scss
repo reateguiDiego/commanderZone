@@ -126,8 +126,8 @@ textarea:focus {
 
 .recipient-field {
   width: 100%;
-  --format-select-menu-width: 100%;
-  --format-select-menu-min-width: 100%;
+  --format-select-menu-width: var(--format-select-trigger-width);
+  --format-select-menu-min-width: var(--format-select-trigger-width);
   --format-select-menu-max-height: 16rem;
   --format-select-open-z-index: 260;
 }
@@ -167,8 +167,8 @@ textarea:focus {
 
 .delivery-field {
   width: 100%;
-  --format-select-menu-width: 100%;
-  --format-select-menu-min-width: 100%;
+  --format-select-menu-width: var(--format-select-trigger-width);
+  --format-select-menu-min-width: var(--format-select-trigger-width);
   --format-select-open-z-index: 260;
 }
 

@@ -1,5 +1,5 @@
 import { Card, CardFace } from '../../core/models/card.model';
-import { bestCardArtImage, bestCardFaceImage, bestCardImage } from './card-image';
+import { bestCardArtImage, bestCardFaceImage, bestCardImage, bestCardThumbnailImage } from './card-image';
 
 describe('card-image utilities', () => {
   it('uses the first face image when the card has no root image', () => {
@@ -53,6 +53,46 @@ describe('card-image utilities', () => {
     } as CardFace & { image_uris: { normal: string } });
 
     expect(imageUrl).toBe('https://cards.scryfall.io/normal/back/ajani.jpg');
+  });
+
+  it('does not fall back to non-normal card image variants', () => {
+    const imageUrl = bestCardImage({
+      id: 'test-card',
+      scryfallId: 'test-scryfall-id',
+      name: 'Test Card',
+      manaCost: null,
+      typeLine: null,
+      oracleText: null,
+      colors: [],
+      colorIdentity: [],
+      legalities: {},
+      imageUris: {
+        large: 'https://cards.scryfall.io/large/test-card.jpg',
+        small: 'https://cards.scryfall.io/small/test-card.jpg',
+        png: 'https://cards.scryfall.io/png/test-card.png',
+      },
+      layout: 'normal',
+      commanderLegal: true,
+      set: 'tst',
+      collectorNumber: '1',
+    } satisfies Card);
+
+    expect(imageUrl).toBeNull();
+  });
+
+  it('uses the small image for thumbnails and falls back to normal', () => {
+    const imageUrl = bestCardThumbnailImage({
+      imageUris: {
+        small: 'https://cards.scryfall.io/small/test-card.jpg',
+        normal: 'https://cards.scryfall.io/normal/test-card.jpg',
+      },
+    });
+    const fallbackUrl = bestCardThumbnailImage({
+      imageUris: { normal: 'https://cards.scryfall.io/normal/test-card.jpg' },
+    });
+
+    expect(imageUrl).toBe('https://cards.scryfall.io/small/test-card.jpg');
+    expect(fallbackUrl).toBe('https://cards.scryfall.io/normal/test-card.jpg');
   });
 
   it('falls back to the first face image when the root image URI is blank', () => {

@@ -1,0 +1,89 @@
+{
+  "date": "2026-09-12",
+  "runtime": "k6 2.1.0 + Chromium",
+  "scenario": "load-tests/commanderzone-navigation-browser.k6.js",
+  "note": "In the legacy k6 summary format, threshold false means the threshold was not crossed.",
+  "metrics": {
+    "cz_header_body_requests_per_navigation": {
+      "max": 0,
+      "count": 7,
+      "avg": 0,
+      "thresholds": {
+        "max==0": false
+      }
+    },
+    "cz_http_requests_per_navigation": {
+      "avg": 7,
+      "max": 14,
+      "count": 7
+    },
+    "cz_browser_navigation_success": {
+      "passes": 7,
+      "fails": 0,
+      "thresholds": {
+        "rate==1": false
+      },
+      "value": 1
+    },
+    "cz_header_requests_per_navigation": {
+      "max": 2,
+      "count": 7,
+      "avg": 0.2857142857142857
+    },
+    "cz_room_invite_requests_per_navigation": {
+      "count": 7,
+      "avg": 0.2857142857142857,
+      "max": 1,
+      "thresholds": {
+        "max<=1": false
+      }
+    },
+    "cz_header_requests_per_navigation{phase:warm}": {
+      "count": 6,
+      "avg": 0,
+      "max": 0,
+      "thresholds": {
+        "max==0": false
+      }
+    },
+    "cz_completed_navigations": {
+      "count": 7,
+      "rate": 0.6865765361684105,
+      "thresholds": {
+        "count==7": false
+      }
+    },
+    "cz_navigation_api_success": {
+      "passes": 49,
+      "fails": 0,
+      "thresholds": {
+        "rate==1": false
+      },
+      "value": 1
+    },
+    "cz_room_invite_requests_per_navigation{outside_rooms:true}": {
+      "avg": 0,
+      "max": 0,
+      "count": 5,
+      "thresholds": {
+        "max==0": false
+      }
+    },
+    "cz_http_requests_per_navigation{phase:warm}": {
+      "count": 6,
+      "avg": 5.833333333333333,
+      "max": 9,
+      "thresholds": {
+        "max<=9": false
+      }
+    },
+    "cz_header_requests_per_navigation{phase:cold}": {
+      "count": 1,
+      "avg": 2,
+      "max": 2,
+      "thresholds": {
+        "max<=2": false
+      }
+    }
+  }
+}

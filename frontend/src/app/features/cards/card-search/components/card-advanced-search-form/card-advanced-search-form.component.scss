@@ -72,7 +72,7 @@
     opacity 160ms ease;
 }
 
-.search-panel--accent {
+.search-panel--accent:not(.search-panel--disabled) {
   border-color: rgb(var(--cz-accent-rgb) / 36%);
 }
 

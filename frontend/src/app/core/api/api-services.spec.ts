@@ -295,7 +295,7 @@ describe('API services', () => {
   });
 
   it('requests card image URIs from the backend image endpoint', () => {
-    TestBed.inject(CardsApi).image('card-1', 'normal').subscribe();
+    TestBed.inject(CardsApi).image('card-1').subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/cards/card-1/image?format=normal&mode=uri`);
     expect(request.request.method).toBe('GET');
@@ -720,6 +720,14 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ data: [] });
+  });
+
+  it('sends the room cursor and limit and retains page metadata', () => {
+    let nextCursor: string | null | undefined;
+    TestBed.inject(RoomsApi).list('all', true, { cursor: 'opaque', limit: 2 }).subscribe((page) => nextCursor = page.nextCursor);
+    const request = http.expectOne(`${API_BASE_URL}/rooms?status=all&cursor=opaque&limit=2`);
+    request.flush({ data: [], nextCursor: null });
+    expect(nextCursor).toBeNull();
   });
 
   it('handles room invites through existing room endpoints', () => {

@@ -276,6 +276,7 @@ function storeStub(options: {
     deckColorIdentitySymbols: () => options.deckColorIdentitySymbols ?? [],
     displayCardManaCost: options.displayCardManaCost ?? ((value: Card) => value.manaCost),
     hasAlternateFace: () => options.hasAlternateFace ?? false,
+    isFaceFlipped: () => false,
     toggleCardFace: vi.fn(),
     resetCardFace: vi.fn(),
     isCardInvalidForDeck: () => false,

@@ -20,6 +20,7 @@ use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\Role;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
+use App\Infrastructure\Realtime\MessageEventPublisher;
 use App\Infrastructure\Realtime\GameEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -168,7 +169,7 @@ class AuthController extends ApiController
     }
 
     #[Route('/auth/register', methods: ['POST'])]
-    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher, MessageEventPublisher $publisher): JsonResponse
     {
         $payload = $this->payload($request);
         $email = trim((string) ($payload['email'] ?? ''));
@@ -196,6 +197,7 @@ class AuthController extends ApiController
         $entityManager->persist($user);
         $entityManager->persist($this->registrationWelcomeMessageService->createFor($user));
         $entityManager->flush();
+        $publisher->publishListChanged($user);
 
         $verificationToken = $this->emailVerificationService->issueRegisterVerification(
             $user,

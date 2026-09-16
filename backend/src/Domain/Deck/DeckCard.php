@@ -64,6 +64,11 @@ class DeckCard
         return $this->card;
     }
 
+    public function deck(): Deck
+    {
+        return $this->deck;
+    }
+
     public function id(): string
     {
         return $this->id;

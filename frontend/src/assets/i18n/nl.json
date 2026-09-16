@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Meer laden",
     "ui": {
       "userActions": "Gebruikersacties",
       "reportUser": "Gebruiker rapporteren",
@@ -1324,7 +1325,7 @@
         "details": {
           "close": "Details sluiten",
           "couldNotLoad": "Kan deze kaart niet laden.",
-          "oracleText": "Oracle-tekst",
+          "oracleText": "Tekst",
           "legalFormats": "Juridische formaten",
           "illegalFormats": "Illegale formaten",
           "noLegalFormats": "Geen legale formaten in de lokale catalogus.",
@@ -1345,6 +1346,7 @@
         },
         "printings": {
           "title": "Prints van {{ card }}",
+          "count": "Aantal drukken: {{ count }}",
           "empty": "Geen prints gevonden voor deze kaart.",
           "couldNotLoad": "Kon kaartprints niet laden."
         },

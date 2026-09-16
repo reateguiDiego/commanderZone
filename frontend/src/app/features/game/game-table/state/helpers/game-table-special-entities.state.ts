@@ -14,12 +14,7 @@ type DayNightMode = 'day' | 'night';
 const DAY_NIGHT_FIXED_POSITION: GameCardPosition = { x: 1, y: 0, unit: 'ratio' };
 const GLOBAL_MECHANIC_CARD_POSITION: GameCardPosition = { x: 0, y: 0, unit: 'ratio' };
 const INITIATIVE_FALLBACK_IMAGE_URIS: CardImageUris = {
-  small: 'https://cards.scryfall.io/small/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
   normal: 'https://cards.scryfall.io/normal/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-  large: 'https://cards.scryfall.io/large/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-  png: 'https://cards.scryfall.io/png/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.png?1707897435',
-  art_crop: 'https://cards.scryfall.io/art_crop/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-  border_crop: 'https://cards.scryfall.io/border_crop/front/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
 };
 const INITIATIVE_FALLBACK_CARD_FACES: readonly CardFace[] = [
   {
@@ -43,12 +38,7 @@ const INITIATIVE_FALLBACK_CARD_FACES: readonly CardFace[] = [
     loyalty: null,
     colors: [],
     imageUris: {
-      small: 'https://cards.scryfall.io/small/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
       normal: 'https://cards.scryfall.io/normal/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-      large: 'https://cards.scryfall.io/large/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-      png: 'https://cards.scryfall.io/png/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.png?1707897435',
-      art_crop: 'https://cards.scryfall.io/art_crop/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
-      border_crop: 'https://cards.scryfall.io/border_crop/back/2/c/2c65185b-6cf0-451d-985e-56aa45d9a57d.jpg?1707897435',
     },
   },
 ];

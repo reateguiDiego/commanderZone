@@ -199,6 +199,7 @@
     }
   },
   "common": {
+    "loadMore": "Charger plus",
     "ui": {
       "userActions": "User actions",
       "reportUser": "Report user",
@@ -1324,7 +1325,7 @@
         "details": {
           "close": "Fermer les détails",
           "couldNotLoad": "Impossible de charger cette carte.",
-          "oracleText": "Texte Oracle",
+          "oracleText": "Texte",
           "legalFormats": "Formats légaux",
           "illegalFormats": "Formats illégaux",
           "noLegalFormats": "Aucun format légal dans le catalogue local.",
@@ -1345,6 +1346,7 @@
         },
         "printings": {
           "title": "Impressions de {{ card }}",
+          "count": "Impressions : {{ count }}",
           "empty": "Aucune impression trouvée pour cette carte.",
           "couldNotLoad": "Impossible de charger les impressions de cartes."
         },

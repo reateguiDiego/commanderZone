@@ -2,14 +2,16 @@ import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy,
 import { gsap } from 'gsap';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { DeviceProfileService } from '../../services/device-profile.service';
+import { PreloadCardAlternateFaceDirective } from '../../directives/preload-card-alternate-face.directive';
 import { CardFaceToggleButtonComponent, CardFaceToggleButtonSize } from '../card-face-toggle-button/card-face-toggle-button.component';
-import { CardFaceImageSource, cardDisplayFace, cardFaceImage, hasAlternateCardFace, readableCardFaceImage } from '../../utils/card-faces';
+import { CardFaceImageResolution, CardFaceImageSource, cardDisplayFace, cardFaceImage, hasAlternateCardFace } from '../../utils/card-faces';
+import { preloadImage } from '../../utils/image-preload';
 
 export type CardFaceImageVariant = 'result' | 'spoiler' | 'detail' | 'printing';
 
 @Component({
   selector: 'app-card-face-image',
-  imports: [CardFaceToggleButtonComponent],
+  imports: [CardFaceToggleButtonComponent, PreloadCardAlternateFaceDirective],
   templateUrl: './card-face-image.component.html',
   styleUrl: './card-face-image.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,20 +20,20 @@ export class CardFaceImageComponent implements OnDestroy {
   private readonly device = inject(DeviceProfileService);
   readonly card = input.required<CardFaceImageSource | Card>();
   readonly variant = input<CardFaceImageVariant>('result');
+  readonly imageResolution = input<CardFaceImageResolution>('normal');
   readonly battle = input(false);
   readonly loading = input<'lazy' | 'eager'>('lazy');
   readonly fallback = input<string | null>(null);
-  readonly preferLarge = input(false);
   readonly showToggle = input(true);
   readonly controlledFlipped = input<boolean | null>(null);
   readonly flippedChange = output<boolean>();
 
   readonly flipped = signal(false);
+  readonly flipping = signal(false);
   readonly hasAlternateFace = computed(() => hasAlternateCardFace(this.card()));
   readonly visibleFace = computed<CardFace | null>(() => cardDisplayFace(this.card(), this.flipped()));
-  readonly imageUrl = computed(() => this.preferLarge()
-    ? readableCardFaceImage(this.card(), this.flipped())
-    : cardFaceImage(this.card(), this.flipped()));
+  readonly visibleFaceIndex = computed(() => this.flipped() ? 1 : 0);
+  readonly imageUrl = computed(() => this.imageUrlForFace(this.flipped()));
   readonly displayName = computed(() => this.fallback()?.trim() || this.card().name);
   readonly toggleSize = computed<CardFaceToggleButtonSize>(() => {
     switch (this.variant()) {
@@ -53,6 +55,7 @@ export class CardFaceImageComponent implements OnDestroy {
   private animation: gsap.core.Tween | null = null;
   private pendingFlipFrame: number | null = null;
   private lastControlledFlip: boolean | null = null;
+  private faceChangeRequestVersion = 0;
   private readonly syncControlledFlip = effect(() => {
     const controlledFlipped = this.controlledFlipped();
     const nextFlipped = this.hasAlternateFace() ? (controlledFlipped ?? false) : false;
@@ -64,7 +67,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
     if (this.lastControlledFlip === null) {
       this.lastControlledFlip = nextFlipped;
-    untracked(() => this.setFaceFlipped(nextFlipped, { animate: false, emit: false }));
+      untracked(() => this.setFaceFlipped(nextFlipped, { animate: false, emit: false }));
       return;
     }
 
@@ -73,12 +76,14 @@ export class CardFaceImageComponent implements OnDestroy {
     }
 
     this.lastControlledFlip = nextFlipped;
-    untracked(() => this.setFaceFlipped(nextFlipped, { animate: true, emit: false }));
+    untracked(() => void this.setLoadedControlledFace(nextFlipped));
   });
 
   ngOnDestroy(): void {
     this.animation?.kill();
+    this.flipping.set(false);
     this.clearPendingFlipFrame();
+    this.faceChangeRequestVersion += 1;
   }
 
   @HostBinding('class.card-face-image--battle')
@@ -111,7 +116,12 @@ export class CardFaceImageComponent implements OnDestroy {
     return this.variant() === 'printing';
   }
 
-  toggleFace(event?: Event): void {
+  @HostBinding('class.card-face-image--flipping')
+  get isFlipping(): boolean {
+    return this.flipping();
+  }
+
+  async toggleFace(event?: Event): Promise<void> {
     event?.preventDefault();
     event?.stopPropagation();
     event?.stopImmediatePropagation?.();
@@ -120,7 +130,13 @@ export class CardFaceImageComponent implements OnDestroy {
       return;
     }
 
-    this.setFaceFlipped(!this.flipped(), { animate: true, emit: true });
+    const nextFlipped = !this.flipped();
+    const requestVersion = ++this.faceChangeRequestVersion;
+    if (!await preloadImage(this.imageUrlForFace(nextFlipped)) || requestVersion !== this.faceChangeRequestVersion) {
+      return;
+    }
+
+    this.setFaceFlipped(nextFlipped, { animate: true, emit: true });
   }
 
   private setFaceFlipped(nextFlipped: boolean, options: { animate: boolean; emit: boolean }): void {
@@ -139,6 +155,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
     this.clearPendingFlipFrame();
     this.animation?.kill();
+    this.flipping.set(false);
     gsap.killTweensOf(stage);
 
     if (!options.animate || this.shouldSkipFlipAnimation()) {
@@ -151,6 +168,7 @@ export class CardFaceImageComponent implements OnDestroy {
       return;
     }
 
+    this.flipping.set(true);
     this.animation = gsap.to(stage, {
       rotateY: 90,
       duration: 0.16,
@@ -169,6 +187,7 @@ export class CardFaceImageComponent implements OnDestroy {
             onComplete: () => {
               gsap.set(stage, { clearProps: 'transform' });
               this.animation = null;
+              this.flipping.set(false);
             },
           });
         });
@@ -200,5 +219,18 @@ export class CardFaceImageComponent implements OnDestroy {
 
   private shouldSkipFlipAnimation(): boolean {
     return !this.device.isDesktopLayout() || this.device.hasCoarsePointer() || !this.device.hasHover();
+  }
+
+  private async setLoadedControlledFace(nextFlipped: boolean): Promise<void> {
+    const requestVersion = ++this.faceChangeRequestVersion;
+    if (!await preloadImage(this.imageUrlForFace(nextFlipped)) || requestVersion !== this.faceChangeRequestVersion) {
+      return;
+    }
+
+    this.setFaceFlipped(nextFlipped, { animate: true, emit: false });
+  }
+
+  private imageUrlForFace(flipped: boolean): string | null {
+    return cardFaceImage(this.card(), flipped, this.imageResolution());
   }
 }

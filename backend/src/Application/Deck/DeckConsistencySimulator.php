@@ -258,6 +258,8 @@ final class DeckConsistencySimulator
                 continue;
             }
             $flags = $this->cardFlags($card, $manaContext);
+            $flags['effectiveColors'] = $this->colorsForCard($flags, $manaContext);
+            $flags['pathwayColor'] = $this->choosePathwayColor($flags, $manaContext);
             for ($copy = 0; $copy < max(1, $card['quantity']); ++$copy) {
                 $library[] = $flags;
             }
@@ -944,6 +946,7 @@ final class DeckConsistencySimulator
      */
     private function colorsForCard(array $card, array $manaContext): array
     {
+        if (isset($card['effectiveColors'])) return $card['effectiveColors'];
         $colors = $this->stringList($card['producedColors'] ?? []);
         if (($card['producesAnyColor'] ?? false) === true) {
             $colors = [...$colors, ...$this->stringList($manaContext['commanderColors'] ?? [])];
@@ -971,6 +974,7 @@ final class DeckConsistencySimulator
      */
     private function choosePathwayColor(array $card, array $manaContext): ?string
     {
+        if (array_key_exists('pathwayColor', $card)) return $card['pathwayColor'];
         $colors = array_values(array_filter($this->stringList($card['producedColors'] ?? []), static fn (string $color): bool => in_array($color, self::COLOR_NAMES, true)));
         if ($colors === []) {
             return null;
@@ -1116,19 +1120,10 @@ final class DeckConsistencySimulator
      */
     private function drawSequence(array $library, int $count, GameRandomizer $randomizer): array
     {
-        $player = [
-            GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
-            'zones' => [
-                'library' => $library,
-            ],
-        ];
-
-        $this->libraryOps()->shuffle(
-            $player,
-            fn (array $cards): array => $randomizer->shuffle($cards),
-        );
-
-        return $this->libraryOps()->drawMany($player, $count);
+        // Immutable analysis flags have no gameplay visibility state. Preserve
+        // the exact full shuffle and tail-top draw order (including RNG calls).
+        $shuffled = $randomizer->shuffle($library);
+        return $count <= 0 ? [] : array_reverse(array_slice($shuffled, -min($count, count($shuffled))));
     }
 
     private function seededRandomizer(string $seed): GameRandomizer

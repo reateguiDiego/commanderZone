@@ -13,6 +13,7 @@ final class DeckAdvancedAnalysisSnapshotService
         private readonly DeckAnalysisDataVersionProvider $versionProvider,
         private readonly DeckAnalysisDeckHasher $deckHasher,
         private readonly DeckAdvancedAnalysisResultCompactor $resultCompactor,
+        private readonly ?\App\Infrastructure\Observability\RequestPerformanceContext $performance = null,
     ) {
     }
 
@@ -37,11 +38,24 @@ final class DeckAdvancedAnalysisSnapshotService
             return $result;
         }
 
-        $result = $this->resultCompactor->compact($calculator->calculate($context));
-        $saved = $this->saveSnapshot($deck->id(), $snapshotContext, $result, $existing);
-        $result['snapshot'] = $this->metadata(false, $staleReason ?? 'missing', $saved, $snapshotContext);
-
-        return $result;
+        return (new DeckAnalysisExecution($this->connection))->run($deck->id(), 'advanced', function () use ($deck, $calculator, $monteCarloRuns): array {
+            for ($attempt = 0; $attempt < 2; ++$attempt) {
+                $context = $this->context($deck, $monteCarloRuns);
+                $snapshotContext = $context->snapshotColumns();
+                $existing = $this->snapshotRow($deck->id());
+                $reason = $this->staleReason($existing, $snapshotContext);
+                if ($existing !== null && $reason === null) {
+                    return [...$this->jsonObject($existing['result_json'] ?? null), 'snapshot' => $this->metadata(true, 'fresh', $existing, $snapshotContext)];
+                }
+                $compute = fn () => $this->resultCompactor->compact($calculator->calculate($context));
+                $result = $this->performance?->measure('analysis.advanced.calculate', $compute) ?? $compute();
+                if ($this->context($deck, $monteCarloRuns)->snapshotColumns() !== $snapshotContext) continue;
+                $saved = $this->saveSnapshot($deck->id(), $snapshotContext, $result, $existing);
+                $result['snapshot'] = $this->metadata(false, $reason ?? 'missing', $saved, $snapshotContext);
+                return $result;
+            }
+            throw new \Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException(1, 'Deck changed during analysis. Please retry.');
+        });
     }
 
     public function deckHash(Deck $deck): string
@@ -190,10 +204,12 @@ SQL,
      */
     private function snapshotRow(string $deckId): ?array
     {
-        $row = $this->connection->fetchAssociative(
+        $read = fn () => $this->connection->fetchAssociative(
             'SELECT * FROM deck_advanced_analysis_snapshot WHERE deck_id = :deck_id',
             ['deck_id' => $deckId],
         );
+
+        $row = $this->performance?->measure('analysis.advanced.snapshot_read', $read) ?? $read();
 
         return is_array($row) ? $row : null;
     }

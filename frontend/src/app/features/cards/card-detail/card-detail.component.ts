@@ -7,6 +7,7 @@ import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ManaTextComponent } from '../../../shared/mana/mana-text/mana-text.component';
 import { bestCardImage } from '../../../shared/utils/card-image';
+import { PreloadCardAlternateFaceDirective } from '../../../shared/directives/preload-card-alternate-face.directive';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 
@@ -18,6 +19,7 @@ import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-l
     ManaTextComponent,
     BackButtonComponent,
     GlobalLoaderComponent,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './card-detail.component.html',
   styleUrl: './card-detail.component.scss',

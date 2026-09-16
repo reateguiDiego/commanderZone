@@ -1,0 +1,325 @@
+{
+    "cards": [
+        {
+            "oracleId": "forest",
+            "quantity": 20,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "land"
+                ],
+                "manaValue": 0,
+                "colorIdentity": [
+                    "G"
+                ],
+                "producedMana": [
+                    "G"
+                ],
+                "types": {
+                    "land": true
+                }
+            },
+            "manaProfile": {
+                "isLand": true,
+                "producedManaColors": [
+                    "G"
+                ]
+            }
+        },
+        {
+            "oracleId": "island",
+            "quantity": 16,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "land"
+                ],
+                "manaValue": 0,
+                "colorIdentity": [
+                    "U"
+                ],
+                "producedMana": [
+                    "U"
+                ],
+                "types": {
+                    "land": true
+                }
+            },
+            "manaProfile": {
+                "isLand": true,
+                "producedManaColors": [
+                    "U"
+                ]
+            }
+        },
+        {
+            "oracleId": "rock",
+            "quantity": 8,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "ramp"
+                ],
+                "manaValue": 2,
+                "colorIdentity": [
+                    "G",
+                    "U"
+                ],
+                "producedMana": [
+                    "G",
+                    "U"
+                ],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": [
+                    "G",
+                    "U"
+                ]
+            }
+        },
+        {
+            "oracleId": "draw",
+            "quantity": 10,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "draw"
+                ],
+                "manaValue": 2,
+                "colorIdentity": [],
+                "producedMana": [],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": []
+            }
+        },
+        {
+            "oracleId": "counter",
+            "quantity": 8,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "counterspell"
+                ],
+                "manaValue": 2,
+                "colorIdentity": [],
+                "producedMana": [],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": []
+            }
+        },
+        {
+            "oracleId": "combo1",
+            "quantity": 1,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "combo_piece"
+                ],
+                "manaValue": 3,
+                "colorIdentity": [],
+                "producedMana": [],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": []
+            }
+        },
+        {
+            "oracleId": "combo2",
+            "quantity": 1,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "combo_piece"
+                ],
+                "manaValue": 4,
+                "colorIdentity": [],
+                "producedMana": [],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": []
+            }
+        },
+        {
+            "oracleId": "spell",
+            "quantity": 35,
+            "section": "main",
+            "analysisProfile": {
+                "roles": [
+                    "enabler"
+                ],
+                "manaValue": 5,
+                "colorIdentity": [],
+                "producedMana": [],
+                "types": {
+                    "land": false
+                }
+            },
+            "manaProfile": {
+                "isLand": false,
+                "producedManaColors": []
+            }
+        }
+    ],
+    "options": {
+        "runs": 10000,
+        "seed": "performance-equivalence-v1"
+    },
+    "result": {
+        "consistency": {
+            "simulationRuns": 10000,
+            "monteCarloVersion": "monte-carlo-v3",
+            "method": "monte_carlo",
+            "scope": "opening_hand_and_card_access",
+            "disclaimer": "This simulates hands and card access, not match win rate.",
+            "assumptions": [
+                "Opening hand is seven cards.",
+                "By-turn access assumes no draw on turn 1; turn 3 sees opening hand plus 2 draws, and turn 5 sees opening hand plus 4 draws.",
+                "Combo access checks direct pieces only for complete 2-card and 3-card combos already detected locally.",
+                "Mulligans resample seven-card hands and do not model perfect bottom decisions.",
+                "Shuffle and draw order use the same backend library operations as gameplay."
+            ],
+            "openingHand": {
+                "keepableHandRate": 0.4154,
+                "zeroOrOneLandRate": 0.1977,
+                "twoToFourLandsRate": 0.7436,
+                "fivePlusLandsRate": 0.0587,
+                "permanentRampInOpeningRate": 0.4559,
+                "fastManaInOpeningRate": 0,
+                "burstManaInOpeningRate": 0,
+                "earlyInteractionInOpeningRate": 0.4602,
+                "drawOrSelectionInOpeningRate": 0.5356,
+                "trueTutorInOpeningRate": 0,
+                "earlyPlayInOpeningRate": 0.8912,
+                "anyComboPieceInOpeningRate": 0.1337,
+                "completeTwoCardComboInOpeningRate": 0,
+                "keepableManaRate": 0.7436,
+                "hasTwoLandsRate": 0.2968,
+                "hasThreeLandsRate": 0.2883,
+                "hasAtLeastOneUntappedSourceRate": 0.9633,
+                "hasCommanderColorsRate": 1,
+                "hasPrimaryColorRate": 1,
+                "hasAllEarlyColorsRate": 1,
+                "tappedLandHeavyRate": 0,
+                "fetchlandWithValidTargetRate": 0,
+                "fetchlandWithoutTargetRate": 0,
+                "fastlandEarlyAccessRate": 0,
+                "slowlandEarlyDelayRate": 0,
+                "painlandEarlyAccessRate": 0,
+                "pathwayColorChoicePressureRate": 0,
+                "filterlandNeedsInputRate": 0
+            },
+            "keepRule": {
+                "description": "Keepable means 2-4 lands, at least one early play, at least one development or interaction signal, at most two cards with mana value 5+, and not only reactive cards.",
+                "failedByTooFewLandsRate": 0.1977,
+                "failedByTooManyLandsRate": 0.0587,
+                "failedByNoEarlyPlayRate": 0.1088,
+                "failedByTooTopHeavyRate": 0.4778
+            },
+            "mulligan": {
+                "keepableAt7Rate": 0.4154,
+                "keepableBy6Rate": 0.6519,
+                "keepableBy5Rate": 0.7975,
+                "averageMulligansNeeded": 1.1352
+            },
+            "byTurn": {
+                "turn3": {
+                    "permanentRampSeenRate": 0.5448,
+                    "earlyInteractionSeenRate": 0.5502,
+                    "drawOrSelectionSeenRate": 0.6318,
+                    "trueTutorSeenRate": 0,
+                    "protectionSeenRate": 0,
+                    "winconSeenRate": 0,
+                    "comboPieceSeenRate": 0.1704
+                },
+                "turn5": {
+                    "permanentRampSeenRate": 0.623,
+                    "interactionSeenRate": 0.6241,
+                    "trueTutorSeenRate": 0,
+                    "winconSeenRate": 0,
+                    "comboPieceSeenRate": 0.207,
+                    "completeTwoCardComboSeenRate": 0,
+                    "comboPlusProtectionSeenRate": 0
+                }
+            },
+            "comboAccess": {
+                "anyComboPieceInOpeningRate": 0.1337,
+                "anyComboPieceByTurn5Rate": 0.207,
+                "completeTwoCardComboInOpeningRate": 0,
+                "completeTwoCardComboByTurn5Rate": 0,
+                "compactWinconSeenByTurn5Rate": 0,
+                "comboPlusProtectionSeenRate": 0
+            },
+            "colorAccess": {
+                "turn1": {
+                    "white": 0,
+                    "blue": 0.7181,
+                    "black": 0,
+                    "red": 0,
+                    "green": 0.8081,
+                    "allCommanderColors": 1
+                },
+                "turn2": {
+                    "white": 0,
+                    "blue": 0.7661,
+                    "black": 0,
+                    "red": 0,
+                    "green": 0.8504,
+                    "allCommanderColors": 1
+                },
+                "turn3": {
+                    "white": 0,
+                    "blue": 0.8096,
+                    "black": 0,
+                    "red": 0,
+                    "green": 0.8816,
+                    "allCommanderColors": 1
+                },
+                "commanderCurve": {
+                    "canCastOnCurveRate": 0,
+                    "missingColorRate": 0,
+                    "missingManaValueRate": 0,
+                    "tappedOutDelayRate": 0
+                }
+            }
+        },
+        "issues": [
+            {
+                "code": "low_keepable_hand_rate",
+                "severity": "warning",
+                "message": "Opening hand simulation estimates a 41.5% keepable hand rate."
+            },
+            {
+                "code": "low_commander_castability",
+                "severity": "warning",
+                "message": "Commander curve simulation estimates 0.0% on-curve castability."
+            },
+            {
+                "code": "high_mulligan_pressure",
+                "severity": "warning",
+                "message": "Opening hand simulation estimates only 65.2% keepable hands by a mulligan to 6."
+            }
+        ]
+    }
+}

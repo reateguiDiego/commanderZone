@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-USERS=100
+USERS=50
 ALL_PHASES=0
 API_BASE_URL="https://api.commanderzone.com"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,11 +12,13 @@ USER_PASSWORD="${LOAD_TEST_USER_PASSWORD:-}"
 DECK_NAME="Load Test Deck"
 DURATION_MINUTES=10
 COMMAND_INTERVAL_MS=2000
-K6_IMAGE="grafana/k6:latest"
+K6_IMAGE="grafana/k6:2.1.0"
 CONFIRM_PRODUCTION=0
 ALLOW_NON_PRODUCTION=0
 LOCAL_DRY_RUN=0
 SKIP_SERVER_METRICS=0
+SCENARIO="navigation"
+SNAPSHOT_DIR=""
 
 usage() {
   cat <<'USAGE'
@@ -31,8 +33,9 @@ Required for production:
     --confirm-production
 
 Modes:
-  --users 100|280|500       Run one phase.
-  --all-phases              Run 100, then 280, then 500.
+  --users 50|100|280|500    Run one phase.
+  --all-phases              Run 50, 100, 280, then 500.
+  --scenario navigation|gameplay  Select the independent navigation load (default) or gameplay control.
   --local-dry-run           Use 4 users for a short local validation.
   --skip-server-metrics     Do not collect server-side metrics.
 
@@ -43,6 +46,7 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --snapshot-dir) SNAPSHOT_DIR="${2:?}"; shift 2 ;;
     --users)
       USERS="${2:?--users requires a value}"
       shift 2
@@ -50,6 +54,10 @@ while [[ $# -gt 0 ]]; do
     --all-phases)
       ALL_PHASES=1
       shift
+      ;;
+    --scenario)
+      SCENARIO="${2:?--scenario requires a value}"
+      shift 2
       ;;
     --api-base-url)
       API_BASE_URL="${2:?--api-base-url requires a value}"
@@ -119,7 +127,7 @@ require_command() {
 }
 
 is_allowed_users() {
-  [[ "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
+  [[ "$1" == "50" || "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
 }
 
 json_number() {
@@ -140,7 +148,8 @@ json_number() {
 
 collect_restart_counts() {
   local output="$1"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   (cd "$PRODUCTION_PATH" && "${compose[@]}" ps -q api websocket game-runtime database \
     | xargs -r docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}={{ .RestartCount }}') > "$output" || true
 }
@@ -164,7 +173,8 @@ restart_count() {
 collect_server_snapshot() {
   local phase_dir="$1"
   local label="$2"
-  local compose=(docker compose --env-file .env.prod -f docker-compose.prod.yml)
+  local compose=(docker compose --env-file .env.prod -f docker-compose.yml)
+  if [[ -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then compose+=(-f docker-compose.prod.yml); fi
   local errors_file="$phase_dir/server-errors-$label.txt"
   : > "$errors_file"
 
@@ -184,9 +194,12 @@ collect_server_snapshot() {
     2>> "$errors_file" || echo "docker stats failed" >> "$errors_file"
 
   (cd "$PRODUCTION_PATH" && "${compose[@]}" ps -q api websocket game-runtime database \
-    | xargs -r docker inspect --format '{{json .}}') \
+    | xargs -r docker inspect --format '{"Name":{{json .Name}},"RestartCount":{{.RestartCount}},"State":{{json .State}},"Config":{"Labels":{{json .Config.Labels}}}}') \
     > "$phase_dir/docker-inspect-$label.ndjson" \
     2>> "$errors_file" || echo "docker inspect failed" >> "$errors_file"
+
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T api php < "$SCRIPT_DIR/collect-php-metrics.php") \
+    > "$phase_dir/php-$label.json" 2>> "$errors_file" || echo "PHP metrics unavailable" >> "$errors_file"
 
   collect_restart_counts "$phase_dir/restarts-$label.txt"
 
@@ -198,10 +211,18 @@ collect_server_snapshot() {
     2>> "$errors_file" || echo "runtime metrics failed" >> "$errors_file"
 
   local sql
-  sql="select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
+  sql="select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'sessions', (select sessions from pg_stat_database where datname=current_database()), 'sessionTimeMs', (select session_time from pg_stat_database where datname=current_database()), 'statsReset', (select stats_reset from pg_stat_database where datname=current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
   (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') \
     > "$phase_dir/postgres-$label.json" \
     2>> "$errors_file" || echo "postgres metrics failed" >> "$errors_file"
+
+  local detail_sql
+  detail_sql="select json_build_object('activity',coalesce((select json_agg(x) from (select state,wait_event_type,wait_event,count(*) from pg_stat_activity where datname=current_database() group by 1,2,3) x),'[]'::json),'waits',coalesce((select json_agg(x) from (select wait_event_type,wait_event,count(*) from pg_stat_activity where wait_event is not null group by 1,2) x),'[]'::json),'locks',coalesce((select json_agg(x) from (select locktype,mode,granted,count(*) from pg_locks group by 1,2,3) x),'[]'::json),'pool',json_build_object('used',(select count(*) from pg_stat_activity),'max',(select setting::int from pg_settings where name='max_connections'),'utilization',(select round(count(*)::numeric/(select setting::numeric from pg_settings where name='max_connections'),4) from pg_stat_activity)))::text;"
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$detail_sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$CZLT_SQL"') > "$phase_dir/postgres-detail-$label.json" 2>> "$errors_file" || echo "postgres detail metrics failed" >> "$errors_file"
+  local statements_limit="" statements_complete=true
+  if [[ "$label" == "live" ]]; then statements_limit="ORDER BY total_exec_time DESC LIMIT 25"; statements_complete=false; fi
+  local statements_sql="select json_build_object('complete',$statements_complete,'capturedAt',now(),'statsReset',(select stats_reset from pg_stat_statements_info),'dealloc',(select dealloc from pg_stat_statements_info),'statements',coalesce((select json_agg(x) from (select dbid,userid,toplevel,queryid::text queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_written,query from pg_stat_statements where dbid=(select oid from pg_database where datname=current_database()) $statements_limit) x),'[]'::json))::text"
+  (cd "$PRODUCTION_PATH" && "${compose[@]}" exec -T -e CZLT_SQL="$statements_sql" database sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -v ON_ERROR_STOP=1 -c "$CZLT_SQL"') > "$phase_dir/pg-stat-statements-$label.json" 2>> "$errors_file" || echo "pg_stat_statements unavailable" >> "$errors_file"
 
   cat > "$phase_dir/server-metrics-$label.json" <<JSON
 {
@@ -210,6 +231,8 @@ collect_server_snapshot() {
   "productionPath": "$PRODUCTION_PATH",
   "files": {
     "dockerStats": "docker-stats-$label.ndjson",
+    "php": "php-$label.json",
+    "postgresStatements": "pg-stat-statements-$label.json",
     "dockerInspect": "docker-inspect-$label.ndjson",
     "runtime": "runtime-$label.json",
     "postgres": "postgres-$label.json",
@@ -317,10 +340,14 @@ write_operator_summary() {
 assert_safety() {
   require_command docker
   require_command curl
+  require_command node
 
   if ! is_allowed_users "$USERS"; then
-    echo "--users must be one of 100, 280, or 500. Received: $USERS" >&2
+    echo "--users must be one of 50, 100, 280, or 500. Received: $USERS" >&2
     exit 2
+  fi
+  if [[ "$SCENARIO" != "navigation" && "$SCENARIO" != "gameplay" ]]; then
+    echo "--scenario must be navigation or gameplay." >&2; exit 2
   fi
   if [[ -z "$USER_PASSWORD" ]]; then
     echo "Set LOAD_TEST_USER_PASSWORD or pass --user-password. Do not commit seeded user credentials." >&2
@@ -331,6 +358,9 @@ assert_safety() {
   if [[ "$API_BASE_URL" == "https://api.commanderzone.com"* ]]; then
     is_production=1
   fi
+  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" == "1" ]]; then
+    echo "Production requires server metrics." >&2; exit 2
+  fi
   if [[ "$is_production" == "1" && "$CONFIRM_PRODUCTION" != "1" ]]; then
     echo "Production target requires --confirm-production." >&2
     exit 2
@@ -339,8 +369,8 @@ assert_safety() {
     echo "Non-production target requires --allow-non-production or --local-dry-run." >&2
     exit 2
   fi
-  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ! -f "$PRODUCTION_PATH/docker-compose.prod.yml" ]]; then
-    echo "Production metrics require docker-compose.prod.yml under --production-path, or explicit --skip-server-metrics." >&2
+  if [[ "$is_production" == "1" && "$SKIP_SERVER_METRICS" != "1" && ( ! -f "$PRODUCTION_PATH/docker-compose.yml" || ! -f "$PRODUCTION_PATH/.env.prod" ) ]]; then
+    echo "Production metrics require docker-compose.yml and .env.prod under --production-path; docker-compose.prod.yml is an optional override." >&2
     exit 2
   fi
 }
@@ -363,30 +393,26 @@ invoke_phase() {
   fi
 
   local k6_exit_code=0
+  local k6_script="commanderzone-navigation.k6.js"
+  if [[ "$SCENARIO" == "gameplay" ]]; then k6_script="commanderzone-production.k6.js"; fi
   local docker_uid docker_gid
   docker_uid="$(id -u)"
   docker_gid="$(id -g)"
-  USER_PASSWORD="$USER_PASSWORD" docker run \
-    --rm \
-    --pull=missing \
-    --user "$docker_uid:$docker_gid" \
-    -e K6_NO_USAGE_REPORT=true \
-    -e API_BASE_URL="$API_BASE_URL" \
-    -e USERS="$phase_users" \
-    -e USER_PASSWORD \
-    -e RUN_ID="$run_id" \
-    -e PHASE_NAME="users-$phase_users" \
-    -e DECK_NAME="$DECK_NAME" \
-    -e DURATION="$duration" \
-    -e DRY_RUN="$dry_run_value" \
-    -e COMMAND_INTERVAL_MS="$COMMAND_INTERVAL_MS" \
-    -v "$REPO_ROOT/load-tests:/scripts:ro" \
-    -v "$phase_dir:/reports" \
-    "$K6_IMAGE" \
-    run /scripts/commanderzone-production.k6.js \
-    2>&1 | tee "$phase_dir/k6-output.log" || k6_exit_code="${PIPESTATUS[0]}"
+  local container_name="$run_id-$phase_users"
+  local config="$phase_dir/supervisor-config.json"
+  local -a docker_args=(run --rm --pull=missing --name "$container_name" --user "$docker_uid:$docker_gid"
+    -e K6_NO_USAGE_REPORT=true -e "API_BASE_URL=$API_BASE_URL" -e "USERS=$phase_users" -e USER_PASSWORD
+    -e FRIEND_SEARCH_TERMS -e NAVIGATION_MIX -e ANALYSIS_STATE -e ANALYSIS_FIXTURES -e DEPLOYED_COMMIT
+    -e "RUN_ID=$run_id" -e "PHASE_NAME=users-$phase_users" -e "DECK_NAME=$DECK_NAME"
+    -e "DURATION=$duration" -e "DRY_RUN=$dry_run_value" -e "COMMAND_INTERVAL_MS=$COMMAND_INTERVAL_MS"
+    -v "$REPO_ROOT/load-tests:/scripts:ro" -v "$phase_dir:/reports" "$K6_IMAGE"
+    run --out json=/reports/k6-points.ndjson "/scripts/$k6_script")
+  node -e 'const fs=require("fs"); const [file,dir,name,skip,script,production,runtime,...args]=process.argv.slice(1); fs.writeFileSync(file,JSON.stringify({reportDir:dir,containerName:name,requireMetrics:skip!=="1",command:["docker",...args],snapshotCommand:["bash",script,"--snapshot-dir",dir,"--production-path",production,"--runtime-metrics-url",runtime]}));' \
+    "$config" "$phase_dir" "$container_name" "$SKIP_SERVER_METRICS" "$SCRIPT_DIR/run-production-load-test.sh" "$PRODUCTION_PATH" "$RUNTIME_METRICS_URL" "${docker_args[@]}"
+  USER_PASSWORD="$USER_PASSWORD" node "$SCRIPT_DIR/supervise-load.mjs" "$config" || k6_exit_code=$?
 
   collect_server_snapshot "$phase_dir" after
+  node "$SCRIPT_DIR/sql-load-delta.mjs" "$phase_dir" > "$phase_dir/sql-delta-summary.txt" 2>&1 || true
   write_server_delta "$phase_dir"
   write_operator_summary "$phase_dir" "$phase_users" "$k6_exit_code"
 
@@ -396,11 +422,16 @@ invoke_phase() {
   return 0
 }
 
+if [[ -n "$SNAPSHOT_DIR" ]]; then
+  collect_server_snapshot "$SNAPSHOT_DIR" live
+  exit 0
+fi
+
 assert_safety
 
 phases=("$USERS")
 if [[ "$ALL_PHASES" == "1" ]]; then
-  phases=(100 280 500)
+  phases=(50 100 280 500)
 fi
 
 run_id="czlt-$(date -u +"%Y%m%d-%H%M%S")"
@@ -414,6 +445,7 @@ all_passed=0
 for phase in "${phases[@]}"; do
   if ! invoke_phase "$phase" "$run_id" "$report_root"; then
     all_passed=1
+    break
   fi
 done
 

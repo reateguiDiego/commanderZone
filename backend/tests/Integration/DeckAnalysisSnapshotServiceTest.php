@@ -12,6 +12,25 @@ use App\Domain\User\User;
 
 final class DeckAnalysisSnapshotServiceTest extends ApiTestCase
 {
+    public function testSideboardAndMaybeboardInvalidateOnlyWhenIncluded(): void
+    {
+        [$deck, $first, $second] = $this->deckFixture('optional-sections');
+        $service = $this->service();
+        $analysis = new RecordingBasicAnalysisService();
+        $options = ['includeSideboard' => true, 'includeMaybeboard' => true];
+        $service->analyze($deck, $analysis);
+        $service->analyze($deck, $analysis, $options);
+        foreach ([DeckCard::SECTION_SIDEBOARD, DeckCard::SECTION_MAYBEBOARD] as $section) {
+            $deck->addOrIncrementCard($second, 1, $section);
+            $this->entityManager->flush();
+            self::assertTrue($service->analyze($deck, $analysis)['snapshot']['hit']);
+            $result = $service->analyze($deck, $analysis, $options);
+            self::assertFalse($result['snapshot']['hit']);
+            self::assertSame('deck_hash_changed', $result['snapshot']['reason']);
+        }
+        self::assertSame(4, $analysis->calls);
+    }
+
     public function testSnapshotMissCalculatesAndStoresResult(): void
     {
         [$deck] = $this->deckFixture('miss');

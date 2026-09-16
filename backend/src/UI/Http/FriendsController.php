@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Friendship\FriendPresenceService;
 use App\Domain\Friendship\Friendship;
+use App\Domain\Room\RoomInvite;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,6 +15,31 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class FriendsController extends ApiController
 {
+    #[Route('/friends/summary', methods: ['GET'])]
+    public function summary(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $onlineFriendsCount = (int) $entityManager->getRepository(Friendship::class)->createQueryBuilder('friendship')
+            ->select('COUNT(friendship.id)')
+            ->innerJoin('friendship.requester', 'requester')
+            ->innerJoin('friendship.recipient', 'recipient')
+            ->where('friendship.status = :status')
+            ->andWhere('(requester = :user AND recipient.lastSeenAt >= :activeSince) OR (recipient = :user AND requester.lastSeenAt >= :activeSince)')
+            ->setParameter('status', Friendship::STATUS_ACCEPTED)
+            ->setParameter('user', $user)
+            ->setParameter('activeSince', new \DateTimeImmutable('-5 minutes'))
+            ->getQuery()->getSingleScalarResult();
+
+        return $this->json([
+            'onlineFriendsCount' => $onlineFriendsCount,
+            'incomingRequestsCount' => $entityManager->getRepository(Friendship::class)->count([
+                'recipient' => $user, 'status' => Friendship::STATUS_PENDING,
+            ]),
+            'roomInvitesCount' => $entityManager->getRepository(RoomInvite::class)->count([
+                'recipient' => $user, 'status' => RoomInvite::STATUS_PENDING,
+            ]),
+        ]);
+    }
+
     #[Route('/friends/search', methods: ['GET'])]
     public function search(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -23,31 +49,45 @@ class FriendsController extends ApiController
         }
 
         $users = $entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->select('user.id, user.displayName, user.displayNameStylePreset, user.displayNameStyleTextColor, friendship.status AS friendshipStatus')
+            ->leftJoin(Friendship::class, 'friendship', 'WITH', "friendship.relationKey = CASE WHEN user.id < :viewerId THEN CONCAT(user.id, ':', :viewerId) ELSE CONCAT(:viewerId, ':', user.id) END")
             ->where('LOWER(user.displayName) LIKE :query')
             ->andWhere('user != :viewer')
             ->andWhere('LOWER(user.displayName) != :reservedDisplayName')
             ->setParameter('query', '%'.mb_strtolower($query).'%')
             ->setParameter('viewer', $user)
+            ->setParameter('viewerId', $user->id())
             ->setParameter('reservedDisplayName', 'commanderzone')
             ->orderBy('user.displayName', 'ASC')
             ->setMaxResults(8)
             ->getQuery()
-            ->getResult();
+            ->getArrayResult();
 
-        return $this->json(['data' => array_map(fn (User $match) => [
-            'id' => $match->id(),
-            'username' => $match->publicHandle(),
-            'canonicalPath' => $match->publicPath(),
-            'displayName' => $match->displayName(),
-            'displayNameStyle' => $match->displayNameStyle(),
-            'friendshipStatus' => $this->friendshipStatusBetween($entityManager, $user, $match),
-        ], $users)]);
+        return $this->json(['data' => array_map(static function (array $match): array {
+            $username = User::urlUsername($match['displayName']);
+            $style = ['type' => $match['displayNameStylePreset'] === 'plain' ? 'plain' : 'preset', 'presetId' => $match['displayNameStylePreset']];
+            if ($match['displayNameStyleTextColor'] !== null) {
+                $style['textColor'] = $match['displayNameStyleTextColor'];
+            }
+
+            return [
+                'id' => $match['id'],
+                'username' => $username,
+                'canonicalPath' => '/community/users/'.rawurlencode($username),
+                'displayName' => $match['displayName'],
+                'displayNameStyle' => $style,
+                'friendshipStatus' => $match['friendshipStatus'],
+            ];
+        }, $users)]);
     }
 
     #[Route('/friends', methods: ['GET'])]
     public function list(#[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendPresenceService $presence): JsonResponse
     {
         $friendships = $entityManager->getRepository(Friendship::class)->createQueryBuilder('friendship')
+            ->addSelect('requester', 'recipient')
+            ->innerJoin('friendship.requester', 'requester')
+            ->innerJoin('friendship.recipient', 'recipient')
             ->where('friendship.status = :status')
             ->andWhere('friendship.requester = :user OR friendship.recipient = :user')
             ->setParameter('status', Friendship::STATUS_ACCEPTED)
@@ -56,9 +96,11 @@ class FriendsController extends ApiController
             ->getQuery()
             ->getResult();
 
+        $statuses = $presence->statusesFor(array_map(static fn (Friendship $friendship): User => $friendship->friendFor($user), $friendships));
+
         return $this->json([
             'data' => array_map(
-                static fn (Friendship $friendship) => $friendship->toArray($user, $presence->statusFor($friendship->friendFor($user))),
+                static fn (Friendship $friendship) => $friendship->toArray($user, $statuses[$friendship->friendFor($user)->id()]),
                 $friendships,
             ),
         ]);
@@ -229,11 +271,6 @@ class FriendsController extends ApiController
             'recipient' => $user,
             'status' => Friendship::STATUS_PENDING,
         ]);
-    }
-
-    private function friendshipStatusBetween(EntityManagerInterface $entityManager, User $first, User $second): ?string
-    {
-        return $this->findBetween($entityManager, $first, $second)?->status();
     }
 
     private function isCommanderZoneAccount(User $user): bool

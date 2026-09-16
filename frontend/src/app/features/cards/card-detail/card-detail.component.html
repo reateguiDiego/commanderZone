@@ -9,7 +9,7 @@
     <article class="detail-layout">
       <div class="detail-image">
         @if (image(card); as imageUrl) {
-          <img [src]="imageUrl" [alt]="card.name" />
+          <img [src]="imageUrl" [alt]="card.name" [appPreloadCardAlternateFace]="card" />
         } @else {
           <div class="card-fallback tall">{{ card.name }}</div>
         }

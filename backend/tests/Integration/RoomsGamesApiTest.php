@@ -3368,6 +3368,12 @@ SQL));
 
         $this->jsonRequest('GET', '/rooms', token: $ownerToken);
         self::assertResponseIsSuccessful();
+        self::assertNotContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+        $this->jsonRequest('GET', '/rooms?status=all', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        // Legacy concede commands update the snapshot, but this fixture has not
+        // projected a GAME_FINISHED lifecycle handoff into the durable game status.
+        self::assertSame('active', $this->entityManager->getConnection()->fetchOne('SELECT status FROM game WHERE id = ?', [$gameId]));
         self::assertContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
     }
 

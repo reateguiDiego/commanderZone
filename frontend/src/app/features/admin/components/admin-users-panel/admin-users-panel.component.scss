@@ -203,8 +203,8 @@ h2 {
   z-index: 2;
   justify-self: start;
   width: min(30rem, calc(100% - 3.25rem));
-  --format-select-menu-min-width: 100%;
-  --format-select-menu-width: 100%;
+  --format-select-menu-min-width: var(--format-select-trigger-width);
+  --format-select-menu-width: var(--format-select-trigger-width);
   --format-select-menu-max-width: min(30rem, calc(100vw - 2rem));
   --format-select-open-z-index: 230;
 }
@@ -330,8 +330,8 @@ h2 {
 .admin-users-filter-select {
   width: 100%;
   --format-select-open-z-index: 230;
-  --format-select-menu-min-width: 100%;
-  --format-select-menu-width: 100%;
+  --format-select-menu-min-width: var(--format-select-trigger-width);
+  --format-select-menu-width: var(--format-select-trigger-width);
   --format-select-option-min-height: 2.2rem;
 }
 
@@ -555,7 +555,7 @@ h2 {
 .admin-users-select {
   width: 7.25rem;
   --format-select-open-z-index: 220;
-  --format-select-menu-min-width: 100%;
+  --format-select-menu-min-width: var(--format-select-trigger-width);
   --format-select-menu-width: max-content;
   --format-select-menu-max-width: 12rem;
   --format-select-option-min-height: 2.15rem;
@@ -1047,7 +1047,7 @@ h2 {
 
   .admin-users-select {
     width: 100%;
-    --format-select-menu-width: 100%;
+    --format-select-menu-width: var(--format-select-trigger-width);
   }
 
   .admin-users-date-ago {

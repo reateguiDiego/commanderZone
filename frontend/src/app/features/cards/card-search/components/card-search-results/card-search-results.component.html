@@ -29,6 +29,7 @@
           [card]="card"
           [battle]="isBattleCard(card)"
           [variant]="viewMode() === 'spoiler' ? 'spoiler' : 'result'"
+          [imageResolution]="viewMode() === 'list' ? 'small' : 'normal'"
           [showToggle]="viewMode() !== 'list'"
           (flippedChange)="handleFaceFlipped(card, $event)"
         />
@@ -72,7 +73,6 @@
       [card]="preview.card"
       [battle]="isBattleCard(preview.card)"
       variant="detail"
-      [preferLarge]="true"
       [showToggle]="false"
       [controlledFlipped]="hoverPreviewFlipped(preview.card)"
     />

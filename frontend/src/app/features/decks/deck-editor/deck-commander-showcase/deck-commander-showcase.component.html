@@ -7,7 +7,13 @@
     >
       <div class="commander-card-image">
         @if (store.displayCardImageUrl(entry.card); as imageUrl) {
-          <img [src]="imageUrl" [alt]="store.displayCardName(entry.card)" loading="lazy" />
+          <img
+            [src]="imageUrl"
+            [alt]="store.displayCardName(entry.card)"
+            [appPreloadCardAlternateFace]="entry.card"
+            [cardVisibleFaceIndex]="store.isFaceFlipped(entry.card) ? 1 : 0"
+            loading="lazy"
+          />
         } @else {
           <div class="commander-card-fallback">
             <strong>{{ store.displayCardName(entry.card) }}</strong>

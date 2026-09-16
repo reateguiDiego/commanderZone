@@ -1,8 +1,11 @@
 param(
-    [ValidateScript({ $_ -in @(100, 280, 500) })]
-    [int] $Users = 100,
+    [ValidateScript({ $_ -in @(50, 100, 280, 500) })]
+    [int] $Users = 50,
 
     [switch] $AllPhases,
+
+    [ValidateSet("navigation", "gameplay")]
+    [string] $Scenario = "navigation",
 
     [string] $ApiBaseUrl = "https://api.commanderzone.com",
 
@@ -22,7 +25,7 @@ param(
 
     [int] $CommandIntervalMs = 2000,
 
-    [string] $K6Image = "grafana/k6:latest",
+    [string] $K6Image = "grafana/k6:2.1.0",
 
     [switch] $ConfirmProduction,
 
@@ -31,6 +34,8 @@ param(
     [switch] $LocalDryRun,
 
     [switch] $SkipServerMetrics,
+
+    [string] $SnapshotDir = "",
 
     [switch] $Help
 )
@@ -52,8 +57,8 @@ Required for production:
     -ConfirmProduction
 
 Modes:
-  -Users 100|280|500     Run one phase.
-  -AllPhases             Run 100, then 280, then 500.
+  -Users 50|100|280|500     Run one phase.
+  -AllPhases             Run 50, 100, 280, then 500.
   -LocalDryRun           Use 4 users for a short local validation while keeping the selected phase metadata.
   -SkipServerMetrics     Do not collect server-side metrics.
 
@@ -118,6 +123,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         capturedAt = (Get-Date).ToUniversalTime().ToString("o")
         label = $Label
         productionHost = $ProductionHost
+        php = @{ status = 'unavailable' }
         dockerStats = @()
         dockerInspect = @()
         runtime = $null
@@ -132,7 +138,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
 
     if (-not [string]::IsNullOrWhiteSpace($ProductionHost)) {
         $quotedPath = ShellQuote $ProductionPath
-        $compose = "docker compose --env-file .env.prod -f docker-compose.prod.yml"
+        $compose = 'docker compose --env-file .env.prod -f docker-compose.yml $(if test -f docker-compose.prod.yml; then printf "%s" "-f docker-compose.prod.yml"; fi)'
         $services = "api websocket game-runtime database"
 
         try {
@@ -143,10 +149,17 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         }
 
         try {
-            $inspectCommand = "cd $quotedPath && $compose ps -q $services | xargs -r docker inspect --format '{{json .}}'"
+            $inspectCommand = "cd $quotedPath && $compose ps -q $services | xargs -r docker inspect --format '{`"Name`":{{json .Name}},`"RestartCount`":{{.RestartCount}},`"State`":{{json .State}},`"Config`":{`"Labels`":{{json .Config.Labels}}}}'"
             $snapshot.dockerInspect = @(ConvertFrom-JsonLines (Invoke-RemoteCommand $inspectCommand))
         } catch {
             $snapshot.errors += "docker inspect: $($_.Exception.Message)"
+        }
+
+        try {
+            $phpPayload = (Invoke-RemoteCommand "cd $quotedPath && $compose exec -T api php < scripts/collect-php-metrics.php") -join "`n"
+            $snapshot.php = $phpPayload | ConvertFrom-Json
+        } catch {
+            $snapshot.errors += "PHP metrics unavailable: $($_.Exception.Message)"
         }
 
         try {
@@ -161,12 +174,22 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
         }
 
         try {
-            $sql = "select json_build_object('capturedAt', now(), 'database', current_database(), 'activeConnections', (select count(*) from pg_stat_activity), 'waitingConnections', (select count(*) from pg_stat_activity where wait_event is not null), 'locks', (select count(*) from pg_locks), 'waitingLocks', (select count(*) from pg_locks where not granted), 'deadlocks', (select deadlocks from pg_stat_database where datname = current_database()), 'xactCommit', (select xact_commit from pg_stat_database where datname = current_database()), 'xactRollback', (select xact_rollback from pg_stat_database where datname = current_database()), 'tempFiles', (select temp_files from pg_stat_database where datname = current_database()), 'tempBytes', (select temp_bytes from pg_stat_database where datname = current_database()), 'databaseSizeBytes', pg_database_size(current_database()), 'pgStatStatementsAvailable', to_regclass('public.pg_stat_statements') is not null)::text;"
+            $sql = "select json_build_object('capturedAt',now(),'database',(select row_to_json(d) from pg_stat_database d where datname=current_database()),'activity',(select json_agg(a) from (select state,wait_event_type,wait_event,count(*) from pg_stat_activity where datname=current_database() group by 1,2,3) a),'locks',(select json_agg(l) from (select locktype,mode,granted,count(*) from pg_locks group by 1,2,3) l),'pool',json_build_object('used',(select count(*) from pg_stat_activity),'max',(select setting::int from pg_settings where name='max_connections')),'pgStatStatementsAvailable',to_regclass('public.pg_stat_statements') is not null)::text;"
             $inner = "psql -U ""`$POSTGRES_USER"" -d ""`$POSTGRES_DB"" -At -c ""$sql"""
             $dbCommand = "cd $quotedPath && $compose exec -T database sh -lc $(ShellQuote $inner)"
             $dbPayload = (Invoke-RemoteCommand $dbCommand) -join "`n"
             if (-not [string]::IsNullOrWhiteSpace($dbPayload)) {
                 $snapshot.postgres = $dbPayload | ConvertFrom-Json
+            }
+            $statementsComplete = if ($Label -eq 'live') { 'false' } else { 'true' }
+            $statementsLimit = if ($Label -eq 'live') { 'ORDER BY total_exec_time DESC LIMIT 25' } else { '' }
+            $statementsSql = "select json_build_object('complete',$statementsComplete,'capturedAt',now(),'statsReset',(select stats_reset from pg_stat_statements_info),'dealloc',(select dealloc from pg_stat_statements_info),'statements',coalesce((select json_agg(x) from (select dbid,userid,toplevel,queryid::text queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_written,query from pg_stat_statements where dbid=(select oid from pg_database where datname=current_database()) $statementsLimit) x),'[]'::json))::text"
+            $statementsInner = "psql -U ""`$POSTGRES_USER"" -d ""`$POSTGRES_DB"" -At -c ""$statementsSql"""
+            try {
+                $statementsPayload = (Invoke-RemoteCommand "cd $quotedPath && $compose exec -T database sh -lc $(ShellQuote $statementsInner)") -join "`n"
+                $statementsPayload | Set-Content -Path (Join-Path $PhaseDir "pg-stat-statements-$Label.json") -Encoding UTF8
+            } catch {
+                $snapshot.errors += "pg_stat_statements unavailable: $($_.Exception.Message)"
             }
         } catch {
             $snapshot.errors += "postgres metrics: $($_.Exception.Message)"
@@ -293,7 +316,7 @@ function Test-ServerGate([object] $Delta) {
     }
 
     $postgres = $Delta.postgres
-    foreach ($key in @("deadlocks", "waitingLocks")) {
+    foreach ($key in @("database.deadlocks")) {
         $property = $postgres.PSObject.Properties[$key]
         if ($null -ne $property -and [double] $property.Value -gt 0.0) {
             $failures += "postgres $key delta is $($property.Value)"
@@ -350,8 +373,10 @@ function Assert-Safety {
         throw "Set LOAD_TEST_USER_PASSWORD or pass -UserPassword. Do not commit seeded user credentials."
     }
 
+    if (-not (Test-CommandAvailable "node")) { throw "Node.js 22+ is required for load supervision." }
     $uri = [Uri] $ApiBaseUrl
     $isProductionApi = $uri.Host -eq "api.commanderzone.com"
+    if ($isProductionApi -and $SkipServerMetrics) { throw "Production requires server metrics." }
     if ($isProductionApi -and -not $ConfirmProduction) {
         throw "Production target requires -ConfirmProduction."
     }
@@ -375,14 +400,22 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     $duration = if ($LocalDryRun) { "30s" } else { "$($DurationMinutes)m" }
     $dryRunValue = if ($LocalDryRun) { "1" } else { "0" }
     $k6LogPath = Join-Path $phaseDir "k6-output.log"
+    $k6Script = if ($Scenario -eq "navigation") { "/scripts/commanderzone-navigation.k6.js" } else { "/scripts/commanderzone-production.k6.js" }
+    $containerName = "$RunId-$PhaseUsers"
     $dockerArgs = @(
         "run",
         "--rm",
+        "--name", $containerName,
         "--pull=missing",
         "-e", "K6_NO_USAGE_REPORT=true",
         "-e", "API_BASE_URL=$ApiBaseUrl",
         "-e", "USERS=$PhaseUsers",
         "-e", "USER_PASSWORD",
+        "-e", "FRIEND_SEARCH_TERMS",
+        "-e", "NAVIGATION_MIX",
+        "-e", "ANALYSIS_STATE",
+        "-e", "ANALYSIS_FIXTURES",
+        "-e", "DEPLOYED_COMMIT",
         "-e", "RUN_ID=$RunId",
         "-e", "PHASE_NAME=users-$PhaseUsers",
         "-e", "DECK_NAME=$DeckName",
@@ -393,13 +426,23 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
         "-v", "$((Resolve-Path $phaseDir).Path):/reports",
         $K6Image,
         "run",
-        "/scripts/commanderzone-production.k6.js"
+        "--out", "json=/reports/k6-points.ndjson",
+        $k6Script
     )
 
     $previousDockerPassword = $env:USER_PASSWORD
     $env:USER_PASSWORD = $UserPassword
     try {
-        & docker @dockerArgs 2>&1 | Tee-Object -FilePath $k6LogPath
+        $configPath = Join-Path $phaseDir "supervisor-config.json"
+        $shellExe = (Get-Process -Id $PID).Path
+        @{
+            reportDir = $phaseDir; containerName = $containerName; requireMetrics = -not [bool]$SkipServerMetrics
+            command = @("docker") + $dockerArgs
+            snapshotCommand = @($shellExe, "-NoProfile", "-File", $PSCommandPath, "-SnapshotDir", $phaseDir,
+                "-ProductionHost", $ProductionHost, "-ProductionPath", $ProductionPath, "-SshUser", $SshUser,
+                "-RuntimeMetricsUrl", $RuntimeMetricsUrl)
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
+        & node (Join-Path $PSScriptRoot "supervise-load.mjs") $configPath
         $k6ExitCode = $LASTEXITCODE
     } finally {
         if ($null -eq $previousDockerPassword) {
@@ -410,6 +453,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     }
 
     $after = Collect-ServerSnapshot $phaseDir "after"
+    & node (Join-Path $PSScriptRoot "sql-load-delta.mjs") $phaseDir *> (Join-Path $phaseDir "sql-delta-summary.txt")
     $serverDelta = New-ServerDelta $before $after $phaseDir
     $serverGateFailures = @(Test-ServerGate $serverDelta)
     Write-OperatorSummary $phaseDir $PhaseUsers $k6ExitCode $serverDelta $serverGateFailures
@@ -427,9 +471,14 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
     return ($k6ExitCode -eq 0 -and $serverGateFailures.Count -eq 0)
 }
 
+if ($SnapshotDir) {
+    $null = Collect-ServerSnapshot $SnapshotDir "live"
+    exit 0
+}
+
 Assert-Safety
 
-$phases = if ($AllPhases) { @(100, 280, 500) } else { @($Users) }
+$phases = if ($AllPhases) { @(50, 100, 280, 500) } else { @($Users) }
 $runId = "czlt-" + (Get-Date -Format "yyyyMMdd-HHmmss")
 if ($LocalDryRun) {
     $runId += "-dryrun"
@@ -443,6 +492,7 @@ foreach ($phase in $phases) {
     $passed = Invoke-Phase $phase $runId $reportRoot
     if (-not $passed) {
         $allPassed = $false
+        break
     }
 }
 
