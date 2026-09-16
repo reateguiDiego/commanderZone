@@ -153,6 +153,23 @@ describe('FormatSelectComponent', () => {
     expect(optionFlags[1]?.getAttribute('src')).toContain('france.png');
   });
 
+  it('renders mana symbols in the selected color and dropdown options', () => {
+    fixture.componentRef.setInput('formats', []);
+    fixture.componentRef.setInput('options', [
+      { id: 'all', name: 'Any' },
+      { id: 'W', name: 'White', manaSymbols: ['W'] },
+    ]);
+    fixture.componentRef.setInput('value', 'W');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.format-select-trigger app-mana-symbols')).not.toBeNull();
+
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.format-select-option app-mana-symbols')).toHaveLength(1);
+  });
+
   it('does not emit disabled options', () => {
     const selectedValues: string[] = [];
     fixture.componentRef.setInput('formats', []);

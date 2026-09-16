@@ -26,6 +26,9 @@
         @if (selectedOption()?.flagAsset; as flagAsset) {
           <img class="format-select-flag" [src]="flagAsset" alt="" aria-hidden="true" draggable="false" />
         }
+        @if (selectedOption()?.manaSymbols; as manaSymbols) {
+          <app-mana-symbols class="format-select-mana-symbol" [symbols]="manaSymbols" size="small" />
+        }
         <span class="format-select-trigger-label">{{ selectedLabel() | runtimeTranslate: selectedTranslationParams() }}</span>
       </span>
       <span class="format-select-caret" aria-hidden="true"></span>
@@ -79,6 +82,9 @@
             <span class="format-select-option-content">
               @if (option.flagAsset) {
                 <img class="format-select-flag" [src]="option.flagAsset" alt="" aria-hidden="true" draggable="false" />
+              }
+              @if (option.manaSymbols) {
+                <app-mana-symbols class="format-select-mana-symbol" [symbols]="option.manaSymbols" size="small" />
               }
               <span>{{ optionLabel(option) | runtimeTranslate: option.translationParams }}</span>
             </span>

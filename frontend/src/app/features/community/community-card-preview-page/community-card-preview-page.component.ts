@@ -99,12 +99,12 @@ export class CommunityCardPreviewPageComponent {
   ];
   readonly colorOptions: readonly FormatSelectOption[] = [
     { id: '', labelKey: 'shared.text.any' },
-    { id: 'W', labelKey: 'shared.text.white' },
-    { id: 'U', labelKey: 'shared.text.blue' },
-    { id: 'B', labelKey: 'shared.text.black' },
-    { id: 'R', labelKey: 'shared.text.red' },
-    { id: 'G', labelKey: 'shared.text.green' },
-    { id: 'C', labelKey: 'shared.text.colorless' },
+    { id: 'W', labelKey: 'shared.text.white', manaSymbols: ['W'] },
+    { id: 'U', labelKey: 'shared.text.blue', manaSymbols: ['U'] },
+    { id: 'B', labelKey: 'shared.text.black', manaSymbols: ['B'] },
+    { id: 'R', labelKey: 'shared.text.red', manaSymbols: ['R'] },
+    { id: 'G', labelKey: 'shared.text.green', manaSymbols: ['G'] },
+    { id: 'C', labelKey: 'shared.text.colorless', manaSymbols: ['C'] },
   ];
   readonly viewTabs: readonly TabListItem[] = [
     { id: 'list', label: 'shared.text.list', icon: 'list' },

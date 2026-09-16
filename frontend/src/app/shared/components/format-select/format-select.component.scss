@@ -86,6 +86,11 @@
   box-shadow: 0 0 0 1px rgb(var(--cz-text-rgb) / 18%);
 }
 
+.format-select-mana-symbol {
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
 .format-select-option-content span {
   min-width: 0;
   overflow: hidden;

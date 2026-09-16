@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, LucideAngularModule, Search, UserPlus } from 'lucide-angular';
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, LucideAngularModule, Search, UserPlus, UserRoundX } from 'lucide-angular';
 import { BehaviorSubject, of } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -9,6 +9,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { CommunityCacheService } from '../data-access/community-cache.service';
+import { FriendsStore } from '../../friends/data-access/friends.store';
 import { CommunityUserPageComponent } from './community-user-page.component';
 
 describe('CommunityUserPageComponent', () => {
@@ -89,6 +90,12 @@ describe('CommunityUserPageComponent', () => {
         },
       })),
     };
+    const friendRows = signal<readonly unknown[]>([]);
+    const friendsStore = {
+      rows: friendRows,
+      ensureLoaded: vi.fn().mockResolvedValue(undefined),
+      removeFriend: vi.fn().mockResolvedValue(undefined),
+    };
     const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
     const routeParamMap$ = new BehaviorSubject(convertToParamMap({ username: 'Alber' }));
     Object.defineProperty(navigator, 'clipboard', {
@@ -100,10 +107,11 @@ describe('CommunityUserPageComponent', () => {
       imports: [CommunityUserPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus, UserRoundX })),
         { provide: ActivatedRoute, useValue: { paramMap: routeParamMap$.asObservable() } },
         { provide: CommunityApi, useValue: api },
         { provide: FriendsApi, useValue: friendsApi },
+        { provide: FriendsStore, useValue: friendsStore },
         { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
         { provide: CommunityCacheService, useValue: cache },
         { provide: DynamicPublicSeoService, useValue: seo },
@@ -130,6 +138,7 @@ describe('CommunityUserPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Atraxa User Deck');
     expect(fixture.nativeElement.querySelector('app-player-info')?.textContent).toContain('Alber');
     expect(fixture.nativeElement.querySelector('app-player-avatar')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.community-user-player-info app-tooltip')).toBeNull();
     expect(fixture.nativeElement.querySelector('.community-user-copy')).toBeNull();
     expect(fixture.nativeElement.querySelector('.community-user-kicker')).toBeNull();
     expect(fixture.nativeElement.querySelector('.community-user-subtitle')).toBeNull();
@@ -144,6 +153,14 @@ describe('CommunityUserPageComponent', () => {
 
     await fixture.componentInstance.sendFriendRequest(firstPage.user);
     expect(friendsApi.requestUser).toHaveBeenCalledWith('user-1');
+
+    friendRows.set([{ id: 'user-1', kind: 'friend' }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button[aria-label="Send friend request"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('button[aria-label="Remove friend"]')).not.toBeNull();
+
+    await fixture.componentInstance.removeFriend(firstPage.user);
+    expect(friendsStore.removeFriend).toHaveBeenCalledWith('user-1');
 
     await fixture.componentInstance.shareUser(firstPage.user);
     expect(clipboardWriteText).toHaveBeenCalledWith(`${window.location.origin}/community/users/Alber`);
@@ -182,10 +199,14 @@ describe('CommunityUserPageComponent', () => {
       imports: [CommunityUserPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus, UserRoundX })),
         { provide: ActivatedRoute, useValue: { paramMap: routeParamMap$.asObservable() } },
         { provide: CommunityApi, useValue: api },
         { provide: FriendsApi, useValue: { requestUser: vi.fn() } },
+        {
+          provide: FriendsStore,
+          useValue: { rows: signal([]), ensureLoaded: vi.fn().mockResolvedValue(undefined), removeFriend: vi.fn().mockResolvedValue(undefined) },
+        },
         { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
         { provide: CommunityCacheService, useValue: { peekFormats: vi.fn().mockReturnValue([]), formats: vi.fn().mockResolvedValue([]) } },
         { provide: DynamicPublicSeoService, useValue: { apply: vi.fn() } },

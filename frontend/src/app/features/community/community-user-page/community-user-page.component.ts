@@ -23,6 +23,7 @@ import { PlayerInfoComponent } from '../../../shared/ui/player-info/player-info.
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 import { CommunityDeckGridComponent } from '../components/community-deck-grid/community-deck-grid.component';
 import { CommunityCacheService } from '../data-access/community-cache.service';
+import { FriendsStore } from '../../friends/data-access/friends.store';
 import { communityDeckRoute } from '../utils/community-deck-route';
 
 @Component({
@@ -52,6 +53,7 @@ export class CommunityUserPageComponent implements OnDestroy {
   private readonly cache = inject(CommunityCacheService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly friendsApi = inject(FriendsApi);
+  private readonly friends = inject(FriendsStore);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -74,10 +76,16 @@ export class CommunityUserPageComponent implements OnDestroy {
   readonly hasMore = signal(false);
   private readonly hasAppliedDeckFilters = signal(false);
   readonly sendingFriendRequest = signal(false);
+  readonly removingFriend = signal(false);
   readonly actionFeedback = signal<string | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly formats = signal<readonly DeckFormat[]>(this.cache.peekFormats() ?? []);
   readonly visibleDecks = computed(() => this.decks());
+  readonly isFriend = computed(() => {
+    const user = this.user();
+
+    return user !== null && this.friends.rows().some((row) => row.kind === 'friend' && row.id === user.id);
+  });
   readonly filtersVisible = computed(() => this.total() > 0 || this.hasAppliedDeckFilters());
   readonly formatOptions = computed<readonly FormatSelectOption[]>(() => [
     { id: '', name: 'community.deckList.allFormats' },
@@ -85,12 +93,12 @@ export class CommunityUserPageComponent implements OnDestroy {
   ]);
   readonly colorOptions: readonly FormatSelectOption[] = [
     { id: '', labelKey: 'community.user.allColors' },
-    { id: 'W', name: 'White' },
-    { id: 'U', name: 'Blue' },
-    { id: 'B', name: 'Black' },
-    { id: 'R', name: 'Red' },
-    { id: 'G', name: 'Green' },
-    { id: 'C', name: 'Colorless' },
+    { id: 'W', name: 'White', manaSymbols: ['W'] },
+    { id: 'U', name: 'Blue', manaSymbols: ['U'] },
+    { id: 'B', name: 'Black', manaSymbols: ['B'] },
+    { id: 'R', name: 'Red', manaSymbols: ['R'] },
+    { id: 'G', name: 'Green', manaSymbols: ['G'] },
+    { id: 'C', name: 'Colorless', manaSymbols: ['C'] },
   ];
 
   constructor() {
@@ -171,6 +179,19 @@ export class CommunityUserPageComponent implements OnDestroy {
     }
   }
 
+  async removeFriend(user: CommunityUser): Promise<void> {
+    if (this.removingFriend()) {
+      return;
+    }
+
+    this.removingFriend.set(true);
+    try {
+      await this.friends.removeFriend(user.id);
+    } finally {
+      this.removingFriend.set(false);
+    }
+  }
+
   async shareUser(user: CommunityUser): Promise<void> {
     try {
       this.actionError.set(null);
@@ -219,6 +240,7 @@ export class CommunityUserPageComponent implements OnDestroy {
       const [formats] = await Promise.all([
         this.formats().length > 0 ? Promise.resolve(this.formats()) : this.cache.formats(),
         this.loadUser(loadVersion),
+        this.auth.isAuthenticated() ? this.friends.ensureLoaded() : Promise.resolve(),
       ]);
       if (!this.isActiveLoad(loadVersion)) {
         return;

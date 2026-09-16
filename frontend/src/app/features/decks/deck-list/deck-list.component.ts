@@ -109,7 +109,11 @@ export class DeckListComponent implements OnInit, OnDestroy {
     }
   });
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
-    this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
+    this.store.colorFilterOptions.map((option) => ({
+      id: option.value,
+      labelKey: option.labelKey,
+      manaSymbols: option.value === 'all' ? undefined : [option.value],
+    })),
   );
   readonly sortModeOptions: readonly FormatSelectOption[] = [
     { id: 'name-asc', labelKey: 'deckBuilder.deckList.sortMode.nameAsc' },
