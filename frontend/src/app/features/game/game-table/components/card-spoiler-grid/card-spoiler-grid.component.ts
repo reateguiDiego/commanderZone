@@ -4,6 +4,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type CardSpoilerSlot = {
@@ -13,7 +14,7 @@ type CardSpoilerSlot = {
 
 @Component({
   selector: 'app-card-spoiler-grid',
-  imports: [RuntimeTranslatePipe, PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule, PreloadCardAlternateFaceDirective],
   templateUrl: './card-spoiler-grid.component.html',
   styleUrl: './card-spoiler-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

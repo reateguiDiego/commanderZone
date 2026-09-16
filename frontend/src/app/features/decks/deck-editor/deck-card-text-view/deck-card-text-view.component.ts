@@ -5,7 +5,7 @@ import { Card, CardFace } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { MTGIconComponent } from '../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
-import { cardDisplayFace, readableCardFaceImage } from '../../../../shared/utils/card-faces';
+import { cardDisplayFace, cardFaceImage } from '../../../../shared/utils/card-faces';
 import { preloadImage } from '../../../../shared/utils/image-preload';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
@@ -75,7 +75,7 @@ export class DeckCardTextViewComponent {
     }
 
     this.pendingFaceFlips.add(card.scryfallId);
-    const nextFaceImage = readableCardFaceImage(card, !this.store.isFaceFlipped(card));
+    const nextFaceImage = cardFaceImage(card, !this.store.isFaceFlipped(card));
     const imageLoaded = nextFaceImage === null || await preloadImage(nextFaceImage);
     this.pendingFaceFlips.delete(card.scryfallId);
     if (!imageLoaded) {

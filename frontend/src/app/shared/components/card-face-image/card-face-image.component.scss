@@ -6,7 +6,6 @@
   width: 100%;
   min-width: 0;
   overflow: visible;
-  perspective: 900px;
 }
 
 .card-face-image__stage {
@@ -16,6 +15,13 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+:host(.card-face-image--flipping) {
+  perspective: 900px;
+}
+
+:host(.card-face-image--flipping) .card-face-image__stage {
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -35,6 +41,9 @@
   border: 1px solid var(--card-face-border-color, rgb(var(--cz-primary-rgb) / 18%));
   object-fit: cover;
   pointer-events: none;
+}
+
+:host(.card-face-image--flipping) .card-face-image__visual {
   backface-visibility: hidden;
   transform-style: preserve-3d;
 }

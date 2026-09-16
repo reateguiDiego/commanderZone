@@ -131,6 +131,53 @@
   bottom: calc(100% + 0.35rem);
 }
 
+.deck-select-search {
+  position: sticky;
+  z-index: 1;
+  top: -0.35rem;
+  display: grid;
+  gap: 0.25rem;
+  margin: -0.35rem -0.35rem 0;
+  padding: 0.35rem;
+  background: rgb(var(--cz-bg-rgb) / 98%);
+  color: rgb(var(--cz-text-rgb) / 72%);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deck-select-search input {
+  width: 100%;
+  min-height: 2.2rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 30%);
+  border-radius: 8px;
+  padding: 0 0.65rem;
+  background: rgb(var(--cz-surface-rgb) / 72%);
+  color: var(--cz-text);
+  font: inherit;
+  font-size: 0.82rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.deck-select-load-more {
+  min-height: 2.25rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 42%);
+  border-radius: 8px;
+  background: rgb(var(--cz-primary-rgb) / 12%);
+  color: var(--cz-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.deck-select-load-more:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .deck-option-main {
   display: inline-flex;
   align-items: center;

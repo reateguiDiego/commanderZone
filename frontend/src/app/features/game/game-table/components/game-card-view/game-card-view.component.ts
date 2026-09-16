@@ -15,6 +15,7 @@ import { SagaCounterComponent } from './saga-counter/saga-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard, isDayNightCard, isGameplayCardTapLocked, isMonarchCard, isSagaCard } from '../../utils/gameplay-card-kind';
@@ -98,6 +99,7 @@ interface DungeonMarkerDragPoint {
     GameTableDoubleTapDirective,
     GameTableLongPressDirective,
     MTGIconComponent,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './game-card-view.component.html',
   styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],

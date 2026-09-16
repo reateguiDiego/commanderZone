@@ -28,6 +28,9 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');
+  readonly deckSearch = input('');
+  readonly loadingDeckPage = input(false);
+  readonly hasMoreDecks = input(false);
   readonly deckBracket = input<DeckBracketLabel | null>(null);
   readonly turnPosition = input<number | null>(null);
   readonly updatingDeck = input(false);
@@ -40,6 +43,8 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckSelectorToggled = output<void>();
   readonly deckSelectorClosed = output<void>();
   readonly selectedDeckIdChange = output<string>();
+  readonly deckSearchChange = output<string>();
+  readonly loadMoreDecksRequested = output<void>();
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
   readonly rollRequested = output<void>();

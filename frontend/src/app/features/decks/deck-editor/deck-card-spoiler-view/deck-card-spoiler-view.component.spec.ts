@@ -518,6 +518,7 @@ function storeStub(
     displayCardTypeLine: vi.fn((value: Card) => visibleTypeLine() ?? value.typeLine),
     displayCardManaCost: (value: Card) => value.manaCost,
     hasAlternateFace: () => options.hasAlternateFace ?? false,
+    isFaceFlipped: () => false,
     toggleCardFace: vi.fn(),
     resetCardFace: vi.fn().mockReturnValue(options.resetCardFace ?? false),
     isCardInvalidForDeck: () => false,

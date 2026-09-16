@@ -295,7 +295,7 @@ describe('API services', () => {
   });
 
   it('requests card image URIs from the backend image endpoint', () => {
-    TestBed.inject(CardsApi).image('card-1', 'normal').subscribe();
+    TestBed.inject(CardsApi).image('card-1').subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/cards/card-1/image?format=normal&mode=uri`);
     expect(request.request.method).toBe('GET');

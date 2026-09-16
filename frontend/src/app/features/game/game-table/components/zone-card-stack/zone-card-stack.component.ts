@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, ef
 import { LucideAngularModule } from 'lucide-angular';
 import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
+import { GameCardInstance } from '../../../../../core/models/game.model';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 
 interface ZoneCardStackLayer {
   key: number;
@@ -24,7 +26,7 @@ interface ShuffleCardVariation {
 
 @Component({
   selector: 'app-zone-card-stack',
-  imports: [LucideAngularModule, RuntimeTranslatePipe],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, PreloadCardAlternateFaceDirective],
   templateUrl: './zone-card-stack.component.html',
   styleUrl: './zone-card-stack.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +36,7 @@ export class ZoneCardStackComponent implements OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly image = input.required<string>();
+  readonly card = input<GameCardInstance | null>(null);
   readonly layerImage = input<string | null>(null);
   readonly faceToggleEnabled = input(false);
   readonly label = input.required<string>();

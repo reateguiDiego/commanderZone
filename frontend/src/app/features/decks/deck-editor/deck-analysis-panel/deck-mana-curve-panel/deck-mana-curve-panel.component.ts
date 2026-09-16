@@ -3,10 +3,11 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { LucideAngularModule } from 'lucide-angular';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { DECK_ANALYSIS_STORE } from '../deck-analysis-store.token';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 
 @Component({
   selector: 'app-deck-mana-curve-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective, PreloadCardAlternateFaceDirective],
   templateUrl: './deck-mana-curve-panel.component.html',
   styleUrl: './deck-mana-curve-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

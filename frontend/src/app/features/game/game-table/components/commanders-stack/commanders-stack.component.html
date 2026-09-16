@@ -26,6 +26,8 @@
           [class.commanders-stack-card-image-hovered]="hoveredCardInstanceId() === item.card.instanceId"
           [src]="image"
           [alt]="visibleCard.name"
+          [appPreloadCardAlternateFace]="visibleCard"
+          [cardVisibleFaceIndex]="visibleCard.activeFaceIndex ?? 0"
           draggable="false"
         />
       } @else {

@@ -68,7 +68,7 @@
   --format-select-menu-left: auto;
   --format-select-menu-right: 0;
   --format-select-menu-width: max-content;
-  --format-select-menu-min-width: 100%;
+  --format-select-menu-min-width: var(--format-select-trigger-width);
   --format-select-menu-max-width: min(18rem, calc(100vw - 2rem));
   --format-select-menu-overflow-x: hidden;
   --format-select-menu-z-index: 150;
@@ -231,7 +231,6 @@
   border-radius: 15px;
   background: rgb(var(--cz-bg-rgb) / 16%);
   overflow: hidden;
-  perspective: 900px;
   transition:
     border-color 180ms ease,
     background 180ms ease,
@@ -292,12 +291,6 @@
 
 .spoiler-card-fallback--battle {
   min-height: 100%;
-}
-
-.spoiler-image-frame img,
-.spoiler-card-fallback {
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
 }
 
 .quantity-badge,

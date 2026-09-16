@@ -166,11 +166,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
   imageFor(card: Card): string | null {
     return card.imageUris.normal
-      ?? card.imageUris.large
-      ?? card.imageUris.small
       ?? card.cardFaces?.[0]?.imageUris.normal
-      ?? card.cardFaces?.[0]?.imageUris.large
-      ?? card.cardFaces?.[0]?.imageUris.small
       ?? null;
   }
 

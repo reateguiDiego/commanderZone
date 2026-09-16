@@ -33,7 +33,14 @@
           }
           <span class="zone-art" [class.empty]="isDraggedCard(card)" [class.face-flipping]="isFaceFlipping(card)">
             @if (cardImage()(visibleCard); as image) {
-              <img [src]="image" [alt]="visibleCard.name" loading="lazy" decoding="async" />
+              <img
+                [src]="image"
+                [alt]="visibleCard.name"
+                [appPreloadCardAlternateFace]="visibleCard"
+                [cardVisibleFaceIndex]="visibleCard.activeFaceIndex ?? 0"
+                loading="lazy"
+                decoding="async"
+              />
             } @else {
               <span class="card-spoiler-fallback">{{ visibleCard.name }}</span>
             }

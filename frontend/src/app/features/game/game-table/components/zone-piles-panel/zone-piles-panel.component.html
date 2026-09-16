@@ -79,6 +79,7 @@
               @let layerImage = zoneStackLayerImage()(currentPlayer, zone);
               <app-zone-card-stack
                 [image]="image"
+                [card]="zonePreviewCard()(currentPlayer, zone)"
                 [layerImage]="layerImage"
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
@@ -130,6 +131,8 @@
                       class="zone-card-image"
                       [src]="commanderImage"
                       [alt]="visibleCommander.name"
+                      [appPreloadCardAlternateFace]="visibleCommander"
+                      [cardVisibleFaceIndex]="visibleCommander.activeFaceIndex ?? 0"
                       draggable="false"
                     />
                   } @else {

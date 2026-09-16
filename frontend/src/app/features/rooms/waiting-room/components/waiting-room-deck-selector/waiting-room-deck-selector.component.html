@@ -40,6 +40,16 @@
 
       @if (selectorOpen()) {
         <div appPrettyScroll class="deck-select-menu" [class.open-up]="menuDirection() === 'up'" role="listbox" [attr.aria-label]="'rooms.waitingRoomDeckSelector.deckSelection' | runtimeTranslate">
+          <label class="deck-select-search">
+            <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
+            <input
+              type="search"
+              maxlength="100"
+              [value]="deckSearch()"
+              [placeholder]="'shared.text.search' | runtimeTranslate"
+              (input)="updateDeckSearch($event)"
+            />
+          </label>
           @if (showRandomDeckOption()) {
             <button
               class="deck-select-option random-deck-option"
@@ -76,6 +86,16 @@
                   <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
                 }
               </span>
+            </button>
+          }
+          @if (hasMoreDecks()) {
+            <button
+              class="deck-select-load-more"
+              type="button"
+              [disabled]="loadingDeckPage()"
+              (click)="loadMoreDecksRequested.emit()"
+            >
+              {{ 'common.loadMore' | runtimeTranslate }}
             </button>
           }
         </div>

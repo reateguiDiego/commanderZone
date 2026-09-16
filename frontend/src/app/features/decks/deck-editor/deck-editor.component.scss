@@ -307,12 +307,6 @@ textarea::placeholder {
   height: 100%;
 }
 
-.card-hover-preview app-card-face-image,
-.card-hover-preview .card-fallback {
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
 .card-hover-preview--battle .card-fallback {
   min-height: 100%;
   height: 100%;

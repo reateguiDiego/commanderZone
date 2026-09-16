@@ -448,7 +448,7 @@ export class GameTableSnapshotSelectors {
   }
 
   private bestImageUri(imageUris: CardImageUris | Record<string, string> | null | undefined): string | null {
-    return imageUris?.['normal'] ?? imageUris?.['large'] ?? imageUris?.['small'] ?? imageUris?.['png'] ?? null;
+    return imageUris?.['normal'] ?? null;
   }
 
   colorIdentity(player: PlayerView | null): string[] {

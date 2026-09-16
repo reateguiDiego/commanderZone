@@ -31,7 +31,12 @@
     (mouseleave)="onMouseLeave()"
   >
     @if (image(); as cardImage) {
-      <img [src]="cardImage" [alt]="currentCard.name" />
+      <img
+        [src]="cardImage"
+        [alt]="currentCard.name"
+        [appPreloadCardAlternateFace]="currentCard"
+        [cardVisibleFaceIndex]="currentCard.activeFaceIndex ?? 0"
+      />
     } @else {
       <span class="card-back"></span>
     }
@@ -162,7 +167,13 @@
         (counterDeleteRequested)="requestCounterDelete($event)"
       />
       @if (image(); as cardImage) {
-        <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
+        <img
+          [src]="cardImage"
+          [alt]="currentCard.name"
+          [appPreloadCardAlternateFace]="currentCard"
+          [cardVisibleFaceIndex]="currentCard.activeFaceIndex ?? 0"
+          draggable="false"
+        />
       } @else if (monarchCard()) {
         <span class="monarch-card-visual" [attr.aria-label]="'shared.text.monarch' | runtimeTranslate">
           <i

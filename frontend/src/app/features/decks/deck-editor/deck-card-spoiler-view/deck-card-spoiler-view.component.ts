@@ -28,6 +28,7 @@ import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.componen
 import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
+import { PreloadCardAlternateFaceDirective } from '../../../../shared/directives/preload-card-alternate-face.directive';
 
 const MOBILE_IMAGE_BATCH_SIZE = 12;
 const MOBILE_IMAGE_PRELOAD_MARGIN = '720px 0px';
@@ -41,6 +42,7 @@ const MOBILE_IMAGE_PRELOAD_MARGIN = '720px 0px';
     ManaSymbolsComponent,
     GameChangerIconComponent,
     DeckCardMenuComponent,
+    PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './deck-card-spoiler-view.component.html',
   styleUrl: './deck-card-spoiler-view.component.scss',

@@ -162,9 +162,9 @@ export class CardsApi {
     });
   }
 
-  image(scryfallId: string, format: 'small' | 'normal' | 'large' | 'png' | 'art_crop' | 'border_crop' = 'normal'): Observable<CardImageResponse> {
+  image(scryfallId: string): Observable<CardImageResponse> {
     return this.http.get<CardImageResponse>(`${API_BASE_URL}/cards/${scryfallId}/image`, {
-      params: { format, mode: 'uri' },
+      params: { format: 'normal', mode: 'uri' },
       context: withGlobalLoadingForFeature('cards'),
     });
   }

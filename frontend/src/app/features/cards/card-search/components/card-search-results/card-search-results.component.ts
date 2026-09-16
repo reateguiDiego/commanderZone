@@ -3,7 +3,7 @@ import { Card } from '../../../../../core/models/card.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
 import { CardFaceToggleButtonComponent } from '../../../../../shared/components/card-face-toggle-button/card-face-toggle-button.component';
-import { cardFaceImage, hasAlternateCardFace, readableCardFaceImage } from '../../../../../shared/utils/card-faces';
+import { cardFaceImage, hasAlternateCardFace } from '../../../../../shared/utils/card-faces';
 import { preloadImage } from '../../../../../shared/utils/image-preload';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { GameChangerIconComponent } from '../../../../../shared/ui/game-changer-icon/game-changer-icon.component';
@@ -223,7 +223,7 @@ export class CardSearchResultsComponent implements OnDestroy {
   }
 
   private async showLoadedHoverPreview(pending: PendingCardHoverPreview, requestVersion: number): Promise<void> {
-    const imageUrl = readableCardFaceImage(pending.card, this.isFaceFlipped(pending.card));
+    const imageUrl = cardFaceImage(pending.card, this.isFaceFlipped(pending.card));
     if (!await preloadImage(imageUrl)) {
       return;
     }

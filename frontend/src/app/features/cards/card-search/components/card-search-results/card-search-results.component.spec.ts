@@ -37,7 +37,7 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('rare');
     expect(fixture.nativeElement.querySelector('a.mtg-card-result')).toBeNull();
     expect(fixture.nativeElement.querySelector('button.mtg-card-result')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.mtg-card-result img')?.getAttribute('src')).toBe('/sol-ring.jpg');
+    expect(fixture.nativeElement.querySelector('.mtg-card-result img')?.getAttribute('src')).toBe('/sol-ring-small.jpg');
   });
 
   it('renders the game changer icon next to a game changer card name in list mode', () => {
@@ -342,7 +342,7 @@ function cardFixture(overrides: Partial<Card> = {}): Card {
     colors: [],
     colorIdentity: [],
     legalities: { commander: 'legal' },
-    imageUris: { normal: '/sol-ring.jpg' },
+    imageUris: { small: '/sol-ring-small.jpg', normal: '/sol-ring.jpg' },
     layout: 'normal',
     commanderLegal: true,
     set: 'cmm',

@@ -81,6 +81,8 @@
                         [alt]="store.displayCardName(entry.card)"
                         [class.card-image--battle]="isBattleVisibleFace(entry.card)"
                         [loading]="imageLoading(entry.id)"
+                        [appPreloadCardAlternateFace]="entry.card"
+                        [cardVisibleFaceIndex]="store.isFaceFlipped(entry.card) ? 1 : 0"
                         decoding="async"
                       />
                     } @else {

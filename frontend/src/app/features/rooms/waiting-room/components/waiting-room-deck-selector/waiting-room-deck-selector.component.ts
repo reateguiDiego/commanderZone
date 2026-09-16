@@ -30,6 +30,9 @@ export class WaitingRoomDeckSelectorComponent {
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');
   readonly selectorOpen = input(false);
+  readonly deckSearch = input('');
+  readonly loadingDeckPage = input(false);
+  readonly hasMoreDecks = input(false);
   readonly updatingDeck = input(false);
   readonly deckLocked = input(false);
   readonly canRoll = input(false);
@@ -40,6 +43,8 @@ export class WaitingRoomDeckSelectorComponent {
   readonly selectorToggled = output<void>();
   readonly selectorClosed = output<void>();
   readonly selectedDeckIdChange = output<string>();
+  readonly deckSearchChange = output<string>();
+  readonly loadMoreDecksRequested = output<void>();
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
   readonly rollRequested = output<void>();
@@ -59,6 +64,13 @@ export class WaitingRoomDeckSelectorComponent {
     }
 
     this.selectedDeckIdChange.emit(deckId);
+  }
+
+  updateDeckSearch(event: Event): void {
+    const target = event.target;
+    if (target instanceof HTMLInputElement) {
+      this.deckSearchChange.emit(target.value);
+    }
   }
 
   @HostListener('document:click', ['$event'])

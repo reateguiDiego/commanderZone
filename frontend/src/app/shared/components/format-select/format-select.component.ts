@@ -28,6 +28,8 @@ interface MenuViewportPosition {
   readonly opensUp: boolean;
 }
 
+export type FormatSelectMenuPositioning = 'fixed' | 'absolute';
+
 @Component({
   selector: 'app-format-select',
   imports: [RuntimeTranslatePipe, PrettyScrollDirective],
@@ -60,6 +62,7 @@ export class FormatSelectComponent {
   readonly name = input('format');
   readonly searchable = input(false);
   readonly searchPlaceholder = input('Search');
+  readonly menuPositioning = input<FormatSelectMenuPositioning>('fixed');
 
   readonly valueChange = output<string>();
 
@@ -216,6 +219,9 @@ export class FormatSelectComponent {
 
     const triggerRect = trigger.getBoundingClientRect();
     const menu = this.menuElement()?.nativeElement;
+    this.elementRef.nativeElement.style.setProperty('--format-select-trigger-width', `${triggerRect.width}px`);
+    menu?.style.removeProperty('width');
+    menu?.style.removeProperty('max-height');
     const parsedMaxHeight = menu ? Number.parseFloat(getComputedStyle(menu).maxHeight) : Number.NaN;
     const configuredMaxHeight = Number.isFinite(parsedMaxHeight) && parsedMaxHeight > 0
       ? parsedMaxHeight
@@ -226,21 +232,66 @@ export class FormatSelectComponent {
     const opensUp = availableBelow < desiredHeight && availableAbove > availableBelow;
     const availableHeight = opensUp ? availableAbove : availableBelow;
     const maxHeight = Math.max(0, Math.min(desiredHeight, availableHeight));
-    const width = Math.min(triggerRect.width, viewport.innerWidth - (MENU_VIEWPORT_MARGIN_PX * 2));
+    const preferredWidth = menu?.getBoundingClientRect().width ?? triggerRect.width;
+    const width = Math.min(preferredWidth, viewport.innerWidth - (MENU_VIEWPORT_MARGIN_PX * 2));
+    const positioningContext = this.menuPositioning() === 'absolute'
+      ? this.elementRef.nativeElement.querySelector('.format-select-control') as HTMLElement | null
+      : this.fixedPositioningContext(menu);
+    const positioningContextRect = positioningContext
+      ? positioningContext.getBoundingClientRect()
+      : null;
+    const positioningContextTop = positioningContextRect
+      ? positioningContextRect.top + (positioningContext?.clientTop ?? 0)
+      : 0;
+    const positioningContextLeft = positioningContextRect
+      ? positioningContextRect.left + (positioningContext?.clientLeft ?? 0)
+      : 0;
+    const hostStyles = getComputedStyle(this.elementRef.nativeElement);
+    const alignMenuToEnd = hostStyles.getPropertyValue('--format-select-menu-left').trim() === 'auto'
+      && hostStyles.getPropertyValue('--format-select-menu-right').trim() !== 'auto';
+    const alignedLeft = alignMenuToEnd ? triggerRect.right - width : triggerRect.left;
     const left = Math.min(
-      Math.max(MENU_VIEWPORT_MARGIN_PX, triggerRect.left),
+      Math.max(MENU_VIEWPORT_MARGIN_PX, alignedLeft),
       viewport.innerWidth - width - MENU_VIEWPORT_MARGIN_PX,
     );
 
     this.menuViewportPosition.set({
-      left,
-      top: opensUp ? null : triggerRect.bottom + MENU_GAP_PX,
-      bottom: opensUp ? viewport.innerHeight - triggerRect.top + MENU_GAP_PX : null,
+      left: left - positioningContextLeft,
+      top: opensUp && !positioningContextRect
+        ? null
+        : (opensUp ? triggerRect.top - MENU_GAP_PX - maxHeight : triggerRect.bottom + MENU_GAP_PX) - positioningContextTop,
+      bottom: opensUp && !positioningContextRect ? viewport.innerHeight - triggerRect.top + MENU_GAP_PX : null,
       width,
       maxHeight,
       opensUp,
     });
   };
+
+  private fixedPositioningContext(menu: HTMLElement | undefined): HTMLElement | null {
+    let ancestor = menu?.parentElement ?? null;
+    while (ancestor && ancestor !== this.document.body) {
+      const styles = getComputedStyle(ancestor);
+      const containment = styles.contain;
+      const willChange = styles.willChange;
+      if (
+        styles.transform !== 'none'
+        || styles.perspective !== 'none'
+        || styles.filter !== 'none'
+        || styles.getPropertyValue('backdrop-filter') !== 'none'
+        || containment.includes('layout')
+        || containment.includes('paint')
+        || containment.includes('strict')
+        || containment.includes('content')
+        || /\b(?:transform|perspective|filter|backdrop-filter)\b/.test(willChange)
+      ) {
+        return ancestor;
+      }
+
+      ancestor = ancestor.parentElement;
+    }
+
+    return null;
+  }
 
   private restoreTriggerFocusBeforeHidingMenu(): void {
     const host = this.elementRef.nativeElement as HTMLElement;

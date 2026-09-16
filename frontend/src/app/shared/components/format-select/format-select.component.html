@@ -41,6 +41,7 @@
         [class.is-closing]="menuClosing()"
         [class.is-positioned]="menuViewportPosition() !== null"
         [class.opens-up]="menuViewportPosition()?.opensUp"
+        [class.is-absolute]="menuPositioning() === 'absolute'"
         [attr.aria-label]="visibleLabel() | runtimeTranslate"
         [attr.aria-hidden]="!dropdownOpen() ? 'true' : null"
         [style.top.px]="menuViewportPosition()?.top"
