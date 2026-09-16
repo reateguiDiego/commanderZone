@@ -410,7 +410,13 @@ class Room
             return;
         }
 
-        usort($players, static fn (RoomPlayer $left, RoomPlayer $right): int => $left->joinedAt() <=> $right->joinedAt());
+        usort($players, static function (RoomPlayer $left, RoomPlayer $right): int {
+            $joinedAtComparison = $left->joinedAt() <=> $right->joinedAt();
+
+            return $joinedAtComparison !== 0
+                ? $joinedAtComparison
+                : $left->id() <=> $right->id();
+        });
         $this->transferOwnership($players[0]->user());
     }
 
