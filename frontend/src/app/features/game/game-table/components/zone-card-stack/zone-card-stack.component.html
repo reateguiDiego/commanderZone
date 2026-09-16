@@ -6,6 +6,7 @@
     [appGameScheduledImage]="layerImage()"
     gameImagePriority="visible"
     alt=""
+    decoding="async"
     draggable="false"
     aria-hidden="true"
   />
@@ -16,6 +17,7 @@
   [appGameScheduledImage]="renderedTopCardImage()"
   gameImagePriority="visible"
   [alt]="label()"
+  decoding="async"
   [appPreloadCardAlternateFace]="card()"
   [cardVisibleFaceIndex]="card()?.activeFaceIndex ?? 0"
   draggable="false"

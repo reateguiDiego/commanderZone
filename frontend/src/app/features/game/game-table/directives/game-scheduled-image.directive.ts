@@ -13,7 +13,6 @@ import {
   type ImagePreloadQueuePriority,
   type ImagePreloadRequest,
 } from '../../../../shared/services/image-preload-queue.service';
-import { imageRequestUrl } from '../../../../shared/utils/image-request-url';
 
 /**
  * Assigns visible game images immediately and schedules only background work.
@@ -64,7 +63,7 @@ export class GameScheduledImageDirective implements OnChanges, OnDestroy {
       return;
     }
 
-    const imageUrl = imageRequestUrl(sourceImageUrl);
+    const imageUrl = sourceImageUrl;
 
     if (this.priority() !== 'background') {
       this.renderer.setAttribute(this.imageElement, 'src', imageUrl);

@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { preloadImage, type ImagePreloadPriority } from '../utils/image-preload';
-import { imageRequestUrl } from '../utils/image-request-url';
 
 export type ImagePreloadQueuePriority = 'critical' | 'visible' | 'interaction' | 'background';
 
@@ -100,7 +99,7 @@ export class ImagePreloadQueueService {
       return { completed: Promise.resolve(false), cancel: () => undefined };
     }
 
-    const requestUrl = imageRequestUrl(normalizedUrl);
+    const requestUrl = normalizedUrl;
 
     const abortController = new AbortController();
     return this.schedule({
