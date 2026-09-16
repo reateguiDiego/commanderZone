@@ -15,7 +15,13 @@ import {
 } from '../../../../shared/services/image-preload-queue.service';
 import { imageRequestUrl } from '../../../../shared/utils/image-request-url';
 
-/** Schedules a visible game image before assigning its native src attribute. */
+/**
+ * Assigns visible game images immediately and schedules only background work.
+ *
+ * A physical-table view must not turn already-present cards into queued placeholders.
+ * Native loading and fetch-priority attributes remain owned by each template, while the
+ * shared queue still bounds speculative work such as alternate DFC faces.
+ */
 @Directive({
   selector: 'img[appGameScheduledImage]',
 })
@@ -58,20 +64,20 @@ export class GameScheduledImageDirective implements OnChanges, OnDestroy {
       return;
     }
 
-    this.setImageState('loading');
     const imageUrl = imageRequestUrl(sourceImageUrl);
+
+    if (this.priority() !== 'background') {
+      this.renderer.setAttribute(this.imageElement, 'src', imageUrl);
+      return;
+    }
+
+    this.setImageState('loading');
 
     const request = this.scheduler.schedule({
       key: imageUrl,
       priority: this.priority(),
       start: (complete) => {
         this.complete = complete;
-        this.renderer.setProperty(this.imageElement, 'loading', 'eager');
-        this.renderer.setProperty(
-          this.imageElement,
-          'fetchPriority',
-          this.priority() === 'critical' || this.priority() === 'interaction' ? 'high' : 'auto',
-        );
         this.renderer.setAttribute(this.imageElement, 'src', imageUrl);
         return () => {
           if (this.complete === complete) {

@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import {
   ImagePreloadQueueService,
+  type ImagePreloadQueuePriority,
   type ImagePreloadRequest,
   type ScheduledImageRequest,
 } from '../../../../shared/services/image-preload-queue.service';
@@ -9,10 +10,15 @@ import { GameScheduledImageDirective } from './game-scheduled-image.directive';
 
 @Component({
   imports: [GameScheduledImageDirective],
-  template: `<img [appGameScheduledImage]="imageUrl" alt="Test card" />`,
+  template: `<img
+    [appGameScheduledImage]="imageUrl"
+    [gameImagePriority]="priority"
+    alt="Test card"
+  />`,
 })
 class HostComponent {
   imageUrl: string | null = 'https://cards.example.test/test-card.jpg';
+  priority: ImagePreloadQueuePriority = 'visible';
 }
 
 describe('GameScheduledImageDirective', () => {
@@ -40,7 +46,17 @@ describe('GameScheduledImageDirective', () => {
     image = fixture.nativeElement.querySelector('img');
   });
 
-  it('shows the loading card treatment until the image load event', () => {
+  it('assigns visible images immediately without a queued-card treatment', () => {
+    expect(scheduledRequest).toBeNull();
+    expect(image.getAttribute('src')).toBe('https://cards.example.test/test-card.jpg');
+    expect(image.classList.contains('cz-game-card-image--loading')).toBe(false);
+    expect(image.hasAttribute('aria-busy')).toBe(false);
+  });
+
+  it('keeps background images in the bounded queue', () => {
+    fixture.componentInstance.priority = 'background';
+    fixture.detectChanges();
+
     expect(scheduledRequest).not.toBeNull();
     expect(image.classList.contains('cz-game-card-image--loading')).toBe(true);
     expect(image.getAttribute('aria-busy')).toBe('true');

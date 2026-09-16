@@ -96,9 +96,7 @@ button {
   cursor: pointer;
 }
 
-/* Applied only by GameScheduledImageDirective while its src is still deferred or loading.
- * Static paint deliberately avoids hundreds of simultaneous shimmer animations on a large table. */
-img.cz-game-card-image--loading,
+/* Used only when a scheduled game-card image fails. Visible cards receive their src immediately. */
 img.cz-game-card-image--failed {
   background:
     radial-gradient(ellipse at 50% 34%, rgb(var(--cz-accent-rgb) / 18%), transparent 45%),
@@ -109,10 +107,6 @@ img.cz-game-card-image--failed {
     inset 0 0 0 0.35rem rgb(3 5 13 / 42%),
     inset 0 0 2rem rgb(var(--cz-accent-rgb) / 10%);
   transition: opacity 120ms ease-out;
-}
-
-img.cz-game-card-image--loading {
-  opacity: 0.82;
 }
 
 img.cz-game-card-image--failed {
