@@ -266,20 +266,11 @@ h2 {
   gap: 0.42rem;
   width: min(100%, var(--mulligan-card-slot-width));
   justify-items: center;
-  perspective: 760px;
   transform-origin: center bottom;
-  will-change: transform, opacity;
 }
 
 .mulligan-card ::ng-deep .game-card {
   width: var(--mulligan-card-view-width);
-}
-
-.mulligan-card ::ng-deep .card-visual,
-.scry-card ::ng-deep .card-visual {
-  transform-origin: center;
-  transform-style: preserve-3d;
-  will-change: transform, filter;
 }
 
 .mulligan-face-toggle {
@@ -602,7 +593,6 @@ h2 {
   position: relative;
   display: grid;
   width: var(--game-card-view-width);
-  perspective: 760px;
 }
 
 .waiting-panel lucide-icon {

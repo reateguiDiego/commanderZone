@@ -16,6 +16,7 @@ import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.co
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -80,6 +81,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
     GameTableLongPressDirective,
     MTGIconComponent,
     LucideAngularModule,
+    GameScheduledImageDirective,
     PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './zone-piles-panel.component.html',

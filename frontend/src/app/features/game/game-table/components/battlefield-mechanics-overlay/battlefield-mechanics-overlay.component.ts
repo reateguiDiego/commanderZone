@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
 interface BattlefieldMechanicCardMenuEvent {
   readonly event: MouseEvent;
@@ -11,7 +13,7 @@ interface BattlefieldMechanicCardMenuEvent {
 
 @Component({
   selector: 'app-battlefield-mechanics-overlay',
-  imports: [GameCardViewComponent],
+  imports: [GameCardViewComponent, PreloadCardAlternateFaceDirective, GameScheduledImageDirective],
   templateUrl: './battlefield-mechanics-overlay.component.html',
   styleUrl: './battlefield-mechanics-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,7 +36,10 @@ export class BattlefieldMechanicsOverlayComponent {
     }
 
     const desiredWidth = clamp(this.miniCardBaseWidthPx() ?? viewport.width * 0.09, 18, 58);
-    const availableWidth = Math.max(1, viewport.width - this.miniCardGapPx * Math.max(0, cardCount - 1));
+    const availableWidth = Math.max(
+      1,
+      viewport.width - this.miniCardGapPx * Math.max(0, cardCount - 1),
+    );
 
     return roundMiniPixel(Math.max(14, Math.min(desiredWidth, availableWidth / cardCount)));
   });

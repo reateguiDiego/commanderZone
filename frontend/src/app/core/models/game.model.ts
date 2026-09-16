@@ -120,6 +120,8 @@ export interface GameCardInstance {
   faceDown?: boolean;
   activeFaceIndex?: number;
   hidden?: boolean;
+  /** Static metadata is being resolved after a realtime patch has been rendered. */
+  staticCardPending?: boolean;
   revealedTo?: string[];
   revealMarker?: boolean;
   position?: GameCardPosition;

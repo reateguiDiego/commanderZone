@@ -3,7 +3,8 @@
     class="zone-card-stack-layer"
     [style.--stack-offset.px]="layer.offset"
     [style.z-index]="layer.zIndex"
-    [src]="layerImage() ?? ''"
+    [appGameScheduledImage]="layerImage()"
+    gameImagePriority="visible"
     alt=""
     draggable="false"
     aria-hidden="true"
@@ -12,7 +13,8 @@
 <img
   #topCard
   class="zone-card-stack-top"
-  [src]="renderedTopCardImage()"
+  [appGameScheduledImage]="renderedTopCardImage()"
+  gameImagePriority="visible"
   [alt]="label()"
   [appPreloadCardAlternateFace]="card()"
   [cardVisibleFaceIndex]="card()?.activeFaceIndex ?? 0"

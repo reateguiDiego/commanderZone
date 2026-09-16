@@ -1,10 +1,11 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type CardSpoilerSlot = {
@@ -12,14 +13,37 @@ type CardSpoilerSlot = {
   card: GameCardInstance | null;
 };
 
+interface CardSpoilerGridMetrics {
+  readonly columns: number;
+  readonly cardHeight: number;
+  readonly rowGap: number;
+  readonly viewportHeight: number;
+}
+
+const VIRTUALIZATION_MIN_CARD_COUNT = 30;
+const VIRTUALIZATION_OVERSCAN_ROWS = 3;
+const DEFAULT_GRID_METRICS: CardSpoilerGridMetrics = {
+  columns: 1,
+  cardHeight: 346,
+  rowGap: 17,
+  viewportHeight: 800,
+};
+
 @Component({
   selector: 'app-card-spoiler-grid',
-  imports: [RuntimeTranslatePipe, PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule, PreloadCardAlternateFaceDirective],
+  imports: [
+    RuntimeTranslatePipe,
+    PrettyScrollDirective,
+    GameTableLongPressDirective,
+    LucideAngularModule,
+    GameScheduledImageDirective,
+    PreloadCardAlternateFaceDirective,
+  ],
   templateUrl: './card-spoiler-grid.component.html',
   styleUrl: './card-spoiler-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CardSpoilerGridComponent implements OnDestroy {
+export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
   private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   readonly cards = input.required<readonly GameCardInstance[]>();
@@ -48,6 +72,37 @@ export class CardSpoilerGridComponent implements OnDestroy {
       card: cards[index] ?? null,
     }));
   });
+  private readonly scrollTop = signal(0);
+  private readonly gridMetrics = signal<CardSpoilerGridMetrics>(DEFAULT_GRID_METRICS);
+  readonly virtualizationEnabled = computed(() =>
+    !this.allowReorder() && this.slots().length > VIRTUALIZATION_MIN_CARD_COUNT,
+  );
+  private readonly virtualWindow = computed(() => {
+    const slots = this.slots();
+    if (!this.virtualizationEnabled()) {
+      return { start: 0, end: slots.length, beforeHeight: 0, afterHeight: 0 };
+    }
+
+    const metrics = this.gridMetrics();
+    const rowHeight = metrics.cardHeight + metrics.rowGap;
+    const startRow = Math.max(0, Math.floor(this.scrollTop() / rowHeight) - VIRTUALIZATION_OVERSCAN_ROWS);
+    const visibleRows = Math.ceil(metrics.viewportHeight / rowHeight) + (VIRTUALIZATION_OVERSCAN_ROWS * 2);
+    const rowCount = Math.ceil(slots.length / metrics.columns);
+    const endRow = Math.min(rowCount, startRow + visibleRows);
+
+    return {
+      start: startRow * metrics.columns,
+      end: Math.min(slots.length, endRow * metrics.columns),
+      beforeHeight: startRow === 0 ? 0 : Math.max(0, (startRow * rowHeight) - metrics.rowGap),
+      afterHeight: endRow >= rowCount ? 0 : Math.max(0, ((rowCount - endRow) * rowHeight) - metrics.rowGap),
+    };
+  });
+  readonly renderedSlots = computed(() => {
+    const window = this.virtualWindow();
+    return this.slots().slice(window.start, window.end);
+  });
+  readonly virtualSpacerBeforeHeight = computed(() => this.virtualWindow().beforeHeight);
+  readonly virtualSpacerAfterHeight = computed(() => this.virtualWindow().afterHeight);
 
   private draggedCardId: string | null = null;
   private dropTargetCardId: string | null = null;
@@ -56,8 +111,27 @@ export class CardSpoilerGridComponent implements OnDestroy {
   private readonly faceFlipCardIds = signal<Record<string, true>>({});
   private readonly faceFlipTimers = new Map<string, number>();
   private readonly faceFlipAnimationMs = 620;
+  private resizeObserver: ResizeObserver | null = null;
+
+  ngAfterViewInit(): void {
+    const grid = this.gridElement();
+    if (!grid) {
+      return;
+    }
+
+    const syncMetrics = (): void => this.syncGridMetrics(grid);
+    syncMetrics();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this.resizeObserver = new ResizeObserver(syncMetrics);
+    this.resizeObserver.observe(grid);
+  }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.clearFaceFlipTimers();
   }
 
@@ -67,6 +141,15 @@ export class CardSpoilerGridComponent implements OnDestroy {
     }
 
     this.cardSelected.emit(card);
+  }
+
+  gridScrolled(event: Event): void {
+    const grid = event.currentTarget;
+    if (!(grid instanceof HTMLElement) || !this.virtualizationEnabled()) {
+      return;
+    }
+
+    this.scrollTop.set(grid.scrollTop);
   }
 
   doubleClickCard(event: MouseEvent, card: GameCardInstance): void {
@@ -293,6 +376,44 @@ export class CardSpoilerGridComponent implements OnDestroy {
 
   private cardElements(): HTMLElement[] {
     return Array.from(this.hostElement.querySelectorAll<HTMLElement>('[data-card-instance-id]'));
+  }
+
+  private gridElement(): HTMLElement | null {
+    return this.hostElement.querySelector<HTMLElement>('[data-testid="card-spoiler-grid"]');
+  }
+
+  private syncGridMetrics(grid: HTMLElement): void {
+    const styles = grid.ownerDocument.defaultView?.getComputedStyle(grid);
+    if (!styles) {
+      return;
+    }
+    const cardWidth = this.cssPixelValue(styles.getPropertyValue('--card-spoiler-width'), 250);
+    const cardHeight = this.cssPixelValue(styles.getPropertyValue('--card-spoiler-height'), 346);
+    const rowGap = this.cssPixelValue(styles.rowGap, 17);
+    const paddingWidth = this.cssPixelValue(styles.paddingLeft, 0) + this.cssPixelValue(styles.paddingRight, 0);
+    const availableWidth = Math.max(0, grid.clientWidth - paddingWidth);
+    const columns = Math.max(1, Math.floor((availableWidth + rowGap) / (cardWidth + rowGap)));
+    const nextMetrics: CardSpoilerGridMetrics = {
+      columns,
+      cardHeight,
+      rowGap,
+      viewportHeight: Math.max(1, grid.clientHeight),
+    };
+
+    const currentMetrics = this.gridMetrics();
+    if (
+      currentMetrics.columns !== nextMetrics.columns ||
+      currentMetrics.cardHeight !== nextMetrics.cardHeight ||
+      currentMetrics.rowGap !== nextMetrics.rowGap ||
+      currentMetrics.viewportHeight !== nextMetrics.viewportHeight
+    ) {
+      this.gridMetrics.set(nextMetrics);
+    }
+  }
+
+  private cssPixelValue(value: string, fallback: number): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
   private clearDropTarget(): void {

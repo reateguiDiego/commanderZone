@@ -23,7 +23,17 @@
           (mouseleave)="cardPreviewHidden.emit()"
         >
           @if (image()(card); as cardImage) {
-            <img [src]="cardImage" [alt]="card.name" draggable="false" />
+            <img
+              [appGameScheduledImage]="cardImage"
+              gameImagePriority="visible"
+              [alt]="card.name"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              [appPreloadCardAlternateFace]="card"
+              [cardVisibleFaceIndex]="card.activeFaceIndex ?? 0"
+              draggable="false"
+            />
           } @else {
             <span class="battlefield-mechanics-overlay__mini-card-fallback">{{ card.name }}</span>
           }

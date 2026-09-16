@@ -2,7 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../../core/api/cards.api';
 import type { Card, CardImageUris } from '../../../../core/models/card.model';
-import type { GameCardInstance, GameCompactCardRef, GameSpecialEntity, GameSpecialEntityCardRef, GameZoneName } from '../../../../core/models/game.model';
+import type {
+  GameCardInstance,
+  GameCompactCardRef,
+  GameSpecialEntity,
+  GameSpecialEntityCardRef,
+  GameZoneName,
+} from '../../../../core/models/game.model';
 import type {
   BootstrapInstanceV2,
   BootstrapStaticCardV2,
@@ -30,6 +36,7 @@ export class GameTableStaticCardResolverV2Service {
     state: GameTableNormalizedV2State | null,
   ): Promise<PatchV2Message> {
     const staticCards = state?.staticCards ?? {};
+    await this.warmPatchCardCatalog(patch.ops, staticCards);
     const hydratedOps = await Promise.all(
       patch.ops.map((operation) => this.hydrateOperation(operation, staticCards)),
     );
@@ -42,6 +49,46 @@ export class GameTableStaticCardResolverV2Service {
       ...patch,
       ops: hydratedOps,
     };
+  }
+
+  /** Extracts card metadata that can be merged after a patch was already applied. */
+  staticCardsFromPatch(patch: PatchV2Message): Record<string, BootstrapStaticCardV2> {
+    const staticCards: Record<string, BootstrapStaticCardV2> = {};
+
+    for (const operation of patch.ops) {
+      switch (operation.op) {
+        case 'card.field.set':
+          if (operation.staticCard) {
+            staticCards[operation.staticCard.cardRef] = operation.staticCard;
+          }
+          break;
+
+        case 'zone.cards.add':
+        case 'library.top.revealed':
+        case 'library.top.viewed':
+        case 'library.revealed.set':
+        case 'mulligan.private_state.set':
+        case 'mulligan.hand.replace_private':
+          Object.assign(staticCards, operation.staticCards ?? {});
+          break;
+
+        case 'zone.cards.move':
+          if (operation.staticCard) {
+            staticCards[operation.staticCard.cardRef] = operation.staticCard;
+          }
+          break;
+
+        case 'zone.cards.batchMove':
+          for (const move of operation.moves) {
+            if (move.staticCard) {
+              staticCards[move.staticCard.cardRef] = move.staticCard;
+            }
+          }
+          break;
+      }
+    }
+
+    return staticCards;
   }
 
   async resolveOwnerFaceDownPreviewImage(card: GameCardInstance): Promise<string | null> {
@@ -68,17 +115,13 @@ export class GameTableStaticCardResolverV2Service {
         if (operation.hidden === true || !operation.cardKey) {
           return operation;
         }
-        const card: RuntimeCardRef = {
-          instanceId: operation.instanceId,
-          cardKey: operation.cardKey,
-          cardRef: operation.cardKey,
-          printId: operation.printId ?? operation.cardKey.replace(/:card$/, ''),
-          cardVersion: operation.cardVersion,
-          language: operation.language,
-          viewerVisibility: operation.viewerVisibility,
-          hidden: operation.hidden,
-        };
-        const staticCard = await this.resolveStaticCardForCard(card, operation.zone, {}, stateStaticCards);
+        const card = this.cardForFieldSetOperation(operation);
+        const staticCard = await this.resolveStaticCardForCard(
+          card,
+          operation.zone,
+          {},
+          stateStaticCards,
+        );
         return staticCard ? { ...operation, staticCard } : operation;
       }
 
@@ -141,7 +184,10 @@ export class GameTableStaticCardResolverV2Service {
 
         return Object.keys(resolved).length === 0
           ? operation
-          : { ...operationWithStaticCards, staticCards: { ...(operationWithStaticCards.staticCards ?? {}), ...resolved } };
+          : {
+              ...operationWithStaticCards,
+              staticCards: { ...(operationWithStaticCards.staticCards ?? {}), ...resolved },
+            };
       }
 
       case 'mulligan.hand.replace_private': {
@@ -166,9 +212,9 @@ export class GameTableStaticCardResolverV2Service {
     }
   }
 
-  private async hydrateHelperOperation<T extends Extract<GameplayPatchV2Operation, { op: 'helper.add' | 'helper.update' }>>(
-    operation: T,
-  ): Promise<T> {
+  private async hydrateHelperOperation<
+    T extends Extract<GameplayPatchV2Operation, { op: 'helper.add' | 'helper.update' }>,
+  >(operation: T): Promise<T> {
     const entity = await this.hydrateSpecialEntity(operation.entity);
 
     return entity === operation.entity ? operation : { ...operation, entity };
@@ -224,24 +270,6 @@ export class GameTableStaticCardResolverV2Service {
     stateStaticCards: Record<string, BootstrapStaticCardV2>,
   ): Promise<Record<string, BootstrapStaticCardV2>> {
     const resolved: Record<string, BootstrapStaticCardV2> = {};
-    if (zone !== 'library') {
-      const staticCards = await Promise.all(cards.map((card) => this.resolveStaticCardForCard(
-        card,
-        zone,
-        operationStaticCards,
-        stateStaticCards,
-      )));
-      for (let index = 0; index < cards.length; index += 1) {
-        const card = cards[index];
-        const staticCard = staticCards[index];
-        if (staticCard) {
-          resolved[this.staticCardMapKey(staticCard, this.cardRef(card!))] = staticCard;
-        }
-      }
-
-      return resolved;
-    }
-
     const unresolvedCards = cards.filter((card) => {
       if (card.hidden === true || card.faceDown === true) {
         return false;
@@ -250,7 +278,9 @@ export class GameTableStaticCardResolverV2Service {
       const existing = this.staticCardForCard(card, operationStaticCards, stateStaticCards);
       return !(existing && this.hasRenderableStaticContent(existing));
     });
-    const apiCardsByPrintId = await this.cardsForPrintIds(unresolvedCards.map((card) => this.printId(card)));
+    const apiCardsByPrintId = await this.cardsForPrintIds(
+      unresolvedCards.map((card) => this.printId(card)),
+    );
 
     for (const card of unresolvedCards) {
       const printId = this.printId(card);
@@ -265,6 +295,110 @@ export class GameTableStaticCardResolverV2Service {
     return resolved;
   }
 
+  private async warmPatchCardCatalog(
+    operations: readonly GameplayPatchV2Operation[],
+    stateStaticCards: Record<string, BootstrapStaticCardV2>,
+  ): Promise<void> {
+    const printIds = new Set<string>();
+    const collectCards = (
+      cards: readonly RuntimeCardRef[],
+      operationStaticCards: Record<string, BootstrapStaticCardV2>,
+    ): void => {
+      for (const card of cards) {
+        if (card.hidden === true || card.faceDown === true) {
+          continue;
+        }
+
+        const existing = this.staticCardForCard(card, operationStaticCards, stateStaticCards);
+        if (existing && this.hasRenderableStaticContent(existing)) {
+          continue;
+        }
+
+        const printId = this.printId(card);
+        if (printId) {
+          printIds.add(printId);
+        }
+      }
+    };
+
+    for (const operation of operations) {
+      switch (operation.op) {
+        case 'card.field.set':
+          if (operation.hidden !== true && operation.cardKey) {
+            collectCards([this.cardForFieldSetOperation(operation)], {});
+          }
+          break;
+
+        case 'zone.cards.add':
+        case 'library.top.revealed':
+        case 'library.top.viewed':
+        case 'library.revealed.set':
+          collectCards(operation.cards, operation.staticCards ?? {});
+          break;
+
+        case 'mulligan.hand.replace_private':
+          collectCards(operation.hand, operation.staticCards ?? {});
+          break;
+
+        case 'mulligan.private_state.set':
+          collectCards(operation.hand ?? [], operation.staticCards ?? {});
+          break;
+
+        case 'zone.cards.move':
+          if (operation.card) {
+            collectCards(
+              [operation.card],
+              operation.staticCard
+                ? {
+                    [this.staticCardMapKey(operation.staticCard, this.cardRef(operation.card))]:
+                      operation.staticCard,
+                  }
+                : {},
+            );
+          }
+          break;
+
+        case 'zone.cards.batchMove':
+          for (const move of operation.moves) {
+            if (!move.card) {
+              continue;
+            }
+            collectCards(
+              [move.card],
+              move.staticCard
+                ? {
+                    [this.staticCardMapKey(move.staticCard, this.cardRef(move.card))]:
+                      move.staticCard,
+                  }
+                : {},
+            );
+          }
+          break;
+      }
+    }
+
+    // A single miss keeps the cheaper existing endpoint. Every multi-card
+    // patch is coalesced into one bulk request before individual operations
+    // hydrate themselves.
+    if (printIds.size > 1) {
+      await this.cardsForPrintIds([...printIds]);
+    }
+  }
+
+  private cardForFieldSetOperation(
+    operation: Extract<GameplayPatchV2Operation, { op: 'card.field.set' }>,
+  ): RuntimeCardRef {
+    return {
+      instanceId: operation.instanceId,
+      cardKey: operation.cardKey,
+      cardRef: operation.cardKey,
+      printId: operation.printId ?? operation.cardKey?.replace(/:card$/, ''),
+      cardVersion: operation.cardVersion,
+      language: operation.language,
+      viewerVisibility: operation.viewerVisibility,
+      hidden: operation.hidden,
+    };
+  }
 
   private async resolveStaticCardForCard(
     card: RuntimeCardRef,
@@ -340,42 +474,53 @@ export class GameTableStaticCardResolverV2Service {
     const ids = [...new Set(printIds.map((printId) => printId.trim()).filter(Boolean))];
     const cardsByPrintId = new Map<string, Card>();
     const missingIds: string[] = [];
+    const requestsByPrintId = new Map<string, Promise<Card | null>>();
 
-    await Promise.all(ids.map(async (printId) => {
+    for (const printId of ids) {
       const cached = this.cardByPrintId.get(printId);
-      if (!cached) {
+      if (cached) {
+        requestsByPrintId.set(printId, cached);
+      } else {
         missingIds.push(printId);
-        return;
       }
+    }
 
-      const card = await cached;
+    if (missingIds.length === 1) {
+      const printId = missingIds[0];
+      requestsByPrintId.set(printId, this.cardForPrintId(printId));
+    } else if (missingIds.length > 1) {
+      const bulkRequest = firstValueFrom(this.cardsApi.getManySilently(missingIds))
+        .then((response) => new Map(response.cards.map((card) => [card.scryfallId, card])))
+        .catch(() => null);
+
+      for (const printId of missingIds) {
+        const request = bulkRequest.then((cards) => cards?.get(printId) ?? null);
+        this.cardByPrintId.set(printId, request);
+        requestsByPrintId.set(printId, request);
+
+        void request.then((card) => {
+          if (!card && this.cardByPrintId.get(printId) === request) {
+            this.cardByPrintId.delete(printId);
+          }
+        });
+      }
+    }
+
+    for (const [printId, request] of requestsByPrintId) {
+      const card = await request;
       if (card) {
         cardsByPrintId.set(printId, card);
       }
-    }));
-
-    if (missingIds.length === 0) {
-      return cardsByPrintId;
-    }
-
-    try {
-      const response = await firstValueFrom(this.cardsApi.getManySilently(missingIds));
-      const resolvedByPrintId = new Map(response.cards.map((card) => [card.scryfallId, card]));
-      for (const printId of missingIds) {
-        const card = resolvedByPrintId.get(printId) ?? null;
-        this.cardByPrintId.set(printId, Promise.resolve(card));
-        if (card) {
-          cardsByPrintId.set(printId, card);
-        }
-      }
-    } catch {
-      // Keep a failed lookup retryable instead of permanently caching a miss.
     }
 
     return cardsByPrintId;
   }
 
-  private staticCardFromApiCard(card: RuntimeCardRef, apiCard: Card, zone: GameZoneName): BootstrapStaticCardV2 {
+  private staticCardFromApiCard(
+    card: RuntimeCardRef,
+    apiCard: Card,
+    zone: GameZoneName,
+  ): BootstrapStaticCardV2 {
     const cardRef = this.cardRef(card) || `${apiCard.scryfallId}:card`;
     const cardKey = this.cardKey(card) || cardRef;
     const printId = this.printId(card) || apiCard.scryfallId;
@@ -402,7 +547,10 @@ export class GameTableStaticCardResolverV2Service {
     };
   }
 
-  private specialEntityCardFromApiCard(card: GameSpecialEntityCardRef, apiCard: Card): GameSpecialEntityCardRef {
+  private specialEntityCardFromApiCard(
+    card: GameSpecialEntityCardRef,
+    apiCard: Card,
+  ): GameSpecialEntityCardRef {
     return {
       scryfallId: this.trimmed(card.scryfallId) || apiCard.scryfallId,
       name: this.trimmed(card.name) || apiCard.name,
@@ -479,14 +627,15 @@ export class GameTableStaticCardResolverV2Service {
   }
 
   private cardRef(card: RuntimeCardRef): string {
-    return this.trimmed(card.cardRef)
-      || this.trimmed(card.cardKey)
-      || this.suffixedPrintId(card)
-      || '';
+    return (
+      this.trimmed(card.cardRef) || this.trimmed(card.cardKey) || this.suffixedPrintId(card) || ''
+    );
   }
 
   private cardKey(card: RuntimeCardRef): string {
-    return this.trimmed(card.cardKey) || this.trimmed(card.cardRef) || this.suffixedPrintId(card) || '';
+    return (
+      this.trimmed(card.cardKey) || this.trimmed(card.cardRef) || this.suffixedPrintId(card) || ''
+    );
   }
 
   private printId(card: RuntimeCardRef): string {
@@ -496,9 +645,7 @@ export class GameTableStaticCardResolverV2Service {
     }
 
     const cardKey = this.trimmed(card.cardKey) || this.trimmed(card.cardRef);
-    return cardKey
-      ? this.catalogPrintId(cardKey)
-      : '';
+    return cardKey ? this.catalogPrintId(cardKey) : '';
   }
 
   private catalogPrintId(value: string): string {
@@ -529,14 +676,21 @@ export class GameTableStaticCardResolverV2Service {
 
   private hasRenderableStaticContent(card: BootstrapStaticCardV2): boolean {
     const name = card.name?.trim() ?? '';
-    return (name !== '' && name !== 'Card' && name !== 'Unknown Card')
-      || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
-      || Boolean(card.cardFaces && card.cardFaces.length > 0);
+    return (
+      (name !== '' && name !== 'Card' && name !== 'Unknown Card') ||
+      Boolean(card.imageUris && Object.keys(card.imageUris).length > 0) ||
+      Boolean(card.cardFaces && card.cardFaces.length > 0)
+    );
   }
 
   private hasRenderableSpecialEntityCard(card: GameSpecialEntityCardRef): boolean {
-    return Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
-      || Boolean(card.cardFaces && card.cardFaces.some((face) => face.imageUris && Object.keys(face.imageUris).length > 0));
+    return (
+      Boolean(card.imageUris && Object.keys(card.imageUris).length > 0) ||
+      Boolean(
+        card.cardFaces &&
+        card.cardFaces.some((face) => face.imageUris && Object.keys(face.imageUris).length > 0),
+      )
+    );
   }
 
   private viewerVisibilityForZone(zone: GameZoneName): string {
@@ -552,7 +706,9 @@ export class GameTableStaticCardResolverV2Service {
   }
 }
 
-function previewImageUri(imageUris: CardImageUris | Record<string, string> | undefined): string | null {
+function previewImageUri(
+  imageUris: CardImageUris | Record<string, string> | undefined,
+): string | null {
   if (!imageUris) {
     return null;
   }
@@ -564,11 +720,14 @@ function previewImageForCard(
   card: Pick<GameCardInstance, 'imageUris' | 'cardFaces'> | Pick<Card, 'imageUris' | 'cardFaces'>,
   activeFaceIndex?: number,
 ): string | null {
-  const faceIndex = Number.isInteger(activeFaceIndex) && activeFaceIndex !== undefined && activeFaceIndex >= 0
-    ? activeFaceIndex
-    : 0;
+  const faceIndex =
+    Number.isInteger(activeFaceIndex) && activeFaceIndex !== undefined && activeFaceIndex >= 0
+      ? activeFaceIndex
+      : 0;
 
-  return previewImageUri(card.cardFaces?.[faceIndex]?.imageUris)
-    ?? previewImageUri(card.imageUris)
-    ?? previewImageUri(card.cardFaces?.[0]?.imageUris);
+  return (
+    previewImageUri(card.cardFaces?.[faceIndex]?.imageUris) ??
+    previewImageUri(card.imageUris) ??
+    previewImageUri(card.cardFaces?.[0]?.imageUris)
+  );
 }

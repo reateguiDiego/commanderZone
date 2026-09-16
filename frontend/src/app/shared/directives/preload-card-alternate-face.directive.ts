@@ -1,6 +1,11 @@
-import { Directive, HostListener, input } from '@angular/core';
-import { CardFaceImageResolution, CardFaceImageSource, cardFaceImage, hasAlternateCardFace } from '../utils/card-faces';
-import { preloadImage } from '../utils/image-preload';
+import { Directive, HostListener, OnDestroy, inject, input } from '@angular/core';
+import {
+  CardFaceImageResolution,
+  CardFaceImageSource,
+  cardFaceImage,
+  hasAlternateCardFace,
+} from '../utils/card-faces';
+import { ImagePreloadQueueService, type ImagePreloadRequest } from '../services/image-preload-queue.service';
 
 /**
  * Downloads the other normal-resolution face only after the rendered card image has loaded.
@@ -9,10 +14,15 @@ import { preloadImage } from '../utils/image-preload';
 @Directive({
   selector: 'img[appPreloadCardAlternateFace]',
 })
-export class PreloadCardAlternateFaceDirective {
+export class PreloadCardAlternateFaceDirective implements OnDestroy {
+  private readonly imagePreloadQueue = inject(ImagePreloadQueueService);
+  private alternateFacePreload: ImagePreloadRequest | null = null;
+
   readonly card = input<CardFaceImageSource | null>(null, { alias: 'appPreloadCardAlternateFace' });
   readonly visibleFaceIndex = input(0, { alias: 'cardVisibleFaceIndex' });
-  readonly imageResolution = input<CardFaceImageResolution>('normal', { alias: 'cardImageResolution' });
+  readonly imageResolution = input<CardFaceImageResolution>('normal', {
+    alias: 'cardImageResolution',
+  });
 
   @HostListener('load')
   preloadAlternateFace(): void {
@@ -26,6 +36,18 @@ export class PreloadCardAlternateFaceDirective {
       return;
     }
 
-    void preloadImage(alternateFaceImage, { fetchPriority: 'low' });
+    this.alternateFacePreload?.cancel();
+    const preload = this.imagePreloadQueue.request(alternateFaceImage, 'background');
+    this.alternateFacePreload = preload;
+    void preload.completed.finally(() => {
+      if (this.alternateFacePreload === preload) {
+        this.alternateFacePreload = null;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.alternateFacePreload?.cancel();
+    this.alternateFacePreload = null;
   }
 }

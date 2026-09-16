@@ -23,9 +23,15 @@
       @if (cardImage()(visibleCard); as image) {
         <img
           class="zone-card-image"
-          [class.commanders-stack-card-image-hovered]="hoveredCardInstanceId() === item.card.instanceId"
-          [src]="image"
+          [class.commanders-stack-card-image-hovered]="
+            hoveredCardInstanceId() === item.card.instanceId
+          "
+          [appGameScheduledImage]="image"
+          gameImagePriority="critical"
           [alt]="visibleCard.name"
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
           [appPreloadCardAlternateFace]="visibleCard"
           [cardVisibleFaceIndex]="visibleCard.activeFaceIndex ?? 0"
           draggable="false"
@@ -34,7 +40,13 @@
         <span class="command-zone-card-name">{{ visibleCard.name }}</span>
       }
       @if (canShowFaceToggle(item.card)) {
-        <span role="button" tabindex="-1" class="commander-face-toggle" (pointerdown)="$event.stopPropagation()" (click)="lookAtOtherFace($event, item.card)">
+        <span
+          role="button"
+          tabindex="-1"
+          class="commander-face-toggle"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="lookAtOtherFace($event, item.card)"
+        >
           <lucide-icon name="rotate-cw" size="13" aria-hidden="true" />
         </span>
       }

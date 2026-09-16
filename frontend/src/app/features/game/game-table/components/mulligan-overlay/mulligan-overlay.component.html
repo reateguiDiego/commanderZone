@@ -16,14 +16,22 @@
           </section>
         </div>
 
-        <section class="mulligan-players" [attr.aria-label]="'game.mulliganOverlay.otherPlayersStatus' | runtimeTranslate">
+        <section
+          class="mulligan-players"
+          [attr.aria-label]="'game.mulliganOverlay.otherPlayersStatus' | runtimeTranslate"
+        >
           @for (player of otherPlayers(); track player.playerId) {
-            <article class="mulligan-player-row" [attr.data-status]="normalizedStatus(player.status)">
+            <article
+              class="mulligan-player-row"
+              [attr.data-status]="normalizedStatus(player.status)"
+            >
               <span>{{ player.displayName || player.playerId }}</span>
               <strong>{{ statusLabelKey(player.status) | runtimeTranslate }}</strong>
             </article>
           } @empty {
-            <p class="empty-players">{{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}</p>
+            <p class="empty-players">
+              {{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}
+            </p>
           }
         </section>
 
@@ -64,6 +72,8 @@
                     [playerId]="currentPlayerId() ?? ''"
                     zone="library"
                     [image]="cardImage()(visibleCard)"
+                    imageLoading="eager"
+                    imagePriority="high"
                     [selected]="false"
                     [draggable]="false"
                     [hoverInteractionsEnabled]="false"
@@ -89,8 +99,22 @@
                 </div>
               }
               <div class="mulligan-actions">
-                <button type="button" czButton="secondary" [disabled]="pending()" (click)="confirmScry('TOP')">{{ 'game.mulliganOverlay.actions.keepOnTop' | runtimeTranslate }}</button>
-                <button type="button" czButton="primary" [disabled]="pending()" (click)="confirmScry('BOTTOM')">{{ 'game.mulliganOverlay.actions.putOnBottom' | runtimeTranslate }}</button>
+                <button
+                  type="button"
+                  czButton="secondary"
+                  [disabled]="pending()"
+                  (click)="confirmScry('TOP')"
+                >
+                  {{ 'game.mulliganOverlay.actions.keepOnTop' | runtimeTranslate }}
+                </button>
+                <button
+                  type="button"
+                  czButton="primary"
+                  [disabled]="pending()"
+                  (click)="confirmScry('BOTTOM')"
+                >
+                  {{ 'game.mulliganOverlay.actions.putOnBottom' | runtimeTranslate }}
+                </button>
               </div>
             </section>
           } @else if (status() === 'READY') {
@@ -99,14 +123,23 @@
               <h2>{{ 'game.mulliganOverlay.waitingForPlayers' | runtimeTranslate }}</h2>
             </section>
           } @else {
-            <section class="mulligan-hand" [attr.aria-label]="'game.mulliganOverlay.currentHand' | runtimeTranslate">
-              <div class="mulligan-meta" [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate">
+            <section
+              class="mulligan-hand"
+              [attr.aria-label]="'game.mulliganOverlay.currentHand' | runtimeTranslate"
+            >
+              <div
+                class="mulligan-meta"
+                [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate"
+              >
                 @if (firstMulliganFreeLabelKey(); as firstMulliganFreeKey) {
                   <p class="mulligan-free-rule">
                     {{ firstMulliganFreeKey | runtimeTranslate }}
                   </p>
                 }
-                <span>{{ 'game.mulliganOverlay.mulligansTaken' | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 } }}</span>
+                <span>{{
+                  'game.mulliganOverlay.mulligansTaken'
+                    | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 }
+                }}</span>
               </div>
 
               <div class="mulligan-card-grid">
@@ -126,6 +159,8 @@
                       [playerId]="currentPlayerId() ?? ''"
                       zone="hand"
                       [image]="cardImage()(visibleCard)"
+                      imageLoading="eager"
+                      imagePriority="high"
                       [selected]="selectedCard(card)"
                       [draggable]="false"
                       [hoverInteractionsEnabled]="false"
@@ -164,7 +199,9 @@
                     }
                   </div>
                 } @empty {
-                  <p class="empty-hand">{{ 'game.mulliganOverlay.emptyHand' | runtimeTranslate }}</p>
+                  <p class="empty-hand">
+                    {{ 'game.mulliganOverlay.emptyHand' | runtimeTranslate }}
+                  </p>
                 }
               </div>
             </section>
@@ -182,7 +219,9 @@
               <div class="mulligan-keep-stack">
                 @if (bottomSelectionCount() > 0) {
                   <section class="bottom-selection" data-testid="mulligan-bottom-selection">
-                    <strong>{{ 'game.mulliganOverlay.selectedCount' | runtimeTranslate: selectedCountParams() }}</strong>
+                    <strong>{{
+                      'game.mulliganOverlay.selectedCount' | runtimeTranslate: selectedCountParams()
+                    }}</strong>
                   </section>
                 }
                 <button

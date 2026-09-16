@@ -11,8 +11,13 @@ import {
   signal,
 } from '@angular/core';
 import { GameCardInstance } from '../../../../../core/models/game.model';
+import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
-import { OpponentCardsTargetCard, OpponentCardsTargetRole } from '../../models/opponent-cards-target-card.model';
+import {
+  OpponentCardsTargetCard,
+  OpponentCardsTargetRole,
+} from '../../models/opponent-cards-target-card.model';
 import {
   MiniBattlefieldCardLayout,
   MiniBattlefieldSize,
@@ -21,6 +26,7 @@ import {
 
 @Component({
   selector: 'app-opponent-cards-target',
+  imports: [PreloadCardAlternateFaceDirective, GameScheduledImageDirective],
   templateUrl: './opponent-cards-target.component.html',
   styleUrl: './opponent-cards-target.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,22 +39,33 @@ export class OpponentCardsTargetComponent implements AfterViewInit, OnDestroy {
   readonly playerId = input.required<string>();
   readonly cards = input.required<readonly OpponentCardsTargetCard[]>();
   readonly battlefieldSize = input<MiniBattlefieldSize>({ width: 900, height: 520 });
-  readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
+  readonly cardPosition =
+    input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly arrowTargeting = input(false);
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+  readonly battlefieldCardClicked = output<{
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+  }>();
 
   readonly viewportSize = signal<MiniBattlefieldSize>({ width: 240, height: 172 });
   readonly arrowAnchorLayouts = computed(() =>
-    layoutOpponentMiniBattlefield(this.cards().map((item) => item.card), this.viewportSize(), {
-      boardSize: this.battlefieldSize(),
-      getPosition: this.cardPosition(),
-    }),
+    layoutOpponentMiniBattlefield(
+      this.cards().map((item) => item.card),
+      this.viewportSize(),
+      {
+        boardSize: this.battlefieldSize(),
+        getPosition: this.cardPosition(),
+      },
+    ),
   );
-  readonly arrowAnchorLayoutById = computed(() => new Map(this.arrowAnchorLayouts().map((layout) => [layout.instanceId, layout])));
+  readonly arrowAnchorLayoutById = computed(
+    () => new Map(this.arrowAnchorLayouts().map((layout) => [layout.instanceId, layout])),
+  );
 
   ngAfterViewInit(): void {
     const element = this.viewport?.nativeElement;

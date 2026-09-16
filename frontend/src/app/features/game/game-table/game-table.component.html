@@ -200,10 +200,17 @@
         (battlefieldSizeChanged)="reportSize($event)"
       />
     </ng-template>
-    <ng-template #handRegion let-handPlayer let-grid="grid" let-isTurnOwner="isTurnOwner" let-handPosition="handPosition">
+    <ng-template
+      #handRegion
+      let-handPlayer
+      let-grid="grid"
+      let-isTurnOwner="isTurnOwner"
+      let-handPosition="handPosition"
+    >
       <app-player-hand-panel
         [player]="handPlayer"
         [compact]="grid"
+        [renderCards]="!store.mulliganActive() || !isCurrentPlayer(handPlayer.id)"
         [isTurnActive]="grid && isTurnOwner === true"
         [handPosition]="handPosition ?? 'bottom'"
         [zoneCount]="zoneCount"
@@ -236,7 +243,13 @@
         (cardPreviewHidden)="store.hideCardPreview()"
       />
     </ng-template>
-    <ng-template #zonesRegion let-player let-grid="grid" let-isTurnOwner="isTurnOwner" let-zoneCompact="zoneCompact">
+    <ng-template
+      #zonesRegion
+      let-player
+      let-grid="grid"
+      let-isTurnOwner="isTurnOwner"
+      let-zoneCompact="zoneCompact"
+    >
       <app-zone-piles-panel
         [player]="player"
         [compact]="grid && zoneCompact !== false"
@@ -1069,7 +1082,12 @@
         >
           <div class="drag-card-preview-content">
             @if (store.cardImage(preview.card); as image) {
-              <img [src]="image" [alt]="preview.card.name" />
+              <img
+                [appGameScheduledImage]="image"
+                gameImagePriority="interaction"
+                [alt]="preview.card.name"
+                decoding="async"
+              />
             } @else {
               <span>{{ preview.card.name }}</span>
             }

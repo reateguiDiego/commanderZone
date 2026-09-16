@@ -2888,6 +2888,7 @@ function hydrateCardInstance(
     faceRuntimeStats: instance.faceRuntimeStats?.map((stats) => ({ ...stats })),
     dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
+    staticCardPending: instance.staticCardPending === true,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
     revealMarker: instance.revealMarker ?? undefined,
     position: instance.position ?? undefined,

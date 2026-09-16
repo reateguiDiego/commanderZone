@@ -72,64 +72,78 @@
         [class.hand-fan-countable]="showCardsFaceDown()"
         [class.drop-target-active]="isHandDropReceiverVisuallyHighlighted()"
       >
-      @for (card of handCards; track card.instanceId) {
-        @let dropPlacement = handDropPlacement(card);
-        @if (dropPlacement === 'before') {
-          <span
-            class="hand-drop-slot hand-drop-slot-before"
-            aria-hidden="true"
-            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'before')"
-          >
-            <svg class="hand-drop-slot-indicator" viewBox="0 0 40 160" preserveAspectRatio="none" aria-hidden="true">
-              <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
-              <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
-              <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
-            </svg>
-          </span>
+        @if (renderCards()) {
+          @for (card of handCards; track card.instanceId) {
+            @let dropPlacement = handDropPlacement(card);
+            @if (dropPlacement === 'before') {
+              <span
+                class="hand-drop-slot hand-drop-slot-before"
+                aria-hidden="true"
+                [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'before')"
+              >
+                <svg
+                  class="hand-drop-slot-indicator"
+                  viewBox="0 0 40 160"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
+                  <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
+                  <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
+                </svg>
+              </span>
+            }
+            <app-game-card-view
+              mode="hand"
+              [card]="card"
+              [playerId]="handPlayer.id"
+              zone="hand"
+              [image]="cardImage()(card)"
+              imageLoading="eager"
+              imagePriority="high"
+              [selected]="isSelected()(card.instanceId)"
+              [dragging]="isDraggingHandCard(card)"
+              [alignmentReference]="isHandDropReceiverVisuallyHighlighted()"
+              [hoverInteractionsEnabled]="canPreviewHandCard(card)"
+              [motionActive]="motionActive()"
+              [faceDown]="isHandCardFaceDown(card)"
+              [hidden]="isHandCardFaceDown(card)"
+              [revealMarker]="card.revealMarker === true"
+              [faceToggleEnabled]="card.revealMarker === true && !isHandCardFaceDown(card)"
+              [draggable]="false"
+              [handDropPlacement]="dropPlacement"
+              [handLayout]="handLayoutMode()"
+              [activeHoverInstanceId]="activeHandHoverInstanceId()"
+              [handIndex]="$index"
+              [handCount]="handCards.length"
+              (cardPointerDown)="startHandPointerDrag($event.event, handPlayer.id, $event.card)"
+              (cardClicked)="handleHandCardClick($event.event, handPlayer.id, $event.card)"
+              (cardDoubleClicked)="stopDoubleClick($event.event)"
+              (cardMenuOpened)="openHandCardMenu($event.event, handPlayer.id, $event.card)"
+              (cardPointerEntered)="enterHandCard($event.event, $event.card)"
+              (cardFaceLookRequested)="showHandCardPreview($event)"
+              (cardMouseLeft)="leaveHandCard(card)"
+            />
+            @if (dropPlacement === 'after') {
+              <span
+                class="hand-drop-slot hand-drop-slot-after"
+                aria-hidden="true"
+                [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'after')"
+              >
+                <svg
+                  class="hand-drop-slot-indicator"
+                  viewBox="0 0 40 160"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
+                  <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
+                  <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
+                </svg>
+              </span>
+            }
+          }
         }
-        <app-game-card-view
-          mode="hand"
-          [card]="card"
-          [playerId]="handPlayer.id"
-          zone="hand"
-          [image]="cardImage()(card)"
-          [selected]="isSelected()(card.instanceId)"
-          [dragging]="isDraggingHandCard(card)"
-          [alignmentReference]="isHandDropReceiverVisuallyHighlighted()"
-          [hoverInteractionsEnabled]="canPreviewHandCard(card)"
-          [motionActive]="motionActive()"
-          [faceDown]="isHandCardFaceDown(card)"
-          [hidden]="isHandCardFaceDown(card)"
-          [revealMarker]="card.revealMarker === true"
-          [faceToggleEnabled]="card.revealMarker === true && !isHandCardFaceDown(card)"
-          [draggable]="false"
-          [handDropPlacement]="dropPlacement"
-          [handLayout]="handLayoutMode()"
-          [activeHoverInstanceId]="activeHandHoverInstanceId()"
-          [handIndex]="$index"
-          [handCount]="handCards.length"
-          (cardPointerDown)="startHandPointerDrag($event.event, handPlayer.id, $event.card)"
-          (cardClicked)="handleHandCardClick($event.event, handPlayer.id, $event.card)"
-          (cardDoubleClicked)="stopDoubleClick($event.event)"
-          (cardMenuOpened)="openHandCardMenu($event.event, handPlayer.id, $event.card)"
-          (cardPointerEntered)="enterHandCard($event.event, $event.card)"
-          (cardFaceLookRequested)="showHandCardPreview($event)"
-          (cardMouseLeft)="leaveHandCard(card)"
-        />
-        @if (dropPlacement === 'after') {
-          <span
-            class="hand-drop-slot hand-drop-slot-after"
-            aria-hidden="true"
-            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'after')"
-          >
-            <svg class="hand-drop-slot-indicator" viewBox="0 0 40 160" preserveAspectRatio="none" aria-hidden="true">
-              <path class="hand-drop-slot-indicator-aura" d="M20 36V160" />
-              <path class="hand-drop-slot-indicator-rail" d="M20 36V160" />
-              <path class="hand-drop-slot-indicator-cap" d="M11 6L20 16L29 6" />
-            </svg>
-          </span>
-        }
-      }
       </div>
     }
   </div>
@@ -145,7 +159,15 @@
         [style.height.px]="drag.cardHeight"
       >
         @if (floatingCardImage(); as image) {
-          <img [src]="image" [alt]="drag.card.name" draggable="false" />
+          <img
+            [appGameScheduledImage]="image"
+            gameImagePriority="interaction"
+            [alt]="drag.card.name"
+            loading="eager"
+            decoding="async"
+            fetchpriority="high"
+            draggable="false"
+          />
         } @else {
           <span>{{ drag.card.name }}</span>
         }
@@ -155,5 +177,7 @@
       </div>
     }
   }
-  <span class="hand-count" data-testid="hand-count">{{ 'shared.text.countCards' | runtimeTranslate: { count: zoneCount()(handPlayer, 'hand') } }}</span>
+  <span class="hand-count" data-testid="hand-count">{{
+    'shared.text.countCards' | runtimeTranslate: { count: zoneCount()(handPlayer, 'hand') }
+  }}</span>
 </div>

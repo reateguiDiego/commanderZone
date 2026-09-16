@@ -12,6 +12,7 @@ import { SagaCounterComponent } from '../game-card-view/saga-counter/saga-counte
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard } from '../../utils/gameplay-card-kind';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
 interface BattlefieldRect {
   readonly left: number;
@@ -61,6 +62,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
     LoyaltyCounterComponent,
     SagaCounterComponent,
     TooltipComponent,
+    GameScheduledImageDirective,
     PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './card-preview-overlay.component.html',

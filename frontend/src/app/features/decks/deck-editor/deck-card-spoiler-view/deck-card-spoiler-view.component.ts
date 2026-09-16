@@ -29,6 +29,7 @@ import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
 import { PreloadCardAlternateFaceDirective } from '../../../../shared/directives/preload-card-alternate-face.directive';
+import { ImagePreloadQueueService, type ImagePreloadRequest } from '../../../../shared/services/image-preload-queue.service';
 
 const MOBILE_IMAGE_BATCH_SIZE = 12;
 const MOBILE_IMAGE_PRELOAD_MARGIN = '720px 0px';
@@ -59,12 +60,13 @@ export class DeckCardSpoilerViewComponent implements AfterViewInit {
   readonly headerFilterValueChange = output<string>();
   readonly store = inject(DECK_VIEW_STORE);
   private readonly device = inject(DeviceProfileService);
+  private readonly imagePreloadQueue = inject(ImagePreloadQueueService);
   private readonly documentRef = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly prioritizedCardIds = signal<ReadonlySet<string>>(new Set());
   private readonly preloadedImageUrls = new Set<string>();
-  private readonly pendingImagePreloads = new Map<string, HTMLImageElement>();
+  private readonly pendingImagePreloads = new Map<string, ImagePreloadRequest>();
   private imageObserver: IntersectionObserver | null = null;
 
   @ViewChildren('spoilerCard') private readonly spoilerCards!: QueryList<ElementRef<HTMLElement>>;
@@ -100,6 +102,9 @@ export class DeckCardSpoilerViewComponent implements AfterViewInit {
 
     this.destroyRef.onDestroy(() => {
       this.imageObserver?.disconnect();
+      for (const preload of this.pendingImagePreloads.values()) {
+        preload.cancel();
+      }
       this.pendingImagePreloads.clear();
     });
   }
@@ -210,15 +215,20 @@ export class DeckCardSpoilerViewComponent implements AfterViewInit {
   }
 
   private preloadImage(url: string | null): void {
-    if (!url || this.preloadedImageUrls.has(url)) {
+    if (!url || this.preloadedImageUrls.has(url) || this.pendingImagePreloads.has(url)) {
       return;
     }
 
-    this.preloadedImageUrls.add(url);
-    const image = new Image();
-    image.decoding = 'async';
-    image.onload = image.onerror = () => this.pendingImagePreloads.delete(url);
-    image.src = url;
-    this.pendingImagePreloads.set(url, image);
+    const preload = this.imagePreloadQueue.request(url, 'visible');
+    this.pendingImagePreloads.set(url, preload);
+    void preload.completed.then((loaded) => {
+      if (loaded) {
+        this.preloadedImageUrls.add(url);
+      }
+    }).finally(() => {
+      if (this.pendingImagePreloads.get(url) === preload) {
+        this.pendingImagePreloads.delete(url);
+      }
+    });
   }
 }

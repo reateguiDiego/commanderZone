@@ -24,7 +24,17 @@
         (mouseenter)="showCardPreview($event, card)"
       >
         @if (cardImage()(card); as image) {
-          <img [src]="image" [alt]="card.name" draggable="false" />
+          <img
+            [appGameScheduledImage]="image"
+            gameImagePriority="visible"
+            [alt]="card.name"
+            loading="lazy"
+            decoding="async"
+            fetchpriority="low"
+            [appPreloadCardAlternateFace]="card"
+            [cardVisibleFaceIndex]="card.activeFaceIndex ?? 0"
+            draggable="false"
+          />
         } @else {
           <span class="card-back" aria-hidden="true"></span>
         }

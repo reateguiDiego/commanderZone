@@ -35,6 +35,7 @@
       [playerId]="focusedPlayer.id"
       zone="battlefield"
       [image]="cardImage()(card)"
+      [deferImageUntilVisible]="true"
       [freePosition]="!!displayPosition"
       [position]="displayPosition"
       [selected]="isCurrentPlayer()(focusedPlayer.id) && isSelected()(card.instanceId)"

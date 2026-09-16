@@ -71,6 +71,9 @@ import { GameTablePointerDragService } from './services/game-table-pointer-drag.
 import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { GameCardImagePerformanceService } from './services/game-card-image-performance.service';
+import { ImagePreloadQueueService } from '../../../shared/services/image-preload-queue.service';
+import { GameScheduledImageDirective } from './directives/game-scheduled-image.directive';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
@@ -564,6 +567,7 @@ interface MotionSourceRect {
     GlobalLoaderComponent,
     RollModalComponent,
     TabListComponent,
+    GameScheduledImageDirective,
   ],
   providers: [
     GameTableLayoutState,
@@ -603,6 +607,8 @@ interface MotionSourceRect {
     GameTableCommandService,
     GameTableSelectionService,
     GameTableSessionService,
+    GameCardImagePerformanceService,
+    ImagePreloadQueueService,
     GameTableDragService,
     GameTableDropActionsService,
     GameTableInteractionActionsService,

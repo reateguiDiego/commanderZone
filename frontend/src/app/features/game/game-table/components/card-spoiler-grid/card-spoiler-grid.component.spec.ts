@@ -33,6 +33,28 @@ describe('CardSpoilerGridComponent', () => {
     }));
   });
 
+  it('mounts only a virtual window for large read-only zones', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture(
+      Array.from({ length: 80 }, (_unused, index) => card(`card-${index + 1}`, `Card ${index + 1}`)),
+    );
+    fixture.detectChanges();
+
+    const grid = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="card-spoiler-grid"]')!;
+    expect(grid.querySelectorAll('[data-card-instance-id]').length).toBeLessThan(80);
+    expect(grid.querySelector('[data-card-instance-id="card-1"]')).not.toBeNull();
+
+    grid.scrollTop = 2_000;
+    fixture.componentInstance.gridScrolled({ currentTarget: grid } as unknown as Event);
+    fixture.detectChanges();
+
+    expect(grid.querySelector('[data-card-instance-id="card-1"]')).toBeNull();
+    expect(grid.querySelectorAll('[data-card-instance-id]').length).toBeLessThan(80);
+  });
+
   it('renders draw labels, shows drag feedback and emits a swapped card list', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
