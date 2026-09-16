@@ -53,7 +53,6 @@ import {
   isMonarchCard,
   isSagaCard,
 } from '../../utils/gameplay-card-kind';
-import { GameCardImagePerformanceService } from '../../services/game-card-image-performance.service';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -146,7 +145,6 @@ interface DungeonMarkerDragPoint {
 })
 export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly imagePerformance = inject(GameCardImagePerformanceService, { optional: true });
   readonly imageLoading = input<GameCardImageLoading>('lazy');
   readonly imagePriority = input<GameCardImagePriority>('auto');
   readonly deferImageUntilVisible = input(false);
@@ -154,9 +152,6 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
   private imageViewportObserver: IntersectionObserver | null = null;
   private readonly defaultHoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
 
-  onCardImageLoaded(): void {
-    this.imagePerformance?.recordCardVisible(this.image());
-  }
   private readonly singleStatPulseMs = 420;
   private readonly repeatedStatPulseMs = 900;
   private hoverLiftTimer: number | null = null;

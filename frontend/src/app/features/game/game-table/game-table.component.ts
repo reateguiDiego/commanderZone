@@ -71,7 +71,6 @@ import { GameTablePointerDragService } from './services/game-table-pointer-drag.
 import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
-import { GameCardImagePerformanceService } from './services/game-card-image-performance.service';
 import { ImagePreloadQueueService } from '../../../shared/services/image-preload-queue.service';
 import { GameScheduledImageDirective } from './directives/game-scheduled-image.directive';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
@@ -607,7 +606,6 @@ interface MotionSourceRect {
     GameTableCommandService,
     GameTableSelectionService,
     GameTableSessionService,
-    GameCardImagePerformanceService,
     ImagePreloadQueueService,
     GameTableDragService,
     GameTableDropActionsService,
@@ -654,8 +652,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
-  // Metrics must be initialized at table scope: not every layout renders GameCardView on first paint.
-  private readonly imagePerformance = inject(GameCardImagePerformanceService);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly cardsApi = inject(CardsApi);
