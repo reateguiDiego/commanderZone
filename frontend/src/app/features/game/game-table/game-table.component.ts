@@ -654,6 +654,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
+  // Metrics must be initialized at table scope: not every layout renders GameCardView on first paint.
+  private readonly imagePerformance = inject(GameCardImagePerformanceService);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly cardsApi = inject(CardsApi);
