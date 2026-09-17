@@ -186,7 +186,7 @@
     transform: translateY(calc(100% - var(--game-log-overlay-peek-height)));
   }
 
-  .floating-panel:hover,
+  .floating-panel:not(.suppress-hover-expansion):hover,
   .floating-panel:focus-within {
     max-height: none;
     transform: translateY(0);
@@ -307,7 +307,7 @@
     height: 100%;
   }
 
-  .floating-panel:hover,
+  .floating-panel:not(.suppress-hover-expansion):hover,
   .floating-panel:has(.floating-expanded-content:focus-within) {
     height: min(58dvh, 26rem);
     max-height: none;
@@ -633,7 +633,7 @@
     transform: none;
   }
 
-  .floating-panel:hover,
+  .floating-panel:not(.suppress-hover-expansion):hover,
   .floating-panel:has(.floating-expanded-content:focus-within) {
     z-index: 2600;
     width: 100%;
@@ -659,7 +659,7 @@
     line-height: 1;
   }
 
-  .floating-panel:hover header,
+  .floating-panel:not(.suppress-hover-expansion):hover header,
   .floating-panel:has(.floating-expanded-content:focus-within) header {
     height: auto;
     min-height: var(--game-log-overlay-peek-height);

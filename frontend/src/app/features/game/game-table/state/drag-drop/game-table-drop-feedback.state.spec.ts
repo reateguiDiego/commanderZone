@@ -73,6 +73,12 @@ describe('GameTableDropFeedbackState', () => {
 
     expect(state.isBattlefieldEntrySettling('player-1', 'commander-1')).toBe(true);
     expect(state.isCommanderEntrySettling('player-1', 'commander-1')).toBe(true);
+
+    vi.advanceTimersByTime(979);
+    expect(state.isCommanderEntrySettling('player-1', 'commander-1')).toBe(true);
+
+    vi.advanceTimersByTime(1);
+    expect(state.isCommanderEntrySettling('player-1', 'commander-1')).toBe(false);
   });
 
   it('uses pending commander entries when a local snapshot places the commander before the real version changes', () => {

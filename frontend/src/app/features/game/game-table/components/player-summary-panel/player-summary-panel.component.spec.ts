@@ -44,6 +44,19 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.player-extra-actions .extra-actions-panel')).toBeNull();
   });
 
+  it('uses the wider counter menu in the Grid presentation', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('gridPresentation', true);
+    fixture.detectChanges();
+
+    const menuHost = fixture.nativeElement.querySelector('app-extra-actions-menu') as HTMLElement;
+
+    expect(menuHost.style.getPropertyValue('--extra-actions-menu-width')).toBe(
+      'min(32.5rem, calc(100vw - 1rem))',
+    );
+    expect(fixture.nativeElement.querySelector('.extra-actions.viewport-safe')).toBeNull();
+  });
+
   it('emits life changes from visible life controls and legacy total gestures', () => {
     vi.useFakeTimers();
     const fixture = createFixture();

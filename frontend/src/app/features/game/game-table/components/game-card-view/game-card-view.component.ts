@@ -58,7 +58,7 @@ type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
 type DropPlacement = 'before' | 'after';
 type HandLayoutMode = 'fan' | 'row';
-type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
+type CommanderEntryDirection = 'left' | 'right';
 type StatPulse = 'increase' | 'decrease' | null;
 type LandStackRole = 'top' | 'under';
 type AttachmentStackRole = 'target' | 'equipment';
@@ -209,6 +209,7 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
   readonly manaDropSettling = input(false);
   readonly statDropSettling = input(false);
   readonly commanderEntrySettling = input(false);
+  readonly commanderEntryDirection = input<CommanderEntryDirection>('left');
   readonly hoverInteractionsEnabled = input(true);
   readonly faceToggleEnabled = input(true);
   readonly activeHoverInstanceId = input<string | null>(null);
@@ -220,7 +221,6 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
   readonly handLayout = input<HandLayoutMode>('fan');
-  readonly battlefieldFocusEntry = input<BattlefieldFocusEntry>(null);
   readonly handIndex = input<number | null>(null);
   readonly handCount = input<number | null>(null);
   readonly miniLeftPx = input<number | null>(null);
@@ -1220,16 +1220,12 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
       this.previousActiveFaceIndex !== null &&
       this.previousActiveFaceIndex !== activeFaceIndex;
 
-    if (faceChanged && this.canPlayFaceFlipAnimation()) {
+    if (faceChanged) {
       this.startFaceFlipAnimation();
     }
 
     this.previousFaceInstanceId = currentCard.instanceId;
     this.previousActiveFaceIndex = activeFaceIndex;
-  }
-
-  private canPlayFaceFlipAnimation(): boolean {
-    return this.mode() !== 'battlefield' || this.battlefieldFocusEntry() === null;
   }
 
   private startFaceFlipAnimation(): void {

@@ -14,7 +14,6 @@
   [class.battlefield-vertically-inverted]="verticallyInverted()"
   [attr.data-battlefield-vertically-inverted]="verticallyInverted() ? '' : null"
   [class.arrow-targeting]="allowArrowTargetSelection()"
-  [class.board-transitioning]="boardTransitioning()"
   appGameTableLongPress
   [appGameTableLongPressSelfOnly]="true"
   (appGameTableLongPressed)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
@@ -29,7 +28,7 @@
     @let stackPresentation = stackPresentationView(card);
     @let displayPosition = displayedCardPosition(card);
     <app-game-card-view
-      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem)"
+      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem); --game-card-overlay-scale: var(--battlefield-card-overlay-scale, 1)"
       mode="battlefield"
       [card]="card"
       [playerId]="focusedPlayer.id"
@@ -48,11 +47,11 @@
       [manaDropSettling]="isManaDropSettling()(focusedPlayer.id, card)"
       [statDropSettling]="isBattlefieldEntrySettling()(focusedPlayer.id, card)"
       [commanderEntrySettling]="isCommanderEntrySettling()(focusedPlayer.id, card)"
+      [commanderEntryDirection]="commanderEntryDirection(card)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
       [disabled]="false"
       [visible]="cardVisibility(focusedPlayer.id, card)"
-      [battlefieldFocusEntry]="battlefieldFocusEntry(card)"
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
       [toughnessValue]="cardToughnessValue()(card)"

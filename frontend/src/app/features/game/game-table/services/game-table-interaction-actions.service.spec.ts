@@ -77,7 +77,7 @@ describe('GameTableInteractionActionsService', () => {
     expect(event.stopPropagation).toHaveBeenCalled();
   });
 
-  it('opens the own library context menu from the pile top-left corner', () => {
+  it('opens the own library context menu from the click position', () => {
     const event = contextMenuEvent();
 
     service.openZoneMenu({
@@ -89,7 +89,7 @@ describe('GameTableInteractionActionsService', () => {
     }, event, 'player-1', 'library');
 
     expect(uiState.openContextMenuAt).toHaveBeenCalledWith(
-      { x: 120, y: 320 },
+      { x: 180, y: 380 },
       { playerId: 'player-1', zone: 'library', kind: 'zone' },
     );
   });

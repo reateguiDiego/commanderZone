@@ -147,9 +147,11 @@ describe('GameTableUiState', () => {
     state.openContextMenu(pointerEvent(240, 660), { playerId: 'player-1', zone: 'hand', kind: 'card', card: gameCard() });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 240,
+      x: 252,
       y: 44,
       verticalOrigin: 'bottom',
+      horizontalPlacement: 'right',
+      width: 264,
     }));
   });
 
@@ -160,26 +162,30 @@ describe('GameTableUiState', () => {
     state.openContextMenu(pointerEvent(240, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 240,
+      x: 252,
       y: 124,
       verticalOrigin: 'top',
+      horizontalPlacement: 'right',
+      width: 264,
     }));
   });
 
-  it('places narrow-screen context menus to the left of the pointer when there is room', () => {
+  it('opens context menus to the left when the click is in the final viewport quarter', () => {
     setViewport(420, 700);
     const state = new GameTableUiState();
 
     state.openContextMenu(pointerEvent(360, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 92,
+      x: 84,
       y: 124,
       verticalOrigin: 'top',
+      horizontalPlacement: 'left',
+      width: 264,
     }));
   });
 
-  it('opens card context menus to the left of the card when the default position would collide with the preview', () => {
+  it('opens a card context menu to the right inside the first three viewport quarters', () => {
     setViewport(900, 520);
     const state = new GameTableUiState();
 
@@ -199,13 +205,15 @@ describe('GameTableUiState', () => {
     });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 382,
+      x: 662,
       y: 124,
       verticalOrigin: 'top',
+      horizontalPlacement: 'right',
+      width: 230,
     }));
   });
 
-  it('can force card context menus to open to the left of the source card', () => {
+  it('keeps the main menu on the right inside the first three viewport quarters even for forced-left mechanics', () => {
     setViewport(900, 700);
     const state = new GameTableUiState();
 
@@ -226,10 +234,37 @@ describe('GameTableUiState', () => {
     });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 152,
+      x: 232,
       y: 124,
       verticalOrigin: 'top',
+      horizontalPlacement: 'right',
+      width: 264,
     }));
+  });
+
+  it('uses the same right placement across the first three viewport quarters', () => {
+    setViewport(1000, 700);
+    const state = new GameTableUiState();
+
+    for (const clientX of [100, 499, 749]) {
+      state.openContextMenu(pointerEvent(clientX, 120), {
+        playerId: 'player-1',
+        zone: 'battlefield',
+        kind: 'card',
+        card: gameCard(),
+      });
+
+      expect(state.contextMenu()).toEqual(expect.objectContaining({ horizontalPlacement: 'right' }));
+    }
+
+    state.openContextMenu(pointerEvent(750, 120), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: gameCard(),
+    });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({ horizontalPlacement: 'left' }));
   });
 
   it('closes a card context menu when that same card starts dragging', () => {

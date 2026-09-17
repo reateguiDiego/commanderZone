@@ -1,4 +1,5 @@
 import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
+import { FocusedBattlefieldComponent } from './components/focused-battlefield/focused-battlefield.component';
 import { Component, importProvidersFrom, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
@@ -548,6 +549,13 @@ describe('GameTableComponent', () => {
       expect(zoomSlider.max).toBe('140');
       expect(zoomSlider.step).toBe('1');
       expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('7.2rem');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('1');
+
+      zoomSlider.value = '70';
+      zoomSlider.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('0.7');
 
       zoomSlider.value = '111';
       zoomSlider.dispatchEvent(new Event('input'));
@@ -555,6 +563,7 @@ describe('GameTableComponent', () => {
 
       expect(zoomControls.textContent).not.toContain('111%');
       expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('7.992rem');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('1');
       expect(window.localStorage.getItem('commanderZone.gameTable.battlefieldZoomPercent')).toBe(
         '111',
       );
@@ -615,6 +624,31 @@ describe('GameTableComponent', () => {
     expect(fixture.nativeElement.querySelector('.player-sidebar')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-opponent-mini-board')).toBeNull();
     expect(fixture.nativeElement.querySelectorAll('app-focused-battlefield')).toHaveLength(2);
+    expect(
+      fixture.debugElement
+        .queryAll(By.directive(FocusedBattlefieldComponent))
+        .map((battlefield) => battlefield.componentInstance.zoomPercent()),
+    ).toEqual([60, 60]);
+    click('.zoom-toggle-button');
+    const gridZoomSlider = fixture.nativeElement.querySelector(
+      '[data-testid="battlefield-zoom-slider"]',
+    ) as HTMLInputElement;
+    expect(gridZoomSlider.min).toBe('40');
+    expect(gridZoomSlider.max).toBe('70');
+
+    gridZoomSlider.value = '55';
+    gridZoomSlider.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.gridBattlefieldZoom.zoomPercent()).toBe(55);
+    expect(
+      fixture.debugElement
+        .queryAll(By.directive(FocusedBattlefieldComponent))
+        .map((battlefield) => battlefield.componentInstance.zoomPercent()),
+    ).toEqual([55, 55]);
+    const gridLayout = fixture.nativeElement.querySelector('app-game-table-grid-layout') as HTMLElement;
+    expect(gridLayout.style.getPropertyValue('--grid-battlefield-card-width')).toBe('3.96rem');
+    expect(gridLayout.style.getPropertyValue('--grid-battlefield-card-overlay-scale')).toBe('0.55');
     const hands = fixture.debugElement.queryAll(By.directive(PlayerHandPanelComponent));
     expect(
       hands.map((hand) => ({
@@ -648,10 +682,12 @@ describe('GameTableComponent', () => {
       localPosition,
     );
     expect(component.battlefieldLayoutSize()).toEqual(squareSize);
-    click('.zoom-toggle-button');
     click('[data-testid="battlefield-zoom-square-button"]');
     expect(fixture.nativeElement.querySelector('.player-sidebar')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-game-table-grid-layout')).toBeNull();
+    expect(component.suppressFloatingPanelHoverExpansion()).toBe(true);
+    component.handleFloatingPanelLeave();
+    expect(component.suppressFloatingPanelHoverExpansion()).toBe(false);
     expect(component.battlefieldZoom.zoomPercent()).toBe(111);
     expect(component.store.focusedPlayer()?.id).toBe('user-2');
     expect(component.presentedPlayer()?.id).toBe('user-2');
@@ -2061,6 +2097,18 @@ describe('GameTableComponent', () => {
       .spyOn(fixture.componentInstance.store, 'moveHandCardByPointer')
       .mockResolvedValue(undefined);
     const target = appendDropZone(fixture.nativeElement, 'user-2', 'battlefield');
+    target.getBoundingClientRect = () =>
+      ({
+        x: 320,
+        y: 40,
+        width: 700,
+        height: 500,
+        top: 40,
+        left: 320,
+        bottom: 540,
+        right: 1020,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const floatingCard = document.createElement('div');
     floatingCard.className = 'hand-floating-card';
     fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(floatingCard);
@@ -2070,17 +2118,21 @@ describe('GameTableComponent', () => {
       targetPlayerId: 'user-2',
       movedInstanceId: 'hand-1',
       toZone: 'battlefield',
+      sourceRect: { left: 32, top: 416, width: 92, height: 128 },
       position: { x: 12, y: 34 },
     });
 
-    expect(throwElementGhost).toHaveBeenCalledWith(
-      floatingCard,
-      target,
-      expect.objectContaining({
-        scaleToTarget: false,
-        rotate: -6,
-      }),
-    );
+    const [source, ghostTarget, options] = throwElementGhost.mock.calls[0] ?? [];
+    expect(source).toBe(floatingCard);
+    expect(ghostTarget).toBeInstanceOf(HTMLElement);
+    expect(ghostTarget).not.toBe(target);
+    expect((ghostTarget as HTMLElement).style.left).toBe('390px');
+    expect((ghostTarget as HTMLElement).style.top).toBe('155px');
+    expect(options).toEqual(expect.objectContaining({
+      scaleToTarget: false,
+      rotate: -6,
+      sourceRect: { left: 32, top: 416, width: 92, height: 128 },
+    }));
     expect(prepareHandDropHandoff).toHaveBeenCalledWith(
       '[data-zone="hand"][data-card-instance-id]',
       { layoutMode: 'fan' },
@@ -2110,6 +2162,7 @@ describe('GameTableComponent', () => {
       targetPlayerId: 'user-1',
       movedInstanceId: 'hand-1',
       toZone: 'hand',
+      sourceRect: { left: 32, top: 416, width: 92, height: 128 },
     });
 
     expect(throwGhost).not.toHaveBeenCalled();
@@ -7568,7 +7621,6 @@ describe('GameTableComponent', () => {
     );
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
     expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
-    expect(fixture.componentInstance.focusEffectsEnabled()).toBe(false);
 
     fixture.componentInstance.updateArrowTargetDialog({
       playerId: 'user-2',
@@ -7579,7 +7631,6 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
     expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
-    expect(fixture.componentInstance.focusEffectsEnabled()).toBe(false);
     expect(fixture.componentInstance.arrowTargetDialog()).toEqual(
       expect.objectContaining({
         selectedPlayerId: 'user-2',
@@ -7600,7 +7651,6 @@ describe('GameTableComponent', () => {
         instanceId: 'card-1',
       }),
     );
-    expect(fixture.componentInstance.focusEffectsEnabled()).toBe(false);
 
     fixture.componentInstance.store.handleBattlefieldCardClick(
       new MouseEvent('click'),

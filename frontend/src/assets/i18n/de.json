@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Aktiven Spieler fokussieren",
       "focusTurn": "Zug fokussieren",
       "advancePhase": "Nächste Phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Enttappen",
         "upkeep": "Versorgungssegment",

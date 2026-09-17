@@ -121,6 +121,10 @@
   min-width: 4.85rem;
 }
 
+:host(.player-summary-panel-context) .player-summary-panel-grid.player-summary-panel-mirrored .life-controls {
+  justify-self: start;
+}
+
 :host(.player-summary-panel-context) .summary-return-button {
   grid-column: 3;
   grid-row: 1;

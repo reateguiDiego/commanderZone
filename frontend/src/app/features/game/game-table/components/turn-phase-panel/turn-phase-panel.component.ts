@@ -81,16 +81,6 @@ export class TurnPhasePanelComponent {
     return activePlayerId ? this.playerColor()(activePlayerId) : null;
   }
 
-  nextPhaseKey(): string {
-    const phases = this.phases();
-    const currentPhaseIndex = phases.indexOf(this.turn().phase);
-    const nextPhase = currentPhaseIndex >= 0 && currentPhaseIndex < phases.length - 1
-      ? phases[currentPhaseIndex + 1]
-      : phases[0];
-
-    return this.phaseTranslationKey(nextPhase ?? 'untap');
-  }
-
   isCompactPhase(phase: string): boolean {
     return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
   }

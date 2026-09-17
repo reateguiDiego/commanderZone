@@ -58,8 +58,16 @@ interface HandPointerZoneMoveEvent {
   targetPlayerId: string;
   movedInstanceId: string;
   toZone: GameZoneName;
+  sourceRect: HandPointerSourceRect;
   rawZone?: string;
   position?: { x: number; y: number };
+}
+
+interface HandPointerSourceRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 interface HandPointerDragStartEvent {
@@ -73,6 +81,7 @@ interface HandPointerDrag {
   playerId: string;
   card: GameCardInstance;
   pointerId: number;
+  sourceRect: HandPointerSourceRect;
   startX: number;
   startY: number;
   cardWidth: number;
@@ -514,6 +523,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
           targetPlayerId: resolved.target.targetPlayerId,
           movedInstanceId: drag.card.instanceId,
           toZone: resolved.target.toZone,
+          sourceRect: drag.sourceRect,
           ...(resolved.target.rawZone === 'mana' ? { rawZone: resolved.target.rawZone } : {}),
           ...(resolved.target.position ? { position: resolved.target.position } : {}),
         });
@@ -658,10 +668,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   blurHand(event: FocusEvent): void {
-    if (this.motionActive()) {
-      return;
-    }
-
     const currentTarget = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const nextTarget = event.relatedTarget instanceof Node ? event.relatedTarget : null;
     if (currentTarget?.contains(nextTarget)) {
@@ -669,6 +675,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.focusInside = false;
+    if (this.motionActive()) {
+      return;
+    }
+
     if (!this.pointerInside && !this.interactionFrozen()) {
       this.hideHand();
     }
@@ -716,6 +726,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       playerId,
       card,
       pointerId: event.pointerId,
+      sourceRect: this.sourceRectFromBounds(visualBounds),
       startX: event.clientX,
       startY: event.clientY,
       cardWidth,
@@ -1426,7 +1437,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.handHoverClearTimer = window.setTimeout(() => {
-      if (this.pointerInside || this.focusInside || this.hasOpenHandContextMenu()) {
+      if (
+        this.pointerInside ||
+        this.syncFocusInsideFromDocument() ||
+        this.hasOpenHandContextMenu()
+      ) {
         this.handHoverClearTimer = null;
         return;
       }
@@ -1571,6 +1586,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     );
   }
 
+  private syncFocusInsideFromDocument(): boolean {
+    const handArea = this.handAreaElement();
+    const activeElement = document.activeElement;
+    const focusInside = Boolean(handArea && activeElement && handArea.contains(activeElement));
+
+    this.focusInside = focusInside;
+
+    return focusInside;
+  }
+
   private holdHandAfterMotionIfNeeded(): void {
     this.clearPostMotionHoldTimer();
     if (this.previousHandLayoutMode !== 'row') {
@@ -1639,6 +1664,15 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     return null;
+  }
+
+  private sourceRectFromBounds(bounds: DOMRect): HandPointerSourceRect {
+    return {
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+    };
   }
 
   private handPointerSourceElement(event: PointerEvent): HTMLElement | null {

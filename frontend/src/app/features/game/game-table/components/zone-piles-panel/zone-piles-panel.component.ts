@@ -111,6 +111,7 @@ export class ZonePilesPanelComponent {
   readonly commandZoneCards = input.required<(player: PlayerView) => readonly GameCardInstance[]>();
   readonly commanderCards = input.required<(player: PlayerView) => readonly GameCardInstance[]>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
+  readonly cardBackImage = input.required<(player: PlayerView) => string>();
   readonly commanderCastCount = input.required<(player: PlayerView, commander: GameCardInstance) => number>();
   readonly canControlPlayer = input.required<(playerId: string) => boolean>();
   readonly isZoneDropSettling = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
@@ -388,6 +389,10 @@ export class ZonePilesPanelComponent {
       return null;
     }
 
+    if (drag.source.fromZone === 'library') {
+      return this.cardBackImage()(this.player());
+    }
+
     return drag.source.fromZone === 'command'
       ? this.cardImage()(drag.source.card)
       : this.zonePreviewImage()(this.player(), drag.source.fromZone);
@@ -401,7 +406,9 @@ export class ZonePilesPanelComponent {
   }
 
   canUseMousePointerDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {
-    return this.canControlCurrentPlayer() && (zone === 'graveyard' || zone === 'exile') && card !== null;
+    return this.canControlCurrentPlayer()
+      && (zone === 'library' || zone === 'graveyard' || zone === 'exile')
+      && card !== null;
   }
 
   canUseNativeZoneDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {

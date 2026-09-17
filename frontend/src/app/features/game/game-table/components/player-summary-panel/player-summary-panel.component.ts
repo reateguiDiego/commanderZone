@@ -62,6 +62,7 @@ interface CounterFeedback {
 export const PLAYER_SUMMARY_ACTION_DEBOUNCE_MS = GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS;
 export const PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS = 1180;
 const CONTEXT_PANEL_LONG_NAME_THRESHOLD = 18;
+const GRID_EXTRA_ACTIONS_MENU_WIDTH = 'min(32.5rem, calc(100vw - 1rem))';
 
 const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
   { key: 'poison', label: 'game.playerCounters.poison', icon: 'biohazard' },
@@ -99,6 +100,8 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
   readonly gridLayout = input(false);
+  readonly gridPresentation = input(false);
+  readonly mirrorLayout = input(false);
   readonly isTurnActive = input(false);
   readonly autoApplyCommanderDamageToLifeDefault = input(true, { alias: 'autoApplyCommanderDamageToLife' });
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
@@ -120,6 +123,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   );
   readonly hasLongDisplayName = computed(
     () => this.player().state.user.displayName.trim().length > CONTEXT_PANEL_LONG_NAME_THRESHOLD,
+  );
+  readonly extraActionsMenuWidth = computed(() =>
+    this.gridPresentation() ? GRID_EXTRA_ACTIONS_MENU_WIDTH : null,
   );
   readonly commanderDamageRows = computed<readonly CommanderDamageRow[]>(() => {
     const targetPlayer = this.player();

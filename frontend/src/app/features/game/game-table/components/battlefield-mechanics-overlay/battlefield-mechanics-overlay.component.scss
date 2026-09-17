@@ -36,6 +36,11 @@
   right: var(--grid-mechanics-summary-clearance, 0px);
 }
 
+:host-context(.player-cell.is-right-column) .battlefield-mechanics-overlay {
+  right: auto;
+  left: var(--grid-mechanics-summary-clearance, 0px);
+}
+
 .battlefield-mechanics-overlay__card {
   flex: 0 0 auto;
   pointer-events: auto;

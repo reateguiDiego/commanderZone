@@ -204,6 +204,48 @@ describe('CardPreviewOverlayComponent', () => {
 
     expect(fixture.componentInstance.previewStyle().top).toBeCloseTo(183.664, 3);
   });
+
+  it('uses one viewport-right position in grid layout and places the preview on the opposite vertical side of the hovered card', async () => {
+    const originalWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const originalHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+
+    try {
+      const fixture = await renderPreview({
+        sourceRect: { left: 120, top: 650, right: 220, bottom: 750, width: 100, height: 100 },
+      });
+      fixture.componentRef.setInput('battlefieldRect', {
+        left: 0,
+        top: 450,
+        right: 400,
+        bottom: 900,
+        width: 400,
+        height: 450,
+      });
+      fixture.componentRef.setInput('useViewportPosition', true);
+      fixture.detectChanges();
+
+      const lowerCardStyle = fixture.componentInstance.previewStyle();
+      expect(lowerCardStyle.left).toBe(900);
+      expect(lowerCardStyle.top).toBeCloseTo(233.664, 3);
+
+      fixture.componentRef.setInput('sourceRect', {
+        left: 120,
+        top: 100,
+        right: 220,
+        bottom: 200,
+        width: 100,
+        height: 100,
+      });
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.previewStyle().top).toBe(214);
+    } finally {
+      restoreWindowDimension('innerWidth', originalWidth);
+      restoreWindowDimension('innerHeight', originalHeight);
+    }
+  });
 });
 
 async function renderPreview(options: {
@@ -236,6 +278,7 @@ async function renderPreview(options: {
   } | null;
   revealLabel?: string | null;
   showFaceDownPill?: boolean;
+  useViewportPosition?: boolean;
 } = {}): Promise<ComponentFixture<CardPreviewOverlayComponent>> {
   await TestBed.configureTestingModule({
     imports: [CardPreviewOverlayComponent],
@@ -254,6 +297,7 @@ async function renderPreview(options: {
     width: 900,
     height: 520,
   });
+  fixture.componentRef.setInput('useViewportPosition', options.useViewportPosition ?? false);
   fixture.componentRef.setInput('sourceRect', options.sourceRect ?? null);
   fixture.componentRef.setInput('avoidRect', options.avoidRect ?? null);
   fixture.componentRef.setInput('attachmentInfo', options.attachmentInfo ?? null);
@@ -271,4 +315,16 @@ function gameCard(): GameCardInstance {
     name: 'Arcane Signet',
     tapped: false,
   };
+}
+
+function restoreWindowDimension(
+  dimension: 'innerWidth' | 'innerHeight',
+  descriptor: PropertyDescriptor | undefined,
+): void {
+  if (descriptor) {
+    Object.defineProperty(window, dimension, descriptor);
+    return;
+  }
+
+  Reflect.deleteProperty(window, dimension);
 }

@@ -19,11 +19,14 @@ export class GameTableGridLayoutComponent {
   readonly seats = input.required<readonly GridSeat[]>();
   readonly regions = input.required<PlayerRegionTemplates>();
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
+  readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
   readonly activePlayerId = input<string | null>(null);
   readonly isPlayerDropHighlighted = input<(playerId: string) => boolean>(() => false);
+  readonly canConcede = input<(playerId: string) => boolean>(() => false);
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<PlayerBattlefieldSize>();
+  readonly concedeRequested = output<MouseEvent>();
   readonly seatTurnEntries = computed(() => {
     const activePlayers = this.summaryBindings().players.filter((player) => !playerIsDefeated(player));
     const activePlayerIndex = activePlayers.findIndex((player) => player.id === this.activePlayerId());

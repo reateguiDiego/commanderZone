@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "アクティブなターンプレイヤーに焦点を当てる",
       "focusTurn": "ターンにフォーカス",
       "advancePhase": "フェーズを進める",
+      "phaseActionLabel": "フェイズ",
       "phaseLabels": {
         "untap": "アンタップ",
         "upkeep": "アップキープ",

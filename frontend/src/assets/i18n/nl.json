@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",
@@ -2510,7 +2511,7 @@
       "action": "Actie",
       "join": "Deelnemen",
       "createRoom": "Kamer maken",
-      "turn": "Turn",
+      "turn": "Beurt",
       "deleteRoom": "Kamer verwijderen",
       "timer": "Timer",
       "mulligan": "Mulligan",

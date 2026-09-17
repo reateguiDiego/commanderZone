@@ -5,14 +5,19 @@
   [attr.data-player-drop-target]="playerSeat().player.id"
   [attr.data-seat]="playerSeat().seat"
   [attr.data-player-count]="playerCount()"
+  [style.--grid-player-playmat]="playerPlaymatImageCss()"
   [class.is-current]="playerSeat().seat === 'current'"
   [class.is-turn-owner]="isTurnOwner()"
   [class.is-top-row]="isTopRow()"
+  [class.is-right-column]="isRightColumn()"
   [class.zone-row-presentation]="useSquareZonePresentation()"
   [class.drop-target-active]="isPlayerDropHighlighted()(playerSeat().player.id)"
+  [class.single-player-row]="isSinglePlayerRow()"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
 >
+  <div class="player-cell-playmat-backdrop" aria-hidden="true"></div>
+  <div class="player-cell-playmat" aria-hidden="true"></div>
   <div class="player-cell-summary">
     <app-player-summary-panel
       class="player-summary-panel-context"
@@ -24,6 +29,8 @@
       [playerCounterValue]="summaryBindings().playerCounterValue"
       [canEditCounters]="summaryBindings().canEditCounters(playerSeat().player.id)"
       [gridLayout]="summaryCompact()"
+      [gridPresentation]="true"
+      [mirrorLayout]="isRightColumn()"
       [isTurnActive]="isTurnOwner()"
       [autoApplyCommanderDamageToLife]="summaryBindings().autoApplyCommanderDamageToLife"
       [specialEntities]="summaryBindings().specialEntities(playerSeat().player.id)"
@@ -43,6 +50,12 @@
         summaryBindings().changePlayerCounter($event.playerId, $event.key, $event.delta)
       "
     />
+    @if (canConcede()(playerSeat().player.id)) {
+      <app-battlefield-concede-button
+        class="grid-player-concede-button"
+        (concedeRequested)="concedeRequested.emit($event)"
+      />
+    }
   </div>
   @if (turnStatus(); as status) {
     <div
@@ -57,7 +70,7 @@
           @if (status.isActive) {
             {{ 'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate }}
           } @else {
-            {{ 'game.playersOrder.upcomingTurnLabel' | runtimeTranslate: { count: status.distance } }}
+            {{ status.labelKey | runtimeTranslate: { count: status.distance } }}
           }
         </span>
       }

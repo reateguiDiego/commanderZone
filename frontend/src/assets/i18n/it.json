@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Focalizza il giocatore di turno attivo",
       "focusTurn": "Turno di messa a fuoco",
       "advancePhase": "Avanza fase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "STAP",
         "upkeep": "Mantenimento",

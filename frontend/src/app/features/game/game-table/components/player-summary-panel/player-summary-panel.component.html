@@ -5,6 +5,7 @@
   class="player-summary-panel"
   data-testid="player-summary-panel"
   [class.player-summary-panel-grid]="gridLayout()"
+  [class.player-summary-panel-mirrored]="mirrorLayout()"
   [class.is-turn-active]="isTurnActive()"
   [class.player-summary-panel-long-name]="hasLongDisplayName()"
   [class.player-summary-panel-has-special-entities]="visibleSpecialEntities().length > 0"
@@ -112,8 +113,9 @@
       icon="chevron-down"
       align="right"
       variant="gold"
-      [viewportSafe]="!gridLayout()"
-      [viewportPanelWidth]="gridLayout() ? 520 : 336"
+      [viewportSafe]="!gridPresentation()"
+      [viewportPanelWidth]="gridPresentation() ? 520 : 336"
+      [style.--extra-actions-menu-width]="extraActionsMenuWidth()"
       (openedChange)="syncOtherCountersExpansion($event)"
     >
       <section class="player-counter-menu" [attr.aria-label]="'game.playerSummaryPanel.playerCounters' | runtimeTranslate" [class.read-only]="!canEditCounters()">

@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",
@@ -2566,7 +2567,7 @@
       "action": "Acció",
       "join": "Uneix-te",
       "createRoom": "Crea una sala",
-      "turn": "Turn",
+      "turn": "Torn",
       "deleteRoom": "Suprimeix la sala",
       "timer": "Temporitzador",
       "mulligan": "Mulligan",

@@ -594,23 +594,40 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'exile').classList).not.toContain('dragging-zone-card');
   });
 
-  it('marks the source pile immediately when native library drag starts', async () => {
+  it('uses a battlefield-sized card-back ghost for library pointer drags', async () => {
     const libraryCard = card('library-1', 'Top Library Card', 'library');
     const fixture = await renderZonePilesPanel({
       library: [libraryCard],
       topDraggableCard: (_player, zone) => zone === 'library' ? libraryCard : null,
       zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+      cardBackImage: () => '/assets/library-sleeve.jpg',
     });
 
     const library = zoneElement(fixture, 'library');
-    library.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    stubZoneArtRect(library);
 
-    expect(library.classList).toContain('dragging-zone-card');
-
-    library.dispatchEvent(new Event('dragend', { bubbles: true }));
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: library,
+      pointerType: 'mouse',
+      pointerId: 12,
+      clientX: 20,
+      clientY: 20,
+    }), 'library', libraryCard, fixture.componentInstance.canUseMousePointerDrag('library', libraryCard));
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'mouse',
+      pointerId: 12,
+      clientX: 80,
+      clientY: 20,
+    }));
     fixture.detectChanges();
 
-    expect(library.classList).not.toContain('dragging-zone-card');
+    const ghost = fixture.nativeElement.querySelector('.zone-floating-card') as HTMLElement | null;
+
+    expect(library.getAttribute('draggable')).toBeNull();
+    expect(library.classList).toContain('dragging-zone-card');
+    expect(ghost?.style.width).toBe('116px');
+    expect(ghost?.style.height).toBe('162px');
+    expect(ghost?.querySelector('img')?.getAttribute('src')).toBe('/assets/library-sleeve.jpg');
   });
 
   it.each(['graveyard', 'exile'] as const)(
@@ -657,7 +674,10 @@ describe('ZonePilesPanelComponent', () => {
       });
       expect(sourceZone.getAttribute('draggable')).toBeNull();
       expect(sourceZone.classList).toContain('dragging-zone-card');
-      expect(fixture.nativeElement.querySelector('.zone-floating-card img')?.getAttribute('src')).toBe('/assets/pile-card.jpg');
+      const ghost = fixture.nativeElement.querySelector('.zone-floating-card') as HTMLElement | null;
+      expect(ghost?.style.width).toBe('116px');
+      expect(ghost?.style.height).toBe('162px');
+      expect(ghost?.querySelector('img')?.getAttribute('src')).toBe('/assets/pile-card.jpg');
 
       restore();
     },
@@ -826,6 +846,7 @@ interface RenderZonePilesPanelOptions {
   commandZoneCards?: (player: unknown) => readonly GameCardInstance[];
   commanderCards?: (player: unknown) => readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
+  cardBackImage?: (player: unknown) => string;
   commanderCastCount?: (player: unknown, commander: GameCardInstance) => number;
   specialEntities?: readonly GameSpecialEntity[];
   canControlPlayer?: (playerId: string) => boolean;
@@ -892,6 +913,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   fixture.componentRef.setInput('commandZoneCards', options.commandZoneCards ?? ((inputPlayer: unknown) => (inputPlayer as typeof player).state.zones.command));
   fixture.componentRef.setInput('commanderCards', options.commanderCards ?? options.commandZoneCards ?? ((inputPlayer: unknown) => (inputPlayer as typeof player).state.zones.command));
   fixture.componentRef.setInput('cardImage', options.cardImage ?? ((inputCard: GameCardInstance) => inputCard.imageUris?.['normal'] ?? null));
+  fixture.componentRef.setInput('cardBackImage', options.cardBackImage ?? (() => '/assets/default-sleeve.jpg'));
   fixture.componentRef.setInput('commanderCastCount', options.commanderCastCount ?? (() => 0));
   fixture.componentRef.setInput('canControlPlayer', options.canControlPlayer ?? (() => true));
   fixture.componentRef.setInput('isZoneDropSettling', options.isZoneDropSettling ?? (() => false));

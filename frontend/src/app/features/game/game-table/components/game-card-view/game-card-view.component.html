@@ -92,6 +92,8 @@
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.stat-drop-settling]="statDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
+    [class.commander-entry-from-left]="commanderEntrySettling() && commanderEntryDirection() === 'left'"
+    [class.commander-entry-from-right]="commanderEntrySettling() && commanderEntryDirection() === 'right'"
     [class.stat-overlay-arriving]="statOverlayArriving()"
     [class.face-flipping]="faceFlipAnimating()"
     [class.loyalty-card]="loyaltyVisible()"
@@ -113,9 +115,6 @@
     [class.hand-active-hover]="
       currentMode === 'hand' && activeHoverInstanceId() === currentCard.instanceId
     "
-    [class.focus-entry-left]="battlefieldFocusEntry() === 'left'"
-    [class.focus-entry-right]="battlefieldFocusEntry() === 'right'"
-    [class.focus-entry-fade]="battlefieldFocusEntry() === 'fade'"
     [disabled]="disabled()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.z-index]="cardZIndex()"
@@ -151,6 +150,9 @@
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
+    @if (commanderEntrySettling()) {
+      <span class="commander-theme-aura" aria-hidden="true"></span>
+    }
     @if (landStackDropTarget()) {
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {

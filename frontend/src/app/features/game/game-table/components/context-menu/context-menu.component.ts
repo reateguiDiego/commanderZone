@@ -196,6 +196,16 @@ export class ContextMenuComponent {
   ]);
   readonly gameMechanicsMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildGameMechanicsMenuItems());
   readonly manaAssistantIconSymbol = computed(() => this.randomManaIdentitySymbol());
+  readonly contextMenuTargetLabel = computed(() => {
+    const currentMenu = this.menu();
+    const card = currentMenu.card;
+
+    return card && !card.hidden && !card.faceDown
+      ? card.name
+      : this.zoneTitle()(currentMenu.zone);
+  });
+  readonly opensLeft = computed(() => this.menu().horizontalPlacement === 'left');
+  readonly opensUp = computed(() => this.menu().verticalOrigin === 'bottom');
 
   selectGameMechanic(value: string): void {
     if (value === 'monarch') {
@@ -550,6 +560,10 @@ export class ContextMenuComponent {
 
   usesLeftSubmenus(): boolean {
     const currentMenu = this.menu();
+    if (currentMenu.horizontalPlacement !== undefined) {
+      return currentMenu.horizontalPlacement === 'left';
+    }
+
     if (currentMenu.forceOpenLeft === true) {
       return true;
     }

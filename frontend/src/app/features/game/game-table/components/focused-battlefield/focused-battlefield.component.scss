@@ -1,7 +1,6 @@
 :host {
   display: contents;
 }
-
 .battlefield {
   --game-card-view-width: var(--battlefield-card-width, 7.2rem);
   --focused-mana-lane-height: var(--battlefield-mana-lane-height, 11.2rem);
@@ -30,6 +29,14 @@
   z-index: auto;
 }
 
+// Grid normally clips a player cell. During the commander entrance its card
+// travels in from outside that cell and the theme aura expands beyond it.
+// The Grid host raises just this active cell above its neighbours.
+:host-context(.player-cell:has(.game-card.commander-entry-settling)) .battlefield {
+  z-index: 180;
+  overflow: visible;
+}
+
 // A lifted battlefield card must clear Grid's reduced player summary. The
 // battlefield is normally a lower stacking context, so raise it only for the
 // active hover; the card's own z-index still remains above mechanics cards.
@@ -51,65 +58,6 @@
 
 .battlefield.arrow-targeting {
   cursor: crosshair;
-}
-
-.battlefield.board-transitioning {
-  animation: focused-battlefield-enter 980ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.battlefield.board-transitioning::after {
-  content: '';
-  position: absolute;
-  inset: -8%;
-  z-index: 680;
-  background:
-    radial-gradient(ellipse at 50% 44%, transparent 0 34%, rgb(var(--shadow-rgb) / 36%) 72%),
-    linear-gradient(100deg, transparent 0 22%, rgb(255 232 164 / 13%) 44%, transparent 66%);
-  opacity: 0;
-  transform: translateX(-10%) scale(1.04);
-  pointer-events: none;
-  animation: focused-battlefield-wipe 980ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes focused-battlefield-enter {
-  0% {
-    opacity: 0.28;
-    filter: blur(18px) brightness(0.52) saturate(0.86);
-    transform: scale(1.048) translateY(0.72rem);
-  }
-
-  42% {
-    opacity: 1;
-    filter: blur(2px) brightness(1.13) saturate(1.04);
-    transform: scale(1.012);
-  }
-
-  70% {
-    filter: brightness(1.04) saturate(1.02);
-    transform: scale(0.996);
-  }
-
-  100% {
-    filter: none;
-    transform: none;
-  }
-}
-
-@keyframes focused-battlefield-wipe {
-  0% {
-    opacity: 0.84;
-    transform: translateX(-12%) scale(1.06);
-  }
-
-  48% {
-    opacity: 0.52;
-    transform: translateX(4%) scale(1.02);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(10%) scale(1);
-  }
 }
 
 .alignment-guide {
@@ -192,12 +140,5 @@
 
     gap: 0.35rem;
     padding: 0.18rem 0.28rem 0.45rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .battlefield.board-transitioning,
-  .battlefield.board-transitioning::after {
-    animation: none;
   }
 }

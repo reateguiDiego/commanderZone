@@ -896,6 +896,71 @@ describe('PlayerHandPanelComponent', () => {
     );
   });
 
+  it('returns to fan after a transferred focused card leaves the hand and the pointer leaves later', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel();
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLButtonElement;
+
+    sourceElement.focus();
+    fixture.detectChanges();
+
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
+    fixture.componentInstance.syncHandMouseHover(
+      new MouseEvent('mousemove', { clientX: 500, clientY: 20 }),
+    );
+
+    fixture.componentRef.setInput(
+      'player',
+      playerView(fixture.componentInstance.player().state.zones.hand.slice(1)),
+    );
+    fixture.detectChanges();
+
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 500, clientY: 220 }));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+  });
+
+  it('keeps the hand in row after pointer leave while a real hand control remains focused', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel();
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLButtonElement;
+
+    sourceElement.focus();
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 500, clientY: 220 }));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+  });
+
   it('keeps the hand in row after receiving an external drop when the pointer is inside it', async () => {
     const { fixture, handArea } = await renderHandPanel({
       hasActiveCardDrag: true,
@@ -1737,6 +1802,7 @@ describe('PlayerHandPanelComponent', () => {
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
       position: { x: 40, y: 0 },
     });
 
@@ -1793,6 +1859,7 @@ describe('PlayerHandPanelComponent', () => {
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'graveyard',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -1912,6 +1979,7 @@ describe('PlayerHandPanelComponent', () => {
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
       position: { x: 120, y: 70 },
     });
 

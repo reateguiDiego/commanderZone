@@ -3,6 +3,8 @@
   right: 0.08rem;
   bottom: 0.08rem;
   z-index: 6;
+  transform: scale(var(--game-card-overlay-scale, 1));
+  transform-origin: bottom right;
 }
 
 :host(.inline-saga-counter) {

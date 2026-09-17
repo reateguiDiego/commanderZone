@@ -7,13 +7,16 @@
         [playerCount]="count"
         [regions]="regions()"
         [summaryBindings]="summaryBindings()"
+        [playmatImage]="playmatImage()"
         [isTurnOwner]="entry.turnDistance === 0"
         [turnDistance]="entry.turnDistance"
         [isPlayerDropHighlighted]="isPlayerDropHighlighted()"
+        [canConcede]="canConcede()"
         [style.grid-area]="entry.seat.seat"
         (dropAllowed)="dropAllowed.emit($event)"
         (playerDropped)="playerDropped.emit($event)"
         (battlefieldSizeChanged)="battlefieldSizeChanged.emit($event)"
+        (concedeRequested)="concedeRequested.emit($event)"
       />
     }
   </div>

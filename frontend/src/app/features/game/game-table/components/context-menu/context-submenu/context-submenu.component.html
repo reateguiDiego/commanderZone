@@ -4,6 +4,7 @@
   [class.direction-up]="direction() === 'up'"
   [class.side-left]="side() === 'left'"
   [class.child-side-left]="childSide() === 'left'"
+  [class.theme-icons]="themeIcons()"
 >
   <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
     <span class="submenu-item-label">

@@ -213,7 +213,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
       this.activeCommanderEntryKeys,
       key,
       'commander-entry',
-      1600,
+      980,
     );
   }
 

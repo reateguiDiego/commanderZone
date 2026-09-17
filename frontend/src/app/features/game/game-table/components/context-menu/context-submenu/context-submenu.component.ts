@@ -35,6 +35,7 @@ export class ContextSubmenuComponent {
   readonly direction = input<ContextSubmenuDirection>('down');
   readonly side = input<ContextSubmenuSide>('right');
   readonly childSide = input<ContextSubmenuSide>('right');
+  readonly themeIcons = input(false);
   readonly expandedChild = signal<string | null>(null);
 
   readonly toggled = output<MouseEvent>();

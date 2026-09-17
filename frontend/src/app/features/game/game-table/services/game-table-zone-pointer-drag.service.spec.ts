@@ -67,6 +67,47 @@ describe('GameTableZonePointerDragService', () => {
     restore();
   });
 
+  it.each(['library', 'graveyard', 'exile'] as const)(
+    'uses the owning battlefield card size for the %s drag ghost',
+    (fromZone) => {
+      const zone = zoneElement();
+      const battlefield = document.createElement('div');
+      battlefield.className = 'battlefield';
+      battlefield.dataset['playerId'] = 'player-1';
+      const sizeProbe = document.createElement('div');
+      sizeProbe.dataset['battlefieldCardSizeProbe'] = '';
+      sizeProbe.getBoundingClientRect = () => ({
+        x: 0,
+        y: 0,
+        width: 154,
+        height: 215,
+        top: 0,
+        right: 154,
+        bottom: 215,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+      battlefield.appendChild(sizeProbe);
+      document.body.appendChild(battlefield);
+
+      try {
+        const started = service.start(pointerEvent({
+          currentTarget: zone,
+          pointerId: 13,
+          clientX: 20,
+          clientY: 20,
+        }), 'player-1', fromZone, { ...card(), zone: fromZone });
+        const move = service.move(pointerEvent({ pointerId: 13, clientX: 80, clientY: 20 }));
+
+        expect(started).toBe(true);
+        expect(move?.source.cardWidth).toBe(154);
+        expect(move?.source.cardHeight).toBe(215);
+      } finally {
+        battlefield.remove();
+      }
+    },
+  );
+
   it('does not start without a top zone card', () => {
     const zone = zoneElement();
 

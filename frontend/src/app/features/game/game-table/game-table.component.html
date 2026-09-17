@@ -79,17 +79,17 @@
     <ng-template #viewControls>
       <app-battlefield-zoom-controls
         class="battlefield-zoom-host"
-        [zoomPercent]="battlefieldZoom.zoomPercent()"
-        [minZoomPercent]="battlefieldZoom.minZoomPercent"
-        [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
-        [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
-        [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
-        [canResetZoom]="battlefieldZoom.canResetZoom()"
+        [zoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.zoomPercent() : battlefieldZoom.zoomPercent()"
+        [minZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.minZoomPercent : battlefieldZoom.minZoomPercent"
+        [maxZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.maxZoomPercent : battlefieldZoom.maxZoomPercent"
+        [defaultZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.defaultZoomPercent : battlefieldZoom.defaultZoomPercent"
+        [zoomStepPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.zoomStepPercent : battlefieldZoom.zoomStepPercent"
+        [canResetZoom]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.canResetZoom() : battlefieldZoom.canResetZoom()"
         [playerCount]="store.players().length"
         [selectedViewLayout]="tableLayout.mode()"
         [viewLayoutAvailable]="tableLayout.gridAvailable()"
-        [showZoom]="!aggressiveCompactViewport() && tableLayout.mode() === 'square'"
-        (viewLayoutChanged)="tableLayout.select($event)"
+        [showZoom]="!aggressiveCompactViewport()"
+        (viewLayoutChanged)="selectBattlefieldViewLayout($event)"
         (zoomPercentChanged)="setBattlefieldZoom($event)"
         (resetZoom)="resetBattlefieldZoom()"
         (click)="$event.stopPropagation()"
@@ -108,7 +108,6 @@
         [verticallyInverted]="grid && battlefieldVerticallyInverted === true"
         [isCurrentPlayer]="isCurrentPlayer"
         [allowArrowTargetSelection]="manualRelationTargetingActive()"
-        [focusEffectsEnabled]="!grid && focusEffectsEnabled()"
         [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
         [isDropZoneHighlighted]="isDropZoneHighlighted"
         [cardPosition]="cardPosition"
@@ -130,8 +129,8 @@
         [canEditManaPool]="canControlPlayer"
         [isManaPoolHidden]="store.isManaPoolHidden"
         [pendingManaColors]="pendingManaPoolColorsFor(player.id)"
-        [layoutKey]="grid ? 70 : effectiveBattlefieldZoomPercent()"
-        [zoomPercent]="grid ? 70 : effectiveBattlefieldZoomPercent()"
+        [layoutKey]="grid ? gridBattlefieldZoom.zoomPercent() : effectiveBattlefieldZoomPercent()"
+        [zoomPercent]="grid ? gridBattlefieldZoom.zoomPercent() : effectiveBattlefieldZoomPercent()"
         [landStackDropPreview]="store.landStackDropPreview()"
         [attachments]="snapshot.attachments ?? []"
         [battlefieldStacks]="snapshot.battlefieldStacks ?? []"
@@ -266,6 +265,7 @@
         [commandZoneCards]="commandZoneCards"
         [commanderCards]="commanderCards"
         [cardImage]="cardImage"
+        [cardBackImage]="cardBackImage"
         [commanderCastCount]="commanderCastCount"
         [canControlPlayer]="canControlPlayer"
         [isZoneDropSettling]="isZoneDropSettling"
@@ -358,6 +358,7 @@
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
             [class.combined-activity-panel]="combineChatAndGameLog()"
+            [class.suppress-hover-expansion]="suppressFloatingPanelHoverExpansion()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
             (mouseleave)="handleFloatingPanelLeave()"
             (focusin)="queueFloatingContentScrollToBottom()"
@@ -642,8 +643,13 @@
           <div class="grid-layout-surface">
             <ng-container [ngTemplateOutlet]="viewControls" />
             <app-game-table-grid-layout
+              [style.--grid-battlefield-card-width]="gridBattlefieldZoom.cardWidthRem()"
+              [style.--grid-battlefield-gap]="gridBattlefieldZoom.gapRem()"
+              [style.--grid-battlefield-mana-lane-height]="gridBattlefieldZoom.manaLaneMinHeightRem()"
+              [style.--grid-battlefield-card-overlay-scale]="gridBattlefieldCardOverlayScale()"
               [seats]="tableLayout.seats()"
               [regions]="{ battlefield: battlefieldRegion, hand: handRegion, zones: zonesRegion }"
+              [playmatImage]="gameBackgroundImage"
               [summaryBindings]="{
                 players: store.players(),
                 colorAccent,
@@ -662,9 +668,11 @@
               }"
               [activePlayerId]="snapshot.turn.activePlayerId"
               [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+              [canConcede]="canConcedeForPlayer"
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
               (battlefieldSizeChanged)="tableLayout.recordSize($event)"
+              (concedeRequested)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
             />
           </div>
         } @else {
@@ -674,6 +682,7 @@
             [attr.data-player-id]="player.id"
             [attr.data-hand-count]="store.zoneCount(player, 'hand')"
             [style.--battlefield-card-width]="effectiveBattlefieldCardWidthRem()"
+            [style.--battlefield-card-overlay-scale]="effectiveBattlefieldCardOverlayScale()"
             [style.--battlefield-gap]="effectiveBattlefieldGapRem()"
             [style.--battlefield-mana-lane-height]="effectiveBattlefieldManaLaneHeightRem()"
             [class.active]="snapshot.turn.activePlayerId === player.id"
@@ -712,15 +721,9 @@
               }
 
               @if (canConcedeFromBattlefieldControls()) {
-                <button
-                  class="battlefield-concede-button danger-button"
-                  data-testid="battlefield-concede"
-                  type="button"
-                  (click)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
-                >
-                  <lucide-icon name="skull" size="16" />
-                  <span>{{ 'game.contextMenu.labels.concede' | runtimeTranslate }}</span>
-                </button>
+                <app-battlefield-concede-button
+                  (concedeRequested)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
+                />
               }
 
               @if (shouldShowRematchVotesButton()) {
@@ -1171,6 +1174,7 @@
           [sourceRect]="preview.sourceRect"
           [avoidRect]="contextMenuAvoidRect()"
           [battlefieldRect]="tableLayout.rectangle(preview.playerId) ?? battlefieldLayoutSize()"
+          [useViewportPosition]="tableLayout.mode() === 'grid'"
           [attachmentInfo]="hoveredPreviewAttachmentInfo()"
           [cardStateInfo]="hoveredPreviewCardStateInfo()"
           [revealLabel]="hoveredPreviewRevealLabel()"

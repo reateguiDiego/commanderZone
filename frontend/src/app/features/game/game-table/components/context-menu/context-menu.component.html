@@ -5,12 +5,23 @@
   data-testid="context-menu"
   [class.arrow-menu]="isCompactDeleteMenu()"
   [class.side-left-menu]="usesLeftSubmenus()"
+  [class.opens-left]="opensLeft()"
+  [class.opens-up]="opensUp()"
   [style.left.px]="activeMenu.x"
+  [style.width.px]="activeMenu.width"
   [style.top.px]="activeMenu.verticalOrigin === 'bottom' ? null : activeMenu.y"
   [style.bottom.px]="activeMenu.verticalOrigin === 'bottom' ? activeMenu.y : null"
   [style.--context-menu-edge-offset.px]="activeMenu.y"
   (click)="stopClick($event)"
 >
+  <div class="context-menu-surface">
+    <span class="context-menu-pointer" aria-hidden="true"></span>
+    <div
+      class="context-menu-target"
+      [attr.title]="contextMenuTargetLabel()"
+    >
+      <span>{{ contextMenuTargetLabel() }}</span>
+    </div>
   @if (activeMenu.kind === 'game') {
     <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">
       <span class="menu-item-label">
@@ -237,6 +248,7 @@
           direction="up"
           [side]="submenuSide()"
           [childSide]="submenuSide()"
+          [themeIcons]="true"
           (toggled)="toggleSubmenu($event, 'gameMechanics')"
           (itemSelected)="selectGameMechanic($event)"
         />
@@ -268,8 +280,8 @@
           [items]="moveAllToMenuItems()"
           [expanded]="isSubmenuExpanded('moveAllTo')"
           direction="up"
-          side="left"
-          childSide="left"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'moveAllTo')"
           (itemSelected)="selectMoveAllTo($event)"
         />
@@ -443,6 +455,8 @@
           [items]="counterMenuItems()"
           [expanded]="isSubmenuExpanded('counters')"
           direction="down"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'counters')"
           (itemSelected)="selectCounter($event)"
         />
@@ -495,6 +509,8 @@
           [items]="giveToPlayerMenuItems()"
           [expanded]="isSubmenuExpanded('giveToPlayer')"
           direction="down"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'giveToPlayer')"
           (itemSelected)="selectGiveToPlayer($event)"
         />
@@ -510,6 +526,8 @@
           [items]="moveToMenuItems()"
           [expanded]="isSubmenuExpanded('moveTo')"
           direction="down"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'moveTo')"
           (itemSelected)="selectMoveTo($event)"
         />
@@ -621,6 +639,8 @@
               [items]="giveToPlayerMenuItems()"
               [expanded]="isSubmenuExpanded('giveToPlayer')"
               direction="up"
+              [side]="submenuSide()"
+              [childSide]="submenuSide()"
               (toggled)="toggleSubmenu($event, 'giveToPlayer')"
               (itemSelected)="selectGiveToPlayer($event)"
             />
@@ -633,6 +653,8 @@
             [items]="giveToDestinationMenuItems()"
             [expanded]="isSubmenuExpanded('giveToPlayer')"
             direction="down"
+            [side]="submenuSide()"
+            [childSide]="submenuSide()"
             (toggled)="toggleSubmenu($event, 'giveToPlayer')"
             (itemSelected)="selectGiveToDestination($event)"
           />
@@ -651,6 +673,8 @@
           [items]="moveToMenuItems()"
           [expanded]="isSubmenuExpanded('moveTo')"
           [direction]="activeMenu.zone === 'hand' ? 'up' : 'down'"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'moveTo')"
           (itemSelected)="selectMoveTo($event)"
         />
@@ -658,7 +682,7 @@
           @if (isRevealedHandCard()) {
             <button type="button" (click)="actionSelected.emit({ type: 'stopRevealCard' })"><span class="menu-item-label"><lucide-icon name="eye-off" size="17" aria-hidden="true" /><span>{{ displayLabel('game.contextMenu.labels.stopRevealing') }}</span></span></button>
           } @else {
-            <app-context-submenu label="shared.text.reveal" icon="eye" [items]="revealToMenuItems()" [expanded]="isSubmenuExpanded('revealTo')" direction="up" (toggled)="toggleSubmenu($event, 'revealTo')" (itemSelected)="selectRevealTarget($event)" />
+            <app-context-submenu label="shared.text.reveal" icon="eye" [items]="revealToMenuItems()" [expanded]="isSubmenuExpanded('revealTo')" direction="up" [side]="submenuSide()" [childSide]="submenuSide()" (toggled)="toggleSubmenu($event, 'revealTo')" (itemSelected)="selectRevealTarget($event)" />
           }
         }
       }
@@ -679,5 +703,6 @@
         </button>
       }
     }
-  }
+    }
+  </div>
 </nav>

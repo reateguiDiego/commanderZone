@@ -629,6 +629,28 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).not.toContain('drop-settling');
   });
 
+  it('animates only the entering commander from its battlefield side', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('commanderEntrySettling', true);
+    fixture.componentRef.setInput('commanderEntryDirection', 'right');
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('commander-entry-settling');
+    expect(cardElement.classList).toContain('commander-entry-from-right');
+    expect(cardElement.classList).not.toContain('commander-entry-from-left');
+    expect(cardElement.classList).not.toContain('drop-settling');
+    expect(cardElement.querySelector('.commander-theme-aura')).not.toBeNull();
+  });
+
+  it('does not render the commander aura outside a commander entry', async () => {
+    const { cardElement } = await renderHandCard();
+
+    expect(cardElement.querySelector('.commander-theme-aura')).toBeNull();
+  });
+
   it('renders a planeswalker loyalty counter when loyalty is present', async () => {
     const { fixture } = await renderHandCard();
 
@@ -1029,20 +1051,6 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).toContain('face-flipping');
 
     vi.advanceTimersByTime(620);
-    fixture.detectChanges();
-
-    expect(cardElement.classList).not.toContain('face-flipping');
-  });
-
-  it('does not combine the face flip animation with battlefield focus entry', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('mode', 'battlefield');
-    fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('battlefieldFocusEntry', 'left');
-    fixture.detectChanges();
-
-    fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
     fixture.detectChanges();
 
     expect(cardElement.classList).not.toContain('face-flipping');

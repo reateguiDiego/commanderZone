@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",

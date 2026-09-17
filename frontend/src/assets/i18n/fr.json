@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Concentrez le joueur actif du tour",
       "focusTurn": "Centrer le tour",
       "advancePhase": "Avancer la phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Dégagement",
         "upkeep": "Entretien",

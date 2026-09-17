@@ -13,6 +13,24 @@ describe('FocusedBattlefieldComponent', () => {
     expect(battlefield.dataset['motionZone']).toBe('player-1:battlefield');
   });
 
+  it('keeps the battlefield container stationary when a card enters', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+
+    fixture.componentRef.setInput('player', playerView([
+      { instanceId: 'card-1', name: 'Sol Ring', typeLine: 'Artifact', tapped: false },
+      { instanceId: 'card-2', name: 'Arcane Signet', typeLine: 'Artifact', tapped: false },
+      { instanceId: 'card-3', name: 'Command Tower', typeLine: 'Land', tapped: false },
+      { instanceId: 'entered-card', name: 'Llanowar Elves', typeLine: 'Creature - Elf Druid', tapped: false },
+    ]));
+    fixture.detectChanges();
+
+    expect(battlefield.classList).not.toContain('board-transitioning');
+    expect(cardElement(fixture, 'entered-card').classList).not.toContain('focus-entry-left');
+    expect(cardElement(fixture, 'entered-card').classList).not.toContain('focus-entry-right');
+    expect(cardElement(fixture, 'entered-card').classList).not.toContain('focus-entry-fade');
+  });
+
   it('marks every card that acts as the active alignment reference', async () => {
     const { fixture } = await renderFocusedBattlefield({
       alignmentGuideFor: () => ({ y: 84, referenceInstanceIds: ['card-1', 'card-2'] }),
@@ -418,7 +436,6 @@ interface RenderFocusedBattlefieldOptions {
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
   cardBattleValue?: (card: GameCardInstance) => number | null;
-  focusEffectsEnabled?: boolean;
   isDraggingCard?: (card: GameCardInstance) => boolean;
   canEditManaPool?: (playerId: string) => boolean;
   isManaPoolHidden?: (playerId: string) => boolean;
@@ -438,7 +455,6 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('player', playerView(options.battlefieldCards, options.playerId));
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
-  fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
   fixture.componentRef.setInput('mechanicCards', options.mechanicCards ?? []);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));

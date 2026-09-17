@@ -1,6 +1,8 @@
-import type { BattlefieldLayoutRect } from './game-table-layout/game-table-grid-seat.model';
+import type { BattlefieldLayoutRect, BattlefieldViewLayout } from './game-table-layout/game-table-grid-seat.model';
+import { measuredBattlefieldCardSize } from './utils/battlefield-position';
 import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
+import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   RuntimeTranslatePipe,
@@ -103,6 +105,7 @@ import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-batt
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
 import {
   GameTableBattlefieldZoomState,
+  GameTableGridBattlefieldZoomState,
   MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
@@ -418,6 +421,7 @@ interface HandCardPointerMovedEvent {
   readonly targetPlayerId: string;
   readonly movedInstanceId: string;
   readonly toZone: GameZoneName;
+  readonly sourceRect: MotionSourceRect;
   readonly rawZone?: string;
   readonly position?: { x: number; y: number };
 }
@@ -542,6 +546,7 @@ interface MotionSourceRect {
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
     BattlefieldZoomControlsComponent,
+    BattlefieldConcedeButtonComponent,
     GameTableGridLayoutComponent,
     ContextMenuComponent,
     ZoneModalComponent,
@@ -579,6 +584,7 @@ interface MotionSourceRect {
     GameTableOpponentTargetsState,
     GameTableBattlefieldState,
     GameTableBattlefieldZoomState,
+    GameTableGridBattlefieldZoomState,
     GameTableCardsState,
     GameTableContextStore,
     GameTableCountersState,
@@ -673,6 +679,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly tableLayout = inject(GameTableLayoutState);
   readonly squareBattlefieldSizeChanged = (rect: BattlefieldLayoutRect): void => this.updateBattlefieldLayoutSize(rect);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
+  readonly gridBattlefieldZoom = inject(GameTableGridBattlefieldZoomState);
+  readonly suppressFloatingPanelHoverExpansion = signal(false);
   readonly aggressiveCompactViewport = signal(false);
   readonly effectiveBattlefieldZoomPercent = computed(() =>
     this.aggressiveCompactViewport()
@@ -681,6 +689,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   );
   readonly effectiveBattlefieldCardWidthRem = computed(() =>
     this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()),
+  );
+  readonly gridBattlefieldCardOverlayScale = computed(() =>
+    this.gridBattlefieldZoom.zoomPercent() / this.battlefieldZoom.defaultZoomPercent,
+  );
+  readonly effectiveBattlefieldCardOverlayScale = computed(() =>
+    Math.min(
+      1,
+      this.effectiveBattlefieldZoomPercent() / this.battlefieldZoom.defaultZoomPercent,
+    ),
   );
   readonly effectiveBattlefieldGapRem = computed(() =>
     this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()),
@@ -749,6 +766,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     ...this.battlefieldEmblemsForPlayer(playerId),
   ];
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly cardBackImage = (player: PlayerView): string => this.store.cardBackImage(player);
   readonly dungeonMarkerForCard = dungeonMarkerForCard;
   readonly dungeonPinSizeForWidth = (width: number): string =>
     `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
@@ -916,15 +934,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         Object.values(localPlayer.state.commanderDamage).some((damage) => damage >= 21))
     );
   });
+  readonly canConcedeForPlayer = (playerId: string): boolean =>
+    this.store.currentPlayer()?.id === playerId && this.canConcedeFromBattlefieldControls();
   private readonly leavingTable = signal(false);
   private readonly tableExitPending = computed(
     () => this.tableExitAction() !== null || this.leavingTable(),
   );
   readonly manualRelationTargetingActive = computed(
     () => this.store.pendingArrowSource() !== null || this.store.pendingAttachmentSource() !== null,
-  );
-  readonly focusEffectsEnabled = computed(
-    () => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive(),
   );
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({
     width: 900,
@@ -941,10 +958,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return null;
     }
 
-    const width =
+    const width = menu.width ?? (
       menu.kind === 'counter' || menu.kind === 'arrow'
         ? CONTEXT_MENU_AVOID_COMPACT_WIDTH
-        : CONTEXT_MENU_AVOID_WIDTH;
+        : CONTEXT_MENU_AVOID_WIDTH
+    );
     const top =
       menu.verticalOrigin === 'bottom'
         ? viewportHeight - menu.y - CONTEXT_MENU_AVOID_HEIGHT
@@ -1695,6 +1713,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   handleFloatingPanelLeave(): void {
+    this.suppressFloatingPanelHoverExpansion.set(false);
     this.queueFloatingContentScrollToBottom();
     if (this.combineChatAndGameLog()) {
       void Promise.all([this.logHistory.restoreLatest(), this.chatHistory.restoreLatest()]);
@@ -1732,13 +1751,27 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.queueBattlefieldReflow();
   }
 
+  selectBattlefieldViewLayout(layout: BattlefieldViewLayout): void {
+    const leavingGridForSquare = this.tableLayout.mode() === 'grid' && layout === 'square';
+    this.suppressFloatingPanelHoverExpansion.set(leavingGridForSquare);
+    this.tableLayout.select(layout);
+  }
+
   setBattlefieldZoom(percent: number): void {
-    this.battlefieldZoom.setZoomPercent(percent);
+    if (this.tableLayout.mode() === 'grid') {
+      this.gridBattlefieldZoom.setZoomPercent(percent);
+    } else {
+      this.battlefieldZoom.setZoomPercent(percent);
+    }
     this.queueBattlefieldZoomReflow();
   }
 
   resetBattlefieldZoom(): void {
-    this.battlefieldZoom.resetZoom();
+    if (this.tableLayout.mode() === 'grid') {
+      this.gridBattlefieldZoom.resetZoom();
+    } else {
+      this.battlefieldZoom.resetZoom();
+    }
     this.queueBattlefieldZoomReflow();
   }
 
@@ -2916,10 +2949,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return { element: battlefieldTarget };
     }
 
-    const targetPoint = battlefieldPosition
+    const targetCardSize = battlefieldPosition
+      ? measuredBattlefieldCardSize(battlefieldTarget)
+      : null;
+    const targetPoint = battlefieldPosition && targetCardSize
       ? {
-          x: rect.left + battlefieldPosition.x,
-          y: rect.top + battlefieldPosition.y,
+          x: rect.left + battlefieldPosition.x + targetCardSize.width / 2,
+          y: rect.top + battlefieldPosition.y + targetCardSize.height / 2,
         }
       : dropEvent
         ? { x: dropEvent.clientX, y: dropEvent.clientY }
@@ -3889,17 +3925,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       this.animateGhostToHand({
         sourceElement,
         sourceInstanceId: event.movedInstanceId,
+        sourceRect: event.sourceRect,
         targetPlayerId: event.targetPlayerId,
       });
     } else {
       this.animateGhostToDropZone({
         sourceElement,
         sourceInstanceId: event.movedInstanceId,
+        sourceRect: event.sourceRect,
         targetPlayerId: event.targetPlayerId,
         targetZone: event.rawZone === 'mana' ? 'mana' : event.toZone,
-        battlefieldPosition: this.tableLayout.mode() === 'grid' && event.toZone === 'battlefield'
-          ? event.position
-          : undefined,
+        battlefieldPosition: event.toZone === 'battlefield' ? event.position : undefined,
       });
     }
 

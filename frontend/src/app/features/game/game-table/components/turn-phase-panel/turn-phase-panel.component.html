@@ -46,7 +46,7 @@
           (click)="passTurn.emit()"
         >
           <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
-          <span>{{ 'shared.text.passTurn' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.turn' | runtimeTranslate }}</span>
         </button>
         <button
           czButton="primary"
@@ -58,7 +58,7 @@
           (click)="advancePhase.emit()"
         >
           <lucide-icon name="play" size="17" aria-hidden="true" />
-          <span data-testid="end-step">{{ nextPhaseKey() | runtimeTranslate }}</span>
+          <span data-testid="end-step">{{ 'game.turnPhasePanel.phaseActionLabel' | runtimeTranslate }}</span>
         </button>
       }
       @if (!gridLayout()) {

@@ -176,6 +176,22 @@ describe('GameTableMotionService', () => {
     expect(gsapFromToSpy.mock.calls[0]?.[0]).not.toBe(handArea);
   });
 
+  it('does not scale the battlefield when a card lands on it', () => {
+    const battlefield = document.createElement('section');
+    battlefield.dataset['zone'] = 'battlefield';
+    host.appendChild(battlefield);
+
+    service.impactZone(battlefield);
+
+    expect(gsapFromToSpy).toHaveBeenCalledWith(
+      battlefield,
+      expect.not.objectContaining({ scale: expect.anything() }),
+      expect.objectContaining({
+        clearProps: 'boxShadow,filter',
+      }),
+    );
+  });
+
   it('keeps ghost throws enabled below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
     const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });

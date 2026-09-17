@@ -3,6 +3,7 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostList
 import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { PlayerSummaryPanelComponent } from '../components/player-summary-panel/player-summary-panel.component';
+import { BattlefieldConcedeButtonComponent } from '../components/battlefield-concede-button/battlefield-concede-button.component';
 import type {
   BattlefieldLayoutRect,
   GridPlayerCount,
@@ -17,11 +18,12 @@ interface GridTurnStatus {
   readonly distance: number;
   readonly isActive: boolean;
   readonly key: string;
+  readonly labelKey: string;
 }
 
 @Component({
   selector: 'app-grid-player-battlefield',
-  imports: [NgTemplateOutlet, PlayerSummaryPanelComponent, RuntimeTranslatePipe],
+  imports: [NgTemplateOutlet, PlayerSummaryPanelComponent, BattlefieldConcedeButtonComponent, RuntimeTranslatePipe],
   templateUrl: './grid-player-battlefield.component.html',
   styleUrl: './grid-player-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,7 +43,9 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   readonly playerCount = input.required<GridPlayerCount>();
   readonly regions = input.required<PlayerRegionTemplates>();
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
+  readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
   readonly isPlayerDropHighlighted = input<(playerId: string) => boolean>(() => false);
+  readonly canConcede = input<(playerId: string) => boolean>(() => false);
   readonly summaryCompact = signal(false);
   readonly useSquareZonePresentation = signal(false);
   // Keep this input while the development server replaces the old header template.
@@ -56,6 +60,7 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<PlayerBattlefieldSize>();
+  readonly concedeRequested = output<MouseEvent>();
   readonly isTopRow = computed(() => {
     const seat = this.playerSeat().seat;
 
@@ -75,11 +80,27 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
       distance,
       isActive,
       key: isActive ? 'active' : `upcoming-${distance}`,
+      labelKey: distance === 1 ? 'shared.text.next' : 'game.playersOrder.upcomingTurnLabel',
     };
   });
   readonly reportSize = (rect: BattlefieldLayoutRect): void => {
     this.battlefieldSizeChanged.emit({ playerId: this.playerSeat().player.id, rect });
   };
+  readonly playerPlaymatImageCss = computed(() => {
+    const image = this.playmatImage()(this.playerSeat().player).trim();
+
+    return image ? `url("${image}")` : 'none';
+  });
+  readonly isSinglePlayerRow = computed(() => {
+    const playerCount = this.playerCount();
+
+    return playerCount <= 2 || (playerCount === 3 && this.playerSeat().seat === 'current');
+  });
+  readonly isRightColumn = computed(() => {
+    const seat = this.playerSeat().seat;
+
+    return seat === 'opponent-2' || (this.playerCount() === 4 && seat === 'current');
+  });
   readonly context = computed<PlayerRegionContext>(() => ({
     $implicit: this.playerSeat().player,
     grid: true,

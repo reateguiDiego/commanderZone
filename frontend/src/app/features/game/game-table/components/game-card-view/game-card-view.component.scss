@@ -876,6 +876,11 @@
   display: flex;
 }
 
+.game-card .power-toughness-overlay {
+  transform: scale(var(--game-card-overlay-scale, 1));
+  transform-origin: bottom right;
+}
+
 .power-toughness-overlay span {
   display: grid;
   min-width: 1.35rem;

@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { PlayerView } from '../game-table.store';
 import { GameTableGridLayoutComponent } from './game-table-grid-layout.component';
-import { buildGridSeats } from './game-table-grid-seat.model';
+import { buildGridSeats, type GridPlayerSummaryBindings } from './game-table-grid-seat.model';
 import { GameTableLayoutState } from './game-table-layout-state';
 
 @Component({
@@ -13,11 +13,33 @@ import { GameTableLayoutState } from './game-table-layout-state';
       [seats]="seats()"
       [activePlayerId]="'local'"
       [regions]="{ battlefield: region, hand: region, zones: region }"
+      [summaryBindings]="summaryBindings"
+      [playmatImage]="playmatImage"
+      [canConcede]="canConcede"
     />
   `,
 })
 class GridHost {
   readonly seats = signal(buildGridSeats([player('local')], player('local')));
+  readonly concedePlayerId = signal<string | null>(null);
+  readonly canConcede = (playerId: string): boolean => this.concedePlayerId() === playerId;
+  readonly summaryBindings: GridPlayerSummaryBindings = {
+    players: [],
+    colorAccent: () => '',
+    deckLabel: () => '',
+    manaSymbols: () => [],
+    playerCounterValue: () => 0,
+    canEditCounters: () => false,
+    autoApplyCommanderDamageToLife: false,
+    specialEntities: () => [],
+    showHelperPreview: () => undefined,
+    hideHelperPreview: () => undefined,
+    openHelperContext: () => undefined,
+    changeLife: () => undefined,
+    changeCommanderDamage: () => undefined,
+    changePlayerCounter: () => undefined,
+  };
+  readonly playmatImage = (player: PlayerView): string => `/assets/images/playmat/${player.id}.webp`;
 }
 
 describe('GameTable grid layout', () => {
@@ -42,6 +64,11 @@ describe('GameTable grid layout', () => {
           .filter((cell) => cell.classList.contains('is-top-row'))
           .map((cell) => cell.getAttribute('data-seat')),
       ).toEqual(count === 1 ? [] : count === 2 ? ['opponent-1'] : ['opponent-1', 'opponent-2']);
+      expect(
+        cells
+          .filter((cell) => cell.classList.contains('is-right-column'))
+          .map((cell) => cell.getAttribute('data-seat')),
+      ).toEqual(count === 3 ? ['opponent-2'] : count === 4 ? ['opponent-2', 'current'] : []);
       expect(cells.at(-1)?.getAttribute('data-player-id')).toBe('local');
       expect(fixture.nativeElement.querySelector(`.grid--${count}-players`)).not.toBeNull();
       players[0].state.status = 'conceded';
@@ -75,6 +102,33 @@ describe('GameTable grid layout', () => {
     expect(layout.mode()).toBe('square');
     layout.select('grid');
     expect(layout.rectangle('opponent')).toBeNull();
+  });
+
+  it('assigns each Grid battlefield its owner playmat', async () => {
+    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+    const fixture = TestBed.createComponent(GridHost);
+    const players = [player('local'), player('opponent')];
+    fixture.componentInstance.seats.set(buildGridSeats(players, players[0]));
+    fixture.detectChanges();
+
+    const panels = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="grid-player-panel"]')];
+    expect(panels.map((panel) => panel.style.getPropertyValue('--grid-player-playmat'))).toEqual([
+      'url("/assets/images/playmat/opponent.webp")',
+      'url("/assets/images/playmat/local.webp")',
+    ]);
+  });
+
+  it('places the shared concede button below the target player summary', async () => {
+    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+    const fixture = TestBed.createComponent(GridHost);
+    const players = [player('local'), player('opponent')];
+    fixture.componentInstance.seats.set(buildGridSeats(players, players[0]));
+    fixture.componentInstance.concedePlayerId.set('local');
+    fixture.detectChanges();
+
+    const localPanel = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('[data-testid="grid-player-panel"][data-player-id="local"]');
+    expect(localPanel?.querySelector('[data-testid="battlefield-concede"]')).not.toBeNull();
   });
 });
 

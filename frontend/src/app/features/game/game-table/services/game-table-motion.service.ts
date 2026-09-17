@@ -208,6 +208,24 @@ export class GameTableMotionService {
         return;
       }
 
+      if (element.dataset['zone'] === 'battlefield') {
+        gsap.fromTo(
+          element,
+          {
+            boxShadow: 'inset 0 0 0 2px rgb(var(--cz-accent-rgb) / 44%), 0 0 1.2rem rgb(var(--cz-accent-rgb) / 26%)',
+            filter: 'brightness(1.16) saturate(1.08)',
+          },
+          {
+            boxShadow: 'inset 0 0 0 0 rgb(var(--cz-accent-rgb) / 0%), 0 0 0 rgb(var(--cz-accent-rgb) / 0%)',
+            clearProps: 'boxShadow,filter',
+            duration: 0.46,
+            ease: 'power2.out',
+            filter: 'brightness(1)',
+          },
+        );
+        return;
+      }
+
       gsap.fromTo(
         element,
         {

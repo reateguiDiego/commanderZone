@@ -14,7 +14,7 @@ describe('PlayersOrderComponent', () => {
     expect(cards[1]?.dataset['playerId']).toBe('player-3');
     expect(cards[2]?.dataset['playerId']).toBe('player-1');
     expect(cards[0]?.textContent).toContain('Turn 7');
-    expect(cards[1]?.textContent).toContain('In 1');
+    expect(cards[1]?.textContent).toContain('Next');
     expect(cards[2]?.textContent).toContain('In 2');
     expect(cards[0]?.classList).toContain('active');
     expect(cards[2]?.classList).toContain('current-player');

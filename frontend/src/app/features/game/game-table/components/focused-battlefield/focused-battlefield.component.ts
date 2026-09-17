@@ -27,7 +27,6 @@ import { ManaPoolColor } from '../../utils/mana-source-detector';
 import {
   DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
   MAX_BATTLEFIELD_ZOOM_PERCENT,
-  MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
@@ -125,10 +124,9 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
-type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
-
 const MIN_STACK_VISUAL_OFFSET_Y = 12;
 const MAX_STACK_VISUAL_OFFSET_Y = 25;
+const MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT = 60;
 const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
@@ -141,9 +139,7 @@ const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
-  private lastPlayerId: string | null = null;
   private lastLayoutKey: unknown = null;
-  private boardTransitionTimer: number | null = null;
   private layoutRefreshFrame: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
@@ -153,7 +149,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly verticallyInverted = input(false);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
-  readonly focusEffectsEnabled = input(true);
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
   readonly battlefieldCards = computed(() =>
     this.player().state.zones.battlefield.filter((card) => !isBattlefieldMechanicOverlayCard(card)),
@@ -220,7 +215,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
-  readonly boardTransitioning = signal(false);
   readonly hoveredPermanentStackId = signal<string | null>(null);
   private readonly measuredLayoutVersion = signal(0);
   readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
@@ -287,10 +281,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-      this.boardTransitionTimer = null;
-    }
     if (this.layoutRefreshFrame !== null) {
       window.cancelAnimationFrame(this.layoutRefreshFrame);
       this.layoutRefreshFrame = null;
@@ -310,19 +300,12 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   ngDoCheck(): void {
-    const playerId = this.player().id;
     const layoutKey = this.layoutKey();
-    const playerChanged = this.lastPlayerId !== playerId;
     const layoutChanged = this.lastLayoutKey !== layoutKey;
 
     this.lastLayoutKey = layoutKey;
 
-    if (playerChanged) {
-      this.lastPlayerId = playerId;
-      this.triggerBoardTransition();
-    }
-
-    if (playerChanged || layoutChanged) {
+    if (layoutChanged) {
       this.queueMeasuredLayoutRefresh();
     }
   }
@@ -508,32 +491,15 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       : 'land';
   }
 
-  battlefieldFocusEntry(card: GameCardInstance): BattlefieldFocusEntry {
-    if (!this.focusEffectsEnabled() || !this.boardTransitioning()) {
-      return null;
-    }
-
-    if (!this.usesLandingFocusEntry(card)) {
-      return 'fade';
-    }
-
+  commanderEntryDirection(card: GameCardInstance): 'left' | 'right' {
     const position = this.cardPosition()(card);
-    if (!position) {
+    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
+
+    if (!position || battlefieldWidth <= 0) {
       return 'left';
     }
 
-    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
-    if (battlefieldWidth <= 0) {
-      return position.x <= 0 ? 'left' : 'right';
-    }
-
-    return position.x + 58 <= battlefieldWidth / 2 ? 'left' : 'right';
-  }
-
-  private usesLandingFocusEntry(card: GameCardInstance): boolean {
-    const typeLine = card.typeLine?.toLowerCase() ?? '';
-
-    return typeLine.includes('creature') || typeLine.includes('planeswalker');
+    return position.x <= battlefieldWidth / 2 ? 'left' : 'right';
   }
 
   private emitBattlefieldSize(element: HTMLElement): void {
@@ -568,31 +534,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     this.lastBattlefieldSize = next;
     this.battlefieldSizeChanged.emit(next);
-  }
-
-  private triggerBoardTransition(): void {
-    if (!this.focusEffectsEnabled()) {
-      this.clearBoardTransition();
-      return;
-    }
-
-    this.boardTransitioning.set(false);
-    window.requestAnimationFrame(() => this.boardTransitioning.set(true));
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-    }
-    this.boardTransitionTimer = window.setTimeout(() => {
-      this.boardTransitioning.set(false);
-      this.boardTransitionTimer = null;
-    }, 980);
-  }
-
-  private clearBoardTransition(): void {
-    this.boardTransitioning.set(false);
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-      this.boardTransitionTimer = null;
-    }
   }
 
   private queueMeasuredLayoutRefresh(): void {
@@ -637,13 +578,13 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
   private stackVisualOffsetY(): number {
     const zoomPercent = Math.max(
-      MIN_BATTLEFIELD_ZOOM_PERCENT,
+      MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT,
       Math.min(MAX_BATTLEFIELD_ZOOM_PERCENT, Math.round(this.zoomPercent())),
     );
     const offset = zoomPercent <= DEFAULT_BATTLEFIELD_ZOOM_PERCENT
       ? this.interpolateStackVisualOffset(
         zoomPercent,
-        MIN_BATTLEFIELD_ZOOM_PERCENT,
+        MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT,
         DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
         MIN_STACK_VISUAL_OFFSET_Y,
         landStackOffsetY(),

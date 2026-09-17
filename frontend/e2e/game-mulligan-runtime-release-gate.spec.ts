@@ -66,6 +66,23 @@ test.describe('mulligan runtime release gate', () => {
       } catch (error) {
         throw new Error(`${String(error)}\n\nDiagnostics:\n${diagnostics.join('\n')}\nURL: ${page.url()}\nBody:\n${(await page.locator('body').innerText()).slice(0, 2000)}`);
       }
+      await page.setViewportSize({ width: 844, height: 720 });
+      await expect(page.locator('.mulligan-card')).toHaveCount(7);
+      const compactMulliganLayout = await page.locator('.mulligan-card').evaluateAll((cards) => {
+        const grid = cards[0]?.closest('.mulligan-card-grid');
+        const cardBounds = cards.map((card) => card.getBoundingClientRect());
+
+        return {
+          columnCount: new Set(cardBounds.map((bounds) => Math.round(bounds.left))).size,
+          overflowsHorizontally: !grid || grid.scrollWidth > grid.clientWidth,
+          exceedsViewport: cardBounds.some((bounds) => bounds.left < 0 || bounds.right > window.innerWidth),
+          smallestCardWidth: Math.min(...cardBounds.map((bounds) => bounds.width)),
+        };
+      });
+      expect(compactMulliganLayout.columnCount).toBeGreaterThan(1);
+      expect(compactMulliganLayout.overflowsHorizontally).toBe(false);
+      expect(compactMulliganLayout.exceedsViewport).toBe(false);
+      expect(compactMulliganLayout.smallestCardWidth).toBeGreaterThanOrEqual(160);
       await expect(page.getByTestId('mulligan-take')).toBeEnabled();
       await waitForGameplayConnection(frames);
 

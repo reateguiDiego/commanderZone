@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "Сфокусируйте активного игрока хода",
       "focusTurn": "Фокус на ходе",
       "advancePhase": "Перейти к следующей фазе",
+      "phaseActionLabel": "Фаза",
       "phaseLabels": {
         "untap": "Разворот",
         "upkeep": "Поддержка",

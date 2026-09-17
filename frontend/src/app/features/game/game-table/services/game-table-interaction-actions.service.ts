@@ -174,10 +174,8 @@ export class GameTableInteractionActionsService {
     }
 
     if (zone !== 'battlefield') {
-      const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-      const bounds = target?.getBoundingClientRect();
       this.uiState.openContextMenuAt(
-        { x: bounds?.left ?? event.clientX, y: bounds?.top ?? event.clientY },
+        { x: event.clientX, y: event.clientY },
         { playerId, zone, kind: 'zone' },
       );
       return;

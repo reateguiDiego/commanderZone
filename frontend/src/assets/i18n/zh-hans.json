@@ -888,6 +888,7 @@
       "focusTheActiveTurnPlayer": "聚焦当前回合玩家",
       "focusTurn": "聚焦回合",
       "advancePhase": "推进阶段",
+      "phaseActionLabel": "阶段",
       "phaseLabels": {
         "untap": "重置",
         "upkeep": "维持",
