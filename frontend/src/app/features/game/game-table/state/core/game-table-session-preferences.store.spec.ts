@@ -55,6 +55,8 @@ describe('GameTableSessionPreferencesStore', () => {
     const store = TestBed.inject(GameTableSessionPreferencesStore);
 
     expect(store.preferences).toEqual({
+      defaultBattlefieldLayout: 'square',
+      showCardAlignmentHelper: true,
       showManaHelperOnStartup: false,
       enableManaRow: true,
       autoApplyCommanderDamageToLife: true,
@@ -76,6 +78,8 @@ function userWithGamePreferences(game: Partial<UserGamePreferences>): User {
       appLanguage: 'en',
       themeId: 'sunrise',
       game: {
+        defaultBattlefieldLayout: 'square',
+        showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,
         autoApplyCommanderDamageToLife: true,

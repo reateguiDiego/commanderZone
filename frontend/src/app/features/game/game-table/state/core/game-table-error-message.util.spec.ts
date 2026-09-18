@@ -30,6 +30,24 @@ describe('gameTableErrorMessage', () => {
     })).toBe('errors.runtime.no-se-pudo-aplicar-la-accion');
   });
 
+  it('explains command rejections when the local player was defeated', () => {
+    expect(gameTableErrorMessage(
+      new Error('actor is not allowed to perform command'),
+      { actorDefeated: true },
+    )).toBe('game.gameTable.defeatedActionBlocked');
+    expect(gameTableErrorMessage(
+      new Error('You can only move your own cards.'),
+      { actorDefeated: true },
+    )).toBe('game.gameTable.defeatedActionBlocked');
+  });
+
+  it('keeps actor permission rejections technical when the local player is still active', () => {
+    expect(gameTableErrorMessage(
+      new Error('actor is not allowed to perform command'),
+      { actorDefeated: false },
+    )).toBe('actor is not allowed to perform command');
+  });
+
   it('does not expose a stale disconnect-vote payload error to players', () => {
     expect(gameTableErrorMessage(new Error('invalid payload field: disconnectVote')))
       .toBe('game.gameDisconnectVoteModal.targetPlayerBackOnline');

@@ -855,7 +855,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('opponent-dungeon', $opponentBattlefield[0]['instanceId']);
     }
 
-    public function testCreateTheRingTokenStartsAtLevelOneAndReplacesPreviousCopyForThatPlayer(): void
+    public function testCreateTheRingTokenStartsAtLevelOneAndRetainsExistingTokenCopies(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $opponent = new User('opponent@example.test', 'Opponent');
@@ -888,15 +888,16 @@ class GameCommandHandlerTest extends TestCase
 
         $actorBattlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
         $opponentBattlefield = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'];
-        self::assertCount(1, $actorBattlefield);
-        self::assertSame('The Ring // The Ring Tempts You', $actorBattlefield[0]['name']);
-        self::assertSame(['Level' => 1], $actorBattlefield[0]['counters']);
-        self::assertNotSame('old-ring', $actorBattlefield[0]['instanceId']);
+        self::assertCount(2, $actorBattlefield);
+        self::assertSame('old-ring', $actorBattlefield[0]['instanceId']);
+        self::assertSame('The Ring // The Ring Tempts You', $actorBattlefield[1]['name']);
+        self::assertSame(['Level' => 1], $actorBattlefield[1]['counters']);
+        self::assertTrue($actorBattlefield[1]['isToken']);
         self::assertCount(1, $opponentBattlefield);
         self::assertSame('opponent-ring', $opponentBattlefield[0]['instanceId']);
     }
 
-    public function testTheRingLevelCounterIsClampedBetweenOneAndFour(): void
+    public function testTheRingLevelCounterBehavesLikeAnyOtherTokenCounter(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $snapshot = $this->snapshot($actor->id(), [
@@ -919,7 +920,7 @@ class GameCommandHandlerTest extends TestCase
             'value' => 9,
         ], $actor);
 
-        self::assertSame(4, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+        self::assertSame(9, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
 
         $handler->apply($game, 'card.counter.changed', [
             'playerId' => $actor->id(),
@@ -929,7 +930,7 @@ class GameCommandHandlerTest extends TestCase
             'value' => 0,
         ], $actor);
 
-        self::assertSame(1, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+        self::assertSame(0, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
 
         $handler->apply($game, 'card.counter.changed', [
             'playerId' => $actor->id(),
@@ -939,7 +940,7 @@ class GameCommandHandlerTest extends TestCase
             'remove' => true,
         ], $actor);
 
-        self::assertSame(['Level' => 1], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
     }
 
     public function testCreateTokenCommandCreatesRequestedQuantityInSingleCommand(): void
@@ -3311,7 +3312,7 @@ class GameCommandHandlerTest extends TestCase
         }
     }
 
-    public function testAttachmentCannotTargetTheRing(): void
+    public function testAttachmentCanTargetTheRingToken(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -3328,13 +3329,12 @@ class GameCommandHandlerTest extends TestCase
             ],
         ]));
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The Ring cannot be an attachment target.');
-
         (new GameCommandHandler())->apply($game, 'attachment.created', [
             'equipmentInstanceId' => 'equipment-card',
             'attachedToInstanceId' => 'the-ring-card',
         ], $actor);
+
+        self::assertSame('the-ring-card', $game->snapshot()['attachments'][0]['attachedToInstanceId']);
     }
 
     public function testAttachmentCanTargetLand(): void

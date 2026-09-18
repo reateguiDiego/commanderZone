@@ -2894,6 +2894,12 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('patch.v2', $ownerMessage['kind']);
         self::assertContains('library.top.revealed', array_column($ownerMessage['ops'], 'op'));
         self::assertContains('library.top.reveal_marker.set', array_column($ownerMessage['ops'], 'op'));
+        $revealOperationIndex = array_search('library.top.revealed', array_column($ownerMessage['ops'], 'op'), true);
+        $revealedCard = is_int($revealOperationIndex)
+            ? ($ownerMessage['ops'][$revealOperationIndex]['cards'][0] ?? [])
+            : [];
+        self::assertFalse($revealedCard['hidden'] ?? true);
+        self::assertFalse($revealedCard['faceDown'] ?? true);
         self::assertNotContains('library.top.revealed', array_column($opponentMessage['ops'], 'op'));
         self::assertContains('library.top.reveal_marker.set', array_column($opponentMessage['ops'], 'op'));
         self::assertStringNotContainsString('Private Library One', json_encode($opponentMessage, JSON_THROW_ON_ERROR));

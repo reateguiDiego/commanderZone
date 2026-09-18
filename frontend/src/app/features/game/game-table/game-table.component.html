@@ -300,7 +300,7 @@
       [class.layout-grid]="tableLayout.mode() === 'grid'"
     >
       @if (tableToast(); as toast) {
-        <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
+        <p class="table-error" role="status" aria-live="polite">{{ toast | runtimeTranslate }}</p>
       }
 
       @if (presentedPlayer(); as player) {
@@ -872,6 +872,7 @@
       <app-game-rematch-modal
         [open]="rematchModalOpen()"
         [winner]="isCurrentPlayerWinner()"
+        [gameFinished]="gameFinished()"
         [players]="rematchVotePlayers()"
         [currentVote]="currentRematchVote()"
         [pending]="rematchPending()"

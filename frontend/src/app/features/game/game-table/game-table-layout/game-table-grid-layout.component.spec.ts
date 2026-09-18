@@ -1,9 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import type { PlayerView } from '../game-table.store';
 import { GameTableGridLayoutComponent } from './game-table-grid-layout.component';
+import { GridPlayerBattlefieldComponent } from './grid-player-battlefield.component';
 import { buildGridSeats, type GridPlayerSummaryBindings } from './game-table-grid-seat.model';
 import { GameTableLayoutState } from './game-table-layout-state';
+import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 
 @Component({
   imports: [GameTableGridLayoutComponent],
@@ -104,6 +107,27 @@ describe('GameTable grid layout', () => {
     expect(layout.rectangle('opponent')).toBeNull();
   });
 
+  it('uses the saved Grid default for supported tables and falls back to Classic for five players', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        GameTableLayoutState,
+        {
+          provide: GameTableSessionPreferencesStore,
+          useValue: { preferences: { defaultBattlefieldLayout: 'grid' } },
+        },
+      ],
+    });
+    const layout = TestBed.inject(GameTableLayoutState);
+    const players = signal(['local', 'opponent'].map(player));
+
+    layout.connect({ players, currentPlayer: () => players()[0] });
+    TestBed.tick();
+    expect(layout.mode()).toBe('grid');
+
+    players.set(['local', 'a', 'b', 'c', 'd'].map(player));
+    expect(layout.mode()).toBe('square');
+  });
+
   it('assigns each Grid battlefield its owner playmat', async () => {
     await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
     const fixture = TestBed.createComponent(GridHost);
@@ -129,6 +153,31 @@ describe('GameTable grid layout', () => {
     const localPanel = (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLElement>('[data-testid="grid-player-panel"][data-player-id="local"]');
     expect(localPanel?.querySelector('[data-testid="battlefield-concede"]')).not.toBeNull();
+  });
+
+  it('shows the defeated overlay while keeping the player summary mounted', async () => {
+    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+    const fixture = TestBed.createComponent(GridHost);
+    const players = [player('local'), player('opponent')];
+    players[1].state.status = 'conceded';
+    fixture.componentInstance.seats.set(buildGridSeats(players, players[0]));
+    fixture.detectChanges();
+
+    const defeatedPanel = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('[data-testid="grid-player-panel"][data-player-id="opponent"]');
+
+    expect(defeatedPanel?.classList.contains('is-defeated')).toBe(true);
+    expect(defeatedPanel?.querySelector('[data-testid="grid-player-battlefield-skull"]')).not.toBeNull();
+    expect(defeatedPanel?.querySelector('[data-testid="player-summary-panel"]')).not.toBeNull();
+
+    const defeatedBattlefield = fixture.debugElement
+      .queryAll(By.directive(GridPlayerBattlefieldComponent))
+      .map((debugElement) => debugElement.componentInstance as GridPlayerBattlefieldComponent)
+      .find((component) => component.playerSeat().player.id === 'opponent');
+    defeatedBattlefield?.summaryCompact.set(true);
+    fixture.detectChanges();
+
+    expect(defeatedPanel?.querySelector('.player-summary-panel-grid')).toBeNull();
   });
 });
 

@@ -45,6 +45,17 @@ describe('ZonePilesPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
   });
 
+  it('shows the eye when the library contains a revealed card without a top-reveal flag', async () => {
+    const revealedCard = { ...card('library-1', 'Revealed Library Card', 'library'), revealedTo: ['player-2'] };
+    const fixture = await renderZonePilesPanel({
+      library: [revealedCard],
+      zonePreviewCard: (_player, zone) => zone === 'library' ? revealedCard : null,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
+  });
+
   it('uses the theme-specific command zone logo asset', async () => {
     const fixture = await renderZonePilesPanel();
     const appTheme = TestBed.inject(AppThemeService);
@@ -441,6 +452,53 @@ describe('ZonePilesPanelComponent', () => {
       zone: 'library',
     }));
     expect(topCard.activeFaceIndex).toBe(0);
+  });
+
+  it('puts alternate-face toggles on visible graveyard and exile stack cards', async () => {
+    const graveyardTopCard = doubleFacedZoneCard('graveyard-dfc', 'graveyard');
+    const exileTopCard = doubleFacedZoneCard('exile-dfc', 'exile');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardTopCard],
+      exile: [exileTopCard],
+      zonePreviewImage: (_player, zone) => zone === 'graveyard' || zone === 'exile' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => {
+        if (zone === 'graveyard') {
+          return graveyardTopCard;
+        }
+
+        return zone === 'exile' ? exileTopCard : null;
+      },
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const graveyardToggle = zoneElement(fixture, 'graveyard').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    const exileToggle = zoneElement(fixture, 'exile').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    expect(graveyardToggle).not.toBeNull();
+    expect(exileToggle).not.toBeNull();
+
+    graveyardToggle.click();
+    exileToggle.click();
+
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'graveyard-dfc', activeFaceIndex: 1 }),
+      zone: 'graveyard',
+    }));
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'exile-dfc', activeFaceIndex: 1 }),
+      zone: 'exile',
+    }));
+  });
+
+  it('does not put an alternate-face toggle on an unrevealed library top card', async () => {
+    const topCard = doubleFacedZoneCard('hidden-library-dfc', 'library');
+    const fixture = await renderZonePilesPanel({
+      library: [topCard],
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => zone === 'library' ? topCard : null,
+    });
+
+    expect(zoneElement(fixture, 'library').querySelector('.zone-card-stack-face-toggle')).toBeNull();
   });
 
   it('emits a large-card preview when hovering the visible graveyard and exile cards', async () => {
@@ -939,6 +997,17 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
     name,
     zone,
     tapped: false,
+  };
+}
+
+function doubleFacedZoneCard(instanceId: string, zone: GameZoneName): GameCardInstance {
+  return {
+    ...card(instanceId, 'Front // Back', zone),
+    activeFaceIndex: 0,
+    cardFaces: [
+      { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+      { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+    ],
   };
 }
 

@@ -182,7 +182,25 @@
   display: block;
 }
 
-:is(.game-card, .mini-battlefield-card):hover .double-face-toggle {
+// Hand cards use a different card width from battlefield cards, especially
+// in Grid. Size the control from that actual surface instead of the fixed
+// battlefield-overlay scale.
+.mini-card.hand-card .double-face-toggle {
+  width: clamp(1.1rem, 30%, 2.2rem);
+}
+
+.mini-card.hand-card .double-face-toggle lucide-icon {
+  display: grid;
+  width: 46%;
+  height: 46%;
+}
+
+.mini-card.hand-card .double-face-toggle ::ng-deep svg {
+  width: 100%;
+  height: 100%;
+}
+
+:is(.game-card, .mini-battlefield-card, .mini-card):hover .double-face-toggle {
   opacity: 1;
   pointer-events: auto;
 }

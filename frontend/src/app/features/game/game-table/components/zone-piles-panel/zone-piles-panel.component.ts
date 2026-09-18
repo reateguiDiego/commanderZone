@@ -17,6 +17,7 @@ import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-asset
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
+import { isRevealedCard } from '../../utils/card-reveal';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -141,25 +142,27 @@ export class ZonePilesPanelComponent {
     return this.specialEntities.globalEntity('monarch')?.ownerPlayerId === playerId;
   }
 
-  isLibraryTopRevealMarked(player: PlayerView): boolean {
-    return player.state.playTopLibraryRevealed === true || player.state.topLibraryRevealMarker === true;
+  hasRevealedLibraryCards(player: PlayerView): boolean {
+    return player.state.playTopLibraryRevealed === true
+      || player.state.topLibraryRevealMarker === true
+      || player.state.zones.library.some(isRevealedCard);
   }
 
-  canToggleLibraryTopFace(player: PlayerView): boolean {
-    if (!this.isLibraryTopRevealMarked(player)) {
-      return false;
-    }
-
-    const topCard = this.zonePreviewCard()(player, 'library');
+  canToggleZoneTopFace(player: PlayerView, zone: GameZoneName): boolean {
+    const topCard = this.zonePreviewCard()(player, zone);
     return topCard !== null
       && !topCard.hidden
+      && (zone !== 'library' || this.isLibraryTopCardRevealed(player, topCard))
       && canShowAlternateFaceToggle(topCard);
   }
 
-  previewLibraryTopFace(event: { event: MouseEvent; showingAlternateFace: boolean }): void {
+  previewZoneTopFace(
+    zone: GameZoneName,
+    event: { event: MouseEvent; showingAlternateFace: boolean },
+  ): void {
     const player = this.player();
-    const topCard = this.zonePreviewCard()(player, 'library');
-    if (!topCard || topCard.hidden) {
+    const topCard = this.zonePreviewCard()(player, zone);
+    if (!topCard || !this.canToggleZoneTopFace(player, zone)) {
       return;
     }
 
@@ -171,9 +174,15 @@ export class ZonePilesPanelComponent {
     this.cardPreviewShown.emit({
       card,
       playerId: player.id,
-      zone: 'library',
+      zone,
       sourceRect: previewRectFromElement(event.event.currentTarget instanceof Element ? event.event.currentTarget : null),
     });
+  }
+
+  private isLibraryTopCardRevealed(player: PlayerView, topCard: GameCardInstance): boolean {
+    return player.state.playTopLibraryRevealed === true
+      || player.state.topLibraryRevealMarker === true
+      || isRevealedCard(topCard);
   }
 
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {

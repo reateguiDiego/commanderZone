@@ -10,6 +10,7 @@
   [class.is-turn-owner]="isTurnOwner()"
   [class.is-top-row]="isTopRow()"
   [class.is-right-column]="isRightColumn()"
+  [class.is-defeated]="isDefeated()"
   [class.zone-row-presentation]="useSquareZonePresentation()"
   [class.drop-target-active]="isPlayerDropHighlighted()(playerSeat().player.id)"
   [class.single-player-row]="isSinglePlayerRow()"
@@ -18,6 +19,17 @@
 >
   <div class="player-cell-playmat-backdrop" aria-hidden="true"></div>
   <div class="player-cell-playmat" aria-hidden="true"></div>
+  @if (isDefeated()) {
+    <div class="grid-player-defeated-overlay" data-testid="grid-player-defeated-overlay">
+      <img
+        class="grid-player-defeated-skull"
+        data-testid="grid-player-battlefield-skull"
+        [src]="defeatedSkullImage"
+        [alt]="'game.opponentMiniBoard.playerDefeated' | runtimeTranslate"
+        draggable="false"
+      />
+    </div>
+  }
   <div class="player-cell-summary">
     <app-player-summary-panel
       class="player-summary-panel-context"
@@ -28,7 +40,7 @@
       [manaSymbols]="summaryBindings().manaSymbols"
       [playerCounterValue]="summaryBindings().playerCounterValue"
       [canEditCounters]="summaryBindings().canEditCounters(playerSeat().player.id)"
-      [gridLayout]="summaryCompact()"
+      [gridLayout]="usesCompactSummary()"
       [gridPresentation]="true"
       [mirrorLayout]="isRightColumn()"
       [isTurnActive]="isTurnOwner()"

@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} devono ancora votare. Hanno {{ seconds }}s extra per votare.",
       "timeLimit": "Limite di tempo",
       "winnerMessage": "Il tavolo è tuo. Sei sopravvissuto al caos e hai chiuso la partita con autorità.",
+      "waitForGameEnd": "Attendi la fine della partita prima di iniziare una rivincita.",
       "youDied": "Sei morto",
       "youHaveSecondsToVote": "Hai {{seconds}} da votare.",
       "yourVoteMissingExtra": "Manca il tuo voto. Hai {{seconds}} extra per votare.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "Mettere in mano?",
       "moveAllToLibrary": "Metti tutto in grimorio",
       "gamesCanOnlyBePlayedInLandscape": "I giochi possono essere giocati solo in modalità orizzontale su dispositivi mobili e tablet.",
+      "defeatedActionBlocked": "Sei stato sconfitto, quindi non puoi più eseguire azioni di gioco. Puoi ancora usare la chat mentre aspetti la fine della partita.",
       "thisTableNeedsALittleMoreRoom": "Questo tavolo ha bisogno di un po' più di spazio",
       "sorryThisResolutionIsTooCrampedFor": "Questa risoluzione è troppo stretta per una partita Commander. Regola lo zoom del browser o usa una finestra più grande.",
       "useCtrl0InYourBrowserTo": "Utilizza Ctrl+0 nel tuo browser per reimpostare lo zoom al 100%, quindi aggiorna o ridimensiona questa finestra.",
@@ -2197,6 +2199,17 @@
       "changeTheme": "Cambia tema",
       "gameSettings": {
         "title": "Preferenze di gioco",
+        "defaultBattlefieldLayout": {
+          "label": "Disposizione predefinita del tavolo",
+          "description": "Scegli come organizzare il tavolo quando apri una partita.",
+          "grid": "Griglia",
+          "classic": "Classico",
+          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la disposizione classica."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Aiuto per l'allineamento delle carte",
+          "description": "Quando sposti una carta, mostra una guida di aiuto per allinearne la posizione verticale a quella delle carte vicine."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostra l'assistente mana all'avvio",
           "description": "Mostra l'aiuto per contare il mana all'inizio di una partita. Puoi nasconderlo o mostrarlo di nuovo in qualsiasi momento durante la partita."

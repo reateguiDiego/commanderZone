@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} doivent encore voter. Ils ont {{ seconds }} s supplémentaires.",
       "timeLimit": "Délai",
       "winnerMessage": "La table est à vous. Vous avez survécu au chaos et remporté la partie avec autorité.",
+      "waitForGameEnd": "Attendez la fin de la partie avant de lancer une revanche.",
       "youDied": "Tu es mort",
       "youHaveSecondsToVote": "Vous avez {{ seconds }} s pour voter.",
       "yourVoteMissingExtra": "Votre vote est manquant. Vous disposez de {{ seconds }} supplémentaires pour voter.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "Mettre en main ?",
       "moveAllToLibrary": "Mettez tout dans la bibliothèque",
       "gamesCanOnlyBePlayedInLandscape": "Les parties ne peuvent être jouées qu’en mode paysage sur mobile et tablette.",
+      "defeatedActionBlocked": "Vous avez été vaincu : vous ne pouvez plus effectuer d’actions de jeu. Vous pouvez encore utiliser le chat en attendant la fin de la partie.",
       "thisTableNeedsALittleMoreRoom": "Cette table a besoin d’un peu plus de place",
       "sorryThisResolutionIsTooCrampedFor": "Désolé, cette résolution est trop étroite pour une partie de Commander. Veuillez ajuster le zoom du navigateur ou utiliser une fenêtre plus grande.",
       "useCtrl0InYourBrowserTo": "Utilisez Ctrl+0 dans votre navigateur pour réinitialiser le zoom à 100 %, puis actualisez ou redimensionnez cette fenêtre.",
@@ -2198,6 +2200,17 @@
       "changeTheme": "Changer de thème",
       "gameSettings": {
         "title": "Préférences de jeu",
+        "defaultBattlefieldLayout": {
+          "label": "Disposition de table par défaut",
+          "description": "Choisissez comment la table est organisée à l'ouverture d'une partie.",
+          "grid": "Grille",
+          "classic": "Classique",
+          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la disposition classique sera utilisée automatiquement."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Aide à l'alignement des cartes",
+          "description": "Lors du déplacement d'une carte, affiche un guide d'aide pour aligner sa position verticale sur celle des cartes voisines."
+        },
         "showManaHelperOnStartup": {
           "label": "Afficher l’assistant de mana au démarrage",
           "description": "Affiche l’aide au comptage du mana au début d’une partie. Vous pouvez la masquer ou l’afficher de nouveau à tout moment pendant la partie."

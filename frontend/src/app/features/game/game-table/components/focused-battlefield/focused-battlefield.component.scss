@@ -37,10 +37,11 @@
   overflow: visible;
 }
 
-// A lifted battlefield card must clear Grid's reduced player summary. The
-// battlefield is normally a lower stacking context, so raise it only for the
-// active hover; the card's own z-index still remains above mechanics cards.
-.battlefield:has(.game-card.battlefield-preview-active) {
+// A lifted regular battlefield card must clear Grid's reduced player summary.
+// Mechanics live in their own overlay above that summary. Including one here
+// would trap the overlay below it as soon as its card is hovered, causing a
+// repeated pointer enter/leave loop.
+.battlefield:has(> app-game-card-view > .game-card.battlefield-preview-active) {
   z-index: 40;
 }
 

@@ -2037,7 +2037,14 @@ function revealLibraryTop(
       );
     }
     nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
-      normalized.instance,
+      {
+        ...normalized.instance,
+        // This operation is delivered only to a viewer authorised to inspect
+        // the card. Keep that semantic guarantee even if an older server
+        // snapshot still carries the library's previous hidden flag.
+        hidden: false,
+        faceDown: false,
+      },
       nextStaticCards[normalized.instance.cardRef],
     );
     topIds.push(normalized.instance.instanceId);

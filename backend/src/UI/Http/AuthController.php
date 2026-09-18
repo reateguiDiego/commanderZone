@@ -605,7 +605,9 @@ class AuthController extends ApiController
      *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
      *   chatNotificationSounds?: bool,
-     *   combineChatAndGameLog?: bool
+     *   combineChatAndGameLog?: bool,
+     *   defaultBattlefieldLayout?: 'square'|'grid',
+     *   showCardAlignmentHelper?: bool
      * }|null
      */
     private function gamePreferencesFromPayload(mixed $payload): ?array
@@ -621,11 +623,26 @@ class AuthController extends ApiController
             'gameAnimations',
             'chatNotificationSounds',
             'combineChatAndGameLog',
+            'defaultBattlefieldLayout',
+            'showCardAlignmentHelper',
         ];
         $preferences = [];
 
         foreach ($payload as $key => $value) {
-            if (!in_array($key, $allowedKeys, true) || !is_bool($value)) {
+            if (!in_array($key, $allowedKeys, true)) {
+                return null;
+            }
+
+            if ($key === 'defaultBattlefieldLayout') {
+                if (!in_array($value, ['square', 'grid'], true)) {
+                    return null;
+                }
+
+                $preferences[$key] = $value;
+                continue;
+            }
+
+            if (!is_bool($value)) {
                 return null;
             }
 

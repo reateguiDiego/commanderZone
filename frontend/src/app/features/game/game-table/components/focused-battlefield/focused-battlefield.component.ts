@@ -314,6 +314,17 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return this.isCurrentPlayer()(playerId) && this.canDragBattlefieldCard()(playerId, card);
   }
 
+  readonly canInteractWithFocusedCard = (card: GameCardInstance): boolean =>
+    this.canInteractWithCard(this.player().id, card);
+
+  onMechanicCardPointerDown(event: PointerEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.canInteractWithCard(playerId, card)) {
+      return;
+    }
+
+    this.cardPointerDown.emit({ event, playerId, card });
+  }
+
   onCardDoubleClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.preventDefault();
     event.stopPropagation();

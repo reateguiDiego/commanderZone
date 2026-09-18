@@ -200,6 +200,7 @@ import {
 import { dungeonMarkerForCard } from './utils/dungeon-marker';
 import {
   isDayNightCard,
+  isBattlefieldMechanicOverlayCard,
   isDungeonCard,
   isEmblemCard,
   isGameplayCardTapLocked,
@@ -424,6 +425,16 @@ interface HandCardPointerMovedEvent {
   readonly sourceRect: MotionSourceRect;
   readonly rawZone?: string;
   readonly position?: { x: number; y: number };
+}
+
+function uniqueCardInstances(cards: readonly GameCardInstance[]): readonly GameCardInstance[] {
+  const cardsByInstanceId = new Map<string, GameCardInstance>();
+
+  for (const card of cards) {
+    cardsByInstanceId.set(card.instanceId, card);
+  }
+
+  return [...cardsByInstanceId.values()];
 }
 
 interface HandDroppedEvent {
@@ -761,10 +772,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null =>
     this.store.cardPosition(card);
-  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] => [
-    ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
-    ...this.battlefieldEmblemsForPlayer(playerId),
-  ];
+  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] => {
+    const battlefieldMechanics = this.store.players()
+      .find((player) => player.id === playerId)
+      ?.state.zones.battlefield.filter(isBattlefieldMechanicOverlayCard) ?? [];
+
+    return uniqueCardInstances([
+      ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
+      ...this.battlefieldEmblemsForPlayer(playerId),
+      ...battlefieldMechanics,
+    ]);
+  };
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly cardBackImage = (player: PlayerView): string => this.store.cardBackImage(player);
   readonly dungeonMarkerForCard = dungeonMarkerForCard;
@@ -865,7 +883,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly alignmentGuideFor = (
     playerId: string,
   ): { y: number; referenceInstanceIds: readonly string[] } | null =>
-    this.store.alignmentGuideFor(playerId);
+    this.gamePreferences.showCardAlignmentHelper ? this.store.alignmentGuideFor(playerId) : null;
   readonly isManaLaneHighlighted = (playerId: string): boolean =>
     this.store.isManaLaneHighlighted(playerId);
   readonly manaSourceSuggestion = (
@@ -1180,6 +1198,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return kind && currentPlayerId ? `${currentPlayerId}:${kind}` : '';
   });
   readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
+  readonly gameFinished = computed(() => {
+    const snapshot = this.store.snapshot();
+
+    return snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
+  });
   readonly shouldShowRematchVotesButton = computed(
     () => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending(),
   );
@@ -1350,8 +1373,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       // the authoritative finish handoff. A conceded spectator may vote
       // early while gameplay continues; that must never start an endgame UI
       // countdown.
-      const gameFinished = snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
-      const deadlineAt = gameFinished ? (snapshot?.rematch?.deadlineAt ?? null) : null;
+      const deadlineAt = this.gameFinished() ? (snapshot?.rematch?.deadlineAt ?? null) : null;
       queueMicrotask(() => this.syncRematchCountdown(deadlineAt));
     });
 
@@ -5511,7 +5533,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       if (response.status === 'waiting_for_game_end') {
         this.rematchModalOpen.set(false);
         this.showRematchToast(
-          response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.',
+          response.message ?? this.translateText('game.gameRematchModal.waitForGameEnd'),
         );
       }
     } catch (error) {

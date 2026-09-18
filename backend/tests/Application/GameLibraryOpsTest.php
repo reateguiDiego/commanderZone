@@ -76,6 +76,7 @@ class GameLibraryOpsTest extends TestCase
         $ops = new GameLibraryOps();
         $viewerId = 'viewer@example.test';
         $player = $this->playerWithLibrary(['top-card', 'second-card', 'third-card']);
+        $player['zones']['library'][0]['hidden'] = true;
         $player['zones']['library'][0]['revealedTo'] = [$viewerId];
         $player['zones']['library'][0][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
 
@@ -86,6 +87,7 @@ class GameLibraryOpsTest extends TestCase
 
         $topCard = $ops->topCard($player);
         self::assertSame('top-card', $topCard['instanceId'] ?? null);
+        self::assertFalse($topCard['hidden'] ?? true);
         self::assertTrue($ops->isCardVisibleTo($player, $topCard, $viewerId));
 
         $projected = $ops->projectionOrderCards($player);

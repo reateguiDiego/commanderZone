@@ -33,6 +33,11 @@
 }
 
 :host-context(.player-cell) .battlefield-mechanics-overlay {
+  // Grid mechanic cards stay at half of Square's base card width. They are
+  // intentionally independent from Grid's battlefield zoom, which keeps the
+  // shared mechanic rail legible without taking over a compact player cell.
+  --battlefield-mechanics-card-width: 3.6rem;
+
   right: var(--grid-mechanics-summary-clearance, 0px);
 }
 
@@ -49,7 +54,7 @@
 .battlefield-mechanics-overlay__mini-card {
   position: absolute;
   display: block;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   border: 1px solid rgb(232 225 208 / 34%);
   border-radius: 3px;

@@ -448,9 +448,14 @@ class GameProjectionService
                     || $hasDirectedTopAudience
                 )) {
                     if (is_array($topCard)) {
-                        $topCard['faceDown'] = false;
-
-                        return [$this->projectCard($topCard, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)];
+                        return [$this->projectCard(
+                            $this->faceUpLibraryCard($topCard),
+                            $viewerId,
+                            false,
+                            $requestedLanguage,
+                            $localizedCardsByLanguage,
+                            $rulingsLookup,
+                        )];
                     }
                 }
 
@@ -469,7 +474,7 @@ class GameProjectionService
 
         $topCard = $cards[0];
         if ($playTopRevealed || $this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
-            $topCard['faceDown'] = false;
+            $topCard = $this->faceUpLibraryCard($topCard);
             if ($playTopRevealed && !$this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
                 $topCard['revealedTo'] = ['all'];
             }
@@ -559,6 +564,7 @@ class GameProjectionService
      */
     private function faceUpLibraryCard(array $card): array
     {
+        $card['hidden'] = false;
         $card['faceDown'] = false;
 
         return $card;

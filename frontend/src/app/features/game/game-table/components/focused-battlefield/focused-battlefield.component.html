@@ -92,10 +92,16 @@
       [cards]="mechanicCards()"
       [playerId]="focusedPlayer.id"
       [image]="cardImage()"
+      [countersEditable]="isCurrentPlayer()(focusedPlayer.id)"
+      [canInteract]="canInteractWithFocusedCard"
       (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card, $event.forceOpenLeft)"
+      (cardPointerDown)="onMechanicCardPointerDown($event.event, focusedPlayer.id, $event.card)"
+      (cardClicked)="onCardClick($event.event, focusedPlayer.id, $event.card)"
+      (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
       (cardPreviewShown)="cardPreviewShown.emit($event)"
       (cardPreviewRequested)="cardPreviewRequested.emit($event)"
       (cardPreviewHidden)="onCardPointerLeft()"
+      (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
     />
   }
   @if (activeAlignmentGuide; as guide) {

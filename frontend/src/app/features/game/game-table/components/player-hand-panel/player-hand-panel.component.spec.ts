@@ -465,38 +465,8 @@ describe('PlayerHandPanelComponent', () => {
 
   it('puts the alternate-face toggle on a revealed hand card, not in its preview', async () => {
     const revealedDoubleFacedCard: GameCardInstance = {
-      instanceId: 'revealed-double-faced-card',
-      ownerId: 'player-1',
-      controllerId: 'player-1',
-      name: 'Front // Back',
-      tapped: false,
+      ...doubleFacedHandCard('revealed-double-faced-card'),
       revealedTo: ['viewer-1'],
-      zone: 'hand',
-      activeFaceIndex: 0,
-      cardFaces: [
-        {
-          name: 'Front',
-          manaCost: null,
-          typeLine: null,
-          oracleText: null,
-          power: null,
-          toughness: null,
-          loyalty: null,
-          colors: [],
-          imageUris: { normal: '/front.jpg' },
-        },
-        {
-          name: 'Back',
-          manaCost: null,
-          typeLine: null,
-          oracleText: null,
-          power: null,
-          toughness: null,
-          loyalty: null,
-          colors: [],
-          imageUris: { normal: '/back.jpg' },
-        },
-      ],
     };
     const { fixture } = await renderHandPanel({
       readOnly: true,
@@ -523,6 +493,20 @@ describe('PlayerHandPanelComponent', () => {
       }),
     );
     expect(revealedDoubleFacedCard.activeFaceIndex).toBe(0);
+  });
+
+  it('puts the alternate-face toggle on double-faced cards in a controlled hand', async () => {
+    const ownDoubleFacedCard = doubleFacedHandCard('controlled-double-faced-card');
+    const { fixture } = await renderHandPanel({
+      hand: [ownDoubleFacedCard],
+      cardImage: () => '/front.jpg',
+    });
+
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-card-instance-id="controlled-double-faced-card"] .double-face-toggle',
+      ),
+    ).not.toBeNull();
   });
 
   it('keeps opponent hands in fan layout even when they are highlighted as a drop target', async () => {
@@ -2337,5 +2321,35 @@ function playerView(
       commanderDamage: {},
       counters: {},
     },
+  };
+}
+
+function doubleFacedHandCard(instanceId: string): GameCardInstance {
+  return {
+    instanceId,
+    ownerId: 'player-1',
+    controllerId: 'player-1',
+    name: 'Front // Back',
+    tapped: false,
+    zone: 'hand',
+    activeFaceIndex: 0,
+    cardFaces: [
+      cardFace('Front', '/front.jpg'),
+      cardFace('Back', '/back.jpg'),
+    ],
+  };
+}
+
+function cardFace(name: string, image: string): NonNullable<GameCardInstance['cardFaces']>[number] {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: image },
   };
 }

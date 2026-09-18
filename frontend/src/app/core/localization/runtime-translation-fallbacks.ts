@@ -1256,6 +1256,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.gameRematchModal.roomVotes': 'Rematch votes',
   'game.gameRematchModal.winnerMessage':
     'You claimed the table. Ready for another game?',
+  'game.gameRematchModal.waitForGameEnd':
+    'Wait for the game to end before starting a rematch.',
   'game.gameRematchModal.youDied': 'You were defeated',
   'game.gameRematchModal.youHaveSecondsToVote': 'You have {{ seconds }}s to vote.',
   'game.gameRematchModal.yourVoteMissingExtra':
@@ -1265,6 +1267,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.gameTable.concedeGameConfirmationMessage':
     'You will lose this game immediately. This cannot be undone.',
   'game.gameTable.concedeGameConfirmationTitle': 'Concede game?',
+  'game.gameTable.defeatedActionBlocked':
+    'You have been defeated, so you can no longer perform game actions. You can still use chat while you wait for the game to end.',
   'game.gameTable.focusedOpponentLabel': 'Viewing:',
   'game.gameTable.gameLog': 'Game Log',
   'game.gameTable.gameLogUnreadActions': 'Game Log, unread actions',
@@ -1855,6 +1859,13 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
     'Show chat messages and game actions together in a single tab.',
   'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label':
     'Combine chat and game log',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.classic': 'Classic',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.description':
+    'Choose how the table is arranged when you open a game.',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.grid': 'Grid',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.gridWarning':
+    'Grid is only available in games with up to 4 players. With 5 or more players, the Classic layout will be used automatically.',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.label': 'Default table layout',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.description':
     'Show a visual guide at the bottom of the battlefield for placing mana-producing cards. You can place any type of card there; it is only a visual aid.',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.label': 'Show a mana row',
@@ -1867,6 +1878,9 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
     'We recommend disabling them only if you experience performance issues during a match.',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description':
     'Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match.',
+  'settings.dashboardSettingsModal.gameSettings.showCardAlignmentHelper.description':
+    'When moving a card, show an alignment guide that matches its vertical position to nearby cards.',
+  'settings.dashboardSettingsModal.gameSettings.showCardAlignmentHelper.label': 'Card alignment helper',
   'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label':
     'Show mana helper on startup',
   'settings.dashboardSettingsModal.gameSettings.title': 'Gameplay preferences',

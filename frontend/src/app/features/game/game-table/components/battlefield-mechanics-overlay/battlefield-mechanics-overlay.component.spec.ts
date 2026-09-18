@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LucideAngularModule, Minus, Plus, RotateCcw, X } from 'lucide-angular';
+import { CircleQuestionMark, LucideAngularModule, Minus, Plus, RotateCcw, X } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { BattlefieldMechanicsOverlayComponent } from './battlefield-mechanics-overlay.component';
 
@@ -11,7 +11,7 @@ describe('BattlefieldMechanicsOverlayComponent', () => {
     await TestBed.configureTestingModule({
       imports: [BattlefieldMechanicsOverlayComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Minus, Plus, RotateCcw, X })),
+        importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Minus, Plus, RotateCcw, X })),
       ],
     }).compileComponents();
 
@@ -37,6 +37,27 @@ describe('BattlefieldMechanicsOverlayComponent', () => {
 
     expect(opened).toHaveBeenCalledWith(expect.objectContaining({ card, forceOpenLeft: true }));
     expect(opened).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders and changes The Ring level in the mini mechanics overlay', () => {
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+    fixture.componentRef.setInput('variant', 'mini');
+    fixture.componentRef.setInput('miniViewportSize', { width: 240, height: 172 });
+    fixture.componentRef.setInput('countersEditable', true);
+    fixture.componentRef.setInput('cards', [{
+      ...mechanicCard('ring:1', 'The Ring // The Ring Tempts You'),
+      layout: null,
+      counters: { Level: 3 },
+    }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    expect(marker.textContent?.trim()).toContain('Level3');
+
+    marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(counterChanged).toHaveBeenCalledWith(expect.objectContaining({ card: expect.objectContaining({ instanceId: 'ring:1' }), key: 'Level', delta: 1 }));
   });
 });
 

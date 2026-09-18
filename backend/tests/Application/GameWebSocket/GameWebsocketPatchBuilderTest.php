@@ -821,6 +821,24 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringContainsString('Private Hand Two', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
     }
 
+    public function testRevealPatchUpdatesAnOwnersLargeLibraryWithoutResyncingTheWholeZone(): void
+    {
+        [$game, $actor] = $this->gameWithLibraryCards(80);
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.revealed', [
+            'playerId' => $actor->id(),
+            'zone' => 'library',
+            'instanceId' => 'library-1',
+            'to' => 'all',
+        ], 'action-reveal-large-library-card', $actor);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('card.projection.set', $message['operations'][0]['op']);
+        self::assertSame('library', $message['operations'][0]['zone']);
+        self::assertSame('library-1', $message['operations'][0]['instanceId']);
+        self::assertSame(['all'], $message['operations'][0]['card']['revealedTo']);
+    }
+
     public function testCounterAndStatsPatchesUpdateOnlyTheTargetCard(): void
     {
         [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();

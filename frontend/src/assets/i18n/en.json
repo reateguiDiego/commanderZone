@@ -833,6 +833,7 @@
       "playersMissingExtra": "Still waiting on {{ playerNames }}. {{ seconds }}s remaining.",
       "timeLimit": "Time limit",
       "winnerMessage": "You claimed the table. Ready for another game?",
+      "waitForGameEnd": "Wait for the game to end before starting a rematch.",
       "youDied": "You were defeated",
       "youHaveSecondsToVote": "You have {{ seconds }}s to vote.",
       "yourVoteMissingExtra": "Your vote is still needed. {{ seconds }}s remaining.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "Put into hand?",
       "moveAllToLibrary": "Put all into library",
       "gamesCanOnlyBePlayedInLandscape": "On mobile and tablet, games can be played only in landscape mode.",
+      "defeatedActionBlocked": "You have been defeated, so you can no longer perform game actions. You can still use chat while you wait for the game to end.",
       "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
       "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
       "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
@@ -2198,6 +2200,17 @@
       "changeTheme": "Change theme",
       "gameSettings": {
         "title": "Gameplay preferences",
+        "defaultBattlefieldLayout": {
+          "label": "Default table layout",
+          "description": "Choose how the table is arranged when you open a game.",
+          "grid": "Grid",
+          "classic": "Classic",
+          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, the Classic layout will be used automatically."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Card alignment helper",
+          "description": "When moving a card, show an alignment guide that matches its vertical position to nearby cards."
+        },
         "showManaHelperOnStartup": {
           "label": "Show mana helper on startup",
           "description": "Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match."

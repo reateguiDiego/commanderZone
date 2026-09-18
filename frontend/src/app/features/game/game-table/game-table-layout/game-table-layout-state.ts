@@ -1,5 +1,6 @@
 import { DestroyRef, Injectable, computed, effect, inject, linkedSignal, signal } from '@angular/core';
 import type { PlayerView } from '../game-table.store';
+import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 import {
   buildGridSeats,
   type BattlefieldLayoutRect,
@@ -29,11 +30,13 @@ const GRID_MINIMUM_VIEWPORT_FOR_MULTIPLAYER: GridViewport = {
 @Injectable()
 export class GameTableLayoutState {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly defaultLayout = inject(GameTableSessionPreferencesStore, { optional: true })?.preferences.defaultBattlefieldLayout ?? 'square';
   private readonly source = signal<LayoutPlayers | null>(null);
   private readonly viewport = signal<GridViewport | null>(null);
   private viewportObserver: ResizeObserver | null = null;
   private observedViewport: HTMLElement | null = null;
   private viewportResizeListener: (() => void) | null = null;
+  private defaultLayoutApplied = false;
   readonly seats = computed(() => {
     const source = this.source();
     return source ? buildGridSeats(source.players(), source.currentPlayer()) : [];
@@ -67,6 +70,16 @@ export class GameTableLayoutState {
       this.rectangles.update(
         (rectangles) => new Map([...rectangles].filter(([id]) => ids.has(id))),
       );
+    });
+
+    effect(() => {
+      const source = this.source();
+      if (this.defaultLayoutApplied || !source || source.players().length === 0) {
+        return;
+      }
+
+      this.defaultLayoutApplied = true;
+      this.select(this.defaultLayout);
     });
   }
 

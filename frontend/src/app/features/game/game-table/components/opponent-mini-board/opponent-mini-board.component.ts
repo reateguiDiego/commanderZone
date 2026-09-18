@@ -14,6 +14,7 @@ import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
+import { isRevealedCard } from '../../utils/card-reveal';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -126,10 +127,7 @@ export class OpponentMiniBoardComponent {
       return 0;
     }
 
-    return player.state.zones[zone].filter((card) =>
-      card.hidden !== true
-      && (card.revealMarker === true || (card.revealedTo?.length ?? 0) > 0),
-    ).length;
+    return player.state.zones[zone].filter(isRevealedCard).length;
   }
 
   defeatedBackgroundImageCss(player: PlayerView): string | null {

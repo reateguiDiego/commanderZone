@@ -1,6 +1,5 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { bestCardFaceImage } from '../../../../shared/utils/card-image';
-import { isTheRingCard } from './gameplay-card-kind';
 
 const UNDERCITY_INITIATIVE_FACE_NAMES = ['undercity', 'the initiative'] as const;
 
@@ -13,8 +12,7 @@ export function hasAlternateFace(card: GameCardInstance): boolean {
 
 export function canShowAlternateFaceToggle(card: GameCardInstance): boolean {
   return hasAlternateFace(card)
-    && !isUndercityInitiativeDoubleFacePair(card)
-    && !isTheRingCard(card);
+    && !isUndercityInitiativeDoubleFacePair(card);
 }
 
 export function nextCardFaceIndex(card: GameCardInstance, activeFaceIndex = activeCardFaceIndex(card)): number | null {

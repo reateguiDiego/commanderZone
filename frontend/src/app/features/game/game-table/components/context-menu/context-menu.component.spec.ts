@@ -1573,7 +1573,7 @@ describe('ContextMenuComponent', () => {
     expect(menuText(attachmentTarget)).not.toContain('Attach to...');
   });
 
-  it('lets The Ring start attachment targeting but hides face flipping and counters', () => {
+  it('shows The Ring the same card actions as a normal battlefield card', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
       playerId: 'user-1',
@@ -1584,8 +1584,8 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(menuText(fixture)).toContain('Attach to...');
-    expect(menuText(fixture)).not.toContain('Counters');
-    expect(menuText(fixture)).not.toContain('Flip Card Face');
+    expect(menuText(fixture)).toContain('Counters');
+    expect(menuText(fixture)).toContain('Flip Card Face');
   });
 
   it('shows detach all for a battlefield card with attached cards', () => {

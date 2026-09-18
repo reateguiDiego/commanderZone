@@ -37,6 +37,13 @@
           } @else {
             <span class="battlefield-mechanics-overlay__mini-card-fallback">{{ card.name }}</span>
           }
+          <app-card-marker-rail
+            class="battlefield-mechanics-overlay__mini-card-markers"
+            [counters]="visibleCounters(card)"
+            [compact]="true"
+            [countersInteractive]="countersEditable()"
+            (counterChanged)="changeCounter($event, card)"
+          />
         </button>
       }
     </div>
@@ -55,7 +62,7 @@
           [playerId]="playerId()"
           zone="battlefield"
           [image]="image()(card)"
-          [locked]="true"
+          [locked]="!canInteract()(card)"
           [selected]="false"
           [dragging]="false"
           [pendingTransfer]="false"
@@ -74,6 +81,7 @@
           [toughnessValue]="null"
           [loyaltyValue]="null"
           [counter]="null"
+          [countersEditable]="countersEditable()"
           [landStackRole]="null"
           [landStackLayer]="null"
           [landStackSize]="null"
@@ -84,9 +92,13 @@
           [landStackDropSize]="0"
           landStackDropKind="land"
           (cardMenuOpened)="openBattlefieldCardMenu($event.event, $event.card)"
+          (cardPointerDown)="cardPointerDown.emit($event)"
+          (cardClicked)="cardClicked.emit($event)"
+          (cardDoubleClicked)="cardDoubleClicked.emit($event)"
           (cardMouseEntered)="cardPreviewShown.emit($event)"
           (cardPreviewRequested)="cardPreviewRequested.emit($event)"
           (cardMouseLeft)="cardPreviewHidden.emit()"
+          (counterChanged)="counterChanged.emit($event)"
         />
       }
     </div>

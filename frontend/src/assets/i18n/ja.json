@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} はまだ投票していません。追加で {{ seconds }}秒あります。",
       "timeLimit": "制限時間",
       "winnerMessage": "テーブルはあなたのものです。あなたは混乱を乗り切り、権威を持ってゲームを終了しました。",
+      "waitForGameEnd": "再戦を始める前に、ゲームが終わるまで待ってください。",
       "youDied": "あなたは死んだ",
       "youHaveSecondsToVote": "{{ seconds }}秒以内に投票できます。",
       "yourVoteMissingExtra": "あなたの投票がまだありません。追加で {{ seconds }}秒あります。",
@@ -1000,6 +1001,7 @@
       "moveToHand": "手札に入れますか？",
       "moveAllToLibrary": "すべてライブラリーに置く",
       "gamesCanOnlyBePlayedInLandscape": "ゲームは、モバイルおよびタブレットでは横向きでのみプレイできます。",
+      "defeatedActionBlocked": "あなたは敗北したため、ゲーム操作はできません。ゲームの終了を待つ間もチャットは利用できます。",
       "thisTableNeedsALittleMoreRoom": "このテーブルにはもう少しスペースが必要です",
       "sorryThisResolutionIsTooCrampedFor": "申し訳ありませんが、この解像度は統率者戦ゲームとしては狭すぎます。ブラウザのズームを調整するか、より大きなウィンドウを使用してください。",
       "useCtrl0InYourBrowserTo": "ブラウザで Ctrl+0 を使用してズームを 100% にリセットし、このウィンドウを更新またはサイズ変更します。",
@@ -2197,6 +2199,17 @@
       "changeTheme": "テーマの変更",
       "gameSettings": {
         "title": "ゲームプレイの設定",
+        "defaultBattlefieldLayout": {
+          "label": "デフォルトのテーブルレイアウト",
+          "description": "ゲームを開いたときのテーブルの配置を選択します。",
+          "grid": "グリッド",
+          "classic": "クラシック",
+          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、クラシックレイアウトが自動的に使用されます。"
+        },
+        "showCardAlignmentHelper": {
+          "label": "カード配置アシスト",
+          "description": "カードを動かすときに、近くのカードと縦位置を揃えるためのガイドを表示します。"
+        },
         "showManaHelperOnStartup": {
           "label": "起動時にマナヘルパーを表示",
           "description": "対戦開始時にマナを数えるためのヘルパーを表示します。対戦中はいつでも非表示にしたり、再び表示したりできます。"

@@ -46,14 +46,9 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
             }
 
             $previousValue = (int) ($card['counters'][$key] ?? 0);
-            if ($helper->v2IsTheRingLevelCounter($card, $key)) {
-                $card['counters'][$key] = 1;
-                $message = sprintf('Set %s %s counters to 1.', $helper->v2CardLogName($card), $key);
-            } else {
-                unset($card['counters'][$key]);
-                $helper->v2ApplyStatCounterDelta($card, $key, -$previousValue);
-                $message = sprintf('Removed %s counter from %s.', $key, $helper->v2CardLogName($card));
-            }
+            unset($card['counters'][$key]);
+            $helper->v2ApplyStatCounterDelta($card, $key, -$previousValue);
+            $message = sprintf('Removed %s counter from %s.', $key, $helper->v2CardLogName($card));
         } else {
             if (!array_key_exists($key, $card['counters'] ?? []) && count($card['counters'] ?? []) >= 5) {
                 throw new \InvalidArgumentException('Maximum 5 different counters per card.');
@@ -63,9 +58,7 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
                 ? (int) $payload['value']
                 : (int) ($card['counters'][$key] ?? 0) + (int) ($payload['delta'] ?? 0);
             $previousValue = (int) ($card['counters'][$key] ?? 0);
-            $nextValue = $helper->v2IsTheRingLevelCounter($card, $key)
-                ? max(1, min(4, $value))
-                : max(0, $value);
+            $nextValue = max(0, $value);
             $card['counters'][$key] = $nextValue;
             $helper->v2ApplyStatCounterDelta($card, $key, $nextValue - $previousValue);
             $message = sprintf('Set %s %s counters to %d.', $helper->v2CardLogName($card), $key, $nextValue);

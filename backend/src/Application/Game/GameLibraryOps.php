@@ -312,6 +312,11 @@ final class GameLibraryOps
                 continue;
             }
 
+            // A targeted reveal must override the library's hidden-card state as
+            // well as its face-down presentation. Keeping `hidden` set makes a
+            // viewer receive the reveal marker while the client still renders
+            // the card back, including after it reloads its bootstrap snapshot.
+            $player['zones']['library'][$index]['hidden'] = false;
             $player['zones']['library'][$index]['faceDown'] = false;
             $player['zones']['library'][$index]['revealedTo'] = $targets;
             $player['zones']['library'][$index][self::CARD_VISIBILITY_EPOCH_KEY] = $epoch;

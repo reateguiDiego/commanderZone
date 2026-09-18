@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} ainda precisa votar. Há mais {{ seconds }}s para votar.",
       "timeLimit": "Limite de tempo",
       "winnerMessage": "A mesa é sua. Você sobreviveu ao caos e fechou a partida com autoridade.",
+      "waitForGameEnd": "Aguarde o fim da partida antes de iniciar uma revanche.",
       "youDied": "Você morreu",
       "youHaveSecondsToVote": "Você tem {{ seconds }}s para votar.",
       "yourVoteMissingExtra": "Seu voto está faltando. Você tem mais {{ seconds }}s para votar.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "Mover para a mão?",
       "moveAllToLibrary": "Colocar tudo no grimório",
       "gamesCanOnlyBePlayedInLandscape": "As partidas só podem ser jogadas em modo paisagem em celulares e tablets.",
+      "defeatedActionBlocked": "Você foi derrotado e não pode mais realizar ações de jogo. Você ainda pode usar o chat enquanto espera a partida terminar.",
       "thisTableNeedsALittleMoreRoom": "Esta mesa precisa de mais espaço",
       "sorryThisResolutionIsTooCrampedFor": "Desculpe, esta resolução é pequena demais para uma partida de Commander. Ajuste o zoom do navegador ou use uma janela maior.",
       "useCtrl0InYourBrowserTo": "Use Ctrl+0 em seu navegador para redefinir o zoom para 100% e, em seguida, atualize ou redimensione esta janela.",
@@ -2197,6 +2199,17 @@
       "changeTheme": "Alterar tema",
       "gameSettings": {
         "title": "Preferências de partida",
+        "defaultBattlefieldLayout": {
+          "label": "Layout predefinido da mesa",
+          "description": "Escolha como a mesa é organizada ao abrir uma partida.",
+          "grid": "Grade",
+          "classic": "Clássico",
+          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, o layout clássico será usado automaticamente."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ajuda de alinhamento de cartas",
+          "description": "Ao mover uma carta, mostra uma guia de ajuda para alinhar a sua posição vertical com a das cartas próximas."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostrar ajudante de mana na inicialização",
           "description": "Mostra o auxiliar para contar mana quando uma partida começa. Você pode ocultá-lo ou exibi-lo novamente a qualquer momento durante a partida."

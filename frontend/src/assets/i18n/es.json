@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} todavía necesita votar. Tienen {{ seconds }} extra para votar.",
       "timeLimit": "Límite de tiempo",
       "winnerMessage": "La mesa es tuya. Has sobrevivido al caos y has cerrado la partida con autoridad.",
+      "waitForGameEnd": "Espera a que termine la partida antes de iniciar una revancha.",
       "youDied": "Has muerto",
       "youHaveSecondsToVote": "Tienes {{ seconds }} para votar.",
       "yourVoteMissingExtra": "Falta tu voto. Tienes {{ seconds }}s extra para votar.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "¿Poner en la mano?",
       "moveAllToLibrary": "Poner todo en la biblioteca",
       "gamesCanOnlyBePlayedInLandscape": "Las partidas solo se pueden jugar en horizontal en móviles y tablets.",
+      "defeatedActionBlocked": "Has sido derrotado, así que ya no puedes realizar acciones de juego. Aún puedes usar el chat mientras esperas a que termine la partida.",
       "thisTableNeedsALittleMoreRoom": "Esta mesa necesita un poco más de espacio.",
       "sorryThisResolutionIsTooCrampedFor": "Esta resolución es demasiado estrecha para una partida de Commander. Ajusta el zoom del navegador o usa una ventana más grande.",
       "useCtrl0InYourBrowserTo": "Usa Ctrl+0 en tu navegador para restablecer el zoom al 100%; luego actualiza o cambia el tamaño de esta ventana.",
@@ -2198,6 +2200,17 @@
       "changeTheme": "Cambiar tema",
       "gameSettings": {
         "title": "Preferencias de juego",
+        "defaultBattlefieldLayout": {
+          "label": "Diseño predeterminado de la mesa",
+          "description": "Elige cómo se organiza la mesa al abrir una partida.",
+          "grid": "Cuadrícula",
+          "classic": "Clásico",
+          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente el diseño clásico."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ayuda de alineación de cartas",
+          "description": "Al mover una carta, muestra una guía de ayuda para alinear su altura con la de las cartas cercanas."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostrar ayuda de maná al iniciar",
           "description": "Muestra la ayuda para contar maná al comenzar una partida. Puedes ocultarla o volver a mostrarla cuando quieras durante la partida."

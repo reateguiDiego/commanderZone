@@ -114,14 +114,14 @@
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
                 [showRevealIndicator]="
-                  zone === 'library' && isLibraryTopRevealMarked(currentPlayer)
+                  zone === 'library' && hasRevealedLibraryCards(currentPlayer)
                 "
-                [faceToggleEnabled]="zone === 'library' && canToggleLibraryTopFace(currentPlayer)"
+                [faceToggleEnabled]="canToggleZoneTopFace(currentPlayer, zone)"
                 [shufflePlayerId]="zone === 'library' ? currentPlayer.id : null"
                 [shuffleRevision]="
                   zone === 'library' ? (currentPlayer.state.libraryShuffleRevision ?? null) : null
                 "
-                (alternateFaceToggled)="previewLibraryTopFace($event)"
+                (alternateFaceToggled)="previewZoneTopFace(zone, $event)"
               />
             }
           }

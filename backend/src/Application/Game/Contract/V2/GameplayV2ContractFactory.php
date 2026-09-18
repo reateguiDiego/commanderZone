@@ -136,11 +136,26 @@ final class GameplayV2ContractFactory
 
                 $zoneId = sprintf('%s:%s', $playerId, $zoneName);
                 $instanceIds = [];
-                $topLibraryCard = $zoneName === 'library' ? ($cards[array_key_last($cards)] ?? null) : null;
+                // Projected library zones use display order: the top card is the
+                // first element. The V2 client deliberately reverses library
+                // zone ids while hydrating so its local view has the top at
+                // index zero. Keep the wire contract tail-top to avoid turning
+                // a revealed top into the hidden bottom card in the UI.
+                $topLibraryCard = $zoneName === 'library' ? ($cards[array_key_first($cards)] ?? null) : null;
                 $topLibraryInstanceId = is_array($topLibraryCard)
                     ? trim((string) ($topLibraryCard['instanceId'] ?? ''))
                     : '';
-                foreach ($cards as $card) {
+                $runtimeTopLibraryVisibleToViewer = $zoneName === 'library'
+                    && $this->runtimeTopLibraryVisibleToViewer(
+                        $canonicalSnapshot,
+                        $playerId,
+                        $viewer->id(),
+                        $topLibraryInstanceId,
+                    );
+                $cardsInContractOrder = $zoneName === 'library'
+                    ? array_reverse($cards)
+                    : $cards;
+                foreach ($cardsInContractOrder as $card) {
                     if (!is_array($card)) {
                         continue;
                     }
@@ -151,6 +166,7 @@ final class GameplayV2ContractFactory
                         $viewer->id(),
                         $topLibraryInstanceId,
                         $this->isPlayTopLibraryRevealedToViewer($player, $viewer->id()),
+                        $runtimeTopLibraryVisibleToViewer,
                         isset($compactRuntime['instances'][trim((string) ($card['instanceId'] ?? ''))]),
                     );
                     $card = $this->withCompactRuntimeIdentity(
@@ -347,9 +363,10 @@ final class GameplayV2ContractFactory
         string $viewerId,
         string $topLibraryInstanceId,
         bool $playTopLibraryRevealed,
+        bool $runtimeTopLibraryVisibleToViewer,
         bool $preservesOwnerLibraryIdentity,
     ): array {
-        if ($zoneName !== 'library' || ($preservesOwnerLibraryIdentity && $playerId === $viewerId)) {
+        if ($zoneName !== 'library') {
             return $card;
         }
 
@@ -358,7 +375,20 @@ final class GameplayV2ContractFactory
         $isRevealedToViewer = in_array('all', $revealedTo, true)
             || in_array($viewerId, $revealedTo, true);
         $isPublicTop = $playTopLibraryRevealed && $instanceId !== '' && $instanceId === $topLibraryInstanceId;
-        if ($isRevealedToViewer || $isPublicTop) {
+        $isRuntimeTopVisible = $runtimeTopLibraryVisibleToViewer
+            && $instanceId !== ''
+            && $instanceId === $topLibraryInstanceId;
+        if ($isRevealedToViewer || $isPublicTop || $isRuntimeTopVisible) {
+            // Snapshots may contain a card which was hidden while it was in the
+            // library. Visibility is authoritative here: once this viewer is
+            // entitled to see it, it must not remain a face-down client card.
+            $card['hidden'] = false;
+            $card['faceDown'] = false;
+
+            return $card;
+        }
+
+        if ($preservesOwnerLibraryIdentity && $playerId === $viewerId) {
             return $card;
         }
 
@@ -369,6 +399,23 @@ final class GameplayV2ContractFactory
             'hidden' => true,
             'faceDown' => true,
         ];
+    }
+
+    /** @param array<string,mixed> $snapshot */
+    private function runtimeTopLibraryVisibleToViewer(
+        array $snapshot,
+        string $playerId,
+        string $viewerId,
+        string $topLibraryInstanceId,
+    ): bool {
+        if ($topLibraryInstanceId === '') {
+            return false;
+        }
+
+        $viewerMask = (int) ($snapshot['visibility']['viewerBits'][$viewerId] ?? 0);
+        $topMask = (int) ($snapshot['visibility']['library'][$playerId]['topWindowMasks'][$topLibraryInstanceId] ?? 0);
+
+        return $viewerMask > 0 && $topMask > 0 && (($topMask & $viewerMask) !== 0);
     }
 
     /** @param array<string,mixed> $player */

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameAttachment, GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
-import { gameplayCardKind, isDayNightCard, isGameplayCard, isTheRingCard } from '../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isGameplayCard } from '../utils/gameplay-card-kind';
 
 export interface BattlefieldCardRef {
   readonly playerId: string;
@@ -68,7 +68,7 @@ export class GameTablePermanentRelationService {
   }
 
   canAttachTarget(card: GameCardInstance | null | undefined): boolean {
-    return !!card && !isDayNightCard(card) && !isGameplayCard(card) && !isTheRingCard(card);
+    return !!card && !isDayNightCard(card) && !isGameplayCard(card);
   }
 
   gameplayAttachmentError(card: GameCardInstance | null | undefined, role: 'source' | 'target'): string | null {
@@ -76,12 +76,6 @@ export class GameTablePermanentRelationService {
       return role === 'source'
         ? 'Day/Night cannot be attached to another permanent.'
         : 'Day/Night cannot be an attachment target.';
-    }
-
-    if (isTheRingCard(card)) {
-      return role === 'target'
-        ? 'The Ring cannot be an attachment target.'
-        : null;
     }
 
     const kind = gameplayCardKind(card);

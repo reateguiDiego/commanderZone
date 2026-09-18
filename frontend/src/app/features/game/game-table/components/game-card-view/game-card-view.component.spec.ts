@@ -1028,13 +1028,34 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
-  it('does not show the face toggle affordance for The Ring cards', async () => {
+  it('shows the normal face toggle affordance for The Ring cards', async () => {
     const { fixture } = await renderHandCard();
 
     fixture.componentRef.setInput('card', theRingCard());
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).not.toBeNull();
+  });
+
+  it('renders The Ring level as a generic counter', async () => {
+    const { fixture } = await renderHandCard();
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { level: 2 } });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain('level2');
+
+    fixture.componentInstance.changeCounter({
+      event: new MouseEvent('click'),
+      key: 'level',
+      delta: 1,
+    });
+
+    expect(counterChanged).toHaveBeenCalledWith(expect.objectContaining({ key: 'level', delta: 1 }));
   });
 
   it('plays the face flip animation on stable battlefield cards', async () => {
@@ -1466,6 +1487,7 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-card-marker-rail')).toBeNull();
   });
+
 });
 
 async function renderHandCard(

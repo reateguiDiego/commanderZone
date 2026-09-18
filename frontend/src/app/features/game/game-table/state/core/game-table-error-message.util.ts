@@ -5,11 +5,15 @@ interface ErrorPayloadLike {
   message?: unknown;
 }
 
+export interface GameTableErrorMessageOptions {
+  readonly actorDefeated?: boolean;
+}
+
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export function gameTableErrorMessage(error: unknown): string {
+export function gameTableErrorMessage(error: unknown, options: GameTableErrorMessageOptions = {}): string {
   const payload = (typeof error === 'object' && error !== null && 'error' in error)
     ? (error as { error?: ErrorPayloadLike }).error
     : undefined;
@@ -20,6 +24,10 @@ export function gameTableErrorMessage(error: unknown): string {
 
   if (code === 'BASE_VERSION_MISMATCH' || haystack.includes('base_version_mismatch')) {
     return 'game.gameTable.reloadRequiredMessage';
+  }
+
+  if (options.actorDefeated) {
+    return 'game.gameTable.defeatedActionBlocked';
   }
 
   if (

@@ -4,6 +4,8 @@ import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { PlayerSummaryPanelComponent } from '../components/player-summary-panel/player-summary-panel.component';
 import { BattlefieldConcedeButtonComponent } from '../components/battlefield-concede-button/battlefield-concede-button.component';
+import { PLAYER_DEFEATED_SKULL_IMAGE } from '../utils/game-table-visual-assets';
+import { playerIsDefeated } from '../utils/game-player-defeat';
 import type {
   BattlefieldLayoutRect,
   GridPlayerCount,
@@ -55,7 +57,7 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   readonly turnDistance = input<number | null>(null);
   // Kept alongside isTurnOwner for the stale development template during HMR.
   // Neither value produces header UI in the current Grid template.
-  readonly defeated = () => false;
+  readonly defeated = () => this.isDefeated();
   readonly playerMenuOpened = output<{ event: MouseEvent; playerId: string }>();
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<{ event: DragEvent; playerId: string }>();
@@ -66,6 +68,9 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
 
     return seat === 'opponent-1' || (seat === 'opponent-2' && this.playerCount() > 2);
   });
+  readonly isDefeated = computed(() => playerIsDefeated(this.playerSeat().player));
+  readonly usesCompactSummary = computed(() => !this.isDefeated() && this.summaryCompact());
+  readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
   // Every seat keeps its pill mounted. On a turn change, the pill changes
   // state in place instead of the old active pill disappearing while a new
   // one is created in another battlefield.
@@ -274,6 +279,12 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   }
 
   private syncSummaryModeWithBattlefieldOccupation(): void {
+    if (this.isDefeated()) {
+      this.summaryProtectedArea = null;
+      this.summaryCompact.set(false);
+      return;
+    }
+
     const summary = this.host.nativeElement.querySelector<HTMLElement>('.player-cell-summary');
     if (!summary) {
       return;

@@ -37,6 +37,7 @@ export interface GameTableWebsocketGameplayContext {
   setSnapshot(snapshot: GameSnapshot): void;
   refetch(force?: boolean): Promise<void>;
   setError(message: string | null): void;
+  isCurrentPlayerDefeated?(): boolean;
   onMulliganPublicState?(message: GameplayMulliganPublicStateMessage): void;
   onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
@@ -941,7 +942,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
           code: message.error.code,
           detail: message.error.message,
         },
-      }),
+      }, { actorDefeated: this.context?.isCurrentPlayerDefeated?.() ?? false }),
     );
     this.drainQueue();
   }

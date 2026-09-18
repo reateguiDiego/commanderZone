@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} müssen noch abstimmen. Ihr habt zusätzliche {{ seconds }}s zum Abstimmen.",
       "timeLimit": "Zeitlimit",
       "winnerMessage": "Der Tisch gehört dir. Du hast das Chaos überstanden und die Partie souverän beendet.",
+      "waitForGameEnd": "Warte, bis die Partie beendet ist, bevor du eine Revanche startest.",
       "youDied": "Du bist gestorben",
       "youHaveSecondsToVote": "Du hast {{ seconds }}s zum Abstimmen.",
       "yourVoteMissingExtra": "Deine Stimme fehlt. Du hast zusätzliche {{ seconds }}s zum Abstimmen.",
@@ -1000,6 +1001,7 @@
       "moveToHand": "Auf die Hand nehmen?",
       "moveAllToLibrary": "Alle in die Bibliothek legen",
       "gamesCanOnlyBePlayedInLandscape": "Spiele können auf Mobilgeräten und Tablets nur im Querformat gespielt werden.",
+      "defeatedActionBlocked": "Du wurdest besiegt und kannst keine Spielaktionen mehr ausführen. Du kannst den Chat weiterhin nutzen, während du auf das Spielende wartest.",
       "thisTableNeedsALittleMoreRoom": "Dieser Tisch braucht etwas mehr Platz",
       "sorryThisResolutionIsTooCrampedFor": "Diese Auflösung ist für ein Commander-Spiel zu klein. Passe den Browser-Zoom an oder nutze ein größeres Fenster.",
       "useCtrl0InYourBrowserTo": "Verwende Strg+0 in deinem Browser, um den Zoom auf 100 % zurückzusetzen, und aktualisiere oder skaliere dann dieses Fenster.",
@@ -2198,6 +2200,17 @@
       "changeTheme": "Thema ändern",
       "gameSettings": {
         "title": "Gameplay-Einstellungen",
+        "defaultBattlefieldLayout": {
+          "label": "Standard-Tischlayout",
+          "description": "Wähle aus, wie der Tisch beim Öffnen einer Partie angeordnet wird.",
+          "grid": "Raster",
+          "classic": "Klassisch",
+          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch das klassische Layout verwendet."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ausrichtungshilfe für Karten",
+          "description": "Beim Verschieben einer Karte wird eine Ausrichtungshilfe angezeigt, um ihre vertikale Position an den nahegelegenen Karten auszurichten."
+        },
         "showManaHelperOnStartup": {
           "label": "Mana-Helfer beim Start anzeigen",
           "description": "Zeigt beim Start einer Partie die Hilfe zum Zählen von Mana an. Du kannst sie während der Partie jederzeit ausblenden oder erneut einblenden."

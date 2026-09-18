@@ -29,6 +29,8 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'en',
             'themeId' => 'sunrise',
             'game' => [
+                'defaultBattlefieldLayout' => 'square',
+                'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
                 'autoApplyCommanderDamageToLife' => true,
@@ -68,6 +70,8 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
+                'defaultBattlefieldLayout' => 'grid',
+                'showCardAlignmentHelper' => false,
                 'showManaHelperOnStartup' => true,
                 'enableManaRow' => false,
                 'autoApplyCommanderDamageToLife' => false,
@@ -78,6 +82,8 @@ class AuthApiTest extends ApiTestCase
         ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame([
+            'defaultBattlefieldLayout' => 'grid',
+            'showCardAlignmentHelper' => false,
             'showManaHelperOnStartup' => true,
             'enableManaRow' => false,
             'autoApplyCommanderDamageToLife' => false,
@@ -89,6 +95,13 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
                 'enableManaRow' => 'yes',
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'defaultBattlefieldLayout' => 'list',
             ],
         ], $token);
         self::assertResponseStatusCodeSame(400);
@@ -691,6 +704,8 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'es',
             'themeId' => 'sunrise',
             'game' => [
+                'defaultBattlefieldLayout' => 'square',
+                'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
                 'autoApplyCommanderDamageToLife' => true,

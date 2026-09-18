@@ -97,7 +97,10 @@
 
 .player-cell-playmat {
   inset: 0;
-  z-index: 1;
+  // Keep the playmat in the base layer. The Grid layout intentionally has no
+  // stacking context so mechanics can rise above the player summary; a
+  // positive z-index here would otherwise paint over Zone Piles and hands.
+  z-index: 0;
   background-image: var(--grid-player-playmat, none);
   background-position: center;
   background-repeat: no-repeat;
@@ -122,9 +125,42 @@
 .single-player-row .player-cell-playmat-backdrop {
   display: block;
 }
+
+.player-cell.is-defeated .player-cell-playmat,
+.player-cell.is-defeated .player-cell-playmat-backdrop {
+  filter: blur(0.42rem) saturate(0.3) brightness(0.5);
+  transform: scale(1.025);
+}
+
+.player-cell.is-defeated .player-cell-layout {
+  filter: blur(0.24rem) saturate(0.45) brightness(0.58);
+  opacity: 0.74;
+  pointer-events: none;
+}
+
+.grid-player-defeated-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.grid-player-defeated-skull {
+  width: min(32cqi, 8.5rem);
+  max-width: 42%;
+  max-height: 42%;
+  object-fit: contain;
+  opacity: 0.9;
+  filter:
+    grayscale(0.24)
+    drop-shadow(0 0.4rem 0.82rem rgb(var(--shadow-rgb) / 78%))
+    drop-shadow(0 0 1.15rem rgb(var(--game-text-rgb) / 12%));
+}
+
 .player-cell-layout {
   position: relative;
-  z-index: 2;
   display: grid;
   grid-template-columns: var(--game-zone-dock-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
@@ -191,7 +227,10 @@
   position: absolute;
   top: 0.25rem;
   right: 0.35rem;
-  z-index: 31;
+  // Normal battlefield cards, hands and Zone Piles remain below the summary.
+  // The mechanics overlay owns z-index 84 and must remain reachable when its
+  // card intersects this corner.
+  z-index: 50;
   display: grid;
   justify-items: end;
   align-content: start;
@@ -200,11 +239,19 @@
   pointer-events: auto;
 }
 
+// A complete summary owns its assigned corner. Its only horizontal
+// constraint is the Zone Piles dock that shares that player cell.
+.player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  top: 0;
+  right: 0;
+  width: min(19rem, calc(100% - var(--game-zone-dock-width)));
+}
+
 .player-cell-turn-status {
   position: absolute;
   top: 0.55rem;
   left: calc(var(--game-zone-dock-width) + 0.55rem);
-  z-index: 32;
+  z-index: 51;
   display: inline-flex;
   align-items: center;
   min-height: 1.55rem;
@@ -264,14 +311,24 @@
 
 .player-cell-summary:has(.player-summary-panel-grid) {
   top: 1.05rem;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
 }
 
 .is-right-column .player-cell-summary {
   right: auto;
   left: 0.35rem;
   justify-items: start;
+}
+
+.is-right-column .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  left: 0;
+}
+
+.is-right-column .player-cell-summary:has(.player-summary-panel-grid) {
+  align-items: flex-start;
 }
 
 .player-cell:has(.player-summary-panel-grid) {
@@ -288,6 +345,10 @@
 .player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-copy {
   grid-column: 1 / 3;
   transform: translateX(0.45rem);
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-name-shell {
+  height: 3rem;
 }
 
 .is-right-column .player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-copy {
@@ -317,8 +378,8 @@
 }
 
 .player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
-  grid-column: 1;
-  grid-row: 1;
+  order: 1;
+  align-self: flex-end;
   justify-self: end;
 }
 
@@ -327,6 +388,7 @@
 }
 
 .grid-player-concede-button {
+  order: 2;
   justify-self: end;
 }
 
@@ -335,6 +397,7 @@
 }
 
 .is-right-column .player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
+  align-self: flex-start;
   justify-self: start;
 }
 
@@ -345,6 +408,10 @@
 .is-top-row .player-cell-summary {
   top: auto;
   bottom: 0.25rem;
+}
+
+.is-top-row .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  bottom: 0;
 }
 
 .is-top-row .player-cell-summary:has(.player-summary-panel-grid) {
@@ -467,6 +534,10 @@
     width: min(19rem, calc(100% - 0.8rem));
   }
 
+  .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+    width: min(19rem, 100%);
+  }
+
   .player-cell-turn-status {
     left: 0.55rem;
     max-width: min(8.5rem, calc(100% - 1.1rem));
@@ -488,14 +559,6 @@
 .player-cell.is-right-column .player-cell-hand ::ng-deep .hand-area.compact-cell .hand-count {
   right: auto;
   left: 0.55rem;
-}
-
-// The view controls sit above the upper-right Grid battlefield. Keep that
-// player's top hand-count pill below the toolbar without shifting any other
-// player's hand chrome.
-.player-cell.is-right-column.is-top-row .player-cell-hand ::ng-deep .hand-area.compact-cell .hand-count {
-  top: 2.25rem;
-  bottom: auto;
 }
 
 @keyframes active-turn-border-orbit {

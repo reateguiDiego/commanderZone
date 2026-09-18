@@ -831,6 +831,9 @@
 
 .grid-layout-surface {
   position: relative;
+  // The shared Grid controls need the same sizing reference as a player cell
+  // when they are docked beside the upper-right player's Zone Piles.
+  container-type: inline-size;
   grid-area: board;
   min-width: 0;
   min-height: 0;
@@ -840,9 +843,20 @@
   }
 }
 
-// In a two-column Grid, keep the view controls by the outer edge of the
-// upper-right battlefield instead of floating over the opposite board.
+// In a two-column Grid, dock the controls immediately before the upper-right
+// player's Zone Piles. The dock can be a compact side rail or the wider
+// horizontal presentation, so mirror the player's own responsive width.
 .grid-layout-surface:has(.player-grid.grid--3-players, .player-grid.grid--4-players) > .battlefield-zoom-host {
-  right: auto;
-  left: calc(50% + 0.4rem);
+  --grid-controls-zone-dock-width: 7.2rem;
+
+  right: calc(var(--grid-controls-zone-dock-width) + 0.4rem);
+  left: auto;
+}
+
+.grid-layout-surface:has(
+    .player-grid.grid--3-players .player-cell.is-right-column.is-top-row.zone-row-presentation,
+    .player-grid.grid--4-players .player-cell.is-right-column.is-top-row.zone-row-presentation
+  )
+  > .battlefield-zoom-host {
+  --grid-controls-zone-dock-width: min(36rem, max(0px, calc(50cqi - 12rem)));
 }

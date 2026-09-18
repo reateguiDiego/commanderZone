@@ -22,6 +22,8 @@ export interface UserDisplayNameStyle {
 }
 
 export interface UserGamePreferences {
+  defaultBattlefieldLayout: UserGameLayoutPreference;
+  showCardAlignmentHelper: boolean;
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
   autoApplyCommanderDamageToLife: boolean;
@@ -30,7 +32,11 @@ export interface UserGamePreferences {
   combineChatAndGameLog: boolean;
 }
 
+export type UserGameLayoutPreference = 'square' | 'grid';
+
 export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
+  defaultBattlefieldLayout: 'square',
+  showCardAlignmentHelper: true,
   showManaHelperOnStartup: false,
   enableManaRow: true,
   autoApplyCommanderDamageToLife: true,
@@ -43,6 +49,14 @@ export function normalizeUserGamePreferences(
   preferences: Partial<UserGamePreferences> | null | undefined,
 ): UserGamePreferences {
   return {
+    defaultBattlefieldLayout: gameLayoutPreference(
+      preferences?.defaultBattlefieldLayout,
+      DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
+    ),
+    showCardAlignmentHelper: booleanGamePreference(
+      preferences?.showCardAlignmentHelper,
+      DEFAULT_USER_GAME_PREFERENCES.showCardAlignmentHelper,
+    ),
     showManaHelperOnStartup: booleanGamePreference(
       preferences?.showManaHelperOnStartup,
       DEFAULT_USER_GAME_PREFERENCES.showManaHelperOnStartup,
@@ -68,6 +82,10 @@ export function normalizeUserGamePreferences(
       DEFAULT_USER_GAME_PREFERENCES.combineChatAndGameLog,
     ),
   };
+}
+
+function gameLayoutPreference(value: unknown, fallback: UserGameLayoutPreference): UserGameLayoutPreference {
+  return value === 'square' || value === 'grid' ? value : fallback;
 }
 
 function booleanGamePreference(value: unknown, fallback: boolean): boolean {

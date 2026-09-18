@@ -109,7 +109,7 @@
               [faceDown]="isHandCardFaceDown(card)"
               [hidden]="isHandCardFaceDown(card)"
               [revealMarker]="card.revealMarker === true"
-              [faceToggleEnabled]="card.revealMarker === true && !isHandCardFaceDown(card)"
+              [faceToggleEnabled]="!isHandCardFaceDown(card)"
               [draggable]="false"
               [handDropPlacement]="dropPlacement"
               [handLayout]="handLayoutMode()"

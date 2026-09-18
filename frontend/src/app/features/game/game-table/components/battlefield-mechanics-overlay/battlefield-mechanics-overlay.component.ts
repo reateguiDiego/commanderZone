@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { CardMarkerCounterChange, CardMarkerRailComponent } from '../game-card-view/card-marker-rail/card-marker-rail.component';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
@@ -11,9 +12,31 @@ interface BattlefieldMechanicCardMenuEvent {
   readonly forceOpenLeft?: boolean;
 }
 
+interface BattlefieldMechanicCardCounterChangeEvent {
+  readonly event: MouseEvent;
+  readonly card: GameCardInstance;
+  readonly key: string;
+  readonly delta: number;
+}
+
+interface BattlefieldMechanicCardPointerEvent {
+  readonly event: PointerEvent;
+  readonly card: GameCardInstance;
+}
+
+interface BattlefieldMechanicCardMouseEvent {
+  readonly event: MouseEvent;
+  readonly card: GameCardInstance;
+}
+
 @Component({
   selector: 'app-battlefield-mechanics-overlay',
-  imports: [GameCardViewComponent, PreloadCardAlternateFaceDirective, GameScheduledImageDirective],
+  imports: [
+    GameCardViewComponent,
+    CardMarkerRailComponent,
+    PreloadCardAlternateFaceDirective,
+    GameScheduledImageDirective,
+  ],
   templateUrl: './battlefield-mechanics-overlay.component.html',
   styleUrl: './battlefield-mechanics-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -25,6 +48,8 @@ export class BattlefieldMechanicsOverlayComponent {
   readonly variant = input<'battlefield' | 'mini'>('battlefield');
   readonly miniViewportSize = input<{ width: number; height: number } | null>(null);
   readonly miniCardBaseWidthPx = input<number | null>(null);
+  readonly countersEditable = input(false);
+  readonly canInteract = input<(card: GameCardInstance) => boolean>(() => false);
 
   private readonly miniCardGapPx = 1;
   private readonly miniCardAspectRatio = 1.4;
@@ -53,6 +78,10 @@ export class BattlefieldMechanicsOverlayComponent {
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewRequested = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+  readonly counterChanged = output<BattlefieldMechanicCardCounterChangeEvent>();
+  readonly cardPointerDown = output<BattlefieldMechanicCardPointerEvent>();
+  readonly cardClicked = output<BattlefieldMechanicCardMouseEvent>();
+  readonly cardDoubleClicked = output<BattlefieldMechanicCardMouseEvent>();
 
   miniCardLeftPx(index: number): number | null {
     const viewport = this.miniViewportSize();
@@ -89,6 +118,16 @@ export class BattlefieldMechanicsOverlayComponent {
       card,
       forceOpenLeft: true,
     });
+  }
+
+  visibleCounters(card: GameCardInstance): readonly { key: string; value: number }[] {
+    return Object.entries(card.counters ?? {})
+      .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
+      .map(([key, value]) => ({ key, value: Number(value) }));
+  }
+
+  changeCounter(event: CardMarkerCounterChange, card: GameCardInstance): void {
+    this.counterChanged.emit({ event: event.event, card, key: event.key, delta: event.delta });
   }
 }
 

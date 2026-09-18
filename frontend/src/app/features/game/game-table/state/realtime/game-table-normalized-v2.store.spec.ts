@@ -2012,6 +2012,8 @@ describe('game table normalized v2 store', () => {
         viewerVisibility: 'private',
         scryfallId: 's-library-1',
         name: 'Forest',
+        hidden: true,
+        faceDown: false,
         tapped: false,
         zone: 'library',
       }],
@@ -2020,6 +2022,8 @@ describe('game table normalized v2 store', () => {
 
     expect(result.status).toBe('applied');
     expect(result.state.zones['player-1'].library).toEqual(['library-1', 'library-2']);
+    expect(result.state.instances['library-1']?.hidden).toBe(false);
+    expect(result.state.instances['library-1']?.faceDown).toBe(false);
     expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Forest');
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
