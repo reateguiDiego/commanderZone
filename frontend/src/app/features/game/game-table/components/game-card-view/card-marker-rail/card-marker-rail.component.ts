@@ -1,4 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
+import { CounterHoverIntentDirective } from '../../../directives/counter-hover-intent.directive';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -54,7 +55,7 @@ const COLOR_COUNTER_STYLES: Record<string, string> = {
 
 @Component({
   selector: 'app-card-marker-rail',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CounterHoverIntentDirective],
   templateUrl: './card-marker-rail.component.html',
   styleUrl: './card-marker-rail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Steuerelemente für die Spielstein-Erstellung",
       "loadingDeckTokens": "Deck-Spielsteine werden geladen...",
-      "searchingTokens": "Suche nach Spielsteinen..."
+      "searchingTokens": "Suche nach Spielsteinen...",
+      "theRingFromGameMechanics": "Der Ring kann nur über das Schlachtfeld hinzugefügt werden. Klicke mit der rechten Maustaste auf das Schlachtfeld und wähle „Spielmechanik“."
     },
     "playersOrder": {
       "currentTurnLabel": "Zug {{ turnNumber }}",

@@ -306,6 +306,24 @@ describe('DashboardShellComponent', () => {
     expect(fixture.componentInstance.friendsOpen()).toBe(true);
   });
 
+  it('keeps Friends open behind the viewport confirmation modal', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.componentInstance.requestFriendRemoval({ id: 'friend-1', displayName: 'Friend' });
+    fixture.detectChanges();
+
+    const modal = fixture.nativeElement.querySelector('.friends-removal-confirmation .modal-backdrop') as HTMLElement | null;
+    expect(modal).not.toBeNull();
+    expect(modal?.closest('.friends-removal-confirmation')).not.toBeNull();
+
+    modal?.dispatchEvent(pointerDown());
+    fixture.componentInstance.cancelFriendRemoval();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.friends-removal-confirmation .modal-backdrop')).toBeNull();
+  });
+
   it('closes header overlays after route navigation', async () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(DashboardShellComponent);

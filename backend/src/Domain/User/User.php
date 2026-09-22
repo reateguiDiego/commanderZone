@@ -126,6 +126,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 16)]
     private string $defaultBattlefieldLayout = 'square';
 
+    #[ORM\Column(type: 'string', length: 16)]
+    private string $chosenModeView = 'square';
+
     #[ORM\Column(type: 'boolean')]
     private bool $showCardAlignmentHelper = true;
 
@@ -496,6 +499,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *   chatNotificationSounds?: bool,
      *   combineChatAndGameLog?: bool,
      *   defaultBattlefieldLayout?: 'square'|'grid',
+     *   chosenModeView?: 'square'|'grid',
      *   showCardAlignmentHelper?: bool
      * } $preferences
      */
@@ -510,6 +514,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 'chatNotificationSounds' => $this->chatNotificationSounds = $value,
                 'combineChatAndGameLog' => $this->combineChatAndGameLog = $value,
                 'defaultBattlefieldLayout' => $this->defaultBattlefieldLayout = $value,
+                'chosenModeView' => $this->chosenModeView = $value,
                 'showCardAlignmentHelper' => $this->showCardAlignmentHelper = $value,
                 default => throw new \InvalidArgumentException('Unsupported game preference.'),
             };
@@ -524,6 +529,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return [
             'defaultBattlefieldLayout' => $this->defaultBattlefieldLayout,
+            'chosenModeView' => $this->chosenModeView,
             'showCardAlignmentHelper' => $this->showCardAlignmentHelper,
             'showManaHelperOnStartup' => $this->showManaHelperOnStartup,
             'enableManaRow' => $this->enableManaRow,

@@ -256,7 +256,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       ...this.attachmentStackGroups(),
     ]);
   });
-
   ngAfterViewInit(): void {
     const element = this.battlefieldRoot?.nativeElement;
     if (!element) {
@@ -308,6 +307,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     if (layoutChanged) {
       this.queueMeasuredLayoutRefresh();
     }
+
   }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
@@ -614,6 +614,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   private calculateStackDisplayPositions(groups: readonly PermanentStackLayoutGroup[]): ReadonlyMap<string, { x: number; y: number }> {
     const positions = new Map<string, { x: number; y: number }>();
     const stackOffsetY = this.stackVisualOffsetY();
+    const stackOffsetDirection = this.verticallyInverted() ? 1 : -1;
 
     for (const group of groups) {
       const anchor = group.members.find((member) => member.layer === 0);
@@ -625,7 +626,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
         member,
         position: {
           x: anchor.position.x + landStackOffsetX() * member.layer,
-          y: anchor.position.y - stackOffsetY * member.layer,
+          y: anchor.position.y + stackOffsetDirection * stackOffsetY * member.layer,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({

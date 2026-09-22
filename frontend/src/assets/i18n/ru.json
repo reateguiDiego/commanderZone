@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Управление созданием фишек",
       "loadingDeckTokens": "Загрузка фишек колоды...",
-      "searchingTokens": "Поиск фишек..."
+      "searchingTokens": "Поиск фишек...",
+      "theRingFromGameMechanics": "Кольцо можно добавить только с поля боя. Щёлкните правой кнопкой мыши по полю боя и выберите «Игровая механика»."
     },
     "playersOrder": {
       "currentTurnLabel": "Ход {{ turnNumber }}",

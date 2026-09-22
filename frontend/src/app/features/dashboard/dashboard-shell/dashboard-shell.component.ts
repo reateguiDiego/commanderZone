@@ -8,15 +8,17 @@ import { canAccessAdmin as userCanAccessAdmin } from '../../../core/auth/user-ro
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
+import { FriendRemovalRequest } from '../../friends/friends-dropdown/friends-dropdown.component';
 import { MessagesStore } from '../../messages/data-access/messages.store';
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
+import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, CzButtonDirective, RuntimeTranslatePipe],
+  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, AppModalComponent, CzButtonDirective, RuntimeTranslatePipe],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +34,8 @@ export class DashboardShellComponent implements OnDestroy {
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);
   readonly messagesOpen = signal(false);
+  readonly pendingFriendRemoval = signal<FriendRemovalRequest | null>(null);
+  readonly removingFriend = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
   readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? runtimeTranslationFallback('shared.text.player'));
   readonly canAccessAdmin = computed(() => userCanAccessAdmin(this.auth.user()));
@@ -62,7 +66,11 @@ export class DashboardShellComponent implements OnDestroy {
   }
 
   private closeFriendsOnOutsidePointer(target: EventTarget | null): void {
-    if (target instanceof Element && (target.closest('.friends-dropdown') || target.closest('.messages-dropdown'))) {
+    if (target instanceof Element && (
+      target.closest('.friends-dropdown')
+      || target.closest('.messages-dropdown')
+      || target.closest('.friends-removal-confirmation')
+    )) {
       return;
     }
 
@@ -96,6 +104,34 @@ export class DashboardShellComponent implements OnDestroy {
     this.messagesOpen.set(true);
     void this.messages.ensureSummaryLoaded();
     void this.messages.ensureLoaded();
+  }
+
+  requestFriendRemoval(friend: FriendRemovalRequest): void {
+    if (!this.removingFriend()) {
+      this.pendingFriendRemoval.set(friend);
+    }
+  }
+
+  cancelFriendRemoval(): void {
+    if (!this.removingFriend()) {
+      this.pendingFriendRemoval.set(null);
+    }
+  }
+
+  async confirmFriendRemoval(): Promise<void> {
+    const friend = this.pendingFriendRemoval();
+
+    if (!friend || this.removingFriend()) {
+      return;
+    }
+
+    this.removingFriend.set(true);
+    try {
+      await this.friends.removeFriend(friend.id);
+    } finally {
+      this.removingFriend.set(false);
+      this.pendingFriendRemoval.set(null);
+    }
   }
 
   closeFriends(): void {

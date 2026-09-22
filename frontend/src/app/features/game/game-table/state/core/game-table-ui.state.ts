@@ -279,7 +279,7 @@ export class GameTableUiState {
     const edgeOffset = openUp
       ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
       : Math.max(edgeGap, clientY + clickGap);
-    const opensLeft = viewportWidth > 0 && clientX >= viewportWidth * 0.75;
+    const opensLeft = viewportWidth > 0 && clientX >= viewportWidth * (2 / 3);
     const availableWidth = opensLeft
       ? clientX - CONTEXT_MENU_POINTER_GAP - edgeGap
       : viewportWidth - clientX - CONTEXT_MENU_POINTER_GAP - edgeGap;

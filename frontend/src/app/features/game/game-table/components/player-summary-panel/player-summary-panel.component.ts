@@ -12,6 +12,7 @@ import { GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS } from '../../services/game-table-
 import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { clampPlayerLife } from '../../utils/player-life-bounds';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
+import { SpecialEntityPreviewRequest } from '../../models/special-entity-preview-request.model';
 
 interface LifeChangeEvent {
   playerId: string;
@@ -91,7 +92,6 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   private nextFeedbackId = 0;
 
   readonly playerCounterTrackers = PLAYER_COUNTER_TRACKERS;
-  readonly playerNameColor = gamePlayerNameColor;
   readonly player = input.required<PlayerView>();
   readonly players = input.required<readonly PlayerView[]>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
@@ -110,7 +110,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly lifeChanged = output<LifeChangeEvent>();
   readonly commanderDamageChanged = output<CommanderDamageChangeEvent>();
   readonly playerCounterChanged = output<PlayerCounterChangeEvent>();
-  readonly helperPreviewRequested = output<GameSpecialEntity>();
+  readonly helperPreviewRequested = output<SpecialEntityPreviewRequest>();
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly returnRequested = output<void>();
@@ -146,6 +146,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly hasActiveOtherCounter = computed(() =>
     this.playerCounterTrackers.some((tracker) => this.counterValue(tracker.key) > 0),
   );
+
+  readonly playerNameColor = (playerId: string | null | undefined): string =>
+    gamePlayerNameColor(playerId, this.players());
 
   readonly displayedLife = computed(() => {
     const currentPlayer = this.player();

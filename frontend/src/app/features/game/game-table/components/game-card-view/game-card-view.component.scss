@@ -901,6 +901,14 @@
     transform 160ms ease;
 }
 
+.power-toughness-overlay span.counter-hover-active,
+.power-toughness-overlay span:focus-visible {
+  position: relative;
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
+  transform-origin: bottom right;
+}
+
 .power-toughness-overlay span.stat-pulse-increase {
   color: var(--t);
   border-color: rgb(var(--stat-pulse-increase-rgb) / 92%);
@@ -953,6 +961,16 @@
   height: 100%;
   border-radius: 3px;
   background: url('/assets/images/facedown_card.jpg') center / cover;
+}
+
+// Card previews normally restore clipping so their visual effects remain
+// contained. A counter expanded to its full scale must be the exception:
+// this selector intentionally wins over preview and stack clipping rules
+// without opening the table or viewport overflow.
+.game-card.counter-hover-parent-active,
+.game-card.counter-hover-parent-active.battlefield-preview-active:not(.dragging),
+.game-card.counter-hover-parent-active .card-visual.counter-hover-visual-active {
+  overflow: visible;
 }
 
 @media (max-width: 1260px) {

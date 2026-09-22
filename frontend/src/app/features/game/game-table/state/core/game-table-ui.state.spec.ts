@@ -170,7 +170,7 @@ describe('GameTableUiState', () => {
     }));
   });
 
-  it('opens context menus to the left when the click is in the final viewport quarter', () => {
+  it('opens context menus to the left when the click is in the final viewport third', () => {
     setViewport(420, 700);
     const state = new GameTableUiState();
 
@@ -185,7 +185,7 @@ describe('GameTableUiState', () => {
     }));
   });
 
-  it('opens a card context menu to the right inside the first three viewport quarters', () => {
+  it('opens a card context menu to the left inside the final viewport third', () => {
     setViewport(900, 520);
     const state = new GameTableUiState();
 
@@ -205,15 +205,15 @@ describe('GameTableUiState', () => {
     });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 662,
+      x: 374,
       y: 124,
       verticalOrigin: 'top',
-      horizontalPlacement: 'right',
-      width: 230,
+      horizontalPlacement: 'left',
+      width: 264,
     }));
   });
 
-  it('keeps the main menu on the right inside the first three viewport quarters even for forced-left mechanics', () => {
+  it('keeps the main menu on the right inside the first two viewport thirds even for forced-left mechanics', () => {
     setViewport(900, 700);
     const state = new GameTableUiState();
 
@@ -242,11 +242,11 @@ describe('GameTableUiState', () => {
     }));
   });
 
-  it('uses the same right placement across the first three viewport quarters', () => {
+  it('uses the same right placement across the first two viewport thirds', () => {
     setViewport(1000, 700);
     const state = new GameTableUiState();
 
-    for (const clientX of [100, 499, 749]) {
+    for (const clientX of [100, 499, 665]) {
       state.openContextMenu(pointerEvent(clientX, 120), {
         playerId: 'player-1',
         zone: 'battlefield',
@@ -257,7 +257,7 @@ describe('GameTableUiState', () => {
       expect(state.contextMenu()).toEqual(expect.objectContaining({ horizontalPlacement: 'right' }));
     }
 
-    state.openContextMenu(pointerEvent(750, 120), {
+    state.openContextMenu(pointerEvent(667, 120), {
       playerId: 'player-1',
       zone: 'battlefield',
       kind: 'card',

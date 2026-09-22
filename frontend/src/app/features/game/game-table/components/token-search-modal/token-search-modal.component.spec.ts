@@ -51,6 +51,33 @@ describe('TokenSearchModalComponent', () => {
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://cards.test/token-1.jpg');
   });
 
+  it('excludes The Ring from detected deck tokens', async () => {
+    decksApi.tokens.mockReturnValue(of({
+      deckId: 'deck-1',
+      data: [
+        {
+          sourceCard: { scryfallId: 'source-1', name: 'Avenger of Zendikar', section: 'main' },
+          token: cardFixture('token-1', 'Plant Token'),
+          resolved: true,
+        },
+        {
+          sourceCard: { scryfallId: 'source-ring', name: 'Frodo, Sauron\'s Bane', section: 'main' },
+          token: theRingFixture(),
+          resolved: true,
+        },
+      ],
+      unresolved: [],
+    }));
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('deckId', 'deck-1');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Plant Token');
+    expect(fixture.nativeElement.textContent).not.toContain('The Ring');
+  });
+
   it('searches only tokens and emits the selected token', async () => {
     fixture.componentRef.setInput('open', true);
     fixture.componentRef.setInput('deckId', 'deck-1');
@@ -82,6 +109,41 @@ describe('TokenSearchModalComponent', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('excludes The Ring from token search results', async () => {
+    cardsApi.search.mockReturnValue(of({
+      data: [theRingFixture(), cardFixture('token-2', 'Goblin Token')],
+      page: 1,
+      limit: 500,
+    }));
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    try {
+      fixture.componentInstance.onQueryInput('ring');
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fixture.nativeElement.textContent).toContain('Goblin Token');
+    expect(fixture.nativeElement.textContent).not.toContain('The Ring');
+  });
+
+  it('explains how to add The Ring without calling the token search API', () => {
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onQueryInput('  The Ring  ');
+    fixture.detectChanges();
+
+    expect(cardsApi.search).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.searchResults()).toEqual([]);
+    expect(fixture.nativeElement.textContent).toContain('The Ring can only be added from the battlefield.');
   });
 
   it('clamps token quantity to the supported range', () => {
@@ -209,4 +271,13 @@ function cardFixture(scryfallId: string, name: string, typeLine = 'Token Creatur
     set: 'tst',
     collectorNumber: '1',
   };
+}
+
+function theRingFixture(): Card {
+  return cardFixture(
+    '7215460e-8c06-47d0-94e5-d1832d0218af',
+    'The Ring // The Ring Tempts You',
+    'Emblem // Card',
+    'double_faced_token',
+  );
 }

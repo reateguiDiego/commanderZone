@@ -305,6 +305,23 @@ describe('FocusedBattlefieldComponent', () => {
     expect(displayPositions.get('attachment-b')).toEqual({ x: 320, y: 164 });
   });
 
+  it('mirrors stack layers for vertically inverted Grid battlefields', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      verticallyInverted: true,
+      battlefieldCards: [
+        { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact - Equipment', tapped: false },
+      ],
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+      cardPosition: (card) => card.instanceId === 'target' ? { x: 100, y: 200 } : { x: 110, y: 182 },
+    });
+
+    const displayPositions = fixture.componentInstance.permanentStackDisplayPositions();
+
+    expect(displayPositions.get('target')).toEqual({ x: 100, y: 200 });
+    expect(displayPositions.get('equipment')).toEqual({ x: 110, y: 218 });
+  });
+
   it('does not pull the dragged land into a transient stack layout before drop', async () => {
     const positions = new Map([
       ['land-top', { x: 100, y: 200 }],
@@ -427,6 +444,7 @@ interface RenderFocusedBattlefieldOptions {
   playerId?: string;
   layoutKey?: unknown;
   zoomPercent?: number;
+  verticallyInverted?: boolean;
   attachments?: readonly GameAttachment[];
   battlefieldStacks?: readonly GameBattlefieldStack[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
@@ -475,6 +493,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('isManaPoolHidden', options.isManaPoolHidden ?? ((_playerId: string) => false));
   fixture.componentRef.setInput('layoutKey', options.layoutKey ?? null);
   fixture.componentRef.setInput('zoomPercent', options.zoomPercent ?? 100);
+  fixture.componentRef.setInput('verticallyInverted', options.verticallyInverted ?? false);
   fixture.componentRef.setInput('attachments', options.attachments ?? []);
   fixture.componentRef.setInput('battlefieldStacks', options.battlefieldStacks ?? []);
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));

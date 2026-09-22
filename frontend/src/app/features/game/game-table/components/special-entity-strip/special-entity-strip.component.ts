@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, HostBinding, computed, input, outpu
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
 import { SpecialEntityRailComponent } from '../special-entity-rail/special-entity-rail.component';
 import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
+import { SpecialEntityPreviewRequest } from '../../models/special-entity-preview-request.model';
 
 export type SpecialEntityStripVariant = 'summary' | 'compact';
 
@@ -16,7 +17,7 @@ export class SpecialEntityStripComponent {
   readonly variant = input<SpecialEntityStripVariant>('summary');
   readonly entities = input.required<readonly GameSpecialEntity[]>();
 
-  readonly previewRequested = output<GameSpecialEntity>();
+  readonly previewRequested = output<SpecialEntityPreviewRequest>();
   readonly previewHidden = output<void>();
   readonly entityContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly visibleEntities = computed(() => visibleSpecialEntityRailEntities(this.entities()));

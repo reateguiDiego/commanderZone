@@ -176,7 +176,7 @@ describe('FriendsDropdownComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Offline 1');
   });
 
-  it('renders a hover delete action for friend rows and removes the selected friend', async () => {
+  it('requests confirmation before removing a friend from the dropdown', async () => {
     const friendsApi = TestBed.inject(FriendsApi) as unknown as {
       list: ReturnType<typeof vi.fn>;
       remove: ReturnType<typeof vi.fn>;
@@ -187,14 +187,19 @@ describe('FriendsDropdownComponent', () => {
     await store.load();
 
     const fixture = TestBed.createComponent(FriendsDropdownComponent);
+    const friendRemovalRequested = vi.fn();
+    fixture.componentInstance.friendRemovalRequested.subscribe(friendRemovalRequested);
     fixture.detectChanges();
 
     const removeButton = fixture.nativeElement.querySelector('.friend-row .row-delete-action') as HTMLButtonElement | null;
     expect(removeButton).not.toBeNull();
 
     removeButton?.click();
+    fixture.detectChanges();
 
-    expect(friendsApi.remove).toHaveBeenCalledWith('friend-offline-1');
+    expect(friendsApi.remove).not.toHaveBeenCalled();
+    expect(friendRemovalRequested).toHaveBeenCalledWith({ id: 'friend-offline-1', displayName: 'Offline 1' });
+    expect(fixture.nativeElement.querySelector('.modal-backdrop')).toBeNull();
   });
 
   it('navigates to a friend public profile from the eye action', async () => {

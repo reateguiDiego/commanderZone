@@ -172,6 +172,13 @@
   background: var(--game-surface);
 }
 
+.zone-card-artwork {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
 .library-top-revealed-indicator {
   position: absolute;
   top: 0.25rem;
@@ -813,6 +820,13 @@
     width: min(4.15rem, 94%);
   }
 
+  // Only the most constrained Square layout needs smaller contents. Grid
+  // keeps its compact-cell sizing, and the other Square breakpoints remain
+  // unchanged.
+  :host-context(.table-surface:not(.layout-grid)) .zone-dock:not(.compact-cell) .zone-art {
+    width: min(3.32rem, 75.2%);
+  }
+
   .zone-count-badge,
   .commander-cast-count {
     @include compact.zone-badge;
@@ -874,21 +888,52 @@
   }
 }
 
-// The upper Grid row is the opposite side of the table. Its horizontal dock
-// already swaps sides with the hand; turn its contents too so the whole row
-// is the 180-degree counterpart of the bottom player. Vertical Grid docks
-// keep their existing presentation.
+// The upper horizontal dock uses its own, unrotated composition. Rotating the
+// entire dock made each pile inherit a different overflow path (notably stack
+// layers and commander cards), producing mismatched image heights. A shared
+// image row keeps every pile level, clips only at the upper edge, and leaves
+// the label/count row below it.
 :host-context(.is-top-row) .zone-dock:not(.compact-cell) {
-  transform: rotate(180deg);
-  transform-origin: 50% 50%;
+  overflow: hidden;
 }
 
-// Zone cards follow the upper player's orientation, while dock labels and
-// counters remain readable for the local viewer.
-:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-pile-label,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-stack {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) [data-testid='zone-pile'] {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-pile-label {
+  grid-row: 2;
+}
+
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-art {
+  grid-row: 1;
+  align-self: end;
+  overflow: visible;
+}
+
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .command-zone-card {
+  overflow: hidden;
+}
+
 :host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-count-badge,
-:host-context(.is-top-row) .zone-dock:not(.compact-cell) .commander-cast-count {
-  transform: rotate(180deg);
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .commander-cast-count,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .command-zone-cast-counts {
+  top: auto;
+  bottom: -0.32rem;
+}
+
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-art ::ng-deep .zone-card-stack-layer,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-art ::ng-deep .zone-card-stack-top,
+:host-context(.is-top-row) .zone-dock:not(.compact-cell) .zone-art ::ng-deep .zone-card-image {
+  translate: 0 6.7rem;
 }
 
 .zone-dock.compact-cell.is-turn-active {

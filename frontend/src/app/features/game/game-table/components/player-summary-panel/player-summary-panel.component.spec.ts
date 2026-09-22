@@ -405,7 +405,8 @@ describe('PlayerSummaryPanelComponent', () => {
     helper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(previewRequested).toHaveBeenCalledWith(expect.objectContaining({
-      template: 'citys_blessing',
+      entity: expect.objectContaining({ template: 'citys_blessing' }),
+      sourceRect: null,
     }));
     expect(previewHidden).toHaveBeenCalled();
   });
@@ -438,6 +439,20 @@ describe('PlayerSummaryPanelComponent', () => {
     }));
   });
 
+  it('renders mechanics pills in the reduced Grid summary', () => {
+    const fixture = createFixture({
+      gridLayout: true,
+      specialEntities: [helperEntity('monarch', 'player-1')],
+    });
+
+    const mechanicsStrip = fixture.nativeElement.querySelector(
+      '[data-testid="special-entity-strip"]',
+    ) as HTMLElement;
+
+    expect(mechanicsStrip).not.toBeNull();
+    expect(mechanicsStrip.dataset['variant']).toBe('compact');
+  });
+
 });
 
 function createFixture(
@@ -446,6 +461,7 @@ function createFixture(
     counterValues?: Partial<Record<string, number>>;
     contextLabel?: string;
     displayName?: string;
+    gridLayout?: boolean;
     life?: number;
     returnActionLabel?: string;
     commanderDamage?: Record<string, number>;
@@ -471,6 +487,7 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
+  fixture.componentRef.setInput('gridLayout', options.gridLayout ?? false);
   fixture.componentRef.setInput('autoApplyCommanderDamageToLife', options.autoApplyCommanderDamageToLife ?? true);
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);

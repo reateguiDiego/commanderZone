@@ -23,8 +23,17 @@ If you want to tell us something or share suggestions, you can reach us through 
 CommanderZone
 MARKDOWN;
 
+    public function __construct(private readonly AdminMessageMailer $messageMailer)
+    {
+    }
+
     public function createFor(User $user): UserMessage
     {
         return UserMessage::system($user, self::SUBJECT, self::BODY);
+    }
+
+    public function sendEmailTo(User $user): void
+    {
+        $this->messageMailer->send($user, self::SUBJECT, self::BODY);
     }
 }

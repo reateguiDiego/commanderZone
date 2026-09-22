@@ -23,6 +23,7 @@ export interface UserDisplayNameStyle {
 
 export interface UserGamePreferences {
   defaultBattlefieldLayout: UserGameLayoutPreference;
+  chosenModeView: UserGameLayoutPreference;
   showCardAlignmentHelper: boolean;
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
@@ -32,10 +33,21 @@ export interface UserGamePreferences {
   combineChatAndGameLog: boolean;
 }
 
+/**
+ * Game preferences as received from the user payload. The boolean fields are
+ * the current settings names; the older fields remain supported so existing
+ * accounts keep their saved behavior.
+ */
+export interface UserGamePreferencesInput extends Partial<UserGamePreferences> {
+  gridLayout?: boolean;
+  lineAlignment?: boolean;
+}
+
 export type UserGameLayoutPreference = 'square' | 'grid';
 
 export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
   defaultBattlefieldLayout: 'square',
+  chosenModeView: 'square',
   showCardAlignmentHelper: true,
   showManaHelperOnStartup: false,
   enableManaRow: true,
@@ -46,16 +58,29 @@ export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
 };
 
 export function normalizeUserGamePreferences(
-  preferences: Partial<UserGamePreferences> | null | undefined,
+  preferences: UserGamePreferencesInput | null | undefined,
 ): UserGamePreferences {
+  const defaultBattlefieldLayout = battlefieldLayoutPreference(
+    preferences?.gridLayout,
+    preferences?.defaultBattlefieldLayout,
+    DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
+  );
+
   return {
-    defaultBattlefieldLayout: gameLayoutPreference(
-      preferences?.defaultBattlefieldLayout,
-      DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
+    defaultBattlefieldLayout,
+    // Existing accounts do not have a chosen view yet. Their configured
+    // default layout is the initial value until they choose a view in-game.
+    chosenModeView: battlefieldLayoutPreference(
+      undefined,
+      preferences?.chosenModeView,
+      defaultBattlefieldLayout,
     ),
     showCardAlignmentHelper: booleanGamePreference(
-      preferences?.showCardAlignmentHelper,
-      DEFAULT_USER_GAME_PREFERENCES.showCardAlignmentHelper,
+      preferences?.lineAlignment,
+      booleanGamePreference(
+        preferences?.showCardAlignmentHelper,
+        DEFAULT_USER_GAME_PREFERENCES.showCardAlignmentHelper,
+      ),
     ),
     showManaHelperOnStartup: booleanGamePreference(
       preferences?.showManaHelperOnStartup,
@@ -84,8 +109,16 @@ export function normalizeUserGamePreferences(
   };
 }
 
-function gameLayoutPreference(value: unknown, fallback: UserGameLayoutPreference): UserGameLayoutPreference {
-  return value === 'square' || value === 'grid' ? value : fallback;
+function battlefieldLayoutPreference(
+  gridLayout: unknown,
+  defaultLayout: unknown,
+  fallback: UserGameLayoutPreference,
+): UserGameLayoutPreference {
+  if (typeof gridLayout === 'boolean') {
+    return gridLayout ? 'grid' : 'square';
+  }
+
+  return defaultLayout === 'square' || defaultLayout === 'grid' ? defaultLayout : fallback;
 }
 
 function booleanGamePreference(value: unknown, fallback: boolean): boolean {
@@ -96,7 +129,7 @@ export interface UserPreferences {
   cardLanguage: SupportedCardLanguageCode;
   appLanguage: SupportedLanguageCode;
   themeId: AppThemeId;
-  game?: UserGamePreferences;
+  game?: UserGamePreferencesInput;
 }
 
 export interface User {

@@ -38,6 +38,7 @@ export class BodyScrollLockService {
     const body = this.documentRef.body;
     const html = this.documentRef.documentElement;
     const scrollY = this.documentRef.defaultView?.scrollY ?? 0;
+    const scrollbarWidth = this.getScrollbarWidth(html);
 
     this.snapshot = {
       htmlOverflow: html.style.overflow,
@@ -45,6 +46,10 @@ export class BodyScrollLockService {
       bodyPaddingRight: body.style.paddingRight,
       scrollY,
     };
+
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${this.getBodyPaddingRight(body) + scrollbarWidth}px`;
+    }
 
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
@@ -66,5 +71,18 @@ export class BodyScrollLockService {
       this.documentRef.defaultView?.scrollTo(0, scrollY);
     }
     this.snapshot = null;
+  }
+
+  private getScrollbarWidth(html: HTMLElement): number {
+    const viewportWidth = this.documentRef.defaultView?.innerWidth ?? html.clientWidth;
+    return Math.max(0, viewportWidth - html.clientWidth);
+  }
+
+  private getBodyPaddingRight(body: HTMLElement): number {
+    const paddingRight =
+      this.documentRef.defaultView?.getComputedStyle(body).paddingRight ?? body.style.paddingRight;
+    const parsedPadding = Number.parseFloat(paddingRight);
+
+    return Number.isFinite(parsedPadding) ? parsedPadding : 0;
   }
 }

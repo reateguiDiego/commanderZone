@@ -4,6 +4,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
+import { SpecialEntityPreviewRequest } from '../../models/special-entity-preview-request.model';
+import { previewRectFromElement } from '../../models/card-preview.model';
 
 export type SpecialEntityRailVariant = 'summary' | 'compact';
 
@@ -21,7 +23,7 @@ export class SpecialEntityRailComponent {
   readonly entities = input.required<readonly GameSpecialEntity[]>();
   readonly variant = input<SpecialEntityRailVariant>('summary');
 
-  readonly previewRequested = output<GameSpecialEntity>();
+  readonly previewRequested = output<SpecialEntityPreviewRequest>();
   readonly previewHidden = output<void>();
   readonly entityContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly visibleEntities = computed(() => visibleSpecialEntityRailEntities(this.entities()));
@@ -92,5 +94,13 @@ export class SpecialEntityRailComponent {
     event.preventDefault();
     event.stopPropagation();
     this.entityContextRequested.emit({ event, entity });
+  }
+
+  requestPreview(event: MouseEvent, entity: GameSpecialEntity): void {
+    const source = event.currentTarget;
+    this.previewRequested.emit({
+      entity,
+      sourceRect: previewRectFromElement(source instanceof Element ? source : null),
+    });
   }
 }

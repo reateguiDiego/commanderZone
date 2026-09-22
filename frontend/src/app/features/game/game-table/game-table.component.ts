@@ -125,6 +125,7 @@ import { GameTablePlayersStore } from './state/players/game-table-players.store'
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableSnapshotSelectors } from './state/core/game-table-snapshot-selectors';
 import { GameTableSessionPreferencesStore } from './state/core/game-table-session-preferences.store';
+import { GameTableViewPreferenceStore } from './state/core/game-table-view-preference.store';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
@@ -132,6 +133,7 @@ import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.sta
 import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
 import { GameTableNormalizedV2Store } from './state/realtime/game-table-normalized-v2.store';
 import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
+import { SpecialEntityPreviewRequest } from './models/special-entity-preview-request.model';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { gamePlayerNameColor } from './utils/game-player-name-color';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
@@ -645,6 +647,7 @@ interface MotionSourceRect {
     GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
     GameTableSessionPreferencesStore,
+    GameTableViewPreferenceStore,
     GameTableUiState,
     GameTableBattlefieldDragState,
     GameTableDropFeedbackState,
@@ -688,6 +691,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
   readonly tableLayout = inject(GameTableLayoutState);
+  private readonly viewPreference = inject(GameTableViewPreferenceStore);
   readonly squareBattlefieldSizeChanged = (rect: BattlefieldLayoutRect): void => this.updateBattlefieldLayoutSize(rect);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly gridBattlefieldZoom = inject(GameTableGridBattlefieldZoomState);
@@ -747,6 +751,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.commanderCastCount(player, commander);
   readonly playerCounterValue = (player: PlayerView, key: string): number =>
     this.store.playerCounterValue(player.id, key);
+  readonly gridHelperPreviewRequested = (request: SpecialEntityPreviewRequest): void => this.showHelperPreview(request);
   readonly gridHelperContextRequested = (event: MouseEvent, entity: GameSpecialEntity): void =>
     this.handleHelperContextRequest({ event, entity });
   readonly gridLifeChanged = (playerId: string, delta: number): void =>
@@ -1649,7 +1654,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return this.fadingChatMessageKeys().includes(this.chatMessageKey(message, index));
   }
 
-  readonly playerNameColor = gamePlayerNameColor;
+  readonly playerNameColor = (playerId: string | null | undefined): string =>
+    gamePlayerNameColor(playerId, this.store.players());
 
   isOwnChatMessage(message: ChatMessage): boolean {
     const currentPlayer = this.store.currentPlayer();
@@ -1777,6 +1783,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const leavingGridForSquare = this.tableLayout.mode() === 'grid' && layout === 'square';
     this.suppressFloatingPanelHoverExpansion.set(leavingGridForSquare);
     this.tableLayout.select(layout);
+    void this.viewPreference.save(this.tableLayout.mode());
   }
 
   setBattlefieldZoom(percent: number): void {
@@ -4772,13 +4779,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return dungeon?.name ?? null;
   }
 
-  showHelperPreview(entity: GameSpecialEntity): void {
+  showHelperPreview(request: SpecialEntityPreviewRequest): void {
+    const { entity, sourceRect } = request;
     const previewCard = this.specialEntityState.helperPreviewCard(entity);
     if (!previewCard) {
       return;
     }
 
-    this.store.showCardPreview(previewCard, entity.ownerPlayerId ?? undefined, 'command');
+    this.store.showCardPreview({
+      card: previewCard,
+      playerId: entity.ownerPlayerId ?? '',
+      zone: 'command',
+      sourceRect,
+    });
   }
 
   handleHelperContextRequest(request: { event: MouseEvent; entity: GameSpecialEntity }): void {

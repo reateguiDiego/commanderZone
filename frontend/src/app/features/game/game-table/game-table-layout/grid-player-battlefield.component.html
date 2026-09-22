@@ -12,7 +12,6 @@
   [class.is-right-column]="isRightColumn()"
   [class.is-defeated]="isDefeated()"
   [class.zone-row-presentation]="useSquareZonePresentation()"
-  [class.drop-target-active]="isPlayerDropHighlighted()(playerSeat().player.id)"
   [class.single-player-row]="isSinglePlayerRow()"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
@@ -87,6 +86,11 @@
         </span>
       }
     </div>
+  }
+  @if (isOffline()) {
+    <span class="player-cell-offline-status" data-testid="grid-offline-status">
+      {{ 'shared.text.offline' | runtimeTranslate }}
+    </span>
   }
   <div class="player-cell-layout">
     <div class="player-cell-battlefield">

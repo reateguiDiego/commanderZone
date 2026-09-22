@@ -855,7 +855,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('opponent-dungeon', $opponentBattlefield[0]['instanceId']);
     }
 
-    public function testCreateTheRingTokenStartsAtLevelOneAndRetainsExistingTokenCopies(): void
+    public function testCreateTheRingTokenStartsAtLevelZeroAndRetainsExistingTokenCopies(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $opponent = new User('opponent@example.test', 'Opponent');
@@ -891,7 +891,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertCount(2, $actorBattlefield);
         self::assertSame('old-ring', $actorBattlefield[0]['instanceId']);
         self::assertSame('The Ring // The Ring Tempts You', $actorBattlefield[1]['name']);
-        self::assertSame(['Level' => 1], $actorBattlefield[1]['counters']);
+        self::assertSame(['Level' => 0], $actorBattlefield[1]['counters']);
         self::assertTrue($actorBattlefield[1]['isToken']);
         self::assertCount(1, $opponentBattlefield);
         self::assertSame('opponent-ring', $opponentBattlefield[0]['instanceId']);

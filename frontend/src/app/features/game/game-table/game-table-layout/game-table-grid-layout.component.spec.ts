@@ -107,13 +107,13 @@ describe('GameTable grid layout', () => {
     expect(layout.rectangle('opponent')).toBeNull();
   });
 
-  it('uses the saved Grid default for supported tables and falls back to Classic for five players', () => {
+  it('uses the saved chosen view for supported tables and falls back to Classic for five players', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableLayoutState,
         {
           provide: GameTableSessionPreferencesStore,
-          useValue: { preferences: { defaultBattlefieldLayout: 'grid' } },
+          useValue: { preferences: { defaultBattlefieldLayout: 'square', chosenModeView: 'grid' } },
         },
       ],
     });

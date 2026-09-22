@@ -101,17 +101,7 @@ export function isBattlefieldMechanicOverlayCard(card: GameCardInstance | null |
   return isDayNightCard(card)
     || isMonarchCard(card)
     || isInitiativeCard(card)
-    || isEmblemCard(card)
-    || isTheRingAtMechanicsOrigin(card);
-}
-
-function isTheRingAtMechanicsOrigin(card: GameCardInstance | null | undefined): boolean {
-  const position = card?.position;
-
-  return isTheRingCard(card)
-    && position?.unit === 'ratio'
-    && position.x === 0
-    && position.y === 0;
+    || isEmblemCard(card);
 }
 
 function activeCardTypeLine(card: Pick<GameCardInstance, 'typeLine' | 'cardFaces' | 'activeFaceIndex'> | null | undefined): string {

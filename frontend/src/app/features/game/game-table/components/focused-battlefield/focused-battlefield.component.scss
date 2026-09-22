@@ -45,6 +45,11 @@
   z-index: 40;
 }
 
+.battlefield.counter-hover-bounds-active {
+  z-index: 40;
+  overflow: visible;
+}
+
 .battlefield-card-size-probe {
   position: absolute;
   width: var(--game-card-view-width);

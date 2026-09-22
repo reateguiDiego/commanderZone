@@ -1,13 +1,14 @@
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameCardStatValue } from '../../../../../../core/models/game.model';
+import { CounterHoverIntentDirective } from '../../../directives/counter-hover-intent.directive';
 
 export type StatCounterPulse = 'increase' | 'decrease' | null;
 export type StatCounterChangeEvent = { event: MouseEvent; delta: number };
 
 @Component({
   selector: 'app-stat-counter',
-  imports: [RuntimeTranslatePipe],
+  imports: [RuntimeTranslatePipe, CounterHoverIntentDirective],
   templateUrl: './stat-counter.component.html',
   styleUrl: './stat-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

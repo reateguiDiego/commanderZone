@@ -46,7 +46,6 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   readonly regions = input.required<PlayerRegionTemplates>();
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
   readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
-  readonly isPlayerDropHighlighted = input<(playerId: string) => boolean>(() => false);
   readonly canConcede = input<(playerId: string) => boolean>(() => false);
   readonly summaryCompact = signal(false);
   readonly useSquareZonePresentation = signal(false);
@@ -55,6 +54,7 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   // any turn-owner header UI.
   readonly isTurnOwner = input(false);
   readonly turnDistance = input<number | null>(null);
+  readonly isOffline = input(false);
   // Kept alongside isTurnOwner for the stale development template during HMR.
   // Neither value produces header UI in the current Grid template.
   readonly defeated = () => this.isDefeated();

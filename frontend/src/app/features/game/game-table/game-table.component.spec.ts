@@ -723,6 +723,9 @@ describe('GameTableComponent', () => {
 
     expect(matchMedia).toHaveBeenCalledWith('(max-width: 1180px) and (max-height: 768px)');
     expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.table-surface')?.classList).toContain('compact-grid-header');
+    expect(fixture.nativeElement.querySelector('.player-strip > app-player-summary-panel')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="turn-panel"]')?.classList).toContain('is-grid-layout');
     expect(
       fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]'),
     ).not.toBeNull();

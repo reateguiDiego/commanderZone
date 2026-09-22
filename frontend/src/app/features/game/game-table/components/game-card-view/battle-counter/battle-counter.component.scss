@@ -39,6 +39,12 @@
     transform 160ms ease;
 }
 
+.battle-counter.counter-hover-active,
+.battle-counter:focus-visible {
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
+}
+
 .battle-counter-content {
   position: absolute;
   inset: 0;

@@ -15,6 +15,7 @@
         <span
           animate.enter="counter-marker-enter"
           animate.leave="counter-marker-leave"
+          appCounterHoverIntent
           [class]="'card-marker counter-marker ' + (currentCounter.pulseClass ?? '')"
           [class.readonly-counter-marker]="!countersInteractive()"
           [class.color-counter-marker]="currentCounter.kind === 'color'"

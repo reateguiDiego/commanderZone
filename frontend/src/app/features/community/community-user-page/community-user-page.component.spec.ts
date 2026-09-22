@@ -159,7 +159,12 @@ describe('CommunityUserPageComponent', () => {
     expect(fixture.nativeElement.querySelector('button[aria-label="Send friend request"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('button[aria-label="Remove friend"]')).not.toBeNull();
 
-    await fixture.componentInstance.removeFriend(firstPage.user);
+    fixture.componentInstance.requestFriendRemoval(firstPage.user);
+    fixture.detectChanges();
+    expect(friendsStore.removeFriend).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.modal-backdrop')).not.toBeNull();
+
+    await fixture.componentInstance.confirmFriendRemoval();
     expect(friendsStore.removeFriend).toHaveBeenCalledWith('user-1');
 
     await fixture.componentInstance.shareUser(firstPage.user);

@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "トークン作成の制御",
       "loadingDeckTokens": "デッキトークンを読み込み中...",
-      "searchingTokens": "トークンを検索しています..."
+      "searchingTokens": "トークンを検索しています...",
+      "theRingFromGameMechanics": "「指輪」は戦場からのみ追加できます。戦場を右クリックし、「ゲームのメカニズム」を選択してください。"
     },
     "playersOrder": {
       "currentTurnLabel": "ターン {{ turnNumber }}",

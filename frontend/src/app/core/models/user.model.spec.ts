@@ -9,6 +9,7 @@ describe('normalizeUserGamePreferences', () => {
 
     expect(normalizeUserGamePreferences(persistedPreferences)).toEqual({
       defaultBattlefieldLayout: 'square',
+      chosenModeView: 'square',
       showCardAlignmentHelper: true,
       showManaHelperOnStartup: false,
       enableManaRow: false,
@@ -33,7 +34,43 @@ describe('normalizeUserGamePreferences', () => {
       .toBe('square');
   });
 
+  it('uses the default battlefield layout until the player chooses a mode view', () => {
+    expect(normalizeUserGamePreferences({ defaultBattlefieldLayout: 'grid' })).toMatchObject({
+      defaultBattlefieldLayout: 'grid',
+      chosenModeView: 'grid',
+    });
+    expect(normalizeUserGamePreferences({
+      defaultBattlefieldLayout: 'grid',
+      chosenModeView: 'square',
+    })).toMatchObject({
+      defaultBattlefieldLayout: 'grid',
+      chosenModeView: 'square',
+    });
+  });
+
   it('uses false when the card alignment helper is explicitly disabled', () => {
     expect(normalizeUserGamePreferences({ showCardAlignmentHelper: false }).showCardAlignmentHelper).toBe(false);
+  });
+
+  it('uses the boolean grid and alignment settings when they are present', () => {
+    expect(normalizeUserGamePreferences({
+      defaultBattlefieldLayout: 'square',
+      showCardAlignmentHelper: true,
+      gridLayout: true,
+      lineAlignment: false,
+    })).toMatchObject({
+      defaultBattlefieldLayout: 'grid',
+      showCardAlignmentHelper: false,
+    });
+
+    expect(normalizeUserGamePreferences({
+      defaultBattlefieldLayout: 'grid',
+      showCardAlignmentHelper: false,
+      gridLayout: false,
+      lineAlignment: true,
+    })).toMatchObject({
+      defaultBattlefieldLayout: 'square',
+      showCardAlignmentHelper: true,
+    });
   });
 });

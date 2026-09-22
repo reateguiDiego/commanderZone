@@ -34,7 +34,7 @@ describe('gameplay-card-kind', () => {
     expect(isGameplayCardTapLocked(card({ name: 'Sol Ring', typeLine: 'Artifact' }))).toBe(false);
   });
 
-  it('identifies top overlay battlefield mechanic cards without including dungeons', () => {
+  it('identifies top overlay battlefield mechanic cards without including dungeons or The Ring', () => {
     expect(isBattlefieldMechanicOverlayCard(card({ name: 'Day // Night', layout: 'double_faced_token' }))).toBe(true);
     expect(isBattlefieldMechanicOverlayCard(card({ name: 'The Monarch', layout: 'monarch' }))).toBe(true);
     expect(isBattlefieldMechanicOverlayCard(card({ name: 'The Initiative', layout: 'initiative' }))).toBe(true);
@@ -45,7 +45,7 @@ describe('gameplay-card-kind', () => {
       layout: 'double_faced_token',
       typeLine: 'Emblem // Card',
       position: { x: 0, y: 0, unit: 'ratio' },
-    }))).toBe(true);
+    }))).toBe(false);
     expect(isBattlefieldMechanicOverlayCard(card({
       name: 'The Ring',
       layout: 'double_faced_token',

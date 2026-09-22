@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Token creation controls",
       "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "searchingTokens": "Searching tokens...",
+      "theRingFromGameMechanics": "The Ring can only be added from the battlefield. Right-click the battlefield, then choose “Game mechanics”."
     },
     "playersOrder": {
       "currentTurnLabel": "Turn {{ turnNumber }}",

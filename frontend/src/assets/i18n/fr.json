@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Contrôles de création de jetons",
       "loadingDeckTokens": "Chargement des jetons de deck...",
-      "searchingTokens": "Recherche de jetons..."
+      "searchingTokens": "Recherche de jetons...",
+      "theRingFromGameMechanics": "L'Anneau ne peut être ajouté que depuis le champ de bataille. Faites un clic droit sur le champ de bataille, puis choisissez « Mécaniques de jeu »."
     },
     "playersOrder": {
       "currentTurnLabel": "Tournez {{ turnNumber }}",

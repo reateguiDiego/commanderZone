@@ -667,3 +667,13 @@
     display: none;
   }
 }
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  // Square keeps its battlefield layout, but its constrained header uses the
+  // exact Grid header height and content arrangement.
+  .table-surface.compact-grid-header {
+    --compact-grid-header-height: calc(var(--game-log-overlay-peek-height) * 0.5);
+
+    grid-template-rows: var(--compact-grid-header-height) minmax(0, 1fr);
+  }
+}

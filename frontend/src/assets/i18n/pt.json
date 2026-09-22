@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles de criação de ficha",
       "loadingDeckTokens": "Carregando fichas de deck...",
-      "searchingTokens": "Procurando fichas..."
+      "searchingTokens": "Procurando fichas...",
+      "theRingFromGameMechanics": "O Anel só pode ser adicionado a partir do campo de batalha. Clique com o botão direito no campo de batalha e escolha «Mecânica de partida»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",

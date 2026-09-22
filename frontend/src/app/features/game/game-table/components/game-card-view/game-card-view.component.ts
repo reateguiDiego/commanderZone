@@ -37,6 +37,7 @@ import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.compo
 import { SagaCounterComponent } from './saga-counter/saga-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { CounterHoverIntentDirective } from '../../directives/counter-hover-intent.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
@@ -52,6 +53,7 @@ import {
   isGameplayCardTapLocked,
   isMonarchCard,
   isSagaCard,
+  isTheRingCard,
 } from '../../utils/gameplay-card-kind';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
@@ -135,6 +137,7 @@ interface DungeonMarkerDragPoint {
     LucideAngularModule,
     GameTableDoubleTapDirective,
     GameTableLongPressDirective,
+    CounterHoverIntentDirective,
     GameScheduledImageDirective,
     MTGIconComponent,
     PreloadCardAlternateFaceDirective,
@@ -601,6 +604,10 @@ export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestro
   }
 
   requestCounterDelete(request: CardMarkerCounterDeleteRequest): void {
+    if (isTheRingCard(this.card()) && request.key.trim().toLowerCase() === 'level') {
+      return;
+    }
+
     this.counterDeleteRequested.emit({ event: request.event, card: this.card(), key: request.key });
   }
 

@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -13,6 +13,11 @@ import { FriendSearchAutofocusDirective } from './friend-search-autofocus.direct
 import { communityUserProfilePath } from '../../../shared/ui/player-profile-navigation';
 
 type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
+
+export interface FriendRemovalRequest {
+  readonly id: string;
+  readonly displayName: string;
+}
 
 @Component({
   selector: 'app-friends-dropdown',
@@ -38,6 +43,7 @@ export class FriendsDropdownComponent {
   private readonly incomingRequestsOpenOverride = signal<boolean | null>(null);
   private readonly sentRequestsOpenOverride = signal<boolean | null>(null);
   readonly activeTab = signal<FriendsDropdownTab>('friends');
+  readonly friendRemovalRequested = output<FriendRemovalRequest>();
   readonly visibleError = computed(() => {
     const error = this.store.error();
     return error === FRIENDS_LOAD_ERROR ? null : error;
@@ -220,7 +226,7 @@ export class FriendsDropdownComponent {
         void this.store.cancelRequest(row.id);
         return;
       case 'friend':
-        void this.store.removeFriend(row.id);
+        this.friendRemovalRequested.emit({ id: row.id, displayName: row.displayName });
         return;
     }
   }

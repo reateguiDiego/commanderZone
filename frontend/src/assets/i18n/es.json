@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles de creación de fichas",
       "loadingDeckTokens": "Cargando fichas de mazo...",
-      "searchingTokens": "Buscando fichas..."
+      "searchingTokens": "Buscando fichas...",
+      "theRingFromGameMechanics": "El Anillo solo puede añadirse desde el campo de batalla. Haz clic con el botón derecho en el campo de batalla y elige «Mecánicas de juego»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",

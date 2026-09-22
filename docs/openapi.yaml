@@ -4775,7 +4775,7 @@ components:
           $ref: '#/components/schemas/UserGamePreferences'
     UserGamePreferences:
       type: object
-      required: [showManaHelperOnStartup, enableManaRow, autoApplyCommanderDamageToLife, gameAnimations, chatNotificationSounds, combineChatAndGameLog, defaultBattlefieldLayout, showCardAlignmentHelper]
+      required: [showManaHelperOnStartup, enableManaRow, autoApplyCommanderDamageToLife, gameAnimations, chatNotificationSounds, combineChatAndGameLog, defaultBattlefieldLayout, chosenModeView, showCardAlignmentHelper]
       properties:
         showManaHelperOnStartup:
           type: boolean
@@ -4790,6 +4790,9 @@ components:
         combineChatAndGameLog:
           type: boolean
         defaultBattlefieldLayout:
+          type: string
+          enum: [square, grid]
+        chosenModeView:
           type: string
           enum: [square, grid]
         showCardAlignmentHelper:

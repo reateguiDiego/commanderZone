@@ -3,13 +3,14 @@ import { GameCardStatValue } from '../../../../../../core/models/game.model';
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { MTGIconComponent } from '../../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { StatCounterChangeEvent } from '../stat-counter/stat-counter.component';
+import { CounterHoverIntentDirective } from '../../../directives/counter-hover-intent.directive';
 
 type StatPulse = 'increase' | 'decrease' | null;
 const PRESS_FEEDBACK_MS = 420;
 
 @Component({
   selector: 'app-battle-counter',
-  imports: [RuntimeTranslatePipe, MTGIconComponent],
+  imports: [RuntimeTranslatePipe, MTGIconComponent, CounterHoverIntentDirective],
   templateUrl: './battle-counter.component.html',
   styleUrl: './battle-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

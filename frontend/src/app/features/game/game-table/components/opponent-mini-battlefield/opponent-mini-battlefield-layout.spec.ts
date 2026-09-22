@@ -45,6 +45,12 @@ describe('layoutOpponentMiniBattlefield', () => {
     expect(tapped!.top).toBeGreaterThanOrEqual(0);
     expect(tapped!.left + tapped!.height).toBeLessThanOrEqual(220);
   });
+
+  it('caps aside cards at the normal mini-board size', () => {
+    const [cardLayout] = layoutOpponentMiniBattlefield([card('single')], { width: 800, height: 800 });
+
+    expect(cardLayout!.height).toBe(72);
+  });
 });
 
 function card(instanceId: string, x?: number, y?: number): GameCardInstance {

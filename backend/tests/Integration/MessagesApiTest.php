@@ -9,8 +9,19 @@ final class MessagesApiTest extends ApiTestCase
 {
     public function testNewlyRegisteredUserReceivesWelcomeMessage(): void
     {
+        $emailCountBeforeRegistration = count(self::getMailerMessages());
         $token = $this->registerAndLogin('welcome-message@example.test', 'Welcome Message');
         $this->assertMessageEventFor($this->currentUserId($token));
+
+        self::assertCount($emailCountBeforeRegistration + 2, self::getMailerMessages());
+        $welcomeEmail = self::getMailerMessage($emailCountBeforeRegistration);
+        self::assertNotNull($welcomeEmail);
+        self::assertEmailAddressContains($welcomeEmail, 'To', 'welcome-message@example.test');
+        self::assertEmailSubjectContains($welcomeEmail, 'Welcome');
+        self::assertEmailTextBodyContains($welcomeEmail, 'Welcome to CommanderZone!');
+        self::assertEmailTextBodyContains($welcomeEmail, 'still under construction');
+        self::assertEmailTextBodyContains($welcomeEmail, 'CommanderZone 1.0 soon');
+        self::assertEmailTextBodyContains($welcomeEmail, 'If you want to tell us something or share suggestions');
 
         $this->jsonRequest('GET', '/messages', token: $token);
 

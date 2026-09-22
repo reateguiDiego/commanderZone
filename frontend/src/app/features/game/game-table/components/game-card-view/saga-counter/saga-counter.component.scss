@@ -34,6 +34,12 @@
     transform 160ms ease;
 }
 
+.saga-counter.counter-hover-active,
+.saga-counter:focus-visible {
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
+}
+
 .saga-counter::before {
   content: '';
   position: absolute;

@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controlli di creazione pedine",
       "loadingDeckTokens": "Caricamento delle pedine del mazzo...",
-      "searchingTokens": "Ricerca pedine..."
+      "searchingTokens": "Ricerca pedine...",
+      "theRingFromGameMechanics": "L'Anello può essere aggiunto solo dal campo di battaglia. Fai clic con il pulsante destro del mouse sul campo di battaglia, quindi scegli «Meccaniche di gioco»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",

@@ -107,22 +107,24 @@
           @if (image) {
             @if (zone !== 'command') {
               @let layerImage = zoneStackLayerImage()(currentPlayer, zone);
-              <app-zone-card-stack
-                [image]="image"
-                [card]="zonePreviewCard()(currentPlayer, zone)"
-                [layerImage]="layerImage"
-                [label]="zoneTitle()(zone)"
-                [count]="zoneCount()(currentPlayer, zone)"
-                [showRevealIndicator]="
-                  zone === 'library' && hasRevealedLibraryCards(currentPlayer)
-                "
-                [faceToggleEnabled]="canToggleZoneTopFace(currentPlayer, zone)"
-                [shufflePlayerId]="zone === 'library' ? currentPlayer.id : null"
-                [shuffleRevision]="
-                  zone === 'library' ? (currentPlayer.state.libraryShuffleRevision ?? null) : null
-                "
-                (alternateFaceToggled)="previewZoneTopFace(zone, $event)"
-              />
+              <span class="zone-card-artwork">
+                <app-zone-card-stack
+                  [image]="image"
+                  [card]="zonePreviewCard()(currentPlayer, zone)"
+                  [layerImage]="layerImage"
+                  [label]="zoneTitle()(zone)"
+                  [count]="zoneCount()(currentPlayer, zone)"
+                  [showRevealIndicator]="
+                    zone === 'library' && hasRevealedLibraryCards(currentPlayer)
+                  "
+                  [faceToggleEnabled]="canToggleZoneTopFace(currentPlayer, zone)"
+                  [shufflePlayerId]="zone === 'library' ? currentPlayer.id : null"
+                  [shuffleRevision]="
+                    zone === 'library' ? (currentPlayer.state.libraryShuffleRevision ?? null) : null
+                  "
+                  (alternateFaceToggled)="previewZoneTopFace(zone, $event)"
+                />
+              </span>
             }
           }
           @if (zone === 'command') {

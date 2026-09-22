@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles voor het maken van Token",
       "loadingDeckTokens": "Decktokens laden...",
-      "searchingTokens": "tokens zoeken..."
+      "searchingTokens": "tokens zoeken...",
+      "theRingFromGameMechanics": "De Ring kan alleen vanaf het slagveld worden toegevoegd. Klik met de rechtermuisknop op het slagveld en kies vervolgens ‘Spelmechanica’."
     },
     "playersOrder": {
       "currentTurnLabel": "Beurt {{ turnNumber }}",

@@ -28,6 +28,7 @@ import {
 import { GameXQuantityStepperComponent } from '../game-x-quantity-stepper/game-x-quantity-stepper.component';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
+import { isTheRingCard } from '../../utils/gameplay-card-kind';
 
 export type GameplayCardSearchKind = 'token' | 'emblem' | 'dungeon';
 
@@ -38,6 +39,7 @@ export type GameplayCardSearchSelection =
 const MIN_TOKEN_QUANTITY = 1;
 const MAX_TOKEN_QUANTITY = 20;
 const SEARCH_DEBOUNCE_MS = 320;
+const THE_RING_SEARCH_QUERY = 'the ring';
 
 interface TranslationLabel {
   readonly key: string;
@@ -72,6 +74,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly quantity = signal(MIN_TOKEN_QUANTITY);
   readonly showingSearchResults = computed(() => this.query().trim().length >= 2);
+  readonly isTheRingSearch = computed(
+    () => this.kind === 'token' && normalizeSearchQuery(this.query()) === THE_RING_SEARCH_QUERY,
+  );
   readonly showingDeckTokens = computed(
     () => this.kind === 'token' && !this.showingSearchResults(),
   );
@@ -81,6 +86,10 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     return this.deckTokens()
       .map((entry) => entry.token)
       .filter((card) => {
+        if (isTheRingCard(card)) {
+          return false;
+        }
+
         if (seen.has(card.scryfallId)) {
           return false;
         }
@@ -143,6 +152,13 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
     const trimmed = query.trim();
     const version = ++this.searchVersion;
+    if (this.isTheRingSearch()) {
+      this.searchResults.set([]);
+      this.searching.set(false);
+      this.error.set(null);
+      return;
+    }
+
     if (trimmed.length < 2) {
       if (this.kind === 'token') {
         this.searchResults.set([]);
@@ -233,7 +249,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   }
 
   emptyStateLabel(): string {
-    return 'game.specialHelpers.modal.noResults';
+    return this.isTheRingSearch()
+      ? 'game.tokenSearchModal.theRingFromGameMechanics'
+      : 'game.specialHelpers.modal.noResults';
   }
 
   addButtonLabel(_card: Card): string {
@@ -286,7 +304,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
         return;
       }
 
-      this.searchResults.set(filterDistinctCardsByQuery(response.data, query));
+      this.searchResults.set(
+        filterDistinctCardsByQuery(response.data, query).filter((card) => !isTheRingCard(card)),
+      );
       this.error.set(null);
     } catch {
       if (version === this.searchVersion) {
@@ -365,4 +385,8 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
     return Math.max(MIN_TOKEN_QUANTITY, Math.min(MAX_TOKEN_QUANTITY, parsed));
   }
+}
+
+function normalizeSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, ' ').toLowerCase();
 }

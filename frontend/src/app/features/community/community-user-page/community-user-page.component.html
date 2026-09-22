@@ -43,7 +43,7 @@
                   class="secondary-button compact icon-only community-user-action-button is-danger"
                   [attr.aria-label]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate"
                   [disabled]="removingFriend()"
-                  (click)="removeFriend(userData)"
+                  (click)="requestFriendRemoval(userData)"
                 >
                   <lucide-icon name="user-round-x" size="18" aria-hidden="true" />
                 </button>
@@ -167,3 +167,19 @@
     }
   }
 </section>
+
+<app-modal
+  [open]="pendingFriendRemoval() !== null"
+  title="navigation.friends.friendsDropdown.removeFriend"
+  message="common.modal.cannotBeUndone"
+  primaryLabel="navigation.friends.friendsDropdown.removeFriend"
+  secondaryLabel="shared.text.cancel"
+  [danger]="true"
+  [primaryDisabled]="removingFriend()"
+  (primary)="confirmFriendRemoval()"
+  (secondary)="cancelFriendRemoval()"
+>
+  @if (pendingFriendRemoval(); as friend) {
+    <p class="notice">{{ friend.displayName }}</p>
+  }
+</app-modal>

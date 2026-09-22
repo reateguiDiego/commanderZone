@@ -19,6 +19,7 @@ describe('OpponentMiniBoardComponent', () => {
 
     fixture = TestBed.createComponent(OpponentMiniBoardComponent);
     fixture.componentRef.setInput('player', playerView());
+    fixture.componentRef.setInput('players', playerViews());
     fixture.componentRef.setInput('colorAccent', () => '#d7b46a');
     fixture.componentRef.setInput('deckLabel', (player: PlayerView | null) => player?.state.user.displayName ?? '');
     fixture.componentRef.setInput('backgroundImage', () => '/assets/images/playmat/free_0.webp');
@@ -42,6 +43,14 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
   });
 
+  it('highlights the Square opponent aside when it is the drop destination', () => {
+    fixture.componentRef.setInput('isPlayerDropHighlighted', (playerId: string) => playerId === 'user-2');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"]')?.classList)
+      .toContain('drop-target-active');
+  });
+
   it('renders the opponent username below the deck title', () => {
     fixture.detectChanges();
 
@@ -51,7 +60,7 @@ describe('OpponentMiniBoardComponent', () => {
 
     expect(username.textContent?.trim()).toBe('Opponent');
     expect(username.style.getPropertyValue('--opponent-user-name-color')).toBe(
-      gamePlayerNameColor('user-2'),
+      gamePlayerNameColor('user-2', playerViews()),
     );
   });
 
@@ -178,6 +187,23 @@ function playerView(overrides: Partial<PlayerView['state']> = {}): PlayerView {
     },
   };
 }
+
+function playerViews(): PlayerView[] {
+  const opponent = playerView();
+
+  return [
+    {
+      ...opponent,
+      id: 'user-1',
+      state: {
+        ...opponent.state,
+        user: { ...opponent.state.user, id: 'user-1', displayName: 'Local player' },
+      },
+    },
+    opponent,
+  ];
+}
+
 function cardInstance(instanceId: string, name: string): GameCardInstance {
   return {
     instanceId,

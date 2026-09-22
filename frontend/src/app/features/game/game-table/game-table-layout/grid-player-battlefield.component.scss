@@ -190,6 +190,11 @@
   z-index: 180;
   overflow: visible;
 }
+
+.player-cell.counter-hover-bounds-active {
+  z-index: 40;
+  overflow: visible;
+}
 .is-current {
   border-color: var(--game-accent);
 }
@@ -317,6 +322,32 @@
   gap: 0.35rem;
 }
 
+.player-cell-offline-status {
+  position: absolute;
+  top: calc(0.55rem + 1.55rem + 0.18rem);
+  left: calc(var(--game-zone-dock-width) + 0.55rem);
+  z-index: 51;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.08rem;
+  padding: 0 0.42rem;
+  border: 1px solid rgb(var(--cz-danger-rgb) / 54%);
+  border-radius: 999px;
+  background: var(--cz-danger);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+    0 0 0.55rem rgb(var(--cz-danger-rgb) / 16%);
+  color: var(--cz-text);
+  font-size: 0.56rem;
+  font-weight: 860;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 64%);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .is-right-column .player-cell-summary {
   right: auto;
   left: 0.35rem;
@@ -383,6 +414,12 @@
   justify-self: end;
 }
 
+.player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  order: 2;
+  width: min(100%, 7rem);
+  align-self: flex-end;
+}
+
 .player-cell-summary ::ng-deep .player-summary-panel-grid .player-extra-actions {
   --extra-actions-menu-width: min(24.375rem, calc(100vw - 1rem));
 }
@@ -399,6 +436,10 @@
 .is-right-column .player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
   align-self: flex-start;
   justify-self: start;
+}
+
+.is-right-column .player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  align-self: flex-start;
 }
 
 .player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls {
@@ -418,6 +459,10 @@
   bottom: 1.05rem;
 }
 
+.is-top-row .player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  order: 0;
+}
+
 .is-top-row .player-cell-summary ::ng-deep .grid-player-name {
   top: calc(100% + 0.08rem);
   bottom: auto;
@@ -428,7 +473,17 @@
   bottom: 0.55rem;
 }
 
-.is-right-column .player-cell-turn-status {
+.is-top-row .player-cell-offline-status {
+  top: auto;
+  bottom: 0.55rem;
+}
+
+.is-top-row:has(.player-cell-offline-status) .player-cell-turn-status {
+  bottom: calc(0.55rem + 1.08rem + 0.18rem);
+}
+
+.is-right-column .player-cell-turn-status,
+.is-right-column .player-cell-offline-status {
   right: calc(var(--game-zone-dock-width) + 0.55rem);
   left: auto;
 }
@@ -530,6 +585,28 @@
     min-height: 0;
   }
 
+  // The horizontal dock shares the hand row with a wide Zone Piles strip.
+  // Avoid reserving inline space for a scrollbar while retaining the normal
+  // fan-to-row transition and scroll behavior.
+  .player-cell-hand ::ng-deep .hand-row {
+    scrollbar-gutter: auto;
+  }
+
+  // The fan has decorative overhangs that add a few pixels of scroll width.
+  // Clip that non-interactive overflow only while it is a fan. Row mode keeps
+  // its normal horizontal overflow for the fan-to-row interaction.
+  .player-cell-hand ::ng-deep .hand-row:not(.hand-row-expanded) {
+    overflow-x: hidden;
+  }
+
+  .player-cell-hand ::ng-deep .hand-row-expanded {
+    scrollbar-width: none;
+  }
+
+  .player-cell-hand ::ng-deep .hand-row-expanded::-webkit-scrollbar {
+    height: 0;
+  }
+
   .player-cell-summary {
     width: min(19rem, calc(100% - 0.8rem));
   }
@@ -538,12 +615,17 @@
     width: min(19rem, 100%);
   }
 
-  .player-cell-turn-status {
+  .player-cell-turn-status,
+  .player-cell-offline-status {
     left: 0.55rem;
+  }
+
+  .player-cell-turn-status {
     max-width: min(8.5rem, calc(100% - 1.1rem));
   }
 
-  &.is-right-column .player-cell-turn-status {
+  &.is-right-column .player-cell-turn-status,
+  &.is-right-column .player-cell-offline-status {
     right: 0.55rem;
     left: auto;
   }

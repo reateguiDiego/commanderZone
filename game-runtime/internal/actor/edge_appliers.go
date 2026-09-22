@@ -13,7 +13,10 @@ import (
 	"commanderzone/game-runtime/internal/state"
 )
 
-const maxRuntimeTokenCreateQuantity = 20
+const (
+	maxRuntimeTokenCreateQuantity = 20
+	theRingScryfallID             = "7215460e-8c06-47d0-94e5-d1832d0218af"
+)
 
 type CardTokenCreatedApplier struct{}
 
@@ -42,6 +45,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	}
 	cardKey := runtimeTokenCardKey(card, name)
 	staticCards := tokenStaticCards(cardKey, name, card)
+	initialCounters := tokenInitialCounters(card, name)
 	tokenMeta := map[string]any{
 		"isCopy":              false,
 		"templateCardKey":     compactOptionalString(card["cardKey"]),
@@ -70,7 +74,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 			IsToken:       true,
 			TokenMeta:     cloneMap(tokenMeta),
 			Position:      tokenPosition(index, quantity, command.Payload),
-			Counters:      map[string]int{},
+			Counters:      cloneIntMap(initialCounters),
 			MutableStats:  tokenMutableStats(card),
 			VisibleToMask: 1,
 		}
@@ -522,6 +526,31 @@ func runtimeTokenCardKey(card map[string]any, name string) string {
 		return value + ":token"
 	}
 	return "token:" + sanitizeID(name)
+}
+
+func tokenInitialCounters(card map[string]any, name string) map[string]int {
+	if isTheRingToken(card, name) {
+		return map[string]int{"Level": 0}
+	}
+
+	return map[string]int{}
+}
+
+func isTheRingToken(card map[string]any, name string) bool {
+	if strings.EqualFold(compactOptionalString(card["scryfallId"]), theRingScryfallID) {
+		return true
+	}
+
+	if !strings.EqualFold(compactOptionalString(card["layout"]), "double_faced_token") {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "the ring", "the ring // the ring tempts you":
+		return true
+	default:
+		return false
+	}
 }
 
 func tokenMutableStats(card map[string]any) map[string]any {

@@ -55,11 +55,20 @@ describe('SpecialEntityRailComponent', () => {
     const card = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill-card-backed') as NodeListOf<HTMLElement>)
       .find((element) => element.getAttribute('aria-label')?.includes('Initiative')) as HTMLElement | undefined;
     expect(card).toBeTruthy();
+    vi.spyOn(card!, 'getBoundingClientRect').mockReturnValue({
+      left: 120,
+      top: 240,
+      right: 280,
+      bottom: 280,
+      width: 160,
+      height: 40,
+    } as DOMRect);
     card?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     card?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(shown).toHaveBeenCalledWith(expect.objectContaining({
-      template: 'initiative',
+      entity: expect.objectContaining({ template: 'initiative' }),
+      sourceRect: { left: 120, top: 240, right: 280, bottom: 280, width: 160, height: 40 },
     }));
     expect(hidden).toHaveBeenCalled();
   });
@@ -75,7 +84,8 @@ describe('SpecialEntityRailComponent', () => {
     monarch.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(shown).toHaveBeenCalledWith(expect.objectContaining({
-      template: 'monarch',
+      entity: expect.objectContaining({ template: 'monarch' }),
+      sourceRect: null,
     }));
     expect(hidden).toHaveBeenCalled();
   });

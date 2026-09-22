@@ -279,11 +279,11 @@
       </section>
     </app-extra-actions-menu>
   </div>
-  @if (!gridLayout() && visibleSpecialEntities().length > 0) {
+  @if (visibleSpecialEntities().length > 0) {
     <app-special-entity-strip
       class="player-summary-special-entity-strip"
       [entities]="visibleSpecialEntities()"
-      variant="summary"
+      [variant]="gridLayout() ? 'compact' : 'summary'"
       (previewRequested)="helperPreviewRequested.emit($event)"
       (previewHidden)="helperPreviewHidden.emit()"
       (entityContextRequested)="helperContextRequested.emit($event)"

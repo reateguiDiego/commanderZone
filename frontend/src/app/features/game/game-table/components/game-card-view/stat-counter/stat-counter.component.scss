@@ -18,6 +18,12 @@
     transform 160ms ease;
 }
 
+.stat-counter.counter-hover-active,
+.stat-counter:focus-visible {
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
+}
+
 .stat-counter::before {
   content: '';
   position: absolute;

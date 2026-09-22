@@ -192,6 +192,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureWaitingRoomExpiryColumn($connection);
         $this->ensureUserThemeColumn($connection);
+        $this->ensureUserChosenModeViewColumn($connection);
         $this->ensureUserPublicHandleColumn($connection);
         $this->ensureUserRoleTables($connection);
         $this->ensureUserPremiumTierColumn($connection);
@@ -565,6 +566,24 @@ SQL,
 
         $connection->executeStatement("ALTER TABLE app_user ADD COLUMN theme_id VARCHAR(48) NOT NULL DEFAULT 'sunrise'");
         $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
+    }
+
+    private function ensureUserChosenModeViewColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (in_array('chosen_mode_view', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement("ALTER TABLE app_user ADD COLUMN chosen_mode_view VARCHAR(16) NOT NULL DEFAULT 'square'");
     }
 
     private function ensureUserPublicHandleColumn(Connection $connection): void

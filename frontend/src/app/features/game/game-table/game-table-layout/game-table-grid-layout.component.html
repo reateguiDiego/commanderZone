@@ -10,7 +10,7 @@
         [playmatImage]="playmatImage()"
         [isTurnOwner]="entry.turnDistance === 0"
         [turnDistance]="entry.turnDistance"
-        [isPlayerDropHighlighted]="isPlayerDropHighlighted()"
+        [isOffline]="entry.seat.player.state.isOnline === false"
         [canConcede]="canConcede()"
         [style.grid-area]="entry.seat.seat"
         (dropAllowed)="dropAllowed.emit($event)"

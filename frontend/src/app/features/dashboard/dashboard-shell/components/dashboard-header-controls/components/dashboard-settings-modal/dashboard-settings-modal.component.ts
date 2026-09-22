@@ -640,6 +640,7 @@ export class DashboardSettingsModalComponent {
     this.gameSettingsToggleState.update((current) => ({
       ...current,
       defaultBattlefieldLayout: layout,
+      chosenModeView: layout,
     }));
   }
 

@@ -21,6 +21,7 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { PaginationComponent } from '../../../shared/ui/pagination/pagination.component';
 import { PlayerInfoComponent } from '../../../shared/ui/player-info/player-info.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { CommunityDeckGridComponent } from '../components/community-deck-grid/community-deck-grid.component';
 import { CommunityCacheService } from '../data-access/community-cache.service';
 import { FriendsStore } from '../../friends/data-access/friends.store';
@@ -42,6 +43,7 @@ import { communityDeckRoute } from '../utils/community-deck-route';
     PaginationComponent,
     PlayerInfoComponent,
     TooltipComponent,
+    AppModalComponent,
   ],
   templateUrl: './community-user-page.component.html',
   styleUrl: './community-user-page.component.scss',
@@ -77,6 +79,7 @@ export class CommunityUserPageComponent implements OnDestroy {
   private readonly hasAppliedDeckFilters = signal(false);
   readonly sendingFriendRequest = signal(false);
   readonly removingFriend = signal(false);
+  readonly pendingFriendRemoval = signal<CommunityUser | null>(null);
   readonly actionFeedback = signal<string | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly formats = signal<readonly DeckFormat[]>(this.cache.peekFormats() ?? []);
@@ -179,8 +182,22 @@ export class CommunityUserPageComponent implements OnDestroy {
     }
   }
 
-  async removeFriend(user: CommunityUser): Promise<void> {
-    if (this.removingFriend()) {
+  requestFriendRemoval(user: CommunityUser): void {
+    if (!this.removingFriend()) {
+      this.pendingFriendRemoval.set(user);
+    }
+  }
+
+  cancelFriendRemoval(): void {
+    if (!this.removingFriend()) {
+      this.pendingFriendRemoval.set(null);
+    }
+  }
+
+  async confirmFriendRemoval(): Promise<void> {
+    const user = this.pendingFriendRemoval();
+
+    if (!user || this.removingFriend()) {
       return;
     }
 
@@ -189,6 +206,7 @@ export class CommunityUserPageComponent implements OnDestroy {
       await this.friends.removeFriend(user.id);
     } finally {
       this.removingFriend.set(false);
+      this.pendingFriendRemoval.set(null);
     }
   }
 
@@ -308,6 +326,7 @@ export class CommunityUserPageComponent implements OnDestroy {
     this.page.set(1);
     this.actionFeedback.set(null);
     this.actionError.set(null);
+    this.pendingFriendRemoval.set(null);
   }
 
   private isActiveLoad(loadVersion: number): boolean {

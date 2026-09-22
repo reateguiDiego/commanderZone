@@ -1037,17 +1037,17 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).not.toBeNull();
   });
 
-  it('renders The Ring level as a generic counter', async () => {
+  it('renders The Ring with its initial level-zero counter', async () => {
     const { fixture } = await renderHandCard();
     const counterChanged = vi.fn();
     fixture.componentInstance.counterChanged.subscribe(counterChanged);
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { level: 2 } });
+    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { level: 0 } });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain('level2');
+    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain('level0');
 
     fixture.componentInstance.changeCounter({
       event: new MouseEvent('click'),
@@ -1056,6 +1056,21 @@ describe('GameCardViewComponent', () => {
     });
 
     expect(counterChanged).toHaveBeenCalledWith(expect.objectContaining({ key: 'level', delta: 1 }));
+  });
+
+  it('does not request deletion when The Ring level-zero counter is right-clicked', async () => {
+    const { fixture } = await renderHandCard();
+    const deleteRequested = vi.fn();
+    fixture.componentInstance.counterDeleteRequested.subscribe(deleteRequested);
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { Level: 0 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(deleteRequested).not.toHaveBeenCalled();
   });
 
   it('plays the face flip animation on stable battlefield cards', async () => {

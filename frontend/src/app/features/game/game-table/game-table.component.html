@@ -298,6 +298,7 @@
       appPrettyScroll
       class="table-surface game-table-v2"
       [class.layout-grid]="tableLayout.mode() === 'grid'"
+      [class.compact-grid-header]="tableLayout.mode() === 'square' && aggressiveCompactViewport()"
     >
       @if (tableToast(); as toast) {
         <p class="table-error" role="status" aria-live="polite">{{ toast | runtimeTranslate }}</p>
@@ -305,7 +306,7 @@
 
       @if (presentedPlayer(); as player) {
         <div class="player-strip game-table-main-top">
-          @if (tableLayout.mode() === 'square') {
+          @if (tableLayout.mode() === 'square' && !aggressiveCompactViewport()) {
             @if (store.currentPlayer() ?? player; as summaryPlayer) {
               <app-player-summary-panel
                 [player]="summaryPlayer"
@@ -344,7 +345,7 @@
             [playerColor]="playerNameColor"
             [isPhasePast]="isPhasePast"
             [canAdvance]="store.canAdvanceTurnPhase()"
-            [gridLayout]="tableLayout.mode() === 'grid'"
+            [gridLayout]="tableLayout.mode() === 'grid' || aggressiveCompactViewport()"
             [followActiveTurnPlayer]="followActiveTurnPlayer()"
             (advancePhase)="store.advanceTurnPhase()"
             (passTurn)="store.passTurn()"
@@ -659,7 +660,7 @@
                 canEditCounters: canControlPlayer,
                 autoApplyCommanderDamageToLife: autoApplyCommanderDamageToLife(),
                 specialEntities: playerSpecialEntities,
-                showHelperPreview,
+                showHelperPreview: gridHelperPreviewRequested,
                 hideHelperPreview: hideGridHelperPreview,
                 openHelperContext: gridHelperContextRequested,
                 changeLife: gridLifeChanged,
@@ -667,7 +668,6 @@
                 changePlayerCounter: gridPlayerCounterChanged,
               }"
               [activePlayerId]="snapshot.turn.activePlayerId"
-              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
               [canConcede]="canConcedeForPlayer"
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
@@ -783,6 +783,7 @@
             @for (player of opponentSidebarPlayers(); track player.id) {
               <app-opponent-mini-board
                 [player]="player"
+                [players]="store.players()"
                 [attachments]="snapshot.attachments ?? []"
                 [colorAccent]="colorAccent"
                 [deckLabel]="deckLabel"

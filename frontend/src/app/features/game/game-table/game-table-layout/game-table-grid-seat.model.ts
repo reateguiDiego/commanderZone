@@ -1,6 +1,7 @@
 import type { TemplateRef } from '@angular/core';
 import type { GameSpecialEntity } from '../../../../core/models/game.model';
 import type { PlayerView } from '../game-table.store';
+import type { SpecialEntityPreviewRequest } from '../models/special-entity-preview-request.model';
 
 export type BattlefieldViewLayout = 'square' | 'grid';
 export type GridSeatName = 'opponent-1' | 'opponent-2' | 'opponent-3' | 'current';
@@ -52,7 +53,7 @@ export interface GridPlayerSummaryBindings {
   readonly canEditCounters: (playerId: string) => boolean;
   readonly autoApplyCommanderDamageToLife: boolean;
   readonly specialEntities: (playerId: string) => readonly GameSpecialEntity[];
-  readonly showHelperPreview: (entity: GameSpecialEntity) => void;
+  readonly showHelperPreview: (request: SpecialEntityPreviewRequest) => void;
   readonly hideHelperPreview: () => void;
   readonly openHelperContext: (event: MouseEvent, entity: GameSpecialEntity) => void;
   readonly changeLife: (playerId: string, delta: number) => void;

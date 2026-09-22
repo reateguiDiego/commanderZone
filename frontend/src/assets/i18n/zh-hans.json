@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "衍生物生成控制",
       "loadingDeckTokens": "正在加载套牌衍生物...",
-      "searchingTokens": "正在搜索衍生物..."
+      "searchingTokens": "正在搜索衍生物...",
+      "theRingFromGameMechanics": "至尊戒只能通过战场的右键菜单添加。右键点击战场，然后选择“游戏机制”。"
     },
     "playersOrder": {
       "currentTurnLabel": "第 {{ turnNumber }} 回合",

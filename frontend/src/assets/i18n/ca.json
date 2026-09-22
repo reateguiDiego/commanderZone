@@ -874,7 +874,8 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controls de creació de fitxes",
       "loadingDeckTokens": "Carregant fitxes de la baralla...",
-      "searchingTokens": "Cercant fitxes..."
+      "searchingTokens": "Cercant fitxes...",
+      "theRingFromGameMechanics": "L'Anell només es pot afegir des del camp de batalla. Feu clic amb el botó dret al camp de batalla i seleccioneu «Mecànica del joc»."
     },
     "playersOrder": {
       "currentTurnLabel": "Torn {{ turnNumber }}",

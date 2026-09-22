@@ -44,7 +44,7 @@
       <article
         class="special-entity-pill"
         [attr.aria-label]="tooltipFor(entity, labelFor(entity) | runtimeTranslate)"
-        (mouseenter)="previewRequested.emit(entity)"
+        (mouseenter)="requestPreview($event, entity)"
         (mouseleave)="previewHidden.emit()"
         (contextmenu)="requestEntityContext($event, entity)"
       >
@@ -62,7 +62,7 @@
         <article
           class="special-entity-pill special-entity-pill-card-backed"
           [attr.aria-label]="tooltipFor(entity, cardLabel(entity) | runtimeTranslate)"
-          (mouseenter)="previewRequested.emit(entity)"
+          (mouseenter)="requestPreview($event, entity)"
           (mouseleave)="previewHidden.emit()"
           (contextmenu)="requestEntityContext($event, entity)"
         >

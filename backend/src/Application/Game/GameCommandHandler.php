@@ -1886,7 +1886,7 @@ class GameCommandHandler
                 'tokenMeta' => $tokenMeta,
             ], $playerId, 'battlefield');
             if ($isTheRing) {
-                $tokens[$index]['counters'] = ['Level' => 1];
+                $tokens[$index]['counters'] = ['Level' => 0];
             }
         }
 

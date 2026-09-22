@@ -2062,6 +2062,39 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	}
 }
 
+func TestTheRingTokenCreateRuntimeInitializesLevelZero(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "ring-token-create", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"card": map[string]any{
+			"scryfallId": theRingScryfallID,
+			"name":       "The Ring // The Ring Tempts You",
+			"layout":     "double_faced_token",
+		},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("the ring token create failed: %v", result.Err)
+	}
+
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing The Ring add patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if len(cards) != 1 {
+		t.Fatalf("unexpected The Ring patch cards: %#v", cards)
+	}
+	counters, ok := cards[0]["counters"].(map[string]int)
+	if !ok || counters["Level"] != 0 {
+		t.Fatalf("The Ring patch must include Level 0: %#v", cards[0])
+	}
+
+	instanceID := cards[0]["instanceId"].(string)
+	if gameActor.Snapshot().Instances[instanceID].Counters["Level"] != 0 {
+		t.Fatalf("The Ring runtime instance must retain Level 0: %#v", gameActor.Snapshot().Instances[instanceID])
+	}
+}
+
 func TestTokenCreateRuntimeBuildsSyntheticRenderableStaticCard(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-create-synthetic", "card.token.created", map[string]any{
