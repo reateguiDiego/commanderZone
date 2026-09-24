@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
+import { gsap } from 'gsap';
 import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import {
   ArrowLeft,
@@ -92,7 +93,7 @@ import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { CommandResponse } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
-import { GameCardInstance, GameSnapshot } from '../../../core/models/game.model';
+import { GameCardInstance, GameEvent, GameSnapshot } from '../../../core/models/game.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { GameTableComponent } from './game-table.component';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
@@ -164,13 +165,15 @@ describe('GameTableComponent', () => {
 
       const commandResult = gameplayWebsocketCommand(parsed.command, parsed.gameId) as unknown;
       let responseSnapshot: GameSnapshot | undefined;
+      let responseEvent: GameEvent | undefined;
       if (commandResult && typeof commandResult === 'object' && 'subscribe' in commandResult) {
         (
           commandResult as {
-            subscribe(next: (value: { snapshot?: GameSnapshot }) => void): unknown;
+            subscribe(next: (value: { snapshot?: GameSnapshot; event?: GameEvent }) => void): unknown;
           }
         ).subscribe((value) => {
           responseSnapshot = value.snapshot;
+          responseEvent = value.event;
         });
       }
       websocketMessages.next({
@@ -180,6 +183,7 @@ describe('GameTableComponent', () => {
         version: parsed.command.baseVersion + 1,
         clientActionId: parsed.command.clientActionId,
         operations: websocketPatchOperations(parsed.command, responseSnapshot),
+        event: responseEvent,
       });
 
       return true;
@@ -4048,7 +4052,10 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.rollModalOpen()).toBe(true);
-    expect((fixture.nativeElement as HTMLElement).querySelector('app-roll-modal')).not.toBeNull();
+    const rollModal = (fixture.nativeElement as HTMLElement).querySelector('app-roll-modal');
+    expect(rollModal).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.game-screen > app-roll-modal')).toBe(rollModal);
+    expect(rollModal?.querySelector('.roll-modal')?.classList.contains('roll-modal--big')).toBe(true);
   });
 
   it('opens websocket debug in a new tab from the game context menu action', async () => {
@@ -4082,7 +4089,7 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('records roll modal results in the game log through a game command', async () => {
+  it('keeps the roll modal open and renders the backend dice result', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({
       id: 'user-1',
@@ -4101,7 +4108,7 @@ describe('GameTableComponent', () => {
         event: {
           id: 'event-dice',
           type: 'dice.rolled',
-          payload: {},
+          payload: { kind: 'd20', finalResult: '17' },
           createdBy: 'user-1',
           createdAt: '',
         },
@@ -4113,12 +4120,8 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    await fixture.componentInstance.recordRollResult({
-      kind: 'd20',
-      label: '20-sided die',
-      iterationCount: 4,
-      finalResult: '17',
-    });
+    fixture.componentInstance.openRollModal();
+    await fixture.componentInstance.requestDiceRoll('d20');
 
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -4131,6 +4134,8 @@ describe('GameTableComponent', () => {
       'game-1',
     );
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.rollModalOpen()).toBe(true);
+    expect(fixture.componentInstance.rollModalResult()).toBe('17');
   });
 
   it('sends roll modal button results to the game log', async () => {
@@ -4152,19 +4157,15 @@ describe('GameTableComponent', () => {
         event: {
           id: 'event-dice',
           type: 'dice.rolled',
-          payload: {},
+          payload: { kind: 'd20', finalResult: '1' },
           createdBy: 'user-1',
           createdAt: '',
         },
         snapshot: commandSnapshot,
       }),
     );
-    const getRandomValues = vi
-      .spyOn(globalThis.crypto, 'getRandomValues')
-      .mockImplementation((array) => {
-        (array as Uint32Array)[0] = 0;
-        return array;
-      });
+    const originalTimeScale = gsap.globalTimeline.timeScale();
+    gsap.globalTimeline.timeScale(100);
 
     try {
       const fixture = TestBed.createComponent(GameTableComponent);
@@ -4196,13 +4197,20 @@ describe('GameTableComponent', () => {
           'ha tirado un d20, ha salido un 1.',
         ),
       );
+      expect(fixture.componentInstance.visibleEventLog()).toHaveLength(0);
+      await vi.waitFor(() => expect(modal.isRolling()).toBe(false));
       fixture.detectChanges();
+      expect(fixture.componentInstance.rollModalOpen()).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.roll-result strong')?.textContent).toContain('1');
       expect(
         (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log"]')
           ?.textContent,
       ).toContain('ha tirado un d20, ha salido un 1.');
+      expect(fixture.componentInstance.visibleEventLog()[0]?.messagePrefix).toBe(
+        'ha tirado un d20, ha salido un 1.',
+      );
     } finally {
-      getRandomValues.mockRestore();
+      gsap.globalTimeline.timeScale(originalTimeScale);
     }
   });
 
@@ -6878,10 +6886,10 @@ describe('GameTableComponent', () => {
       },
     });
     expect(
-      fixture.componentInstance.pendingLibraryMoveMessage(
+      fixture.componentInstance.pendingLibraryMoveMessageKey(
         fixture.componentInstance.store.pendingLibraryMove()!,
       ),
-    ).toBe('Donde quieres poner esta carta?');
+    ).toBe('game.gameTable.libraryPlacementSinglePrompt');
   });
 
   it('hides card previews while the library top-or-bottom confirmation is open', async () => {
@@ -7027,10 +7035,10 @@ describe('GameTableComponent', () => {
       },
     });
     expect(
-      fixture.componentInstance.pendingLibraryMoveMessage(
+      fixture.componentInstance.pendingLibraryMoveMessageKey(
         fixture.componentInstance.store.pendingLibraryMove()!,
       ),
-    ).toBe('Donde quieres poner estas 2 cartas?');
+    ).toBe('game.gameTable.libraryPlacementMultiplePrompt');
   });
 
   it('allows random order when multiple cards are placed into library', async () => {

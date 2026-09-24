@@ -1,4 +1,4 @@
-import { randomRollIterationCount, rollOption } from './roll';
+import { displayedRollResult, randomRollIterationCount, rollOption } from './roll';
 
 describe('roll', () => {
   it('uses a random 1 to 20 value as the internal roll count', () => {
@@ -29,7 +29,7 @@ describe('roll', () => {
 
     expect(result).toEqual({
       kind: 'd20',
-      label: '20-sided die',
+      label: 'd20 (twenty-sided die)',
       iterationCount: 14,
       finalResult: '20',
     });
@@ -42,5 +42,13 @@ describe('roll', () => {
       .mockReturnValueOnce(0.51));
 
     expect(result.finalResult).toBe('Tails');
+  });
+
+  it('maps local and persisted coin outcomes to translated result keys', () => {
+    expect(displayedRollResult('coin', 'heads')).toBe('modals.roll.results.heads');
+    expect(displayedRollResult('coin', 'Cara')).toBe('modals.roll.results.heads');
+    expect(displayedRollResult('coin', 'tails')).toBe('modals.roll.results.tails');
+    expect(displayedRollResult('coin', 'Cruz')).toBe('modals.roll.results.tails');
+    expect(displayedRollResult('d20', '17')).toBe('17');
   });
 });

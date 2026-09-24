@@ -156,6 +156,57 @@ class GameCommandHandlerV2Test extends TestCase
         self::assertNotNull($handler->consumeLastDirectPatchPayload());
     }
 
+    public function testV2LibraryMovePatchUsesVisibleTopFirstIndexes(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = self::baseSnapshot($actor->id(), [
+            'hand' => [
+                self::card('new-top', 'New Top', 'hand'),
+                self::card('new-bottom', 'New Bottom', 'hand'),
+            ],
+            'library' => [
+                self::card('old-bottom', 'Old Bottom', 'library'),
+                self::card('old-top', 'Old Top', 'library'),
+            ],
+        ]);
+        $snapshot['players'][$actor->id()]['libraryOrientation'] = 'tail_top';
+        $snapshot = $handler->normalizeSnapshot($snapshot);
+
+        $topMove = $handler->v2MoveCommandData($snapshot, [
+            'playerId' => $actor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'library',
+            'instanceId' => 'new-top',
+            'position' => 'top',
+        ]);
+
+        $topPatch = $topMove['viewerPayloads'][$actor->id()] ?? [];
+        self::assertSame(0, $topPatch['operations'][0]['to']['index'] ?? null);
+
+        $bottomMove = $handler->v2MoveCommandData($snapshot, [
+            'playerId' => $actor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'library',
+            'instanceId' => 'new-bottom',
+            'position' => 'bottom',
+        ]);
+
+        $bottomPatch = $bottomMove['viewerPayloads'][$actor->id()] ?? [];
+        self::assertSame(3, $bottomPatch['operations'][0]['to']['index'] ?? null);
+
+        $game = new Game(new Room($actor), $snapshot);
+
+        for ($draw = 0; $draw < 4; ++$draw) {
+            $handler->apply($game, 'library.draw', ['playerId' => $actor->id()], $actor, 'draw-'.$draw);
+        }
+
+        self::assertSame(
+            ['new-top', 'old-top', 'old-bottom', 'new-bottom'],
+            array_column($game->snapshot()['players'][$actor->id()]['zones']['hand'], 'instanceId'),
+        );
+    }
+
     /**
      * @return array<string,array{0:string,1:array<string,mixed>,2:array<string,mixed>,3?:GameRandomizer}>
      */

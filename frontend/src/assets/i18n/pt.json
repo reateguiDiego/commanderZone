@@ -520,7 +520,7 @@
       "roomEventsWillAppearHere": "Os eventos da sala aparecerão aqui."
     },
     "waitingRoomPlayerCard": {
-      "d20RollResult": "Resultado do lançamento D20",
+      "d20RollResult": "Resultado da rolagem de D20",
       "waitingForPlayer": "Esperando pelo jogador",
       "d20Roll": "Rolagem de D20",
       "openSlot": "Slot aberto"
@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Bate-papo, mensagens não lidas",
       "moveCardToAnotherBattlefield": "Mover carta para outro campo de batalha",
       "putIntoLibrary": "Colocar no grimório",
+      "libraryPlacementSinglePrompt": "Onde você quer colocar esta carta?",
+      "libraryPlacementMultiplePrompt": "Onde você quer colocar estas {{ count }} cartas?",
+      "libraryPlacementTop": "Topo",
+      "libraryPlacementBottom": "Fundo",
       "focusedOpponentLabel": "Você está vendo:",
       "returnToOwnBattlefield": "Ir para seu campo de batalha",
       "leaveTableConfirmationTitle": "Sair da mesa?",
@@ -2201,11 +2205,11 @@
       "gameSettings": {
         "title": "Preferências de partida",
         "defaultBattlefieldLayout": {
-          "label": "Layout predefinido da mesa",
+          "label": "Layout da mesa",
           "description": "Escolha como a mesa é organizada ao abrir uma partida.",
           "grid": "Grade",
-          "classic": "Clássico",
-          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, o layout clássico será usado automaticamente."
+          "focused": "Em foco",
+          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, a visualização em foco será usada automaticamente."
         },
         "showCardAlignmentHelper": {
           "label": "Ajuda de alinhamento de cartas",
@@ -2341,8 +2345,8 @@
     "roll": {
       "rollModal": {
         "text": "Resultado",
-        "closeRoll": "Fechar rolo",
-        "rollType": "Tipo de rolo",
+        "closeRoll": "Fechar a rolagem",
+        "rollType": "Tipo de rolagem",
         "rollAgain": "Role novamente"
       },
       "options": {
@@ -2353,8 +2357,8 @@
         "d20": "dado de 20 lados"
       },
       "results": {
-        "heads": "Cabeças",
-        "tails": "Caudas"
+        "heads": "Cara",
+        "tails": "Coroa"
       }
     }
   },

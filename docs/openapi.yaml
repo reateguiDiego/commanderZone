@@ -2574,14 +2574,13 @@ paths:
       tags: [Rooms]
       summary: List a cursor page of compact room cards.
       description: >-
-        active includes waiting rooms without a game. all additionally includes started rooms
-        owned by the viewer or containing the viewer, with an active game. Archived rooms and
-        finished games are excluded. Private waiting cards remain visible; their host and other
-        players are masked for non-owners. No decks, waiting logs, account preferences or email
-        addresses are loaded. Order is public before private, then waiting with space, full waiting,
-        started, then name (PostgreSQL C collation) and id ascending. A cursor is bound to the viewer
-        and status. Pages are live, not a snapshot; occupancy/name/status changes may move a room
-        across the boundary, so clients should deduplicate IDs and refresh from the first page.
+        active and all both include every non-archived room: waiting rooms and started games.
+        Finished games are excluded. Private cards remain visible but their host and players are
+        anonymized for non-owners. No decks, waiting logs, account preferences or email addresses
+        are loaded. Order is public before private, then waiting with space, full waiting, started,
+        then name (PostgreSQL C collation) and id ascending. A cursor is bound to the viewer and
+        status. Pages are live, not a snapshot; occupancy/name/status changes may move a room across
+        the boundary, so clients should deduplicate IDs and refresh from the first page.
       parameters:
         - name: status
           in: query
@@ -9035,6 +9034,7 @@ components:
             additionalProperties: true
         zones:
           type: object
+          description: Zone map. Library `instanceIds` are ordered top-to-bottom, so index 0 is the next card to draw.
           additionalProperties:
             type: object
             additionalProperties: true

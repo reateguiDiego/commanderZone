@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, ongelezen berichten",
       "moveCardToAnotherBattlefield": "Verplaats de kaart naar een andere battlefield",
       "putIntoLibrary": "Leg in library",
+      "libraryPlacementSinglePrompt": "Waar wil je deze kaart neerleggen?",
+      "libraryPlacementMultiplePrompt": "Waar wil je deze {{ count }} kaarten neerleggen?",
+      "libraryPlacementTop": "Boven",
+      "libraryPlacementBottom": "Onder",
       "focusedOpponentLabel": "Je bekijkt:",
       "returnToOwnBattlefield": "Ga naar je slagveld",
       "leaveTableConfirmationTitle": "Tafel verlaten?",
@@ -2201,11 +2205,11 @@
       "gameSettings": {
         "title": "Gameplay-voorkeuren",
         "defaultBattlefieldLayout": {
-          "label": "Standaard tafelindeling",
+          "label": "Tafelindeling",
           "description": "Kies hoe de tafel wordt ingedeeld wanneer je een spel opent.",
           "grid": "Raster",
-          "classic": "Klassiek",
-          "gridWarning": "Het raster is alleen beschikbaar in spellen met maximaal 4 spelers. Bij 5 of meer spelers wordt automatisch de klassieke indeling gebruikt."
+          "focused": "Gefocust",
+          "gridWarning": "Het raster is alleen beschikbaar in spellen met maximaal 4 spelers. Bij 5 of meer spelers wordt automatisch de gefocuste weergave gebruikt."
         },
         "showCardAlignmentHelper": {
           "label": "Hulp bij kaartuitlijning",
@@ -2341,8 +2345,8 @@
     "roll": {
       "rollModal": {
         "text": "Resultaat",
-        "closeRoll": "Worp sluiten",
-        "rollType": "Worptype",
+        "closeRoll": "Sluit de worp",
+        "rollType": "Soort worp",
         "rollAgain": "Werp opnieuw"
       },
       "options": {
@@ -2353,8 +2357,8 @@
         "d20": "20-zijdige dobbelsteen"
       },
       "results": {
-        "heads": "Hoofden",
-        "tails": "Staarten"
+        "heads": "Kop",
+        "tails": "Munt"
       }
     }
   },

@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "Dieser Wurf legt deine Zugreihenfolge fest.",
       "thisDeck": "dieses Deck",
       "thisPlayer": "dieser Spieler",
-      "tieBreakRoll": "Tie-Break-Wurf",
+      "tieBreakRoll": "Entscheidungswurf",
       "tieBreakRollMessage": "Du hast mit {{ playerNames }} gleichgezogen. Würfle noch einmal, um den Gleichstand aufzulösen.",
       "waitingForDecksAndRolls": "Warten auf Decks und Würfe",
       "realtimeUnavailable": "Die Echtzeitverbindung wird wiederhergestellt. Änderungen im Raum können verzögert eintreffen."
@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, ungelesene Nachrichten",
       "moveCardToAnotherBattlefield": "Karte auf ein anderes Schlachtfeld legen",
       "putIntoLibrary": "In die Bibliothek legen",
+      "libraryPlacementSinglePrompt": "Wohin soll diese Karte gelegt werden?",
+      "libraryPlacementMultiplePrompt": "Wohin sollen diese {{ count }} Karten gelegt werden?",
+      "libraryPlacementTop": "Oben",
+      "libraryPlacementBottom": "Unten",
       "focusedOpponentLabel": "Du siehst:",
       "returnToOwnBattlefield": "Zu deinem Schlachtfeld gehen",
       "leaveTableConfirmationTitle": "Tisch verlassen?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Gameplay-Einstellungen",
         "defaultBattlefieldLayout": {
-          "label": "Standard-Tischlayout",
+          "label": "Tischlayout",
           "description": "Wähle aus, wie der Tisch beim Öffnen einer Partie angeordnet wird.",
           "grid": "Raster",
-          "classic": "Klassisch",
-          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch das klassische Layout verwendet."
+          "focused": "Fokussiert",
+          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch die fokussierte Ansicht verwendet."
         },
         "showCardAlignmentHelper": {
           "label": "Ausrichtungshilfe für Karten",
@@ -2395,8 +2399,8 @@
     "roll": {
       "rollModal": {
         "text": "Ergebnis",
-        "closeRoll": "Rolle schließen",
-        "rollType": "Rollentyp",
+        "closeRoll": "Wurf schließen",
+        "rollType": "Wurfart",
         "rollAgain": "Noch einmal rollen"
       },
       "options": {

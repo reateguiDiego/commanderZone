@@ -8,8 +8,8 @@ describe('normalizeUserGamePreferences', () => {
     } as Partial<UserGamePreferences> & { readonly enableStackMana: boolean };
 
     expect(normalizeUserGamePreferences(persistedPreferences)).toEqual({
-      defaultBattlefieldLayout: 'square',
-      chosenModeView: 'square',
+      defaultBattlefieldLayout: 'grid',
+      chosenModeView: 'grid',
       showCardAlignmentHelper: true,
       showManaHelperOnStartup: false,
       enableManaRow: false,

@@ -46,8 +46,8 @@ export interface UserGamePreferencesInput extends Partial<UserGamePreferences> {
 export type UserGameLayoutPreference = 'square' | 'grid';
 
 export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
-  defaultBattlefieldLayout: 'square',
-  chosenModeView: 'square',
+  defaultBattlefieldLayout: 'grid',
+  chosenModeView: 'grid',
   showCardAlignmentHelper: true,
   showManaHelperOnStartup: false,
   enableManaRow: true,
@@ -68,8 +68,8 @@ export function normalizeUserGamePreferences(
 
   return {
     defaultBattlefieldLayout,
-    // Existing accounts do not have a chosen view yet. Their configured
-    // default layout is the initial value until they choose a view in-game.
+    // Retained only to safely read legacy account payloads. Game tables always
+    // initialize from defaultBattlefieldLayout; the active view is session-only.
     chosenModeView: battlefieldLayoutPreference(
       undefined,
       preferences?.chosenModeView,

@@ -424,7 +424,7 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertArrayHasKey('11111111-1111-1111-1111-111111111111:card', $bootstrap->staticCards);
     }
 
-    public function testBootstrapV2KeepsLibraryZoneIdsInTailTopOrder(): void
+    public function testBootstrapV2KeepsLibraryZoneIdsInTopFirstOrder(): void
     {
         [$game, $viewer] = $this->game();
         $snapshot = $this->projectedSnapshot($viewer);
@@ -451,7 +451,7 @@ class GameplayV2ContractFactoryTest extends TestCase
         $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
 
         self::assertSame(
-            ['library-bottom', 'library-top'],
+            ['library-top', 'library-bottom'],
             $bootstrap->zones[$viewer->id().':library']['instanceIds'],
         );
     }

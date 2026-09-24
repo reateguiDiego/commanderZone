@@ -192,43 +192,29 @@
               <h3 class="settings-section-title">{{ 'settings.dashboardSettingsModal.gameSettings.title' | runtimeTranslate }}</h3>
             </header>
 
-            <section class="game-settings-layout-preference" aria-labelledby="default-table-layout-label">
-              <div class="game-settings-layout-copy">
-                <h4 id="default-table-layout-label">{{ 'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.label' | runtimeTranslate }}</h4>
-                <p>{{ 'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.description' | runtimeTranslate }}</p>
-              </div>
-
-              <div class="game-settings-layout-options" role="radiogroup" aria-labelledby="default-table-layout-label">
-                <label class="game-settings-layout-option" [class.is-selected]="gameSettingsDefaultLayout() === 'grid'">
-                  <input
-                    class="game-settings-layout-input"
-                    type="radio"
-                    name="defaultBattlefieldLayout"
-                    value="grid"
-                    [checked]="gameSettingsDefaultLayout() === 'grid'"
-                    (change)="setGameSettingsDefaultLayout('grid')"
-                  />
-                  <span>{{ 'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.grid' | runtimeTranslate }}</span>
-                </label>
-                <label class="game-settings-layout-option" [class.is-selected]="gameSettingsDefaultLayout() === 'square'">
-                  <input
-                    class="game-settings-layout-input"
-                    type="radio"
-                    name="defaultBattlefieldLayout"
-                    value="square"
-                    [checked]="gameSettingsDefaultLayout() === 'square'"
-                    (change)="setGameSettingsDefaultLayout('square')"
-                  />
-                  <span>{{ 'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.classic' | runtimeTranslate }}</span>
-                </label>
-              </div>
-
-              @if (gameSettingsDefaultLayout() === 'grid') {
-                <p class="game-settings-layout-warning">{{ 'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.gridWarning' | runtimeTranslate }}</p>
-              }
-            </section>
-
             <div class="game-settings-toggle-list">
+              <app-toggle
+                class="game-settings-toggle game-settings-layout-toggle"
+                [label]="
+                  ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.label' | runtimeTranslate)
+                  + ': '
+                  + (
+                    gameSettingsDefaultLayout() === 'grid'
+                      ? ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.grid' | runtimeTranslate)
+                      : ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.focused' | runtimeTranslate)
+                  )
+                "
+                [description]="'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.description' | runtimeTranslate"
+                [warning]="
+                  gameSettingsDefaultLayout() === 'grid'
+                    ? ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.gridWarning' | runtimeTranslate)
+                    : ''
+                "
+                [checked]="gameSettingsDefaultLayout() === 'grid'"
+                [hoverFeedback]="false"
+                (checkedChange)="setGameSettingsDefaultLayout($event ? 'grid' : 'square')"
+              />
+
               @for (option of gameSettingsToggleOptions; track option.id) {
                 <app-toggle
                   class="game-settings-toggle"

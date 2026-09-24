@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { CardsApi } from '../../../../core/api/cards.api';
 import type { Card } from '../../../../core/models/card.model';
-import type { BootstrapStaticCardV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
+import type { BootstrapStaticCardV2, BootstrapV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
 import type { GameTableNormalizedV2State } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 
@@ -268,6 +268,47 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
     expect(reveal.staticCards?.['forest']?.name).toBe('Forest');
     expect(reveal.staticCards?.['island']?.name).toBe('Island');
+  });
+
+  it('hydrates a runtime library view that carries its operation payload in data', async () => {
+    cardsApi.getManySilently.mockReturnValue(
+      of({
+        cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+      }),
+    );
+    const patch = {
+      ...patchV2([]),
+      ops: [{
+        op: 'library.top.viewed',
+        data: {
+          playerId: 'player-1',
+          cards: [
+            { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
+            { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
+          ],
+        },
+      }],
+    } as unknown as PatchEnvelopeV2 & { kind: 'patch.v2' };
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const view = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'library.top.viewed' }
+    >;
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
+    expect(view.staticCards?.['forest']?.name).toBe('Forest');
+    expect(view.staticCards?.['island']?.name).toBe('Island');
+  });
+
+  it('hydrates visible compact cards from the initial bootstrap', async () => {
+    cardsApi.getManySilently.mockReturnValue(of({ cards: [card('print-forest', 'Forest')] }));
+    const bootstrap = bootstrapWithVisibleForest();
+
+    const hydrated = await service.hydrateBootstrap(bootstrap);
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest']);
+    expect(hydrated.staticCards['forest']?.name).toBe('Forest');
   });
 
   it('coalesces multiple visible hand catalog misses into one bulk request', async () => {
@@ -582,6 +623,51 @@ function patchV2(ops: PatchEnvelopeV2['ops']): PatchEnvelopeV2 & { kind: 'patch.
     version: 2,
     visibility: 'player:player-1',
     ops,
+  };
+}
+
+function bootstrapWithVisibleForest(): BootstrapV2 {
+  return {
+    game: { id: 'game-1', status: 'active', version: 1, viewerId: 'player-1' },
+    players: {
+      'player-1': {
+        playerId: 'player-1',
+        user: null,
+        displayName: 'Player 1',
+        life: 40,
+        status: 'active',
+        handCount: 0,
+        zoneIds: ['player-1:library'],
+        zoneCounts: { library: 1 },
+        commanderDamage: {},
+        counters: {},
+      },
+    },
+    zones: {
+      'player-1:library': {
+        zoneId: 'player-1:library',
+        playerId: 'player-1',
+        name: 'library',
+        instanceIds: ['library-1'],
+      },
+    },
+    instances: {
+      'library-1': {
+        instanceId: 'library-1',
+        cardRef: 'forest',
+        cardKey: 'forest',
+        printId: 'print-forest',
+        cardVersion: 'forest-v1',
+        language: 'en',
+        viewerVisibility: 'private',
+        zoneId: 'player-1:library',
+        hidden: false,
+      },
+    },
+    zoneCounts: { 'player-1:library': 1 },
+    relations: { stack: [], arrows: [], attachments: [], specialEntities: [] },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    staticCards: {},
   };
 }
 

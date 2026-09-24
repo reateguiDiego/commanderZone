@@ -30,8 +30,8 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'en',
             'themeId' => 'sunrise',
             'game' => [
-                'defaultBattlefieldLayout' => 'square',
-                'chosenModeView' => 'square',
+                'defaultBattlefieldLayout' => 'grid',
+                'chosenModeView' => 'grid',
                 'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
@@ -734,8 +734,8 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'es',
             'themeId' => 'sunrise',
             'game' => [
-                'defaultBattlefieldLayout' => 'square',
-                'chosenModeView' => 'square',
+                'defaultBattlefieldLayout' => 'grid',
+                'chosenModeView' => 'grid',
                 'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,

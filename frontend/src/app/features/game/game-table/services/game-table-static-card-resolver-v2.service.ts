@@ -12,6 +12,7 @@ import type {
 import type {
   BootstrapInstanceV2,
   BootstrapStaticCardV2,
+  BootstrapV2,
   GameplayPatchV2Operation,
   GameplayZoneCardsMoveV2,
   LegacyCardPatchPayload,
@@ -35,20 +36,58 @@ export class GameTableStaticCardResolverV2Service {
     patch: PatchV2Message,
     state: GameTableNormalizedV2State | null,
   ): Promise<PatchV2Message> {
+    const normalizedPatch = this.normalizeRuntimePatch(patch);
     const staticCards = state?.staticCards ?? {};
-    await this.warmPatchCardCatalog(patch.ops, staticCards);
+    await this.warmPatchCardCatalog(normalizedPatch.ops, staticCards);
     const hydratedOps = await Promise.all(
-      patch.ops.map((operation) => this.hydrateOperation(operation, staticCards)),
+      normalizedPatch.ops.map((operation) => this.hydrateOperation(operation, staticCards)),
     );
 
-    if (hydratedOps.every((operation, index) => operation === patch.ops[index])) {
-      return patch;
+    if (hydratedOps.every((operation, index) => operation === normalizedPatch.ops[index])) {
+      return normalizedPatch;
     }
 
     return {
-      ...patch,
+      ...normalizedPatch,
       ops: hydratedOps,
     };
+  }
+
+  /** Resolves visible compact cards that arrive in the initial game bootstrap. */
+  async hydrateBootstrap(bootstrap: BootstrapV2): Promise<BootstrapV2> {
+    const staticCards = { ...bootstrap.staticCards };
+    let hasResolvedStaticCards = false;
+
+    for (const zoneState of Object.values(bootstrap.zones)) {
+      const cards = zoneState.instanceIds
+        .map((instanceId) => bootstrap.instances[instanceId])
+        .filter((instance): instance is BootstrapInstanceV2 => Boolean(instance));
+      const resolved = await this.resolveStaticCardsForCards(cards, zoneState.name, staticCards, {});
+      if (Object.keys(resolved).length === 0) {
+        continue;
+      }
+
+      Object.assign(staticCards, resolved);
+      hasResolvedStaticCards = true;
+    }
+
+    return hasResolvedStaticCards ? { ...bootstrap, staticCards } : bootstrap;
+  }
+
+  /** Adapts the compact runtime wire shape (`op` + `data`) at the transport boundary. */
+  private normalizeRuntimePatch(patch: PatchV2Message): PatchV2Message {
+    const operations = patch.ops.map((operation) => {
+      const wireOperation = operation as typeof operation & { data?: Record<string, unknown> };
+      if (!wireOperation.data || Array.isArray(wireOperation.data)) {
+        return operation;
+      }
+
+      return { ...wireOperation.data, op: operation.op } as GameplayPatchV2Operation;
+    });
+
+    return operations.every((operation, index) => operation === patch.ops[index])
+      ? patch
+      : { ...patch, ops: operations };
   }
 
   /** Extracts card metadata that can be merged after a patch was already applied. */

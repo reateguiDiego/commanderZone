@@ -9,7 +9,7 @@ use App\Domain\User\User;
 
 final class RoomListQueryTest extends ApiTestCase
 {
-    public function testAllIncludesOnlyOwnedOrJoinedActiveGames(): void
+    public function testActiveIncludesAllActiveGamesAndMasksPrivateOutsiders(): void
     {
         $token = $this->registerAndLogin('membership@example.test', 'Member');
         $viewerId = $this->currentUserId($token);
@@ -18,12 +18,15 @@ final class RoomListQueryTest extends ApiTestCase
         $other->setPassword('hash');
         $this->entityManager->persist($other);
         $expected = [];
-        foreach (['owned', 'joined', 'outsider', 'finished', 'archived'] as $kind) {
+        foreach (['owned', 'joined', 'public', 'private', 'finished', 'archived'] as $kind) {
             $room = new Room($kind === 'owned' ? $viewer : $other);
             $room->setName($kind);
-            $room->setVisibility('public');
+            $room->setVisibility($kind === 'private' ? 'private' : 'public');
             $this->entityManager->persist($room);
-            if ($kind !== 'outsider') $room->addPlayer(new RoomPlayer($room, $viewer));
+            if ($kind !== 'owned') {
+                $room->addPlayer(new RoomPlayer($room, $other));
+            }
+            if (in_array($kind, ['owned', 'joined'], true)) $room->addPlayer(new RoomPlayer($room, $viewer));
             $game = new \App\Domain\Game\Game($room, []);
             if ($kind === 'finished') $game->finish();
             $this->entityManager->persist($game);
@@ -31,11 +34,15 @@ final class RoomListQueryTest extends ApiTestCase
             $room->start($game);
             $this->entityManager->flush();
             if ($kind === 'archived') $this->entityManager->getConnection()->executeStatement("UPDATE room SET status = 'archived' WHERE id = ?", [$room->id()]);
-            if (in_array($kind, ['joined', 'owned'], true)) $expected[$kind] = $room->id();
+            if (in_array($kind, ['joined', 'owned', 'public', 'private'], true)) $expected[$kind] = $room->id();
         }
         $query = new RoomListQuery($this->entityManager->getConnection());
-        self::assertSame([], $query->page($viewerId)['data']);
-        self::assertSame([$expected['joined'], $expected['owned']], array_column($query->page($viewerId, 'all')['data'], 'id'));
+        $activeRooms = $query->page($viewerId)['data'];
+        self::assertSame([$expected['joined'], $expected['owned'], $expected['public'], $expected['private']], array_column($activeRooms, 'id'));
+        self::assertSame([$expected['joined'], $expected['owned'], $expected['public'], $expected['private']], array_column($query->page($viewerId, 'all')['data'], 'id'));
+        $privateRoom = array_values(array_filter($activeRooms, static fn (array $room): bool => $room['id'] === $expected['private']))[0];
+        self::assertSame('XXXX', $privateRoom['owner']['displayName']);
+        self::assertSame('XXXX', $privateRoom['players'][0]['user']['displayName']);
         $first = $query->page($viewerId, 'all', 1);
         self::assertSame($expected['owned'], $query->page($viewerId, 'all', 1, $first['nextCursor'])['data'][0]['id']);
         $this->expectException(\InvalidArgumentException::class);

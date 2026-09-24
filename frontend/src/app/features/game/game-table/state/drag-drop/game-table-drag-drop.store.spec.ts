@@ -937,12 +937,14 @@ describe('GameTableDragDropStore', () => {
         selectedCards = cards;
       },
       canControlOwnedCard: () => true,
+      battlefieldCardSize: () => ({ width: 120, height: 168 }),
       battlefieldDragContext: () => ({
         zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
         snapshot: () => null,
         selectedCards: () => selectedCards,
         findCard: () => null,
         cardPosition: () => null,
+        battlefieldCardSize: () => ({ width: 120, height: 168 }),
         updateLocalCardPosition: () => undefined,
       }),
       pointerDragActionContext: () => ({} as never),

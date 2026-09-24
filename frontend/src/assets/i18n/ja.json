@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "チャット、未読メッセージ",
       "moveCardToAnotherBattlefield": "カードを別の戦場に移動する",
       "putIntoLibrary": "ライブラリーに置く",
+      "libraryPlacementSinglePrompt": "このカードをどこに置きますか？",
+      "libraryPlacementMultiplePrompt": "これら {{ count }} 枚のカードをどこに置きますか？",
+      "libraryPlacementTop": "一番上",
+      "libraryPlacementBottom": "一番下",
       "focusedOpponentLabel": "表示中：",
       "returnToOwnBattlefield": "自分の戦場へ",
       "leaveTableConfirmationTitle": "テーブルから離れますか？",
@@ -2201,11 +2205,11 @@
       "gameSettings": {
         "title": "ゲームプレイの設定",
         "defaultBattlefieldLayout": {
-          "label": "デフォルトのテーブルレイアウト",
+          "label": "テーブルレイアウト",
           "description": "ゲームを開いたときのテーブルの配置を選択します。",
           "grid": "グリッド",
-          "classic": "クラシック",
-          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、クラシックレイアウトが自動的に使用されます。"
+          "focused": "フォーカス",
+          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、フォーカスレイアウトが自動的に使用されます。"
         },
         "showCardAlignmentHelper": {
           "label": "カード配置アシスト",

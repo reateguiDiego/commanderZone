@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\GameLibraryOps;
 use App\Domain\Game\GameEvent;
 
 final readonly class GameWebsocketPatchBuilder
@@ -12,7 +13,10 @@ final readonly class GameWebsocketPatchBuilder
     private const MAX_VISIBLE_ZONE_CARDS = 40;
     private const MAX_SHARED_COLLECTION_ITEMS = 40;
 
-    public function __construct(private GameWebsocketMessageFactory $messages)
+    public function __construct(
+        private GameWebsocketMessageFactory $messages,
+        private ?GameLibraryOps $libraryOps = null,
+    )
     {
     }
 
@@ -1909,7 +1913,25 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function topProjectedCards(array $snapshot, string $playerId, int $count): array
     {
-        return array_slice($this->zoneCards($snapshot, $playerId, 'library'), 0, max(0, $count));
+        return array_slice($this->libraryCardsInDrawOrder($snapshot, $playerId), 0, max(0, $count));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function libraryCardsInDrawOrder(array $snapshot, string $playerId): array
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
+            return [];
+        }
+
+        return $this->libraryOps()->projectionOrderCards($player);
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
     }
 
     /**
@@ -1974,7 +1996,9 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function visibleZoneOperations(array $nextSnapshot, string $playerId, string $zone, ?int $limit = null): ?array
     {
-        $cards = $this->zoneCards($nextSnapshot, $playerId, $zone);
+        $cards = $zone === 'library'
+            ? $this->libraryCardsInDrawOrder($nextSnapshot, $playerId)
+            : $this->zoneCards($nextSnapshot, $playerId, $zone);
         if ($limit !== null) {
             $cards = array_slice($cards, 0, min($limit, self::MAX_VISIBLE_ZONE_CARDS));
         }

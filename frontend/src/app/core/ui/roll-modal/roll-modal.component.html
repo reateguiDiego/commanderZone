@@ -1,14 +1,24 @@
-<div class="modal-backdrop" role="presentation" (click)="close()">
+<div
+  class="modal-backdrop"
+  role="presentation"
+  (click)="blockBackgroundInteraction($event)"
+  (contextmenu)="blockBackgroundInteraction($event)"
+  (pointerdown)="blockBackgroundInteraction($event)"
+  (dragstart)="blockBackgroundInteraction($event)"
+  (dragenter)="blockBackgroundInteraction($event)"
+  (dragover)="blockBackgroundInteraction($event)"
+  (drop)="blockBackgroundInteraction($event)"
+>
   <section
     class="roll-modal"
     [class.roll-modal--big]="size() === 'big'"
     role="dialog"
     aria-modal="true"
-    [attr.aria-label]="'shared.text.rollDice' | runtimeTranslate"
+    [attr.aria-label]="title() | runtimeTranslate"
     (click)="$event.stopPropagation()"
   >
     <header>
-      <span class="eyebrow">{{ 'shared.text.rollDice' | runtimeTranslate }}</span>
+      <span class="eyebrow">{{ title() | runtimeTranslate }}</span>
       <button
         class="roll-close-button"
         type="button"
@@ -16,14 +26,19 @@
         czButtonSize="sm"
         czButtonTone="danger"
         [attr.aria-label]="'modals.roll.rollModal.closeRoll' | runtimeTranslate"
+        [disabled]="isRolling()"
         (click)="close()"
       >
         &#10005;
       </button>
     </header>
 
-    <div class="roll-options" [attr.aria-label]="'modals.roll.rollModal.rollType' | runtimeTranslate">
-      @for (option of rollOptions; track option.kind) {
+    <div
+      class="roll-options"
+      [class.roll-options--single]="rollOptions().length === 1"
+      [attr.aria-label]="'modals.roll.rollModal.rollType' | runtimeTranslate"
+    >
+      @for (option of rollOptions(); track option.kind) {
         <button
           class="roll-option-button"
           type="button"
@@ -31,6 +46,7 @@
           [attr.aria-pressed]="isSelected(option.kind)"
           [attr.aria-label]="option.label | runtimeTranslate"
           [title]="option.label | runtimeTranslate"
+          [disabled]="interactionLocked()"
           (click)="selectRoll(option.kind)"
         >
           <img class="roll-icon" [src]="rollIconSrc(option.kind)" [alt]="option.label | runtimeTranslate" />
@@ -38,10 +54,16 @@
       }
     </div>
 
-    @if (rollResult(); as result) {
-      <section class="roll-result" aria-live="polite">
-        <span>{{ result.label }}</span>
-        <strong>{{ result.finalResult }}</strong>
+    @if (displayedResult(); as result) {
+      <section
+        class="roll-result"
+        [class.roll-result--rolling]="isRolling()"
+        [class.roll-result--resolved]="hasResolvedAuthoritativeResult()"
+        [attr.aria-busy]="isRolling()"
+        aria-live="polite"
+      >
+        <span>{{ selectedLabel() | runtimeTranslate }}</span>
+        <strong>{{ result | runtimeTranslate }}</strong>
       </section>
     } @else {
       <section class="roll-result empty" aria-live="polite">
@@ -50,10 +72,14 @@
       </section>
     }
 
+    @if (notice(); as modalNotice) {
+      <p class="app-disclaimer-callout">{{ modalNotice | runtimeTranslate }}</p>
+    }
+
     <footer>
-      <button class="secondary-action" type="button" czButton="secondary" (click)="close()">{{ 'shared.text.close' | runtimeTranslate }}</button>
-      <button class="primary-action" type="button" czButton="primary" (click)="roll()">
-        {{ (rollResult() ? 'modals.roll.rollModal.rollAgain' : 'shared.text.roll') | runtimeTranslate }}
+      <button class="secondary-action" type="button" czButton="secondary" [disabled]="isRolling()" (click)="close()">{{ 'shared.text.close' | runtimeTranslate }}</button>
+      <button class="primary-action" type="button" czButton="primary" [disabled]="interactionLocked()" (click)="roll()">
+        {{ (displayedResult() ? 'modals.roll.rollModal.rollAgain' : 'shared.text.roll') | runtimeTranslate }}
       </button>
     </footer>
   </section>

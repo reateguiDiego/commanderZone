@@ -1,6 +1,10 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export async function focusPlayer(page: Page, displayName: string): Promise<void> {
+  if (await gridPlayerPanel(page, displayName).count() > 0) {
+    return;
+  }
+
   try {
     await expect.poll(() => hasFocusedPlayerName(page, displayName), { timeout: 5000 }).toBe(true);
     return;
@@ -35,16 +39,21 @@ export async function readTableLife(page: Page, displayName: string): Promise<nu
 export async function readTableZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
   await focusPlayer(page, displayName);
 
-  const panel = page.getByTestId('player-panel');
+  const panel = await playerPanel(page, displayName);
   const handRaw = await panel.getAttribute('data-hand-count');
   const playerId = await panel.getAttribute('data-player-id');
   if (!playerId) {
     throw new Error(`Missing focused player id for ${displayName}.`);
   }
-  const libraryRaw = await safeText(page.locator(`[data-testid="zone-count"][data-player-id="${playerId}"][data-zone="library"]`));
+  const libraryLocator = handRaw === null
+    ? panel.locator(`[data-testid="zone-count"][data-zone="library"]`)
+    : page.locator(`[data-testid="zone-count"][data-player-id="${playerId}"][data-zone="library"]`);
+  const libraryRaw = await safeText(libraryLocator);
 
   return {
-    hand: numberFromText(handRaw ?? '0', displayName),
+    hand: handRaw === null
+      ? await page.locator(`[data-testid="hand-zone"][data-player-id="${playerId}"] [data-testid="game-card"][data-zone="hand"]`).count()
+      : numberFromText(handRaw, displayName),
     library: numberFromText(libraryRaw, displayName),
   };
 }
@@ -57,7 +66,7 @@ export async function clickGameMenuAction(page: Page, name: string | RegExp): Pr
 }
 
 export async function drawMine(page: Page): Promise<void> {
-  const playerId = await page.getByTestId('player-panel').getAttribute('data-player-id');
+  const playerId = await (await playerPanel(page)).getAttribute('data-player-id');
   if (!playerId) {
     throw new Error('Missing focused player id while drawing from library.');
   }
@@ -108,6 +117,21 @@ async function resolveOpponentBoard(page: Page, displayName: string): Promise<Lo
   }
 
   throw new Error(`Could not resolve opponent board for ${displayName}.`);
+}
+
+async function playerPanel(page: Page, displayName?: string): Promise<Locator> {
+  const gridPanel = displayName
+    ? gridPlayerPanel(page, displayName)
+    : page.locator('[data-testid="grid-player-panel"][data-seat="current"]');
+  if (await gridPanel.count() > 0) {
+    return gridPanel.first();
+  }
+
+  return page.getByTestId('player-panel');
+}
+
+function gridPlayerPanel(page: Page, displayName: string): Locator {
+  return page.getByTestId('grid-player-panel').filter({ hasText: displayName });
 }
 
 async function hasFocusedPlayerName(page: Page, displayName: string): Promise<boolean> {

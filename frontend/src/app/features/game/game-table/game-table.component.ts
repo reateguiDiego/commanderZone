@@ -125,7 +125,6 @@ import { GameTablePlayersStore } from './state/players/game-table-players.store'
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableSnapshotSelectors } from './state/core/game-table-snapshot-selectors';
 import { GameTableSessionPreferencesStore } from './state/core/game-table-session-preferences.store';
-import { GameTableViewPreferenceStore } from './state/core/game-table-view-preference.store';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
@@ -189,7 +188,7 @@ import {
 } from './components/token-search-modal/token-search-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
-import { type RollResult } from '../../../core/ui/roll-modal/roll';
+import { type RollKind } from '../../../core/ui/roll-modal/roll';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
@@ -540,6 +539,11 @@ interface MotionSourceRect {
   readonly height: number;
 }
 
+interface DeferredDiceLog {
+  readonly actorId: string | null;
+  readonly existingEntryIds: ReadonlySet<string>;
+}
+
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -647,7 +651,6 @@ interface MotionSourceRect {
     GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
     GameTableSessionPreferencesStore,
-    GameTableViewPreferenceStore,
     GameTableUiState,
     GameTableBattlefieldDragState,
     GameTableDropFeedbackState,
@@ -691,7 +694,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
   readonly tableLayout = inject(GameTableLayoutState);
-  private readonly viewPreference = inject(GameTableViewPreferenceStore);
   readonly squareBattlefieldSizeChanged = (rect: BattlefieldLayoutRect): void => this.updateBattlefieldLayoutSize(rect);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly gridBattlefieldZoom = inject(GameTableGridBattlefieldZoomState);
@@ -932,6 +934,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       .find((player) => player.id === playerId)
       ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly rollModalOpen = signal(false);
+  readonly rollModalPending = signal(false);
+  readonly rollModalResult = signal<string | null>(null);
+  private readonly deferredDiceLog = signal<DeferredDiceLog | null>(null);
+  readonly visibleEventLog = computed(() => {
+    const entries = this.store.eventLog();
+    const deferredDiceLog = this.deferredDiceLog();
+    if (!deferredDiceLog) {
+      return entries;
+    }
+
+    return entries.filter((entry) => (
+      entry.type !== 'dice.rolled'
+      || deferredDiceLog.existingEntryIds.has(entry.id)
+      || (deferredDiceLog.actorId !== null && entry.actorId !== deferredDiceLog.actorId)
+    ));
+  });
   readonly tableExitTitle = computed(() =>
     this.tableExitAction() === 'leave'
       ? 'game.gameTable.leaveTableConfirmationTitle'
@@ -1008,7 +1026,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     );
   });
   readonly collapsedPreviewLogEntries = computed(() =>
-    this.store.eventLog().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
+    this.visibleEventLog().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
   );
   readonly collapsedPreviewChatMessages = computed(() =>
     (this.store.snapshot()?.chat ?? []).slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
@@ -1018,7 +1036,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly latestChatMessage = computed(() => this.collapsedPreviewChatMessages().at(-1) ?? null);
   readonly combineChatAndGameLog = computed(() => this.gamePreferences.combineChatAndGameLog);
   readonly gameActivityTimeline = computed(() =>
-    buildGameActivityTimeline(this.store.eventLog(), this.store.snapshot()?.chat ?? []),
+    buildGameActivityTimeline(this.visibleEventLog(), this.store.snapshot()?.chat ?? []),
   );
   readonly collapsedPreviewGameActivities = computed(() =>
     this.gameActivityTimeline().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
@@ -1398,7 +1416,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       const activeTab = this.store.activeFloatingTab();
       const combined = this.combineChatAndGameLog();
       const latestChat = snapshot?.chat.at(-1);
-      const eventLog = this.store.eventLog();
+      const eventLog = this.visibleEventLog();
       const latestLog = eventLog.at(-1);
       const unreadKey = [
         activeTab,
@@ -1449,11 +1467,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const log = this.store.eventLog();
+    const log = this.visibleEventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
     const latestLog = log.at(-1)?.id ?? '';
-    const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
-    const key = `${this.combineChatAndGameLog()}:${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
+    const key = `${this.combineChatAndGameLog()}:${this.store.activeFloatingTab()}:${latestChat}:${latestLog}`;
     if (key === this.lastAutoScrollKey) {
       return;
     }
@@ -1783,7 +1800,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const leavingGridForSquare = this.tableLayout.mode() === 'grid' && layout === 'square';
     this.suppressFloatingPanelHoverExpansion.set(leavingGridForSquare);
     this.tableLayout.select(layout);
-    void this.viewPreference.save(this.tableLayout.mode());
   }
 
   setBattlefieldZoom(percent: number): void {
@@ -4401,18 +4417,49 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   openRollModal(): void {
     this.store.closeContextMenu();
+    this.rollModalPending.set(false);
+    this.rollModalResult.set(null);
     this.rollModalOpen.set(true);
   }
 
   closeRollModal(): void {
+    this.rollModalPending.set(false);
+    this.rollModalResult.set(null);
+    this.revealDeferredDiceRollLog();
     this.rollModalOpen.set(false);
   }
 
-  async recordRollResult(result: RollResult): Promise<void> {
-    this.closeRollModal();
-    await this.store.recordDiceRoll({
-      kind: result.kind,
-    });
+  clearRollModalResult(): void {
+    if (!this.rollModalPending()) {
+      this.rollModalResult.set(null);
+    }
+  }
+
+  async requestDiceRoll(kind: RollKind): Promise<void> {
+    if (this.rollModalPending()) {
+      return;
+    }
+
+    this.deferDiceRollLog();
+    this.rollModalPending.set(true);
+    this.rollModalResult.set(null);
+    let receivedResult = false;
+    try {
+      const result = await this.store.recordDiceRoll({ kind });
+      if (result?.kind === kind) {
+        this.rollModalResult.set(result.finalResult);
+        receivedResult = true;
+      }
+    } finally {
+      this.rollModalPending.set(false);
+      if (!receivedResult) {
+        this.revealDeferredDiceRollLog();
+      }
+    }
+  }
+
+  revealDeferredDiceRollLog(): void {
+    this.deferredDiceLog.set(null);
   }
 
   openDebugTab(): void {
@@ -4464,13 +4511,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     );
   }
 
-  pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
+  pendingLibraryMoveCount(pendingMove: PendingLibraryMove): number {
     const instanceIds = pendingMove.payload['instanceIds'];
-    const movedCount = Array.isArray(instanceIds) ? instanceIds.length : 1;
 
-    return movedCount > 1
-      ? `Donde quieres poner estas ${movedCount} cartas?`
-      : 'Donde quieres poner esta carta?';
+    return Array.isArray(instanceIds) ? instanceIds.length : 1;
+  }
+
+  pendingLibraryMoveMessageKey(pendingMove: PendingLibraryMove): string {
+    return this.pendingLibraryMoveCount(pendingMove) > 1
+      ? 'game.gameTable.libraryPlacementMultiplePrompt'
+      : 'game.gameTable.libraryPlacementSinglePrompt';
   }
 
   updateLibraryMoveRandomOrder(event: Event): void {
@@ -5164,7 +5214,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.fadeHighlightedLogEntryIds();
     this.unreadLog.set(false);
     this.lastObservedLogKey = this.latestLogKey();
-    this.lastObservedLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+    this.lastObservedLogEntryId = this.visibleEventLog().at(-1)?.id ?? null;
   }
 
   private syncChatUnreadState(activeTab: FloatingPanelTab, chatKey: string): void {
@@ -5238,7 +5288,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private syncLogUnreadState(activeTab: FloatingPanelTab, logKey: string): void {
     const previousLatestLogEntryId = this.lastObservedLogEntryId;
-    const latestLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+    const latestLogEntryId = this.visibleEventLog().at(-1)?.id ?? null;
 
     if (this.lastObservedLogKey === null) {
       this.lastObservedLogKey = logKey;
@@ -5262,7 +5312,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private newLogEntryIdsAfter(previousLatestLogEntryId: string | null): string[] {
-    const entries = this.store.eventLog();
+    const entries = this.visibleEventLog();
     if (!previousLatestLogEntryId) {
       return entries.map((entry) => entry.id);
     }
@@ -5411,8 +5461,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       : '0';
   }
 
+  private deferDiceRollLog(): void {
+    this.deferredDiceLog.set({
+      actorId: this.authStore.user()?.id ?? null,
+      existingEntryIds: new Set(this.store.eventLog().map((entry) => entry.id)),
+    });
+  }
+
   private latestLogKey(): string {
-    const entries = this.store.eventLog();
+    const entries = this.visibleEventLog();
     const latest = entries.at(-1);
 
     return latest ? `${entries.length}:${latest.id}` : '0';

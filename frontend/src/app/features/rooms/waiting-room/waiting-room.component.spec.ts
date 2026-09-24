@@ -561,8 +561,7 @@ describe('WaitingRoomComponent', () => {
 
     expect(component.currentPlayerCanRoll()).toBe(true);
     expect(component.rollModalOpen()).toBe(true);
-    expect(component.rollModalMessage()).toBe('rooms.waitingRoom.tieBreakRollMessage');
-    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2' });
+    expect(component.rollModalTitle()).toBe('rooms.waitingRoom.tieBreakRoll');
   });
 
   it('lists every tied player in the tie-break prompt', async () => {
@@ -583,7 +582,7 @@ describe('WaitingRoomComponent', () => {
     await fixture.whenStable();
 
     expect(component.rollModalOpen()).toBe(true);
-    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2 y Guest 3' });
+    expect(component.rollModalTitle()).toBe('rooms.waitingRoom.tieBreakRoll');
   });
 
   it('keeps the dice button enabled for tied players after closing the tie-break modal', async () => {
@@ -630,7 +629,7 @@ describe('WaitingRoomComponent', () => {
     expect(component.hasCompletedTurnOrder(component.currentRoom() as Room)).toBe(false);
     expect(component.currentPlayerCanRoll()).toBe(true);
     expect(component.rollModalOpen()).toBe(true);
-    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2' });
+    expect(component.rollModalTitle()).toBe('rooms.waitingRoom.tieBreakRoll');
 
     component.closeRollModal();
     fixture.detectChanges();
@@ -692,9 +691,38 @@ describe('WaitingRoomComponent', () => {
 
     expect(fixture.componentInstance.rollModalOpen()).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Roll dice');
-    expect(fixture.nativeElement.textContent).toContain('This roll sets your turn order.');
-    expect(fixture.nativeElement.textContent).not.toContain('only tied players will roll again');
+    expect(fixture.nativeElement.textContent).not.toContain('This roll sets your turn order.');
     expect(fixture.nativeElement.textContent).toContain('After rolling, your deck selection will be locked');
+    expect(fixture.nativeElement.querySelectorAll('app-roll-modal .roll-option-button')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('app-roll-modal .roll-options')?.classList.contains('roll-options--single')).toBe(true);
+  });
+
+  it('keeps player cards unchanged until the d20 result is revealed', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    const beforeRoll = room({
+      players: [{
+        id: 'player-1',
+        user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+        deckId: 'deck-user-1',
+        turnRoll: null,
+      }],
+    });
+    const afterRoll = room({ players: [readyPlayer('player-1', 'user-1', 'Owner', 17)] });
+    component.currentRoom.set(beforeRoll);
+    roomsApi.rollTurn.mockReturnValue(of({ room: afterRoll }));
+
+    await component.rollTurnOrder('d20');
+
+    expect(component.currentPlayerRoll()).toBeNull();
+    expect(component.rollModalResult()).toBe('17');
+
+    component.revealTurnOrderResult();
+
+    expect(component.currentPlayerRoll()).toBe(17);
   });
 
   it('closes the deck selector from outside clicks and supports random legal decks', async () => {

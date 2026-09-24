@@ -38,13 +38,14 @@ import { updateGameSnapshotCards } from './game-snapshot-mutation';
 import { GameTableToastState } from './game-table-toast.state';
 import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
 import { GameTableSessionPreferencesStore } from './game-table-session-preferences.store';
+import { DiceRollResult } from '../../models/game-table-dice.model';
 
 const GRID_STACK_DROP_OVERLAP_RATIO = 0.7;
 
 export interface GameTableContextSource {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
-  readonly refetch: (force?: boolean, source?: string) => Promise<void>;
+  readonly refetch: (force?: boolean) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
   readonly setPendingBattlefieldMove: (move: PendingBattlefieldMove | null) => void;
@@ -54,6 +55,8 @@ export interface GameTableContextSource {
   readonly onControlPlaneAccepted: (controlPlane: GameControlPlaneState) => void;
   readonly openRevealedLibrary: (playerId: string, recipients?: readonly string[]) => void;
   readonly openRevealedTopLibrary: (playerId: string, count: number) => void;
+  readonly openViewedTopLibrary: (playerId: string, count: number) => void;
+  readonly onDiceRolled: (result: DiceRollResult) => void;
 }
 
 @Injectable()
@@ -100,7 +103,7 @@ export class GameTableContextStore {
       // Value controls only apply optimistic display state. They must not be
       // interpreted as a card entering or moving on the battlefield.
       setSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
-      refetch: () => source.refetch(true, 'debounced_value_command.error'),
+      refetch: () => source.refetch(true),
       errorMessage: (error) => this.errorMessage(error),
     };
   }
@@ -203,11 +206,13 @@ export class GameTableContextStore {
         gameId: () => this.core.gameId(),
         snapshot: () => this.core.snapshot(),
         setSnapshot: (snapshot) => source.setSnapshot(snapshot),
-        refetch: (force) => source.refetch(force, 'websocket.request_resync'),
+        refetch: (force) => source.refetch(force),
         setError: (message) => this.setGameActionError(message),
         isCurrentPlayerDefeated: () => this.isLocalPlayerDefeated(),
         onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
         onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
+        onLibraryTopViewed: (playerId, count) => source.openViewedTopLibrary(playerId, count),
+        onDiceRolled: (result) => source.onDiceRolled(result),
         onCommandBlocked: (_reason, type, payload) => this.handleCommandBlocked(source, type, payload),
       }),
       errorMessage: (error) => this.errorMessage(error),
@@ -225,7 +230,7 @@ export class GameTableContextStore {
       // clamped positions before the WebSocket patch arrives.
       setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       errorMessage: (error) => this.errorMessage(error),
-      refetch: (force) => source.refetch(force, 'card_counter.error'),
+      refetch: (force) => source.refetch(force),
       command: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
     };
   }
@@ -346,7 +351,7 @@ export class GameTableContextStore {
     const source = this.boundSource();
 
     return {
-      refetch: (force) => source.refetch(force, 'pending_move.cancel'),
+      refetch: (force) => source.refetch(force),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
     };
@@ -426,7 +431,7 @@ export class GameTableContextStore {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.setGameActionError(message),
       applyDeferredRemoteSnapshot: () => this.sessionService.applyDeferredRemoteSnapshot(this.session()),
-      refetch: (force) => source.refetch(force, 'pointer_drag_action.recovery'),
+      refetch: (force) => source.refetch(force),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
       markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
         playerId,
@@ -481,6 +486,8 @@ export class GameTableContextStore {
       onMulliganPatchV2Applied: (patch, snapshot) => this.mulliganState.handlePatchV2Applied(patch, snapshot),
       onLibraryRevealed: (playerId, recipients) => source.openRevealedLibrary(playerId, recipients),
       onLibraryTopRevealed: (playerId, count) => source.openRevealedTopLibrary(playerId, count),
+      onLibraryTopViewed: (playerId, count) => source.openViewedTopLibrary(playerId, count),
+      onDiceRolled: (result) => source.onDiceRolled(result),
       onControlPlaneAccepted: (controlPlane) => source.onControlPlaneAccepted(controlPlane),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
       navigateToRooms: () => {

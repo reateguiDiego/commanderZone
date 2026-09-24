@@ -429,7 +429,7 @@ export class DashboardSettingsModalComponent {
       displayName?: string;
       cardLanguage?: SupportedCardLanguageCode;
       appLanguage?: SupportedLanguageCode;
-      gamePreferences?: UserGamePreferences;
+      gamePreferences?: Omit<UserGamePreferences, 'chosenModeView'>;
     } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
@@ -449,7 +449,7 @@ export class DashboardSettingsModalComponent {
       payload.appLanguage = nextAppLanguage;
     }
     if (this.gameSettingsChanged()) {
-      payload.gamePreferences = this.gameSettingsToggleState();
+      payload.gamePreferences = this.gameSettingsPayload();
     }
 
     this.saveInProgress.set(true);
@@ -640,8 +640,13 @@ export class DashboardSettingsModalComponent {
     this.gameSettingsToggleState.update((current) => ({
       ...current,
       defaultBattlefieldLayout: layout,
-      chosenModeView: layout,
     }));
+  }
+
+  private gameSettingsPayload(): Omit<UserGamePreferences, 'chosenModeView'> {
+    const { chosenModeView: _legacyChosenModeView, ...preferences } = this.gameSettingsToggleState();
+
+    return preferences;
   }
 
   private gameSettingsChanged(): boolean {

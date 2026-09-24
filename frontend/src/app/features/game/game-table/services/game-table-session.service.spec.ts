@@ -12,6 +12,7 @@ import { GameTableWebsocketGameplayService } from './game-table-websocket-gamepl
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableLogHistoryService } from './game-table-log-history.service';
 import { GameTableChatHistoryService } from './game-table-chat-history.service';
+import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 
 const gameRealtime = {
   subscribe: vi.fn(),
@@ -37,16 +38,16 @@ describe('GameTableSessionService', () => {
   const chatHistory = {
     reset: vi.fn(),
   };
+  const staticCardResolverV2 = {
+    hydrateBootstrap: vi.fn(async (bootstrap: BootstrapV2) => bootstrap),
+  };
   let websocketStatus: ReturnType<typeof signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>>;
   const websocket = {
     status: signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped'),
     start: vi.fn(),
     stop: vi.fn(),
   };
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
-    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     websocketStatus = signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped');
     websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
@@ -56,6 +57,8 @@ describe('GameTableSessionService', () => {
     gameplayV2Flags.enabled.mockReturnValue(false);
     logHistory.reset.mockReset();
     chatHistory.reset.mockReset();
+    staticCardResolverV2.hydrateBootstrap.mockReset();
+    staticCardResolverV2.hydrateBootstrap.mockImplementation(async (bootstrap: BootstrapV2) => bootstrap);
     gameRealtime.subscribe.mockReset();
     gameRealtime.stop.mockReset();
     gameRealtime.seedControlPlaneRevision.mockReset();
@@ -72,14 +75,11 @@ describe('GameTableSessionService', () => {
         { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
         { provide: GameTableLogHistoryService, useValue: logHistory },
         { provide: GameTableChatHistoryService, useValue: chatHistory },
+        { provide: GameTableStaticCardResolverV2Service, useValue: staticCardResolverV2 },
       ],
     });
     service = TestBed.inject(GameTableSessionService);
     normalizedV2Store = TestBed.inject(GameTableNormalizedV2Store);
-  });
-
-  afterEach(() => {
-    consoleInfoSpy.mockRestore();
   });
 
   it('applies same-version snapshots when projected deck names changed', async () => {
@@ -140,22 +140,27 @@ describe('GameTableSessionService', () => {
     const current = snapshot();
     const onLibraryRevealed = vi.fn();
     const onLibraryTopRevealed = vi.fn();
+    const onLibraryTopViewed = vi.fn();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
 
     await service.load(context(current, vi.fn(), vi.fn(), vi.fn(), vi.fn(), {
       onLibraryRevealed,
       onLibraryTopRevealed,
+      onLibraryTopViewed,
     }));
 
     const websocketContext = websocket.start.mock.calls[0]?.[0] as {
       onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
       onLibraryTopRevealed?(playerId: string, count: number): void;
+      onLibraryTopViewed?(playerId: string, count: number): void;
     };
     websocketContext.onLibraryRevealed?.('player-2', ['player-1']);
     websocketContext.onLibraryTopRevealed?.('player-2', 3);
+    websocketContext.onLibraryTopViewed?.('player-1', 5);
 
     expect(onLibraryRevealed).toHaveBeenCalledWith('player-2', ['player-1']);
     expect(onLibraryTopRevealed).toHaveBeenCalledWith('player-2', 3);
+    expect(onLibraryTopViewed).toHaveBeenCalledWith('player-1', 5);
   });
 
   it('stops live transports and leaves the table on a terminal room-deleted event', async () => {
@@ -180,35 +185,12 @@ describe('GameTableSessionService', () => {
 
     expect(gamesApi.snapshot).not.toHaveBeenCalled();
     expect(gamesApi.bootstrapV2).toHaveBeenCalledWith('game-1', []);
+    expect(staticCardResolverV2.hydrateBootstrap).toHaveBeenCalledWith(bootstrapV2());
     expect(setSnapshot).toHaveBeenCalledWith(expect.objectContaining({
       version: 6,
       players: expect.objectContaining({
         'player-1': expect.objectContaining({ life: 38 }),
       }),
-    }));
-    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay sync]', expect.objectContaining({
-      source: 'bootstrap',
-      reason: 'initial_load',
-      result: 'applied',
-      currentVersion: 6,
-    }));
-  });
-
-  it('labels websocket-requested bootstrap refetch separately from initial load', async () => {
-    gameplayV2Flags.enabled.mockReturnValue(true);
-    const setSnapshot = vi.fn();
-    gamesApi.bootstrapV2.mockReturnValue(of({
-      ...bootstrapV2(),
-      game: { ...bootstrapV2().game, version: 7 },
-    }));
-
-    await service.refetch(context(snapshot(), setSnapshot), true, 'websocket.request_resync');
-
-    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay sync]', expect.objectContaining({
-      source: 'bootstrap',
-      reason: 'websocket.request_resync',
-      result: 'applied',
-      currentVersion: 7,
     }));
   });
 
@@ -225,7 +207,7 @@ describe('GameTableSessionService', () => {
     const bootstrapResponse = new Subject<BootstrapV2>();
     gamesApi.bootstrapV2.mockReturnValue(bootstrapResponse);
 
-    const refetch = service.refetch(sessionContext, true, 'websocket.request_resync');
+    const refetch = service.refetch(sessionContext, true);
     const websocketPatch: PatchEnvelopeV2 = {
       gameId: 'game-1',
       version: 7,
@@ -577,7 +559,7 @@ function context(
   setError = vi.fn(),
   overrides: Partial<Pick<
     GameTableSessionContext,
-    'setLoading' | 'refreshViewerControlAccess' | 'onControlPlaneAccepted' | 'onLibraryRevealed' | 'onLibraryTopRevealed' | 'navigateToRooms'
+    'setLoading' | 'refreshViewerControlAccess' | 'onControlPlaneAccepted' | 'onLibraryRevealed' | 'onLibraryTopRevealed' | 'onLibraryTopViewed' | 'navigateToRooms'
   >> = {},
 ): GameTableSessionContext {
   return {
@@ -594,6 +576,7 @@ function context(
     onControlPlaneAccepted: overrides.onControlPlaneAccepted,
     onLibraryRevealed: overrides.onLibraryRevealed,
     onLibraryTopRevealed: overrides.onLibraryTopRevealed,
+    onLibraryTopViewed: overrides.onLibraryTopViewed,
     refreshViewerControlAccess: overrides.refreshViewerControlAccess,
     navigateToRooms: overrides.navigateToRooms ?? vi.fn(),
     navigateToRoomsWithLoadError,

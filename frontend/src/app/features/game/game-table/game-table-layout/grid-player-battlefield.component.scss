@@ -195,6 +195,21 @@
   z-index: 40;
   overflow: visible;
 }
+
+// A library shuffle deliberately spreads the stack outside its dock. Lift
+// only the active cell above adjacent Grid seats; normal battlefield clipping
+// remains unchanged.
+.player-cell:has(app-zone-card-stack.is-shuffling) {
+  z-index: 3200;
+  overflow: visible;
+}
+
+.player-cell:has(app-zone-card-stack.is-shuffling) .player-cell-layout,
+.player-cell:has(app-zone-card-stack.is-shuffling) .player-cell-zones {
+  position: relative;
+  z-index: 3200;
+  overflow: visible;
+}
 .is-current {
   border-color: var(--game-accent);
 }

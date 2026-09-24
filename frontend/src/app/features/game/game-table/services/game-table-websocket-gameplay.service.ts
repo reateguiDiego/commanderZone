@@ -30,6 +30,7 @@ import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
+import { DiceRollResult } from '../models/game-table-dice.model';
 
 export interface GameTableWebsocketGameplayContext {
   gameId(): string;
@@ -45,6 +46,8 @@ export interface GameTableWebsocketGameplayContext {
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
   onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
   onLibraryTopRevealed?(playerId: string, count: number): void;
+  onLibraryTopViewed?(playerId: string, count: number): void;
+  onDiceRolled?(result: DiceRollResult): void;
   onCommandBlocked?(
     reason: Extract<GameDebugQueueDeadLetterReason, 'circuit_blocked' | 'queue_full'>,
     type: GameWebsocketCommandType,
@@ -623,6 +626,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         isLocalPatch,
       });
       context.setSnapshot(result.snapshot);
+      this.notifyLocalLibraryTopView(context, patch, isLocalPatch);
       this.publishSnapshotMetric(
         context.gameId(),
         patch,
@@ -636,6 +640,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         currentVersion: patch.version,
         result: 'applied',
       });
+      this.notifyLocalDiceRoll(
+        context,
+        isLocalPatch,
+        patch.event?.payload['kind'],
+        patch.event?.payload['finalResult'],
+      );
       this.resolveInFlightCommand(patch.clientActionId);
       this.drainQueue();
       return;
@@ -689,13 +699,17 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       currentVersion: patch.version,
       result: 'received',
     });
-    // Patch ordering and gameplay feedback must not wait for catalog I/O. The
-    // normalized store explicitly supports staticCardPending instances; card
-    // metadata is merged afterwards without replaying this versioned patch.
-    // Helpers do not have a static-card merge path, so preserve their existing
-    // atomic hydration contract until that model gains one.
-    const hydratesHelpersInline = patch.ops.some((operation) => operation.op === 'helper.add' || operation.op === 'helper.update');
-    const hydratedPatch = hydratesHelpersInline
+    // Patch ordering and gameplay feedback normally do not wait for catalog
+    // I/O. Library views are the exception: their patch opens a modal right
+    // away, so its cards must be hydrated before the modal reads the snapshot.
+    // Helpers also need atomic hydration because they have no later merge path.
+    const hydratesStaticCardsInline = patch.ops.some((operation) => (
+      operation.op === 'helper.add'
+      || operation.op === 'helper.update'
+      || operation.op === 'library.top.viewed'
+      || operation.op === 'library.revealed.set'
+    ));
+    const hydratedPatch = hydratesStaticCardsInline
       ? await this.staticCardResolver.hydratePatch(patch, this.normalizedV2Store.state())
       : patch;
     const result = this.normalizedV2Store.applyPatch(hydratedPatch);
@@ -710,11 +724,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         isLocalPatch,
       });
       context.setSnapshot(result.snapshot);
-      if (!hydratesHelpersInline) {
+      if (!hydratesStaticCardsInline) {
         void this.enrichAppliedPatchStaticCards(context, patch);
       }
       this.notifyLibraryRevealed(context, hydratedPatch);
       this.notifyLibraryTopRevealed(context, hydratedPatch);
+      this.notifyLocalLibraryTopView(context, hydratedPatch, isLocalPatch);
       this.publishSnapshotMetric(
         context.gameId(),
         hydratedPatch,
@@ -728,6 +743,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         currentVersion: hydratedPatch.version,
         result: 'applied',
       });
+      const diceResult = hydratedPatch.ops.find((operation) => operation.op === 'dice.result');
+      this.notifyLocalDiceRoll(
+        context,
+        isLocalPatch,
+        diceResult?.kind,
+        diceResult?.result ?? diceResult?.value,
+      );
       this.resolveInFlightCommand(hydratedPatch.ackClientActionId ?? undefined);
       this.drainQueue();
       return;
@@ -819,6 +841,72 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         context.onLibraryTopRevealed?.(operation.playerId, count);
       }
     }
+  }
+
+  private notifyLocalLibraryTopView(
+    context: GameTableWebsocketGameplayContext,
+    patch: GameplayGamePatchMessage | GameplayPatchV2Message,
+    isLocalPatch: boolean,
+  ): void {
+    if (!isLocalPatch) {
+      return;
+    }
+
+    if (patch.kind === 'game_patch') {
+      if (patch.event?.type !== 'library.view') {
+        return;
+      }
+
+      const playerId = patch.event.payload['playerId'];
+      const count = patch.event.payload['count'];
+      if (typeof playerId === 'string' && typeof count === 'number' && count > 0) {
+        context.onLibraryTopViewed?.(playerId, count);
+      }
+      return;
+    }
+
+    for (const operation of patch.ops) {
+      if (operation.op !== 'library.top.viewed') {
+        continue;
+      }
+
+      const data = this.patchOperationData(operation);
+      const playerId = data['playerId'];
+      const cards = Array.isArray(data['cards']) ? data['cards'] : [];
+      const count = typeof data['count'] === 'number' ? data['count'] : cards.length;
+      if (typeof playerId === 'string' && count > 0) {
+        context.onLibraryTopViewed?.(playerId, count);
+      }
+    }
+  }
+
+  private patchOperationData(operation: GameplayPatchV2Message['ops'][number]): Record<string, unknown> {
+    const wireOperation = operation as typeof operation & { data?: Record<string, unknown> };
+
+    return wireOperation.data && !Array.isArray(wireOperation.data)
+      ? wireOperation.data
+      : operation as Record<string, unknown>;
+  }
+
+  private notifyLocalDiceRoll(
+    context: GameTableWebsocketGameplayContext,
+    isLocalPatch: boolean,
+    kind: unknown,
+    finalResult: unknown,
+  ): void {
+    if (
+      !isLocalPatch
+      || typeof kind !== 'string'
+      || kind === ''
+      || (typeof finalResult !== 'string' && typeof finalResult !== 'number')
+    ) {
+      return;
+    }
+
+    context.onDiceRolled?.({
+      kind,
+      finalResult: String(finalResult),
+    });
   }
 
   private notifyLibraryRevealed(
@@ -1789,21 +1877,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   }
 
   private logGameplayDebug(
-    level: 'debug' | 'info' | 'warn' | 'error',
+    _level: 'debug' | 'info' | 'warn' | 'error',
     context: GameTableWebsocketGameplayContext,
     details: GameplayDebugDetails,
   ): void {
     const event = this.gameplayDebugEvent(context, details);
-    const logger =
-      level === 'error'
-        ? console.error
-        : level === 'warn'
-          ? console.warn
-          : level === 'info'
-            ? console.info
-            : console.debug;
-    logger.call(console, '[CommanderZone gameplay realtime]', event);
-
     const channel = this.snapshotMetricsChannel;
     if (channel && this.shouldPublishDebugForGame(event.gameId)) {
       channel.postMessage(event);

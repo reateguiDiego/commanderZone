@@ -121,6 +121,21 @@ describe('GameTableZonePointerDragService', () => {
     expect(started).toBe(false);
   });
 
+  it('uses the zone button bounds when its artwork has no layout size', () => {
+    const zone = zoneElement();
+    const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
+    zone.getBoundingClientRect = () => rect(12, 18, 100, 140);
+    zoneArt.getBoundingClientRect = () => rect(12, 18, 0, 0);
+
+    const started = service.start(pointerEvent({
+      currentTarget: zone,
+      clientX: 62,
+      clientY: 88,
+    }), 'player-1', 'library', { ...card(), zone: 'library' });
+
+    expect(started).toBe(true);
+  });
+
   it('waits for the movement threshold before starting a touch drag', () => {
     const zone = zoneElement();
     service.start(pointerEvent({
@@ -364,19 +379,23 @@ function zoneElement(): HTMLElement {
   const zone = document.createElement('button');
   zone.innerHTML = '<span class="zone-art"></span>';
   const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
-  zoneArt.getBoundingClientRect = () => ({
-    x: 0,
-    y: 0,
-    width: 100,
-    height: 140,
-    top: 0,
-    right: 100,
-    bottom: 140,
-    left: 0,
-    toJSON: () => ({}),
-  } as DOMRect);
+  zoneArt.getBoundingClientRect = () => rect(0, 0, 100, 140);
 
   return zone;
+}
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 function mockElementsFromPoint(elements: Element[]): () => void {

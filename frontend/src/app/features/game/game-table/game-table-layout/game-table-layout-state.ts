@@ -32,8 +32,7 @@ export class GameTableLayoutState {
   private readonly destroyRef = inject(DestroyRef);
   private readonly sessionPreferences = inject(GameTableSessionPreferencesStore, { optional: true });
   private readonly initialLayout =
-    this.sessionPreferences?.preferences.chosenModeView
-    ?? this.sessionPreferences?.preferences.defaultBattlefieldLayout
+    this.sessionPreferences?.preferences.defaultBattlefieldLayout
     ?? 'square';
   private readonly source = signal<LayoutPlayers | null>(null);
   private readonly viewport = signal<GridViewport | null>(null);

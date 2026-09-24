@@ -1136,6 +1136,7 @@ function context(
     snapshot,
     handDropPreview: () => ({ playerId: 'player-1', targetInstanceId: 'hand-2', placement: 'before' }),
     selectedCards: () => selectedCards,
+    battlefieldCardSize: () => ({ width: 120, height: 168 }),
     battlefieldDragContext: () => ({
       zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
       snapshot,
@@ -1143,6 +1144,7 @@ function context(
       findCard: (playerId, zone, instanceId) =>
         snapshot().players[playerId]?.zones[zone].find((candidate) => candidate.instanceId === instanceId) ?? null,
       cardPosition: (card) => card.position ?? null,
+      battlefieldCardSize: () => ({ width: 120, height: 168 }),
       updateLocalCardPosition: vi.fn(),
     }),
     alignmentGuideY,

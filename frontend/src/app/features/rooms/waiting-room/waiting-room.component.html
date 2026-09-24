@@ -161,23 +161,22 @@
       (firstMulliganFreeChange)="updateRoomFirstMulliganFree($event)"
     />
 
-    <app-modal
-      [open]="rollModalOpen()"
+    @if (rollModalOpen()) {
+      <app-roll-modal
+      size="big"
+      [authoritative]="true"
+      [pending]="rollingTurn()"
+      [failed]="rollModalFailed()"
+      [rollEnabled]="currentPlayerCanRoll()"
+      [result]="rollModalResult()"
+      [availableKinds]="waitingRoomRollKinds"
       [title]="rollModalTitle()"
-      [message]="rollModalMessage()"
-      [messageParams]="rollModalMessageParams()"
-      primaryLabel="shared.text.roll"
-      secondaryLabel="shared.text.cancel"
-      (primary)="rollTurnOrder()"
-      (secondary)="closeRollModal()"
-    >
-      <div class="roll-dice-preview" aria-hidden="true">
-        <img src="/assets/icons/chance/dice_20.png" alt="" />
-      </div>
-      <p class="app-disclaimer-callout roll-lock-warning">
-        {{ 'rooms.waitingRoom.afterRollingYourDeckSelectionWillBe' | runtimeTranslate }}
-      </p>
-    </app-modal>
+      notice="rooms.waitingRoom.afterRollingYourDeckSelectionWillBe"
+      (rollRequested)="rollTurnOrder($event)"
+      (resultRevealed)="revealTurnOrderResult()"
+      (closed)="closeRollModal()"
+    />
+    }
 
     <app-modal
       [open]="inviteModalOpen()"

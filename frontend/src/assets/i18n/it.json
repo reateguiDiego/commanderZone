@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, messaggi non letti",
       "moveCardToAnotherBattlefield": "Sposta la carta su un altro campo di battaglia",
       "putIntoLibrary": "Metti in grimorio",
+      "libraryPlacementSinglePrompt": "Dove vuoi mettere questa carta?",
+      "libraryPlacementMultiplePrompt": "Dove vuoi mettere queste {{ count }} carte?",
+      "libraryPlacementTop": "Sopra",
+      "libraryPlacementBottom": "Sotto",
       "focusedOpponentLabel": "Stai guardando:",
       "returnToOwnBattlefield": "Vai al tuo campo di battaglia",
       "leaveTableConfirmationTitle": "Lasciare il tavolo?",
@@ -2201,11 +2205,11 @@
       "gameSettings": {
         "title": "Preferenze di gioco",
         "defaultBattlefieldLayout": {
-          "label": "Disposizione predefinita del tavolo",
+          "label": "Disposizione del tavolo",
           "description": "Scegli come organizzare il tavolo quando apri una partita.",
           "grid": "Griglia",
-          "classic": "Classico",
-          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la disposizione classica."
+          "focused": "Focalizzata",
+          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la vista focalizzata."
         },
         "showCardAlignmentHelper": {
           "label": "Aiuto per l'allineamento delle carte",
@@ -2341,7 +2345,7 @@
     "roll": {
       "rollModal": {
         "text": "Risultato",
-        "closeRoll": "Chiudere il lancio",
+        "closeRoll": "Chiudi il lancio",
         "rollType": "Tipo di lancio",
         "rollAgain": "Lancia di nuovo"
       },
@@ -2353,8 +2357,8 @@
         "d20": "Dado a 20 facce"
       },
       "results": {
-        "heads": "Teste",
-        "tails": "Code"
+        "heads": "Testa",
+        "tails": "Croce"
       }
     }
   },

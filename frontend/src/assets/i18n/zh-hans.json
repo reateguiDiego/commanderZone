@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "这次掷骰决定你的回合顺序。",
       "thisDeck": "这副套牌",
       "thisPlayer": "这位玩家",
-      "tieBreakRoll": "平局重掷",
+      "tieBreakRoll": "平局决胜掷骰",
       "tieBreakRollMessage": "你与 {{ playerNames }} 平局。请再次掷骰决定顺序。",
       "waitingForDecksAndRolls": "等待套牌和掷骰",
       "realtimeUnavailable": "实时连接正在恢复。房间变更可能会延迟显示。"
@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "聊天、未读消息",
       "moveCardToAnotherBattlefield": "将牌移至另一个战场",
       "putIntoLibrary": "放入牌库",
+      "libraryPlacementSinglePrompt": "要将这张牌放到哪里？",
+      "libraryPlacementMultiplePrompt": "要将这 {{ count }} 张牌放到哪里？",
+      "libraryPlacementTop": "顶部",
+      "libraryPlacementBottom": "底部",
       "focusedOpponentLabel": "正在查看：",
       "returnToOwnBattlefield": "前往你的战场",
       "leaveTableConfirmationTitle": "离开牌桌？",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "游戏偏好",
         "defaultBattlefieldLayout": {
-          "label": "默认牌桌布局",
+          "label": "牌桌布局",
           "description": "选择打开对局时牌桌的排列方式。",
           "grid": "网格",
-          "classic": "经典",
-          "gridWarning": "网格仅适用于最多 4 名玩家的对局。5 名或更多玩家时，将自动使用经典布局。"
+          "focused": "聚焦",
+          "gridWarning": "网格仅适用于最多 4 名玩家的对局。5 名或更多玩家时，将自动使用聚焦布局。"
         },
         "showCardAlignmentHelper": {
           "label": "卡牌对齐辅助",
@@ -2395,20 +2399,20 @@
     "roll": {
       "rollModal": {
         "text": "结果",
-        "closeRoll": "密掷骰",
-        "rollType": "掷骰筒式",
-        "rollAgain": "再滚一次"
+        "closeRoll": "关闭掷骰",
+        "rollType": "掷骰类型",
+        "rollAgain": "再掷一次"
       },
       "options": {
         "coin": "硬币",
-        "d4": "4面模具",
-        "d6": "6面模具",
-        "d10": "10面骰子",
-        "d20": "20面骰子"
+        "d4": "四面骰",
+        "d6": "六面骰",
+        "d10": "十面骰",
+        "d20": "二十面骰"
       },
       "results": {
-        "heads": "头",
-        "tails": "尾巴"
+        "heads": "正面",
+        "tails": "反面"
       }
     }
   },
@@ -2599,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "非法套牌",
-      "rollDice": "掷骰",
+      "rollDice": "掷骰子",
       "selectADeck": "选择套牌",
       "kickPlayer": "移出玩家",
       "turnOrder": "回合顺序",

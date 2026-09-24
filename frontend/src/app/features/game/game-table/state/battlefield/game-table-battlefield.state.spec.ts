@@ -271,6 +271,7 @@ describe('GameTableBattlefieldState', () => {
         selectedCards: () => [],
         findCard: () => null,
         cardPosition: () => null,
+        battlefieldCardSize: () => ({ width: 120, height: 168 }),
         updateLocalCardPosition: () => undefined,
       }),
       alignmentGuideFor: () => null,

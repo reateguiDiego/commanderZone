@@ -5,7 +5,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { LucideAngularModule } from 'lucide-angular';
-import { TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -17,6 +16,8 @@ import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room, RoomMulliganRule, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
 import { MercureService, MercureWaitingRoomStreamMessage } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
+import { RollKind } from '../../../core/ui/roll-modal/roll';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
@@ -52,6 +53,7 @@ const WAITING_ROOM_PRESENCE_INTERVAL_MS = 120_000;
   imports: [RuntimeTranslatePipe, 
     LucideAngularModule,
     AppModalComponent,
+    RollModalComponent,
     CzButtonDirective,
     GlobalLoaderComponent,
     PlayerNameComponent,
@@ -75,7 +77,6 @@ export class WaitingRoomComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly pageHeader = inject(PageHeaderStore);
-  private readonly translation = inject(TranslateService, { optional: true });
   private presenceHandle?: number;
   private roomSyncInFlight = false;
   private presenceInFlight = false;
@@ -88,6 +89,7 @@ export class WaitingRoomComponent implements OnDestroy {
   private copiedFeedbackHandle?: number;
   private playerOrderAnimationFrame?: number;
   private lastAutoTiePromptKey = '';
+  private pendingTurnOrderRoom: Room | null = null;
 
   readonly roomId = computed(() => this.route.snapshot.paramMap.get('id')?.trim() ?? '');
   readonly decks = signal<Deck[]>([]);
@@ -124,6 +126,9 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly kickingPlayerId = signal<string | null>(null);
   readonly updatingDeck = signal(false);
   readonly rollModalOpen = signal(false);
+  readonly rollModalResult = signal<string | null>(null);
+  readonly rollModalFailed = signal(false);
+  private readonly rollRevealPending = signal(false);
   readonly setupModalOpen = signal(false);
   readonly rollingTurn = signal(false);
   readonly updatingCapacity = signal(false);
@@ -155,6 +160,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly seatIndexes = [0, 1, 2, 3, 4, 5] as const;
   readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
   readonly startingLifeStep = 1;
+  readonly waitingRoomRollKinds: readonly RollKind[] = ['d20'];
   selectedDeckId = '';
 
   constructor() {
@@ -336,11 +342,19 @@ export class WaitingRoomComponent implements OnDestroy {
       return;
     }
 
+    this.rollModalResult.set(null);
+    this.rollModalFailed.set(false);
     this.rollModalOpen.set(true);
   }
 
   closeRollModal(): void {
+    if (this.rollRevealPending()) {
+      return;
+    }
+
     this.rollModalOpen.set(false);
+    this.rollModalResult.set(null);
+    this.rollModalFailed.set(false);
   }
 
   openSetupModal(room: Room): void {
@@ -359,21 +373,6 @@ export class WaitingRoomComponent implements OnDestroy {
     return this.currentTieBreakPrompt() ? 'rooms.waitingRoom.tieBreakRoll' : 'shared.text.rollDice';
   }
 
-  rollModalMessage(): string {
-    const prompt = this.currentTieBreakPrompt();
-    if (!prompt) {
-      return 'rooms.waitingRoom.rollSetsTurnOrder';
-    }
-
-    return 'rooms.waitingRoom.tieBreakRollMessage';
-  }
-
-  rollModalMessageParams(): Record<string, unknown> | undefined {
-    const prompt = this.currentTieBreakPrompt();
-
-    return prompt ? { playerNames: this.tiePromptNames(prompt.tiedWithNames) } : undefined;
-  }
-
   kickPlayerMessageParams(): Record<string, unknown> {
     return {
       playerName: this.playerPendingKick()?.user?.displayName ?? runtimeTranslationFallback('rooms.waitingRoom.thisPlayer'),
@@ -386,20 +385,27 @@ export class WaitingRoomComponent implements OnDestroy {
     };
   }
 
-  async rollTurnOrder(): Promise<void> {
+  async rollTurnOrder(kind: RollKind): Promise<void> {
     const room = this.currentRoom();
-    if (!room || !this.currentPlayerCanRoll()) {
+    if (kind !== 'd20' || !room || !this.currentPlayerCanRoll()) {
       return;
     }
 
     this.error.set(null);
+    this.rollModalFailed.set(false);
+    this.rollModalResult.set(null);
+    this.pendingTurnOrderRoom = null;
+    this.rollRevealPending.set(true);
     this.rollingTurn.set(true);
     try {
       const response = await firstValueFrom(this.roomsApi.rollTurn(room.id, true));
-      this.setCurrentRoom(response.room, { animatePlayerOrder: true });
-      this.syncSelectedDeckFromRoom(response.room);
-      this.rollModalOpen.set(false);
+      this.pendingTurnOrderRoom = response.room;
+      const result = this.playerLatestTurnRoll(this.currentPlayerFromRoom(response.room));
+      this.rollModalResult.set(result === null ? null : String(result));
     } catch (error) {
+      this.pendingTurnOrderRoom = null;
+      this.rollRevealPending.set(false);
+      this.rollModalFailed.set(true);
       this.error.set(this.errorMessage(error, 'Could not roll turn order.'));
     } finally {
       this.rollingTurn.set(false);
@@ -808,10 +814,23 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   currentPlayerRoll(): number | null {
-    const player = this.currentPlayer();
-    const rolls = player ? this.turnRollsFor(player) : [];
+    return this.playerLatestTurnRoll(this.currentPlayer());
+  }
 
-    return rolls.at(-1) ?? null;
+  revealTurnOrderResult(): void {
+    if (!this.rollRevealPending()) {
+      return;
+    }
+
+    const room = this.pendingTurnOrderRoom;
+    this.pendingTurnOrderRoom = null;
+    this.rollRevealPending.set(false);
+    if (!room) {
+      return;
+    }
+
+    this.setCurrentRoom(room, { animatePlayerOrder: true });
+    this.syncSelectedDeckFromRoom(room);
   }
 
   turnOrderPlayers(room: Room): readonly RoomPlayer[] {
@@ -933,6 +952,11 @@ export class WaitingRoomComponent implements OnDestroy {
       if (room?.status === 'waiting' && !this.isCurrentUserInRoom(room)) {
         const joinResponse = await firstValueFrom(this.roomsApi.join(room.id, undefined, skipGlobalLoading));
         room = joinResponse.room;
+      }
+
+      if (room && this.rollRevealPending()) {
+        this.pendingTurnOrderRoom = room;
+        return;
       }
 
       this.setCurrentRoom(room);
@@ -1084,6 +1108,12 @@ export class WaitingRoomComponent implements OnDestroy {
 
   private currentUserId(): string | null {
     return this.auth.user()?.id ?? null;
+  }
+
+  private currentPlayerFromRoom(room: Room): RoomPlayer | null {
+    const userId = this.currentUserId();
+
+    return room.players.find((player) => player.user.id === userId) ?? null;
   }
 
   private setCurrentRoom(
@@ -1403,6 +1433,12 @@ export class WaitingRoomComponent implements OnDestroy {
     return player.turnRoll === null ? [] : [player.turnRoll];
   }
 
+  private playerLatestTurnRoll(player: RoomPlayer | null): number | null {
+    const rolls = player ? this.turnRollsFor(player) : [];
+
+    return rolls.at(-1) ?? null;
+  }
+
   private isRoomMulliganRule(mulliganRule: string): mulliganRule is RoomMulliganRule {
     return ['LONDON', 'VANCOUVER', 'PARIS', 'GENEROUS'].includes(mulliganRule);
   }
@@ -1415,28 +1451,6 @@ export class WaitingRoomComponent implements OnDestroy {
     const rolls = this.turnRollsFor(player);
 
     return rolls.length > 0 ? rolls.join(' - ') : '-';
-  }
-
-  private tiePromptNames(names: readonly string[]): string {
-    const cleanNames = names.filter((name) => name.trim().length > 0);
-
-    return cleanNames.length > 0
-      ? this.formatPlayerNames(cleanNames)
-      : this.translateText('rooms.waitingRoom.thisPlayer');
-  }
-
-  private formatPlayerNames(names: readonly string[]): string {
-    const language = this.translation?.currentLang || this.translation?.defaultLang || 'es';
-
-    return new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(names);
-  }
-
-  private translateText(key: string, params?: Record<string, unknown>): string {
-    const translated = this.translation?.instant(key, params);
-
-    return typeof translated === 'string' && translated !== key
-      ? translated
-      : runtimeTranslationFallback(key, params);
   }
 
   private isCompanionSlotForCenteredOddPlayer(room: Room, seatIndex: number): boolean {
@@ -1504,7 +1518,16 @@ export class WaitingRoomComponent implements OnDestroy {
     }
 
     if (!event.room) {
+      if (this.rollRevealPending()) {
+        return;
+      }
+
       await this.loadRoomState(true);
+      return;
+    }
+
+    if (this.rollRevealPending()) {
+      this.pendingTurnOrderRoom = event.room;
       return;
     }
 

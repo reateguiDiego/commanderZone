@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Xat, missatges no llegits",
       "moveCardToAnotherBattlefield": "Posa la carta en un altre camp de batalla",
       "putIntoLibrary": "Posar a la biblioteca",
+      "libraryPlacementSinglePrompt": "On vols posar aquesta carta?",
+      "libraryPlacementMultiplePrompt": "On vols posar aquestes {{ count }} cartes?",
+      "libraryPlacementTop": "Dalt",
+      "libraryPlacementBottom": "Baix",
       "focusedOpponentLabel": "Estàs veient:",
       "returnToOwnBattlefield": "Ves al teu camp de batalla",
       "leaveTableConfirmationTitle": "Abandonar la taula?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Preferències de joc",
         "defaultBattlefieldLayout": {
-          "label": "Disseny predeterminat de la taula",
+          "label": "Disseny de la taula",
           "description": "Tria com s'organitza la taula en obrir una partida.",
           "grid": "Quadrícula",
-          "classic": "Clàssic",
-          "gridWarning": "La quadrícula només està disponible en partides de fins a 4 jugadors. Amb 5 jugadors o més, s'utilitzarà automàticament el disseny clàssic."
+          "focused": "Enfocada",
+          "gridWarning": "La quadrícula només està disponible en partides de fins a 4 jugadors. Amb 5 jugadors o més, s'utilitzarà automàticament la vista enfocada."
         },
         "showCardAlignmentHelper": {
           "label": "Ajuda d'alineació de cartes",
@@ -2395,14 +2399,14 @@
     "roll": {
       "rollModal": {
         "text": "Resultat",
-        "closeRoll": "Rodó tancat",
+        "closeRoll": "Tanca la tirada",
         "rollType": "Tipus de tirada",
         "rollAgain": "Torna a tirar"
       },
       "options": {
         "coin": "Moneda",
-        "d4": "matriu de 4 cares",
-        "d6": "matriu de 6 cares",
+        "d4": "Dau de 4 cares",
+        "d6": "Dau de 6 cares",
         "d10": "Dau de 10 cares",
         "d20": "Dau de 20 cares"
       },
@@ -2599,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Baralla no vàlida",
-      "rollDice": "Tira el dau",
+      "rollDice": "Tira els daus",
       "selectADeck": "Selecciona una baralla",
       "kickPlayer": "Expulsa el jugador",
       "turnOrder": "Turn order",

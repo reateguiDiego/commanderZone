@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, messages non lus",
       "moveCardToAnotherBattlefield": "Déplacer la carte vers un autre champ de bataille",
       "putIntoLibrary": "Mettre en bibliothèque",
+      "libraryPlacementSinglePrompt": "Où voulez-vous placer cette carte ?",
+      "libraryPlacementMultiplePrompt": "Où voulez-vous placer ces {{ count }} cartes ?",
+      "libraryPlacementTop": "Dessus",
+      "libraryPlacementBottom": "Dessous",
       "focusedOpponentLabel": "Vous regardez :",
       "returnToOwnBattlefield": "Aller sur votre champ de bataille",
       "leaveTableConfirmationTitle": "Quitter la table ?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Préférences de jeu",
         "defaultBattlefieldLayout": {
-          "label": "Disposition de table par défaut",
+          "label": "Disposition de la table",
           "description": "Choisissez comment la table est organisée à l'ouverture d'une partie.",
           "grid": "Grille",
-          "classic": "Classique",
-          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la disposition classique sera utilisée automatiquement."
+          "focused": "Centrée",
+          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la vue centrée sera utilisée automatiquement."
         },
         "showCardAlignmentHelper": {
           "label": "Aide à l'alignement des cartes",

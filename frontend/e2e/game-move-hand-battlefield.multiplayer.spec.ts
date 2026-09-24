@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks, resolveGameToPlaying } from './support/commander-game';
 import { drawMine, focusPlayer, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 test.setTimeout(240000);
@@ -14,6 +14,7 @@ test('player can move a hand card to battlefield with manual fallback and sync t
     runId: `move-hand-${Date.now()}`,
     deckSize: 100,
   });
+  await resolveGameToPlaying(request, setup.gameId, [setup.playerA, setup.playerB]);
 
   const contextA = await browser.newContext({
     baseURL,

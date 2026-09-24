@@ -114,6 +114,12 @@
   z-index: 240;
 }
 
+.game-screen > app-roll-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+}
+
 .game-screen > app-game-table-header.grid-layout-header {
   --game-table-header-peek-height: 2px;
 }
@@ -305,6 +311,13 @@
   height: 100%;
   overflow: hidden;
   padding-bottom: var(--bottom-gap);
+}
+
+// The shuffle animation may extend beyond its source Zone Piles dock. The
+// viewport still clips at .game-screen; this merely prevents the table grid
+// from cutting the transient card fan in Square or Grid mode.
+.table-surface:has(app-zone-card-stack.is-shuffling) {
+  overflow: visible;
 }
 
 .focused-board {

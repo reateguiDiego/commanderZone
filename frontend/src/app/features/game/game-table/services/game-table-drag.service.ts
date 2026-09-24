@@ -365,20 +365,28 @@ export class GameTableDragService {
 
     return {
       cardSize,
-      position: this.positionInBattlefield(
+      position: this.logicalBattlefieldPosition(
         battlefield,
-        event.clientX,
-        event.clientY,
-        offset.x,
-        offset.y,
-        cardSize.width,
+        this.positionInBattlefield(
+          battlefield,
+          event.clientX,
+          event.clientY,
+          offset.x,
+          offset.y,
+          cardSize.width,
+          cardSize.height,
+        ),
         cardSize.height,
       ),
     };
   }
 
   pointerPosition(event: PointerEvent, battlefield: HTMLElement): { x: number; y: number } {
-    return this.positionInBattlefield(battlefield, event.clientX, event.clientY);
+    return this.logicalBattlefieldPosition(
+      battlefield,
+      this.positionInBattlefield(battlefield, event.clientX, event.clientY),
+      162,
+    );
   }
 
   private positionInBattlefield(
@@ -516,7 +524,11 @@ export class GameTableDragService {
     visualOffsetFromLogicalY: number,
   ): { x: number; y: number } {
     if (this.hasSameGeometry(visualWidth, visualHeight, logicalWidth, logicalHeight, visualOffsetFromLogicalX, visualOffsetFromLogicalY)) {
-      return this.pointerDragPosition(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, logicalWidth, logicalHeight);
+      return this.logicalBattlefieldPosition(
+        battlefield,
+        this.pointerDragPosition(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, logicalWidth, logicalHeight),
+        logicalHeight,
+      );
     }
 
     const bounds = battlefield.getBoundingClientRect();
@@ -538,9 +550,36 @@ export class GameTableDragService {
     const logicalLeftViewport = clampedVisualLeft - visualOffsetFromLogicalX;
     const logicalTopViewport = clampedVisualTop - visualOffsetFromLogicalY;
 
-    return {
+    return this.logicalBattlefieldPosition(battlefield, {
       x: Math.round(logicalLeftViewport - bounds.left),
       y: Math.round(logicalTopViewport - bounds.top),
+    }, logicalHeight);
+  }
+
+  /**
+   * Upper Grid seats render stored battlefield coordinates upside down so
+   * every player still sees their own board nearest to their hand. Drag
+   * geometry originates in the rendered coordinate system; convert it back
+   * before alignment, snapping, and persistence use it.
+   */
+  private logicalBattlefieldPosition(
+    battlefield: HTMLElement,
+    visualPosition: { x: number; y: number },
+    cardHeight: number,
+  ): { x: number; y: number } {
+    if (battlefield.dataset['battlefieldVerticallyInverted'] === undefined) {
+      return visualPosition;
+    }
+
+    const bounds = battlefield.getBoundingClientRect();
+    const battlefieldHeight = battlefield.clientHeight || bounds.height;
+    if (battlefieldHeight <= 0) {
+      return visualPosition;
+    }
+
+    return {
+      ...visualPosition,
+      y: Math.max(0, Math.round(battlefieldHeight - cardHeight - visualPosition.y)),
     };
   }
 

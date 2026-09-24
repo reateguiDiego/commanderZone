@@ -936,6 +936,23 @@
   translate: 0 6.7rem;
 }
 
+// The shuffle fans cards beyond their resting stack. Keep the normal clipping
+// for the dock, but open only the active library path so the animation can
+// overlap its neighbouring zones in both Square and Grid presentations.
+.zone-dock:has(app-zone-card-stack.is-shuffling),
+.zone-stack:has(app-zone-card-stack.is-shuffling),
+.zone-stack:has(app-zone-card-stack.is-shuffling) [data-testid='zone-pile'],
+.zone-stack:has(app-zone-card-stack.is-shuffling) .zone-card-artwork {
+  overflow: visible;
+}
+
+.zone-dock:has(app-zone-card-stack.is-shuffling),
+.zone-stack:has(app-zone-card-stack.is-shuffling),
+.zone-stack:has(app-zone-card-stack.is-shuffling) [data-testid='zone-pile'] {
+  position: relative;
+  z-index: 3200;
+}
+
 .zone-dock.compact-cell.is-turn-active {
   position: relative;
   overflow: visible;

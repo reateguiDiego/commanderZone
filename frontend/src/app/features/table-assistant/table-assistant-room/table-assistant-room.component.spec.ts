@@ -159,7 +159,7 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.querySelector('app-roll-modal')).not.toBeNull();
     expect(
       fixture.nativeElement
-        .querySelector('[aria-label="20-sided die"] img')
+        .querySelector('[aria-label="d20 (twenty-sided die)"] img')
         ?.getAttribute('src'),
     ).toBe('/assets/icons/chance/dice_20.png');
   });

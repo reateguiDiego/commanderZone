@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, mensajes no leídos",
       "moveCardToAnotherBattlefield": "Poner carta en otro campo de batalla",
       "putIntoLibrary": "Poner en la biblioteca",
+      "libraryPlacementSinglePrompt": "¿Dónde quieres poner esta carta?",
+      "libraryPlacementMultiplePrompt": "¿Dónde quieres poner estas {{ count }} cartas?",
+      "libraryPlacementTop": "Arriba",
+      "libraryPlacementBottom": "Abajo",
       "focusedOpponentLabel": "Estás viendo a:",
       "returnToOwnBattlefield": "Ir a tu campo de batalla",
       "leaveTableConfirmationTitle": "¿Abandonar la mesa?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Preferencias de juego",
         "defaultBattlefieldLayout": {
-          "label": "Diseño predeterminado de la mesa",
+          "label": "Diseño de la mesa",
           "description": "Elige cómo se organiza la mesa al abrir una partida.",
           "grid": "Cuadrícula",
-          "classic": "Clásico",
-          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente el diseño clásico."
+          "focused": "Enfocada",
+          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente la vista enfocada."
         },
         "showCardAlignmentHelper": {
           "label": "Ayuda de alineación de cartas",
@@ -2599,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Mazo no válido",
-      "rollDice": "Tirar el dado",
+      "rollDice": "Tirar los dados",
       "selectADeck": "Selecciona un mazo",
       "kickPlayer": "Expulsar jugador",
       "turnOrder": "Orden de turno",

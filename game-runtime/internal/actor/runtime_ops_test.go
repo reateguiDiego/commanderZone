@@ -1119,7 +1119,7 @@ func TestLibraryMoveTopToBottomUsesLibraryOps(t *testing.T) {
 		t.Fatalf("move top bottom failed: %v", result.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "l3,l2,l1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "l3,l1,l2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
 	}
 	metrics := result.Event.Payload["metrics"].(map[string]any)
@@ -1142,7 +1142,7 @@ func TestLibraryMoveTopToOpponentHandKeepsPatchPrivate(t *testing.T) {
 		t.Fatalf("move top hand failed: %v", result.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p2"].Hand), "l3"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p2"].Hand), "l1"; got != want {
 		t.Fatalf("opponent hand got %s want %s", got, want)
 	}
 	for _, envelope := range result.Patches {
@@ -1167,8 +1167,14 @@ func TestLibraryPutTopAndBottomCommands(t *testing.T) {
 		t.Fatalf("put bottom failed: %v", bottom.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h2,l1,l2,l3,h1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h1,l1,l2,l3,h2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
+	}
+	if add := patchForVisibility(top.Patches, protocol.PlayerVisibility("p1"), "zone.cards.add"); add == nil || add.Data["index"] != 0 {
+		t.Fatalf("top library patch must insert at index 0: %#v", top.Patches)
+	}
+	if add := patchForVisibility(bottom.Patches, protocol.PlayerVisibility("p1"), "zone.cards.add"); add == nil || add.Data["index"] != 4 {
+		t.Fatalf("bottom library patch must insert at the tail: %#v", bottom.Patches)
 	}
 }
 
@@ -1206,7 +1212,7 @@ func TestLibraryViewIsPrivateAndDoesNotMutateLibrary(t *testing.T) {
 
 func TestLibraryReorderTopEmitsPrivateOrderAndPublicCount(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}), "p1")
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l1"}}), "p1")
 	if result.Err != nil {
 		t.Fatalf("reorder failed: %v", result.Err)
 	}
@@ -1324,7 +1330,7 @@ func TestLibraryCommandsAreIdempotentForRetry(t *testing.T) {
 	}{
 		{name: "draw", commandType: "library.draw", payload: map[string]any{"playerId": "p1"}},
 		{name: "move-top-bottom", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "toZone": "library", "position": "bottom", "count": 1}},
-		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
+		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l1"}}},
 		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
 	}
 
@@ -1476,7 +1482,7 @@ func TestPlayTopFaceDownEmitsPublicLogWithoutCardIdentity(t *testing.T) {
 	if result.Err != nil {
 		t.Fatalf("play top face down failed: %v", result.Err)
 	}
-	if !gameActor.Snapshot().Instances["l3"].FaceDown {
+	if !gameActor.Snapshot().Instances["l1"].FaceDown {
 		t.Fatal("top library card was not moved face down")
 	}
 	publicMove := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
@@ -1495,7 +1501,7 @@ func TestPlayTopFaceDownEmitsPublicLogWithoutCardIdentity(t *testing.T) {
 		t.Fatalf("missing private owner play-top-face-down patch: %#v", result.Patches)
 	}
 	ownerCard := requireMap(t, ownerMove.Data["card"])
-	if ownerCard["cardKey"] != "library-3@1" || ownerCard["hidden"] == true {
+	if ownerCard["cardKey"] != "library-1@1" || ownerCard["hidden"] == true {
 		t.Fatalf("owner did not receive the played face-down card identity: %#v", ownerCard)
 	}
 	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
@@ -1694,7 +1700,7 @@ func TestRevealedCardNameIsOnlyAddedToTheSelectedViewerLog(t *testing.T) {
 		t.Fatalf("selected viewer did not receive a private top reveal log: %#v", topResult.Patches)
 	}
 	privateTopEntry := privateTopPatch.Data["entries"].([]map[string]any)[0]
-	if privateTopEntry["i18nKey"] != "gameLog.library.revealTopNamed" || privateTopEntry["cardInstanceId"] != "l3" {
+	if privateTopEntry["i18nKey"] != "gameLog.library.revealTopNamed" || privateTopEntry["cardInstanceId"] != "l1" {
 		t.Fatalf("private top reveal log is missing its card reference: %#v", privateTopEntry)
 	}
 }
@@ -1909,7 +1915,7 @@ func TestPlayTopRevealedRuntimeEmitsTopOnlyToTheSelectedViewer(t *testing.T) {
 		t.Fatalf("play top revealed the card publicly instead of to its selected viewer: %#v", result.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
-	if len(cards) != 1 || cards[0]["instanceId"] != "l3" || cards[0]["cardKey"] != "library-3@1" {
+	if len(cards) != 1 || cards[0]["instanceId"] != "l1" || cards[0]["cardKey"] != "library-1@1" {
 		t.Fatalf("bad targeted top reveal: %#v", cards)
 	}
 	if viewers := gameActor.Snapshot().Players["p1"]["playTopLibraryRevealedTo"]; fmt.Sprintf("%v", viewers) != "[p2]" {
@@ -1988,7 +1994,7 @@ func TestPlayTopRevealedPublishesTheCurrentTopCardAfterShuffle(t *testing.T) {
 		t.Fatalf("missing refreshed top reveal after shuffle: %#v", shuffled.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
-	wantTop := gameActor.Snapshot().Zones["p1"].Library[len(gameActor.Snapshot().Zones["p1"].Library)-1]
+	wantTop := gameActor.Snapshot().Zones["p1"].Library[0]
 	if len(cards) != 1 || cards[0]["instanceId"] != wantTop {
 		t.Fatalf("shuffle revealed stale top card: cards=%#v want=%s", cards, wantTop)
 	}
@@ -3344,7 +3350,7 @@ func TestMoveHandToLibraryTopAndBottomPreservesRuntimeOrder(t *testing.T) {
 	}
 
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h2,l1,l2,l3,h1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h1,l1,l2,l3,h2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
 	}
 	if topMetrics := top.Event.Payload["metrics"].(map[string]any); topMetrics["movement.full_scan_count"] != 0 || topMetrics["movement.reindex_count"] != 0 {
@@ -3352,6 +3358,101 @@ func TestMoveHandToLibraryTopAndBottomPreservesRuntimeOrder(t *testing.T) {
 	}
 	if bottomMetrics := bottom.Event.Payload["metrics"].(map[string]any); bottomMetrics["movement.full_scan_count"] != 0 || bottomMetrics["movement.reindex_count"] != 0 {
 		t.Fatalf("unexpected bottom metrics: %#v", bottomMetrics)
+	}
+}
+
+func TestCardsMovedToLibraryTopDrawsTheLastMovedCardFirst(t *testing.T) {
+	for count := 1; count <= 10; count++ {
+		t.Run(fmt.Sprintf("%d cards", count), func(t *testing.T) {
+			initial := benchmarkState(100)
+			gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+			moved := make([]string, count)
+			wantDrawOrder := make([]string, count)
+			for index := range count {
+				moved[index] = fmt.Sprintf("h%03d", index)
+				wantDrawOrder[count-1-index] = moved[index]
+			}
+
+			move := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-top-batch", "cards.moved", map[string]any{
+				"playerId":    "p1",
+				"fromZone":    "hand",
+				"toZone":      "library",
+				"instanceIds": moved,
+				"position":    "top",
+			}), "p1")
+			if move.Err != nil {
+				t.Fatalf("move to library top failed: %v", move.Err)
+			}
+			if got, want := move.Event.Payload["position"], "top"; got != want {
+				t.Fatalf("event position got %#v want %q", got, want)
+			}
+
+			draw := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "draw-moved-top", "library.draw_many", map[string]any{
+				"playerId": "p1",
+				"count":    count,
+			}), "p1")
+			if draw.Err != nil {
+				t.Fatalf("draw failed: %v", draw.Err)
+			}
+			if got, want := joinStrings(stringsFromAny(draw.Event.Payload["instanceIds"])), joinStrings(wantDrawOrder); got != want {
+				t.Fatalf("draw order got %s want %s", got, want)
+			}
+
+			replayed := initial.Clone()
+			if err := ReplayEventWithAppliers(&replayed, move.Event, DefaultAppliers()); err != nil {
+				t.Fatalf("replay move failed: %v", err)
+			}
+			if err := ReplayEvent(&replayed, draw.Event); err != nil {
+				t.Fatalf("replay draw failed: %v", err)
+			}
+			if got, want := joinStrings(replayed.Zones["p1"].Hand[len(replayed.Zones["p1"].Hand)-count:]), joinStrings(wantDrawOrder); got != want {
+				t.Fatalf("replayed draw order got %s want %s", got, want)
+			}
+		})
+	}
+}
+
+func TestCardsMovedToLibraryBottomKeepsInputOrderAtTheVisualBottom(t *testing.T) {
+	for count := 1; count <= 10; count++ {
+		t.Run(fmt.Sprintf("%d cards", count), func(t *testing.T) {
+			initial := benchmarkState(100)
+			gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+			moved := make([]string, count)
+			events := make([]protocol.EventPayloadV2, 0, count)
+			for index := range count {
+				moved[index] = fmt.Sprintf("h%03d", index)
+				result := gameActor.ApplyDirect(context.Background(), command("game-1", int64(index+1), fmt.Sprintf("move-bottom-%d", index), "card.moved", map[string]any{
+					"playerId":   "p1",
+					"fromZone":   "hand",
+					"toZone":     "library",
+					"instanceId": moved[index],
+					"position":   "bottom",
+				}), "p1")
+				if result.Err != nil {
+					t.Fatalf("move %s to library bottom failed: %v", moved[index], result.Err)
+				}
+				if got, want := result.Event.Payload["position"], "bottom"; got != want {
+					t.Fatalf("event position got %#v want %q", got, want)
+				}
+				events = append(events, result.Event)
+			}
+
+			snapshot := gameActor.Snapshot()
+			visualBottom := append([]string(nil), snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-count:]...)
+			if got, want := joinStrings(visualBottom), joinStrings(moved); got != want {
+				t.Fatalf("visual bottom got %s want %s", got, want)
+			}
+
+			replayed := initial.Clone()
+			for index, instanceID := range moved {
+				if err := ReplayEventWithAppliers(&replayed, events[index], DefaultAppliers()); err != nil {
+					t.Fatalf("replay move %s failed: %v", instanceID, err)
+				}
+			}
+			if got, want := joinStrings(replayed.Zones["p1"].Library[len(replayed.Zones["p1"].Library)-count:]), joinStrings(snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-count:]); got != want {
+				t.Fatalf("replayed storage bottom got %s want %s", got, want)
+			}
+		})
 	}
 }
 

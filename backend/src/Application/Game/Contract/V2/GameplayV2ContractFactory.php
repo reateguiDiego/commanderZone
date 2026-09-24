@@ -136,11 +136,8 @@ final class GameplayV2ContractFactory
 
                 $zoneId = sprintf('%s:%s', $playerId, $zoneName);
                 $instanceIds = [];
-                // Projected library zones use display order: the top card is the
-                // first element. The V2 client deliberately reverses library
-                // zone ids while hydrating so its local view has the top at
-                // index zero. Keep the wire contract tail-top to avoid turning
-                // a revealed top into the hidden bottom card in the UI.
+                // Every layer uses the same library order: the top card is at
+                // index zero, including the compact V2 wire contract.
                 $topLibraryCard = $zoneName === 'library' ? ($cards[array_key_first($cards)] ?? null) : null;
                 $topLibraryInstanceId = is_array($topLibraryCard)
                     ? trim((string) ($topLibraryCard['instanceId'] ?? ''))
@@ -152,9 +149,7 @@ final class GameplayV2ContractFactory
                         $viewer->id(),
                         $topLibraryInstanceId,
                     );
-                $cardsInContractOrder = $zoneName === 'library'
-                    ? array_reverse($cards)
-                    : $cards;
+                $cardsInContractOrder = $cards;
                 foreach ($cardsInContractOrder as $card) {
                     if (!is_array($card)) {
                         continue;

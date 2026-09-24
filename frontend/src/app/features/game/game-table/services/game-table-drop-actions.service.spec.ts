@@ -650,6 +650,7 @@ function dropContext(
     suppressCardPreview: vi.fn(),
     setError: vi.fn(),
     cardPosition: (card) => card.position ? { x: card.position.x, y: card.position.y } : null,
+    battlefieldCardSize: () => ({ width: 120, height: 168 }),
     snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),

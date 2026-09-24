@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "Этот бросок определяет ваш порядок хода.",
       "thisDeck": "эта колода",
       "thisPlayer": "этот игрок",
-      "tieBreakRoll": "Тай-брейк",
+      "tieBreakRoll": "Бросок при ничьей",
       "tieBreakRollMessage": "У вас ничья с {{ playerNames }}. Бросьте еще раз, чтобы определить победителя.",
       "waitingForDecksAndRolls": "Ожидание колод и бросков",
       "realtimeUnavailable": "Подключение в реальном времени восстанавливается. Изменения комнаты могут отображаться с задержкой."
@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Чат, непрочитанные сообщения",
       "moveCardToAnotherBattlefield": "Переместить карту на другое поле битвы",
       "putIntoLibrary": "Положить в библиотеку",
+      "libraryPlacementSinglePrompt": "Куда положить эту карту?",
+      "libraryPlacementMultiplePrompt": "Куда положить эти карты ({{ count }})?",
+      "libraryPlacementTop": "Верх",
+      "libraryPlacementBottom": "Низ",
       "focusedOpponentLabel": "Просмотр:",
       "returnToOwnBattlefield": "К своему полю боя",
       "leaveTableConfirmationTitle": "Покинуть стол?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Настройки игрового процесса",
         "defaultBattlefieldLayout": {
-          "label": "Стандартный макет стола",
+          "label": "Макет стола",
           "description": "Выберите, как будет организован стол при открытии игры.",
           "grid": "Сетка",
-          "classic": "Классический",
-          "gridWarning": "Сетка доступна только в играх с участием до 4 игроков. При 5 или более игроках автоматически будет использован классический макет."
+          "focused": "В фокусе",
+          "gridWarning": "Сетка доступна только в играх с участием до 4 игроков. При 5 или более игроках автоматически будет использован режим «В фокусе»."
         },
         "showCardAlignmentHelper": {
           "label": "Помощь с выравниванием карт",
@@ -2599,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Неверная колода",
-      "rollDice": "Бросить кубик",
+      "rollDice": "Бросить кости",
       "selectADeck": "Выберите колоду",
       "kickPlayer": "Выгнать игрока",
       "turnOrder": "Порядок ходов",

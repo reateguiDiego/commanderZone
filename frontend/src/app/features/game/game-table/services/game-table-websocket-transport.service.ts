@@ -85,16 +85,6 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       this.activeRoute = this.requireRuntimeRoute(ticket.route);
       const lastAppliedVersion = this.lastAppliedVersion();
       websocketUrl = this.withLastAppliedVersion(ticket.websocketUrl, lastAppliedVersion);
-      this.logTransportDebug('info', {
-        source: this.reconnectAttempts > 0 ? 'reconnect' : 'connect',
-        reason: this.reconnectAttempts > 0 ? 'socket_reconnect' : 'initial_connect',
-        result: 'ticket_received',
-        gameId,
-        route: this.activeRoute,
-        'gameplay.ws.route': this.activeRoute,
-        lastAppliedVersion,
-        websocketUrl: this.sanitizedUrl(websocketUrl),
-      });
     } catch (error) {
       if (this.connectedGameId === gameId) {
         this.status.set('error');
@@ -262,17 +252,6 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       return;
     }
 
-    this.logTransportDebug('debug', {
-      source: 'message.received',
-      gameId: normalizedGameId ?? messageGameId ?? this.connectedGameId,
-      route: this.activeRoute,
-      'gameplay.ws.route': this.activeRoute ?? 'runtime_ws',
-      kind: message.kind,
-      type: this.messageType(message),
-      patchV2: message.kind === 'patch.v2',
-      gamePatch: message.kind === 'game_patch',
-      resyncRequired: message.kind === 'resync_required',
-    });
     this.capturePlayerPresence(message);
     this.messagesSubject.next(message);
   }
@@ -409,45 +388,6 @@ export class GameTableWebsocketTransportService implements OnDestroy {
     }
 
     throw new Error('Gameplay websocket route is missing or unsupported.');
-  }
-
-  private sanitizedUrl(websocketUrl: string): string {
-    try {
-      const url = new URL(websocketUrl);
-      url.searchParams.delete('ticket');
-
-      return url.toString();
-    } catch {
-      return '<invalid-websocket-url>';
-    }
-  }
-
-  private messageType(message: GameplayServerMessage): string | null {
-    if (message.kind === 'command_ack') {
-      return message.status;
-    }
-    if (message.kind === 'resync_required') {
-      return message.reason;
-    }
-    if (message.kind === 'error') {
-      return message.error.code;
-    }
-    if (message.kind === 'game_patch') {
-      return message.event?.type ?? 'game_patch';
-    }
-    if (message.kind === 'patch.v2') {
-      return message.ops.map((operation) => operation.op).join(',') || 'patch.v2';
-    }
-
-    return message.kind;
-  }
-
-  private logTransportDebug(level: 'debug' | 'info' | 'warn', payload: Record<string, unknown>): void {
-    const logger = level === 'warn' ? console.warn : level === 'info' ? console.info : console.debug;
-    logger.call(console, '[CommanderZone gameplay transport]', {
-      ...payload,
-      measuredAt: new Date().toISOString(),
-    });
   }
 
   private optionalString(value: unknown): string | undefined {

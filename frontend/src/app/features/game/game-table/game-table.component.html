@@ -556,7 +556,7 @@
             } @else if (store.activeFloatingTab() === 'log') {
               <app-game-log-panel
                 class="floating-expanded-content"
-                [entries]="store.eventLog()"
+                [entries]="visibleEventLog()"
                 [highlightedEntryIds]="highlightedLogEntryIds()"
                 [fadingEntryIds]="fadingLogEntryIds()"
                 [loadingOlder]="logHistory.loadingOlder()"
@@ -946,14 +946,6 @@
         />
       }
 
-      @if (rollModalOpen()) {
-        <app-roll-modal
-          size="big"
-          (rolled)="recordRollResult($event)"
-          (closed)="closeRollModal()"
-        />
-      }
-
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
@@ -1006,9 +998,10 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.putIntoLibrary' | runtimeTranslate"
-          [message]="pendingLibraryMoveMessage(pendingMove)"
-          primaryLabel="common.ui.top"
-          secondaryLabel="common.ui.bottom"
+          [message]="pendingLibraryMoveMessageKey(pendingMove)"
+          [messageParams]="{ count: pendingLibraryMoveCount(pendingMove) }"
+          primaryLabel="game.gameTable.libraryPlacementTop"
+          secondaryLabel="game.gameTable.libraryPlacementBottom"
           secondaryVariant="primary"
           [showTertiary]="true"
           tertiaryLabel="shared.text.cancel"
@@ -1043,8 +1036,8 @@
           [title]="'game.gameTable.moveAllToLibrary' | runtimeTranslate"
           message="common.ui.moveAllCardsToLibrary"
           [messageParams]="{ count: moveAllRequest.count }"
-          primaryLabel="common.ui.top"
-          secondaryLabel="common.ui.bottom"
+          primaryLabel="game.gameTable.libraryPlacementTop"
+          secondaryLabel="game.gameTable.libraryPlacementBottom"
           secondaryVariant="primary"
           [showTertiary]="true"
           tertiaryLabel="shared.text.cancel"
@@ -1143,6 +1136,19 @@
         />
       }
     </main>
+
+    @if (rollModalOpen()) {
+      <app-roll-modal
+        size="big"
+        [authoritative]="true"
+        [pending]="rollModalPending()"
+        [result]="rollModalResult()"
+        (rollRequested)="requestDiceRoll($event)"
+        (resultRevealed)="revealDeferredDiceRollLog()"
+        (selectionChanged)="clearRollModalResult()"
+        (closed)="closeRollModal()"
+      />
+    }
 
     @if (store.mulliganActive()) {
       <app-mulligan-overlay

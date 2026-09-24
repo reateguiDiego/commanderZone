@@ -124,10 +124,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $combineChatAndGameLog = false;
 
     #[ORM\Column(type: 'string', length: 16)]
-    private string $defaultBattlefieldLayout = 'square';
+    private string $defaultBattlefieldLayout = 'grid';
 
     #[ORM\Column(type: 'string', length: 16)]
-    private string $chosenModeView = 'square';
+    private string $chosenModeView = 'grid';
 
     #[ORM\Column(type: 'boolean')]
     private bool $showCardAlignmentHelper = true;

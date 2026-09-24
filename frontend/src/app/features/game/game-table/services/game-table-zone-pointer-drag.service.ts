@@ -225,9 +225,13 @@ export class GameTableZonePointerDragService {
   }
 
   private cardBounds(pointerTarget: HTMLElement | null): DOMRect | null {
-    return pointerTarget?.querySelector<HTMLElement>('.zone-art')?.getBoundingClientRect()
-      ?? pointerTarget?.getBoundingClientRect()
-      ?? null;
+    const artBounds = pointerTarget?.querySelector<HTMLElement>('.zone-art')?.getBoundingClientRect() ?? null;
+
+    if (artBounds && artBounds.width > 0 && artBounds.height > 0) {
+      return artBounds;
+    }
+
+    return pointerTarget?.getBoundingClientRect() ?? null;
   }
 
   private battlefieldCardSizeFor(playerId: string): { readonly width: number; readonly height: number } {

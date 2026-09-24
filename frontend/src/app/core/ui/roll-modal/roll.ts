@@ -48,6 +48,24 @@ export function rollOption(
   };
 }
 
+/** Maps persisted coin values to translation keys while preserving numeric roll values. */
+export function displayedRollResult(kind: RollKind, result: string): string {
+  if (kind !== 'coin') {
+    return result;
+  }
+
+  switch (result.trim().toLocaleLowerCase()) {
+    case 'cara':
+    case 'heads':
+      return 'modals.roll.results.heads';
+    case 'cruz':
+    case 'tails':
+      return 'modals.roll.results.tails';
+    default:
+      return result.charAt(0).toLocaleUpperCase() + result.slice(1).toLocaleLowerCase();
+  }
+}
+
 function rollOnce(kind: RollKind, random?: RandomSource): string {
   if (kind === 'coin') {
     return runtimeTranslationFallback(randomInteger(1, 2, random) === 1 ? 'modals.roll.results.heads' : 'modals.roll.results.tails');

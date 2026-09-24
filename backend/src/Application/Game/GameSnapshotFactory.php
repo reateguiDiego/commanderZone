@@ -57,9 +57,9 @@ class GameSnapshotFactory
                     $library[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'library');
                 }
             }
-            $library = array_reverse($this->randomizer->shuffle($library));
+            $library = $this->randomizer->shuffle($library);
             $mulliganState = GameMulliganRules::calculateMulliganState($room->mulliganRule(), $room->firstMulliganFree(), 0);
-            $openingHand = array_reverse(array_splice($library, -min($mulliganState['drawCount'], count($library))));
+            $openingHand = array_splice($library, 0, min($mulliganState['drawCount'], count($library)));
             $openingHand = array_values(array_map(
                 static fn (array $card): array => [...$card, 'zone' => 'hand'],
                 $openingHand,
@@ -86,7 +86,7 @@ class GameSnapshotFactory
                 'backgroundName' => $this->playmatNameForGame($deck?->backgroundName(), $fallbackPlaymatIndex),
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
-                GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
+                GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TOP_FIRST,
                 GameLibraryOps::VISIBILITY_EPOCH_KEY => 1,
                 'zones' => [
                     'library' => $library,

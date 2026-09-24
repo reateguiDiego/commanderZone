@@ -5,19 +5,19 @@ import (
 	"testing"
 )
 
-func TestLibraryOpsDrawPreservesTopTailOrder(t *testing.T) {
+func TestLibraryOpsDrawPreservesTopFirstOrder(t *testing.T) {
 	game := libraryTestState()
 	drawn, err := NewLibraryOps().DrawMany(&game, "p1", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := join(drawn), "d,c"; got != want {
+	if got, want := join(drawn), "a,b"; got != want {
 		t.Fatalf("drawn got %s want %s", got, want)
 	}
-	if got, want := join(game.Zones["p1"].Library), "a,b"; got != want {
+	if got, want := join(game.Zones["p1"].Library), "c,d"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
 	}
-	if got, want := join(game.Zones["p1"].Hand), "d,c"; got != want {
+	if got, want := join(game.Zones["p1"].Hand), "a,b"; got != want {
 		t.Fatalf("hand got %s want %s", got, want)
 	}
 }
@@ -28,15 +28,51 @@ func TestLibraryOpsPutTopAndBottom(t *testing.T) {
 	if err := NewLibraryOps().PutOnTop(&game, "p1", "x"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := game.Zones["p1"].Library[len(game.Zones["p1"].Library)-1], "x"; got != want {
+	if got, want := game.Zones["p1"].Library[0], "x"; got != want {
 		t.Fatalf("top got %s want %s", got, want)
 	}
 	game.Instances["y"] = CardInstanceRuntime{InstanceID: "y", CardKey: "y@1", OwnerID: "p1", ControllerID: "p1"}
 	if err := NewLibraryOps().PutOnBottom(&game, "p1", "y"); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := game.Zones["p1"].Library[0], "y"; got != want {
+	if got, want := game.Zones["p1"].Library[len(game.Zones["p1"].Library)-1], "y"; got != want {
 		t.Fatalf("bottom got %s want %s", got, want)
+	}
+}
+
+func TestLibraryOpsKeepsTopAtZeroAcrossSequentialMoves(t *testing.T) {
+	game := libraryTestState()
+	ops := NewLibraryOps()
+	for _, instanceID := range []string{"A", "B", "C", "X", "Y"} {
+		game.Instances[instanceID] = CardInstanceRuntime{InstanceID: instanceID, CardKey: instanceID + "@1", OwnerID: "p1", ControllerID: "p1"}
+	}
+	for _, instanceID := range []string{"A", "B", "C"} {
+		if err := ops.PutOnTop(&game, "p1", instanceID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, instanceID := range []string{"X", "Y"} {
+		if err := ops.PutOnBottom(&game, "p1", instanceID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got, want := join(game.Zones["p1"].Library), "C,B,A,a,b,c,d,X,Y"; got != want {
+		t.Fatalf("library order got %s want %s", got, want)
+	}
+	if got, want := game.Loc["C"].Index, 0; got != want {
+		t.Fatalf("top location got %d want %d", got, want)
+	}
+	if got, want := game.Loc["Y"].Index, 8; got != want {
+		t.Fatalf("bottom location got %d want %d", got, want)
+	}
+
+	drawn, err := ops.DrawMany(&game, "p1", 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := join(drawn), "C,B,A,a,b,c"; got != want {
+		t.Fatalf("draw order got %s want %s", got, want)
 	}
 }
 
@@ -46,14 +82,14 @@ func TestLibraryOpsPeekAndReorderTop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := join(top), "d,c,b"; got != want {
+	if got, want := join(top), "a,b,c"; got != want {
 		t.Fatalf("peek top got %s want %s", got, want)
 	}
-	if err := NewLibraryOps().ReorderTop(&game, "p1", []string{"b", "c", "d"}); err != nil {
+	if err := NewLibraryOps().ReorderTop(&game, "p1", []string{"c", "b", "a"}); err != nil {
 		t.Fatal(err)
 	}
 	top, _ = NewLibraryOps().PeekTop(&game, "p1", 3)
-	if got, want := join(top), "b,c,d"; got != want {
+	if got, want := join(top), "c,b,a"; got != want {
 		t.Fatalf("reordered top got %s want %s", got, want)
 	}
 }
@@ -98,7 +134,7 @@ func TestLibraryOpsHotPathUpdatesLocWithoutGlobalReindex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := drawn[0], "d"; got != want {
+	if got, want := drawn[0], "a"; got != want {
 		t.Fatalf("drawn got %s want %s", got, want)
 	}
 	if got := ops.ReindexCount(); got != 0 {
@@ -111,7 +147,7 @@ func TestLibraryOpsHotPathUpdatesLocWithoutGlobalReindex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ops.ReorderTop(&game, "p1", []string{"b", "c"}); err != nil {
+	if err := ops.ReorderTop(&game, "p1", []string{"c", "b"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := ops.ReindexCount(); got != 0 {
@@ -131,10 +167,10 @@ func TestLibraryOpsMoveTopToPlayerZone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := join(moved), "d,c"; got != want {
+	if got, want := join(moved), "a,b"; got != want {
 		t.Fatalf("moved got %s want %s", got, want)
 	}
-	if got, want := join(game.Zones["p2"].Hand), "d,c"; got != want {
+	if got, want := join(game.Zones["p2"].Hand), "a,b"; got != want {
 		t.Fatalf("target hand got %s want %s", got, want)
 	}
 	if err := ValidateInvariants(game); err != nil {

@@ -501,6 +501,51 @@ describe('GameTableDragService', () => {
     expect(result?.position).toEqual(expected);
   });
 
+  it('uses the stored coordinate system while dragging in a vertically inverted Grid battlefield', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['battlefieldVerticallyInverted'] = '';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+    const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 140 });
+    cardElement.getBoundingClientRect = () => ({
+      ...rect(30, 100),
+      y: 40,
+      top: 40,
+      right: 130,
+      bottom: 180,
+      height: 140,
+    });
+    battlefield.appendChild(cardElement);
+    const positions: Array<{ x: number; y: number }> = [];
+
+    service.startBattlefieldPointerDrag({
+      button: 0,
+      currentTarget: cardElement,
+      clientX: 31,
+      clientY: 41,
+    } as unknown as PointerEvent, 'player-1', {
+      instanceId: 'card-1',
+      name: 'Arcane Signet',
+      tapped: false,
+      position: { x: 20, y: 30 },
+    });
+    service.moveCardPointerDrag({
+      clientX: 150,
+      clientY: 100,
+      preventDefault: vi.fn(),
+    } as unknown as PointerEvent, (_playerId, _instanceId, position) => positions.push(position));
+
+    expect(positions.at(-1)).toEqual({ x: 139, y: 91 });
+  });
+
   it('keeps the floating pointer preview under the grabbed point outside the battlefield', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';

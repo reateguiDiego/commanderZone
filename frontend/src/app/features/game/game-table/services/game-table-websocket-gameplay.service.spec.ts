@@ -25,11 +25,8 @@ describe('GameTableWebsocketGameplayService', () => {
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let onMulliganPatchV2AppliedSpy: ReturnType<typeof vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>>;
   let onLibraryRevealedSpy: ReturnType<typeof vi.fn<(playerId: string) => void>>;
+  let onLibraryTopViewedSpy: ReturnType<typeof vi.fn<(playerId: string, count: number) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
-  let consoleDebugSpy: ReturnType<typeof vi.spyOn>;
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   const originalBroadcastChannel = globalThis.BroadcastChannel;
   const gameplayV2Flags = {
     enabled: vi.fn(() => false),
@@ -68,10 +65,7 @@ describe('GameTableWebsocketGameplayService', () => {
     onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
     onMulliganPatchV2AppliedSpy = vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>();
     onLibraryRevealedSpy = vi.fn<(playerId: string) => void>();
-    consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
-    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    onLibraryTopViewedSpy = vi.fn<(playerId: string, count: number) => void>();
 
     TestBed.configureTestingModule({
       providers: [
@@ -99,10 +93,6 @@ describe('GameTableWebsocketGameplayService', () => {
 
   afterEach(() => {
     service.stop();
-    consoleDebugSpy.mockRestore();
-    consoleInfoSpy.mockRestore();
-    consoleWarnSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
     Object.defineProperty(globalThis, 'BroadcastChannel', {
       configurable: true,
       writable: true,
@@ -187,6 +177,48 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].life).toBe(38);
     expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('opens a local top-library view from its applied private patch', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('s1', 'Viewed library card') }));
+    TestBed.inject(GameTableNormalizedV2Store).applyBootstrap(bootstrapV2());
+
+    const sent = service.sendCommand(context(), 'library.view', { playerId: 'player-1', count: 1 });
+    const message = sentMessage<Extract<GameplayClientMessage, { kind: 'command.v2' }>>();
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ackClientActionId: message.clientActionId,
+      ops: [{
+        op: 'library.top.viewed',
+        data: {
+          playerId: 'player-1',
+          count: 1,
+          cards: [{
+            instanceId: 'library-1',
+            cardKey: 'card-1',
+            printId: 's1',
+            cardVersion: 'legacy-snapshot-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          }],
+        },
+      }] as unknown as PatchEnvelopeV2['ops'],
+    });
+
+    await sent;
+
+    expect(onLibraryTopViewedSpy).toHaveBeenCalledWith('player-1', 1);
+    expect(snapshotState.players['player-1'].zones.library[0]).toMatchObject({
+      hidden: false,
+      name: 'Viewed library card',
+    });
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('s1');
   });
 
   it('emits remote V2 patches for battlefield arrival animations', async () => {
@@ -645,34 +677,6 @@ describe('GameTableWebsocketGameplayService', () => {
     const message = sentMessage<Extract<GameplayClientMessage, { kind: 'mulligan.take' }>>();
     expect(message.kind).toBe('mulligan.take');
     expect(message.gameId).toBe('game-1');
-  });
-
-  it('logs initial websocket connection and later reconnect as separate sync phases', () => {
-    messages.next({
-      kind: 'connection_state',
-      gameId: 'game-1',
-      status: 'connected',
-      connectionId: 'conn-1',
-      serverTime: new Date(0).toISOString(),
-    });
-    messages.next({
-      kind: 'connection_state',
-      gameId: 'game-1',
-      status: 'connected',
-      connectionId: 'conn-2',
-      serverTime: new Date(1).toISOString(),
-    });
-
-    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay realtime]', expect.objectContaining({
-      source: 'bootstrap',
-      reason: 'connection_state',
-      result: 'live',
-    }));
-    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay realtime]', expect.objectContaining({
-      source: 'reconnect',
-      reason: 'connection_state',
-      result: 'reconnected',
-    }));
   });
 
   it('resyncs bootstrap once after legacy mulligan completion when v2 state is stale', async () => {
@@ -2245,6 +2249,7 @@ describe('GameTableWebsocketGameplayService', () => {
       onCommandBlocked: (reason, type, payload) => onCommandBlockedSpy(reason, type, payload),
       onMulliganPatchV2Applied: (patch, snapshot) => onMulliganPatchV2AppliedSpy(patch, snapshot),
       onLibraryRevealed: (playerId) => onLibraryRevealedSpy(playerId),
+      onLibraryTopViewed: (playerId, count) => onLibraryTopViewedSpy(playerId, count),
     };
   }
 });

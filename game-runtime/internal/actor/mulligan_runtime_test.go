@@ -38,7 +38,7 @@ func TestRuntimeLondonMulliganCompletesWithoutStaticPayload(t *testing.T) {
 	if got := len(snapshot.Zones["p1"].Hand); got != 6 {
 		t.Fatalf("hand got %d want 6", got)
 	}
-	if snapshot.Zones["p1"].Library[0] != bottomID {
+	if snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-1] != bottomID {
 		t.Fatalf("bottom card not placed at library bottom")
 	}
 	assertNoMulliganZoneSnapshot(t, take.Event.Payload)
@@ -72,7 +72,7 @@ func TestRuntimeVancouverMulliganScryBottom(t *testing.T) {
 	if got := len(gameActor.Snapshot().Zones["p1"].Hand); got != 6 {
 		t.Fatalf("Vancouver hand got %d want 6", got)
 	}
-	beforeKeepTop := gameActor.Snapshot().Zones["p1"].Library[len(gameActor.Snapshot().Zones["p1"].Library)-1]
+	beforeKeepTop := gameActor.Snapshot().Zones["p1"].Library[0]
 	keep := gameActor.ApplyDirect(context.Background(), command("game-v", 2, "keep-1", "mulligan.keep", map[string]any{"playerId": "p1"}), "p1")
 	if keep.Err != nil {
 		t.Fatalf("keep failed: %v", keep.Err)
@@ -88,7 +88,7 @@ func TestRuntimeVancouverMulliganScryBottom(t *testing.T) {
 	if snapshot.Phase != state.PhasePlaying {
 		t.Fatalf("phase got %q want PLAYING", snapshot.Phase)
 	}
-	if snapshot.Zones["p1"].Library[0] != beforeKeepTop {
+	if snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-1] != beforeKeepTop {
 		t.Fatalf("scry bottom did not move top to bottom")
 	}
 }

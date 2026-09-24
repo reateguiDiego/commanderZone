@@ -24,7 +24,7 @@ import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { BattlefieldSize } from './utils/battlefield-position';
 import { SelectedCard } from './models/game-table-card.model';
-import { DiceRollCommand } from './models/game-table-dice.model';
+import { DiceRollCommand, DiceRollResult } from './models/game-table-dice.model';
 import { GameTableSyncStatus } from './models/game-table-sync.model';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
@@ -131,6 +131,7 @@ export class GameTableStore implements OnDestroy {
   readonly currentDeckId = this.coreState.currentDeckId;
   private readonly shuffleLibraryOnModalClosePlayerId = signal<string | null>(null);
   private readonly shuffleLibraryOnModalCloseReason = signal<'owner-view' | 'revealed-library-closed' | null>(null);
+  private readonly localDiceRollResult = signal<DiceRollResult | null>(null);
   readonly focusedPlayerId = this.uiState.focusedPlayerId;
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly hoveredCard = this.uiState.hoveredCard;
@@ -245,7 +246,7 @@ export class GameTableStore implements OnDestroy {
     this.contexts.bind({
       setSnapshot: (snapshot) => this.setSnapshot(snapshot),
       setViewportReflowSnapshot: (snapshot) => this.setSnapshot(snapshot, { trackDropFeedback: false }),
-      refetch: (force, source) => this.refetch(force, source),
+      refetch: (force) => this.refetch(force),
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
@@ -259,6 +260,8 @@ export class GameTableStore implements OnDestroy {
         void this.openRevealedLibraryForRecipients(playerId, recipients);
       },
       openRevealedTopLibrary: (playerId, count) => this.libraryTopState.openRevealedTopLibrary(playerId, count),
+      openViewedTopLibrary: (playerId, count) => this.libraryTopState.openViewedTopLibrary(playerId, count),
+      onDiceRolled: (result) => this.localDiceRollResult.set(result),
       onControlPlaneAccepted: (controlPlane) => this.rematchVotes.acceptControlPlane(
         this.gameId(),
         this.currentPlayer()?.id ?? null,
@@ -286,14 +289,13 @@ export class GameTableStore implements OnDestroy {
     await this.session.load(this.contexts.session());
   }
 
-  async refetch(force = false, source = 'store.refetch'): Promise<void> {
+  async refetch(force = false): Promise<void> {
     if (force) {
-      this.logForcedRefetch(source);
       this.dragDropStore.clearForceRefreshState();
     }
     await Promise.all([
       this.gameActionsStore.refreshViewerControlAccess(),
-      this.session.refetch(this.contexts.session(), force, source),
+      this.session.refetch(this.contexts.session(), force),
     ]);
   }
 
@@ -1607,17 +1609,20 @@ export class GameTableStore implements OnDestroy {
     await this.command('battlefield.untap_all', { playerId: current.id });
   }
 
-  async recordDiceRoll(result: DiceRollCommand): Promise<void> {
+  async recordDiceRoll(result: DiceRollCommand): Promise<DiceRollResult | null> {
     const kind = result.kind.trim();
     if (!kind) {
-      return;
+      return null;
     }
     const playerId = this.currentPlayer()?.id;
+    this.localDiceRollResult.set(null);
 
     await this.command('dice.rolled', {
       kind,
       ...(playerId ? { playerId } : {}),
     });
+
+    return this.localDiceRollResult();
   }
 
   takeMulligan(): void {
@@ -2044,25 +2049,6 @@ export class GameTableStore implements OnDestroy {
       closeContextMenu: () => this.closeContextMenu(),
       command: (type: GameCommandType, payload: Record<string, unknown>) => this.command(type, payload),
     };
-  }
-
-  private logForcedRefetch(source: string): void {
-    console.warn('[CommanderZone gameplay realtime]', {
-      source,
-      gameId: this.gameId(),
-      playerId: null,
-      localSnapshotVersion: this.snapshot()?.version ?? null,
-      normalizedV2LastAppliedVersion: null,
-      incomingMessageKind: null,
-      incomingMessageType: null,
-      incomingPatchVersion: null,
-      ops: [],
-      clientActionId: null,
-      commandType: null,
-      reason: 'forced_refetch',
-      currentVersion: this.snapshot()?.version ?? null,
-      measuredAt: new Date().toISOString(),
-    });
   }
 
 }

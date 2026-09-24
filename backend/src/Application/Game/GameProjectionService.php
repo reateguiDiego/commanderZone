@@ -341,11 +341,11 @@ class GameProjectionService
      */
     private function isVisibleLibraryCard(array $card, string $viewerId, array $player): bool
     {
-        if (!$this->libraryOps()->usesTailTop($player)) {
-            return $this->isVisibleCard($card, $viewerId);
+        if (array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)) {
+            return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
         }
 
-        return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
+        return $this->isVisibleCard($card, $viewerId);
     }
 
     /**
@@ -564,7 +564,7 @@ class GameProjectionService
      */
     private function faceUpLibraryCard(array $card): array
     {
-        $card['hidden'] = false;
+        unset($card['hidden']);
         $card['faceDown'] = false;
 
         return $card;

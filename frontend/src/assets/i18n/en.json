@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "This roll sets your turn order.",
       "thisDeck": "this deck",
       "thisPlayer": "this player",
-      "tieBreakRoll": "Tie-break roll",
+      "tieBreakRoll": "Tie-breaker roll",
       "tieBreakRollMessage": "You tied with {{ playerNames }}. Roll again to break the tie.",
       "waitingForDecksAndRolls": "Waiting for decks and rolls",
       "realtimeUnavailable": "The real-time connection is recovering. Room changes may be delayed."
@@ -1019,6 +1019,10 @@
       "chatUnreadMessages": "Chat, unread messages",
       "moveCardToAnotherBattlefield": "Move card to another battlefield",
       "putIntoLibrary": "Put into library",
+      "libraryPlacementSinglePrompt": "Where should this card go?",
+      "libraryPlacementMultiplePrompt": "Where should these {{ count }} cards go?",
+      "libraryPlacementTop": "Top",
+      "libraryPlacementBottom": "Bottom",
       "focusedOpponentLabel": "Viewing:",
       "returnToOwnBattlefield": "Go to your battlefield",
       "leaveTableConfirmationTitle": "Leave table?",
@@ -2202,11 +2206,11 @@
       "gameSettings": {
         "title": "Gameplay preferences",
         "defaultBattlefieldLayout": {
-          "label": "Default table layout",
+          "label": "Table layout",
           "description": "Choose how the table is arranged when you open a game.",
           "grid": "Grid",
-          "classic": "Classic",
-          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, the Classic layout will be used automatically."
+          "focused": "Focused",
+          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, the Focused layout will be used automatically."
         },
         "showCardAlignmentHelper": {
           "label": "Card alignment helper",
@@ -2395,16 +2399,16 @@
     "roll": {
       "rollModal": {
         "text": "Result",
-        "closeRoll": "Close roll",
+        "closeRoll": "Close dice roll",
         "rollType": "Roll type",
         "rollAgain": "Roll again"
       },
       "options": {
-        "coin": "Coin",
-        "d4": "4-sided die",
-        "d6": "6-sided die",
-        "d10": "10-sided die",
-        "d20": "20-sided die"
+        "coin": "Coin flip",
+        "d4": "d4 (four-sided die)",
+        "d6": "d6 (six-sided die)",
+        "d10": "d10 (ten-sided die)",
+        "d20": "d20 (twenty-sided die)"
       },
       "results": {
         "heads": "Heads",

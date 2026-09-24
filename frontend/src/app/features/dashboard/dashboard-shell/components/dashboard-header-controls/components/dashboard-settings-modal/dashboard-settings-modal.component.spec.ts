@@ -134,9 +134,13 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Card alignment helper');
-    expect(fixture.nativeElement.textContent).toContain('Default table layout');
+    expect(fixture.nativeElement.textContent).toContain('Table layout');
     expect(fixture.nativeElement.textContent).toContain('Grid');
-    expect(fixture.nativeElement.textContent).toContain('Classic');
+    expect(fixture.nativeElement.textContent).toContain('Focused');
+    const layoutToggle = fixture.nativeElement.querySelector('.game-settings-toggle-list .game-settings-layout-toggle');
+    expect(layoutToggle).not.toBeNull();
+    expect(layoutToggle.querySelector('[role="switch"]')).not.toBeNull();
+    expect(layoutToggle.querySelector('input[type="radio"]')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Grid is only available in games with up to 4 players.');
     expect(fixture.nativeElement.textContent).toContain('Show a mana row');
     expect(fixture.nativeElement.textContent).toContain('Combine chat and game log');
@@ -163,8 +167,9 @@ describe('DashboardSettingsModalComponent', () => {
     const cardAlignmentHelperToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
       .find((button) => button.textContent?.includes('Card alignment helper')) as HTMLButtonElement;
     cardAlignmentHelperToggle.click();
-    const gridLayoutOption = fixture.nativeElement.querySelector('input[value="grid"]') as HTMLInputElement;
-    gridLayoutOption.click();
+    const gridLayoutToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Table layout')) as HTMLButtonElement;
+    gridLayoutToggle.click();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Grid is only available in games with up to 4 players.');
@@ -176,7 +181,6 @@ describe('DashboardSettingsModalComponent', () => {
     expect(authApiMock.updateMe).toHaveBeenCalledWith({
       gamePreferences: {
         defaultBattlefieldLayout: 'grid',
-        chosenModeView: 'grid',
         showCardAlignmentHelper: false,
         showManaHelperOnStartup: false,
         enableManaRow: true,

@@ -147,3 +147,20 @@ func TestGameStatePreservesPresenceGenerationsForRecovery(t *testing.T) {
 		t.Fatalf("presence generations = %#v, want p2=1234", game.PresenceGenerations)
 	}
 }
+
+func TestNormalizeForRecoveryMigratesTailTopLibrariesToTopFirst(t *testing.T) {
+	game := GameState{
+		GameID:  "game-1",
+		Players: map[string]map[string]any{"p1": {"libraryOrientation": "tail_top"}},
+		Zones:   map[string]PlayerZones{"p1": {Library: []string{"bottom", "top"}}},
+		Loc:     map[string]Location{},
+	}
+
+	NormalizeForRecovery("game-1", &game)
+	if got, want := join(game.Zones["p1"].Library), "top,bottom"; got != want {
+		t.Fatalf("library got %s want %s", got, want)
+	}
+	if got := game.Players["p1"]["libraryOrientation"]; got != "top_first" {
+		t.Fatalf("orientation got %#v want top_first", got)
+	}
+}

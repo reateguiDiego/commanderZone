@@ -87,6 +87,29 @@ describe('GameTableLibraryTopState', () => {
     );
   });
 
+  it('waits for the authoritative private patch instead of showing an empty-zone toast', async () => {
+    snapshotSignal.set(snapshot([card('card-1', true)]));
+
+    await state.viewTopLibrary('player-1', 1);
+
+    expect(errorSignal()).toBeNull();
+    expect(openFixedZone).not.toHaveBeenCalled();
+
+    snapshotSignal.set(snapshot([card('card-1')]));
+    state.openViewedTopLibrary('player-1', 1);
+
+    expect(openFixedZone).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an empty-zone toast only when the library count is actually zero', async () => {
+    snapshotSignal.set(snapshot([]));
+
+    await state.viewTopLibrary('player-1', 1);
+
+    expect(view).not.toHaveBeenCalled();
+    expect(errorSignal()).toBe('common.ui.emptyZone');
+  });
+
   it('reorders top library cards only from an open reorderable library modal', async () => {
     const cards = [card('card-3'), card('card-1')];
     zoneModalSignal.set(zoneModal(cards));

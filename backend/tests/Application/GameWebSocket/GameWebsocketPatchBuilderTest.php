@@ -605,6 +605,40 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('Private Library One', $encoded);
     }
 
+    public function testLegacyTailTopLibraryViewUsesTheCanonicalDrawOrder(): void
+    {
+        [$game, $actor] = $this->gameWithLibraryCards();
+        $previousSnapshot = $game->snapshot();
+        $previousSnapshot['players'][$actor->id()]['libraryOrientation'] = 'tail_top';
+        $previousSnapshot['players'][$actor->id()]['zones']['library'] = array_reverse(
+            $previousSnapshot['players'][$actor->id()]['zones']['library'],
+        );
+        $nextSnapshot = $previousSnapshot;
+        $nextSnapshot['version'] = ((int) $previousSnapshot['version']) + 1;
+        $event = new GameEvent(
+            $game,
+            'library.view',
+            ['playerId' => $actor->id(), 'count' => 2],
+            $actor,
+            'legacy-library-view',
+        );
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
+            $game->id(),
+            $previousSnapshot,
+            $nextSnapshot,
+            $event,
+            null,
+            $actor->id(),
+        );
+
+        self::assertSame('zone.visible.set', $message['operations'][0]['op']);
+        self::assertSame(
+            ['library-1', 'library-2'],
+            array_column($message['operations'][0]['cards'], 'instanceId'),
+        );
+    }
+
     public function testLibraryViewRequiresResyncWhenFullViewWouldExceedCap(): void
     {
         [$game, $actor] = $this->gameWithLibraryCards(41);

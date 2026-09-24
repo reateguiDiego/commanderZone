@@ -477,7 +477,7 @@ final class CompactGameCardStateMapper
                 $players[$ownerId]['libraryVisibilityEpoch'] = $epoch;
             }
 
-            foreach (array_slice(array_reverse($library), 0, $count) as $instanceId) {
+            foreach (array_slice($library, 0, $count) as $instanceId) {
                 if (!is_string($instanceId) || !is_array($instances[$instanceId] ?? null)) {
                     continue;
                 }
