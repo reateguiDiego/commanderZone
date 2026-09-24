@@ -4008,9 +4008,9 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame('library', $game->snapshot()['loc']['card-1']['zone']);
-        self::assertSame(2, $game->snapshot()['loc']['card-1']['index']);
+        self::assertSame(0, $game->snapshot()['loc']['card-1']['index']);
         self::assertSame(1, $game->snapshot()['loc']['card-2']['index']);
-        self::assertSame(0, $game->snapshot()['loc']['card-3']['index']);
+        self::assertSame(2, $game->snapshot()['loc']['card-3']['index']);
         self::assertSame(['card-1', 'card-2', 'card-3'], $this->libraryIds($game->snapshot(), $actor->id()));
     }
 

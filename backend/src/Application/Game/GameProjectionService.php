@@ -341,7 +341,10 @@ class GameProjectionService
      */
     private function isVisibleLibraryCard(array $card, string $viewerId, array $player): bool
     {
-        if (array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)) {
+        if (array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)
+            || (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1) > 1
+            || ($player['revealedLibraryTo'] ?? []) !== []
+        ) {
             return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
         }
 

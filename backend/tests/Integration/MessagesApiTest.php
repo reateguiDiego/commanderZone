@@ -10,8 +10,13 @@ final class MessagesApiTest extends ApiTestCase
     public function testNewlyRegisteredUserReceivesWelcomeMessage(): void
     {
         $emailCountBeforeRegistration = count(self::getMailerMessages());
-        $token = $this->registerAndLogin('welcome-message@example.test', 'Welcome Message');
-        $this->assertMessageEventFor($this->currentUserId($token));
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'welcome-message@example.test',
+            'displayName' => 'Welcome Message',
+            'password' => 'Password123!',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        $registration = $this->jsonResponse();
 
         self::assertCount($emailCountBeforeRegistration + 2, self::getMailerMessages());
         $welcomeEmail = self::getMailerMessage($emailCountBeforeRegistration);
@@ -22,6 +27,19 @@ final class MessagesApiTest extends ApiTestCase
         self::assertEmailTextBodyContains($welcomeEmail, 'still under construction');
         self::assertEmailTextBodyContains($welcomeEmail, 'CommanderZone 1.0 soon');
         self::assertEmailTextBodyContains($welcomeEmail, 'If you want to tell us something or share suggestions');
+
+        // Inspect the registration mail before subsequent requests reset the mail collector.
+        $this->jsonRequest('POST', '/auth/email-verification/confirm', [
+            'token' => $registration['emailVerificationToken'],
+        ]);
+        self::assertResponseIsSuccessful();
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'welcome-message@example.test',
+            'password' => 'Password123!',
+        ]);
+        self::assertResponseIsSuccessful();
+        $token = (string) $this->jsonResponse()['token'];
+        $this->assertMessageEventFor($this->currentUserId($token));
 
         $this->jsonRequest('GET', '/messages', token: $token);
 
