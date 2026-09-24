@@ -520,7 +520,7 @@
       "roomEventsWillAppearHere": "Os eventos da sala aparecerão aqui."
     },
     "waitingRoomPlayerCard": {
-      "d20RollResult": "Resultado do lançamento D20",
+      "d20RollResult": "Resultado da rolagem de D20",
       "waitingForPlayer": "Esperando pelo jogador",
       "d20Roll": "Rolagem de D20",
       "openSlot": "Slot aberto"
@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} ainda precisa votar. Há mais {{ seconds }}s para votar.",
       "timeLimit": "Limite de tempo",
       "winnerMessage": "A mesa é sua. Você sobreviveu ao caos e fechou a partida com autoridade.",
+      "waitForGameEnd": "Aguarde o fim da partida antes de iniciar uma revanche.",
       "youDied": "Você morreu",
       "youHaveSecondsToVote": "Você tem {{ seconds }}s para votar.",
       "yourVoteMissingExtra": "Seu voto está faltando. Você tem mais {{ seconds }}s para votar.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles de criação de ficha",
       "loadingDeckTokens": "Carregando fichas de deck...",
-      "searchingTokens": "Procurando fichas..."
+      "searchingTokens": "Procurando fichas...",
+      "theRingFromGameMechanics": "O Anel só pode ser adicionado a partir do campo de batalha. Clique com o botão direito no campo de batalha e escolha «Mecânica de partida»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",
       "upcomingTurnLabel": "Em {{ count }} turno(s)",
+      "nextPlayerLabel": "Próximo jogador:",
       "currentTurnTitle": "{{ name }} está no turno",
       "upcomingTurnTitle": "{{ name }} está a {{ count }} turno(s)"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Focar o jogador do turno ativo",
       "focusTurn": "Focar turno",
       "advancePhase": "Avançar fase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Desvirar",
         "upkeep": "Manutenção",
@@ -998,6 +1002,7 @@
       "moveToHand": "Mover para a mão?",
       "moveAllToLibrary": "Colocar tudo no grimório",
       "gamesCanOnlyBePlayedInLandscape": "As partidas só podem ser jogadas em modo paisagem em celulares e tablets.",
+      "defeatedActionBlocked": "Você foi derrotado e não pode mais realizar ações de jogo. Você ainda pode usar o chat enquanto espera a partida terminar.",
       "thisTableNeedsALittleMoreRoom": "Esta mesa precisa de mais espaço",
       "sorryThisResolutionIsTooCrampedFor": "Desculpe, esta resolução é pequena demais para uma partida de Commander. Ajuste o zoom do navegador ou use uma janela maior.",
       "useCtrl0InYourBrowserTo": "Use Ctrl+0 em seu navegador para redefinir o zoom para 100% e, em seguida, atualize ou redimensione esta janela.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Bate-papo, mensagens não lidas",
       "moveCardToAnotherBattlefield": "Mover carta para outro campo de batalha",
       "putIntoLibrary": "Colocar no grimório",
+      "libraryPlacementSinglePrompt": "Onde você quer colocar esta carta?",
+      "libraryPlacementMultiplePrompt": "Onde você quer colocar estas {{ count }} cartas?",
+      "libraryPlacementTop": "Topo",
+      "libraryPlacementBottom": "Fundo",
       "focusedOpponentLabel": "Você está vendo:",
       "returnToOwnBattlefield": "Ir para seu campo de batalha",
       "leaveTableConfirmationTitle": "Sair da mesa?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} criou uma cópia de token."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} tornou-se o monarca.", "passed": "{{ actor }} passou a monarquia para {{ player }}.", "removed": "{{ actor }} removeu a designação de monarca." },
+      "initiative": { "claimed": "{{ player }} tomou a iniciativa.", "passed": "{{ actor }} passou a iniciativa para {{ player }}.", "removed": "{{ actor }} removeu a iniciativa." },
+      "citysBlessing": { "granted": "{{ player }} recebeu a bênção da cidade.", "removed": "{{ actor }} removeu a bênção da cidade de {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} iniciou o ciclo dia/noite durante o dia.", "startedNight": "{{ actor }} iniciou o ciclo dia/noite durante a noite.", "setDay": "{{ actor }} alterou o estado de dia/noite para dia.", "setNight": "{{ actor }} alterou o estado de dia/noite para noite.", "removed": "{{ actor }} removeu dia/noite." },
+      "ring": { "created": "{{ player }} recebeu o Anel.", "removed": "{{ actor }} removeu o Anel." },
+      "dungeon": { "entered": "{{ player }} entrou em {{ cardName }}.", "advanced": "{{ actor }} avançou em uma masmorra.", "removed": "{{ actor }} removeu a masmorra {{ cardName }}." },
+      "emblem": { "created": "{{ player }} criou o emblema {{ cardName }}.", "removed": "{{ actor }} removeu o emblema {{ cardName }}." },
+      "helper": { "created": "{{ actor }} adicionou uma mecânica de jogo.", "updated": "{{ actor }} atualizou uma mecânica de jogo.", "removed": "{{ actor }} removeu uma mecânica de jogo." }
     },
     "game": {
       "concede": "{{ player }} concedido."
@@ -2185,6 +2204,17 @@
       "changeTheme": "Alterar tema",
       "gameSettings": {
         "title": "Preferências de partida",
+        "defaultBattlefieldLayout": {
+          "label": "Layout da mesa",
+          "description": "Escolha como a mesa é organizada ao abrir uma partida.",
+          "grid": "Grade",
+          "focused": "Em foco",
+          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, a visualização em foco será usada automaticamente."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ajuda de alinhamento de cartas",
+          "description": "Ao mover uma carta, mostra uma guia de ajuda para alinhar a sua posição vertical com a das cartas próximas."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostrar ajudante de mana na inicialização",
           "description": "Mostra o auxiliar para contar mana quando uma partida começa. Você pode ocultá-lo ou exibi-lo novamente a qualquer momento durante a partida."
@@ -2315,8 +2345,8 @@
     "roll": {
       "rollModal": {
         "text": "Resultado",
-        "closeRoll": "Fechar rolo",
-        "rollType": "Tipo de rolo",
+        "closeRoll": "Fechar a rolagem",
+        "rollType": "Tipo de rolagem",
         "rollAgain": "Role novamente"
       },
       "options": {
@@ -2327,8 +2357,8 @@
         "d20": "dado de 20 lados"
       },
       "results": {
-        "heads": "Cabeças",
-        "tails": "Caudas"
+        "heads": "Cara",
+        "tails": "Coroa"
       }
     }
   },

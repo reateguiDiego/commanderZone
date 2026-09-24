@@ -266,7 +266,7 @@ describe('GameTableAttachmentsState', () => {
     expect(context.command).not.toHaveBeenCalled();
   });
 
-  it('does not attach to The Ring as a target', async () => {
+  it('allows The Ring as an attachment target like a normal battlefield card', async () => {
     const context = attachmentContext();
     state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
     snapshotSignal.set({
@@ -287,8 +287,10 @@ describe('GameTableAttachmentsState', () => {
     await Promise.resolve();
 
     expect(handled).toBe(true);
-    expect(context.setError).toHaveBeenCalledWith('The Ring cannot be an attachment target.');
-    expect(context.command).not.toHaveBeenCalled();
+    expect(context.command).toHaveBeenCalledWith('attachment.created', {
+      equipmentInstanceId: 'equipment-card',
+      attachedToInstanceId: 'the-ring',
+    });
   });
 
   it('does not attach to day night as a target', async () => {

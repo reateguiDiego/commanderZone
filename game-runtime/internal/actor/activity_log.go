@@ -82,6 +82,12 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	switch command.Type {
+	case "helper.created":
+		return runtimeHelperCreatedLogSemantic(game, command, payload, actorPlayerID, semantic)
+	case "helper.updated":
+		return runtimeHelperUpdatedLogSemantic(game, command, payload, actorPlayerID, semantic)
+	case "helper.removed":
+		return runtimeHelperRemovedLogSemantic(game, command, payload, actorPlayerID, semantic)
 	case "turn.changed":
 		turn, _ := payload["turn"].(map[string]any)
 		previousTurn, _ := payload["previousTurn"].(map[string]any)
@@ -340,11 +346,19 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		params["playerId"] = playerID
 		params["count"] = count
 		params["tokenName"] = firstString(payload["name"], command.Payload["name"], "Token")
+		if mechanicKey := runtimeTokenMechanicLogKey(payload, params["tokenName"].(string)); mechanicKey != "" {
+			params["cardName"] = params["tokenName"]
+			return semantic(mechanicKey, params, []string{actorPlayerID, playerID}, stringsFromAny(payload["instanceIds"]))
+		}
 		key := "gameLog.token.created"
 		if count != 1 {
 			key = "gameLog.token.createdMany"
 		}
 		return semantic(key, params, []string{actorPlayerID, playerID}, stringsFromAny(payload["instanceIds"]))
+	case "card.dungeon_marker.changed":
+		params := baseParams()
+		params["playerId"] = firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		return semantic("gameLog.mechanic.dungeon.advanced", params, []string{actorPlayerID, firstString(params["playerId"])}, nil)
 	case "card.token_copy.created":
 		playerID := firstString(payload["targetPlayerId"], command.Payload["targetPlayerId"], payload["playerId"], command.Payload["playerId"], actorPlayerID)
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
@@ -389,6 +403,152 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	return nil
+}
+
+func runtimeHelperCreatedLogSemantic(
+	game *state.GameState,
+	command protocol.CommandEnvelopeV2,
+	payload map[string]any,
+	actorPlayerID string,
+	semantic func(string, map[string]any, []string, []string) map[string]any,
+) map[string]any {
+	template := runtimeHelperTemplate(command, payload)
+	ownerPlayerID := runtimeHelperOwnerPlayerID(command, payload, actorPlayerID)
+	params := runtimeHelperLogParams(command, payload, actorPlayerID, ownerPlayerID)
+
+	switch template {
+	case "monarch":
+		if ownerPlayerID == actorPlayerID {
+			return semantic("gameLog.mechanic.monarch.claimed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+		}
+		return semantic("gameLog.mechanic.monarch.passed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "initiative":
+		if ownerPlayerID == actorPlayerID {
+			return semantic("gameLog.mechanic.initiative.claimed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+		}
+		return semantic("gameLog.mechanic.initiative.passed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "citys_blessing":
+		return semantic("gameLog.mechanic.citysBlessing.granted", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "day_night":
+		return semantic(runtimeDayNightLogKey("created", runtimeHelperDayNightMode(command, payload)), params, []string{actorPlayerID}, nil)
+	case "the_ring":
+		return semantic("gameLog.mechanic.ring.created", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "emblem":
+		return semantic("gameLog.mechanic.emblem.created", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "dungeon":
+		return semantic("gameLog.mechanic.dungeon.entered", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	default:
+		return semantic("gameLog.mechanic.helper.created", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	}
+}
+
+func runtimeHelperUpdatedLogSemantic(
+	game *state.GameState,
+	command protocol.CommandEnvelopeV2,
+	payload map[string]any,
+	actorPlayerID string,
+	semantic func(string, map[string]any, []string, []string) map[string]any,
+) map[string]any {
+	template := runtimeHelperTemplate(command, payload)
+	ownerPlayerID := runtimeHelperOwnerPlayerID(command, payload, actorPlayerID)
+	params := runtimeHelperLogParams(command, payload, actorPlayerID, ownerPlayerID)
+
+	switch template {
+	case "day_night":
+		return semantic(runtimeDayNightLogKey("updated", runtimeHelperDayNightMode(command, payload)), params, []string{actorPlayerID}, nil)
+	case "dungeon":
+		return semantic("gameLog.mechanic.dungeon.advanced", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	default:
+		return semantic("gameLog.mechanic.helper.updated", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	}
+}
+
+func runtimeHelperRemovedLogSemantic(
+	game *state.GameState,
+	command protocol.CommandEnvelopeV2,
+	payload map[string]any,
+	actorPlayerID string,
+	semantic func(string, map[string]any, []string, []string) map[string]any,
+) map[string]any {
+	template := runtimeHelperTemplate(command, payload)
+	ownerPlayerID := runtimeHelperOwnerPlayerID(command, payload, actorPlayerID)
+	params := runtimeHelperLogParams(command, payload, actorPlayerID, ownerPlayerID)
+
+	switch template {
+	case "monarch":
+		return semantic("gameLog.mechanic.monarch.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "initiative":
+		return semantic("gameLog.mechanic.initiative.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "citys_blessing":
+		return semantic("gameLog.mechanic.citysBlessing.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "day_night":
+		return semantic("gameLog.mechanic.dayNight.removed", params, []string{actorPlayerID}, nil)
+	case "the_ring":
+		return semantic("gameLog.mechanic.ring.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "emblem":
+		return semantic("gameLog.mechanic.emblem.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	case "dungeon":
+		return semantic("gameLog.mechanic.dungeon.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	default:
+		return semantic("gameLog.mechanic.helper.removed", params, []string{actorPlayerID, ownerPlayerID}, nil)
+	}
+}
+
+func runtimeHelperTemplate(command protocol.CommandEnvelopeV2, payload map[string]any) string {
+	return firstString(payload["template"], command.Payload["template"])
+}
+
+func runtimeHelperOwnerPlayerID(command protocol.CommandEnvelopeV2, payload map[string]any, actorPlayerID string) string {
+	return firstString(payload["ownerPlayerId"], command.Payload["ownerPlayerId"], actorPlayerID)
+}
+
+func runtimeHelperDayNightMode(command protocol.CommandEnvelopeV2, payload map[string]any) string {
+	statePayload := mapField(payload, "state")
+	commandState := mapField(command.Payload, "state")
+	return firstString(statePayload["mode"], commandState["mode"], "day")
+}
+
+func runtimeHelperLogParams(command protocol.CommandEnvelopeV2, payload map[string]any, actorPlayerID string, ownerPlayerID string) map[string]any {
+	params := map[string]any{"actorPlayerId": actorPlayerID, "playerId": ownerPlayerID}
+	card := mapField(payload, "card")
+	if len(card) == 0 {
+		card = mapField(command.Payload, "card")
+	}
+	if cardName := firstString(card["name"]); cardName != "" {
+		params["cardName"] = cardName
+	}
+
+	return params
+}
+
+func runtimeDayNightLogKey(action string, mode string) string {
+	if action == "created" {
+		if mode == "night" {
+			return "gameLog.mechanic.dayNight.startedNight"
+		}
+		return "gameLog.mechanic.dayNight.startedDay"
+	}
+	if mode == "night" {
+		return "gameLog.mechanic.dayNight.setNight"
+	}
+	return "gameLog.mechanic.dayNight.setDay"
+}
+
+func runtimeTokenMechanicLogKey(payload map[string]any, tokenName string) string {
+	switch strings.ToLower(strings.TrimSpace(tokenName)) {
+	case "the ring", "the ring // the ring tempts you":
+		return "gameLog.mechanic.ring.created"
+	}
+
+	flags := mapField(mapField(payload, "tokenMeta"), "flags")
+	if firstBool(flags["isDungeon"]) {
+		return "gameLog.mechanic.dungeon.entered"
+	}
+	if firstBool(flags["isEmblem"]) {
+		return "gameLog.mechanic.emblem.created"
+	}
+
+	return ""
 }
 
 func runtimeLogRevealAudience(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, params map[string]any) []string {
@@ -634,8 +794,94 @@ func runtimeLogCardIsPublic(instance state.CardInstanceRuntime, location state.L
 	}
 }
 
+func runtimeHelperLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, displayName string) string {
+	template := runtimeHelperTemplate(command, payload)
+	ownerPlayerID := runtimeHelperOwnerPlayerID(command, payload, "")
+	ownerName := playerDisplayName(game, ownerPlayerID)
+
+	switch command.Type {
+	case "helper.created":
+		switch template {
+		case "monarch":
+			if ownerPlayerID == "" || ownerName == displayName {
+				return fmt.Sprintf("%s became the monarch.", displayName)
+			}
+			return fmt.Sprintf("%s gave the monarch to %s.", displayName, ownerName)
+		case "initiative":
+			if ownerPlayerID == "" || ownerName == displayName {
+				return fmt.Sprintf("%s took the initiative.", displayName)
+			}
+			return fmt.Sprintf("%s gave the initiative to %s.", displayName, ownerName)
+		case "citys_blessing":
+			return fmt.Sprintf("%s got the city's blessing.", ownerName)
+		case "day_night":
+			return fmt.Sprintf("%s set the game to %s.", displayName, runtimeHelperDayNightMode(command, payload))
+		case "the_ring":
+			return fmt.Sprintf("%s received The Ring.", ownerName)
+		case "emblem":
+			return fmt.Sprintf("%s created emblem %s.", ownerName, runtimeHelperCardName(command, payload))
+		case "dungeon":
+			return fmt.Sprintf("%s entered %s.", ownerName, runtimeHelperCardName(command, payload))
+		default:
+			return fmt.Sprintf("%s added a game mechanic.", displayName)
+		}
+	case "helper.updated":
+		if template == "day_night" {
+			return fmt.Sprintf("%s set the game to %s.", displayName, runtimeHelperDayNightMode(command, payload))
+		}
+		if template == "dungeon" {
+			return fmt.Sprintf("%s advanced in a dungeon.", displayName)
+		}
+		return fmt.Sprintf("%s updated a game mechanic.", displayName)
+	case "helper.removed":
+		switch template {
+		case "monarch":
+			return fmt.Sprintf("%s removed the monarch designation.", displayName)
+		case "initiative":
+			return fmt.Sprintf("%s removed the initiative.", displayName)
+		case "citys_blessing":
+			return fmt.Sprintf("%s removed %s's city's blessing.", displayName, ownerName)
+		case "day_night":
+			return fmt.Sprintf("%s removed day/night.", displayName)
+		case "the_ring":
+			return fmt.Sprintf("%s removed The Ring.", displayName)
+		case "emblem":
+			return fmt.Sprintf("%s removed emblem %s.", displayName, runtimeHelperCardName(command, payload))
+		case "dungeon":
+			return fmt.Sprintf("%s removed dungeon %s.", displayName, runtimeHelperCardName(command, payload))
+		default:
+			return fmt.Sprintf("%s removed a game mechanic.", displayName)
+		}
+	}
+
+	return ""
+}
+
+func runtimeHelperCardName(command protocol.CommandEnvelopeV2, payload map[string]any) string {
+	card := mapField(payload, "card")
+	if len(card) == 0 {
+		card = mapField(command.Payload, "card")
+	}
+	return firstString(card["name"], "a card")
+}
+
+func runtimeTokenMechanicLogMessage(mechanicKey string, displayName string, tokenName string) string {
+	switch mechanicKey {
+	case "gameLog.mechanic.ring.created":
+		return fmt.Sprintf("%s received The Ring.", displayName)
+	case "gameLog.mechanic.dungeon.entered":
+		return fmt.Sprintf("%s entered %s.", displayName, tokenName)
+	case "gameLog.mechanic.emblem.created":
+		return fmt.Sprintf("%s created emblem %s.", displayName, tokenName)
+	default:
+		return ""
+	}
+}
+
 func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, displayName string) string {
 	switch command.Type {
+	case "helper.created", "helper.updated", "helper.removed":
+		return runtimeHelperLogMessage(game, command, payload, displayName)
 	case "turn.changed":
 		turn, _ := payload["turn"].(map[string]any)
 		previousTurn, _ := payload["previousTurn"].(map[string]any)
@@ -790,10 +1036,15 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		if name == "" {
 			name = "Token"
 		}
+		if mechanicKey := runtimeTokenMechanicLogKey(payload, name); mechanicKey != "" {
+			return runtimeTokenMechanicLogMessage(mechanicKey, displayName, name)
+		}
 		if count == 1 {
 			return fmt.Sprintf("%s created a %s token.", displayName, name)
 		}
 		return fmt.Sprintf("%s created %d %s tokens.", displayName, count, name)
+	case "card.dungeon_marker.changed":
+		return fmt.Sprintf("%s advanced in a dungeon.", displayName)
 	case "card.token_copy.created":
 		return fmt.Sprintf("%s created a token copy.", displayName)
 	case "library.view":

@@ -605,6 +605,40 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('Private Library One', $encoded);
     }
 
+    public function testLegacyTailTopLibraryViewUsesTheCanonicalDrawOrder(): void
+    {
+        [$game, $actor] = $this->gameWithLibraryCards();
+        $previousSnapshot = $game->snapshot();
+        $previousSnapshot['players'][$actor->id()]['libraryOrientation'] = 'tail_top';
+        $previousSnapshot['players'][$actor->id()]['zones']['library'] = array_reverse(
+            $previousSnapshot['players'][$actor->id()]['zones']['library'],
+        );
+        $nextSnapshot = $previousSnapshot;
+        $nextSnapshot['version'] = ((int) $previousSnapshot['version']) + 1;
+        $event = new GameEvent(
+            $game,
+            'library.view',
+            ['playerId' => $actor->id(), 'count' => 2],
+            $actor,
+            'legacy-library-view',
+        );
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
+            $game->id(),
+            $previousSnapshot,
+            $nextSnapshot,
+            $event,
+            null,
+            $actor->id(),
+        );
+
+        self::assertSame('zone.visible.set', $message['operations'][0]['op']);
+        self::assertSame(
+            ['library-1', 'library-2'],
+            array_column($message['operations'][0]['cards'], 'instanceId'),
+        );
+    }
+
     public function testLibraryViewRequiresResyncWhenFullViewWouldExceedCap(): void
     {
         [$game, $actor] = $this->gameWithLibraryCards(41);
@@ -819,6 +853,24 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertCount(2, $message['operations'][0]['cards']);
         self::assertStringContainsString('Private Hand One', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
         self::assertStringContainsString('Private Hand Two', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
+    }
+
+    public function testRevealPatchUpdatesAnOwnersLargeLibraryWithoutResyncingTheWholeZone(): void
+    {
+        [$game, $actor] = $this->gameWithLibraryCards(80);
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.revealed', [
+            'playerId' => $actor->id(),
+            'zone' => 'library',
+            'instanceId' => 'library-1',
+            'to' => 'all',
+        ], 'action-reveal-large-library-card', $actor);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('card.projection.set', $message['operations'][0]['op']);
+        self::assertSame('library', $message['operations'][0]['zone']);
+        self::assertSame('library-1', $message['operations'][0]['instanceId']);
+        self::assertSame(['all'], $message['operations'][0]['card']['revealedTo']);
     }
 
     public function testCounterAndStatsPatchesUpdateOnlyTheTargetCard(): void

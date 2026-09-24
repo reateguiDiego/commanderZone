@@ -170,7 +170,7 @@ describe('GameTableCardsState', () => {
     });
   });
 
-  it('caps The Ring level counter between one and four', () => {
+  it('treats The Ring level counter like a normal card counter', () => {
     vi.useFakeTimers();
     core.snapshot.set(snapshot([theRingWithLevel(2)]));
 
@@ -182,7 +182,7 @@ describe('GameTableCardsState', () => {
       value: 8,
     });
 
-    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters?.['Level']).toBe(4);
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters?.['Level']).toBe(8);
 
     state.queueCardCounter(cardCounterContext(), {
       playerId: 'player-1',
@@ -192,22 +192,7 @@ describe('GameTableCardsState', () => {
       value: 0,
     });
 
-    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters?.['Level']).toBe(1);
-  });
-
-  it('keeps The Ring level counter at one when removal is requested', () => {
-    vi.useFakeTimers();
-    core.snapshot.set(snapshot([theRingWithLevel(2)]));
-
-    state.queueCardCounter(cardCounterContext(), {
-      playerId: 'player-1',
-      zone: 'battlefield',
-      instanceId: 'the-ring',
-      key: 'Level',
-      value: null,
-    });
-
-    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({ Level: 1 });
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({});
   });
 });
 

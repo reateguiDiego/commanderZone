@@ -35,6 +35,12 @@ describe('GameTableSpecialEntitiesState', () => {
       layout: 'monarch',
       oracleText: 'You are the monarch.',
     }));
+
+    expect(state.helperPreviewCard(snapshotWithMonarchCard().specialEntities![0]!)).toEqual(expect.objectContaining({
+      instanceId: 'monarch:monarch-1',
+      name: 'The Monarch',
+      zone: 'command',
+    }));
   });
 
   it('uses the stored initiative card artwork while keeping initiative gameplay identity', () => {

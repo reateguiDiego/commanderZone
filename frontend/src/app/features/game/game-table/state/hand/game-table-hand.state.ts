@@ -11,6 +11,7 @@ import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentSt
 import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../../utils/command-zone-drop';
 import { createLandStackMoves, LandStackDropTarget, landStackDropTarget } from '../../utils/land-stack';
 import { GameTableBattlefieldDragState } from '../drag-drop/game-table-battlefield-drag.state';
+import { BattlefieldCardSize } from '../../utils/battlefield-position';
 
 export interface GameTableHandContext {
   readonly zones: readonly GameZoneName[];
@@ -20,6 +21,8 @@ export interface GameTableHandContext {
   readonly canControlOwnedCard: (playerId: string, card: GameCardInstance) => boolean;
   readonly playerName: (playerId: string) => string;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
+  readonly stackDropOverlapRatio?: () => number | null;
+  readonly battlefieldCardSize: (playerId: string) => BattlefieldCardSize;
   readonly snapBattlefieldPosition: (
     playerId: string,
     instanceId: string,
@@ -263,6 +266,8 @@ export class GameTableHandState {
         return battlefieldContext.cardPosition(card);
       },
       attachmentRelationInstanceIds(snapshot?.attachments ?? []),
+      context.stackDropOverlapRatio?.() ?? undefined,
+      context.battlefieldCardSize(playerId),
     );
     if (!target) {
       return null;
@@ -305,7 +310,7 @@ export class GameTableHandState {
       }
 
       return battlefieldContext.cardPosition(card);
-    });
+    }, context.stackDropOverlapRatio?.() ?? undefined, context.battlefieldCardSize(playerId));
     if (!target) {
       return null;
     }

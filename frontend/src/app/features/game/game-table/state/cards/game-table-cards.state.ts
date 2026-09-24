@@ -4,7 +4,6 @@ import { PendingCardCounterCommand } from '../../models/game-table-card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { updateGameSnapshotCards } from '../core/game-snapshot-mutation';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
-import { isTheRingCard } from '../../utils/gameplay-card-kind';
 
 export interface GameTableCardCounterContext {
   readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
@@ -81,14 +80,14 @@ export class GameTableCardsState {
   cardCounterValue(playerId: string, zone: GameZoneName, card: GameCardInstance, key: string): number {
     const command = this.optimisticCardCounters.get(this.cardCounterCommandKey(playerId, zone, card.instanceId, key));
     if (command) {
-      return this.normalizedCardCounterValue(card, key, command.value);
+      return this.normalizedCardCounterValue(command.value);
     }
 
-    return this.normalizedCardCounterValue(card, key, card.counters?.[key] ?? 0);
+    return this.normalizedCardCounterValue(card.counters?.[key] ?? 0);
   }
 
-  nextCardCounterValue(card: GameCardInstance, key: string, value: number | null): number {
-    return this.normalizedCardCounterValue(card, key, value);
+  nextCardCounterValue(_card: GameCardInstance, _key: string, value: number | null): number {
+    return this.normalizedCardCounterValue(value);
   }
 
   queueCardCounter(context: GameTableCardCounterContext, command: PendingCardCounterCommand): void {
@@ -206,24 +205,16 @@ export class GameTableCardsState {
   }
 
   private normalizedCardCounterCommand(command: PendingCardCounterCommand): PendingCardCounterCommand {
-    const card = this.core.snapshot()?.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
-    if (!card || !this.isTheRingLevelCounter(card, command.key)) {
-      return command;
-    }
-
-    return {
-      ...command,
-      value: this.normalizedCardCounterValue(card, command.key, command.value),
-    };
+    return command;
   }
 
   private cardWithCounterValue(card: GameCardInstance, key: string, value: number | null): GameCardInstance {
-    const nextValue = this.normalizedCardCounterValue(card, key, value);
+    const nextValue = value === null ? null : this.normalizedCardCounterValue(value);
     const existingCounters = card.counters ?? {};
     const hasCounter = Object.prototype.hasOwnProperty.call(existingCounters, key);
     const counters = { ...existingCounters };
     const previousValue = Number(counters[key] ?? 0);
-    if (value === null && !this.isTheRingLevelCounter(card, key)) {
+    if (nextValue === null) {
       if (!hasCounter) {
         return card;
       }
@@ -235,7 +226,11 @@ export class GameTableCardsState {
       counters[key] = nextValue;
     }
 
-    return this.cardWithStatCounterDelta({ ...card, counters }, key, nextValue - previousValue);
+    return this.cardWithStatCounterDelta({ ...card, counters }, key, Number(nextValue ?? 0) - previousValue);
+  }
+
+  private normalizedCardCounterValue(value: number | null): number {
+    return Math.max(0, Number(value ?? 0));
   }
 
   private cardWithStatCounterDelta(card: GameCardInstance, key: string, delta: number): GameCardInstance {
@@ -268,15 +263,4 @@ export class GameTableCardsState {
     };
   }
 
-  private normalizedCardCounterValue(card: GameCardInstance, key: string, value: number | null): number {
-    const numericValue = Math.max(0, Number(value ?? 0));
-
-    return this.isTheRingLevelCounter(card, key)
-      ? Math.max(1, Math.min(4, numericValue))
-      : numericValue;
-  }
-
-  private isTheRingLevelCounter(card: GameCardInstance, key: string): boolean {
-    return key.trim().toLowerCase() === 'level' && isTheRingCard(card);
-  }
 }

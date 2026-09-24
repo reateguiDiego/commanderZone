@@ -19,6 +19,13 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.dataset['motionZone']).toBe('player-1:hand');
   });
 
+  it('does not mount hand card images while the mulligan overlay owns the hand', async () => {
+    const { fixture } = await renderHandPanel({ renderCards: false, cardImage: () => '/card.jpg' });
+
+    expect(fixture.nativeElement.querySelectorAll('app-game-card-view')).toHaveLength(0);
+    expect(fixture.nativeElement.querySelectorAll('img')).toHaveLength(0);
+  });
+
   it('reveals the hand after a short deliberate hover', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
@@ -125,7 +132,9 @@ describe('PlayerHandPanelComponent', () => {
     vi.advanceTimersByTime(200);
     fixture.detectChanges();
 
-    handArea.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: nextFocusTarget }));
+    handArea.dispatchEvent(
+      new FocusEvent('focusout', { bubbles: true, relatedTarget: nextFocusTarget }),
+    );
     fixture.detectChanges();
 
     expect(handArea.classList.contains('hand-revealed')).toBe(true);
@@ -146,7 +155,9 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
 
     expect(handArea.classList.contains('hand-revealed')).toBe(false);
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain(
+      'hand-fan-row',
+    );
   });
 
   it('shows focused opponent hands face down without card hover interactions', async () => {
@@ -163,7 +174,9 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList.contains('hand-revealed')).toBe(true);
     expect(fixture.nativeElement.querySelectorAll('.face-down').length).toBe(4);
 
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="player-1-hidden-hand-0"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="player-1-hidden-hand-0"]',
+    ) as HTMLElement;
     cardElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     vi.advanceTimersByTime(200);
     fixture.detectChanges();
@@ -175,47 +188,64 @@ describe('PlayerHandPanelComponent', () => {
   it.each([
     { handCount: 10, revealedIndex: null },
     { handCount: 20, revealedIndex: 10 },
-  ])('renders every public opponent hand slot when the hand has $handCount cards', async ({ handCount, revealedIndex }) => {
-    const hand = Array.from({ length: handCount }, (_, index): GameCardInstance => ({
-      instanceId: `player-1-hand-${index}`,
-      ownerId: 'player-1',
-      controllerId: 'player-1',
-      name: index === revealedIndex ? 'Revealed Tutor' : 'Hidden card',
-      tapped: false,
-      hidden: index !== revealedIndex,
-      faceDown: index !== revealedIndex,
-      ...(index === revealedIndex ? { revealedTo: ['viewer-1'] } : {}),
-      zone: 'hand',
-    }));
-    const { fixture } = await renderHandPanel({
-      readOnly: true,
-      showCardsFaceDown: true,
-      handZoneCount: handCount,
-      hand,
-    });
+  ])(
+    'renders every public opponent hand slot when the hand has $handCount cards',
+    async ({ handCount, revealedIndex }) => {
+      const hand = Array.from(
+        { length: handCount },
+        (_, index): GameCardInstance => ({
+          instanceId: `player-1-hand-${index}`,
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: index === revealedIndex ? 'Revealed Tutor' : 'Hidden card',
+          tapped: false,
+          hidden: index !== revealedIndex,
+          faceDown: index !== revealedIndex,
+          ...(index === revealedIndex ? { revealedTo: ['viewer-1'] } : {}),
+          zone: 'hand',
+        }),
+      );
+      const { fixture } = await renderHandPanel({
+        readOnly: true,
+        showCardsFaceDown: true,
+        handZoneCount: handCount,
+        hand,
+      });
 
-    expect(fixture.nativeElement.querySelectorAll('[data-zone="hand"][data-card-instance-id]')).toHaveLength(handCount);
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-countable');
-    expect(fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent).toContain(`${handCount} cards`);
-    if (revealedIndex === null) {
-      expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount);
-    } else {
-      expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount - 1);
-      expect(fixture.nativeElement.querySelector('[data-card-instance-id="player-1-hand-10"]')?.classList).not.toContain('face-down');
-    }
-  });
+      expect(
+        fixture.nativeElement.querySelectorAll('[data-zone="hand"][data-card-instance-id]'),
+      ).toHaveLength(handCount);
+      expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain(
+        'hand-fan-countable',
+      );
+      expect(
+        fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent,
+      ).toContain(`${handCount} cards`);
+      if (revealedIndex === null) {
+        expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount);
+      } else {
+        expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(handCount - 1);
+        expect(
+          fixture.nativeElement.querySelector('[data-card-instance-id="player-1-hand-10"]')
+            ?.classList,
+        ).not.toContain('face-down');
+      }
+    },
+  );
 
   it('removes stale opponent card backs when the authoritative hand count decreases', async () => {
-    const staleHiddenHand = [0, 1, 2, 3].map((index): GameCardInstance => ({
-      instanceId: `player-1-hidden-hand-${index}`,
-      ownerId: 'player-1',
-      controllerId: 'player-1',
-      name: 'Hidden card',
-      tapped: false,
-      hidden: true,
-      faceDown: true,
-      zone: 'hand',
-    }));
+    const staleHiddenHand = [0, 1, 2, 3].map(
+      (index): GameCardInstance => ({
+        instanceId: `player-1-hidden-hand-${index}`,
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+        name: 'Hidden card',
+        tapped: false,
+        hidden: true,
+        faceDown: true,
+        zone: 'hand',
+      }),
+    );
     const { fixture } = await renderHandPanel({
       readOnly: true,
       showCardsFaceDown: true,
@@ -225,11 +255,15 @@ describe('PlayerHandPanelComponent', () => {
 
     expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(4);
 
-    fixture.componentRef.setInput('zoneCount', (_player: PlayerView, zone: GameZoneName) => zone === 'hand' ? 2 : 0);
+    fixture.componentRef.setInput('zoneCount', (_player: PlayerView, zone: GameZoneName) =>
+      zone === 'hand' ? 2 : 0,
+    );
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.face-down')).toHaveLength(2);
-    expect(fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent).toContain('2 cards');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="hand-count"]')?.textContent,
+    ).toContain('2 cards');
   });
 
   it('shows the public reveal eye on every marked hidden opponent hand card without enabling previews', async () => {
@@ -241,12 +275,17 @@ describe('PlayerHandPanelComponent', () => {
       revealedHandIndexes: [0, 1, 2],
     });
 
-    const markedCards = [0, 1, 2].map((index) => fixture.nativeElement.querySelector(
-      `[data-card-instance-id="player-1-hidden-hand-${index}"]`,
-    ) as HTMLElement);
+    const markedCards = [0, 1, 2].map(
+      (index) =>
+        fixture.nativeElement.querySelector(
+          `[data-card-instance-id="player-1-hidden-hand-${index}"]`,
+        ) as HTMLElement,
+    );
 
     expect(markedCards.every((card) => card.classList.contains('face-down'))).toBe(true);
-    expect(markedCards.every((card) => card.querySelector('.reveal-indicator') !== null)).toBe(true);
+    expect(markedCards.every((card) => card.querySelector('.reveal-indicator') !== null)).toBe(
+      true,
+    );
     expect(fixture.nativeElement.querySelectorAll('.reveal-indicator')).toHaveLength(3);
     expect(fixture.nativeElement.textContent).not.toContain('Revealed to');
   });
@@ -257,17 +296,19 @@ describe('PlayerHandPanelComponent', () => {
       showCardsFaceDown: true,
       handZoneCount: 1,
       revealedHandIndexes: [],
-      hand: [{
-        instanceId: 'player-1-hidden-hand-0',
-        ownerId: 'player-1',
-        controllerId: 'player-1',
-        name: 'Hidden card',
-        tapped: false,
-        hidden: true,
-        faceDown: true,
-        revealMarker: true,
-        zone: 'hand',
-      }],
+      hand: [
+        {
+          instanceId: 'player-1-hidden-hand-0',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Hidden card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          revealMarker: true,
+          zone: 'hand',
+        },
+      ],
     });
 
     expect(fixture.nativeElement.querySelector('.reveal-indicator')).toBeNull();
@@ -276,19 +317,23 @@ describe('PlayerHandPanelComponent', () => {
   it('never renders a controlled hand card face down from a stale hidden patch', async () => {
     const { fixture } = await renderHandPanel({
       readOnly: false,
-      hand: [{
-        instanceId: 'owned-card',
-        ownerId: 'player-1',
-        controllerId: 'player-1',
-        name: 'Owned card',
-        tapped: false,
-        hidden: true,
-        faceDown: true,
-        zone: 'hand',
-      }],
+      hand: [
+        {
+          instanceId: 'owned-card',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Owned card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          zone: 'hand',
+        },
+      ],
     });
 
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="owned-card"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="owned-card"]',
+    ) as HTMLElement;
     expect(cardElement.classList).not.toContain('face-down');
   });
 
@@ -297,14 +342,43 @@ describe('PlayerHandPanelComponent', () => {
       readOnly: true,
       showCardsFaceDown: true,
       hand: [
-        { instanceId: 'player-1-hidden-hand-0', ownerId: 'player-1', controllerId: 'player-1', name: 'Hidden card', tapped: false, hidden: true, faceDown: true, zone: 'hand' },
-        { instanceId: 'revealed-card', ownerId: 'player-1', controllerId: 'player-1', name: 'Revealed Tutor', tapped: false, revealedTo: ['viewer-1'], zone: 'hand' },
-        { instanceId: 'player-1-hidden-hand-2', ownerId: 'player-1', controllerId: 'player-1', name: 'Hidden card', tapped: false, hidden: true, faceDown: true, zone: 'hand' },
+        {
+          instanceId: 'player-1-hidden-hand-0',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Hidden card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          zone: 'hand',
+        },
+        {
+          instanceId: 'revealed-card',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Revealed Tutor',
+          tapped: false,
+          revealedTo: ['viewer-1'],
+          zone: 'hand',
+        },
+        {
+          instanceId: 'player-1-hidden-hand-2',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Hidden card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          zone: 'hand',
+        },
       ],
-      cardImage: (card) => card.instanceId === 'revealed-card' ? '/revealed-card.jpg' : '/card-back.jpg',
+      cardImage: (card) =>
+        card.instanceId === 'revealed-card' ? '/revealed-card.jpg' : '/card-back.jpg',
     });
 
-    const revealedCard = fixture.nativeElement.querySelector('[data-card-instance-id="revealed-card"]') as HTMLElement;
+    const revealedCard = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="revealed-card"]',
+    ) as HTMLElement;
     const hiddenCards = fixture.nativeElement.querySelectorAll('.face-down');
 
     expect(revealedCard.classList).not.toContain('face-down');
@@ -319,14 +393,39 @@ describe('PlayerHandPanelComponent', () => {
       handZoneCount: 3,
       revealedHandIndexes: [0],
       hand: [
-        { instanceId: 'hidden-card', ownerId: 'player-1', controllerId: 'player-1', name: 'Hidden card', tapped: false, hidden: true, faceDown: true, zone: 'hand' },
-        { instanceId: 'revealed-card', ownerId: 'player-1', controllerId: 'player-1', name: 'Revealed Tutor', tapped: false, revealedTo: ['viewer-1'], zone: 'hand' },
+        {
+          instanceId: 'hidden-card',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Hidden card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          zone: 'hand',
+        },
+        {
+          instanceId: 'revealed-card',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Revealed Tutor',
+          tapped: false,
+          revealedTo: ['viewer-1'],
+          zone: 'hand',
+        },
       ],
     });
 
     expect(fixture.nativeElement.querySelectorAll('.reveal-indicator')).toHaveLength(1);
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="revealed-card"] .reveal-indicator')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="hidden-card"] .reveal-indicator')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-card-instance-id="revealed-card"] .reveal-indicator',
+      ),
+    ).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-card-instance-id="hidden-card"] .reveal-indicator',
+      ),
+    ).toBeNull();
   });
 
   it('allows hover preview for revealed opponent hand cards', async () => {
@@ -334,38 +433,40 @@ describe('PlayerHandPanelComponent', () => {
       readOnly: true,
       showCardsFaceDown: true,
       hand: [
-        { instanceId: 'revealed-card', ownerId: 'player-1', controllerId: 'player-1', name: 'Revealed Tutor', tapped: false, revealedTo: ['viewer-1'], zone: 'hand' },
+        {
+          instanceId: 'revealed-card',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Revealed Tutor',
+          tapped: false,
+          revealedTo: ['viewer-1'],
+          zone: 'hand',
+        },
       ],
       cardImage: () => '/revealed-card.jpg',
     });
     const previewShown = vi.fn();
     fixture.componentInstance.cardPreviewShown.subscribe(previewShown);
 
-    const revealedCard = fixture.nativeElement.querySelector('[data-card-instance-id="revealed-card"]') as HTMLElement;
+    const revealedCard = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="revealed-card"]',
+    ) as HTMLElement;
     revealedCard.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     fixture.detectChanges();
 
-    expect(previewShown).toHaveBeenCalledWith(expect.objectContaining({
-      card: expect.objectContaining({ instanceId: 'revealed-card' }),
-      playerId: 'player-1',
-      zone: 'hand',
-    }));
+    expect(previewShown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        card: expect.objectContaining({ instanceId: 'revealed-card' }),
+        playerId: 'player-1',
+        zone: 'hand',
+      }),
+    );
   });
 
   it('puts the alternate-face toggle on a revealed hand card, not in its preview', async () => {
     const revealedDoubleFacedCard: GameCardInstance = {
-      instanceId: 'revealed-double-faced-card',
-      ownerId: 'player-1',
-      controllerId: 'player-1',
-      name: 'Front // Back',
-      tapped: false,
+      ...doubleFacedHandCard('revealed-double-faced-card'),
       revealedTo: ['viewer-1'],
-      zone: 'hand',
-      activeFaceIndex: 0,
-      cardFaces: [
-        { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
-        { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
-      ],
     };
     const { fixture } = await renderHandPanel({
       readOnly: true,
@@ -376,18 +477,36 @@ describe('PlayerHandPanelComponent', () => {
     const previewShown = vi.fn();
     fixture.componentInstance.cardPreviewShown.subscribe(previewShown);
 
-    const toggle = fixture.nativeElement.querySelector('[data-card-instance-id="revealed-double-faced-card"] .double-face-toggle') as HTMLElement;
+    const toggle = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="revealed-double-faced-card"] .double-face-toggle',
+    ) as HTMLElement;
     expect(toggle).not.toBeNull();
 
     toggle.click();
 
-    expect(previewShown).toHaveBeenCalledWith(expect.objectContaining({
-      card: expect.objectContaining({
-        instanceId: 'revealed-double-faced-card',
-        activeFaceIndex: 1,
+    expect(previewShown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        card: expect.objectContaining({
+          instanceId: 'revealed-double-faced-card',
+          activeFaceIndex: 1,
+        }),
       }),
-    }));
+    );
     expect(revealedDoubleFacedCard.activeFaceIndex).toBe(0);
+  });
+
+  it('puts the alternate-face toggle on double-faced cards in a controlled hand', async () => {
+    const ownDoubleFacedCard = doubleFacedHandCard('controlled-double-faced-card');
+    const { fixture } = await renderHandPanel({
+      hand: [ownDoubleFacedCard],
+      cardImage: () => '/front.jpg',
+    });
+
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-card-instance-id="controlled-double-faced-card"] .double-face-toggle',
+      ),
+    ).not.toBeNull();
   });
 
   it('keeps opponent hands in fan layout even when they are highlighted as a drop target', async () => {
@@ -416,16 +535,20 @@ describe('PlayerHandPanelComponent', () => {
     });
     const menuOpened = vi.fn();
     fixture.componentInstance.cardMenuOpened.subscribe(menuOpened);
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
     cardElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-      pointerId: 1,
-    }));
+    cardElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        clientX: 20,
+        clientY: 20,
+        pointerId: 1,
+      }),
+    );
     fixture.detectChanges();
 
     expect(menuOpened).not.toHaveBeenCalled();
@@ -440,9 +563,11 @@ describe('PlayerHandPanelComponent', () => {
     handArea.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     fixture.detectChanges();
 
-    expect(handMenuOpened).toHaveBeenCalledWith(expect.objectContaining({
-      playerId: 'player-1',
-    }));
+    expect(handMenuOpened).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerId: 'player-1',
+      }),
+    );
   });
 
   it('keeps card context menus separate from the hand zone menu', async () => {
@@ -451,41 +576,58 @@ describe('PlayerHandPanelComponent', () => {
     const cardMenuOpened = vi.fn();
     fixture.componentInstance.handMenuOpened.subscribe(handMenuOpened);
     fixture.componentInstance.cardMenuOpened.subscribe(cardMenuOpened);
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
     const contextMenu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     cardElement.dispatchEvent(contextMenu);
     fixture.detectChanges();
 
     expect(handMenuOpened).not.toHaveBeenCalled();
-    expect(cardMenuOpened).toHaveBeenCalledWith(expect.objectContaining({
-      playerId: 'player-1',
-      card: expect.objectContaining({ instanceId: 'card-1' }),
-    }));
+    expect(cardMenuOpened).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerId: 'player-1',
+        card: expect.objectContaining({ instanceId: 'card-1' }),
+      }),
+    );
     expect(contextMenu.defaultPrevented).toBe(true);
   });
 
   it('does not open menus, emit clicks, or start pointer drags from hidden hand placeholders', async () => {
     const { fixture } = await renderHandPanel({
       hand: [
-        { instanceId: 'hidden-hand-1', ownerId: 'player-1', controllerId: 'player-1', name: 'Hidden card', tapped: false, hidden: true, faceDown: true, zone: 'hand' },
+        {
+          instanceId: 'hidden-hand-1',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          name: 'Hidden card',
+          tapped: false,
+          hidden: true,
+          faceDown: true,
+          zone: 'hand',
+        },
       ],
     });
     const menuOpened = vi.fn();
     const cardClicked = vi.fn();
     fixture.componentInstance.cardMenuOpened.subscribe(menuOpened);
     fixture.componentInstance.handCardClicked.subscribe(cardClicked);
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="hidden-hand-1"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="hidden-hand-1"]',
+    ) as HTMLElement;
 
     cardElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     cardElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-      pointerId: 1,
-    }));
+    cardElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        clientX: 20,
+        clientY: 20,
+        pointerId: 1,
+      }),
+    );
     fixture.detectChanges();
 
     expect(cardClicked).not.toHaveBeenCalled();
@@ -496,28 +638,35 @@ describe('PlayerHandPanelComponent', () => {
   it('does not start a hand drag from transparent card chrome outside the card visual', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const visualElement = sourceElement.querySelector<HTMLElement>('.card-visual')!;
 
-    visualElement.getBoundingClientRect = () => ({
-      x: 40,
-      y: 40,
-      width: 100,
-      height: 140,
-      top: 40,
-      right: 140,
-      bottom: 180,
-      left: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    visualElement.getBoundingClientRect = () =>
+      ({
+        x: 40,
+        y: 40,
+        width: 100,
+        height: 140,
+        top: 40,
+        right: 140,
+        bottom: 180,
+        left: 40,
+        toJSON: () => ({}),
+      }) as DOMRect;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({
-      currentTarget: sourceElement,
-      target: sourceElement,
-      pointerId: 1,
-      clientX: 20,
-      clientY: 20,
-    }), 'player-1', draggedCard);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({
+        currentTarget: sourceElement,
+        target: sourceElement,
+        pointerId: 1,
+        clientX: 20,
+        clientY: 20,
+      }),
+      'player-1',
+      draggedCard,
+    );
 
     expect(fixture.componentInstance.pointerDrag()).toBeNull();
   });
@@ -525,34 +674,43 @@ describe('PlayerHandPanelComponent', () => {
   it('starts a hand drag when the pointer contacts the visible card', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const visualElement = sourceElement.querySelector<HTMLElement>('.card-visual')!;
 
-    visualElement.getBoundingClientRect = () => ({
-      x: 40,
-      y: 40,
-      width: 100,
-      height: 140,
-      top: 40,
-      right: 140,
-      bottom: 180,
-      left: 40,
-      toJSON: () => ({}),
-    } as DOMRect);
+    visualElement.getBoundingClientRect = () =>
+      ({
+        x: 40,
+        y: 40,
+        width: 100,
+        height: 140,
+        top: 40,
+        right: 140,
+        bottom: 180,
+        left: 40,
+        toJSON: () => ({}),
+      }) as DOMRect;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({
-      currentTarget: sourceElement,
-      target: visualElement,
-      pointerId: 1,
-      clientX: 72,
-      clientY: 96,
-    }), 'player-1', draggedCard);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({
+        currentTarget: sourceElement,
+        target: visualElement,
+        pointerId: 1,
+        clientX: 72,
+        clientY: 96,
+      }),
+      'player-1',
+      draggedCard,
+    );
 
-    expect(fixture.componentInstance.pointerDrag()).toEqual(expect.objectContaining({
-      card: draggedCard,
-      offsetX: 32,
-      offsetY: 56,
-    }));
+    expect(fixture.componentInstance.pointerDrag()).toEqual(
+      expect.objectContaining({
+        card: draggedCard,
+        offsetX: 32,
+        offsetY: 56,
+      }),
+    );
   });
 
   it('emits when a pending hand pointer drag becomes an actual drag', async () => {
@@ -560,14 +718,18 @@ describe('PlayerHandPanelComponent', () => {
     const started = vi.fn();
     fixture.componentInstance.handCardPointerDragStarted.subscribe(started);
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
     fixture.componentInstance.startHandPointerDrag(
       pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
       'player-1',
       draggedCard,
     );
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }),
+    );
 
     expect(started).toHaveBeenCalledWith({ playerId: 'player-1', card: draggedCard });
   });
@@ -582,20 +744,25 @@ describe('PlayerHandPanelComponent', () => {
       ],
     });
 
-    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList)
-      .toContain('hand-fan-compact-drop-target');
+    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain(
+      'hand-fan-compact-drop-target',
+    );
 
-    compact.fixture.componentRef.setInput('player', playerView([
-      { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
-      { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
-      { instanceId: 'card-3', name: 'Command Tower', tapped: false },
-      { instanceId: 'card-4', name: 'Cultivate', tapped: false },
-      { instanceId: 'card-5', name: 'Swords to Plowshares', tapped: false },
-    ]));
+    compact.fixture.componentRef.setInput(
+      'player',
+      playerView([
+        { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+        { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+        { instanceId: 'card-3', name: 'Command Tower', tapped: false },
+        { instanceId: 'card-4', name: 'Cultivate', tapped: false },
+        { instanceId: 'card-5', name: 'Swords to Plowshares', tapped: false },
+      ]),
+    );
     compact.fixture.detectChanges();
 
-    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList)
-      .not.toContain('hand-fan-compact-drop-target');
+    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain(
+      'hand-fan-compact-drop-target',
+    );
   });
 
   it('does not reveal during an external drag when reveal is temporarily blocked', async () => {
@@ -635,8 +802,12 @@ describe('PlayerHandPanelComponent', () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handZone = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
     const originalElementsFromPoint = document.elementsFromPoint;
 
@@ -654,7 +825,9 @@ describe('PlayerHandPanelComponent', () => {
       'player-1',
       draggedCard,
     );
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }),
+    );
     fixture.componentRef.setInput('hasActiveCardDrag', true);
     fixture.componentRef.setInput('externalRevealAllowed', false);
     handArea.dispatchEvent(new MouseEvent('mouseleave'));
@@ -675,7 +848,9 @@ describe('PlayerHandPanelComponent', () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
     handArea.dispatchEvent(new MouseEvent('mouseenter'));
     vi.advanceTimersByTime(200);
@@ -686,17 +861,88 @@ describe('PlayerHandPanelComponent', () => {
       'player-1',
       draggedCard,
     );
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
     expect(handArea.classList).not.toContain('hand-revealed');
 
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }));
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
     fixture.detectChanges();
 
     expect(handArea.classList).not.toContain('hand-revealed');
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain(
+      'hand-fan-row',
+    );
+  });
+
+  it('returns to fan after a transferred focused card leaves the hand and the pointer leaves later', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel();
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLButtonElement;
+
+    sourceElement.focus();
+    fixture.detectChanges();
+
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: -12 }),
+    );
+    fixture.componentInstance.syncHandMouseHover(
+      new MouseEvent('mousemove', { clientX: 500, clientY: 20 }),
+    );
+
+    fixture.componentRef.setInput(
+      'player',
+      playerView(fixture.componentInstance.player().state.zones.hand.slice(1)),
+    );
+    fixture.detectChanges();
+
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 500, clientY: 220 }));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+  });
+
+  it('keeps the hand in row after pointer leave while a real hand control remains focused', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel();
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLButtonElement;
+
+    sourceElement.focus();
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    hoverStrip.dispatchEvent(new MouseEvent('mouseenter', { clientX: 240, clientY: 120 }));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave', { clientX: 500, clientY: 220 }));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
   });
 
   it('keeps the hand in row after receiving an external drop when the pointer is inside it', async () => {
@@ -705,18 +951,21 @@ describe('PlayerHandPanelComponent', () => {
       isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
     });
 
-    handArea.getBoundingClientRect = () => ({
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 160,
-      top: 100,
-      right: 300,
-      bottom: 260,
-      left: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
-    fixture.componentInstance.syncHandMouseHover(new MouseEvent('mousemove', { clientX: 180, clientY: 120 }));
+    handArea.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 160,
+        top: 100,
+        right: 300,
+        bottom: 260,
+        left: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    fixture.componentInstance.syncHandMouseHover(
+      new MouseEvent('mousemove', { clientX: 180, clientY: 120 }),
+    );
 
     fixture.componentRef.setInput('hasActiveCardDrag', false);
     fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
@@ -733,18 +982,21 @@ describe('PlayerHandPanelComponent', () => {
       isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
       prepareHandLayoutFlip,
     });
-    handArea.getBoundingClientRect = () => ({
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 160,
-      top: 100,
-      right: 300,
-      bottom: 260,
-      left: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
-    fixture.componentInstance.syncHandMouseHover(new MouseEvent('mousemove', { clientX: 180, clientY: 120 }));
+    handArea.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 160,
+        top: 100,
+        right: 300,
+        bottom: 260,
+        left: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    fixture.componentInstance.syncHandMouseHover(
+      new MouseEvent('mousemove', { clientX: 180, clientY: 120 }),
+    );
 
     fixture.componentRef.setInput('motionActive', true);
     fixture.detectChanges();
@@ -777,7 +1029,9 @@ describe('PlayerHandPanelComponent', () => {
     fixture.componentRef.setInput('hasActiveCardDrag', true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain(
+      'hand-fan-row',
+    );
   });
 
   it('returns to fan as soon as an external drag leaves the hand drop target', async () => {
@@ -793,7 +1047,9 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain(
+      'hand-fan-row',
+    );
   });
 
   it('animates each external hand layout transition', async () => {
@@ -811,7 +1067,10 @@ describe('PlayerHandPanelComponent', () => {
     expect(prepareHandLayoutFlip).toHaveBeenCalledOnce();
     expect(playFlip).toHaveBeenCalledOnce();
 
-    fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, zone: GameZoneName) => zone === 'hand');
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
     fixture.detectChanges();
 
     expect(prepareHandLayoutFlip).toHaveBeenCalledTimes(2);
@@ -832,7 +1091,10 @@ describe('PlayerHandPanelComponent', () => {
     });
     component = fixture.componentInstance;
 
-    fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, zone: GameZoneName) => zone === 'hand');
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
     fixture.detectChanges();
 
     expect(revealedAtLayoutCapture).toBe(true);
@@ -877,10 +1139,12 @@ describe('PlayerHandPanelComponent', () => {
     vi.advanceTimersByTime(1000);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList)
-      .toContain('alignment-reference');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList)
-      .toContain('alignment-reference');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('alignment-reference');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList,
+    ).toContain('alignment-reference');
   });
 
   it('uses the hand fan as the highlighted drop target when the hand has one card', async () => {
@@ -894,14 +1158,22 @@ describe('PlayerHandPanelComponent', () => {
     vi.advanceTimersByTime(1000);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('drop-target-active');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('alignment-reference');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]'),
+    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain(
+      'drop-target-active',
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('alignment-reference');
   });
 
   it('uses the clipped hand row as the hand drop zone instead of the oversized visual fan', async () => {
     const { fixture } = await renderHandPanel();
-    const scrollRow = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const scrollRow = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
     const dragOver = vi.fn();
     fixture.componentInstance.handDragOver.subscribe(dragOver);
@@ -936,7 +1208,9 @@ describe('PlayerHandPanelComponent', () => {
       hasActiveCardDrag: true,
       isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
     });
-    const dropTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    const dropTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
     const dragOver = vi.fn();
     fixture.componentInstance.handDragOver.subscribe(dragOver);
 
@@ -953,7 +1227,9 @@ describe('PlayerHandPanelComponent', () => {
 
   it('does not expand the hand drop hit area when no card is being dragged', async () => {
     const { fixture, handArea } = await renderHandPanel({ hand: [] });
-    const dropTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    const dropTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
 
     expect(handArea.classList).not.toContain('hand-external-dragging');
     expect(dropTarget).not.toBeNull();
@@ -965,15 +1241,27 @@ describe('PlayerHandPanelComponent', () => {
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
     const previewHidden = vi.fn();
     fixture.componentInstance.cardPreviewHidden.subscribe(previewHidden);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 22 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 22 }),
+    );
     fixture.detectChanges();
 
     expect(previewHidden).toHaveBeenCalledOnce();
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
-    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('dragging');
+    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain(
+      'Arcane Signet',
+    );
   });
 
   it('keeps the hand fan while dragging every selected hand card from a multi-card hand', async () => {
@@ -981,17 +1269,33 @@ describe('PlayerHandPanelComponent', () => {
       isSelected: (instanceId) => ['card-1', 'card-2'].includes(instanceId),
     });
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 22 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 22 }),
+    );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]'),
+    ).toBeNull();
     expect(fixture.nativeElement.querySelector('.hand-fan')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList).toContain('dragging');
-    expect(fixture.nativeElement.querySelector('.hand-drag-count-badge')?.textContent?.trim()).toBe('2');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('dragging');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList,
+    ).toContain('dragging');
+    expect(fixture.nativeElement.querySelector('.hand-drag-count-badge')?.textContent?.trim()).toBe(
+      '2',
+    );
   });
 
   it('does not use card drop animation classes when a new card enters the hand', async () => {
@@ -1002,15 +1306,20 @@ describe('PlayerHandPanelComponent', () => {
       ],
     });
 
-    fixture.componentRef.setInput('player', playerView([
-      { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
-      { instanceId: 'card-3', name: 'Cultivate', tapped: false },
-      { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
-    ]));
+    fixture.componentRef.setInput(
+      'player',
+      playerView([
+        { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+        { instanceId: 'card-3', name: 'Cultivate', tapped: false },
+        { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+      ]),
+    );
     fixture.detectChanges();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('drop-settling');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList,
+    ).not.toContain('drop-settling');
   });
 
   it('hides a hand card while it is pending transfer to another zone', async () => {
@@ -1019,7 +1328,9 @@ describe('PlayerHandPanelComponent', () => {
       isCardTransferPending: (_playerId, _zone, card) => card.instanceId === 'card-1',
     });
 
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('dragging');
   });
 
   it('shows the empty hand drop target while dragging the last visible hand card', async () => {
@@ -1027,20 +1338,32 @@ describe('PlayerHandPanelComponent', () => {
       hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
     });
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }),
+    );
     fixture.detectChanges();
 
-    const emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    const emptyTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
 
     expect(emptyTarget).not.toBeNull();
     expect(emptyTarget.getAttribute('data-game-drop-zone')).toBe('hand');
     expect(getComputedStyle(emptyTarget).pointerEvents).toBe('auto');
     expect(emptyTarget.classList).not.toContain('drop-target-active');
     expect(fixture.nativeElement.querySelector('.hand-fan')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
+    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain(
+      'Arcane Signet',
+    );
   });
 
   it('keeps the last hand card visible while pointer drag is still pending', async () => {
@@ -1048,7 +1371,9 @@ describe('PlayerHandPanelComponent', () => {
       hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
     });
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
     fixture.componentInstance.startHandPointerDrag(
       pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }),
@@ -1057,7 +1382,9 @@ describe('PlayerHandPanelComponent', () => {
     );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]'),
+    ).toBeNull();
     expect(sourceElement.classList).not.toContain('dragging');
     expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')).not.toBeNull();
   });
@@ -1067,7 +1394,9 @@ describe('PlayerHandPanelComponent', () => {
       hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
     });
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const handTarget = document.createElement('div');
     handTarget.dataset['gameDropZone'] = 'hand';
     handTarget.dataset['zone'] = 'hand';
@@ -1076,31 +1405,44 @@ describe('PlayerHandPanelComponent', () => {
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
-      value: vi.fn()
-        .mockReturnValueOnce([])
-        .mockReturnValueOnce([])
-        .mockReturnValue([handTarget]),
+      value: vi.fn().mockReturnValueOnce([]).mockReturnValueOnce([]).mockReturnValue([handTarget]),
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }),
+    );
     fixture.detectChanges();
 
-    let emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    let emptyTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
     expect(emptyTarget).not.toBeNull();
     expect(emptyTarget.classList).not.toContain('drop-target-active');
 
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }),
+    );
     fixture.detectChanges();
 
-    emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    emptyTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
     expect(emptyTarget).not.toBeNull();
     expect(emptyTarget.classList).toContain('drop-target-active');
 
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }));
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }),
+    );
     fixture.detectChanges();
 
-    emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    emptyTarget = fixture.nativeElement.querySelector(
+      '[data-testid="empty-hand-drop-target"]',
+    ) as HTMLElement;
     expect(emptyTarget).toBeNull();
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -1114,7 +1456,9 @@ describe('PlayerHandPanelComponent', () => {
       hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
     });
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const handTarget = document.createElement('div');
     handTarget.dataset['gameDropZone'] = 'hand';
     handTarget.dataset['zone'] = 'hand';
@@ -1126,17 +1470,28 @@ describe('PlayerHandPanelComponent', () => {
       value: vi.fn(() => [handTarget]),
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }),
+    );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')?.classList)
-      .toContain('drop-target-active');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')?.classList,
+    ).toContain('drop-target-active');
 
-    fixture.componentInstance.cancelHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }));
+    fixture.componentInstance.cancelHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }),
+    );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]'),
+    ).toBeNull();
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -1147,7 +1502,9 @@ describe('PlayerHandPanelComponent', () => {
   it('starts card drag when pointerdown starts on a hand card', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
     const originalElementsFromPoint = document.elementsFromPoint;
 
@@ -1164,18 +1521,22 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
 
     const visualElement = cardElement.querySelector<HTMLElement>('.card-visual') ?? cardElement;
-    visualElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-      pointerId: 1,
-    }));
+    visualElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        clientX: 20,
+        clientY: 20,
+        pointerId: 1,
+      }),
+    );
     fixture.detectChanges();
 
     expect(cardElement.classList).not.toContain('dragging');
 
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('reorder');
@@ -1190,30 +1551,37 @@ describe('PlayerHandPanelComponent', () => {
   it('starts card drag from a nested touch target when currentTarget is not available', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
     const visualElement = cardElement.querySelector<HTMLElement>('.card-visual')!;
 
-    cardElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    cardElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     visualElement.getBoundingClientRect = cardElement.getBoundingClientRect;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({
-      currentTarget: null,
-      target: visualElement,
-      pointerType: 'touch',
-      pointerId: 1,
-      clientX: 20,
-      clientY: 20,
-    }), 'player-1', draggedCard);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({
+        currentTarget: null,
+        target: visualElement,
+        pointerType: 'touch',
+        pointerId: 1,
+        clientX: 20,
+        clientY: 20,
+      }),
+      'player-1',
+      draggedCard,
+    );
 
     expect(fixture.componentInstance.pointerDrag()).toMatchObject({
       playerId: 'player-1',
@@ -1227,35 +1595,49 @@ describe('PlayerHandPanelComponent', () => {
     const { fixture, handArea } = await renderHandPanel();
     handArea.style.setProperty('--hand-hidden-offset', '80px');
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handZone = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
 
-    sourceElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    handZone.getBoundingClientRect = () => ({
-      x: 0,
-      y: 80,
-      width: 300,
-      height: 80,
-      top: 80,
-      right: 300,
-      bottom: 160,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    sourceElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    handZone.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 80,
+        width: 300,
+        height: 80,
+        top: 80,
+        right: 300,
+        bottom: 160,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 80, clientY: 150 }));
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 80, clientY: 50 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 80, clientY: 150 }),
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 80, clientY: 50 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
@@ -1265,35 +1647,49 @@ describe('PlayerHandPanelComponent', () => {
   it('keeps hand targeting when the dragged hand card extends below the revealed hand but enough stays visible', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handZone = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
 
-    sourceElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    handZone.getBoundingClientRect = () => ({
-      x: 0,
-      y: 80,
-      width: 300,
-      height: 80,
-      top: 80,
-      right: 300,
-      bottom: 160,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    sourceElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    handZone.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 80,
+        width: 300,
+        height: 80,
+        top: 80,
+        right: 300,
+        bottom: 160,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 80, clientY: 120 }));
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 80, clientY: 180 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 80, clientY: 120 }),
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 80, clientY: 180 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('reorder');
@@ -1302,16 +1698,32 @@ describe('PlayerHandPanelComponent', () => {
   it('does not start hand reorder when the card is dragged upward', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 80 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 52, clientY: 45 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 80 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 52, clientY: 45 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
-    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
-    expect((fixture.nativeElement.querySelector('.hand-floating-card') as HTMLElement).dataset['motionOriginCardId']).toBe('card-1');
+    expect(
+      fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList,
+    ).toContain('dragging');
+    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain(
+      'Arcane Signet',
+    );
+    expect(
+      (fixture.nativeElement.querySelector('.hand-floating-card') as HTMLElement).dataset[
+        'motionOriginCardId'
+      ],
+    ).toBe('card-1');
   });
 
   it('emits a pointer move when a hand card is dragged out to the battlefield', async () => {
@@ -1319,49 +1731,62 @@ describe('PlayerHandPanelComponent', () => {
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
     const moved = vi.fn();
     fixture.componentInstance.handCardPointerMoved.subscribe(moved);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    sourceElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    sourceElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
     battlefield.dataset['gameDropZone'] = 'battlefield';
     battlefield.dataset['zone'] = 'battlefield';
     battlefield.dataset['playerId'] = 'player-1';
-    battlefield.getBoundingClientRect = () => ({
-      x: 10,
-      y: 10,
-      width: 500,
-      height: 320,
-      top: 10,
-      right: 510,
-      bottom: 330,
-      left: 10,
-      toJSON: () => ({}),
-    } as DOMRect);
+    battlefield.getBoundingClientRect = () =>
+      ({
+        x: 10,
+        y: 10,
+        width: 500,
+        height: 320,
+        top: 10,
+        right: 510,
+        bottom: 330,
+        left: 10,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const originalElementsFromPoint = document.elementsFromPoint;
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       value: vi.fn(() => [battlefield]),
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 100, clientY: 120 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 120, clientY: 70 }));
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 100, clientY: 120 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 120, clientY: 70 }),
+    );
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }),
+    );
 
     expect(moved).toHaveBeenCalledWith({
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
       position: { x: 40, y: 0 },
     });
 
@@ -1376,18 +1801,21 @@ describe('PlayerHandPanelComponent', () => {
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
     const moved = vi.fn();
     fixture.componentInstance.handCardPointerMoved.subscribe(moved);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    sourceElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    sourceElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const graveyard = document.createElement('button');
     graveyard.dataset['gameDropZone'] = 'graveyard';
     graveyard.dataset['zone'] = 'graveyard';
@@ -1398,15 +1826,24 @@ describe('PlayerHandPanelComponent', () => {
       value: vi.fn(() => [graveyard]),
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 70 }));
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 70 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 70 }),
+    );
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 50, clientY: 70 }),
+    );
 
     expect(moved).toHaveBeenCalledWith({
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'graveyard',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -1423,49 +1860,57 @@ describe('PlayerHandPanelComponent', () => {
     const moved = vi.fn();
     fixture.componentInstance.handPointerDropTargetChanged.subscribe(dropTargetChanged);
     fixture.componentInstance.handCardPointerMoved.subscribe(moved);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    sourceElement.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 100,
-      bottom: 140,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    sourceElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 100,
+        bottom: 140,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
-    const targetElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]') as HTMLElement;
-    targetElement.getBoundingClientRect = () => ({
-      x: 100,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 200,
-      bottom: 140,
-      left: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const targetElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-2"]',
+    ) as HTMLElement;
+    targetElement.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 200,
+        bottom: 140,
+        left: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
     battlefield.dataset['gameDropZone'] = 'battlefield';
     battlefield.dataset['zone'] = 'battlefield';
     battlefield.dataset['playerId'] = 'player-1';
-    battlefield.getBoundingClientRect = () => ({
-      x: 10,
-      y: 10,
-      width: 500,
-      height: 320,
-      top: 10,
-      right: 510,
-      bottom: 330,
-      left: 10,
-      toJSON: () => ({}),
-    } as DOMRect);
+    battlefield.getBoundingClientRect = () =>
+      ({
+        x: 10,
+        y: 10,
+        width: 500,
+        height: 320,
+        top: 10,
+        right: 510,
+        bottom: 330,
+        left: 10,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const originalElementsFromPoint = document.elementsFromPoint;
-    const elementsFromPoint = vi.fn()
+    const elementsFromPoint = vi
+      .fn()
       .mockReturnValueOnce([handFan])
       .mockReturnValueOnce([handFan])
       .mockReturnValue([battlefield]);
@@ -1474,8 +1919,14 @@ describe('PlayerHandPanelComponent', () => {
       value: elementsFromPoint,
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('reorder');
@@ -1486,7 +1937,9 @@ describe('PlayerHandPanelComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.hand-drop-slot-before')).not.toBeNull();
 
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
@@ -1501,13 +1954,16 @@ describe('PlayerHandPanelComponent', () => {
       pointerClient: { x: 150, y: 100 },
     });
 
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }));
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }),
+    );
 
     expect(moved).toHaveBeenCalledWith({
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
+      sourceRect: { left: 0, top: 0, width: 100, height: 140 },
       position: { x: 120, y: 70 },
     });
 
@@ -1520,8 +1976,12 @@ describe('PlayerHandPanelComponent', () => {
   it('opens the row layout as soon as an own hand pointer drag starts', async () => {
     const { fixture } = await renderHandPanel();
     const [draggedCard] = fixture.componentInstance.player().state.zones.hand;
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handArea = fixture.nativeElement.querySelector('[data-testid="hand-area"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handArea = fixture.nativeElement.querySelector(
+      '[data-testid="hand-area"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
 
     expect(handArea.classList).not.toContain('hand-revealed');
@@ -1544,33 +2004,43 @@ describe('PlayerHandPanelComponent', () => {
     const [draggedCard, targetCard] = fixture.componentInstance.player().state.zones.hand;
     const reordered = vi.fn();
     fixture.componentInstance.handCardPointerReordered.subscribe(reordered);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
-    const handArea = fixture.nativeElement.querySelector('[data-testid="hand-area"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handZone = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
+    const handArea = fixture.nativeElement.querySelector(
+      '[data-testid="hand-area"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
-    const targetElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]') as HTMLElement;
-    handZone.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 420,
-      height: 190,
-      top: 0,
-      right: 420,
-      bottom: 190,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    targetElement.getBoundingClientRect = () => ({
-      x: 100,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 200,
-      bottom: 140,
-      left: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const targetElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-2"]',
+    ) as HTMLElement;
+    handZone.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 420,
+        height: 190,
+        top: 0,
+        right: 420,
+        bottom: 190,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    targetElement.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 200,
+        bottom: 140,
+        left: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const originalElementsFromPoint = document.elementsFromPoint;
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -1578,14 +2048,22 @@ describe('PlayerHandPanelComponent', () => {
     });
 
     fixture.componentInstance.focusHand();
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard!);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard!,
+    );
     fixture.detectChanges();
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }));
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.hand-drop-slot-before')).toBeNull();
 
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }));
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+    );
     fixture.detectChanges();
 
     expect(reordered).toHaveBeenCalledWith({
@@ -1614,40 +2092,54 @@ describe('PlayerHandPanelComponent', () => {
     const [draggedCard, targetCard] = fixture.componentInstance.player().state.zones.hand;
     const reordered = vi.fn();
     fixture.componentInstance.handCardPointerReordered.subscribe(reordered);
-    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
-    const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    const sourceElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const handZone = fixture.nativeElement.querySelector(
+      '[data-testid="hand-zone"]',
+    ) as HTMLElement;
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
-    const targetElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]') as HTMLElement;
-    handZone.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      width: 420,
-      height: 190,
-      top: 0,
-      right: 420,
-      bottom: 190,
-      left: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
-    targetElement.getBoundingClientRect = () => ({
-      x: 100,
-      y: 0,
-      width: 100,
-      height: 140,
-      top: 0,
-      right: 200,
-      bottom: 140,
-      left: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
+    const targetElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-2"]',
+    ) as HTMLElement;
+    handZone.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        width: 420,
+        height: 190,
+        top: 0,
+        right: 420,
+        bottom: 190,
+        left: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    targetElement.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 0,
+        width: 100,
+        height: 140,
+        top: 0,
+        right: 200,
+        bottom: 140,
+        left: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
     const originalElementsFromPoint = document.elementsFromPoint;
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       value: vi.fn(() => [handFan]),
     });
 
-    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }), 'player-1', draggedCard!);
-    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }));
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard!,
+    );
+    fixture.componentInstance.moveHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 110, clientY: 22 }),
+    );
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.hand-drop-slot-before')).toBeNull();
@@ -1661,7 +2153,9 @@ describe('PlayerHandPanelComponent', () => {
     expect(slot).not.toBeNull();
     expect(slot.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }));
+    fixture.componentInstance.endHandPointerDrag(
+      pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+    );
     fixture.detectChanges();
 
     expect(reordered).toHaveBeenCalledWith({
@@ -1690,24 +2184,33 @@ interface RenderHandPanelOptions {
   handZoneCount?: number;
   revealedHandIndexes?: number[];
   isDropZoneHighlighted?: (playerId: string, zone: GameZoneName) => boolean;
-  isHandDropTarget?: (playerId: string, card: GameCardInstance, placement: 'before' | 'after') => boolean;
+  isHandDropTarget?: (
+    playerId: string,
+    card: GameCardInstance,
+    placement: 'before' | 'after',
+  ) => boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   isSelected?: (instanceId: string) => boolean;
   cardImage?: (card: GameCardInstance) => string | null;
   prepareHandLayoutFlip?: (root: HTMLElement) => () => void;
+  renderCards?: boolean;
 }
 
-async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ fixture: ComponentFixture<PlayerHandPanelComponent>; handArea: HTMLElement }> {
+async function renderHandPanel(
+  options: RenderHandPanelOptions = {},
+): Promise<{ fixture: ComponentFixture<PlayerHandPanelComponent>; handArea: HTMLElement }> {
   await TestBed.configureTestingModule({
     imports: [PlayerHandPanelComponent],
     providers: [
       importProvidersFrom(LucideAngularModule.pick({ Eye, RotateCw })),
       GameTablePointerDragService,
       ...(options.prepareHandLayoutFlip
-        ? [{
-            provide: GameTableMotionService,
-            useValue: { prepareHandLayoutFlip: options.prepareHandLayoutFlip },
-          }]
+        ? [
+            {
+              provide: GameTableMotionService,
+              useValue: { prepareHandLayoutFlip: options.prepareHandLayoutFlip },
+            },
+          ]
         : []),
     ],
   }).compileComponents();
@@ -1721,18 +2224,36 @@ async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ 
 
     return player.state.zones[zone].length;
   });
-  fixture.componentRef.setInput('cardImage', options.cardImage ?? ((_card: GameCardInstance) => null));
-  fixture.componentRef.setInput('isSelected', options.isSelected ?? ((_instanceId: string) => false));
+  fixture.componentRef.setInput(
+    'cardImage',
+    options.cardImage ?? ((_card: GameCardInstance) => null),
+  );
+  fixture.componentRef.setInput(
+    'isSelected',
+    options.isSelected ?? ((_instanceId: string) => false),
+  );
   fixture.componentRef.setInput('isDraggingCard', (_card: GameCardInstance) => false);
-  fixture.componentRef.setInput('isHandDropTarget', options.isHandDropTarget ?? ((_playerId: string, _card: GameCardInstance, _placement: 'before' | 'after') => false));
-  fixture.componentRef.setInput('isDropZoneHighlighted', options.isDropZoneHighlighted ?? ((_playerId: string, _zone: GameZoneName) => false));
-  fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
+  fixture.componentRef.setInput(
+    'isHandDropTarget',
+    options.isHandDropTarget ??
+      ((_playerId: string, _card: GameCardInstance, _placement: 'before' | 'after') => false),
+  );
+  fixture.componentRef.setInput(
+    'isDropZoneHighlighted',
+    options.isDropZoneHighlighted ?? ((_playerId: string, _zone: GameZoneName) => false),
+  );
+  fixture.componentRef.setInput(
+    'isCardTransferPending',
+    options.isCardTransferPending ??
+      ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false),
+  );
   fixture.componentRef.setInput('hasActiveCardDrag', options.hasActiveCardDrag ?? false);
   fixture.componentRef.setInput('externalRevealAllowed', options.externalRevealAllowed ?? true);
   fixture.componentRef.setInput('readOnly', options.readOnly ?? false);
   fixture.componentRef.setInput('showCardsFaceDown', options.showCardsFaceDown ?? false);
   fixture.componentRef.setInput('hasOpenHandContextMenu', options.hasOpenHandContextMenu ?? false);
   fixture.componentRef.setInput('motionActive', options.motionActive ?? false);
+  fixture.componentRef.setInput('renderCards', options.renderCards ?? true);
   fixture.detectChanges();
 
   return {
@@ -1741,7 +2262,9 @@ async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ 
   };
 }
 
-function pointerEvent(patch: Partial<PointerEvent> & { pointerId: number; clientX: number; clientY: number }): PointerEvent {
+function pointerEvent(
+  patch: Partial<PointerEvent> & { pointerId: number; clientX: number; clientY: number },
+): PointerEvent {
   return {
     button: 0,
     preventDefault: vi.fn(),
@@ -1752,22 +2275,26 @@ function pointerEvent(patch: Partial<PointerEvent> & { pointerId: number; client
 }
 
 function matchMediaMock(matches: boolean): (query: string) => MediaQueryList {
-  return (query: string): MediaQueryList => ({
-    matches,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  } as unknown as MediaQueryList);
+  return (query: string): MediaQueryList =>
+    ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }) as unknown as MediaQueryList;
 }
 
-function playerView(hand: GameCardInstance[] = [
-  { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
-  { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
-], revealedHandIndexes?: number[]): PlayerView {
+function playerView(
+  hand: GameCardInstance[] = [
+    { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+    { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+  ],
+  revealedHandIndexes?: number[],
+): PlayerView {
   return {
     id: 'player-1',
     state: {
@@ -1794,5 +2321,35 @@ function playerView(hand: GameCardInstance[] = [
       commanderDamage: {},
       counters: {},
     },
+  };
+}
+
+function doubleFacedHandCard(instanceId: string): GameCardInstance {
+  return {
+    instanceId,
+    ownerId: 'player-1',
+    controllerId: 'player-1',
+    name: 'Front // Back',
+    tapped: false,
+    zone: 'hand',
+    activeFaceIndex: 0,
+    cardFaces: [
+      cardFace('Front', '/front.jpg'),
+      cardFace('Back', '/back.jpg'),
+    ],
+  };
+}
+
+function cardFace(name: string, image: string): NonNullable<GameCardInstance['cardFaces']>[number] {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: image },
   };
 }

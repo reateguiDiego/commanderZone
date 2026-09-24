@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} todavía necesita votar. Tienen {{ seconds }} extra para votar.",
       "timeLimit": "Límite de tiempo",
       "winnerMessage": "La mesa es tuya. Has sobrevivido al caos y has cerrado la partida con autoridad.",
+      "waitForGameEnd": "Espera a que termine la partida antes de iniciar una revancha.",
       "youDied": "Has muerto",
       "youHaveSecondsToVote": "Tienes {{ seconds }} para votar.",
       "yourVoteMissingExtra": "Falta tu voto. Tienes {{ seconds }}s extra para votar.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles de creación de fichas",
       "loadingDeckTokens": "Cargando fichas de mazo...",
-      "searchingTokens": "Buscando fichas..."
+      "searchingTokens": "Buscando fichas...",
+      "theRingFromGameMechanics": "El Anillo solo puede añadirse desde el campo de batalla. Haz clic con el botón derecho en el campo de batalla y elige «Mecánicas de juego»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",
       "upcomingTurnLabel": "En {{ count }}",
+      "nextPlayerLabel": "Siguiente jugador:",
       "currentTurnTitle": "A {{ name }} le toca el turno",
       "upcomingTurnTitle": "A {{ name }} le faltan {{ count }} turno(s)"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Enfocar al jugador activo",
       "focusTurn": "Enfocar turno",
       "advancePhase": "Avanzar fase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Enderezar",
         "upkeep": "Mantenimiento",
@@ -998,6 +1002,7 @@
       "moveToHand": "¿Poner en la mano?",
       "moveAllToLibrary": "Poner todo en la biblioteca",
       "gamesCanOnlyBePlayedInLandscape": "Las partidas solo se pueden jugar en horizontal en móviles y tablets.",
+      "defeatedActionBlocked": "Has sido derrotado, así que ya no puedes realizar acciones de juego. Aún puedes usar el chat mientras esperas a que termine la partida.",
       "thisTableNeedsALittleMoreRoom": "Esta mesa necesita un poco más de espacio.",
       "sorryThisResolutionIsTooCrampedFor": "Esta resolución es demasiado estrecha para una partida de Commander. Ajusta el zoom del navegador o usa una ventana más grande.",
       "useCtrl0InYourBrowserTo": "Usa Ctrl+0 en tu navegador para restablecer el zoom al 100%; luego actualiza o cambia el tamaño de esta ventana.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, mensajes no leídos",
       "moveCardToAnotherBattlefield": "Poner carta en otro campo de batalla",
       "putIntoLibrary": "Poner en la biblioteca",
+      "libraryPlacementSinglePrompt": "¿Dónde quieres poner esta carta?",
+      "libraryPlacementMultiplePrompt": "¿Dónde quieres poner estas {{ count }} cartas?",
+      "libraryPlacementTop": "Arriba",
+      "libraryPlacementBottom": "Abajo",
       "focusedOpponentLabel": "Estás viendo a:",
       "returnToOwnBattlefield": "Ir a tu campo de batalla",
       "leaveTableConfirmationTitle": "¿Abandonar la mesa?",
@@ -1253,6 +1262,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} creó una copia de ficha."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} se ha convertido en monarca.", "passed": "{{ actor }} le ha dado la monarquía a {{ player }}.", "removed": "{{ actor }} ha eliminado la designación de monarca." },
+      "initiative": { "claimed": "{{ player }} ha tomado la iniciativa.", "passed": "{{ actor }} le ha dado la iniciativa a {{ player }}.", "removed": "{{ actor }} ha eliminado la iniciativa." },
+      "citysBlessing": { "granted": "{{ player }} ha obtenido la bendición de la ciudad.", "removed": "{{ actor }} ha eliminado la bendición de la ciudad de {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} ha iniciado el ciclo día/noche de día.", "startedNight": "{{ actor }} ha iniciado el ciclo día/noche de noche.", "setDay": "{{ actor }} ha cambiado el estado de día/noche a día.", "setNight": "{{ actor }} ha cambiado el estado de día/noche a noche.", "removed": "{{ actor }} ha eliminado el estado de día/noche." },
+      "ring": { "created": "{{ player }} ha recibido el Anillo.", "removed": "{{ actor }} ha eliminado el Anillo." },
+      "dungeon": { "entered": "{{ player }} ha entrado en {{ cardName }}.", "advanced": "{{ actor }} ha avanzado en una mazmorra.", "removed": "{{ actor }} ha eliminado la mazmorra {{ cardName }}." },
+      "emblem": { "created": "{{ player }} ha creado el emblema {{ cardName }}.", "removed": "{{ actor }} ha eliminado el emblema {{ cardName }}." },
+      "helper": { "created": "{{ actor }} ha añadido una mecánica de juego.", "updated": "{{ actor }} ha actualizado una mecánica de juego.", "removed": "{{ actor }} ha eliminado una mecánica de juego." }
     },
     "turn": {
       "changed": "{{ previousPlayer }} ha finalizado su turno. Empieza el turno de {{ player }}.",
@@ -2186,6 +2205,17 @@
       "changeTheme": "Cambiar tema",
       "gameSettings": {
         "title": "Preferencias de juego",
+        "defaultBattlefieldLayout": {
+          "label": "Diseño de la mesa",
+          "description": "Elige cómo se organiza la mesa al abrir una partida.",
+          "grid": "Cuadrícula",
+          "focused": "Enfocada",
+          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente la vista enfocada."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ayuda de alineación de cartas",
+          "description": "Al mover una carta, muestra una guía de ayuda para alinear su altura con la de las cartas cercanas."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostrar ayuda de maná al iniciar",
           "description": "Muestra la ayuda para contar maná al comenzar una partida. Puedes ocultarla o volver a mostrarla cuando quieras durante la partida."
@@ -2573,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Mazo no válido",
-      "rollDice": "Tirar el dado",
+      "rollDice": "Tirar los dados",
       "selectADeck": "Selecciona un mazo",
       "kickPlayer": "Expulsar jugador",
       "turnOrder": "Orden de turno",

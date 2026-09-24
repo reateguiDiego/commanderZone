@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\GameLibraryOps;
 use App\Domain\Game\GameEvent;
 
 final readonly class GameWebsocketPatchBuilder
@@ -12,7 +13,10 @@ final readonly class GameWebsocketPatchBuilder
     private const MAX_VISIBLE_ZONE_CARDS = 40;
     private const MAX_SHARED_COLLECTION_ITEMS = 40;
 
-    public function __construct(private GameWebsocketMessageFactory $messages)
+    public function __construct(
+        private GameWebsocketMessageFactory $messages,
+        private ?GameLibraryOps $libraryOps = null,
+    )
     {
     }
 
@@ -92,9 +96,9 @@ final readonly class GameWebsocketPatchBuilder
             'library.view' => $this->libraryView($previousSnapshot, $nextSnapshot, $payload, $viewerId),
             'library.play_top_revealed' => $this->libraryPlayTopRevealed($previousSnapshot, $nextSnapshot, $payload, $viewerId),
             'library.reorder_top' => $this->libraryReorderTop($previousSnapshot, $nextSnapshot, $payload, $viewerId),
-            'card.face_down.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
-            'card.face.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
-            'card.revealed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
+            'card.face_down.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload, null),
+            'card.face.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload, null),
+            'card.revealed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload, $viewerId),
             'card.counter.changed' => $this->cardCounterChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.power_toughness.changed' => $this->cardStatsChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.controller.changed' => $this->cardControllerChanged($previousSnapshot, $nextSnapshot, $payload),
@@ -825,7 +829,7 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function cardProjectionChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    private function cardProjectionChanged(array $previousSnapshot, array $nextSnapshot, array $payload, ?string $viewerId): ?array
     {
         $locations = $this->payloadCardLocations($payload);
         if ($locations === []) {
@@ -840,7 +844,13 @@ final readonly class GameWebsocketPatchBuilder
                 ? sprintf('%s:%s', $location['playerId'], $location['zone'])
                 : sprintf('%s:%s:%s', $location['playerId'], $location['zone'], $location['instanceId']);
             if (!isset($refreshedTargets[$refreshTarget])) {
-                $refreshOperations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
+                $refreshOperations = $this->projectedCardRefreshOperations(
+                    $nextSnapshot,
+                    $location['playerId'],
+                    $location['zone'],
+                    $location['instanceId'],
+                    $viewerId === $location['playerId'],
+                );
                 if ($refreshOperations === null) {
                     return null;
                 }
@@ -1645,9 +1655,30 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function projectedCardRefreshOperations(array $nextSnapshot, string $playerId, string $zone, string $instanceId): ?array
+    private function projectedCardRefreshOperations(
+        array $nextSnapshot,
+        string $playerId,
+        string $zone,
+        string $instanceId,
+        bool $canPatchOwnHiddenCardDirectly = false,
+    ): ?array
     {
         if ($this->isHiddenZone($zone)) {
+            if ($canPatchOwnHiddenCardDirectly) {
+                $card = $this->card($nextSnapshot, $playerId, $zone, $instanceId);
+                if ($card === null) {
+                    return null;
+                }
+
+                return [[
+                    'op' => 'card.projection.set',
+                    'playerId' => $playerId,
+                    'zone' => $zone,
+                    'instanceId' => $instanceId,
+                    'card' => $card,
+                ]];
+            }
+
             return $this->visibleZoneOperations($nextSnapshot, $playerId, $zone);
         }
 
@@ -1882,7 +1913,25 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function topProjectedCards(array $snapshot, string $playerId, int $count): array
     {
-        return array_slice($this->zoneCards($snapshot, $playerId, 'library'), 0, max(0, $count));
+        return array_slice($this->libraryCardsInDrawOrder($snapshot, $playerId), 0, max(0, $count));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function libraryCardsInDrawOrder(array $snapshot, string $playerId): array
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
+            return [];
+        }
+
+        return $this->libraryOps()->projectionOrderCards($player);
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
     }
 
     /**
@@ -1947,7 +1996,9 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function visibleZoneOperations(array $nextSnapshot, string $playerId, string $zone, ?int $limit = null): ?array
     {
-        $cards = $this->zoneCards($nextSnapshot, $playerId, $zone);
+        $cards = $zone === 'library'
+            ? $this->libraryCardsInDrawOrder($nextSnapshot, $playerId)
+            : $this->zoneCards($nextSnapshot, $playerId, $zone);
         if ($limit !== null) {
             $cards = array_slice($cards, 0, min($limit, self::MAX_VISIBLE_ZONE_CARDS));
         }

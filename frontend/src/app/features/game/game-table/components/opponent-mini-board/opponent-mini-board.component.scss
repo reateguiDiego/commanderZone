@@ -77,10 +77,10 @@
 }
 
 .player-thumb.drop-target-active {
-  border-color: color-mix(in srgb, var(--game-accent) 54%, rgb(var(--highlight-rgb) / 22%));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--game-accent) 40%, transparent),
-    0 0 1.2rem color-mix(in srgb, var(--game-accent) 18%, transparent);
+    inset 0 0 0 2px var(--game-accent),
+    inset 0 0 2rem rgb(var(--gold-rgb) / 14%),
+    0 0 1.15rem rgb(var(--gold-rgb) / 16%);
 }
 
 .player-thumb.active-turn-player {

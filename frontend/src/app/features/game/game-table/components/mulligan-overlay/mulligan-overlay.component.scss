@@ -210,9 +210,10 @@ h2 {
 }
 
 .mulligan-hand {
-  --mulligan-card-view-width: clamp(13rem, 18vw, 20rem);
+  --mulligan-card-view-width: clamp(11rem, 15vw, 20rem);
   --game-card-view-width: var(--mulligan-card-view-width);
   --mulligan-card-slot-width: var(--mulligan-card-view-width);
+  --mulligan-card-gap: clamp(0.8rem, 1.35vw, 1.2rem);
 
   position: relative;
   display: grid;
@@ -235,7 +236,7 @@ h2 {
   grid-auto-rows: max-content;
   justify-content: center;
   justify-items: center;
-  gap: clamp(0.8rem, 1.35vw, 1.2rem);
+  gap: var(--mulligan-card-gap);
   width: 100%;
   min-height: 0;
 }
@@ -266,20 +267,11 @@ h2 {
   gap: 0.42rem;
   width: min(100%, var(--mulligan-card-slot-width));
   justify-items: center;
-  perspective: 760px;
   transform-origin: center bottom;
-  will-change: transform, opacity;
 }
 
 .mulligan-card ::ng-deep .game-card {
   width: var(--mulligan-card-view-width);
-}
-
-.mulligan-card ::ng-deep .card-visual,
-.scry-card ::ng-deep .card-visual {
-  transform-origin: center;
-  transform-style: preserve-3d;
-  will-change: transform, filter;
 }
 
 .mulligan-face-toggle {
@@ -602,7 +594,6 @@ h2 {
   position: relative;
   display: grid;
   width: var(--game-card-view-width);
-  perspective: 760px;
 }
 
 .waiting-panel lucide-icon {
@@ -632,6 +623,9 @@ h2 {
     min-height: min(36rem, calc(100dvh - 14rem));
   }
 
+  .mulligan-hand {
+    --mulligan-card-view-width: clamp(10rem, 22vw, 13rem);
+  }
 }
 
 @media (max-width: 640px) {
@@ -683,7 +677,31 @@ h2 {
   }
 
   .mulligan-hand {
-    --mulligan-card-view-width: clamp(11rem, 72vw, 16rem);
+    --mulligan-card-view-width: 100%;
+    --mulligan-card-slot-width: 100%;
+    --mulligan-card-gap: 0.65rem;
+
+    gap: 0.75rem;
+    padding: 0.55rem 0.1rem 0.35rem;
+  }
+
+  .mulligan-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mulligan-card {
+    width: min(100%, 10rem);
+  }
+
+  .mulligan-face-toggle {
+    width: 2.1rem;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  .mulligan-face-toggle lucide-icon {
+    width: 1.05rem;
+    height: 1.05rem;
   }
 }
 

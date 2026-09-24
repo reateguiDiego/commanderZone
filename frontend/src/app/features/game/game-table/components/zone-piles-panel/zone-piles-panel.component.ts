@@ -16,6 +16,8 @@ import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.co
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
+import { isRevealedCard } from '../../utils/card-reveal';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -80,6 +82,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
     GameTableLongPressDirective,
     MTGIconComponent,
     LucideAngularModule,
+    GameScheduledImageDirective,
     PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './zone-piles-panel.component.html',
@@ -94,6 +97,8 @@ export class ZonePilesPanelComponent {
   private pointerDragStartedInstanceId: string | null = null;
   private suppressedClickZone: GameZoneName | null = null;
 
+  readonly compact = input(false);
+  readonly isTurnActive = input(false);
   readonly player = input.required<PlayerView>();
   readonly zones = input.required<ReadonlyArray<GameZoneName>>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
@@ -107,6 +112,7 @@ export class ZonePilesPanelComponent {
   readonly commandZoneCards = input.required<(player: PlayerView) => readonly GameCardInstance[]>();
   readonly commanderCards = input.required<(player: PlayerView) => readonly GameCardInstance[]>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
+  readonly cardBackImage = input.required<(player: PlayerView) => string>();
   readonly commanderCastCount = input.required<(player: PlayerView, commander: GameCardInstance) => number>();
   readonly canControlPlayer = input.required<(playerId: string) => boolean>();
   readonly isZoneDropSettling = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
@@ -136,25 +142,27 @@ export class ZonePilesPanelComponent {
     return this.specialEntities.globalEntity('monarch')?.ownerPlayerId === playerId;
   }
 
-  isLibraryTopRevealMarked(player: PlayerView): boolean {
-    return player.state.playTopLibraryRevealed === true || player.state.topLibraryRevealMarker === true;
+  hasRevealedLibraryCards(player: PlayerView): boolean {
+    return player.state.playTopLibraryRevealed === true
+      || player.state.topLibraryRevealMarker === true
+      || player.state.zones.library.some(isRevealedCard);
   }
 
-  canToggleLibraryTopFace(player: PlayerView): boolean {
-    if (!this.isLibraryTopRevealMarked(player)) {
-      return false;
-    }
-
-    const topCard = this.zonePreviewCard()(player, 'library');
+  canToggleZoneTopFace(player: PlayerView, zone: GameZoneName): boolean {
+    const topCard = this.zonePreviewCard()(player, zone);
     return topCard !== null
       && !topCard.hidden
+      && (zone !== 'library' || this.isLibraryTopCardRevealed(player, topCard))
       && canShowAlternateFaceToggle(topCard);
   }
 
-  previewLibraryTopFace(event: { event: MouseEvent; showingAlternateFace: boolean }): void {
+  previewZoneTopFace(
+    zone: GameZoneName,
+    event: { event: MouseEvent; showingAlternateFace: boolean },
+  ): void {
     const player = this.player();
-    const topCard = this.zonePreviewCard()(player, 'library');
-    if (!topCard || topCard.hidden) {
+    const topCard = this.zonePreviewCard()(player, zone);
+    if (!topCard || !this.canToggleZoneTopFace(player, zone)) {
       return;
     }
 
@@ -166,9 +174,15 @@ export class ZonePilesPanelComponent {
     this.cardPreviewShown.emit({
       card,
       playerId: player.id,
-      zone: 'library',
+      zone,
       sourceRect: previewRectFromElement(event.event.currentTarget instanceof Element ? event.event.currentTarget : null),
     });
+  }
+
+  private isLibraryTopCardRevealed(player: PlayerView, topCard: GameCardInstance): boolean {
+    return player.state.playTopLibraryRevealed === true
+      || player.state.topLibraryRevealMarker === true
+      || isRevealedCard(topCard);
   }
 
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
@@ -384,6 +398,10 @@ export class ZonePilesPanelComponent {
       return null;
     }
 
+    if (drag.source.fromZone === 'library') {
+      return this.cardBackImage()(this.player());
+    }
+
     return drag.source.fromZone === 'command'
       ? this.cardImage()(drag.source.card)
       : this.zonePreviewImage()(this.player(), drag.source.fromZone);
@@ -397,7 +415,9 @@ export class ZonePilesPanelComponent {
   }
 
   canUseMousePointerDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {
-    return this.canControlCurrentPlayer() && (zone === 'graveyard' || zone === 'exile') && card !== null;
+    return this.canControlCurrentPlayer()
+      && (zone === 'library' || zone === 'graveyard' || zone === 'exile')
+      && card !== null;
   }
 
   canUseNativeZoneDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {

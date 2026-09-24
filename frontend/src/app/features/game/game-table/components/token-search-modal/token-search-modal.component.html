@@ -9,7 +9,11 @@
   (secondary)="close()"
   (close)="close()"
 >
-  <section class="token-search-panel" (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()">
+  <section
+    class="token-search-panel"
+    (click)="$event.stopPropagation()"
+    (contextmenu)="$event.stopPropagation()"
+  >
     <label class="token-search-field">
       <lucide-icon name="search" size="18" aria-hidden="true" />
       <input
@@ -27,7 +31,11 @@
       @if (loadingDeck() && showingDeckTokens()) {
         <span>{{ 'game.tokenSearchModal.loadingDeckTokens' | runtimeTranslate }}</span>
       } @else if (searching()) {
-        <span>{{ kind === 'token' ? ('game.tokenSearchModal.searchingTokens' | runtimeTranslate) : ('game.specialHelpers.modal.searching' | runtimeTranslate) }}</span>
+        <span>{{
+          kind === 'token'
+            ? ('game.tokenSearchModal.searchingTokens' | runtimeTranslate)
+            : ('game.specialHelpers.modal.searching' | runtimeTranslate)
+        }}</span>
       } @else if (error(); as message) {
         <span class="error">{{ message }}</span>
       } @else if (displayCards().length > 0) {
@@ -40,14 +48,27 @@
       @for (card of displayCards(); track card.scryfallId) {
         <article class="token-card" [class.pending]="pending">
           @if (imageFor(card); as image) {
-            <img [src]="image" [alt]="card.name" loading="lazy" />
+            <img
+              [appGameScheduledImage]="image"
+              gameImagePriority="visible"
+              [alt]="card.name"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              [appPreloadCardAlternateFace]="card"
+              [cardVisibleFaceIndex]="0"
+            />
           } @else {
             <span class="token-card-fallback">{{ card.name }}</span>
           }
           <div
             class="token-add-controls"
             [class.token-add-controls-single]="kind !== 'token'"
-            [attr.aria-label]="kind === 'token' ? ('game.tokenSearchModal.tokenCreationControls' | runtimeTranslate) : ('common.ui.gameplayCardAddControls' | runtimeTranslate)"
+            [attr.aria-label]="
+              kind === 'token'
+                ? ('game.tokenSearchModal.tokenCreationControls' | runtimeTranslate)
+                : ('common.ui.gameplayCardAddControls' | runtimeTranslate)
+            "
           >
             @if (kind === 'token') {
               <app-game-x-quantity-stepper

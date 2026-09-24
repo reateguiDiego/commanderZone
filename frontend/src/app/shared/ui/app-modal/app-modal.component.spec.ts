@@ -27,7 +27,10 @@ describe('AppModalComponent', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.componentRef.setInput('title', 'Player disconnected');
-    fixture.componentRef.setInput('message', 'A long message that should wrap before it reaches the close button.');
+    fixture.componentRef.setInput(
+      'message',
+      'A long message that should wrap before it reaches the close button.',
+    );
     fixture.componentRef.setInput('showCloseButton', true);
     fixture.detectChanges();
 
@@ -60,6 +63,45 @@ describe('AppModalComponent', () => {
     expect(document.body.style.position).toBe('');
     expect(document.body.style.paddingRight).toBe('');
     scrollToSpy.mockRestore();
+  });
+
+  it('compensates for the scrollbar width while body scroll is locked', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    const html = document.documentElement;
+    const viewportWidthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    const clientWidthDescriptor = Object.getOwnPropertyDescriptor(html, 'clientWidth');
+    const bodyPaddingRight = document.body.style.paddingRight;
+
+    try {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+      Object.defineProperty(html, 'clientWidth', { configurable: true, value: 1184 });
+      document.body.style.paddingRight = '8px';
+
+      fixture.componentRef.setInput('open', true);
+      fixture.detectChanges();
+
+      expect(document.body.style.paddingRight).toBe('24px');
+
+      fixture.componentRef.setInput('open', false);
+      fixture.detectChanges();
+
+      expect(document.body.style.paddingRight).toBe('8px');
+    } finally {
+      fixture.componentRef.setInput('open', false);
+      fixture.detectChanges();
+      document.body.style.paddingRight = bodyPaddingRight;
+
+      if (viewportWidthDescriptor) {
+        Object.defineProperty(window, 'innerWidth', viewportWidthDescriptor);
+      } else {
+        Reflect.deleteProperty(window, 'innerWidth');
+      }
+      if (clientWidthDescriptor) {
+        Object.defineProperty(html, 'clientWidth', clientWidthDescriptor);
+      } else {
+        Reflect.deleteProperty(html, 'clientWidth');
+      }
+    }
   });
 
   it('can open without locking body scroll', () => {

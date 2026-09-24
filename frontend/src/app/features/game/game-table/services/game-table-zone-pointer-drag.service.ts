@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { measuredBattlefieldCardSize } from '../utils/battlefield-position';
 import {
   ZonePointerDragMove,
   ZonePointerDragSource,
@@ -28,7 +29,6 @@ interface ZonePointerDragStartOptions {
 export class GameTableZonePointerDragService {
   private readonly pointerDrag = inject(GameTablePointerDragService);
   private readonly dragThresholdPx = 12;
-  private readonly cardAspectRatio = 0.716;
   private activeDrag: ActiveZonePointerDrag | null = null;
 
   readonly dragMove = signal<ZonePointerDragMove | null>(null);
@@ -49,7 +49,10 @@ export class GameTableZonePointerDragService {
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
       return false;
     }
-    const previewSize = this.previewCardSize(bounds);
+    // Zone artwork is deliberately smaller than a battlefield card. The
+    // floating card and its drop geometry must instead match the owner's real
+    // battlefield card size, exactly as a hand drag already does.
+    const previewSize = this.battlefieldCardSizeFor(playerId);
     const offsetRatioX = this.clamp(event.clientX - bounds.left, 0, bounds.width) / bounds.width;
     const offsetRatioY = this.clamp(event.clientY - bounds.top, 0, bounds.height) / bounds.height;
     const dropCardSize = {
@@ -169,12 +172,14 @@ export class GameTableZonePointerDragService {
   ): PointerDropTarget | null {
     const target = this.pointerDrag.zoneTargetAt(event, dropCardSize, {
       includeHand: true,
+      sourcePlayerId: source.playerId,
       draggedCard: source.card,
       knownCommanderInstanceIds,
     });
     const normalizedBattlefieldTarget = target?.toZone === 'battlefield'
       ? this.pointerDrag.zoneTargetAt(event, battlefieldDropCardSize, {
           includeHand: true,
+          sourcePlayerId: source.playerId,
           draggedCard: source.card,
           knownCommanderInstanceIds,
         })
@@ -220,18 +225,21 @@ export class GameTableZonePointerDragService {
   }
 
   private cardBounds(pointerTarget: HTMLElement | null): DOMRect | null {
-    return pointerTarget?.querySelector<HTMLElement>('.zone-art')?.getBoundingClientRect()
-      ?? pointerTarget?.getBoundingClientRect()
-      ?? null;
+    const artBounds = pointerTarget?.querySelector<HTMLElement>('.zone-art')?.getBoundingClientRect() ?? null;
+
+    if (artBounds && artBounds.width > 0 && artBounds.height > 0) {
+      return artBounds;
+    }
+
+    return pointerTarget?.getBoundingClientRect() ?? null;
   }
 
-  private previewCardSize(bounds: DOMRect): { readonly width: number; readonly height: number } {
-    const width = this.clamp(Math.round(bounds.width * 2.2), 88, 128);
+  private battlefieldCardSizeFor(playerId: string): { readonly width: number; readonly height: number } {
+    const battlefield = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
+      .find((element) => element.dataset['playerId'] === playerId)
+      ?? null;
 
-    return {
-      width,
-      height: Math.round(width / this.cardAspectRatio),
-    };
+    return measuredBattlefieldCardSize(battlefield);
   }
 
   private releasePointer(active: ActiveZonePointerDrag, event: PointerEvent): void {

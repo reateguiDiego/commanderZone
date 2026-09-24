@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "This roll sets your turn order.",
       "thisDeck": "this deck",
       "thisPlayer": "this player",
-      "tieBreakRoll": "Tie-break roll",
+      "tieBreakRoll": "Tie-breaker roll",
       "tieBreakRollMessage": "You tied with {{ playerNames }}. Roll again to break the tie.",
       "waitingForDecksAndRolls": "Waiting for decks and rolls",
       "realtimeUnavailable": "The real-time connection is recovering. Room changes may be delayed."
@@ -833,6 +833,7 @@
       "playersMissingExtra": "Still waiting on {{ playerNames }}. {{ seconds }}s remaining.",
       "timeLimit": "Time limit",
       "winnerMessage": "You claimed the table. Ready for another game?",
+      "waitForGameEnd": "Wait for the game to end before starting a rematch.",
       "youDied": "You were defeated",
       "youHaveSecondsToVote": "You have {{ seconds }}s to vote.",
       "yourVoteMissingExtra": "Your vote is still needed. {{ seconds }}s remaining.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Token creation controls",
       "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "searchingTokens": "Searching tokens...",
+      "theRingFromGameMechanics": "The Ring can only be added from the battlefield. Right-click the battlefield, then choose “Game mechanics”."
     },
     "playersOrder": {
       "currentTurnLabel": "Turn {{ turnNumber }}",
       "upcomingTurnLabel": "In {{ count }}",
+      "nextPlayerLabel": "Next player:",
       "currentTurnTitle": "{{ name }} has the turn",
       "upcomingTurnTitle": "{{ name }} is {{ count }} turn(s) away"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",
@@ -998,6 +1002,7 @@
       "moveToHand": "Put into hand?",
       "moveAllToLibrary": "Put all into library",
       "gamesCanOnlyBePlayedInLandscape": "On mobile and tablet, games can be played only in landscape mode.",
+      "defeatedActionBlocked": "You have been defeated, so you can no longer perform game actions. You can still use chat while you wait for the game to end.",
       "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
       "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
       "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, unread messages",
       "moveCardToAnotherBattlefield": "Move card to another battlefield",
       "putIntoLibrary": "Put into library",
+      "libraryPlacementSinglePrompt": "Where should this card go?",
+      "libraryPlacementMultiplePrompt": "Where should these {{ count }} cards go?",
+      "libraryPlacementTop": "Top",
+      "libraryPlacementBottom": "Bottom",
       "focusedOpponentLabel": "Viewing:",
       "returnToOwnBattlefield": "Go to your battlefield",
       "leaveTableConfirmationTitle": "Leave table?",
@@ -1253,6 +1262,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} became the monarch.", "passed": "{{ actor }} gave the monarch to {{ player }}.", "removed": "{{ actor }} removed the monarch designation." },
+      "initiative": { "claimed": "{{ player }} took the initiative.", "passed": "{{ actor }} gave the initiative to {{ player }}.", "removed": "{{ actor }} removed the initiative." },
+      "citysBlessing": { "granted": "{{ player }} got the city's blessing.", "removed": "{{ actor }} removed {{ player }}'s city's blessing." },
+      "dayNight": { "startedDay": "{{ actor }} started the day/night cycle as day.", "startedNight": "{{ actor }} started the day/night cycle as night.", "setDay": "{{ actor }} changed the day/night state to day.", "setNight": "{{ actor }} changed the day/night state to night.", "removed": "{{ actor }} removed day/night." },
+      "ring": { "created": "{{ player }} received The Ring.", "removed": "{{ actor }} removed The Ring." },
+      "dungeon": { "entered": "{{ player }} entered {{ cardName }}.", "advanced": "{{ actor }} advanced in a dungeon.", "removed": "{{ actor }} removed dungeon {{ cardName }}." },
+      "emblem": { "created": "{{ player }} created emblem {{ cardName }}.", "removed": "{{ actor }} removed emblem {{ cardName }}." },
+      "helper": { "created": "{{ actor }} added a game mechanic.", "updated": "{{ actor }} updated a game mechanic.", "removed": "{{ actor }} removed a game mechanic." }
     },
     "turn": {
       "changed": "{{ previousPlayer }} finished their turn. {{ player }}'s turn begins.",
@@ -2186,6 +2205,17 @@
       "changeTheme": "Change theme",
       "gameSettings": {
         "title": "Gameplay preferences",
+        "defaultBattlefieldLayout": {
+          "label": "Table layout",
+          "description": "Choose how the table is arranged when you open a game.",
+          "grid": "Grid",
+          "focused": "Focused",
+          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, the Focused layout will be used automatically."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Card alignment helper",
+          "description": "When moving a card, show an alignment guide that matches its vertical position to nearby cards."
+        },
         "showManaHelperOnStartup": {
           "label": "Show mana helper on startup",
           "description": "Show the mana-counting helper when a match starts. You can hide it or show it again at any time during the match."
@@ -2369,16 +2399,16 @@
     "roll": {
       "rollModal": {
         "text": "Result",
-        "closeRoll": "Close roll",
+        "closeRoll": "Close dice roll",
         "rollType": "Roll type",
         "rollAgain": "Roll again"
       },
       "options": {
-        "coin": "Coin",
-        "d4": "4-sided die",
-        "d6": "6-sided die",
-        "d10": "10-sided die",
-        "d20": "20-sided die"
+        "coin": "Coin flip",
+        "d4": "d4 (four-sided die)",
+        "d6": "d6 (six-sided die)",
+        "d10": "d10 (ten-sided die)",
+        "d20": "d20 (twenty-sided die)"
       },
       "results": {
         "heads": "Heads",

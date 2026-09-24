@@ -82,6 +82,16 @@ describe('land stack utilities', () => {
     expect(landStackDropTarget(battlefield, [], 'dragged', { x: 100, y: 200 }, positionFor, new Set(['top']))).toBeNull();
   });
 
+  it('requires near-complete overlap when a stricter drop threshold is supplied', () => {
+    const target = land('target', 100, 80);
+    const lightOverlap = land('dragged', 130, 100);
+    const nearCompleteOverlap = land('dragged', 120, 100);
+
+    expect(landStackDropTarget([lightOverlap, target], [], 'dragged', { x: 130, y: 100 }, positionFor, new Set(), 0.7)).toBeNull();
+    expect(landStackDropTarget([nearCompleteOverlap, target], [], 'dragged', { x: 120, y: 100 }, positionFor, new Set(), 0.7)?.targetCard.instanceId)
+      .toBe('target');
+  });
+
   it('detaches one relation and recompacts the remaining members', () => {
     const cards = [land('top', 100, 200), land('middle', 110, 182), land('bottom', 120, 164)];
     const stacks = [

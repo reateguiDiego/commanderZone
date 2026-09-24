@@ -12,6 +12,7 @@ import { SagaCounterComponent } from '../game-card-view/saga-counter/saga-counte
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard } from '../../utils/gameplay-card-kind';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
 interface BattlefieldRect {
   readonly left: number;
@@ -61,6 +62,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
     LoyaltyCounterComponent,
     SagaCounterComponent,
     TooltipComponent,
+    GameScheduledImageDirective,
     PreloadCardAlternateFaceDirective,
   ],
   templateUrl: './card-preview-overlay.component.html',
@@ -74,6 +76,7 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   readonly sourceRect = input<CardPreviewSourceRect | null>(null);
   readonly avoidRect = input<CollisionRect | null>(null);
   readonly battlefieldRect = input.required<BattlefieldRect>();
+  readonly useViewportPosition = input(false);
   readonly attachmentInfo = input<CardPreviewAttachmentInfo | null>(null);
   readonly cardStateInfo = input<CardPreviewCardStateInfo | null>(null);
   readonly revealLabel = input<string | null>(null);
@@ -114,10 +117,15 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
 
   private computePreviewStyle(): PreviewStyle {
     const visualStyle = this.computePreviewVisualStyle();
-    const field = this.battlefieldRect();
+    const field = this.previewBounds();
     const hasDetailInfo = this.hasDetailInfo();
     const width = visualStyle.width;
     const height = visualStyle.height + (hasDetailInfo ? DETAIL_INFO_ESTIMATED_HEIGHT : 0);
+
+    if (this.useViewportPosition()) {
+      return this.computeViewportPreviewStyle(field, width, height);
+    }
+
     const defaultLeft = field.right - width - PREVIEW_MARGIN;
     const left = clamp(defaultLeft, field.left + PREVIEW_MARGIN, field.right - width - PREVIEW_MARGIN);
     const centeredTop = field.top + (field.height - height) / 2;
@@ -154,7 +162,7 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   }
 
   private computePreviewVisualStyle(): PreviewVisualStyle {
-    const field = this.battlefieldRect();
+    const field = this.previewBounds();
     const maxWidth = this.hasDetailInfo() ? PREVIEW_WITH_ATTACHMENTS_WIDTH : PREVIEW_WIDTH;
     const verticalWidth = Math.min(maxWidth, Math.max(160, field.width - PREVIEW_MARGIN * 2));
     const verticalHeight = verticalWidth * PREVIEW_ASPECT_RATIO;
@@ -162,6 +170,62 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
     return this.previewMode() === 'horizontal'
       ? { width: verticalHeight, height: verticalWidth }
       : { width: verticalWidth, height: verticalHeight };
+  }
+
+  private computeViewportPreviewStyle(field: BattlefieldRect, width: number, height: number): PreviewStyle {
+    const left = clamp(
+      field.right - width - PREVIEW_MARGIN,
+      field.left + PREVIEW_MARGIN,
+      field.right - width - PREVIEW_MARGIN,
+    );
+    const centeredTop = field.top + (field.height - height) / 2;
+    const defaultTop = clamp(centeredTop, field.top + PREVIEW_MARGIN, field.bottom - height - PREVIEW_MARGIN);
+    const sourceRect = this.sourceRect();
+
+    if (!sourceRect) {
+      return { left, top: defaultTop, width, height };
+    }
+
+    const center = defaultTop + height / 2;
+    const preferredTop = sourceRect.top >= center
+      ? sourceRect.top - height - PREVIEW_GAP
+      : sourceRect.bottom + PREVIEW_GAP;
+    const top = clamp(preferredTop, field.top + PREVIEW_MARGIN, field.bottom - height - PREVIEW_MARGIN);
+    const candidate = styleRect(left, top, width, height);
+    const avoidRect = this.avoidRect();
+
+    if (!avoidRect || !rectsOverlap(candidate, avoidRect)) {
+      return { left, top, width, height };
+    }
+
+    const alternateTop = sourceRect.top >= center
+      ? sourceRect.bottom + PREVIEW_GAP
+      : sourceRect.top - height - PREVIEW_GAP;
+    const clampedAlternateTop = clamp(
+      alternateTop,
+      field.top + PREVIEW_MARGIN,
+      field.bottom - height - PREVIEW_MARGIN,
+    );
+    const alternate = styleRect(left, clampedAlternateTop, width, height);
+
+    return !rectsOverlap(alternate, avoidRect)
+      ? { left, top: clampedAlternateTop, width, height }
+      : { left, top, width, height };
+  }
+
+  private previewBounds(): BattlefieldRect {
+    const battlefieldRect = this.battlefieldRect();
+
+    if (!this.useViewportPosition() || typeof window === 'undefined') {
+      return battlefieldRect;
+    }
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    return width > 0 && height > 0
+      ? { left: 0, top: 0, right: width, bottom: height, width, height }
+      : battlefieldRect;
   }
 
   private firstOverlappingObstacle(

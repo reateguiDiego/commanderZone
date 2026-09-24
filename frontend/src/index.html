@@ -1,52 +1,54 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>CommanderZone</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/png" href="/icon-48x48.png" sizes="48x48">
-  <link rel="icon" type="image/png" href="/icon-192x192.png" sizes="192x192">
-  <link rel="icon" type="image/png" href="/icon-512x512.png" sizes="512x512">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <script>
-    (function () {
-      var themeStorageKey = 'commanderzone.theme';
-      var userStorageKey = 'commanderzone.user';
-      var themeIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  <head>
+    <meta charset="utf-8" />
+    <title>CommanderZone</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://cards.scryfall.io" crossorigin />
+    <link rel="shortcut icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/icon-48x48.png" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/icon-192x192.png" sizes="192x192" />
+    <link rel="icon" type="image/png" href="/icon-512x512.png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      (function () {
+        var themeStorageKey = 'commanderzone.theme';
+        var userStorageKey = 'commanderzone.user';
+        var themeIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-      function validThemeId(value) {
-        return typeof value === 'string' && themeIdPattern.test(value) ? value : null;
-      }
+        function validThemeId(value) {
+          return typeof value === 'string' && themeIdPattern.test(value) ? value : null;
+        }
 
-      function storedUserThemeId(storage) {
-        var rawUser = storage.getItem(userStorageKey);
-        if (!rawUser) {
-          return null;
+        function storedUserThemeId(storage) {
+          var rawUser = storage.getItem(userStorageKey);
+          if (!rawUser) {
+            return null;
+          }
+
+          try {
+            var user = JSON.parse(rawUser);
+            return validThemeId(user && user.preferences && user.preferences.themeId);
+          } catch (_error) {
+            return null;
+          }
         }
 
         try {
-          var user = JSON.parse(rawUser);
-          return validThemeId(user && user.preferences && user.preferences.themeId);
-        } catch (_error) {
-          return null;
-        }
-      }
-
-      try {
-        var storage = window.localStorage;
-        var themeId = validThemeId(storage.getItem(themeStorageKey)) || storedUserThemeId(storage);
-        if (themeId) {
-          document.documentElement.setAttribute('data-theme', themeId);
-        }
-      } catch (_error) {
-      }
-    })();
-  </script>
-  <script src="/runtime-config.js"></script>
-</head>
-<body>
-  <app-root></app-root>
-</body>
+          var storage = window.localStorage;
+          var themeId =
+            validThemeId(storage.getItem(themeStorageKey)) || storedUserThemeId(storage);
+          if (themeId) {
+            document.documentElement.setAttribute('data-theme', themeId);
+          }
+        } catch (_error) {}
+      })();
+    </script>
+    <script src="/runtime-config.js"></script>
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
 </html>

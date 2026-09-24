@@ -14,6 +14,8 @@ import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
+import { isRevealedCard } from '../../utils/card-reveal';
+import { SpecialEntityPreviewRequest } from '../../models/special-entity-preview-request.model';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -67,7 +69,6 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 })
 export class OpponentMiniBoardComponent {
   readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
-  readonly playerNameColor = gamePlayerNameColor;
   readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
     { zone: 'hand', icon: 'hand-fan', title: 'shared.text.hand' },
     { zone: 'library', icon: 'deck', title: 'game.zones.library' },
@@ -76,6 +77,7 @@ export class OpponentMiniBoardComponent {
   ];
 
   readonly player = input.required<PlayerView>();
+  readonly players = input<readonly PlayerView[]>([]);
   readonly attachments = input<readonly GameAttachment[]>([]);
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
   readonly deckLabel = input.required<(player: PlayerView | null) => string>();
@@ -102,7 +104,7 @@ export class OpponentMiniBoardComponent {
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<PlayerDropEvent>();
   readonly playerMenuOpened = output<PlayerMenuEvent>();
-  readonly helperPreviewRequested = output<GameSpecialEntity>();
+  readonly helperPreviewRequested = output<SpecialEntityPreviewRequest>();
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
@@ -117,6 +119,9 @@ export class OpponentMiniBoardComponent {
     this.specialEntitiesSummary()?.displayEntities.filter((entity) => entity.template !== 'the_ring') ?? [],
   );
 
+  readonly playerNameColor = (playerId: string | null | undefined): string =>
+    gamePlayerNameColor(playerId, this.players());
+
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
   }
@@ -126,10 +131,7 @@ export class OpponentMiniBoardComponent {
       return 0;
     }
 
-    return player.state.zones[zone].filter((card) =>
-      card.hidden !== true
-      && (card.revealMarker === true || (card.revealedTo?.length ?? 0) > 0),
-    ).length;
+    return player.state.zones[zone].filter(isRevealedCard).length;
   }
 
   defeatedBackgroundImageCss(player: PlayerView): string | null {

@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { CardsApi } from '../../../../core/api/cards.api';
 import type { Card } from '../../../../core/models/card.model';
-import type { BootstrapStaticCardV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
+import type { BootstrapStaticCardV2, BootstrapV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
 import type { GameTableNormalizedV2State } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 
@@ -17,34 +17,38 @@ describe('GameTableStaticCardResolverV2Service', () => {
     cardsApi.getSilently.mockReset();
     cardsApi.getManySilently.mockReset();
     TestBed.configureTestingModule({
-      providers: [
-        GameTableStaticCardResolverV2Service,
-        { provide: CardsApi, useValue: cardsApi },
-      ],
+      providers: [GameTableStaticCardResolverV2Service, { provide: CardsApi, useValue: cardsApi }],
     });
     service = TestBed.inject(GameTableStaticCardResolverV2Service);
   });
 
   it('resolves a visible private runtime card cache miss from the card catalog', async () => {
     cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-1',
-      zone: 'hand',
-      cards: [{
-        instanceId: 'drawn-1',
-        cardKey: 'runtime-card-forest',
-        printId: 'print-forest',
-        cardVersion: 'forest-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-        ownerId: 'player-1',
-        controllerId: 'player-1',
-      }],
-    }]);
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'drawn-1',
+            cardKey: 'runtime-card-forest',
+            printId: 'print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          },
+        ],
+      },
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'zone.cards.add' }>;
+    const add = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'zone.cards.add' }
+    >;
 
     expect(cardsApi.getSilently).toHaveBeenCalledWith('print-forest');
     expect(add.staticCards?.['runtime-card-forest']).toMatchObject({
@@ -63,24 +67,31 @@ describe('GameTableStaticCardResolverV2Service', () => {
     const scryfallId = '0007fa33-ccc3-4e33-8d83-909c5c8d408c';
     const runtimePrintId = `scryfall:${scryfallId}:315a4486f3f6b25f`;
     cardsApi.getSilently.mockReturnValue(of({ card: card(scryfallId, 'Plains') }));
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-1',
-      zone: 'hand',
-      cards: [{
-        instanceId: 'drawn-1',
-        cardKey: runtimePrintId,
-        printId: runtimePrintId,
-        cardVersion: 'runtime-identity-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-        ownerId: 'player-1',
-        controllerId: 'player-1',
-      }],
-    }]);
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'drawn-1',
+            cardKey: runtimePrintId,
+            printId: runtimePrintId,
+            cardVersion: 'runtime-identity-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          },
+        ],
+      },
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'zone.cards.add' }>;
+    const add = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'zone.cards.add' }
+    >;
 
     expect(cardsApi.getSilently).toHaveBeenCalledWith(scryfallId);
     expect(add.staticCards?.[runtimePrintId]).toMatchObject({
@@ -93,17 +104,21 @@ describe('GameTableStaticCardResolverV2Service', () => {
   });
 
   it('does not resolve or expose hidden rival private cards', async () => {
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-2',
-      zone: 'hand',
-      cards: [{
-        instanceId: 'rival-hidden-1',
-        ownerId: 'player-2',
-        controllerId: 'player-2',
-        hidden: true,
-      }],
-    }]);
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-2',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'rival-hidden-1',
+            ownerId: 'player-2',
+            controllerId: 'player-2',
+            hidden: true,
+          },
+        ],
+      },
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
 
@@ -129,7 +144,10 @@ describe('GameTableStaticCardResolverV2Service', () => {
   });
 
   it('uses the active face image when looking at a face-down double-faced card', async () => {
-    const doubleFacedCard = card('print-fable', 'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki');
+    const doubleFacedCard = card(
+      'print-fable',
+      'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
+    );
     doubleFacedCard.imageUris = { normal: 'https://cards.test/fable-front.jpg' };
     doubleFacedCard.cardFaces = [
       cardFace('Fable of the Mirror-Breaker', 'https://cards.test/fable-front.jpg'),
@@ -151,23 +169,30 @@ describe('GameTableStaticCardResolverV2Service', () => {
 
   it('does not call the catalog when static identity is already cached', async () => {
     const cached = staticCard('runtime-card-forest', 'print-forest', 'Forest');
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-1',
-      zone: 'hand',
-      cards: [{
-        instanceId: 'drawn-1',
-        cardKey: 'runtime-card-forest',
-        printId: 'print-forest',
-        cardVersion: 'forest-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-      }],
-    }]);
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'drawn-1',
+            cardKey: 'runtime-card-forest',
+            printId: 'print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+          },
+        ],
+      },
+    ]);
 
-    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({
-      'runtime-card-forest': cached,
-    }));
+    const hydrated = await service.hydratePatch(
+      patch,
+      stateWithStaticCards({
+        'runtime-card-forest': cached,
+      }),
+    );
 
     expect(hydrated).toBe(patch);
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
@@ -177,27 +202,35 @@ describe('GameTableStaticCardResolverV2Service', () => {
     const scryfallId = '0007fa33-ccc3-4e33-8d83-909c5c8d408c';
     const cachedKey = `scryfall:${scryfallId}:cached-revision`;
     const faceUpKey = `scryfall:${scryfallId}:face-up-revision`;
-    const patch = patchV2([{
-      op: 'card.field.set',
-      playerId: 'player-1',
-      zone: 'battlefield',
-      instanceId: 'battlefield-1',
-      faceDown: false,
-      hidden: false,
-      cardKey: faceUpKey,
-      printId: faceUpKey,
-      cardVersion: 'runtime-identity-v1',
-      language: 'en',
-      viewerVisibility: 'public',
-    }]);
-
-    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({
-      [cachedKey]: {
-        ...staticCard(cachedKey, scryfallId, 'Plains'),
+    const patch = patchV2([
+      {
+        op: 'card.field.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        faceDown: false,
+        hidden: false,
+        cardKey: faceUpKey,
+        printId: faceUpKey,
+        cardVersion: 'runtime-identity-v1',
+        language: 'en',
         viewerVisibility: 'public',
       },
-    }));
-    const faceUp = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'card.field.set' }>;
+    ]);
+
+    const hydrated = await service.hydratePatch(
+      patch,
+      stateWithStaticCards({
+        [cachedKey]: {
+          ...staticCard(cachedKey, scryfallId, 'Plains'),
+          viewerVisibility: 'public',
+        },
+      }),
+    );
+    const faceUp = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'card.field.set' }
+    >;
 
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
     expect(faceUp.staticCard).toMatchObject({
@@ -209,20 +242,27 @@ describe('GameTableStaticCardResolverV2Service', () => {
   });
 
   it('hydrates a revealed library through one bulk catalog request', async () => {
-    cardsApi.getManySilently.mockReturnValue(of({
-      cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
-    }));
-    const patch = patchV2([{
-      op: 'library.revealed.set',
-      playerId: 'player-1',
-      cards: [
-        { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
-        { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
-      ],
-    }]);
+    cardsApi.getManySilently.mockReturnValue(
+      of({
+        cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+      }),
+    );
+    const patch = patchV2([
+      {
+        op: 'library.revealed.set',
+        playerId: 'player-1',
+        cards: [
+          { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
+          { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
+        ],
+      },
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const reveal = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'library.revealed.set' }>;
+    const reveal = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'library.revealed.set' }
+    >;
 
     expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
     expect(cardsApi.getSilently).not.toHaveBeenCalled();
@@ -230,60 +270,189 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(reveal.staticCards?.['island']?.name).toBe('Island');
   });
 
+  it('hydrates a runtime library view that carries its operation payload in data', async () => {
+    cardsApi.getManySilently.mockReturnValue(
+      of({
+        cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+      }),
+    );
+    const patch = {
+      ...patchV2([]),
+      ops: [{
+        op: 'library.top.viewed',
+        data: {
+          playerId: 'player-1',
+          cards: [
+            { instanceId: 'library-1', cardKey: 'forest', printId: 'print-forest' },
+            { instanceId: 'library-2', cardKey: 'island', printId: 'print-island' },
+          ],
+        },
+      }],
+    } as unknown as PatchEnvelopeV2 & { kind: 'patch.v2' };
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const view = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'library.top.viewed' }
+    >;
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
+    expect(view.staticCards?.['forest']?.name).toBe('Forest');
+    expect(view.staticCards?.['island']?.name).toBe('Island');
+  });
+
+  it('hydrates visible compact cards from the initial bootstrap', async () => {
+    cardsApi.getManySilently.mockReturnValue(of({ cards: [card('print-forest', 'Forest')] }));
+    const bootstrap = bootstrapWithVisibleForest();
+
+    const hydrated = await service.hydrateBootstrap(bootstrap);
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest']);
+    expect(hydrated.staticCards['forest']?.name).toBe('Forest');
+  });
+
+  it('coalesces multiple visible hand catalog misses into one bulk request', async () => {
+    cardsApi.getManySilently.mockReturnValue(
+      of({
+        cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+      }),
+    );
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          { instanceId: 'drawn-1', cardKey: 'runtime-card-forest', printId: 'print-forest' },
+          { instanceId: 'drawn-2', cardKey: 'runtime-card-island', printId: 'print-island' },
+        ],
+      },
+    ]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const add = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'zone.cards.add' }
+    >;
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledTimes(1);
+    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest', 'print-island']);
+    expect(cardsApi.getSilently).not.toHaveBeenCalled();
+    expect(Object.values(add.staticCards ?? {}).map((resolved) => resolved.name)).toEqual([
+      'Forest',
+      'Island',
+    ]);
+  });
+
+  it('deduplicates concurrent bulk hydration for the same print ids', async () => {
+    const response = new Subject<{ cards: Card[] }>();
+    cardsApi.getManySilently.mockReturnValue(response.asObservable());
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          { instanceId: 'drawn-1', cardKey: 'runtime-card-forest', printId: 'print-forest' },
+          { instanceId: 'drawn-2', cardKey: 'runtime-card-island', printId: 'print-island' },
+        ],
+      },
+    ]);
+
+    const firstHydration = service.hydratePatch(patch, stateWithStaticCards({}));
+    const secondHydration = service.hydratePatch(patch, stateWithStaticCards({}));
+
+    expect(cardsApi.getManySilently).toHaveBeenCalledTimes(1);
+
+    response.next({
+      cards: [card('print-forest', 'Forest'), card('print-island', 'Island')],
+    });
+    response.complete();
+
+    const [first, second] = await Promise.all([firstHydration, secondHydration]);
+
+    expect(first.ops[0]).toMatchObject({
+      staticCards: {
+        'runtime-card-forest': { name: 'Forest' },
+        'runtime-card-island': { name: 'Island' },
+      },
+    });
+    expect(second.ops[0]).toMatchObject({
+      staticCards: {
+        'runtime-card-forest': { name: 'Forest' },
+        'runtime-card-island': { name: 'Island' },
+      },
+    });
+  });
+
   it('replaces a synthetic Card placeholder hint with resolved static content', async () => {
     cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-1',
-      zone: 'hand',
-      cards: [{
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'drawn-1',
+            cardKey: 'runtime-card-forest',
+            printId: 'print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+          },
+        ],
+        staticCards: {
+          'runtime-card-forest': {
+            ...staticCard('runtime-card-forest', 'print-forest', 'Card'),
+            imageUris: null,
+            cardFaces: [],
+          },
+        },
+      },
+    ]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const add = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'zone.cards.add' }
+    >;
+
+    expect(add.staticCards?.['runtime-card-forest'].name).toBe('Forest');
+    expect(add.staticCards?.['runtime-card-forest'].imageUris?.normal).toBe(
+      'https://cards.test/print-forest.jpg',
+    );
+  });
+
+  it('replaces a synthetic Card placeholder move staticCard with resolved static content', async () => {
+    cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
+    const patch = patchV2([
+      {
+        op: 'zone.cards.move',
         instanceId: 'drawn-1',
-        cardKey: 'runtime-card-forest',
-        printId: 'print-forest',
-        cardVersion: 'forest-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-      }],
-      staticCards: {
-        'runtime-card-forest': {
+        from: { playerId: 'player-1', zone: 'library' },
+        to: { playerId: 'player-1', zone: 'hand', index: 0 },
+        card: {
+          instanceId: 'drawn-1',
+          cardKey: 'runtime-card-forest',
+          printId: 'print-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+        },
+        staticCard: {
           ...staticCard('runtime-card-forest', 'print-forest', 'Card'),
           imageUris: null,
           cardFaces: [],
         },
       },
-    }]);
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'zone.cards.add' }>;
-
-    expect(add.staticCards?.['runtime-card-forest'].name).toBe('Forest');
-    expect(add.staticCards?.['runtime-card-forest'].imageUris?.normal).toBe('https://cards.test/print-forest.jpg');
-  });
-
-  it('replaces a synthetic Card placeholder move staticCard with resolved static content', async () => {
-    cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
-    const patch = patchV2([{
-      op: 'zone.cards.move',
-      instanceId: 'drawn-1',
-      from: { playerId: 'player-1', zone: 'library' },
-      to: { playerId: 'player-1', zone: 'hand', index: 0 },
-      card: {
-        instanceId: 'drawn-1',
-        cardKey: 'runtime-card-forest',
-        printId: 'print-forest',
-        cardVersion: 'forest-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-      },
-      staticCard: {
-        ...staticCard('runtime-card-forest', 'print-forest', 'Card'),
-        imageUris: null,
-        cardFaces: [],
-      },
-    }]);
-
-    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const move = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'zone.cards.move' }>;
+    const move = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'zone.cards.move' }
+    >;
 
     expect(cardsApi.getSilently).toHaveBeenCalledWith('print-forest');
     expect(move.staticCard?.name).toBe('Forest');
@@ -291,19 +460,23 @@ describe('GameTableStaticCardResolverV2Service', () => {
   });
 
   it('does not cache failed catalog lookups as permanent misses', async () => {
-    const patch = patchV2([{
-      op: 'zone.cards.add',
-      playerId: 'player-1',
-      zone: 'hand',
-      cards: [{
-        instanceId: 'drawn-1',
-        cardKey: 'runtime-card-forest',
-        printId: 'print-forest',
-        cardVersion: 'forest-v1',
-        language: 'en',
-        viewerVisibility: 'private',
-      }],
-    }]);
+    const patch = patchV2([
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          {
+            instanceId: 'drawn-1',
+            cardKey: 'runtime-card-forest',
+            printId: 'print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+          },
+        ],
+      },
+    ]);
     cardsApi.getSilently
       .mockReturnValueOnce(throwError(() => new Error('catalog unavailable')))
       .mockReturnValueOnce(of({ card: card('print-forest', 'Forest') }));
@@ -319,34 +492,38 @@ describe('GameTableStaticCardResolverV2Service', () => {
 
   it('hydrates compact helper add card refs from the card catalog without runtime static payload', async () => {
     cardsApi.getSilently.mockReturnValue(of({ card: card('monarch-print', 'The Monarch') }));
-    const patch = patchV2([{
-      op: 'helper.add',
-      entity: {
-        id: 'helper-monarch',
-        template: 'monarch',
-        scope: 'global',
-        ownerPlayerId: 'player-1',
-        card: {
-          scryfallId: 'monarch-print',
-          name: 'The Monarch',
-          layout: 'token',
+    const patch = patchV2([
+      {
+        op: 'helper.add',
+        entity: {
+          id: 'helper-monarch',
+          template: 'monarch',
+          scope: 'global',
+          ownerPlayerId: 'player-1',
+          card: {
+            scryfallId: 'monarch-print',
+            name: 'The Monarch',
+            layout: 'token',
+          },
+          state: {},
+          createdAt: '2026-07-08T00:00:00+00:00',
         },
-        state: {},
-        createdAt: '2026-07-08T00:00:00+00:00',
       },
-    }]);
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
     const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'helper.add' }>;
 
     expect(cardsApi.getSilently).toHaveBeenCalledWith('monarch-print');
-    expect(add.entity.card).toEqual(expect.objectContaining({
-      scryfallId: 'monarch-print',
-      name: 'The Monarch',
-      imageUris: { normal: 'https://cards.test/monarch-print.jpg' },
-      typeLine: 'Basic Land - Forest',
-      layout: 'token',
-    }));
+    expect(add.entity.card).toEqual(
+      expect.objectContaining({
+        scryfallId: 'monarch-print',
+        name: 'The Monarch',
+        imageUris: { normal: 'https://cards.test/monarch-print.jpg' },
+        typeLine: 'Basic Land - Forest',
+        layout: 'token',
+      }),
+    );
     expect(JSON.stringify(patch)).not.toContain('imageUris');
   });
 
@@ -378,49 +555,58 @@ describe('GameTableStaticCardResolverV2Service', () => {
       },
     ];
     cardsApi.getSilently.mockReturnValue(of({ card: dayNight }));
-    const patch = patchV2([{
-      op: 'helper.update',
-      entity: {
-        id: 'helper-day-night',
-        template: 'day_night',
-        scope: 'global',
-        ownerPlayerId: null,
-        card: {
-          scryfallId: 'day-night-print',
-          name: 'Day // Night',
-          layout: 'double_faced_token',
+    const patch = patchV2([
+      {
+        op: 'helper.update',
+        entity: {
+          id: 'helper-day-night',
+          template: 'day_night',
+          scope: 'global',
+          ownerPlayerId: null,
+          card: {
+            scryfallId: 'day-night-print',
+            name: 'Day // Night',
+            layout: 'double_faced_token',
+          },
+          state: { mode: 'night' },
+          createdAt: '2026-07-08T00:00:00+00:00',
         },
-        state: { mode: 'night' },
-        createdAt: '2026-07-08T00:00:00+00:00',
       },
-    }]);
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
-    const update = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'helper.update' }>;
+    const update = hydrated.ops[0] as Extract<
+      PatchEnvelopeV2['ops'][number],
+      { op: 'helper.update' }
+    >;
 
     expect(update.entity.card?.imageUris?.normal).toBe('https://cards.test/day-night-print.jpg');
-    expect(update.entity.card?.cardFaces?.[1]?.imageUris.normal).toBe('https://cards.test/day-night-back.jpg');
+    expect(update.entity.card?.cardFaces?.[1]?.imageUris.normal).toBe(
+      'https://cards.test/day-night-back.jpg',
+    );
     expect(update.entity.card?.layout).toBe('double_faced_token');
   });
 
   it('keeps helpers as marker refs when the card catalog cannot resolve the print', async () => {
     cardsApi.getSilently.mockReturnValue(of({ card: null }));
-    const patch = patchV2([{
-      op: 'helper.add',
-      entity: {
-        id: 'helper-unsupported',
-        template: 'citys_blessing',
-        scope: 'player',
-        ownerPlayerId: 'player-1',
-        card: {
-          scryfallId: 'missing-helper-print',
-          name: 'Unsupported Helper',
-          layout: 'token',
+    const patch = patchV2([
+      {
+        op: 'helper.add',
+        entity: {
+          id: 'helper-unsupported',
+          template: 'citys_blessing',
+          scope: 'player',
+          ownerPlayerId: 'player-1',
+          card: {
+            scryfallId: 'missing-helper-print',
+            name: 'Unsupported Helper',
+            layout: 'token',
+          },
+          state: {},
+          createdAt: '2026-07-08T00:00:00+00:00',
         },
-        state: {},
-        createdAt: '2026-07-08T00:00:00+00:00',
       },
-    }]);
+    ]);
 
     const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
 
@@ -440,7 +626,54 @@ function patchV2(ops: PatchEnvelopeV2['ops']): PatchEnvelopeV2 & { kind: 'patch.
   };
 }
 
-function stateWithStaticCards(staticCards: Record<string, BootstrapStaticCardV2>): GameTableNormalizedV2State {
+function bootstrapWithVisibleForest(): BootstrapV2 {
+  return {
+    game: { id: 'game-1', status: 'active', version: 1, viewerId: 'player-1' },
+    players: {
+      'player-1': {
+        playerId: 'player-1',
+        user: null,
+        displayName: 'Player 1',
+        life: 40,
+        status: 'active',
+        handCount: 0,
+        zoneIds: ['player-1:library'],
+        zoneCounts: { library: 1 },
+        commanderDamage: {},
+        counters: {},
+      },
+    },
+    zones: {
+      'player-1:library': {
+        zoneId: 'player-1:library',
+        playerId: 'player-1',
+        name: 'library',
+        instanceIds: ['library-1'],
+      },
+    },
+    instances: {
+      'library-1': {
+        instanceId: 'library-1',
+        cardRef: 'forest',
+        cardKey: 'forest',
+        printId: 'print-forest',
+        cardVersion: 'forest-v1',
+        language: 'en',
+        viewerVisibility: 'private',
+        zoneId: 'player-1:library',
+        hidden: false,
+      },
+    },
+    zoneCounts: { 'player-1:library': 1 },
+    relations: { stack: [], arrows: [], attachments: [], specialEntities: [] },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    staticCards: {},
+  };
+}
+
+function stateWithStaticCards(
+  staticCards: Record<string, BootstrapStaticCardV2>,
+): GameTableNormalizedV2State {
   return {
     staticCards,
   } as GameTableNormalizedV2State;

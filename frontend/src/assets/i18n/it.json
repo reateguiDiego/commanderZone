@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} devono ancora votare. Hanno {{ seconds }}s extra per votare.",
       "timeLimit": "Limite di tempo",
       "winnerMessage": "Il tavolo è tuo. Sei sopravvissuto al caos e hai chiuso la partita con autorità.",
+      "waitForGameEnd": "Attendi la fine della partita prima di iniziare una rivincita.",
       "youDied": "Sei morto",
       "youHaveSecondsToVote": "Hai {{seconds}} da votare.",
       "yourVoteMissingExtra": "Manca il tuo voto. Hai {{seconds}} extra per votare.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controlli di creazione pedine",
       "loadingDeckTokens": "Caricamento delle pedine del mazzo...",
-      "searchingTokens": "Ricerca pedine..."
+      "searchingTokens": "Ricerca pedine...",
+      "theRingFromGameMechanics": "L'Anello può essere aggiunto solo dal campo di battaglia. Fai clic con il pulsante destro del mouse sul campo di battaglia, quindi scegli «Meccaniche di gioco»."
     },
     "playersOrder": {
       "currentTurnLabel": "Turno {{ turnNumber }}",
       "upcomingTurnLabel": "Tra {{ count }}",
+      "nextPlayerLabel": "Prossimo giocatore:",
       "currentTurnTitle": "È il turno di {{name}}",
       "upcomingTurnTitle": "{{ name }} giocherà tra {{ count }} turno/i"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Focalizza il giocatore di turno attivo",
       "focusTurn": "Turno di messa a fuoco",
       "advancePhase": "Avanza fase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "STAP",
         "upkeep": "Mantenimento",
@@ -998,6 +1002,7 @@
       "moveToHand": "Mettere in mano?",
       "moveAllToLibrary": "Metti tutto in grimorio",
       "gamesCanOnlyBePlayedInLandscape": "I giochi possono essere giocati solo in modalità orizzontale su dispositivi mobili e tablet.",
+      "defeatedActionBlocked": "Sei stato sconfitto, quindi non puoi più eseguire azioni di gioco. Puoi ancora usare la chat mentre aspetti la fine della partita.",
       "thisTableNeedsALittleMoreRoom": "Questo tavolo ha bisogno di un po' più di spazio",
       "sorryThisResolutionIsTooCrampedFor": "Questa risoluzione è troppo stretta per una partita Commander. Regola lo zoom del browser o usa una finestra più grande.",
       "useCtrl0InYourBrowserTo": "Utilizza Ctrl+0 nel tuo browser per reimpostare lo zoom al 100%, quindi aggiorna o ridimensiona questa finestra.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, messaggi non letti",
       "moveCardToAnotherBattlefield": "Sposta la carta su un altro campo di battaglia",
       "putIntoLibrary": "Metti in grimorio",
+      "libraryPlacementSinglePrompt": "Dove vuoi mettere questa carta?",
+      "libraryPlacementMultiplePrompt": "Dove vuoi mettere queste {{ count }} carte?",
+      "libraryPlacementTop": "Sopra",
+      "libraryPlacementBottom": "Sotto",
       "focusedOpponentLabel": "Stai guardando:",
       "returnToOwnBattlefield": "Vai al tuo campo di battaglia",
       "leaveTableConfirmationTitle": "Lasciare il tavolo?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} ha creato una copia token."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} è diventato il monarca.", "passed": "{{ actor }} ha dato la monarchia a {{ player }}.", "removed": "{{ actor }} ha rimosso la designazione di monarca." },
+      "initiative": { "claimed": "{{ player }} ha preso l'iniziativa.", "passed": "{{ actor }} ha dato l'iniziativa a {{ player }}.", "removed": "{{ actor }} ha rimosso l'iniziativa." },
+      "citysBlessing": { "granted": "{{ player }} ha ottenuto la benedizione della città.", "removed": "{{ actor }} ha rimosso la benedizione della città di {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} ha avviato il ciclo giorno/notte di giorno.", "startedNight": "{{ actor }} ha avviato il ciclo giorno/notte di notte.", "setDay": "{{ actor }} ha cambiato lo stato giorno/notte in giorno.", "setNight": "{{ actor }} ha cambiato lo stato giorno/notte in notte.", "removed": "{{ actor }} ha rimosso giorno/notte." },
+      "ring": { "created": "{{ player }} ha ricevuto l'Anello.", "removed": "{{ actor }} ha rimosso l'Anello." },
+      "dungeon": { "entered": "{{ player }} è entrato in {{ cardName }}.", "advanced": "{{ actor }} è avanzato in un dungeon.", "removed": "{{ actor }} ha rimosso il dungeon {{ cardName }}." },
+      "emblem": { "created": "{{ player }} ha creato l'emblema {{ cardName }}.", "removed": "{{ actor }} ha rimosso l'emblema {{ cardName }}." },
+      "helper": { "created": "{{ actor }} ha aggiunto una meccanica di gioco.", "updated": "{{ actor }} ha aggiornato una meccanica di gioco.", "removed": "{{ actor }} ha rimosso una meccanica di gioco." }
     },
     "game": {
       "concede": "{{ player }} concesso."
@@ -2185,6 +2204,17 @@
       "changeTheme": "Cambia tema",
       "gameSettings": {
         "title": "Preferenze di gioco",
+        "defaultBattlefieldLayout": {
+          "label": "Disposizione del tavolo",
+          "description": "Scegli come organizzare il tavolo quando apri una partita.",
+          "grid": "Griglia",
+          "focused": "Focalizzata",
+          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la vista focalizzata."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Aiuto per l'allineamento delle carte",
+          "description": "Quando sposti una carta, mostra una guida di aiuto per allinearne la posizione verticale a quella delle carte vicine."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostra l'assistente mana all'avvio",
           "description": "Mostra l'aiuto per contare il mana all'inizio di una partita. Puoi nasconderlo o mostrarlo di nuovo in qualsiasi momento durante la partita."
@@ -2315,7 +2345,7 @@
     "roll": {
       "rollModal": {
         "text": "Risultato",
-        "closeRoll": "Chiudere il lancio",
+        "closeRoll": "Chiudi il lancio",
         "rollType": "Tipo di lancio",
         "rollAgain": "Lancia di nuovo"
       },
@@ -2327,8 +2357,8 @@
         "d20": "Dado a 20 facce"
       },
       "results": {
-        "heads": "Teste",
-        "tails": "Code"
+        "heads": "Testa",
+        "tails": "Croce"
       }
     }
   },

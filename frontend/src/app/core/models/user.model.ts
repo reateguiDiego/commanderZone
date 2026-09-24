@@ -22,6 +22,9 @@ export interface UserDisplayNameStyle {
 }
 
 export interface UserGamePreferences {
+  defaultBattlefieldLayout: UserGameLayoutPreference;
+  chosenModeView: UserGameLayoutPreference;
+  showCardAlignmentHelper: boolean;
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
   autoApplyCommanderDamageToLife: boolean;
@@ -30,7 +33,22 @@ export interface UserGamePreferences {
   combineChatAndGameLog: boolean;
 }
 
+/**
+ * Game preferences as received from the user payload. The boolean fields are
+ * the current settings names; the older fields remain supported so existing
+ * accounts keep their saved behavior.
+ */
+export interface UserGamePreferencesInput extends Partial<UserGamePreferences> {
+  gridLayout?: boolean;
+  lineAlignment?: boolean;
+}
+
+export type UserGameLayoutPreference = 'square' | 'grid';
+
 export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
+  defaultBattlefieldLayout: 'grid',
+  chosenModeView: 'grid',
+  showCardAlignmentHelper: true,
   showManaHelperOnStartup: false,
   enableManaRow: true,
   autoApplyCommanderDamageToLife: true,
@@ -40,9 +58,30 @@ export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
 };
 
 export function normalizeUserGamePreferences(
-  preferences: Partial<UserGamePreferences> | null | undefined,
+  preferences: UserGamePreferencesInput | null | undefined,
 ): UserGamePreferences {
+  const defaultBattlefieldLayout = battlefieldLayoutPreference(
+    preferences?.gridLayout,
+    preferences?.defaultBattlefieldLayout,
+    DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
+  );
+
   return {
+    defaultBattlefieldLayout,
+    // Retained only to safely read legacy account payloads. Game tables always
+    // initialize from defaultBattlefieldLayout; the active view is session-only.
+    chosenModeView: battlefieldLayoutPreference(
+      undefined,
+      preferences?.chosenModeView,
+      defaultBattlefieldLayout,
+    ),
+    showCardAlignmentHelper: booleanGamePreference(
+      preferences?.lineAlignment,
+      booleanGamePreference(
+        preferences?.showCardAlignmentHelper,
+        DEFAULT_USER_GAME_PREFERENCES.showCardAlignmentHelper,
+      ),
+    ),
     showManaHelperOnStartup: booleanGamePreference(
       preferences?.showManaHelperOnStartup,
       DEFAULT_USER_GAME_PREFERENCES.showManaHelperOnStartup,
@@ -70,6 +109,18 @@ export function normalizeUserGamePreferences(
   };
 }
 
+function battlefieldLayoutPreference(
+  gridLayout: unknown,
+  defaultLayout: unknown,
+  fallback: UserGameLayoutPreference,
+): UserGameLayoutPreference {
+  if (typeof gridLayout === 'boolean') {
+    return gridLayout ? 'grid' : 'square';
+  }
+
+  return defaultLayout === 'square' || defaultLayout === 'grid' ? defaultLayout : fallback;
+}
+
 function booleanGamePreference(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
@@ -78,7 +129,7 @@ export interface UserPreferences {
   cardLanguage: SupportedCardLanguageCode;
   appLanguage: SupportedLanguageCode;
   themeId: AppThemeId;
-  game?: UserGamePreferences;
+  game?: UserGamePreferencesInput;
 }
 
 export interface User {

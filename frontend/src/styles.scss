@@ -96,6 +96,25 @@ button {
   cursor: pointer;
 }
 
+/* Used only when a scheduled game-card image fails. Visible cards receive their src immediately. */
+img.cz-game-card-image--failed {
+  background:
+    radial-gradient(ellipse at 50% 34%, rgb(var(--cz-accent-rgb) / 18%), transparent 45%),
+    linear-gradient(136deg, transparent 36%, rgb(var(--cz-text-rgb) / 7%) 48%, transparent 60%),
+    linear-gradient(152deg, rgb(31 37 63 / 96%), rgb(18 22 39 / 98%) 53%, rgb(7 10 20 / 99%));
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 34%),
+    inset 0 0 0 0.35rem rgb(3 5 13 / 42%),
+    inset 0 0 2rem rgb(var(--cz-accent-rgb) / 10%);
+  transition: opacity 120ms ease-out;
+}
+
+img.cz-game-card-image--failed {
+  background:
+    radial-gradient(ellipse at 50% 34%, rgb(var(--cz-danger-rgb) / 18%), transparent 45%),
+    linear-gradient(152deg, rgb(53 25 38 / 96%), rgb(28 15 29 / 98%) 53%, rgb(12 7 16 / 99%));
+}
+
 .cz-button {
   min-width: 0;
   max-width: 100%;

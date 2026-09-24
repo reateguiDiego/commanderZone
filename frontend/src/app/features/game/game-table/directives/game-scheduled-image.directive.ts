@@ -1,0 +1,120 @@
+import {
+  Directive,
+  ElementRef,
+  HostListener,
+  OnChanges,
+  OnDestroy,
+  Renderer2,
+  inject,
+  input,
+} from '@angular/core';
+import {
+  ImagePreloadQueueService,
+  type ImagePreloadQueuePriority,
+  type ImagePreloadRequest,
+} from '../../../../shared/services/image-preload-queue.service';
+
+/**
+ * Assigns visible game images immediately and schedules only background work.
+ *
+ * A physical-table view must not turn already-present cards into queued placeholders.
+ * Native loading and fetch-priority attributes remain owned by each template, while the
+ * shared queue still bounds speculative work such as alternate DFC faces.
+ */
+@Directive({
+  selector: 'img[appGameScheduledImage]',
+})
+export class GameScheduledImageDirective implements OnChanges, OnDestroy {
+  private readonly imageElement = inject<ElementRef<HTMLImageElement>>(ElementRef).nativeElement;
+  private readonly renderer = inject(Renderer2);
+  private readonly scheduler = inject(ImagePreloadQueueService);
+  private request: ImagePreloadRequest | null = null;
+  private complete: ((loaded: boolean) => void) | null = null;
+
+  readonly imageUrl = input<string | null>(null, { alias: 'appGameScheduledImage' });
+  readonly priority = input<ImagePreloadQueuePriority>('visible', { alias: 'gameImagePriority' });
+
+  ngOnChanges(): void {
+    this.scheduleImage();
+  }
+
+  ngOnDestroy(): void {
+    this.clearScheduledImage();
+  }
+
+  @HostListener('load')
+  imageLoaded(): void {
+    this.setImageState('loaded');
+    this.complete?.(true);
+    this.complete = null;
+  }
+
+  @HostListener('error')
+  imageFailed(): void {
+    this.setImageState('failed');
+    this.complete?.(false);
+    this.complete = null;
+  }
+
+  private scheduleImage(): void {
+    this.clearScheduledImage();
+    const sourceImageUrl = this.imageUrl()?.trim();
+    if (!sourceImageUrl) {
+      return;
+    }
+
+    const imageUrl = sourceImageUrl;
+
+    if (this.priority() !== 'background') {
+      this.renderer.setAttribute(this.imageElement, 'src', imageUrl);
+      return;
+    }
+
+    this.setImageState('loading');
+
+    const request = this.scheduler.schedule({
+      key: imageUrl,
+      priority: this.priority(),
+      start: (complete) => {
+        this.complete = complete;
+        this.renderer.setAttribute(this.imageElement, 'src', imageUrl);
+        return () => {
+          if (this.complete === complete) {
+            this.complete = null;
+          }
+          this.renderer.removeAttribute(this.imageElement, 'src');
+        };
+      },
+    });
+    this.request = request;
+    void request.completed.finally(() => {
+      if (this.request === request) {
+        this.request = null;
+      }
+    });
+  }
+
+  private clearScheduledImage(): void {
+    this.request?.cancel();
+    this.request = null;
+    this.complete = null;
+    this.renderer.removeAttribute(this.imageElement, 'src');
+    this.setImageState(null);
+  }
+
+  private setImageState(state: 'loading' | 'loaded' | 'failed' | null): void {
+    this.renderer.removeClass(this.imageElement, 'cz-game-card-image--loading');
+    this.renderer.removeClass(this.imageElement, 'cz-game-card-image--failed');
+
+    if (state === 'loading') {
+      this.renderer.addClass(this.imageElement, 'cz-game-card-image--loading');
+      this.renderer.setAttribute(this.imageElement, 'aria-busy', 'true');
+      return;
+    }
+
+    this.renderer.removeAttribute(this.imageElement, 'aria-busy');
+    if (state === 'failed') {
+      this.renderer.addClass(this.imageElement, 'cz-game-card-image--failed');
+    }
+  }
+}

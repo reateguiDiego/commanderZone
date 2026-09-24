@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "Dieser Wurf legt deine Zugreihenfolge fest.",
       "thisDeck": "dieses Deck",
       "thisPlayer": "dieser Spieler",
-      "tieBreakRoll": "Tie-Break-Wurf",
+      "tieBreakRoll": "Entscheidungswurf",
       "tieBreakRollMessage": "Du hast mit {{ playerNames }} gleichgezogen. Würfle noch einmal, um den Gleichstand aufzulösen.",
       "waitingForDecksAndRolls": "Warten auf Decks und Würfe",
       "realtimeUnavailable": "Die Echtzeitverbindung wird wiederhergestellt. Änderungen im Raum können verzögert eintreffen."
@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} müssen noch abstimmen. Ihr habt zusätzliche {{ seconds }}s zum Abstimmen.",
       "timeLimit": "Zeitlimit",
       "winnerMessage": "Der Tisch gehört dir. Du hast das Chaos überstanden und die Partie souverän beendet.",
+      "waitForGameEnd": "Warte, bis die Partie beendet ist, bevor du eine Revanche startest.",
       "youDied": "Du bist gestorben",
       "youHaveSecondsToVote": "Du hast {{ seconds }}s zum Abstimmen.",
       "yourVoteMissingExtra": "Deine Stimme fehlt. Du hast zusätzliche {{ seconds }}s zum Abstimmen.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Steuerelemente für die Spielstein-Erstellung",
       "loadingDeckTokens": "Deck-Spielsteine werden geladen...",
-      "searchingTokens": "Suche nach Spielsteinen..."
+      "searchingTokens": "Suche nach Spielsteinen...",
+      "theRingFromGameMechanics": "Der Ring kann nur über das Schlachtfeld hinzugefügt werden. Klicke mit der rechten Maustaste auf das Schlachtfeld und wähle „Spielmechanik“."
     },
     "playersOrder": {
       "currentTurnLabel": "Zug {{ turnNumber }}",
       "upcomingTurnLabel": "Noch {{ count }}",
+      "nextPlayerLabel": "Nächster Spieler:",
       "currentTurnTitle": "{{ name }} ist an der Reihe",
       "upcomingTurnTitle": "{{ name }} ist in {{ count }} Zug/Zügen dran"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Aktiven Spieler fokussieren",
       "focusTurn": "Zug fokussieren",
       "advancePhase": "Nächste Phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Enttappen",
         "upkeep": "Versorgungssegment",
@@ -998,6 +1002,7 @@
       "moveToHand": "Auf die Hand nehmen?",
       "moveAllToLibrary": "Alle in die Bibliothek legen",
       "gamesCanOnlyBePlayedInLandscape": "Spiele können auf Mobilgeräten und Tablets nur im Querformat gespielt werden.",
+      "defeatedActionBlocked": "Du wurdest besiegt und kannst keine Spielaktionen mehr ausführen. Du kannst den Chat weiterhin nutzen, während du auf das Spielende wartest.",
       "thisTableNeedsALittleMoreRoom": "Dieser Tisch braucht etwas mehr Platz",
       "sorryThisResolutionIsTooCrampedFor": "Diese Auflösung ist für ein Commander-Spiel zu klein. Passe den Browser-Zoom an oder nutze ein größeres Fenster.",
       "useCtrl0InYourBrowserTo": "Verwende Strg+0 in deinem Browser, um den Zoom auf 100 % zurückzusetzen, und aktualisiere oder skaliere dann dieses Fenster.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, ungelesene Nachrichten",
       "moveCardToAnotherBattlefield": "Karte auf ein anderes Schlachtfeld legen",
       "putIntoLibrary": "In die Bibliothek legen",
+      "libraryPlacementSinglePrompt": "Wohin soll diese Karte gelegt werden?",
+      "libraryPlacementMultiplePrompt": "Wohin sollen diese {{ count }} Karten gelegt werden?",
+      "libraryPlacementTop": "Oben",
+      "libraryPlacementBottom": "Unten",
       "focusedOpponentLabel": "Du siehst:",
       "returnToOwnBattlefield": "Zu deinem Schlachtfeld gehen",
       "leaveTableConfirmationTitle": "Tisch verlassen?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} hat eine Spielsteinkopie erzeugt."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} ist zum Monarchen geworden.", "passed": "{{ actor }} hat {{ player }} die Monarchie übergeben.", "removed": "{{ actor }} hat die Monarchenbezeichnung entfernt." },
+      "initiative": { "claimed": "{{ player }} hat die Initiative übernommen.", "passed": "{{ actor }} hat {{ player }} die Initiative übergeben.", "removed": "{{ actor }} hat die Initiative entfernt." },
+      "citysBlessing": { "granted": "{{ player }} hat den Segen der Stadt erhalten.", "removed": "{{ actor }} hat {{ player }} den Segen der Stadt entfernt." },
+      "dayNight": { "startedDay": "{{ actor }} hat den Tag/Nacht-Zyklus am Tag begonnen.", "startedNight": "{{ actor }} hat den Tag/Nacht-Zyklus in der Nacht begonnen.", "setDay": "{{ actor }} hat den Tag/Nacht-Status auf Tag geändert.", "setNight": "{{ actor }} hat den Tag/Nacht-Status auf Nacht geändert.", "removed": "{{ actor }} hat Tag/Nacht entfernt." },
+      "ring": { "created": "{{ player }} hat den Ring erhalten.", "removed": "{{ actor }} hat den Ring entfernt." },
+      "dungeon": { "entered": "{{ player }} hat {{ cardName }} betreten.", "advanced": "{{ actor }} ist in einem Dungeon vorangeschritten.", "removed": "{{ actor }} hat den Dungeon {{ cardName }} entfernt." },
+      "emblem": { "created": "{{ player }} hat das Emblem {{ cardName }} erstellt.", "removed": "{{ actor }} hat das Emblem {{ cardName }} entfernt." },
+      "helper": { "created": "{{ actor }} hat eine Spielmechanik hinzugefügt.", "updated": "{{ actor }} hat eine Spielmechanik aktualisiert.", "removed": "{{ actor }} hat eine Spielmechanik entfernt." }
     },
     "game": {
       "concede": "{{ player }} hat aufgegeben."
@@ -2186,6 +2205,17 @@
       "changeTheme": "Thema ändern",
       "gameSettings": {
         "title": "Gameplay-Einstellungen",
+        "defaultBattlefieldLayout": {
+          "label": "Tischlayout",
+          "description": "Wähle aus, wie der Tisch beim Öffnen einer Partie angeordnet wird.",
+          "grid": "Raster",
+          "focused": "Fokussiert",
+          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch die fokussierte Ansicht verwendet."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ausrichtungshilfe für Karten",
+          "description": "Beim Verschieben einer Karte wird eine Ausrichtungshilfe angezeigt, um ihre vertikale Position an den nahegelegenen Karten auszurichten."
+        },
         "showManaHelperOnStartup": {
           "label": "Mana-Helfer beim Start anzeigen",
           "description": "Zeigt beim Start einer Partie die Hilfe zum Zählen von Mana an. Du kannst sie während der Partie jederzeit ausblenden oder erneut einblenden."
@@ -2369,8 +2399,8 @@
     "roll": {
       "rollModal": {
         "text": "Ergebnis",
-        "closeRoll": "Rolle schließen",
-        "rollType": "Rollentyp",
+        "closeRoll": "Wurf schließen",
+        "rollType": "Wurfart",
         "rollAgain": "Noch einmal rollen"
       },
       "options": {

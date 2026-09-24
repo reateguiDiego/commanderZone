@@ -205,6 +205,7 @@ class AuthController extends ApiController
             $request->headers->get('User-Agent'),
         );
         $this->securityAuditLogger->log('auth.registered', $user->email(), $user->id(), $request->getClientIp());
+        $this->sendRegistrationWelcomeEmailFailOpen($user, $request->getClientIp());
         $this->sendVerificationEmailFailOpen($user, $verificationToken, $request->getClientIp(), 'register');
 
         return $this->json([
@@ -605,7 +606,10 @@ class AuthController extends ApiController
      *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
      *   chatNotificationSounds?: bool,
-     *   combineChatAndGameLog?: bool
+     *   combineChatAndGameLog?: bool,
+     *   defaultBattlefieldLayout?: 'square'|'grid',
+     *   chosenModeView?: 'square'|'grid',
+     *   showCardAlignmentHelper?: bool
      * }|null
      */
     private function gamePreferencesFromPayload(mixed $payload): ?array
@@ -621,11 +625,27 @@ class AuthController extends ApiController
             'gameAnimations',
             'chatNotificationSounds',
             'combineChatAndGameLog',
+            'defaultBattlefieldLayout',
+            'chosenModeView',
+            'showCardAlignmentHelper',
         ];
         $preferences = [];
 
         foreach ($payload as $key => $value) {
-            if (!in_array($key, $allowedKeys, true) || !is_bool($value)) {
+            if (!in_array($key, $allowedKeys, true)) {
+                return null;
+            }
+
+            if ($key === 'defaultBattlefieldLayout' || $key === 'chosenModeView') {
+                if (!in_array($value, ['square', 'grid'], true)) {
+                    return null;
+                }
+
+                $preferences[$key] = $value;
+                continue;
+            }
+
+            if (!is_bool($value)) {
                 return null;
             }
 
@@ -750,6 +770,20 @@ class AuthController extends ApiController
             $this->securityAuditLogger->log('auth.mail.password_reset.sent', $user->email(), $user->id(), $clientIp);
         } catch (\Throwable $exception) {
             $this->securityAuditLogger->log('auth.mail.password_reset.failed', $user->email(), $user->id(), $clientIp, [
+                'reason' => 'mailer_transport_error',
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendRegistrationWelcomeEmailFailOpen(User $user, ?string $clientIp): void
+    {
+        try {
+            $this->registrationWelcomeMessageService->sendEmailTo($user);
+            $this->securityAuditLogger->log('auth.mail.registration_welcome.sent', $user->email(), $user->id(), $clientIp);
+        } catch (\Throwable $exception) {
+            $this->securityAuditLogger->log('auth.mail.registration_welcome.failed', $user->email(), $user->id(), $clientIp, [
                 'reason' => 'mailer_transport_error',
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),

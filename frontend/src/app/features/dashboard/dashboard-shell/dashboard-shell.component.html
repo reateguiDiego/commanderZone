@@ -26,6 +26,7 @@
       (closeFriends)="closeFriends()"
       (closeMessages)="closeMessages()"
       (logout)="logout()"
+      (friendRemovalRequested)="requestFriendRemoval($event)"
     />
 
     <app-dashboard-page-context [header]="pageHeader.state()" />
@@ -34,4 +35,22 @@
   <main class="workspace">
     <router-outlet />
   </main>
+</div>
+
+<div class="friends-removal-confirmation">
+  <app-modal
+    [open]="pendingFriendRemoval() !== null"
+    title="navigation.friends.friendsDropdown.removeFriend"
+    message="common.modal.cannotBeUndone"
+    primaryLabel="navigation.friends.friendsDropdown.removeFriend"
+    secondaryLabel="shared.text.cancel"
+    [danger]="true"
+    [primaryDisabled]="removingFriend() || friends.loading()"
+    (primary)="confirmFriendRemoval()"
+    (secondary)="cancelFriendRemoval()"
+  >
+    @if (pendingFriendRemoval(); as friend) {
+      <p class="notice">{{ friend.displayName }}</p>
+    }
+  </app-modal>
 </div>

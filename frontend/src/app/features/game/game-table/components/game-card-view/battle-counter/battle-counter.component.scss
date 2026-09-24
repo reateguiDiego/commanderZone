@@ -3,6 +3,8 @@
   right: 0.08rem;
   bottom: 0.08rem;
   z-index: 6;
+  transform: scale(var(--game-card-overlay-scale, 1));
+  transform-origin: bottom right;
 }
 
 :host(.battle-counter-rotated-placement) {
@@ -10,6 +12,7 @@
   right: 0.08rem;
   bottom: auto;
   left: auto;
+  transform-origin: top right;
 }
 
 :host(.inline-battle-counter) {
@@ -34,6 +37,12 @@
   transition:
     filter 160ms ease,
     transform 160ms ease;
+}
+
+.battle-counter.counter-hover-active,
+.battle-counter:focus-visible {
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
 }
 
 .battle-counter-content {

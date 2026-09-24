@@ -509,18 +509,15 @@
   transform:
     translateX(calc(-50% + var(--hand-fan-splay, 0px) + var(--hand-shift-x, 0px)))
     translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px) + var(--hand-fan-lift, 0px) + var(--hand-fan-arc, 0px)))
-    rotate(var(--hand-card-rotation, var(--hand-fan-rotation, 0deg)))
-    translateZ(0);
+    rotate(var(--hand-card-rotation, var(--hand-fan-rotation, 0deg)));
   transform-origin: 50% calc(100% + var(--hand-fan-radius));
-  will-change: transform;
 }
 
 .hand-card.hand-row-layout {
   transform:
     translateX(calc(-50% + (var(--hand-row-distance, 0) * var(--hand-row-card-step, var(--c))) + var(--hand-shift-x, 0px)))
     translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px) - var(--hand-pivot-offset)))
-    rotate(0deg)
-    translateZ(0);
+    rotate(var(--hand-card-rotation, 0deg));
 }
 
 .hand-card .card-visual {
@@ -567,6 +564,7 @@
 .hand-card.hand-motion-active {
   pointer-events: none;
   transition: none;
+  will-change: transform;
 }
 
 .hand-card.hand-motion-active .card-visual {
@@ -878,6 +876,11 @@
   display: flex;
 }
 
+.game-card .power-toughness-overlay {
+  transform: scale(var(--game-card-overlay-scale, 1));
+  transform-origin: bottom right;
+}
+
 .power-toughness-overlay span {
   display: grid;
   min-width: 1.35rem;
@@ -890,13 +893,20 @@
   font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
-  transform: translateZ(0);
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
     box-shadow 160ms ease,
     color 160ms ease,
     transform 160ms ease;
+}
+
+.power-toughness-overlay span.counter-hover-active,
+.power-toughness-overlay span:focus-visible {
+  position: relative;
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
+  transform-origin: bottom right;
 }
 
 .power-toughness-overlay span.stat-pulse-increase {
@@ -908,7 +918,7 @@
   box-shadow:
     inset 0 0 0 2px rgb(var(--stat-pulse-increase-rgb) / 34%),
     inset 0 0 0.92rem rgb(var(--stat-pulse-increase-rgb) / 44%);
-  transform: translateZ(0) scale(1.12);
+  transform: scale(1.12);
 }
 
 .power-toughness-overlay span.stat-pulse-decrease {
@@ -920,7 +930,7 @@
   box-shadow:
     inset 0 0 0 2px rgb(var(--stat-pulse-decrease-rgb) / 32%),
     inset 0 0 0.92rem rgb(var(--stat-pulse-decrease-rgb) / 42%);
-  transform: translateZ(0) scale(1.12);
+  transform: scale(1.12);
 }
 
 .mini-battlefield-card {
@@ -933,7 +943,6 @@
   border-radius: 3px;
   background: var(--b);
   transition: left 160ms ease, top 160ms ease, width 160ms ease, height 160ms ease, transform 160ms ease;
-  will-change: left, top, width, height, transform;
 }
 
 .mini-battlefield-card.tapped {
@@ -952,6 +961,16 @@
   height: 100%;
   border-radius: 3px;
   background: url('/assets/images/facedown_card.jpg') center / cover;
+}
+
+// Card previews normally restore clipping so their visual effects remain
+// contained. A counter expanded to its full scale must be the exception:
+// this selector intentionally wins over preview and stack clipping rules
+// without opening the table or viewport overflow.
+.game-card.counter-hover-parent-active,
+.game-card.counter-hover-parent-active.battlefield-preview-active:not(.dragging),
+.game-card.counter-hover-parent-active .card-visual.counter-hover-visual-active {
+  overflow: visible;
 }
 
 @media (max-width: 1260px) {

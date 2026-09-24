@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "Этот бросок определяет ваш порядок хода.",
       "thisDeck": "эта колода",
       "thisPlayer": "этот игрок",
-      "tieBreakRoll": "Тай-брейк",
+      "tieBreakRoll": "Бросок при ничьей",
       "tieBreakRollMessage": "У вас ничья с {{ playerNames }}. Бросьте еще раз, чтобы определить победителя.",
       "waitingForDecksAndRolls": "Ожидание колод и бросков",
       "realtimeUnavailable": "Подключение в реальном времени восстанавливается. Изменения комнаты могут отображаться с задержкой."
@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} еще должны проголосовать. Осталось еще {{ seconds }} с.",
       "timeLimit": "Ограничение по времени",
       "winnerMessage": "Стол ваш. Вы пережили хаос и уверенно завершили партию.",
+      "waitForGameEnd": "Дождитесь окончания партии, прежде чем начинать матч-реванш.",
       "youDied": "Вы выбыли",
       "youHaveSecondsToVote": "У вас есть {{ seconds }} с, чтобы проголосовать.",
       "yourVoteMissingExtra": "Ваш голос отсутствует. У вас есть еще {{ seconds }} с.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Управление созданием фишек",
       "loadingDeckTokens": "Загрузка фишек колоды...",
-      "searchingTokens": "Поиск фишек..."
+      "searchingTokens": "Поиск фишек...",
+      "theRingFromGameMechanics": "Кольцо можно добавить только с поля боя. Щёлкните правой кнопкой мыши по полю боя и выберите «Игровая механика»."
     },
     "playersOrder": {
       "currentTurnLabel": "Ход {{ turnNumber }}",
       "upcomingTurnLabel": "Через {{ count }} ход(а)",
+      "nextPlayerLabel": "Следующий игрок:",
       "currentTurnTitle": "Сейчас ход {{ name }}",
       "upcomingTurnTitle": "{{ name }} будет ходить через {{ count }} ход(а)"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Сфокусируйте активного игрока хода",
       "focusTurn": "Фокус на ходе",
       "advancePhase": "Перейти к следующей фазе",
+      "phaseActionLabel": "Фаза",
       "phaseLabels": {
         "untap": "Разворот",
         "upkeep": "Поддержка",
@@ -998,6 +1002,7 @@
       "moveToHand": "Переместить в руку?",
       "moveAllToLibrary": "Положить все в библиотеку",
       "gamesCanOnlyBePlayedInLandscape": "На телефонах и планшетах партии доступны только в альбомной ориентации.",
+      "defeatedActionBlocked": "Вы проиграли, поэтому больше не можете выполнять игровые действия. Пока вы ждёте окончания партии, чат остаётся доступным.",
       "thisTableNeedsALittleMoreRoom": "Этому столу нужно немного больше места",
       "sorryThisResolutionIsTooCrampedFor": "Извините, это разрешение слишком тесно для игры Commander. Пожалуйста, отрегулируйте масштаб браузера или используйте окно большего размера.",
       "useCtrl0InYourBrowserTo": "Используйте Ctrl+0 в своем браузере, чтобы сбросить масштаб до 100 %, затем обновите или измените размер этого окна.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Чат, непрочитанные сообщения",
       "moveCardToAnotherBattlefield": "Переместить карту на другое поле битвы",
       "putIntoLibrary": "Положить в библиотеку",
+      "libraryPlacementSinglePrompt": "Куда положить эту карту?",
+      "libraryPlacementMultiplePrompt": "Куда положить эти карты ({{ count }})?",
+      "libraryPlacementTop": "Верх",
+      "libraryPlacementBottom": "Низ",
       "focusedOpponentLabel": "Просмотр:",
       "returnToOwnBattlefield": "К своему полю боя",
       "leaveTableConfirmationTitle": "Покинуть стол?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} создал копию токена."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} стал монархом.", "passed": "{{ actor }} передал монархию игроку {{ player }}.", "removed": "{{ actor }} удалил статус монарха." },
+      "initiative": { "claimed": "{{ player }} получил инициативу.", "passed": "{{ actor }} передал инициативу игроку {{ player }}.", "removed": "{{ actor }} удалил инициативу." },
+      "citysBlessing": { "granted": "{{ player }} получил благословение города.", "removed": "{{ actor }} удалил благословение города игрока {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} запустил цикл день/ночь с дня.", "startedNight": "{{ actor }} запустил цикл день/ночь с ночи.", "setDay": "{{ actor }} сменил состояние день/ночь на день.", "setNight": "{{ actor }} сменил состояние день/ночь на ночь.", "removed": "{{ actor }} удалил день/ночь." },
+      "ring": { "created": "{{ player }} получил Кольцо.", "removed": "{{ actor }} удалил Кольцо." },
+      "dungeon": { "entered": "{{ player }} вошёл в {{ cardName }}.", "advanced": "{{ actor }} продвинулся в подземелье.", "removed": "{{ actor }} удалил подземелье {{ cardName }}." },
+      "emblem": { "created": "{{ player }} создал эмблему {{ cardName }}.", "removed": "{{ actor }} удалил эмблему {{ cardName }}." },
+      "helper": { "created": "{{ actor }} добавил игровую механику.", "updated": "{{ actor }} обновил игровую механику.", "removed": "{{ actor }} удалил игровую механику." }
     },
     "game": {
       "concede": "{{ player }} предоставлен."
@@ -2186,6 +2205,17 @@
       "changeTheme": "Изменить тему",
       "gameSettings": {
         "title": "Настройки игрового процесса",
+        "defaultBattlefieldLayout": {
+          "label": "Макет стола",
+          "description": "Выберите, как будет организован стол при открытии игры.",
+          "grid": "Сетка",
+          "focused": "В фокусе",
+          "gridWarning": "Сетка доступна только в играх с участием до 4 игроков. При 5 или более игроках автоматически будет использован режим «В фокусе»."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Помощь с выравниванием карт",
+          "description": "При перемещении карты показывает вспомогательную направляющую, чтобы выровнять её по вертикали с ближайшими картами."
+        },
         "showManaHelperOnStartup": {
           "label": "Показывать помощник по мане при запуске",
           "description": "Показывает помощник для подсчёта маны в начале партии. Его можно скрыть или снова показать в любой момент во время партии."
@@ -2573,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Неверная колода",
-      "rollDice": "Бросить кубик",
+      "rollDice": "Бросить кости",
       "selectADeck": "Выберите колоду",
       "kickPlayer": "Выгнать игрока",
       "turnOrder": "Порядок ходов",

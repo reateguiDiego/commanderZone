@@ -45,7 +45,7 @@
       </button>
 
       @if (friendsOpen()) {
-        <app-friends-dropdown />
+        <app-friends-dropdown (friendRemovalRequested)="friendRemovalRequested.emit($event)" />
       }
     </div>
   }

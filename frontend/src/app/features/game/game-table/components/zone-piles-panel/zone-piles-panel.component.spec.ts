@@ -45,6 +45,17 @@ describe('ZonePilesPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
   });
 
+  it('shows the eye when the library contains a revealed card without a top-reveal flag', async () => {
+    const revealedCard = { ...card('library-1', 'Revealed Library Card', 'library'), revealedTo: ['player-2'] };
+    const fixture = await renderZonePilesPanel({
+      library: [revealedCard],
+      zonePreviewCard: (_player, zone) => zone === 'library' ? revealedCard : null,
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+    });
+
+    expect(fixture.nativeElement.querySelector('.library-top-revealed-indicator')).not.toBeNull();
+  });
+
   it('uses the theme-specific command zone logo asset', async () => {
     const fixture = await renderZonePilesPanel();
     const appTheme = TestBed.inject(AppThemeService);
@@ -443,6 +454,53 @@ describe('ZonePilesPanelComponent', () => {
     expect(topCard.activeFaceIndex).toBe(0);
   });
 
+  it('puts alternate-face toggles on visible graveyard and exile stack cards', async () => {
+    const graveyardTopCard = doubleFacedZoneCard('graveyard-dfc', 'graveyard');
+    const exileTopCard = doubleFacedZoneCard('exile-dfc', 'exile');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardTopCard],
+      exile: [exileTopCard],
+      zonePreviewImage: (_player, zone) => zone === 'graveyard' || zone === 'exile' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => {
+        if (zone === 'graveyard') {
+          return graveyardTopCard;
+        }
+
+        return zone === 'exile' ? exileTopCard : null;
+      },
+    });
+    const previewSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+
+    const graveyardToggle = zoneElement(fixture, 'graveyard').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    const exileToggle = zoneElement(fixture, 'exile').querySelector('.zone-card-stack-face-toggle') as HTMLElement;
+    expect(graveyardToggle).not.toBeNull();
+    expect(exileToggle).not.toBeNull();
+
+    graveyardToggle.click();
+    exileToggle.click();
+
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'graveyard-dfc', activeFaceIndex: 1 }),
+      zone: 'graveyard',
+    }));
+    expect(previewSpy).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'exile-dfc', activeFaceIndex: 1 }),
+      zone: 'exile',
+    }));
+  });
+
+  it('does not put an alternate-face toggle on an unrevealed library top card', async () => {
+    const topCard = doubleFacedZoneCard('hidden-library-dfc', 'library');
+    const fixture = await renderZonePilesPanel({
+      library: [topCard],
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/front.jpg' : null,
+      zonePreviewCard: (_player, zone) => zone === 'library' ? topCard : null,
+    });
+
+    expect(zoneElement(fixture, 'library').querySelector('.zone-card-stack-face-toggle')).toBeNull();
+  });
+
   it('emits a large-card preview when hovering the visible graveyard and exile cards', async () => {
     const graveyardTopCard = card('graveyard-2', 'Top Graveyard Card', 'graveyard');
     const exileTopCard = card('exile-2', 'Top Exile Card', 'exile');
@@ -594,23 +652,40 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'exile').classList).not.toContain('dragging-zone-card');
   });
 
-  it('marks the source pile immediately when native library drag starts', async () => {
+  it('uses a battlefield-sized card-back ghost for library pointer drags', async () => {
     const libraryCard = card('library-1', 'Top Library Card', 'library');
     const fixture = await renderZonePilesPanel({
       library: [libraryCard],
       topDraggableCard: (_player, zone) => zone === 'library' ? libraryCard : null,
       zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+      cardBackImage: () => '/assets/library-sleeve.jpg',
     });
 
     const library = zoneElement(fixture, 'library');
-    library.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    stubZoneArtRect(library);
 
-    expect(library.classList).toContain('dragging-zone-card');
-
-    library.dispatchEvent(new Event('dragend', { bubbles: true }));
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: library,
+      pointerType: 'mouse',
+      pointerId: 12,
+      clientX: 20,
+      clientY: 20,
+    }), 'library', libraryCard, fixture.componentInstance.canUseMousePointerDrag('library', libraryCard));
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'mouse',
+      pointerId: 12,
+      clientX: 80,
+      clientY: 20,
+    }));
     fixture.detectChanges();
 
-    expect(library.classList).not.toContain('dragging-zone-card');
+    const ghost = fixture.nativeElement.querySelector('.zone-floating-card') as HTMLElement | null;
+
+    expect(library.getAttribute('draggable')).toBeNull();
+    expect(library.classList).toContain('dragging-zone-card');
+    expect(ghost?.style.width).toBe('116px');
+    expect(ghost?.style.height).toBe('162px');
+    expect(ghost?.querySelector('img')?.getAttribute('src')).toBe('/assets/library-sleeve.jpg');
   });
 
   it.each(['graveyard', 'exile'] as const)(
@@ -657,7 +732,10 @@ describe('ZonePilesPanelComponent', () => {
       });
       expect(sourceZone.getAttribute('draggable')).toBeNull();
       expect(sourceZone.classList).toContain('dragging-zone-card');
-      expect(fixture.nativeElement.querySelector('.zone-floating-card img')?.getAttribute('src')).toBe('/assets/pile-card.jpg');
+      const ghost = fixture.nativeElement.querySelector('.zone-floating-card') as HTMLElement | null;
+      expect(ghost?.style.width).toBe('116px');
+      expect(ghost?.style.height).toBe('162px');
+      expect(ghost?.querySelector('img')?.getAttribute('src')).toBe('/assets/pile-card.jpg');
 
       restore();
     },
@@ -826,6 +904,7 @@ interface RenderZonePilesPanelOptions {
   commandZoneCards?: (player: unknown) => readonly GameCardInstance[];
   commanderCards?: (player: unknown) => readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
+  cardBackImage?: (player: unknown) => string;
   commanderCastCount?: (player: unknown, commander: GameCardInstance) => number;
   specialEntities?: readonly GameSpecialEntity[];
   canControlPlayer?: (playerId: string) => boolean;
@@ -892,6 +971,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   fixture.componentRef.setInput('commandZoneCards', options.commandZoneCards ?? ((inputPlayer: unknown) => (inputPlayer as typeof player).state.zones.command));
   fixture.componentRef.setInput('commanderCards', options.commanderCards ?? options.commandZoneCards ?? ((inputPlayer: unknown) => (inputPlayer as typeof player).state.zones.command));
   fixture.componentRef.setInput('cardImage', options.cardImage ?? ((inputCard: GameCardInstance) => inputCard.imageUris?.['normal'] ?? null));
+  fixture.componentRef.setInput('cardBackImage', options.cardBackImage ?? (() => '/assets/default-sleeve.jpg'));
   fixture.componentRef.setInput('commanderCastCount', options.commanderCastCount ?? (() => 0));
   fixture.componentRef.setInput('canControlPlayer', options.canControlPlayer ?? (() => true));
   fixture.componentRef.setInput('isZoneDropSettling', options.isZoneDropSettling ?? (() => false));
@@ -917,6 +997,17 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
     name,
     zone,
     tapped: false,
+  };
+}
+
+function doubleFacedZoneCard(instanceId: string, zone: GameZoneName): GameCardInstance {
+  return {
+    ...card(instanceId, 'Front // Back', zone),
+    activeFaceIndex: 0,
+    cardFaces: [
+      { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+      { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+    ],
   };
 }
 

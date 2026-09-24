@@ -665,6 +665,7 @@ export class DeckAdvancedAnalysisViewComponent {
     ...this.manaSourceRows().map((row) => ({
       id: row.key,
       labelKey: this.manaColorLabelKey(row.key),
+      manaSymbols: row.symbols,
     })),
   ]);
   readonly manaSourceCardGroups = computed<ManaCardGroup[]>(() => {

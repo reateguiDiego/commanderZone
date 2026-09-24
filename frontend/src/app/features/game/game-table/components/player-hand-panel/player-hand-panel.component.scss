@@ -1,3 +1,4 @@
+@use '../../game-table-layout/compact-player-regions' as compact;
 :host {
   display: contents;
 }
@@ -188,6 +189,26 @@
 
 .hand-area.hand-revealed .hand-count {
   opacity: 0.8;
+}
+
+.hand-area.compact-cell.is-turn-active .hand-count {
+  border-color: var(--game-accent-strong);
+  background: rgb(var(--game-accent-rgb) / 18%);
+  box-shadow: 0 0 0.72rem rgb(var(--game-accent-rgb) / 34%);
+  color: var(--game-text);
+  opacity: 1;
+  animation: active-turn-hand-count 5.2s ease-in-out infinite;
+}
+
+@keyframes active-turn-hand-count {
+  0%,
+  100% {
+    box-shadow: 0 0 0.42rem rgb(var(--game-accent-rgb) / 22%);
+  }
+
+  50% {
+    box-shadow: 0 0 1rem rgb(var(--game-accent-rgb) / 48%);
+  }
 }
 
 .hand-fan {
@@ -649,20 +670,7 @@
 
 @media (max-height: 768px) and (max-width: 1180px) {
   .hand-area {
-    --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
-    --hand-card-preview-height: 9.7rem;
-    --hand-row-card-drop: 0.9rem;
-    --hand-compact-visible-height: calc(var(--game-zone-row-height, 5.45rem) - var(--hand-row-card-drop));
-    --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
-    --hand-row-expanded-extra-height: 0rem;
-    --hand-reveal-offset: 0rem;
-    min-height: var(--game-zone-row-height, 5.45rem);
-    height: var(--game-zone-row-height, 5.45rem);
-    max-height: var(--game-zone-row-height, 5.45rem);
-    margin-top: 0;
-    overflow: visible;
-    pointer-events: auto;
-    clip-path: inset(-8rem 0 0 0);
+    @include compact.hand-surface;
   }
 
   .hand-area.hand-card-hover-active,
@@ -812,4 +820,74 @@
       translate3d(0, var(--cz-drag-lift-y), 0)
       scale(var(--cz-drag-scale));
   }
+
+  .hand-area.compact-cell.is-turn-active .hand-count {
+    animation: none;
+  }
+}
+
+.hand-area.compact-cell {
+  @include compact.hand-surface;
+  --hand-card-row-width: var(--grid-hand-card-width, 4.3rem);
+  --hand-card-row-step: calc(var(--hand-card-row-width) - var(--grid-hand-card-overlap, 0.6rem));
+  --hand-card-preview-height: var(--grid-hand-card-preview-height, 6rem);
+  --hand-hidden-offset: 0rem;
+  --hand-row-card-drop: 0.3rem;
+  --hand-reveal-offset: 0rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  clip-path: none;
+  .hand-row,
+  .hand-fan,
+  .hand-fan-row {
+    min-height: var(--game-zone-row-height);
+    height: var(--game-zone-row-height);
+    max-height: var(--game-zone-row-height);
+  }
+
+  .hand-row:not(.hand-row-expanded) {
+    padding: 0.2rem;
+    overflow-x: auto;
+  }
+
+  .hand-fan,
+  .hand-fan-row {
+    overflow: visible;
+  }
+
+  .empty-hand-drop-target {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hand-count {
+    right: 4.25rem;
+    left: auto;
+    transform: none;
+  }
+}
+
+.hand-area.compact-cell.hand-at-top {
+  align-self: start;
+}
+
+.hand-area.compact-cell.hand-at-top .hand-count {
+  top: 0.9rem;
+  bottom: auto;
+}
+
+:host-context(.is-top-row) .hand-area.compact-cell {
+  align-self: start;
+}
+
+:host-context(.is-top-row) .hand-area.compact-cell .hand-count {
+  top: 0.9rem;
+  bottom: auto;
+}
+
+:host-context(.is-top-row) .hand-area.compact-cell .hand-row {
+  // Keep the hand surface in place and turn only everything rendered inside it.
+  transform: rotate(180deg);
+  transform-origin: 50% 50%;
 }

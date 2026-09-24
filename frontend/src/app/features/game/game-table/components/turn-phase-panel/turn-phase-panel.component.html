@@ -1,15 +1,34 @@
 @let currentTurn = turn();
 
-<div class="turn-phase-panel" data-testid="turn-panel" [class.is-current-turn-player]="isCurrentTurnPlayer()">
+<div
+  class="turn-phase-panel"
+  data-testid="turn-panel"
+  [class.is-current-turn-player]="isCurrentTurnPlayer()"
+  [class.is-grid-layout]="gridLayout()"
+>
   <div class="turn-summary">
-    <div class="turn-title">
-      <app-players-order
-        [players]="players()"
-        [activePlayerId]="currentTurn.activePlayerId"
-        [currentPlayerId]="currentPlayerId()"
-        [turnNumber]="currentTurn.number"
-      />
-    </div>
+    @if (!gridLayout()) {
+      <div class="turn-title">
+        <app-players-order
+          [players]="players()"
+          [activePlayerId]="currentTurn.activePlayerId"
+          [currentPlayerId]="currentPlayerId()"
+          [turnNumber]="currentTurn.number"
+        />
+      </div>
+    } @else {
+      <p class="grid-turn-indicator">
+        <span>{{ 'game.playersOrder.currentTurnLabel' | runtimeTranslate: { turnNumber: currentTurn.number } }}</span>
+        <span aria-hidden="true">–</span>
+        <strong [style.color]="activeTurnPlayerColor()">{{ activeTurnPlayerName() ?? '—' }}</strong>
+      </p>
+      @if (nextTurnPlayer(); as nextPlayer) {
+        <p class="grid-next-player">
+          <span>{{ 'game.playersOrder.nextPlayerLabel' | runtimeTranslate }}</span>
+          <strong [style.color]="playerColor()(nextPlayer.id)">{{ nextPlayer.name }}</strong>
+        </p>
+      }
+    }
     @if (!isCurrentTurnPlayer() && activeTurnPlayerName(); as activePlayerName) {
       <span class="active-turn-player-pill" data-testid="active-turn-player-pill">
         {{ 'game.turnPhasePanel.activeTurnPlayer' | runtimeTranslate: { name: activePlayerName } }}
@@ -27,7 +46,7 @@
           (click)="passTurn.emit()"
         >
           <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
-          <span>{{ 'shared.text.passTurn' | runtimeTranslate }}</span>
+          <span>{{ 'shared.text.turn' | runtimeTranslate }}</span>
         </button>
         <button
           czButton="primary"
@@ -39,18 +58,20 @@
           (click)="advancePhase.emit()"
         >
           <lucide-icon name="play" size="17" aria-hidden="true" />
-          <span data-testid="end-step">{{ nextPhaseKey() | runtimeTranslate }}</span>
+          <span data-testid="end-step">{{ 'game.turnPhasePanel.phaseActionLabel' | runtimeTranslate }}</span>
         </button>
       }
-      <app-compact-checkbox
-        class="turn-focus-toggle"
-        testId="follow-active-turn-player"
-        [label]="'game.turnPhasePanel.focusTurn' | runtimeTranslate"
-        [title]="'game.turnPhasePanel.focusTheActiveTurnPlayer' | runtimeTranslate"
-        [tooltipStretch]="true"
-        [checked]="followActiveTurnPlayer()"
-        (checkedChange)="followActiveTurnPlayerChanged.emit($event)"
-      />
+      @if (!gridLayout()) {
+        <app-compact-checkbox
+          class="turn-focus-toggle"
+          testId="follow-active-turn-player"
+          [label]="'game.turnPhasePanel.focusTurn' | runtimeTranslate"
+          [title]="'game.turnPhasePanel.focusTheActiveTurnPlayer' | runtimeTranslate"
+          [tooltipStretch]="true"
+          [checked]="followActiveTurnPlayer()"
+          (checkedChange)="followActiveTurnPlayerChanged.emit($event)"
+        />
+      }
     </div>
   </div>
   <div class="phase-tracker" [attr.aria-label]="'game.turnPhasePanel.turnPhases' | runtimeTranslate">

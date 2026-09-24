@@ -50,6 +50,25 @@ describe('CardMarkerRailComponent', () => {
     expect(marker?.getAttribute('title')).toBe('Open Oracle rulings on Scryfall');
   });
 
+  it('reserves the bottom rail slot for rulings and wraps additional counters into a second column', () => {
+    const fixture = createFixture();
+
+    fixture.componentRef.setInput('showRulingsMarker', true);
+    fixture.componentRef.setInput('counters', [
+      { key: 'charge', value: 1 },
+      { key: 'lore', value: 1 },
+      { key: 'quest', value: 1 },
+      { key: 'shield', value: 1 },
+      { key: 'energy', value: 1 },
+    ]);
+    fixture.detectChanges();
+
+    const rail = fixture.nativeElement.querySelector('.card-marker-rail') as HTMLElement;
+
+    expect(rail.classList).toContain('reserves-rulings-space');
+    expect(rail.querySelectorAll('.counter-marker')).toHaveLength(5);
+  });
+
   it('emits rulings requests from marker clicks', () => {
     const fixture = createFixture();
     const requested = vi.fn();
@@ -85,6 +104,24 @@ describe('CardMarkerRailComponent', () => {
     expect(marker.classList).toContain('stat-counter-marker');
     expect(marker.textContent).toContain('+1/+1');
     expect(marker.textContent).toContain('2');
+  });
+
+  it('pulses a counter in the matching direction when its value changes', () => {
+    const fixture = createFixture();
+
+    fixture.componentRef.setInput('counters', [{ key: 'charge', value: 1 }]);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('counters', [{ key: 'charge', value: 2 }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    expect(marker.classList).toContain('counter-marker-pulse-increase-a');
+
+    fixture.componentRef.setInput('counters', [{ key: 'charge', value: 1 }]);
+    fixture.detectChanges();
+
+    expect(marker.classList).toContain('counter-marker-pulse-decrease-b');
   });
 
   it('emits counter increments and decrements from marker clicks', () => {

@@ -341,11 +341,11 @@ class GameProjectionService
      */
     private function isVisibleLibraryCard(array $card, string $viewerId, array $player): bool
     {
-        if (!$this->libraryOps()->usesTailTop($player)) {
-            return $this->isVisibleCard($card, $viewerId);
+        if (array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)) {
+            return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
         }
 
-        return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
+        return $this->isVisibleCard($card, $viewerId);
     }
 
     /**
@@ -448,9 +448,14 @@ class GameProjectionService
                     || $hasDirectedTopAudience
                 )) {
                     if (is_array($topCard)) {
-                        $topCard['faceDown'] = false;
-
-                        return [$this->projectCard($topCard, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)];
+                        return [$this->projectCard(
+                            $this->faceUpLibraryCard($topCard),
+                            $viewerId,
+                            false,
+                            $requestedLanguage,
+                            $localizedCardsByLanguage,
+                            $rulingsLookup,
+                        )];
                     }
                 }
 
@@ -469,7 +474,7 @@ class GameProjectionService
 
         $topCard = $cards[0];
         if ($playTopRevealed || $this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
-            $topCard['faceDown'] = false;
+            $topCard = $this->faceUpLibraryCard($topCard);
             if ($playTopRevealed && !$this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
                 $topCard['revealedTo'] = ['all'];
             }
@@ -559,6 +564,7 @@ class GameProjectionService
      */
     private function faceUpLibraryCard(array $card): array
     {
+        unset($card['hidden']);
         $card['faceDown'] = false;
 
         return $card;

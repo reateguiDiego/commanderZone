@@ -36,6 +36,8 @@ describe('DashboardSettingsModalComponent', () => {
         appLanguage: 'en',
         themeId: 'sunrise',
         game: {
+          defaultBattlefieldLayout: 'square',
+          showCardAlignmentHelper: true,
           showManaHelperOnStartup: false,
           enableManaRow: true,
           autoApplyCommanderDamageToLife: true,
@@ -131,6 +133,15 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('App language');
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
+    expect(fixture.nativeElement.textContent).toContain('Card alignment helper');
+    expect(fixture.nativeElement.textContent).toContain('Table layout');
+    expect(fixture.nativeElement.textContent).toContain('Grid');
+    expect(fixture.nativeElement.textContent).toContain('Focused');
+    const layoutToggle = fixture.nativeElement.querySelector('.game-settings-toggle-list .game-settings-layout-toggle');
+    expect(layoutToggle).not.toBeNull();
+    expect(layoutToggle.querySelector('[role="switch"]')).not.toBeNull();
+    expect(layoutToggle.querySelector('input[type="radio"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Grid is only available in games with up to 4 players.');
     expect(fixture.nativeElement.textContent).toContain('Show a mana row');
     expect(fixture.nativeElement.textContent).toContain('Combine chat and game log');
     expect(fixture.nativeElement.textContent).toContain('Apply commander damage');
@@ -153,7 +164,15 @@ describe('DashboardSettingsModalComponent', () => {
     const combineChatAndGameLogToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
       .find((button) => button.textContent?.includes('Combine chat and game log')) as HTMLButtonElement;
     combineChatAndGameLogToggle.click();
+    const cardAlignmentHelperToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Card alignment helper')) as HTMLButtonElement;
+    cardAlignmentHelperToggle.click();
+    const gridLayoutToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Table layout')) as HTMLButtonElement;
+    gridLayoutToggle.click();
     fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Grid is only available in games with up to 4 players.');
 
     expect(fixture.componentInstance.canSave()).toBe(true);
 
@@ -161,6 +180,8 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(authApiMock.updateMe).toHaveBeenCalledWith({
       gamePreferences: {
+        defaultBattlefieldLayout: 'grid',
+        showCardAlignmentHelper: false,
         showManaHelperOnStartup: false,
         enableManaRow: true,
         autoApplyCommanderDamageToLife: true,
@@ -466,6 +487,9 @@ describe('DashboardSettingsModalComponent', () => {
       cardLanguage: 'en',
       appLanguage: 'en',
       gamePreferences: {
+        defaultBattlefieldLayout: 'square',
+        chosenModeView: 'square',
+        showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,
         autoApplyCommanderDamageToLife: true,
@@ -604,6 +628,9 @@ describe('DashboardSettingsModalComponent', () => {
       cardLanguage: 'fr',
       appLanguage: 'de',
       gamePreferences: {
+        defaultBattlefieldLayout: 'square',
+        chosenModeView: 'square',
+        showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,
         autoApplyCommanderDamageToLife: true,

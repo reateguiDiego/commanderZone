@@ -75,8 +75,6 @@
                       [current]="isCurrentUser(player.user.id)"
                       [ready]="isPlayerReady(player)"
                       [selectorOpen]="isCurrentUser(player.user.id) && deckSelectorOpen()"
-                      [hasDeckArt]="shouldShowPlayerDeckArt(player)"
-                      [hasDualDeckArt]="hasDualPlayerDeckArt(player)"
                       [deckArtUrl]="playerDeckArt(player)"
                       [secondaryDeckArtUrl]="playerSecondaryDeckArt(player)"
                       [deckName]="playerDeckName(player)"
@@ -163,23 +161,22 @@
       (firstMulliganFreeChange)="updateRoomFirstMulliganFree($event)"
     />
 
-    <app-modal
-      [open]="rollModalOpen()"
+    @if (rollModalOpen()) {
+      <app-roll-modal
+      size="big"
+      [authoritative]="true"
+      [pending]="rollingTurn()"
+      [failed]="rollModalFailed()"
+      [rollEnabled]="currentPlayerCanRoll()"
+      [result]="rollModalResult()"
+      [availableKinds]="waitingRoomRollKinds"
       [title]="rollModalTitle()"
-      [message]="rollModalMessage()"
-      [messageParams]="rollModalMessageParams()"
-      primaryLabel="shared.text.roll"
-      secondaryLabel="shared.text.cancel"
-      (primary)="rollTurnOrder()"
-      (secondary)="closeRollModal()"
-    >
-      <div class="roll-dice-preview" aria-hidden="true">
-        <img src="/assets/icons/chance/dice_20.png" alt="" />
-      </div>
-      <p class="app-disclaimer-callout roll-lock-warning">
-        {{ 'rooms.waitingRoom.afterRollingYourDeckSelectionWillBe' | runtimeTranslate }}
-      </p>
-    </app-modal>
+      notice="rooms.waitingRoom.afterRollingYourDeckSelectionWillBe"
+      (rollRequested)="rollTurnOrder($event)"
+      (resultRevealed)="revealTurnOrderResult()"
+      (closed)="closeRollModal()"
+    />
+    }
 
     <app-modal
       [open]="inviteModalOpen()"
@@ -290,4 +287,3 @@
     (primary)="closeInvalidDeckModal()"
   />
 </section>
-

@@ -1172,7 +1172,7 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
 
             $card = $localization->localizeCardPayload($deckCard->card()->toArray(), $viewer->cardLanguage(), true);
             $imageUris = is_array($card['imageUris'] ?? null) ? $card['imageUris'] : $deckCard->card()->imageUris();
-            foreach (['art_crop', 'border_crop', 'large', 'normal'] as $format) {
+            foreach (['art_crop', 'border_crop', 'normal'] as $format) {
                 $imageUrl = $imageUris[$format] ?? null;
                 if (is_string($imageUrl) && $imageUrl !== '') {
                     return $imageUrl;

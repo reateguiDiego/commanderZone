@@ -23,10 +23,27 @@
           (mouseleave)="cardPreviewHidden.emit()"
         >
           @if (image()(card); as cardImage) {
-            <img [src]="cardImage" [alt]="card.name" draggable="false" />
+            <img
+              [appGameScheduledImage]="cardImage"
+              gameImagePriority="visible"
+              [alt]="card.name"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              [appPreloadCardAlternateFace]="card"
+              [cardVisibleFaceIndex]="card.activeFaceIndex ?? 0"
+              draggable="false"
+            />
           } @else {
             <span class="battlefield-mechanics-overlay__mini-card-fallback">{{ card.name }}</span>
           }
+          <app-card-marker-rail
+            class="battlefield-mechanics-overlay__mini-card-markers"
+            [counters]="visibleCounters(card)"
+            [compact]="true"
+            [countersInteractive]="countersEditable()"
+            (counterChanged)="changeCounter($event, card)"
+          />
         </button>
       }
     </div>
@@ -45,7 +62,7 @@
           [playerId]="playerId()"
           zone="battlefield"
           [image]="image()(card)"
-          [locked]="true"
+          [locked]="!canInteract()(card)"
           [selected]="false"
           [dragging]="false"
           [pendingTransfer]="false"
@@ -59,12 +76,12 @@
           [hidden]="false"
           [disabled]="false"
           [visible]="true"
-          [battlefieldFocusEntry]="null"
           [showPowerToughness]="false"
           [powerValue]="null"
           [toughnessValue]="null"
           [loyaltyValue]="null"
           [counter]="null"
+          [countersEditable]="countersEditable()"
           [landStackRole]="null"
           [landStackLayer]="null"
           [landStackSize]="null"
@@ -75,9 +92,13 @@
           [landStackDropSize]="0"
           landStackDropKind="land"
           (cardMenuOpened)="openBattlefieldCardMenu($event.event, $event.card)"
+          (cardPointerDown)="cardPointerDown.emit($event)"
+          (cardClicked)="cardClicked.emit($event)"
+          (cardDoubleClicked)="cardDoubleClicked.emit($event)"
           (cardMouseEntered)="cardPreviewShown.emit($event)"
           (cardPreviewRequested)="cardPreviewRequested.emit($event)"
           (cardMouseLeft)="cardPreviewHidden.emit()"
+          (counterChanged)="counterChanged.emit($event)"
         />
       }
     </div>

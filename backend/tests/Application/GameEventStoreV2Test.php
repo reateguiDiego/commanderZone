@@ -732,7 +732,8 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame('READY', $rebuilt['players'][$actor->id()]['mulligan']['status']);
         self::assertCount(6, $this->zoneIds($rebuilt, $actor->id(), 'hand'));
         self::assertNotContains($bottomedId, $this->zoneIds($rebuilt, $actor->id(), 'hand'));
-        self::assertSame($bottomedId, $this->zoneIds($rebuilt, $actor->id(), 'library')[0] ?? null);
+        $libraryIds = $this->zoneIds($rebuilt, $actor->id(), 'library');
+        self::assertSame($bottomedId, $libraryIds[array_key_last($libraryIds)] ?? null);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
@@ -776,6 +777,30 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame([], $battlefieldCard['revealedTo'] ?? null);
         self::assertArrayNotHasKey(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $battlefieldCard);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayKeepsCompactRuntimeBottomedCardsAtTheLibraryTail(): void
+    {
+        $actor = new User('runtime-bottom-order@example.test', 'Runtime Bottom Order');
+        $handler = new GameCommandHandler();
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 3, 'library'),
+            'hand' => $this->cards('hand', 2, 'hand'),
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $bottom = new GameEvent($game, 'mulligan.cards_bottomed', [
+            'playerId' => $actor->id(),
+            'bottomedIds' => ['hand-1', 'hand-2'],
+        ], $actor, 'runtime-bottom-order', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$bottom]);
+
+        self::assertSame(
+            ['library-1', 'library-2', 'library-3', 'hand-1', 'hand-2'],
+            $this->zoneIds($rebuilt, $actor->id(), 'library'),
+        );
+        self::assertSame(3, $rebuilt['loc']['hand-1']['index'] ?? null);
+        self::assertSame(4, $rebuilt['loc']['hand-2']['index'] ?? null);
     }
 
     public function testReplayAppliesRuntimeGoCardFaceChangeForReconnect(): void
@@ -1176,7 +1201,7 @@ class GameEventStoreV2Test extends TestCase
         $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
 
         self::assertSame(2, $rebuilt['version']);
-        self::assertSame(['library-3', 'library-1', 'library-4', 'library-2'], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-2', 'library-4', 'library-1', 'library-3'], $this->zoneIds($rebuilt, $actor->id(), 'library'));
         self::assertSame(['library-2', 'library-4', 'library-1', 'library-3'], $this->libraryProjectionIds($rebuilt, $actor->id()));
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }

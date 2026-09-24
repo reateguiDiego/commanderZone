@@ -27,7 +27,6 @@ import { ManaPoolColor } from '../../utils/mana-source-detector';
 import {
   DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
   MAX_BATTLEFIELD_ZOOM_PERCENT,
-  MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
@@ -125,10 +124,9 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
-type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
-
 const MIN_STACK_VISUAL_OFFSET_Y = 12;
 const MAX_STACK_VISUAL_OFFSET_Y = 25;
+const MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT = 60;
 const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
@@ -141,17 +139,16 @@ const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
-  private lastPlayerId: string | null = null;
   private lastLayoutKey: unknown = null;
-  private boardTransitionTimer: number | null = null;
   private layoutRefreshFrame: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
+  /** Local display transform used by upper Grid seats. */
+  readonly verticallyInverted = input(false);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
-  readonly focusEffectsEnabled = input(true);
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
   readonly battlefieldCards = computed(() =>
     this.player().state.zones.battlefield.filter((card) => !isBattlefieldMechanicOverlayCard(card)),
@@ -218,7 +215,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
-  readonly boardTransitioning = signal(false);
   readonly hoveredPermanentStackId = signal<string | null>(null);
   private readonly measuredLayoutVersion = signal(0);
   readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
@@ -260,7 +256,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       ...this.attachmentStackGroups(),
     ]);
   });
-
   ngAfterViewInit(): void {
     const element = this.battlefieldRoot?.nativeElement;
     if (!element) {
@@ -285,10 +280,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-      this.boardTransitionTimer = null;
-    }
     if (this.layoutRefreshFrame !== null) {
       window.cancelAnimationFrame(this.layoutRefreshFrame);
       this.layoutRefreshFrame = null;
@@ -308,25 +299,30 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   ngDoCheck(): void {
-    const playerId = this.player().id;
     const layoutKey = this.layoutKey();
-    const playerChanged = this.lastPlayerId !== playerId;
     const layoutChanged = this.lastLayoutKey !== layoutKey;
 
     this.lastLayoutKey = layoutKey;
 
-    if (playerChanged) {
-      this.lastPlayerId = playerId;
-      this.triggerBoardTransition();
-    }
-
-    if (playerChanged || layoutChanged) {
+    if (layoutChanged) {
       this.queueMeasuredLayoutRefresh();
     }
+
   }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
     return this.isCurrentPlayer()(playerId) && this.canDragBattlefieldCard()(playerId, card);
+  }
+
+  readonly canInteractWithFocusedCard = (card: GameCardInstance): boolean =>
+    this.canInteractWithCard(this.player().id, card);
+
+  onMechanicCardPointerDown(event: PointerEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.canInteractWithCard(playerId, card)) {
+      return;
+    }
+
+    this.cardPointerDown.emit({ event, playerId, card });
   }
 
   onCardDoubleClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
@@ -465,8 +461,23 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   displayedCardPosition(card: GameCardInstance): { x: number; y: number } | null {
     this.layoutKey();
     this.measuredLayoutVersion();
-    return this.permanentStackDisplayPositions().get(card.instanceId)
+    const position = this.permanentStackDisplayPositions().get(card.instanceId)
       ?? this.fitPositionInsideBattlefield(card.instanceId, this.cardPosition()(card));
+
+    return this.verticallyInverted()
+      ? this.invertedDisplayPosition(card.instanceId, position)
+      : position;
+  }
+
+  displayedAlignmentGuideY(y: number, referenceInstanceIds: readonly string[]): number {
+    if (!this.verticallyInverted()) {
+      return y;
+    }
+
+    const battlefieldHeight = this.battlefieldHeight();
+    const referenceCardHeight = this.measuredCardSize(referenceInstanceIds[0] ?? '').height;
+
+    return battlefieldHeight > 0 ? Math.max(0, Math.round(battlefieldHeight - referenceCardHeight - y)) : y;
   }
 
   isLandStackDropTarget(playerId: string, card: GameCardInstance): boolean {
@@ -491,32 +502,15 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       : 'land';
   }
 
-  battlefieldFocusEntry(card: GameCardInstance): BattlefieldFocusEntry {
-    if (!this.focusEffectsEnabled() || !this.boardTransitioning()) {
-      return null;
-    }
-
-    if (!this.usesLandingFocusEntry(card)) {
-      return 'fade';
-    }
-
+  commanderEntryDirection(card: GameCardInstance): 'left' | 'right' {
     const position = this.cardPosition()(card);
-    if (!position) {
+    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
+
+    if (!position || battlefieldWidth <= 0) {
       return 'left';
     }
 
-    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
-    if (battlefieldWidth <= 0) {
-      return position.x <= 0 ? 'left' : 'right';
-    }
-
-    return position.x + 58 <= battlefieldWidth / 2 ? 'left' : 'right';
-  }
-
-  private usesLandingFocusEntry(card: GameCardInstance): boolean {
-    const typeLine = card.typeLine?.toLowerCase() ?? '';
-
-    return typeLine.includes('creature') || typeLine.includes('planeswalker');
+    return position.x <= battlefieldWidth / 2 ? 'left' : 'right';
   }
 
   private emitBattlefieldSize(element: HTMLElement): void {
@@ -553,31 +547,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.battlefieldSizeChanged.emit(next);
   }
 
-  private triggerBoardTransition(): void {
-    if (!this.focusEffectsEnabled()) {
-      this.clearBoardTransition();
-      return;
-    }
-
-    this.boardTransitioning.set(false);
-    window.requestAnimationFrame(() => this.boardTransitioning.set(true));
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-    }
-    this.boardTransitionTimer = window.setTimeout(() => {
-      this.boardTransitioning.set(false);
-      this.boardTransitionTimer = null;
-    }, 980);
-  }
-
-  private clearBoardTransition(): void {
-    this.boardTransitioning.set(false);
-    if (this.boardTransitionTimer !== null) {
-      window.clearTimeout(this.boardTransitionTimer);
-      this.boardTransitionTimer = null;
-    }
-  }
-
   private queueMeasuredLayoutRefresh(): void {
     if (this.layoutRefreshFrame !== null) {
       return;
@@ -599,15 +568,34 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return shiftY > 0 ? { ...position, y: position.y - shiftY } : position;
   }
 
+  private invertedDisplayPosition(
+    instanceId: string,
+    position: { x: number; y: number } | null,
+  ): { x: number; y: number } | null {
+    if (!position) {
+      return null;
+    }
+
+    const battlefieldHeight = this.battlefieldHeight();
+    if (battlefieldHeight <= 0) {
+      return position;
+    }
+
+    return {
+      x: position.x,
+      y: Math.max(0, Math.round(battlefieldHeight - this.measuredCardSize(instanceId).height - position.y)),
+    };
+  }
+
   private stackVisualOffsetY(): number {
     const zoomPercent = Math.max(
-      MIN_BATTLEFIELD_ZOOM_PERCENT,
+      MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT,
       Math.min(MAX_BATTLEFIELD_ZOOM_PERCENT, Math.round(this.zoomPercent())),
     );
     const offset = zoomPercent <= DEFAULT_BATTLEFIELD_ZOOM_PERCENT
       ? this.interpolateStackVisualOffset(
         zoomPercent,
-        MIN_BATTLEFIELD_ZOOM_PERCENT,
+        MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT,
         DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
         MIN_STACK_VISUAL_OFFSET_Y,
         landStackOffsetY(),
@@ -626,6 +614,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   private calculateStackDisplayPositions(groups: readonly PermanentStackLayoutGroup[]): ReadonlyMap<string, { x: number; y: number }> {
     const positions = new Map<string, { x: number; y: number }>();
     const stackOffsetY = this.stackVisualOffsetY();
+    const stackOffsetDirection = this.verticallyInverted() ? 1 : -1;
 
     for (const group of groups) {
       const anchor = group.members.find((member) => member.layer === 0);
@@ -637,7 +626,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
         member,
         position: {
           x: anchor.position.x + landStackOffsetX() * member.layer,
-          y: anchor.position.y - stackOffsetY * member.layer,
+          y: anchor.position.y + stackOffsetDirection * stackOffsetY * member.layer,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
@@ -679,7 +668,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       return 0;
     }
 
-    const battlefieldHeight = Math.round(battlefield.clientHeight || battlefield.getBoundingClientRect().height);
+    const battlefieldHeight = this.battlefieldHeight();
     if (battlefieldHeight <= 0) {
       return 0;
     }
@@ -699,15 +688,55 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return Math.min(Math.round(maxBottom - battlefieldHeight), Math.max(0, Math.round(minTop)));
   }
 
+  private battlefieldHeight(): number {
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    return battlefield
+      ? Math.round(battlefield.clientHeight || battlefield.getBoundingClientRect().height)
+      : 0;
+  }
+
   private measuredCardSize(instanceId: string): { width: number; height: number } {
-    const element = Array.from(this.battlefieldRoot?.nativeElement.querySelectorAll<HTMLElement>(
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    const element = Array.from(battlefield?.querySelectorAll<HTMLElement>(
       '[data-testid="game-card"][data-card-instance-id]',
     ) ?? []).find((candidate) => candidate.dataset['cardInstanceId'] === instanceId);
     const bounds = element?.getBoundingClientRect();
+    if (element && bounds && bounds.width > 0 && bounds.height > 0) {
+      return {
+        width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
+        height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
+      };
+    }
+
+    const configuredWidth = battlefield
+      ? this.cssLengthInPixels(getComputedStyle(battlefield).getPropertyValue('--battlefield-card-width'))
+      : null;
+    const width = configuredWidth ?? 116;
 
     return {
-      width: Math.max(1, Math.round(element?.offsetWidth || bounds?.width || 116)),
-      height: Math.max(1, Math.round(element?.offsetHeight || bounds?.height || 162)),
+      width,
+      height: Math.max(1, Math.round(width / 0.716)),
     };
+  }
+
+  private cssLengthInPixels(value: string): number | null {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    if (value.trim().endsWith('px')) {
+      return Math.round(parsed);
+    }
+
+    if (value.trim().endsWith('rem')) {
+      const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+      return Number.isFinite(rootFontSize) && rootFontSize > 0
+        ? Math.round(parsed * rootFontSize)
+        : null;
+    }
+
+    return null;
   }
 }

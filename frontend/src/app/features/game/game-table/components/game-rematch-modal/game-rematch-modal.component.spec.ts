@@ -55,6 +55,20 @@ describe('GameRematchModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Premium finish');
   });
 
+  it('asks a defeated player to wait while the game is still in progress', () => {
+    fixture.componentRef.setInput('gameFinished', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Wait for the game to end before starting a rematch.');
+  });
+
+  it('shows the rematch copy after a defeated player\'s game has finished', () => {
+    fixture.componentRef.setInput('gameFinished', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Would you like a rematch with this table?');
+  });
+
   it('shows status icons only for the winner and eliminated players', () => {
     fixture.componentRef.setInput('players', [
       { playerId: 'player-1', displayName: 'Winner', winner: true, life: 12, defeated: false, vote: 'play_again' },

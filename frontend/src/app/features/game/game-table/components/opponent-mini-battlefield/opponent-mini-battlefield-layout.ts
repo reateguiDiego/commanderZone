@@ -26,7 +26,10 @@ const DEFAULT_BATTLEFIELD_HEIGHT = 520;
 const FALLBACK_GAP_X = 122;
 const FALLBACK_GAP_Y = 156;
 const VIEWPORT_PADDING = 8;
-const MAX_CARD_HEIGHT = 96;
+// The sidebar is a compact board overview. Its cards must not visually track
+// the focused battlefield zoom, even when a wide viewport could fit a larger
+// rendering.
+const NORMAL_MINI_CARD_MAX_HEIGHT = 72;
 const EDGE_USAGE_THRESHOLD = 0.78;
 
 interface LogicalCardPlacement {
@@ -65,7 +68,7 @@ export function layoutOpponentMiniBattlefield(
   const availableWidth = Math.max(1, viewport.width - VIEWPORT_PADDING * 2);
   const availableHeight = Math.max(1, viewport.height - VIEWPORT_PADDING * 2);
   const fitScale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight);
-  const maxScale = Math.min(1, MAX_CARD_HEIGHT / CARD_HEIGHT, availableHeight / CARD_HEIGHT);
+  const maxScale = Math.min(1, NORMAL_MINI_CARD_MAX_HEIGHT / CARD_HEIGHT, availableHeight / CARD_HEIGHT);
   const cardScale = Math.max(0.01, Math.min(fitScale, maxScale));
   const cardWidth = CARD_WIDTH * cardScale;
   const cardHeight = CARD_HEIGHT * cardScale;

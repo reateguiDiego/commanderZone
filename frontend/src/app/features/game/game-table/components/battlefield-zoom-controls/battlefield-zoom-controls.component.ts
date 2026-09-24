@@ -60,7 +60,7 @@ const ZOOM_THUMB_MANA_SYMBOL_CLASSES = [
 const DEFAULT_ZOOM_SNAP_DISTANCE_PERCENT = 2;
 const MAXIMUM_VIEW_LAYOUT_PLAYER_COUNT = 4;
 
-type BattlefieldViewLayout = 'square' | 'grid';
+import type { BattlefieldViewLayout } from '../../game-table-layout/game-table-grid-seat.model';
 
 @Component({
   selector: 'app-battlefield-zoom-controls',
@@ -83,11 +83,15 @@ export class BattlefieldZoomControlsComponent {
   readonly zoomPercentChanged = output<BattlefieldZoomPercent>();
   readonly resetZoom = output<void>();
   readonly isExpanded = signal(false);
-  readonly selectedViewLayout = signal<BattlefieldViewLayout>('square');
+  readonly selectedViewLayout = input<BattlefieldViewLayout>('square');
+  readonly viewLayoutChanged = output<BattlefieldViewLayout>();
+  readonly viewLayoutAvailable = input(true);
+  readonly showZoom = input(true);
   readonly zoomThumbSymbol = this.pickRandomManaSymbolClass();
   readonly currentZoomPosition = computed(() => this.sliderPosition(this.zoomPercent()));
   readonly defaultZoomPosition = computed(() => this.sliderPosition(this.defaultZoomPercent()));
-  readonly shouldShowViewLayoutControls = computed(() => this.playerCount() <= MAXIMUM_VIEW_LAYOUT_PLAYER_COUNT);
+  readonly shouldShowViewLayoutControls = computed(() => this.viewLayoutAvailable() && this.playerCount() >= 1 && this.playerCount() <= MAXIMUM_VIEW_LAYOUT_PLAYER_COUNT);
+  readonly hasAvailableControls = computed(() => this.showZoom() || this.shouldShowViewLayoutControls());
   private isSliderDragging = false;
 
   @HostListener('document:pointerdown', ['$event'])
@@ -113,7 +117,7 @@ export class BattlefieldZoomControlsComponent {
       return;
     }
 
-    this.selectedViewLayout.set(layout);
+    this.viewLayoutChanged.emit(layout);
   }
 
   startSliderDrag(event: PointerEvent): void {

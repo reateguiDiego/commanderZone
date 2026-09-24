@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Application\Auth\AuthMailer;
 use App\Application\Auth\AuthTokenService;
+use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Domain\User\Role;
 use App\Domain\User\User;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -29,6 +30,9 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'en',
             'themeId' => 'sunrise',
             'game' => [
+                'defaultBattlefieldLayout' => 'grid',
+                'chosenModeView' => 'grid',
+                'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
                 'autoApplyCommanderDamageToLife' => true,
@@ -68,6 +72,9 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
+                'defaultBattlefieldLayout' => 'grid',
+                'chosenModeView' => 'square',
+                'showCardAlignmentHelper' => false,
                 'showManaHelperOnStartup' => true,
                 'enableManaRow' => false,
                 'autoApplyCommanderDamageToLife' => false,
@@ -78,6 +85,9 @@ class AuthApiTest extends ApiTestCase
         ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame([
+            'defaultBattlefieldLayout' => 'grid',
+            'chosenModeView' => 'square',
+            'showCardAlignmentHelper' => false,
             'showManaHelperOnStartup' => true,
             'enableManaRow' => false,
             'autoApplyCommanderDamageToLife' => false,
@@ -89,6 +99,28 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
                 'enableManaRow' => 'yes',
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'defaultBattlefieldLayout' => 'list',
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'chosenModeView' => 'grid',
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('grid', $this->jsonResponse()['user']['preferences']['game']['chosenModeView']);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'chosenModeView' => 'list',
             ],
         ], $token);
         self::assertResponseStatusCodeSame(400);
@@ -609,6 +641,17 @@ class AuthApiTest extends ApiTestCase
 
         static::getContainer()->set(AuthMailer::class, $failingMailer);
 
+        $failingWelcomeMessage = $this->getMockBuilder(RegistrationWelcomeMessageService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['sendEmailTo'])
+            ->getMock();
+        $failingWelcomeMessage
+            ->expects(self::once())
+            ->method('sendEmailTo')
+            ->willThrowException(new \RuntimeException('smtp offline'));
+
+        static::getContainer()->set(RegistrationWelcomeMessageService::class, $failingWelcomeMessage);
+
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'mail-fail-register@example.test',
             'displayName' => 'Mail Fails Register',
@@ -691,6 +734,9 @@ class AuthApiTest extends ApiTestCase
             'appLanguage' => 'es',
             'themeId' => 'sunrise',
             'game' => [
+                'defaultBattlefieldLayout' => 'grid',
+                'chosenModeView' => 'grid',
+                'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
                 'autoApplyCommanderDamageToLife' => true,

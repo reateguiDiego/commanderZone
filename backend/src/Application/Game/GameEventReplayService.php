@@ -1939,7 +1939,7 @@ final class GameEventReplayService
         if ($prepared === []) {
             return;
         }
-        $player['zones']['library'] = [...$prepared, ...$player['zones']['library']];
+        $player['zones']['library'] = [...$player['zones']['library'], ...$prepared];
     }
 
     /**

@@ -541,7 +541,7 @@
       "rollSetsTurnOrder": "这次掷骰决定你的回合顺序。",
       "thisDeck": "这副套牌",
       "thisPlayer": "这位玩家",
-      "tieBreakRoll": "平局重掷",
+      "tieBreakRoll": "平局决胜掷骰",
       "tieBreakRollMessage": "你与 {{ playerNames }} 平局。请再次掷骰决定顺序。",
       "waitingForDecksAndRolls": "等待套牌和掷骰",
       "realtimeUnavailable": "实时连接正在恢复。房间变更可能会延迟显示。"
@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} 仍需投票。还剩 {{ seconds }} 秒。",
       "timeLimit": "时限",
       "winnerMessage": "这张桌子属于你。你从混乱中存活下来，并赢下了这局。",
+      "waitForGameEnd": "请等待本局结束后再开始重赛。",
       "youDied": "你已出局",
       "youHaveSecondsToVote": "你有 {{ seconds }} 秒可以投票。",
       "yourVoteMissingExtra": "你还没有投票。还剩 {{ seconds }} 秒。",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "衍生物生成控制",
       "loadingDeckTokens": "正在加载套牌衍生物...",
-      "searchingTokens": "正在搜索衍生物..."
+      "searchingTokens": "正在搜索衍生物...",
+      "theRingFromGameMechanics": "至尊戒只能通过战场的右键菜单添加。右键点击战场，然后选择“游戏机制”。"
     },
     "playersOrder": {
       "currentTurnLabel": "第 {{ turnNumber }} 回合",
       "upcomingTurnLabel": "{{ count }} 回合后",
+      "nextPlayerLabel": "下一位玩家：",
       "currentTurnTitle": "轮到 {{ name }}",
       "upcomingTurnTitle": "{{ name }} 距离当前还有 {{ count }} 回合"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "聚焦当前回合玩家",
       "focusTurn": "聚焦回合",
       "advancePhase": "推进阶段",
+      "phaseActionLabel": "阶段",
       "phaseLabels": {
         "untap": "重置",
         "upkeep": "维持",
@@ -998,6 +1002,7 @@
       "moveToHand": "移至手牌？",
       "moveAllToLibrary": "全部放入牌库",
       "gamesCanOnlyBePlayedInLandscape": "手机和平板上只能横屏进行对局。",
+      "defeatedActionBlocked": "你已被击败，无法再执行游戏操作。等待本局结束期间，你仍可以使用聊天功能。",
       "thisTableNeedsALittleMoreRoom": "这张桌子需要多一点空间",
       "sorryThisResolutionIsTooCrampedFor": "抱歉，这个分辨率对于指挥官游戏来说太局促了。请调整浏览器缩放或使用更大的窗口。",
       "useCtrl0InYourBrowserTo": "在浏览器中使用 Ctrl+0 将缩放重置为 100%，然后刷新或调整此窗口大小。",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "聊天、未读消息",
       "moveCardToAnotherBattlefield": "将牌移至另一个战场",
       "putIntoLibrary": "放入牌库",
+      "libraryPlacementSinglePrompt": "要将这张牌放到哪里？",
+      "libraryPlacementMultiplePrompt": "要将这 {{ count }} 张牌放到哪里？",
+      "libraryPlacementTop": "顶部",
+      "libraryPlacementBottom": "底部",
       "focusedOpponentLabel": "正在查看：",
       "returnToOwnBattlefield": "前往你的战场",
       "leaveTableConfirmationTitle": "离开牌桌？",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} 创建了令牌副本。"
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} 成为了君主。", "passed": "{{ actor }} 将君主身份交给了 {{ player }}。", "removed": "{{ actor }} 移除了君主身份。" },
+      "initiative": { "claimed": "{{ player }} 获得了先手。", "passed": "{{ actor }} 将先手交给了 {{ player }}。", "removed": "{{ actor }} 移除了先手。" },
+      "citysBlessing": { "granted": "{{ player }} 获得了城市的祝福。", "removed": "{{ actor }} 移除了 {{ player }} 的城市祝福。" },
+      "dayNight": { "startedDay": "{{ actor }} 以白天开始了昼夜循环。", "startedNight": "{{ actor }} 以夜晚开始了昼夜循环。", "setDay": "{{ actor }} 将昼夜状态改为白天。", "setNight": "{{ actor }} 将昼夜状态改为夜晚。", "removed": "{{ actor }} 移除了昼夜状态。" },
+      "ring": { "created": "{{ player }} 获得了至尊戒。", "removed": "{{ actor }} 移除了至尊戒。" },
+      "dungeon": { "entered": "{{ player }} 进入了 {{ cardName }}。", "advanced": "{{ actor }} 在地下城中前进。", "removed": "{{ actor }} 移除了地下城 {{ cardName }}。" },
+      "emblem": { "created": "{{ player }} 创建了徽记 {{ cardName }}。", "removed": "{{ actor }} 移除了徽记 {{ cardName }}。" },
+      "helper": { "created": "{{ actor }} 添加了游戏机制。", "updated": "{{ actor }} 更新了游戏机制。", "removed": "{{ actor }} 移除了游戏机制。" }
     },
     "game": {
       "concede": "授予 {{ player }}。"
@@ -2186,6 +2205,17 @@
       "changeTheme": "更改主题",
       "gameSettings": {
         "title": "游戏偏好",
+        "defaultBattlefieldLayout": {
+          "label": "牌桌布局",
+          "description": "选择打开对局时牌桌的排列方式。",
+          "grid": "网格",
+          "focused": "聚焦",
+          "gridWarning": "网格仅适用于最多 4 名玩家的对局。5 名或更多玩家时，将自动使用聚焦布局。"
+        },
+        "showCardAlignmentHelper": {
+          "label": "卡牌对齐辅助",
+          "description": "移动卡牌时显示辅助线，帮助将其与附近卡牌在垂直方向对齐。"
+        },
         "showManaHelperOnStartup": {
           "label": "启动时显示法术力助手",
           "description": "对局开始时显示用于计算法术力的助手。你可以在对局中随时将其隐藏或再次显示。"
@@ -2369,20 +2399,20 @@
     "roll": {
       "rollModal": {
         "text": "结果",
-        "closeRoll": "密掷骰",
-        "rollType": "掷骰筒式",
-        "rollAgain": "再滚一次"
+        "closeRoll": "关闭掷骰",
+        "rollType": "掷骰类型",
+        "rollAgain": "再掷一次"
       },
       "options": {
         "coin": "硬币",
-        "d4": "4面模具",
-        "d6": "6面模具",
-        "d10": "10面骰子",
-        "d20": "20面骰子"
+        "d4": "四面骰",
+        "d6": "六面骰",
+        "d10": "十面骰",
+        "d20": "二十面骰"
       },
       "results": {
-        "heads": "头",
-        "tails": "尾巴"
+        "heads": "正面",
+        "tails": "反面"
       }
     }
   },
@@ -2573,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "非法套牌",
-      "rollDice": "掷骰",
+      "rollDice": "掷骰子",
       "selectADeck": "选择套牌",
       "kickPlayer": "移出玩家",
       "turnOrder": "回合顺序",

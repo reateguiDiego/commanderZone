@@ -1,8 +1,21 @@
-<div appPrettyScroll class="card-spoiler-grid" data-testid="card-spoiler-grid">
+<div
+  appPrettyScroll
+  class="card-spoiler-grid"
+  data-testid="card-spoiler-grid"
+  [class.card-spoiler-grid--virtualized]="virtualizationEnabled()"
+  (scroll)="gridScrolled($event)"
+>
   @if (loading()) {
     <div class="card-spoiler-state">{{ 'game.cardSpoilerGrid.loadingCards' | runtimeTranslate }}</div>
   } @else {
-    @for (slot of slots(); track slotTrackBy($index, slot)) {
+    @if (virtualSpacerBeforeHeight() > 0) {
+      <div
+        class="card-spoiler-grid__virtual-spacer"
+        [style.height.px]="virtualSpacerBeforeHeight()"
+        aria-hidden="true"
+      ></div>
+    }
+    @for (slot of renderedSlots(); track slotTrackBy($index, slot)) {
       @if (slot.card; as card) {
         @let visibleCard = previewCard(card);
         <button
@@ -34,7 +47,8 @@
           <span class="zone-art" [class.empty]="isDraggedCard(card)" [class.face-flipping]="isFaceFlipping(card)">
             @if (cardImage()(visibleCard); as image) {
               <img
-                [src]="image"
+                [appGameScheduledImage]="image"
+                gameImagePriority="visible"
                 [alt]="visibleCard.name"
                 [appPreloadCardAlternateFace]="visibleCard"
                 [cardVisibleFaceIndex]="visibleCard.activeFaceIndex ?? 0"
@@ -72,6 +86,13 @@
       }
     } @empty {
       <div class="card-spoiler-state">{{ emptyLabel() }}</div>
+    }
+    @if (virtualSpacerAfterHeight() > 0) {
+      <div
+        class="card-spoiler-grid__virtual-spacer"
+        [style.height.px]="virtualSpacerAfterHeight()"
+        aria-hidden="true"
+      ></div>
     }
   }
 </div>

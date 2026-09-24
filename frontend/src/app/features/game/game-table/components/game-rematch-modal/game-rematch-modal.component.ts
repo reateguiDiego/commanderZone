@@ -26,6 +26,7 @@ export class GameRematchModalComponent {
 
   readonly open = input(false);
   readonly winner = input(false);
+  readonly gameFinished = input(false);
   readonly players = input<readonly RematchPlayerVoteView[]>([]);
   readonly currentVote = input<GameRematchVote | null>(null);
   readonly pending = input(false);
@@ -44,9 +45,13 @@ export class GameRematchModalComponent {
   }
 
   messageKey(): string {
-    return this.winner()
-      ? 'game.gameRematchModal.winnerMessage'
-      : 'game.gameRematchModal.defeatedMessage';
+    if (this.winner()) {
+      return 'game.gameRematchModal.winnerMessage';
+    }
+
+    return this.gameFinished()
+      ? 'game.gameRematchModal.defeatedMessage'
+      : 'game.gameRematchModal.waitForGameEnd';
   }
 
   voteLabel(vote: GameRematchVote | null): string {

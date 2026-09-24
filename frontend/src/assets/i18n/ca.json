@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} encara han de votar. Tenen {{ seconds }} s addicionals per votar.",
       "timeLimit": "Límit de temps",
       "winnerMessage": "La taula és teva. Has sobreviscut al caos i has tancat la partida amb autoritat.",
+      "waitForGameEnd": "Espera que acabi la partida abans d'iniciar una revenja.",
       "youDied": "Vas morir",
       "youHaveSecondsToVote": "Tens {{ seconds }} s per votar.",
       "yourVoteMissingExtra": "Falta el teu vot. Tens {{ seconds }} s addicionals per votar.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controls de creació de fitxes",
       "loadingDeckTokens": "Carregant fitxes de la baralla...",
-      "searchingTokens": "Cercant fitxes..."
+      "searchingTokens": "Cercant fitxes...",
+      "theRingFromGameMechanics": "L'Anell només es pot afegir des del camp de batalla. Feu clic amb el botó dret al camp de batalla i seleccioneu «Mecànica del joc»."
     },
     "playersOrder": {
       "currentTurnLabel": "Torn {{ turnNumber }}",
       "upcomingTurnLabel": "En {{ count }}",
+      "nextPlayerLabel": "Jugador següent:",
       "currentTurnTitle": "{{ name }} té el torn",
       "upcomingTurnTitle": "{{ name }} és a {{ count }} torn(s) de distància"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",
@@ -998,6 +1002,7 @@
       "moveToHand": "Posar a la mà?",
       "moveAllToLibrary": "Posar-ho tot a la biblioteca",
       "gamesCanOnlyBePlayedInLandscape": "Les partides només es poden jugar en horitzontal en mòbil i tauleta.",
+      "defeatedActionBlocked": "Has estat derrotat, així que ja no pots fer accions de joc. Encara pots fer servir el xat mentre esperes que acabi la partida.",
       "thisTableNeedsALittleMoreRoom": "Aquesta taula necessita una mica més d'espai",
       "sorryThisResolutionIsTooCrampedFor": "Ho sento, aquesta resolució és massa limitada per a un joc Commander. ajusteu el zoom del navegador o utilitzeu una finestra més gran.",
       "useCtrl0InYourBrowserTo": "Fes servir Ctrl+0 al navegador per restablir el zoom al 100% i després actualitza o redimensiona aquesta finestra.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Xat, missatges no llegits",
       "moveCardToAnotherBattlefield": "Posa la carta en un altre camp de batalla",
       "putIntoLibrary": "Posar a la biblioteca",
+      "libraryPlacementSinglePrompt": "On vols posar aquesta carta?",
+      "libraryPlacementMultiplePrompt": "On vols posar aquestes {{ count }} cartes?",
+      "libraryPlacementTop": "Dalt",
+      "libraryPlacementBottom": "Baix",
       "focusedOpponentLabel": "Estàs veient:",
       "returnToOwnBattlefield": "Ves al teu camp de batalla",
       "leaveTableConfirmationTitle": "Abandonar la taula?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} s'ha convertit en monarca.", "passed": "{{ actor }} ha donat la monarquia a {{ player }}.", "removed": "{{ actor }} ha eliminat la designació de monarca." },
+      "initiative": { "claimed": "{{ player }} ha pres la iniciativa.", "passed": "{{ actor }} ha donat la iniciativa a {{ player }}.", "removed": "{{ actor }} ha eliminat la iniciativa." },
+      "citysBlessing": { "granted": "{{ player }} ha obtingut la benedicció de la ciutat.", "removed": "{{ actor }} ha eliminat la benedicció de la ciutat de {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} ha iniciat el cicle dia/nit de dia.", "startedNight": "{{ actor }} ha iniciat el cicle dia/nit de nit.", "setDay": "{{ actor }} ha canviat l'estat de dia/nit a dia.", "setNight": "{{ actor }} ha canviat l'estat de dia/nit a nit.", "removed": "{{ actor }} ha eliminat l'estat de dia/nit." },
+      "ring": { "created": "{{ player }} ha rebut l'Anell.", "removed": "{{ actor }} ha eliminat l'Anell." },
+      "dungeon": { "entered": "{{ player }} ha entrat a {{ cardName }}.", "advanced": "{{ actor }} ha avançat en una masmorra.", "removed": "{{ actor }} ha eliminat la masmorra {{ cardName }}." },
+      "emblem": { "created": "{{ player }} ha creat l'emblema {{ cardName }}.", "removed": "{{ actor }} ha eliminat l'emblema {{ cardName }}." },
+      "helper": { "created": "{{ actor }} ha afegit una mecànica de joc.", "updated": "{{ actor }} ha actualitzat una mecànica de joc.", "removed": "{{ actor }} ha eliminat una mecànica de joc." }
     },
     "game": {
       "concede": "{{ player }} va concedir."
@@ -2186,6 +2205,17 @@
       "changeTheme": "Canviar de tema",
       "gameSettings": {
         "title": "Preferències de joc",
+        "defaultBattlefieldLayout": {
+          "label": "Disseny de la taula",
+          "description": "Tria com s'organitza la taula en obrir una partida.",
+          "grid": "Quadrícula",
+          "focused": "Enfocada",
+          "gridWarning": "La quadrícula només està disponible en partides de fins a 4 jugadors. Amb 5 jugadors o més, s'utilitzarà automàticament la vista enfocada."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Ajuda d'alineació de cartes",
+          "description": "En moure una carta, mostra una guia d'ajuda per alinear-ne la posició vertical amb la de les cartes properes."
+        },
         "showManaHelperOnStartup": {
           "label": "Mostra l'ajudant de mana a l'inici",
           "description": "Mostra l'ajudant per comptar mana en començar una partida. El pots amagar o tornar a mostrar quan vulguis durant la partida."
@@ -2369,14 +2399,14 @@
     "roll": {
       "rollModal": {
         "text": "Resultat",
-        "closeRoll": "Rodó tancat",
+        "closeRoll": "Tanca la tirada",
         "rollType": "Tipus de tirada",
         "rollAgain": "Torna a tirar"
       },
       "options": {
         "coin": "Moneda",
-        "d4": "matriu de 4 cares",
-        "d6": "matriu de 6 cares",
+        "d4": "Dau de 4 cares",
+        "d6": "Dau de 6 cares",
         "d10": "Dau de 10 cares",
         "d20": "Dau de 20 cares"
       },
@@ -2555,7 +2585,7 @@
       "action": "Acció",
       "join": "Uneix-te",
       "createRoom": "Crea una sala",
-      "turn": "Turn",
+      "turn": "Torn",
       "deleteRoom": "Suprimeix la sala",
       "timer": "Temporitzador",
       "mulligan": "Mulligan",
@@ -2573,7 +2603,7 @@
       "paris": "Paris",
       "vancouver": "Vancouver",
       "invalidDeck": "Baralla no vàlida",
-      "rollDice": "Tira el dau",
+      "rollDice": "Tira els daus",
       "selectADeck": "Selecciona una baralla",
       "kickPlayer": "Expulsa el jugador",
       "turnOrder": "Turn order",

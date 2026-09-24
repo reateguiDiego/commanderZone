@@ -50,6 +50,37 @@ import type { PlayerView } from '../../game-table.store';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 
 describe('ContextMenuComponent', () => {
+  it('renders an arrow toward the click side and vertical origin', () => {
+    const rightFixture = createContextMenuFixture({ horizontalPlacement: 'right', verticalOrigin: 'top' });
+    const rightMenu = (rightFixture.nativeElement as HTMLElement).querySelector('.context-menu') as HTMLElement;
+
+    expect(rightMenu.classList.contains('opens-left')).toBe(false);
+    expect(rightMenu.classList.contains('opens-up')).toBe(false);
+
+    const leftFixture = createContextMenuFixture({ horizontalPlacement: 'left', verticalOrigin: 'bottom' });
+    const leftMenu = (leftFixture.nativeElement as HTMLElement).querySelector('.context-menu') as HTMLElement;
+
+    expect(leftMenu.classList.contains('opens-left')).toBe(true);
+    expect(leftMenu.classList.contains('opens-up')).toBe(true);
+  });
+
+  it('keeps card submenus on the same side as a left-opening root menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      horizontalPlacement: 'left',
+      card: card('card-1'),
+    });
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'counters');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
+  });
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ContextMenuComponent],
@@ -129,6 +160,32 @@ describe('ContextMenuComponent', () => {
     expect(text).not.toContain('Draw 7 mine');
     expect(text).not.toContain('Open chat');
     expect(text).not.toContain('Shuffle mine');
+  });
+
+  it('identifies the card or zone that opened the context menu in the menu header', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-2',
+      zone: 'battlefield',
+      card: card('Forest'),
+    }, {
+    });
+    const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.context-menu-target');
+
+    expect(target?.textContent).toContain('Forest');
+  });
+
+  it('uses the zone label instead of revealing a face-down card name in the menu header', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-2',
+      zone: 'battlefield',
+      card: { ...card('Secret Forest'), faceDown: true },
+    }, {});
+    const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.context-menu-target');
+
+    expect(target?.textContent).toContain('Battlefield');
+    expect(target?.textContent).not.toContain('Secret Forest');
   });
 
   it('renders mana pool reset as a gold context menu action', () => {
@@ -474,6 +531,7 @@ describe('ContextMenuComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('.submenu-item-mana-icon')).toHaveLength(7);
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-ability-the-ring-tempts-you')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-planeswalker')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.theme-icons')).not.toBeNull();
 
     const monarchButton = menuButtons(fixture)
       .find((candidate) => candidate.textContent?.includes('Add the Monarch'));
@@ -779,7 +837,7 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-3' });
   });
 
-  it('opens forced-left mechanic card submenus to the left', () => {
+  it('keeps mechanic card submenus on their forced-left side', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
       playerId: 'user-1',
@@ -1515,7 +1573,7 @@ describe('ContextMenuComponent', () => {
     expect(menuText(attachmentTarget)).not.toContain('Attach to...');
   });
 
-  it('lets The Ring start attachment targeting but hides face flipping and counters', () => {
+  it('shows The Ring the same card actions as a normal battlefield card', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
       playerId: 'user-1',
@@ -1526,8 +1584,8 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(menuText(fixture)).toContain('Attach to...');
-    expect(menuText(fixture)).not.toContain('Counters');
-    expect(menuText(fixture)).not.toContain('Flip Card Face');
+    expect(menuText(fixture)).toContain('Counters');
+    expect(menuText(fixture)).toContain('Flip Card Face');
   });
 
   it('shows detach all for a battlefield card with attached cards', () => {

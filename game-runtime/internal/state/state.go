@@ -294,6 +294,12 @@ type GameState struct {
 	Mulligan            MulliganState                  `json:"mulligan,omitempty"`
 }
 
+const (
+	libraryOrientationKey      = "libraryOrientation"
+	libraryOrientationTailTop  = "tail_top"
+	libraryOrientationTopFirst = "top_first"
+)
+
 func (s *GameState) UnmarshalJSON(data []byte) error {
 	type alias GameState
 	// Symfony's historical JSON encoder represents an empty map as []. Decode
@@ -372,6 +378,7 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Zones == nil {
 		game.Zones = map[string]PlayerZones{}
 	}
+	normalizeLibraryOrientation(game)
 	if game.Loc == nil {
 		game.Loc = map[string]Location{}
 	}
@@ -419,6 +426,28 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	}
 	if game.Mulligan.ReadyPlayers == nil {
 		game.Mulligan.ReadyPlayers = map[string]bool{}
+	}
+}
+
+// normalizeLibraryOrientation migrates durable runtime snapshots to the one
+// library contract used by the actor: index zero is the next card to draw.
+// Snapshots marked tail_top were written by earlier runtime versions and are
+// reversed once in memory before any replayed command is applied.
+func normalizeLibraryOrientation(game *GameState) {
+	for playerID, player := range game.Players {
+		zones, ok := game.Zones[playerID]
+		if !ok {
+			continue
+		}
+		orientation, hasOrientation := player[libraryOrientationKey].(string)
+		if orientation == libraryOrientationTailTop {
+			reverseStrings(zones.Library)
+			game.Zones[playerID] = zones
+		}
+		if hasOrientation {
+			player[libraryOrientationKey] = libraryOrientationTopFirst
+			game.Players[playerID] = player
+		}
 	}
 }
 

@@ -171,6 +171,44 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('https://cards.scryfall.io/art_crop/front/spanish-commander.jpg', $current['player']['deckImageUrl']);
     }
 
+    public function testCurrentRoomDeckImageUsesNormalBeforeLarge(): void
+    {
+        $ownerToken = $this->registerAndLogin('current-room-normal-art-owner@example.test', 'Current Normal Art');
+
+        $commanderId = '11111111-2222-7333-8444-555555555556';
+        $landId = '66666666-2222-7333-8444-555555555556';
+        $this->seedCard($commanderId, 'Normal Art Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'image_uris' => [
+                'large' => 'https://cards.scryfall.io/large/front/normal-art-commander.jpg',
+                'normal' => 'https://cards.scryfall.io/normal/front/normal-art-commander.jpg',
+            ],
+        ]);
+        $this->seedCard($landId, 'Normal Art Plains', [
+            'type_line' => 'Basic Land - Plains',
+        ]);
+
+        $deckId = $this->quickBuildDeck($ownerToken, 'Normal Art Deck', [
+            ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $deckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/normal-art-commander.jpg',
+            $this->jsonResponse()['player']['deckImageUrl'],
+        );
+    }
+
     public function testRoomPayloadLocalizesEveryCommanderInDeckSummary(): void
     {
         $ownerToken = $this->registerAndLogin('room-commanders-localized-owner@example.test', 'Room Commanders');
@@ -3368,7 +3406,7 @@ SQL));
 
         $this->jsonRequest('GET', '/rooms', token: $ownerToken);
         self::assertResponseIsSuccessful();
-        self::assertNotContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+        self::assertContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
         $this->jsonRequest('GET', '/rooms?status=all', token: $ownerToken);
         self::assertResponseIsSuccessful();
         // Legacy concede commands update the snapshot, but this fixture has not

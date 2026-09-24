@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} moet nog stemmen en heeft {{ seconds }}s extra.",
       "timeLimit": "Tijdslimiet",
       "winnerMessage": "De tafel is van jou. Je overleefde de chaos en sloot het spel met gezag af.",
+      "waitForGameEnd": "Wacht tot de partij is afgelopen voordat je een revanche start.",
       "youDied": "Jij stierf",
       "youHaveSecondsToVote": "Je hebt {{ seconds }}s om te stemmen.",
       "yourVoteMissingExtra": "Je stem ontbreekt. Je hebt {{ seconds }}s extra.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Controles voor het maken van Token",
       "loadingDeckTokens": "Decktokens laden...",
-      "searchingTokens": "tokens zoeken..."
+      "searchingTokens": "tokens zoeken...",
+      "theRingFromGameMechanics": "De Ring kan alleen vanaf het slagveld worden toegevoegd. Klik met de rechtermuisknop op het slagveld en kies vervolgens ‘Spelmechanica’."
     },
     "playersOrder": {
       "currentTurnLabel": "Beurt {{ turnNumber }}",
       "upcomingTurnLabel": "In {{ count }}",
+      "nextPlayerLabel": "Volgende speler:",
       "currentTurnTitle": "{{ name }} is aan de beurt",
       "upcomingTurnTitle": "{{ name }} is {{ count }} beurt(en) verwijderd"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Focus the active turn player",
       "focusTurn": "Focus turn",
       "advancePhase": "Advance phase",
+      "phaseActionLabel": "Fase",
       "phaseLabels": {
         "untap": "Untap",
         "upkeep": "Upkeep",
@@ -998,6 +1002,7 @@
       "moveToHand": "Naar hand verplaatsen?",
       "moveAllToLibrary": "Leg alles in library",
       "gamesCanOnlyBePlayedInLandscape": "Partijen kunnen op mobiel en tablet alleen in liggende modus worden gespeeld.",
+      "defeatedActionBlocked": "Je bent verslagen en kunt geen spelacties meer uitvoeren. Je kunt de chat nog gebruiken terwijl je wacht tot het spel is afgelopen.",
       "thisTableNeedsALittleMoreRoom": "Deze tafel heeft iets meer ruimte nodig",
       "sorryThisResolutionIsTooCrampedFor": "Sorry, deze resolutie is te krap voor een Commander-spel. Pas de browserzoom aan of gebruik een groter venster.",
       "useCtrl0InYourBrowserTo": "Gebruik Ctrl+0 in je browser om de zoom opnieuw in te stellen op 100% en vernieuw vervolgens dit venster of wijzig het formaat ervan.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, ongelezen berichten",
       "moveCardToAnotherBattlefield": "Verplaats de kaart naar een andere battlefield",
       "putIntoLibrary": "Leg in library",
+      "libraryPlacementSinglePrompt": "Waar wil je deze kaart neerleggen?",
+      "libraryPlacementMultiplePrompt": "Waar wil je deze {{ count }} kaarten neerleggen?",
+      "libraryPlacementTop": "Boven",
+      "libraryPlacementBottom": "Onder",
       "focusedOpponentLabel": "Je bekijkt:",
       "returnToOwnBattlefield": "Ga naar je slagveld",
       "leaveTableConfirmationTitle": "Tafel verlaten?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} created a token copy."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} werd de monarch.", "passed": "{{ actor }} gaf het monarchschap aan {{ player }}.", "removed": "{{ actor }} heeft de monarch-aanduiding verwijderd." },
+      "initiative": { "claimed": "{{ player }} nam het initiatief.", "passed": "{{ actor }} gaf het initiatief aan {{ player }}.", "removed": "{{ actor }} heeft het initiatief verwijderd." },
+      "citysBlessing": { "granted": "{{ player }} ontving de zegen van de stad.", "removed": "{{ actor }} heeft de zegen van de stad van {{ player }} verwijderd." },
+      "dayNight": { "startedDay": "{{ actor }} heeft de dag/nachtcyclus overdag gestart.", "startedNight": "{{ actor }} heeft de dag/nachtcyclus 's nachts gestart.", "setDay": "{{ actor }} heeft de dag/nachtstatus op dag gezet.", "setNight": "{{ actor }} heeft de dag/nachtstatus op nacht gezet.", "removed": "{{ actor }} heeft dag/nacht verwijderd." },
+      "ring": { "created": "{{ player }} ontving de Ring.", "removed": "{{ actor }} heeft de Ring verwijderd." },
+      "dungeon": { "entered": "{{ player }} betrad {{ cardName }}.", "advanced": "{{ actor }} ging verder in een kerker.", "removed": "{{ actor }} heeft de kerker {{ cardName }} verwijderd." },
+      "emblem": { "created": "{{ player }} maakte het embleem {{ cardName }}.", "removed": "{{ actor }} heeft het embleem {{ cardName }} verwijderd." },
+      "helper": { "created": "{{ actor }} heeft een spelmechaniek toegevoegd.", "updated": "{{ actor }} heeft een spelmechaniek bijgewerkt.", "removed": "{{ actor }} heeft een spelmechaniek verwijderd." }
     },
     "game": {
       "concede": "{{ player }} toegekend."
@@ -2185,6 +2204,17 @@
       "changeTheme": "Verander thema",
       "gameSettings": {
         "title": "Gameplay-voorkeuren",
+        "defaultBattlefieldLayout": {
+          "label": "Tafelindeling",
+          "description": "Kies hoe de tafel wordt ingedeeld wanneer je een spel opent.",
+          "grid": "Raster",
+          "focused": "Gefocust",
+          "gridWarning": "Het raster is alleen beschikbaar in spellen met maximaal 4 spelers. Bij 5 of meer spelers wordt automatisch de gefocuste weergave gebruikt."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Hulp bij kaartuitlijning",
+          "description": "Wanneer je een kaart verplaatst, wordt een hulplijn getoond om de verticale positie uit te lijnen met nabijgelegen kaarten."
+        },
         "showManaHelperOnStartup": {
           "label": "Toon mana-helper bij opstarten",
           "description": "Toon de mana-telhulp wanneer een partij begint. Je kunt deze tijdens de partij op elk moment verbergen of opnieuw tonen."
@@ -2315,8 +2345,8 @@
     "roll": {
       "rollModal": {
         "text": "Resultaat",
-        "closeRoll": "Worp sluiten",
-        "rollType": "Worptype",
+        "closeRoll": "Sluit de worp",
+        "rollType": "Soort worp",
         "rollAgain": "Werp opnieuw"
       },
       "options": {
@@ -2327,8 +2357,8 @@
         "d20": "20-zijdige dobbelsteen"
       },
       "results": {
-        "heads": "Hoofden",
-        "tails": "Staarten"
+        "heads": "Kop",
+        "tails": "Munt"
       }
     }
   },
@@ -2499,7 +2529,7 @@
       "action": "Actie",
       "join": "Deelnemen",
       "createRoom": "Kamer maken",
-      "turn": "Turn",
+      "turn": "Beurt",
       "deleteRoom": "Kamer verwijderen",
       "timer": "Timer",
       "mulligan": "Mulligan",

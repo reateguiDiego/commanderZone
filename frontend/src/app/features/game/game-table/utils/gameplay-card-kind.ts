@@ -15,11 +15,6 @@ const THE_RING_CARD_NAMES = new Set([
 ]);
 
 export function isTheRingCard(card: Pick<GameCardInstance, 'layout' | 'name' | 'scryfallId'> | null | undefined): boolean {
-  const layout = card?.layout?.trim().toLowerCase() ?? '';
-  if (layout !== 'double_faced_token') {
-    return false;
-  }
-
   const scryfallId = card?.scryfallId?.trim().toLowerCase() ?? '';
   if (scryfallId === THE_RING_SCRYFALL_ID) {
     return true;
@@ -99,7 +94,7 @@ export function isGameplayCard(card: GameCardInstance | null | undefined): boole
 }
 
 export function isGameplayCardTapLocked(card: GameCardInstance | null | undefined): boolean {
-  return isGameplayCard(card) || isDayNightCard(card) || isTheRingCard(card);
+  return isGameplayCard(card) || isDayNightCard(card);
 }
 
 export function isBattlefieldMechanicOverlayCard(card: GameCardInstance | null | undefined): boolean {

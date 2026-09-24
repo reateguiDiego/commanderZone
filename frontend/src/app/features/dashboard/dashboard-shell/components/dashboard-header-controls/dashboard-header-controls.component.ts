@@ -5,7 +5,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
-import { FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
+import { FriendRemovalRequest, FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
 import { MessagesDropdownComponent } from '../../../../messages/messages-dropdown/messages-dropdown.component';
 import { DashboardSettingsModalComponent, SettingsLaunchTarget } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
@@ -49,6 +49,7 @@ export class DashboardHeaderControlsComponent {
   readonly closeFriends = output<void>();
   readonly closeMessages = output<void>();
   readonly logout = output<void>();
+  readonly friendRemovalRequested = output<FriendRemovalRequest>();
   readonly settingsOpen = signal(false);
   readonly settingsLaunchTarget = signal<SettingsLaunchTarget>('general');
 

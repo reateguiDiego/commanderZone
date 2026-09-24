@@ -23,11 +23,26 @@ export class GameTableLibraryTopState {
 
   async viewTopLibrary(playerId: string, count: number): Promise<void> {
     const sanitizedCount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    if (this.libraryCount(playerId) === 0) {
+      this.core.error.set('common.ui.emptyZone');
+      return;
+    }
+
     await this.libraryActions.view(this.contextStore.libraryAction(), playerId, sanitizedCount);
 
-    const cards = this.visibleLibraryCards(playerId).slice(0, sanitizedCount);
+    // The realtime callback normally opens this modal from the authoritative
+    // private patch. Keep this path for non-websocket callers and tests.
+    this.openViewedTopLibrary(playerId, sanitizedCount);
+  }
+
+  openViewedTopLibrary(playerId: string, count: number): void {
+    const cards = this.visibleLibraryCards(playerId).slice(0, count);
     if (cards.length === 0) {
-      this.core.error.set('common.ui.emptyZone');
+      return;
+    }
+
+    const modal = this.zoneModalState.zoneModal();
+    if (modal?.playerId === playerId && modal.zone === 'library' && modal.allowReorder) {
       return;
     }
 
@@ -41,7 +56,7 @@ export class GameTableLibraryTopState {
       {
         allowReorder: true,
         drawOrderLabels: this.drawOrderLabels(cards.length),
-        viewTopCount: sanitizedCount,
+        viewTopCount: count,
       },
     );
   }
@@ -94,6 +109,12 @@ export class GameTableLibraryTopState {
 
   private visibleLibraryCards(playerId: string): GameCardInstance[] {
     return this.core.snapshot()?.players[playerId]?.zones.library?.filter((card) => !card.hidden) ?? [];
+  }
+
+  private libraryCount(playerId: string): number {
+    const player = this.core.snapshot()?.players[playerId];
+
+    return player?.zoneCounts?.library ?? player?.zones.library?.length ?? 0;
   }
 
   private translateText(key: string, params?: Record<string, unknown>): string {

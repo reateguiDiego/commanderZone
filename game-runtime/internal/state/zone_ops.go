@@ -64,18 +64,21 @@ func (ops *ZoneOps) AddMany(game *GameState, playerID string, zone Zone, instanc
 			return 0, ErrMissingInstance
 		}
 	}
-	insertStart, err := ops.insertMany(game, playerID, zone, instanceIDs, position)
+	insertedIDs := insertionOrder(instanceIDs, zone, position)
+	insertStart, err := ops.insertMany(game, playerID, zone, insertedIDs, position)
 	if err != nil {
 		return 0, err
 	}
-	for offset, instanceID := range instanceIDs {
+	for _, instanceID := range instanceIDs {
 		instance := game.Instances[instanceID]
 		instance.Zone = zone
 		if zone == ZoneBattlefield || zone == ZoneHand {
 			instance.ControllerID = playerID
 		}
 		game.Instances[instanceID] = instance
-		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: zone, Index: insertStart + offset, ControllerID: instance.ControllerID}
+		location := game.Loc[instanceID]
+		location.ControllerID = instance.ControllerID
+		game.Loc[instanceID] = location
 	}
 	return insertStart, nil
 }
@@ -110,25 +113,38 @@ func (ops *ZoneOps) MoveMany(game *GameState, instanceIDs []string, toPlayerID s
 		}
 	}
 
-	insertStart, err := ops.insertMany(game, toPlayerID, toZone, instanceIDs, position)
+	insertedIDs := insertionOrder(instanceIDs, toZone, position)
+	_, err := ops.insertMany(game, toPlayerID, toZone, insertedIDs, position)
 	if err != nil {
 		return nil, err
 	}
 
 	moves := make([]ZoneMove, 0, len(instanceIDs))
-	for offset, instanceID := range instanceIDs {
+	for _, instanceID := range instanceIDs {
 		instance := game.Instances[instanceID]
 		instance.Zone = toZone
 		if toZone == ZoneBattlefield || toZone == ZoneHand {
 			instance.ControllerID = toPlayerID
 		}
 		game.Instances[instanceID] = instance
-		to := Location{PlayerID: toPlayerID, Zone: toZone, Index: insertStart + offset, ControllerID: instance.ControllerID}
+		to := game.Loc[instanceID]
+		to.ControllerID = instance.ControllerID
 		game.Loc[instanceID] = to
 		moves = append(moves, ZoneMove{InstanceID: instanceID, From: fromLocations[instanceID], To: to})
 	}
 
 	return moves, nil
+}
+
+// insertionOrder preserves the historical multi-card library behavior: when
+// several cards are put on top in one command, the final selected card is the
+// next one drawn. For all other moves, the caller order is retained.
+func insertionOrder(instanceIDs []string, zone Zone, position ZoneInsertPosition) []string {
+	ordered := append([]string(nil), instanceIDs...)
+	if zone == ZoneLibrary && position == ZoneInsertTop {
+		reverseStrings(ordered)
+	}
+	return ordered
 }
 
 func (ops *ZoneOps) MoveAll(game *GameState, playerID string, fromZone Zone, toPlayerID string, toZone Zone, position ZoneInsertPosition) ([]ZoneMove, error) {
@@ -237,13 +253,13 @@ func (ops *ZoneOps) insertMany(game *GameState, playerID string, zone Zone, inst
 	switch position {
 	case ZoneInsertTop:
 		if zone == ZoneLibrary {
-			insertIndex = len(ids)
+			insertIndex = 0
 		} else {
 			insertIndex = len(ids)
 		}
 	case ZoneInsertBottom:
 		if zone == ZoneLibrary {
-			insertIndex = 0
+			insertIndex = len(ids)
 		} else {
 			insertIndex = 0
 		}

@@ -6,6 +6,7 @@ final class GameLibraryOps
 {
     public const ORIENTATION_KEY = 'libraryOrientation';
     public const ORIENTATION_TAIL_TOP = 'tail_top';
+    public const ORIENTATION_TOP_FIRST = 'top_first';
     public const VISIBILITY_EPOCH_KEY = 'libraryVisibilityEpoch';
     public const CARD_VISIBILITY_EPOCH_KEY = 'libraryVisibilityEpoch';
 
@@ -26,10 +27,10 @@ final class GameLibraryOps
             ? array_values(array_filter($player['zones']['library'], static fn (mixed $card): bool => is_array($card)))
             : [];
 
-        if (!$this->usesTailTop($player)) {
+        if ($this->usesTailTop($player)) {
             $player['zones']['library'] = array_reverse($player['zones']['library']);
-            $player[self::ORIENTATION_KEY] = self::ORIENTATION_TAIL_TOP;
         }
+        $player[self::ORIENTATION_KEY] = self::ORIENTATION_TOP_FIRST;
 
         $player[self::VISIBILITY_EPOCH_KEY] = max(1, (int) ($player[self::VISIBILITY_EPOCH_KEY] ?? 1));
         $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null)
@@ -85,7 +86,7 @@ final class GameLibraryOps
     {
         $this->ensurePlayer($player);
         $library =& $player['zones']['library'];
-        $card = array_pop($library);
+        $card = array_shift($library);
 
         return is_array($card) ? $this->detachFromLibrary($card) : null;
     }
@@ -103,11 +104,11 @@ final class GameLibraryOps
             return [];
         }
 
-        $removed = array_splice($player['zones']['library'], -$count);
+        $removed = array_splice($player['zones']['library'], 0, $count);
 
         return array_values(array_map(
             fn (array $card): array => $this->detachFromLibrary($card),
-            array_reverse($removed),
+            $removed,
         ));
     }
 
@@ -118,9 +119,9 @@ final class GameLibraryOps
     public function putOnTop(array &$player, array $card): int
     {
         $this->ensurePlayer($player);
-        $player['zones']['library'][] = $this->attachToLibrary($card);
+        array_unshift($player['zones']['library'], $this->attachToLibrary($card));
 
-        return count($player['zones']['library']) - 1;
+        return 0;
     }
 
     /**
@@ -130,9 +131,9 @@ final class GameLibraryOps
     public function putOnBottom(array &$player, array $card): int
     {
         $this->ensurePlayer($player);
-        array_splice($player['zones']['library'], 0, 0, [$this->attachToLibrary($card)]);
+        $player['zones']['library'][] = $this->attachToLibrary($card);
 
-        return 0;
+        return count($player['zones']['library']) - 1;
     }
 
     /**
@@ -147,7 +148,7 @@ final class GameLibraryOps
                 continue;
             }
 
-            $player['zones']['library'][] = $this->attachToLibrary($card);
+            array_unshift($player['zones']['library'], $this->attachToLibrary($card));
         }
     }
 
@@ -163,7 +164,7 @@ final class GameLibraryOps
         }
 
         $prepared = [];
-        foreach (array_reverse($cards) as $card) {
+        foreach ($cards as $card) {
             if (!is_array($card)) {
                 continue;
             }
@@ -175,7 +176,7 @@ final class GameLibraryOps
             return;
         }
 
-        $player['zones']['library'] = [...$prepared, ...$player['zones']['library']];
+        $player['zones']['library'] = [...$player['zones']['library'], ...$prepared];
     }
 
     /**
@@ -261,7 +262,7 @@ final class GameLibraryOps
             throw new \InvalidArgumentException('Can only reorder the currently viewed top library cards.');
         }
 
-        $topCards = array_reverse(array_slice($player['zones']['library'], -$count));
+        $topCards = array_slice($player['zones']['library'], 0, $count);
         $topById = [];
         foreach ($topCards as $card) {
             $instanceId = (string) ($card['instanceId'] ?? '');
@@ -280,9 +281,9 @@ final class GameLibraryOps
 
         $replacement = array_values(array_map(
             static fn (string $instanceId): array => $topById[$instanceId],
-            array_reverse($orderedTopIds),
+            $orderedTopIds,
         ));
-        array_splice($player['zones']['library'], -$count, $count, $replacement);
+        array_splice($player['zones']['library'], 0, $count, $replacement);
     }
 
     /**
@@ -307,11 +308,16 @@ final class GameLibraryOps
         $epoch = (int) $player[self::VISIBILITY_EPOCH_KEY];
         $revealed = 0;
 
-        for ($index = count($player['zones']['library']) - 1; $index >= 0 && $revealed < $count; --$index) {
+        for ($index = 0; $index < count($player['zones']['library']) && $revealed < $count; ++$index) {
             if (!is_array($player['zones']['library'][$index] ?? null)) {
                 continue;
             }
 
+            // A targeted reveal must override the library's hidden-card state as
+            // well as its face-down presentation. Keeping `hidden` set makes a
+            // viewer receive the reveal marker while the client still renders
+            // the card back, including after it reloads its bootstrap snapshot.
+            $player['zones']['library'][$index]['hidden'] = false;
             $player['zones']['library'][$index]['faceDown'] = false;
             $player['zones']['library'][$index]['revealedTo'] = $targets;
             $player['zones']['library'][$index][self::CARD_VISIBILITY_EPOCH_KEY] = $epoch;

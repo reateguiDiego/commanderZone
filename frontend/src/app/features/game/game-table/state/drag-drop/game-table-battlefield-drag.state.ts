@@ -139,11 +139,18 @@ export class GameTableBattlefieldDragState {
   isDropZoneHighlighted(playerId: string, zone: GameZoneName): boolean {
     const target = this.activeDropTarget();
 
-    return target?.playerId === playerId && target.zone === zone || zone === 'battlefield' && this.manaLaneDropPlayerId() === playerId;
+    return (target?.playerId === playerId && target.zone === zone)
+      || (zone === 'battlefield' && (
+        this.manaLaneDropPlayerId() === playerId
+        || this.activePlayerDropTarget() === playerId
+      ));
   }
 
   isPlayerDropHighlighted(playerId: string): boolean {
-    return this.activePlayerDropTarget() === playerId;
+    const target = this.activeDropTarget();
+
+    return this.activePlayerDropTarget() === playerId
+      || (target?.playerId === playerId && target.zone === 'battlefield');
   }
 
   alignmentGuideFor(playerId: string): AlignmentGuide | null {

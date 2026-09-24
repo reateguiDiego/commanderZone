@@ -121,6 +121,10 @@
   min-width: 4.85rem;
 }
 
+:host(.player-summary-panel-context) .player-summary-panel-grid.player-summary-panel-mirrored .life-controls {
+  justify-self: start;
+}
+
 :host(.player-summary-panel-context) .summary-return-button {
   grid-column: 3;
   grid-row: 1;
@@ -226,15 +230,13 @@
   );
 
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 2.18rem auto 0.62rem;
+  display: flex;
+  flex-direction: column;
   grid-column: 3;
   grid-row: 1;
   align-self: center;
   align-items: stretch;
   gap: 0;
-  justify-items: stretch;
   min-width: 5.5rem;
   border: 1px solid var(--life-control-border);
   border-radius: 9px;
@@ -574,9 +576,10 @@
 }
 
 .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle {
+  display: grid;
   width: 100%;
   min-width: 0;
-  min-height: 0.62rem;
+  min-height: 1rem;
   appearance: none;
   -webkit-appearance: none;
   border: 0;
@@ -587,8 +590,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--life-control-step-color);
-  align-items: center;
-  justify-content: center;
+  place-items: center;
   line-height: 0;
   font-size: 0;
 }
@@ -605,10 +607,14 @@
 }
 
 .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle lucide-icon {
-  width: 0.6rem;
-  height: 0.6rem;
+  display: flex;
+  width: 1rem;
+  height: 1rem;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   stroke-width: 3;
-  transform: translateY(-0.12rem);
+  transform: none;
   transition:
     color 160ms ease,
     filter 160ms ease,

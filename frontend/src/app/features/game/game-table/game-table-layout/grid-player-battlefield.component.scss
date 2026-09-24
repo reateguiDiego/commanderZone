@@ -1,0 +1,725 @@
+@property --active-turn-border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:host {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+:host:has(.is-turn-owner) {
+  position: relative;
+  z-index: 51;
+  overflow: visible;
+}
+
+:host:has(.is-turn-owner)::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: 50;
+  padding: 5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--active-turn-border-angle, 0deg),
+    color-mix(in srgb, var(--game-accent) 28%, transparent),
+    var(--game-accent),
+    #fff8dd,
+    var(--game-accent) 32%,
+    color-mix(in srgb, var(--game-accent) 28%, transparent) 55%,
+    var(--game-accent) 78%,
+    #fff8dd,
+    var(--game-accent)
+  );
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: active-turn-border-orbit 5.2s linear infinite;
+}
+
+.player-cell {
+  // Each Grid cell is a sizing container. The side piles and hand scale with
+  // their own available width, instead of using the viewport of the whole table.
+  --grid-zone-art-width: clamp(4.8rem, 10cqi, 6.35rem);
+  --grid-zone-label-size: clamp(0.54rem, 1.4cqi, 0.72rem);
+  --grid-zone-logo-height: clamp(0.74rem, 1.8cqi, 1rem);
+  --grid-hand-card-width: clamp(4.3rem, 10cqi, 5.2rem);
+  --grid-hand-card-preview-height: clamp(6rem, 14cqi, 7.3rem);
+  --grid-hand-card-overlap: clamp(0.5rem, 1.65cqi, 0.76rem);
+  // Square's dock is up to 36rem wide. A Grid cell keeps a 12rem minimum for
+  // the hand when it occupies only half the table.
+  --grid-zone-row-width: min(36rem, max(0px, calc(100cqi - 12rem)));
+  // Grid defaults to 60% of Square's base scale and can be adjusted from
+  // 40% to 70%. Cards, spacing, mana lane and interactive overlays share
+  // that one visual scale so marker rails and the face toggle never dominate.
+  --battlefield-card-width: var(--grid-battlefield-card-width, 4.32rem);
+  --battlefield-card-overlay-scale: var(--grid-battlefield-card-overlay-scale, 0.6);
+  --battlefield-gap: var(--grid-battlefield-gap, 0.45rem);
+  --battlefield-mana-lane-height: var(--grid-battlefield-mana-lane-height, 6.72rem);
+  // Hand width and its reserved row must scale together. A fixed row cut
+  // the larger responsive hand cards before their hover elevation could sit
+  // above the battlefield.
+  --grid-player-zone-row-height: clamp(6.5rem, 14.2cqi, 7.5rem);
+  --game-zone-row-height: var(--grid-player-zone-row-height);
+  --game-zone-dock-width: 7.2rem;
+  --game-zone-dock-overlap: 0px;
+  --game-side-column-bg: rgb(var(--cz-bg-rgb) / 48%);
+  --game-hand-left-reserve: 0px;
+  --game-hand-right-reserve: 0px;
+  --game-hand-left-extension: 0px;
+  --bottom-gap: 0px;
+  --grid-mechanics-summary-clearance: 0px;
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  container-name: grid-player-cell;
+  container-type: size;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--game-line-soft);
+  background: rgb(2 3 2);
+}
+
+.player-cell-playmat-backdrop,
+.player-cell-playmat {
+  position: absolute;
+  pointer-events: none;
+}
+
+.player-cell-playmat {
+  inset: 0;
+  // Keep the playmat in the base layer. The Grid layout intentionally has no
+  // stacking context so mechanics can rise above the player summary; a
+  // positive z-index here would otherwise paint over Zone Piles and hands.
+  z-index: 0;
+  background-image: var(--grid-player-playmat, none);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.single-player-row .player-cell-playmat {
+  // One-player rows reserve narrow blurred gutters while keeping the actual
+  // playmat large enough to read as the player's board rather than wallpaper.
+  background-size: 80% auto;
+}
+
+.player-cell-playmat-backdrop {
+  display: none;
+  inset: -1.5rem;
+  z-index: 0;
+  background: var(--grid-player-playmat, none) center / cover no-repeat;
+  filter: blur(1.2rem) saturate(0.78) brightness(0.72);
+  opacity: 0.9;
+}
+
+.single-player-row .player-cell-playmat-backdrop {
+  display: block;
+}
+
+.player-cell.is-defeated .player-cell-playmat,
+.player-cell.is-defeated .player-cell-playmat-backdrop {
+  filter: blur(0.42rem) saturate(0.3) brightness(0.5);
+  transform: scale(1.025);
+}
+
+.player-cell.is-defeated .player-cell-layout {
+  filter: blur(0.24rem) saturate(0.45) brightness(0.58);
+  opacity: 0.74;
+  pointer-events: none;
+}
+
+.grid-player-defeated-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.grid-player-defeated-skull {
+  width: min(32cqi, 8.5rem);
+  max-width: 42%;
+  max-height: 42%;
+  object-fit: contain;
+  opacity: 0.9;
+  filter:
+    grayscale(0.24)
+    drop-shadow(0 0.4rem 0.82rem rgb(var(--shadow-rgb) / 78%))
+    drop-shadow(0 0 1.15rem rgb(var(--game-text-rgb) / 12%));
+}
+
+.player-cell-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--game-zone-dock-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
+  grid-template-areas: 'zones battlefield' 'zones hand';
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.player-cell:has(.extra-actions-open) {
+  z-index: 100;
+  overflow: visible;
+}
+
+// The commander entrance travels beyond the target card and its aura blooms
+// outside the card bounds. Lift only the entering player's cell so the effect
+// remains visible above neighbouring Grid cells without making normal cards
+// spill into other players' battlefields.
+:host:has(.game-card.commander-entry-settling) {
+  position: relative;
+  z-index: 180;
+  overflow: visible;
+}
+
+.player-cell:has(.game-card.commander-entry-settling) {
+  z-index: 180;
+  overflow: visible;
+}
+
+.player-cell.counter-hover-bounds-active {
+  z-index: 40;
+  overflow: visible;
+}
+
+// A library shuffle deliberately spreads the stack outside its dock. Lift
+// only the active cell above adjacent Grid seats; normal battlefield clipping
+// remains unchanged.
+.player-cell:has(app-zone-card-stack.is-shuffling) {
+  z-index: 3200;
+  overflow: visible;
+}
+
+.player-cell:has(app-zone-card-stack.is-shuffling) .player-cell-layout,
+.player-cell:has(app-zone-card-stack.is-shuffling) .player-cell-zones {
+  position: relative;
+  z-index: 3200;
+  overflow: visible;
+}
+.is-current {
+  border-color: var(--game-accent);
+}
+.is-turn-owner {
+  border-color: color-mix(in srgb, var(--game-accent) 82%, #fff2c9);
+}
+.is-turn-owner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-shadow: inset 0 0 1.45rem rgb(var(--game-accent-rgb) / 48%);
+  pointer-events: none;
+  animation: active-turn-border-aura 5.2s ease-in-out infinite;
+}
+.is-top-row .player-cell-layout {
+  grid-template-rows: var(--game-zone-row-height) minmax(0, 1fr);
+  grid-template-areas: 'zones hand' 'zones battlefield';
+}
+
+// Right-side seats reflect the surrounding UI only. Battlefield coordinates
+// remain unchanged, keeping persisted positions and drag geometry stable.
+.is-right-column .player-cell-layout {
+  grid-template-columns: minmax(0, 1fr) var(--game-zone-dock-width);
+  grid-template-areas: 'battlefield zones' 'hand zones';
+}
+
+.is-right-column.is-top-row .player-cell-layout {
+  grid-template-areas: 'hand zones' 'battlefield zones';
+}
+.player-cell-header {
+  display: none;
+}
+.player-cell-summary {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.35rem;
+  // Normal battlefield cards, hands and Zone Piles remain below the summary.
+  // The mechanics overlay owns z-index 84 and must remain reachable when its
+  // card intersects this corner.
+  z-index: 50;
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 0.08rem;
+  width: min(19rem, calc(100% - var(--game-zone-dock-width) - 0.8rem));
+  pointer-events: auto;
+}
+
+// A complete summary owns its assigned corner. Its only horizontal
+// constraint is the Zone Piles dock that shares that player cell.
+.player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  top: 0;
+  right: 0;
+  width: min(19rem, calc(100% - var(--game-zone-dock-width)));
+}
+
+.player-cell-turn-status {
+  position: absolute;
+  top: 0.55rem;
+  left: calc(var(--game-zone-dock-width) + 0.55rem);
+  z-index: 51;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  max-width: min(8.5rem, calc(100% - var(--game-zone-dock-width) - 1.1rem));
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.18rem 0.56rem;
+  border: 1px solid rgb(var(--cz-info-rgb) / 56%);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgb(var(--cz-info-rgb) / 24%), rgb(var(--cz-info-rgb) / 10%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 12%),
+    0 0.35rem 0.9rem rgb(var(--shadow-rgb) / 22%);
+  color: var(--cz-info);
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.035em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transition:
+    border-color 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 280ms ease;
+}
+
+.player-cell-turn-status-content {
+  display: block;
+}
+
+.player-cell-turn-status.is-upcoming-turn {
+  border-color: rgb(var(--cz-info-rgb) / 34%);
+  background: linear-gradient(135deg, rgb(var(--cz-info-rgb) / 16%), rgb(var(--cz-info-rgb) / 5%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 8%),
+    0 0.25rem 0.68rem rgb(var(--shadow-rgb) / 16%);
+  color: color-mix(in srgb, var(--cz-info) 78%, var(--game-text));
+}
+
+.player-cell-turn-status.is-active-turn {
+  border-color: var(--cz-info);
+  background: linear-gradient(135deg, var(--cz-info), color-mix(in srgb, var(--cz-info) 72%, var(--cz-primary)));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--highlight-rgb) / 28%),
+    0 0 0 0.16rem rgb(var(--cz-info-rgb) / 14%),
+    0 0 1.35rem rgb(var(--cz-info-rgb) / 54%);
+  color: var(--cz-on-accent);
+  animation: active-turn-status-pulse 2.9s ease-in-out infinite;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel.player-summary-panel-grid {
+  display: contents;
+}
+
+.player-cell-summary:has(.player-summary-panel-grid) {
+  top: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.player-cell-offline-status {
+  position: absolute;
+  top: calc(0.55rem + 1.55rem + 0.18rem);
+  left: calc(var(--game-zone-dock-width) + 0.55rem);
+  z-index: 51;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.08rem;
+  padding: 0 0.42rem;
+  border: 1px solid rgb(var(--cz-danger-rgb) / 54%);
+  border-radius: 999px;
+  background: var(--cz-danger);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+    0 0 0.55rem rgb(var(--cz-danger-rgb) / 16%);
+  color: var(--cz-text);
+  font-size: 0.56rem;
+  font-weight: 860;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 64%);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.is-right-column .player-cell-summary {
+  right: auto;
+  left: 0.35rem;
+  justify-items: start;
+}
+
+.is-right-column .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  left: 0;
+}
+
+.is-right-column .player-cell-summary:has(.player-summary-panel-grid) {
+  align-items: flex-start;
+}
+
+.player-cell:has(.player-summary-panel-grid) {
+  // The compact summary contains life controls at the right edge. Keep the
+  // mechanic overlay in the remaining battlefield area.
+  --grid-mechanics-summary-clearance: 6.25rem;
+}
+
+// Grid keeps the complete summary's original geometry, without its avatar.
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-avatar {
+  display: none;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-copy {
+  grid-column: 1 / 3;
+  transform: translateX(0.45rem);
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-name-shell {
+  height: 3rem;
+}
+
+.is-right-column .player-cell-summary ::ng-deep .player-summary-panel:not(.player-summary-panel-grid) .player-copy {
+  transform: translateX(-0.45rem);
+}
+
+.player-cell-summary ::ng-deep .grid-player-name {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.08rem);
+  z-index: 1;
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  font-size: 0.64rem;
+  font-weight: 950;
+  line-height: 1;
+  padding: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.is-right-column .player-cell-summary ::ng-deep .grid-player-name {
+  right: auto;
+  left: 0;
+  text-align: left;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
+  order: 1;
+  align-self: flex-end;
+  justify-self: end;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  order: 2;
+  width: min(100%, 7rem);
+  align-self: flex-end;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid .player-extra-actions {
+  --extra-actions-menu-width: min(24.375rem, calc(100vw - 1rem));
+}
+
+.grid-player-concede-button {
+  order: 2;
+  justify-self: end;
+}
+
+.is-right-column .grid-player-concede-button {
+  justify-self: start;
+}
+
+.is-right-column .player-cell-summary ::ng-deep .player-summary-panel-grid .life-controls {
+  align-self: flex-start;
+  justify-self: start;
+}
+
+.is-right-column .player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  align-self: flex-start;
+}
+
+.player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls {
+  border-color: var(--life-control-border-active);
+  animation: active-turn-life-controls 5.2s ease-in-out infinite;
+}
+.is-top-row .player-cell-summary {
+  top: auto;
+  bottom: 0.25rem;
+}
+
+.is-top-row .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+  bottom: 0;
+}
+
+.is-top-row .player-cell-summary:has(.player-summary-panel-grid) {
+  bottom: 1.05rem;
+}
+
+.is-top-row .player-cell-summary ::ng-deep .player-summary-panel-grid .player-summary-special-entity-strip {
+  order: 0;
+}
+
+.is-top-row .player-cell-summary ::ng-deep .grid-player-name {
+  top: calc(100% + 0.08rem);
+  bottom: auto;
+}
+
+.is-top-row .player-cell-turn-status {
+  top: auto;
+  bottom: 0.55rem;
+}
+
+.is-top-row .player-cell-offline-status {
+  top: auto;
+  bottom: 0.55rem;
+}
+
+.is-top-row:has(.player-cell-offline-status) .player-cell-turn-status {
+  bottom: calc(0.55rem + 1.08rem + 0.18rem);
+}
+
+.is-right-column .player-cell-turn-status,
+.is-right-column .player-cell-offline-status {
+  right: calc(var(--game-zone-dock-width) + 0.55rem);
+  left: auto;
+}
+.player-cell-battlefield,
+.player-cell-zones,
+.player-cell-hand {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+.player-cell-battlefield {
+  grid-area: battlefield;
+  grid-template-areas: 'battlefield';
+}
+.player-cell-zones {
+  grid-area: zones;
+  grid-template-areas: 'zones';
+}
+.player-cell-hand {
+  grid-area: hand;
+  grid-template-areas: 'hand';
+  position: relative;
+  z-index: 40;
+  overflow: visible;
+}
+
+// Square reserves hover headroom inside the hand surface. Grid needs the same
+// geometry, anchored toward the owning battlefield. These properties must win
+// over the shared compact defaults, whose stylesheet is injected afterwards.
+.player-cell-hand ::ng-deep .hand-area.compact-cell {
+  --hand-row-visible-height: var(--game-zone-row-height);
+  --hand-row-card-drop: -0.55rem;
+  --hand-row-card-visible-slice: calc(var(--hand-row-visible-height) - var(--hand-row-card-drop));
+  --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) {
+  align-self: end !important;
+  min-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  max-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:not(.hand-dragging):has(.hand-row-expanded) {
+  transform: translateY(calc(-1 * var(--hand-row-hover-headroom)));
+}
+
+.player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) .hand-row-expanded {
+  min-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  max-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom)) !important;
+  padding-top: var(--hand-row-hover-headroom) !important;
+}
+
+.is-top-row .player-cell-hand ::ng-deep .hand-area.compact-cell:has(.hand-row-expanded) {
+  align-self: start !important;
+  transform: none;
+}
+
+// Match Square's compact breakpoint. The Grid's available height, not one
+// half-sized player cell, decides whether the shared horizontal presentation
+// is needed. This class is updated by a ResizeObserver, so it also reacts to
+// viewport changes without a reload.
+.player-cell.zone-row-presentation {
+  .player-cell-layout {
+    --game-zone-dock-width: var(--grid-zone-row-width);
+  }
+
+  .player-cell-layout {
+    grid-template-columns: minmax(0, 1fr) var(--grid-zone-row-width);
+    grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
+    grid-template-areas: 'battlefield battlefield' 'hand zones';
+  }
+
+  &.is-top-row .player-cell-layout {
+    grid-template-rows: var(--game-zone-row-height) minmax(0, 1fr);
+    grid-template-areas: 'hand zones' 'battlefield battlefield';
+  }
+
+  // Do not shrink the whole upper hand row: cards need the same stable
+  // headroom as the lower hand. Only the outer horizontal Zone Piles dock is
+  // shorter, so the main strip plus that dock matches the lower dock height.
+  // Its contents deliberately keep the existing Square-compact presentation.
+  &.is-top-row .player-cell-zones {
+    --grid-top-horizontal-zone-height: max(
+      0px,
+      calc(var(--grid-player-zone-row-height) - var(--grid-layout-main-top-height, 0px))
+    );
+
+    position: relative;
+    // The hand and freely positioned battlefield cards may visually extend
+    // toward this corner. The dock owns that reserved column in Grid.
+    z-index: 41;
+  }
+
+  &.is-top-row .player-cell-zones ::ng-deep .zone-dock {
+    align-self: start;
+    height: var(--grid-top-horizontal-zone-height);
+    min-height: 0;
+  }
+
+  // The horizontal dock shares the hand row with a wide Zone Piles strip.
+  // Avoid reserving inline space for a scrollbar while retaining the normal
+  // fan-to-row transition and scroll behavior.
+  .player-cell-hand ::ng-deep .hand-row {
+    scrollbar-gutter: auto;
+  }
+
+  // The fan has decorative overhangs that add a few pixels of scroll width.
+  // Clip that non-interactive overflow only while it is a fan. Row mode keeps
+  // its normal horizontal overflow for the fan-to-row interaction.
+  .player-cell-hand ::ng-deep .hand-row:not(.hand-row-expanded) {
+    overflow-x: hidden;
+  }
+
+  .player-cell-hand ::ng-deep .hand-row-expanded {
+    scrollbar-width: none;
+  }
+
+  .player-cell-hand ::ng-deep .hand-row-expanded::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .player-cell-summary {
+    width: min(19rem, calc(100% - 0.8rem));
+  }
+
+  .player-cell-summary:not(:has(.player-summary-panel-grid)) {
+    width: min(19rem, 100%);
+  }
+
+  .player-cell-turn-status,
+  .player-cell-offline-status {
+    left: 0.55rem;
+  }
+
+  .player-cell-turn-status {
+    max-width: min(8.5rem, calc(100% - 1.1rem));
+  }
+
+  &.is-right-column .player-cell-turn-status,
+  &.is-right-column .player-cell-offline-status {
+    right: 0.55rem;
+    left: auto;
+  }
+}
+
+// In the lower horizontal composition, the count belongs to the hand edge,
+// away from the Zone Piles dock.
+.player-cell.zone-row-presentation:not(.is-top-row) .player-cell-hand ::ng-deep .hand-count {
+  right: auto;
+  left: 0.55rem;
+}
+
+.player-cell.is-right-column .player-cell-hand ::ng-deep .hand-area.compact-cell .hand-count {
+  right: auto;
+  left: 0.55rem;
+}
+
+@keyframes active-turn-border-orbit {
+  0% {
+    --active-turn-border-angle: 0deg;
+  }
+
+  100% {
+    --active-turn-border-angle: 1turn;
+  }
+}
+
+@keyframes active-turn-border-aura {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0.72rem rgb(var(--game-accent-rgb) / 28%);
+  }
+
+  50% {
+    box-shadow: inset 0 0 1.7rem rgb(var(--game-accent-rgb) / 58%);
+  }
+}
+
+@keyframes active-turn-life-controls {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 16%),
+      inset 0 -1px 0 rgb(var(--shadow-rgb) / 56%),
+      0 0 0.62rem rgb(var(--game-accent-rgb) / 22%);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 20%),
+      inset 0 -1px 0 rgb(var(--shadow-rgb) / 52%),
+      0 0 1.2rem rgb(var(--game-accent-rgb) / 48%);
+  }
+}
+
+@keyframes active-turn-status-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 28%),
+      0 0 0 0.16rem rgb(var(--cz-info-rgb) / 14%),
+      0 0 1.05rem rgb(var(--cz-info-rgb) / 42%);
+  }
+
+  48% {
+    transform: scale(1.055);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--highlight-rgb) / 34%),
+      0 0 0 0.32rem rgb(var(--cz-info-rgb) / 18%),
+      0 0 1.8rem rgb(var(--cz-info-rgb) / 68%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host:has(.is-turn-owner)::after,
+  .is-turn-owner::before,
+  .player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls,
+  .player-cell-turn-status.is-active-turn {
+    animation: none;
+  }
+}

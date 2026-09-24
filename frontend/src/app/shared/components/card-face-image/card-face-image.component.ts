@@ -5,7 +5,7 @@ import { DeviceProfileService } from '../../services/device-profile.service';
 import { PreloadCardAlternateFaceDirective } from '../../directives/preload-card-alternate-face.directive';
 import { CardFaceToggleButtonComponent, CardFaceToggleButtonSize } from '../card-face-toggle-button/card-face-toggle-button.component';
 import { CardFaceImageResolution, CardFaceImageSource, cardDisplayFace, cardFaceImage, hasAlternateCardFace } from '../../utils/card-faces';
-import { preloadImage } from '../../utils/image-preload';
+import { ImagePreloadQueueService } from '../../services/image-preload-queue.service';
 
 export type CardFaceImageVariant = 'result' | 'spoiler' | 'detail' | 'printing';
 
@@ -18,6 +18,7 @@ export type CardFaceImageVariant = 'result' | 'spoiler' | 'detail' | 'printing';
 })
 export class CardFaceImageComponent implements OnDestroy {
   private readonly device = inject(DeviceProfileService);
+  private readonly imagePreloadQueue = inject(ImagePreloadQueueService);
   readonly card = input.required<CardFaceImageSource | Card>();
   readonly variant = input<CardFaceImageVariant>('result');
   readonly imageResolution = input<CardFaceImageResolution>('normal');
@@ -132,7 +133,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
     const nextFlipped = !this.flipped();
     const requestVersion = ++this.faceChangeRequestVersion;
-    if (!await preloadImage(this.imageUrlForFace(nextFlipped)) || requestVersion !== this.faceChangeRequestVersion) {
+    if (!await this.imagePreloadQueue.preload(this.imageUrlForFace(nextFlipped), 'interaction') || requestVersion !== this.faceChangeRequestVersion) {
       return;
     }
 
@@ -223,7 +224,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
   private async setLoadedControlledFace(nextFlipped: boolean): Promise<void> {
     const requestVersion = ++this.faceChangeRequestVersion;
-    if (!await preloadImage(this.imageUrlForFace(nextFlipped)) || requestVersion !== this.faceChangeRequestVersion) {
+    if (!await this.imagePreloadQueue.preload(this.imageUrlForFace(nextFlipped), 'interaction') || requestVersion !== this.faceChangeRequestVersion) {
       return;
     }
 

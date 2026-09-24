@@ -629,6 +629,28 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).not.toContain('drop-settling');
   });
 
+  it('animates only the entering commander from its battlefield side', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('commanderEntrySettling', true);
+    fixture.componentRef.setInput('commanderEntryDirection', 'right');
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('commander-entry-settling');
+    expect(cardElement.classList).toContain('commander-entry-from-right');
+    expect(cardElement.classList).not.toContain('commander-entry-from-left');
+    expect(cardElement.classList).not.toContain('drop-settling');
+    expect(cardElement.querySelector('.commander-theme-aura')).not.toBeNull();
+  });
+
+  it('does not render the commander aura outside a commander entry', async () => {
+    const { cardElement } = await renderHandCard();
+
+    expect(cardElement.querySelector('.commander-theme-aura')).toBeNull();
+  });
+
   it('renders a planeswalker loyalty counter when loyalty is present', async () => {
     const { fixture } = await renderHandCard();
 
@@ -1006,13 +1028,49 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
-  it('does not show the face toggle affordance for The Ring cards', async () => {
+  it('shows the normal face toggle affordance for The Ring cards', async () => {
     const { fixture } = await renderHandCard();
 
     fixture.componentRef.setInput('card', theRingCard());
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).not.toBeNull();
+  });
+
+  it('renders The Ring with its initial level-zero counter', async () => {
+    const { fixture } = await renderHandCard();
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { level: 0 } });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain('level0');
+
+    fixture.componentInstance.changeCounter({
+      event: new MouseEvent('click'),
+      key: 'level',
+      delta: 1,
+    });
+
+    expect(counterChanged).toHaveBeenCalledWith(expect.objectContaining({ key: 'level', delta: 1 }));
+  });
+
+  it('does not request deletion when The Ring level-zero counter is right-clicked', async () => {
+    const { fixture } = await renderHandCard();
+    const deleteRequested = vi.fn();
+    fixture.componentInstance.counterDeleteRequested.subscribe(deleteRequested);
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...theRingCard(), counters: { Level: 0 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(deleteRequested).not.toHaveBeenCalled();
   });
 
   it('plays the face flip animation on stable battlefield cards', async () => {
@@ -1029,20 +1087,6 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).toContain('face-flipping');
 
     vi.advanceTimersByTime(620);
-    fixture.detectChanges();
-
-    expect(cardElement.classList).not.toContain('face-flipping');
-  });
-
-  it('does not combine the face flip animation with battlefield focus entry', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('mode', 'battlefield');
-    fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('battlefieldFocusEntry', 'left');
-    fixture.detectChanges();
-
-    fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
     fixture.detectChanges();
 
     expect(cardElement.classList).not.toContain('face-flipping');
@@ -1458,6 +1502,7 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-card-marker-rail')).toBeNull();
   });
+
 });
 
 async function renderHandCard(

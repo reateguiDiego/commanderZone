@@ -3,7 +3,7 @@ import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
-import { User } from '../models/user.model';
+import { User, UserGamePreferences } from '../models/user.model';
 import { AppThemeId } from '../theme/app-theme';
 import { AppThemeService } from '../theme/app-theme.service';
 import { AppBackgroundService } from '../ui/app-background.service';
@@ -280,6 +280,11 @@ export class AuthStore {
         themeId,
       },
     });
+  }
+
+  async updateGamePreferences(gamePreferences: Partial<UserGamePreferences>): Promise<void> {
+    const response = await firstValueFrom(this.authApi.updateMe({ gamePreferences }));
+    this.setUser(response.user);
   }
 
   private setToken(token: string): void {

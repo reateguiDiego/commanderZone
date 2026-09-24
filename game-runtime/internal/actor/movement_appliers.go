@@ -80,7 +80,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		"instanceIds":           instanceIDs,
 		"instanceId":            instanceIDs[0],
 		"toZone":                string(toZone),
-		"position":              visualPosition,
+		"position":              movementEventPosition(command.Payload),
 		"moves":                 movementEventMoves(game, moves, evaporated),
 		"commanderCastCounters": commanderCastCounters,
 		"metrics":               movementMetrics(start, ops, len(moves), emitter),
@@ -245,6 +245,21 @@ func movementVisualPosition(payload map[string]any) map[string]any {
 		return nil
 	}
 	return normalizedPoint(position)
+}
+
+// movementEventPosition preserves the semantic library placement in the
+// persisted event. Battlefield positions are visual data, while "top" and
+// "bottom" must survive replay so a recovered runtime rebuilds deck order
+// exactly as it was before the restart.
+func movementEventPosition(payload map[string]any) any {
+	if position, ok := payload["position"].(string); ok {
+		switch position {
+		case "top", "bottom":
+			return position
+		}
+	}
+
+	return movementVisualPosition(payload)
 }
 
 func moveManyWithZoneTransitionRules(game *state.GameState, ops *state.ZoneOps, instanceIDs []string, requestedToPlayerID string, toZone state.Zone, position state.ZoneInsertPosition) ([]state.ZoneMove, error) {

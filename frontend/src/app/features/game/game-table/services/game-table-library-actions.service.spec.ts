@@ -13,7 +13,10 @@ describe('GameTableLibraryActionsService', () => {
 
   it('includes the single top card name for the runtime private log entry', async () => {
     const command = vi.fn(async () => undefined);
-    const context = libraryContext([libraryCard('top-card', 'Mystic Remora')], command);
+    const context = libraryContext([
+      libraryCard('top-card', 'Mystic Remora'),
+      libraryCard('bottom-card', 'Sol Ring'),
+    ], command);
 
     await service.revealTop(context, 'player-1', 'player-2');
 

@@ -15,8 +15,10 @@ import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 import { GameTableStaticCardCacheV2Service } from './game-table-static-card-cache-v2.service';
+import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 import { GameTableLogHistoryService } from './game-table-log-history.service';
 import { GameTableChatHistoryService } from './game-table-chat-history.service';
+import { DiceRollResult } from '../models/game-table-dice.model';
 
 export interface GameTableSessionContext {
   gameId(): string;
@@ -36,6 +38,8 @@ export interface GameTableSessionContext {
   onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
   onLibraryRevealed?(playerId: string, recipients?: readonly string[]): void;
   onLibraryTopRevealed?(playerId: string, count: number): void;
+  onLibraryTopViewed?(playerId: string, count: number): void;
+  onDiceRolled?(result: DiceRollResult): void;
   onControlPlaneAccepted?(controlPlane: GameControlPlaneState): void;
   refreshViewerControlAccess?(): Promise<void>;
   navigateToRooms(): void;
@@ -55,6 +59,7 @@ export class GameTableSessionService {
   private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly staticCardCacheV2 = inject(GameTableStaticCardCacheV2Service);
+  private readonly staticCardResolverV2 = inject(GameTableStaticCardResolverV2Service);
   private readonly logHistory = inject(GameTableLogHistoryService);
   private readonly chatHistory = inject(GameTableChatHistoryService);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
@@ -76,13 +81,13 @@ export class GameTableSessionService {
     }
 
     try {
-      await this.refetch(context, true, 'initial_load');
+      await this.refetch(context, true);
       shouldRefreshViewerControlAccess = true;
       this.websocket.start({
         gameId: () => context.gameId(),
         snapshot: () => context.snapshot(),
         setSnapshot: (snapshot) => context.setSnapshot(snapshot),
-        refetch: (force) => this.refetch(context, force, 'websocket.request_resync'),
+        refetch: (force) => this.refetch(context, force),
         setError: (message) => context.setError(message),
         onMulliganPublicState: (message) => context.onMulliganPublicState?.(message),
         onMulliganPrivateState: (message) => context.onMulliganPrivateState?.(message),
@@ -91,6 +96,8 @@ export class GameTableSessionService {
         onMulliganPatchV2Applied: (patch, snapshot) => context.onMulliganPatchV2Applied?.(patch, snapshot),
         onLibraryRevealed: (playerId, recipients) => context.onLibraryRevealed?.(playerId, recipients),
         onLibraryTopRevealed: (playerId, count) => context.onLibraryTopRevealed?.(playerId, count),
+        onLibraryTopViewed: (playerId, count) => context.onLibraryTopViewed?.(playerId, count),
+        onDiceRolled: (result) => context.onDiceRolled?.(result),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
     } catch (error) {
@@ -111,9 +118,9 @@ export class GameTableSessionService {
     return error instanceof HttpErrorResponse && error.status === 404;
   }
 
-  async refetch(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {
+  async refetch(context: GameTableSessionContext, force = false): Promise<void> {
     if (this.gameplayV2Flags.enabled()) {
-      await this.refetchV2(context, force, source);
+      await this.refetchV2(context, force);
       return;
     }
 
@@ -129,32 +136,14 @@ export class GameTableSessionService {
     );
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
-      this.logSessionDebug('info', context, {
-        source: 'snapshot_reload',
-        reason: source,
-        result: 'unchanged',
-        currentVersion: nextSnapshot.version,
-      });
       return;
     }
     if (!force && context.hasActivePointerDrag()) {
       this.deferredRemoteSnapshot = nextSnapshot;
-      this.logSessionDebug('info', context, {
-        source: 'snapshot_reload',
-        reason: source,
-        result: 'deferred_pointer_drag',
-        currentVersion: nextSnapshot.version,
-      });
       return;
     }
 
     this.applySnapshot(context, nextSnapshot);
-    this.logSessionDebug('info', context, {
-      source: 'snapshot_reload',
-      reason: source,
-      result: 'applied',
-      currentVersion: nextSnapshot.version,
-    });
   }
 
   applyDeferredRemoteSnapshot(context: GameTableSessionContext): void {
@@ -220,7 +209,7 @@ export class GameTableSessionService {
       return;
     }
 
-    void this.refetch(context, false, 'mercure.snapshot_invalidated');
+    void this.refetch(context, false);
   }
 
   private applySnapshot(context: GameTableSessionContext, nextSnapshot: GameSnapshot): void {
@@ -302,7 +291,7 @@ export class GameTableSessionService {
     }
   }
 
-  private async refetchV2(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {
+  private async refetchV2(context: GameTableSessionContext, force = false): Promise<void> {
     const gameId = context.gameId();
     if (!gameId) {
       return;
@@ -317,7 +306,9 @@ export class GameTableSessionService {
       return;
     }
 
-    let nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
+    const cachedBootstrap = this.staticCardCacheV2.mergeBootstrap(bootstrap);
+    const hydratedBootstrap = await this.staticCardResolverV2.hydrateBootstrap(cachedBootstrap);
+    let nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(hydratedBootstrap));
     this.logHistory.reset(nextSnapshot);
     this.chatHistory.reset(nextSnapshot);
     const currentControlPlane = this.controlPlaneFromSnapshot(context.snapshot());
@@ -331,32 +322,14 @@ export class GameTableSessionService {
     }
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
-      this.logSessionDebug('info', context, {
-        source: 'bootstrap',
-        reason: source,
-        result: 'unchanged',
-        currentVersion: nextSnapshot.version,
-      });
       return;
     }
     if (!force && context.hasActivePointerDrag()) {
       this.deferredRemoteSnapshot = nextSnapshot;
-      this.logSessionDebug('info', context, {
-        source: 'bootstrap',
-        reason: source,
-        result: 'deferred_pointer_drag',
-        currentVersion: nextSnapshot.version,
-      });
       return;
     }
 
     this.applySnapshot(context, nextSnapshot);
-    this.logSessionDebug('info', context, {
-      source: 'bootstrap',
-      reason: source,
-      result: 'applied',
-      currentVersion: nextSnapshot.version,
-    });
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {
@@ -454,22 +427,4 @@ export class GameTableSessionService {
     };
   }
 
-  private logSessionDebug(
-    level: 'debug' | 'info' | 'warn',
-    context: GameTableSessionContext,
-    payload: {
-      source: 'bootstrap' | 'snapshot_reload';
-      reason: string;
-      result: 'applied' | 'unchanged' | 'deferred_pointer_drag';
-      currentVersion: number | null;
-    },
-  ): void {
-    const logger = level === 'warn' ? console.warn : level === 'info' ? console.info : console.debug;
-    logger.call(console, '[CommanderZone gameplay sync]', {
-      ...payload,
-      gameId: context.gameId(),
-      localSnapshotVersion: context.snapshot()?.version ?? null,
-      measuredAt: new Date().toISOString(),
-    });
-  }
 }

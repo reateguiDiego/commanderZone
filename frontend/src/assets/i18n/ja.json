@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} はまだ投票していません。追加で {{ seconds }}秒あります。",
       "timeLimit": "制限時間",
       "winnerMessage": "テーブルはあなたのものです。あなたは混乱を乗り切り、権威を持ってゲームを終了しました。",
+      "waitForGameEnd": "再戦を始める前に、ゲームが終わるまで待ってください。",
       "youDied": "あなたは死んだ",
       "youHaveSecondsToVote": "{{ seconds }}秒以内に投票できます。",
       "yourVoteMissingExtra": "あなたの投票がまだありません。追加で {{ seconds }}秒あります。",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "トークン作成の制御",
       "loadingDeckTokens": "デッキトークンを読み込み中...",
-      "searchingTokens": "トークンを検索しています..."
+      "searchingTokens": "トークンを検索しています...",
+      "theRingFromGameMechanics": "「指輪」は戦場からのみ追加できます。戦場を右クリックし、「ゲームのメカニズム」を選択してください。"
     },
     "playersOrder": {
       "currentTurnLabel": "ターン {{ turnNumber }}",
       "upcomingTurnLabel": "{{ count }}内",
+      "nextPlayerLabel": "次のプレイヤー:",
       "currentTurnTitle": "{{ name }} のターンです",
       "upcomingTurnTitle": "{{ name }} まであと {{ count }} ターン"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "アクティブなターンプレイヤーに焦点を当てる",
       "focusTurn": "ターンにフォーカス",
       "advancePhase": "フェーズを進める",
+      "phaseActionLabel": "フェイズ",
       "phaseLabels": {
         "untap": "アンタップ",
         "upkeep": "アップキープ",
@@ -998,6 +1002,7 @@
       "moveToHand": "手札に入れますか？",
       "moveAllToLibrary": "すべてライブラリーに置く",
       "gamesCanOnlyBePlayedInLandscape": "ゲームは、モバイルおよびタブレットでは横向きでのみプレイできます。",
+      "defeatedActionBlocked": "あなたは敗北したため、ゲーム操作はできません。ゲームの終了を待つ間もチャットは利用できます。",
       "thisTableNeedsALittleMoreRoom": "このテーブルにはもう少しスペースが必要です",
       "sorryThisResolutionIsTooCrampedFor": "申し訳ありませんが、この解像度は統率者戦ゲームとしては狭すぎます。ブラウザのズームを調整するか、より大きなウィンドウを使用してください。",
       "useCtrl0InYourBrowserTo": "ブラウザで Ctrl+0 を使用してズームを 100% にリセットし、このウィンドウを更新またはサイズ変更します。",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "チャット、未読メッセージ",
       "moveCardToAnotherBattlefield": "カードを別の戦場に移動する",
       "putIntoLibrary": "ライブラリーに置く",
+      "libraryPlacementSinglePrompt": "このカードをどこに置きますか？",
+      "libraryPlacementMultiplePrompt": "これら {{ count }} 枚のカードをどこに置きますか？",
+      "libraryPlacementTop": "一番上",
+      "libraryPlacementBottom": "一番下",
       "focusedOpponentLabel": "表示中：",
       "returnToOwnBattlefield": "自分の戦場へ",
       "leaveTableConfirmationTitle": "テーブルから離れますか？",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} がトークンのコピーを作成しました。"
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} が統治者になりました。", "passed": "{{ actor }} が {{ player }} に統治者を譲りました。", "removed": "{{ actor }} が統治者の指定を取り除きました。" },
+      "initiative": { "claimed": "{{ player }} がイニシアチブを得ました。", "passed": "{{ actor }} が {{ player }} にイニシアチブを譲りました。", "removed": "{{ actor }} がイニシアチブを取り除きました。" },
+      "citysBlessing": { "granted": "{{ player }} が都市の承認を得ました。", "removed": "{{ actor }} が {{ player }} の都市の承認を取り除きました。" },
+      "dayNight": { "startedDay": "{{ actor }} が昼/夜サイクルを昼として開始しました。", "startedNight": "{{ actor }} が昼/夜サイクルを夜として開始しました。", "setDay": "{{ actor }} が昼/夜の状態を昼に変更しました。", "setNight": "{{ actor }} が昼/夜の状態を夜に変更しました。", "removed": "{{ actor }} が昼/夜を取り除きました。" },
+      "ring": { "created": "{{ player }} が指輪を受け取りました。", "removed": "{{ actor }} が指輪を取り除きました。" },
+      "dungeon": { "entered": "{{ player }} が {{ cardName }} に入りました。", "advanced": "{{ actor }} がダンジョンを進みました。", "removed": "{{ actor }} がダンジョン {{ cardName }} を取り除きました。" },
+      "emblem": { "created": "{{ player }} が紋章 {{ cardName }} を作成しました。", "removed": "{{ actor }} が紋章 {{ cardName }} を取り除きました。" },
+      "helper": { "created": "{{ actor }} がゲームメカニズムを追加しました。", "updated": "{{ actor }} がゲームメカニズムを更新しました。", "removed": "{{ actor }} がゲームメカニズムを取り除きました。" }
     },
     "game": {
       "concede": "{{ player }} が付与されました。"
@@ -2185,6 +2204,17 @@
       "changeTheme": "テーマの変更",
       "gameSettings": {
         "title": "ゲームプレイの設定",
+        "defaultBattlefieldLayout": {
+          "label": "テーブルレイアウト",
+          "description": "ゲームを開いたときのテーブルの配置を選択します。",
+          "grid": "グリッド",
+          "focused": "フォーカス",
+          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、フォーカスレイアウトが自動的に使用されます。"
+        },
+        "showCardAlignmentHelper": {
+          "label": "カード配置アシスト",
+          "description": "カードを動かすときに、近くのカードと縦位置を揃えるためのガイドを表示します。"
+        },
         "showManaHelperOnStartup": {
           "label": "起動時にマナヘルパーを表示",
           "description": "対戦開始時にマナを数えるためのヘルパーを表示します。対戦中はいつでも非表示にしたり、再び表示したりできます。"

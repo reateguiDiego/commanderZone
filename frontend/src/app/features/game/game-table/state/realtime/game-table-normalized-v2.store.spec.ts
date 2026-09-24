@@ -25,7 +25,7 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-2'].zones.hand[0]?.name).toBe('Card');
   });
 
-  it('normalizes a runtime library tail-top bootstrap before rendering a directed top reveal', () => {
+  it('keeps a top-first runtime library bootstrap when rendering a directed top reveal', () => {
     const bootstrap = bootstrapV2();
     bootstrap.instances['library-2'] = {
       instanceId: 'library-2',
@@ -56,6 +56,7 @@ describe('game table normalized v2 store', () => {
       cardFaces: [],
     };
 
+    bootstrap.zones['player-1:library'].instanceIds = ['library-2', 'library-1'];
     const state = createGameTableNormalizedV2State(bootstrap);
     const snapshot = hydrateGameSnapshotFromV2State(state);
 
@@ -65,6 +66,33 @@ describe('game table normalized v2 store', () => {
       imageUris: { normal: 'https://cards.test/directed-top.jpg' },
       revealedTo: ['player-2'],
     });
+  });
+
+  it('honours explicit library insertion indexes from runtime patches', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const top = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'hand', instanceIds: ['hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'library',
+        index: 0,
+        cards: [{ ...initial.instances['hand-1'], zoneId: 'player-1:library' }],
+      },
+    ]));
+    const bottom = applyPatchEnvelopeV2(top.state, patch(7, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'battlefield', instanceIds: ['battlefield-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'library',
+        index: 2,
+        cards: [{ ...top.state.instances['battlefield-1'], zoneId: 'player-1:library' }],
+      },
+    ]));
+
+    expect(top.state.zones['player-1'].library).toEqual(['hand-1', 'library-1']);
+    expect(bottom.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'battlefield-1']);
   });
 
   it('applies ordered patches and keeps version idempotent', () => {
@@ -894,6 +922,20 @@ describe('game table normalized v2 store', () => {
       instanceId: 'battlefield-1',
       name: 'Card',
       hidden: false,
+    });
+  });
+
+  it('keeps a visible bootstrap card renderable while its static data is pending', () => {
+    const bootstrap = bootstrapV2();
+    delete bootstrap.staticCards['card:sol-ring'];
+    const state = createGameTableNormalizedV2State(bootstrap);
+    const snapshot = hydrateGameSnapshotFromV2State(state);
+
+    expect(snapshot.players['player-1'].zones.battlefield[0]).toMatchObject({
+      instanceId: 'battlefield-1',
+      name: 'Card',
+      hidden: false,
+      staticCardPending: true,
     });
   });
 
@@ -2012,6 +2054,8 @@ describe('game table normalized v2 store', () => {
         viewerVisibility: 'private',
         scryfallId: 's-library-1',
         name: 'Forest',
+        hidden: true,
+        faceDown: false,
         tapped: false,
         zone: 'library',
       }],
@@ -2020,6 +2064,8 @@ describe('game table normalized v2 store', () => {
 
     expect(result.status).toBe('applied');
     expect(result.state.zones['player-1'].library).toEqual(['library-1', 'library-2']);
+    expect(result.state.instances['library-1']?.hidden).toBe(false);
+    expect(result.state.instances['library-1']?.faceDown).toBe(false);
     expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Forest');
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });

@@ -9,6 +9,7 @@
   (dragstart)="handleNativeDragStart($event)"
 >
   <app-game-table-header
+    [class.grid-layout-header]="tableLayout.mode() === 'grid'"
     (click)="$event.stopPropagation()"
     (contextmenu)="$event.stopPropagation()"
   />
@@ -69,45 +70,271 @@
     <app-game-arrow-layer
       [snapshot]="snapshot"
       [focusedPlayerId]="store.focusedPlayer()?.id ?? null"
+      [allBattlefieldsVisible]="tableLayout.mode() === 'grid'"
       [players]="store.players()"
       [rootElement]="gameScreen"
       (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
     />
+
+    <ng-template #viewControls>
+      <app-battlefield-zoom-controls
+        class="battlefield-zoom-host"
+        [zoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.zoomPercent() : battlefieldZoom.zoomPercent()"
+        [minZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.minZoomPercent : battlefieldZoom.minZoomPercent"
+        [maxZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.maxZoomPercent : battlefieldZoom.maxZoomPercent"
+        [defaultZoomPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.defaultZoomPercent : battlefieldZoom.defaultZoomPercent"
+        [zoomStepPercent]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.zoomStepPercent : battlefieldZoom.zoomStepPercent"
+        [canResetZoom]="tableLayout.mode() === 'grid' ? gridBattlefieldZoom.canResetZoom() : battlefieldZoom.canResetZoom()"
+        [playerCount]="store.players().length"
+        [selectedViewLayout]="tableLayout.mode()"
+        [viewLayoutAvailable]="tableLayout.gridAvailable()"
+        [showZoom]="!aggressiveCompactViewport()"
+        (viewLayoutChanged)="selectBattlefieldViewLayout($event)"
+        (zoomPercentChanged)="setBattlefieldZoom($event)"
+        (resetZoom)="resetBattlefieldZoom()"
+        (click)="$event.stopPropagation()"
+        (contextmenu)="$event.stopPropagation()"
+      />
+    </ng-template>
+    <ng-template
+      #battlefieldRegion
+      let-player
+      let-grid="grid"
+      let-battlefieldVerticallyInverted="battlefieldVerticallyInverted"
+      let-reportSize="reportSize"
+    >
+      <app-focused-battlefield
+        [player]="player"
+        [verticallyInverted]="grid && battlefieldVerticallyInverted === true"
+        [isCurrentPlayer]="isCurrentPlayer"
+        [allowArrowTargetSelection]="manualRelationTargetingActive()"
+        [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
+        [isDropZoneHighlighted]="isDropZoneHighlighted"
+        [cardPosition]="cardPosition"
+        [isSelected]="isSelected"
+        [isDraggingCard]="isDraggingCard"
+        [canDragBattlefieldCard]="canDragBattlefieldCard"
+        [isPendingBattlefieldTransfer]="isPendingBattlefieldTransfer"
+        [cardImage]="cardImage"
+        [shouldShowPowerToughness]="shouldShowPowerToughness"
+        [cardPowerValue]="cardPowerValue"
+        [cardToughnessValue]="cardToughnessValue"
+        [cardBattleValue]="cardBattleValue"
+        [cardLoyaltyValue]="cardLoyaltyValue"
+        [firstCounter]="firstCounter"
+        [alignmentGuideFor]="alignmentGuideFor"
+        [showManaRow]="gamePreferences.enableManaRow"
+        [isManaLaneHighlighted]="isManaLaneHighlighted"
+        [manaPool]="store.manaPool"
+        [canEditManaPool]="canControlPlayer"
+        [isManaPoolHidden]="store.isManaPoolHidden"
+        [pendingManaColors]="pendingManaPoolColorsFor(player.id)"
+        [layoutKey]="grid ? gridBattlefieldZoom.zoomPercent() : effectiveBattlefieldZoomPercent()"
+        [zoomPercent]="grid ? gridBattlefieldZoom.zoomPercent() : effectiveBattlefieldZoomPercent()"
+        [landStackDropPreview]="store.landStackDropPreview()"
+        [attachments]="snapshot.attachments ?? []"
+        [battlefieldStacks]="snapshot.battlefieldStacks ?? []"
+        [isCardDropSettling]="isCardDropSettling"
+        [isManaDropSettling]="isManaDropSettling"
+        [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+        [isCommanderEntrySettling]="isCommanderEntrySettling"
+        [isCardTransferPending]="isCardTransferPending"
+        (battlefieldDragOver)="store.allowDrop($event)"
+        (battlefieldDropped)="grid ? handleGridBattlefieldDrop($event) : handleZoneDrop($event)"
+        (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
+        (manaPoolMenuOpened)="store.openManaPoolMenu($event.event, $event.playerId)"
+        (cardPointerDown)="startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
+        (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
+        (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
+        (cardMenuOpened)="
+          store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card, {
+            forceOpenLeft: $event.forceOpenLeft,
+          })
+        "
+        (cardPreviewShown)="store.showCardPreview($event)"
+        (cardPreviewRequested)="store.showImmediateCardPreview($event)"
+        (cardPreviewHidden)="store.hideCardPreview()"
+        (cardPowerChanged)="
+          store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)
+        "
+        (cardToughnessChanged)="
+          store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)
+        "
+        (cardBattleChanged)="
+          store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)
+        "
+        (cardSagaChanged)="
+          store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)
+        "
+        (cardLoyaltyChanged)="
+          store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)
+        "
+        (cardCounterChanged)="
+          store.changeCardCounterForCard(
+            $event.playerId,
+            $event.zone,
+            $event.card,
+            $event.key,
+            $event.delta
+          )
+        "
+        (cardCounterDeleteRequested)="
+          store.openCounterDeleteMenu(
+            $event.event,
+            $event.playerId,
+            $event.zone,
+            $event.card,
+            $event.key
+          )
+        "
+        (dungeonMarkerChanged)="
+          store.changeDungeonMarker($event.playerId, $event.card, $event.marker)
+        "
+        (dungeonMarkerPreviewChanged)="store.updateDungeonMarkerPreview($event.card, $event.marker)"
+        (manaLaneDragOver)="store.allowDrop($event)"
+        (manaLaneDropped)="handleManaLaneDrop($event)"
+        (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
+        (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
+        (manaPoolHidden)="store.hideManaPool($event.playerId)"
+        (battlefieldSizeChanged)="reportSize($event)"
+      />
+    </ng-template>
+    <ng-template
+      #handRegion
+      let-handPlayer
+      let-grid="grid"
+      let-isTurnOwner="isTurnOwner"
+      let-handPosition="handPosition"
+    >
+      <app-player-hand-panel
+        [player]="handPlayer"
+        [compact]="grid"
+        [renderCards]="!store.mulliganActive() || !isCurrentPlayer(handPlayer.id)"
+        [isTurnActive]="grid && isTurnOwner === true"
+        [handPosition]="handPosition ?? 'bottom'"
+        [zoneCount]="zoneCount"
+        [cardImage]="grid ? cardImage : handCardImage"
+        [isSelected]="isSelected"
+        [isDraggingCard]="isDraggingCard"
+        [isHandDropTarget]="isHandDropTarget"
+        [isDropZoneHighlighted]="isDropZoneHighlighted"
+        [isCardTransferPending]="isCardTransferPending"
+        [interactionFrozen]="store.contextMenu() !== null"
+        [readOnly]="grid ? !isCurrentPlayer(handPlayer.id) : isHandPlayerReadOnly()"
+        [showCardsFaceDown]="grid ? !isCurrentPlayer(handPlayer.id) : isHandPlayerReadOnly()"
+        [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
+        [hasActiveCardDrag]="
+          store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null
+        "
+        [externalRevealAllowed]="store.handExternalRevealAllowed()"
+        [motionActive]="!grid && handMotionActive()"
+        [motionLayoutMode]="grid ? null : handMotionLayoutMode()"
+        (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
+        (handDropped)="handleHandDropped($event)"
+        (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"
+        (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
+        (handCardPointerReordered)="handleHandCardPointerReordered($event)"
+        (handCardPointerDragStarted)="store.closeContextMenuForCardDrag($event.card.instanceId)"
+        (handCardPointerMoved)="handleHandCardPointerMoved($event)"
+        (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
+        (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
+        (cardPreviewShown)="store.showCardPreview($event)"
+        (cardPreviewHidden)="store.hideCardPreview()"
+      />
+    </ng-template>
+    <ng-template
+      #zonesRegion
+      let-player
+      let-grid="grid"
+      let-isTurnOwner="isTurnOwner"
+      let-zoneCompact="zoneCompact"
+    >
+      <app-zone-piles-panel
+        [player]="player"
+        [compact]="grid && zoneCompact !== false"
+        [isTurnActive]="grid && isTurnOwner === true"
+        [zones]="store.dockZones"
+        [colorAccent]="colorAccent"
+        [topDraggableCard]="topDraggableCard"
+        [zoneCount]="zoneCount"
+        [isDropZoneHighlighted]="isDropZoneHighlighted"
+        [zoneTitle]="zoneTitle"
+        [zonePreviewCard]="zonePreviewCard"
+        [zonePreviewImage]="zonePreviewImage"
+        [zoneStackLayerImage]="zoneStackLayerImage"
+        [commandZoneCards]="commandZoneCards"
+        [commanderCards]="commanderCards"
+        [cardImage]="cardImage"
+        [cardBackImage]="cardBackImage"
+        [commanderCastCount]="commanderCastCount"
+        [canControlPlayer]="canControlPlayer"
+        [isZoneDropSettling]="isZoneDropSettling"
+        [isZoneTransferPending]="isZoneTransferPending"
+        [isCardTransferPending]="isCardTransferPending"
+        [currentDraggingCardInstanceId]="store.draggingCardInstanceId()"
+        (zoneDragStart)="
+          store.dragTopZoneCard($event.event, $event.player, $event.zone, $event.card)
+        "
+        (zoneDragEnd)="store.dragEnd()"
+        (zoneDragOver)="store.allowDrop($event)"
+        (zoneDropped)="handleZoneDrop($event)"
+        (zonePointerDragStarted)="handleZonePointerDragStarted($event)"
+        (zonePointerDropTargetChanged)="store.updatePointerDropTarget($event)"
+        (zonePointerDropped)="handleZonePointerDropped($event)"
+        (zonePointerDragEnded)="store.endZonePointerDrag()"
+        (zoneOpened)="store.openZone($event.playerId, $event.zone)"
+        (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
+        (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
+        (commanderCastChanged)="
+          store.changeCommanderCastCount($event.playerId, $event.commanderInstanceId, $event.delta)
+        "
+        (cardPreviewShown)="store.showCardPreview($event)"
+        (cardPreviewHidden)="store.hideCardPreview()"
+      />
+    </ng-template>
+
     <app-mana-comet-layer [effects]="manaComets.effects()" />
-    <main appPrettyScroll class="table-surface game-table-v2">
+    <main
+      appPrettyScroll
+      class="table-surface game-table-v2"
+      [class.layout-grid]="tableLayout.mode() === 'grid'"
+      [class.compact-grid-header]="tableLayout.mode() === 'square' && aggressiveCompactViewport()"
+    >
       @if (tableToast(); as toast) {
-        <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
+        <p class="table-error" role="status" aria-live="polite">{{ toast | runtimeTranslate }}</p>
       }
 
-      @if (store.focusedPlayer(); as player) {
+      @if (presentedPlayer(); as player) {
         <div class="player-strip game-table-main-top">
-          @if (store.currentPlayer() ?? player; as summaryPlayer) {
-            <app-player-summary-panel
-              [player]="summaryPlayer"
-              [players]="store.players()"
-              [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              [playerCounterValue]="playerCounterValue"
-              [canEditCounters]="canControlPlayer(summaryPlayer.id)"
-              [autoApplyCommanderDamageToLife]="autoApplyCommanderDamageToLife()"
-              [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
-              (helperPreviewRequested)="showHelperPreview($event)"
-              (helperPreviewHidden)="store.hideCardPreview()"
-              (helperContextRequested)="handleHelperContextRequest($event)"
-              (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
-              (commanderDamageChanged)="
-                store.setCommanderDamage(
-                  $event.targetPlayerId,
-                  $event.sourcePlayerId,
-                  $event.commanderInstanceId,
-                  $event.delta
-                )
-              "
-              (playerCounterChanged)="
-                store.changePlayerCounter($event.playerId, $event.key, $event.delta)
-              "
-            />
+          @if (tableLayout.mode() === 'square' && !aggressiveCompactViewport()) {
+            @if (store.currentPlayer() ?? player; as summaryPlayer) {
+              <app-player-summary-panel
+                [player]="summaryPlayer"
+                [players]="store.players()"
+                [colorAccent]="colorAccent"
+                [deckLabel]="deckLabel"
+                [manaSymbols]="manaSymbols"
+                [playerCounterValue]="playerCounterValue"
+                [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+                [autoApplyCommanderDamageToLife]="autoApplyCommanderDamageToLife()"
+                [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
+                (helperPreviewRequested)="showHelperPreview($event)"
+                (helperPreviewHidden)="store.hideCardPreview()"
+                (helperContextRequested)="handleHelperContextRequest($event)"
+                (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
+                (commanderDamageChanged)="
+                  store.setCommanderDamage(
+                    $event.targetPlayerId,
+                    $event.sourcePlayerId,
+                    $event.commanderInstanceId,
+                    $event.delta
+                  )
+                "
+                (playerCounterChanged)="
+                  store.changePlayerCounter($event.playerId, $event.key, $event.delta)
+                "
+              />
+            }
           }
 
           <app-turn-phase-panel
@@ -115,8 +342,10 @@
             [players]="store.players()"
             [phases]="store.phases"
             [currentPlayerId]="store.currentPlayer()?.id ?? null"
+            [playerColor]="playerNameColor"
             [isPhasePast]="isPhasePast"
             [canAdvance]="store.canAdvanceTurnPhase()"
+            [gridLayout]="tableLayout.mode() === 'grid' || aggressiveCompactViewport()"
             [followActiveTurnPlayer]="followActiveTurnPlayer()"
             (advancePhase)="store.advanceTurnPhase()"
             (passTurn)="store.passTurn()"
@@ -130,6 +359,7 @@
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
             [class.combined-activity-panel]="combineChatAndGameLog()"
+            [class.suppress-hover-expansion]="suppressFloatingPanelHoverExpansion()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
             (mouseleave)="handleFloatingPanelLeave()"
             (focusin)="queueFloatingContentScrollToBottom()"
@@ -195,13 +425,16 @@
                           <strong
                             class="chat-author-name"
                             [style.--chat-author-color]="playerNameColor(message.userId)"
-                            >{{
-                            message.displayName
-                          }}</strong>
+                            >{{ message.displayName }}</strong
+                          >
                           @if (message.targetDisplayName) {
-                            @let targetPrefix =
-                              'common.ui.messageTargetPrefix' | runtimeTranslate;
-                            @if (targetPrefix) {<span class="chat-message-target-prefix">{{ targetPrefix }}&nbsp;</span>}<strong
+                            @let targetPrefix = 'common.ui.messageTargetPrefix' | runtimeTranslate;
+                            @if (targetPrefix) {
+                              <span class="chat-message-target-prefix"
+                                >{{ targetPrefix }}&nbsp;</span
+                              >
+                            }
+                            <strong
                               class="chat-target-name"
                               [style.--chat-target-color]="playerNameColor(message.targetPlayerId)"
                               >{{ message.targetDisplayName }}</strong
@@ -258,12 +491,14 @@
                         <strong
                           class="chat-author-name"
                           [style.--chat-author-color]="playerNameColor(message.userId)"
-                          >{{
-                          message.displayName
-                        }}</strong>
+                          >{{ message.displayName }}</strong
+                        >
                         @if (message.targetDisplayName) {
                           @let targetPrefix = 'common.ui.messageTargetPrefix' | runtimeTranslate;
-                          @if (targetPrefix) {<span class="chat-message-target-prefix">{{ targetPrefix }}&nbsp;</span>}<strong
+                          @if (targetPrefix) {
+                            <span class="chat-message-target-prefix">{{ targetPrefix }}&nbsp;</span>
+                          }
+                          <strong
                             class="chat-target-name"
                             [style.--chat-target-color]="playerNameColor(message.targetPlayerId)"
                             >{{ message.targetDisplayName }}</strong
@@ -321,7 +556,7 @@
             } @else if (store.activeFloatingTab() === 'log') {
               <app-game-log-panel
                 class="floating-expanded-content"
-                [entries]="store.eventLog()"
+                [entries]="visibleEventLog()"
                 [highlightedEntryIds]="highlightedLogEntryIds()"
                 [fadingEntryIds]="fadingLogEntryIds()"
                 [loadingOlder]="logHistory.loadingOlder()"
@@ -405,329 +640,186 @@
           </ng-template>
         </div>
 
-        <section
-          class="focused-board game-table-focused-player"
-          data-testid="player-panel"
-          [attr.data-player-id]="player.id"
-          [attr.data-hand-count]="store.zoneCount(player, 'hand')"
-          [style.--battlefield-card-width]="effectiveBattlefieldCardWidthRem()"
-          [style.--battlefield-gap]="effectiveBattlefieldGapRem()"
-          [style.--battlefield-mana-lane-height]="effectiveBattlefieldManaLaneHeightRem()"
-          [class.active]="snapshot.turn.activePlayerId === player.id"
-          [class.dragging-card]="store.draggingCardInstanceId()"
-        >
-          @if (!aggressiveCompactViewport()) {
-            <app-battlefield-zoom-controls
-              class="battlefield-zoom-host"
-              [zoomPercent]="battlefieldZoom.zoomPercent()"
-              [minZoomPercent]="battlefieldZoom.minZoomPercent"
-              [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
-              [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
-              [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
-              [canResetZoom]="battlefieldZoom.canResetZoom()"
-              [playerCount]="store.players().length"
-              (zoomPercentChanged)="setBattlefieldZoom($event)"
-              (resetZoom)="resetBattlefieldZoom()"
-              (click)="$event.stopPropagation()"
-              (contextmenu)="$event.stopPropagation()"
+        @if (tableLayout.mode() === 'grid') {
+          <div class="grid-layout-surface">
+            <ng-container [ngTemplateOutlet]="viewControls" />
+            <app-game-table-grid-layout
+              [style.--grid-battlefield-card-width]="gridBattlefieldZoom.cardWidthRem()"
+              [style.--grid-battlefield-gap]="gridBattlefieldZoom.gapRem()"
+              [style.--grid-battlefield-mana-lane-height]="gridBattlefieldZoom.manaLaneMinHeightRem()"
+              [style.--grid-battlefield-card-overlay-scale]="gridBattlefieldCardOverlayScale()"
+              [seats]="tableLayout.seats()"
+              [regions]="{ battlefield: battlefieldRegion, hand: handRegion, zones: zonesRegion }"
+              [playmatImage]="gameBackgroundImage"
+              [summaryBindings]="{
+                players: store.players(),
+                colorAccent,
+                deckLabel,
+                manaSymbols,
+                playerCounterValue,
+                canEditCounters: canControlPlayer,
+                autoApplyCommanderDamageToLife: autoApplyCommanderDamageToLife(),
+                specialEntities: playerSpecialEntities,
+                showHelperPreview: gridHelperPreviewRequested,
+                hideHelperPreview: hideGridHelperPreview,
+                openHelperContext: gridHelperContextRequested,
+                changeLife: gridLifeChanged,
+                changeCommanderDamage: gridCommanderDamageChanged,
+                changePlayerCounter: gridPlayerCounterChanged,
+              }"
+              [activePlayerId]="snapshot.turn.activePlayerId"
+              [canConcede]="canConcedeForPlayer"
+              (dropAllowed)="store.allowDrop($event)"
+              (playerDropped)="handlePlayerDrop($event)"
+              (battlefieldSizeChanged)="tableLayout.recordSize($event)"
+              (concedeRequested)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
             />
-          }
-
-          <div class="battlefield-top-left-controls">
-            @if (focusedOpponentPlayer(); as battlefieldOwner) {
-              <div
-                class="battlefield-owner-summary"
-                data-testid="battlefield-owner-summary"
-                (click)="$event.stopPropagation()"
-                (contextmenu)="$event.stopPropagation()"
-              >
-                <app-player-summary-panel
-                  class="player-summary-panel-context"
-                  [contextLabel]="'game.gameTable.focusedOpponentLabel' | runtimeTranslate"
-                  [returnActionLabel]="'game.gameTable.returnToOwnBattlefield' | runtimeTranslate"
-                  [player]="battlefieldOwner"
-                  [players]="store.players()"
-                  [colorAccent]="colorAccent"
-                  [deckLabel]="deckLabel"
-                  [manaSymbols]="manaSymbols"
-                  [playerCounterValue]="playerCounterValue"
-                  [canEditCounters]="false"
-                  [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
-                  (helperPreviewRequested)="showHelperPreview($event)"
-                  (helperPreviewHidden)="store.hideCardPreview()"
-                  (helperContextRequested)="handleHelperContextRequest($event)"
-                  (returnRequested)="returnToCurrentPlayerBattlefield()"
-                />
-              </div>
-            }
-
-            @if (canConcedeFromBattlefieldControls()) {
-              <button
-                class="battlefield-concede-button danger-button"
-                data-testid="battlefield-concede"
-                type="button"
-                (click)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
-              >
-                <lucide-icon name="skull" size="16" />
-                <span>{{ 'game.contextMenu.labels.concede' | runtimeTranslate }}</span>
-              </button>
-            }
-
-            @if (shouldShowRematchVotesButton()) {
-              <button
-                class="rematch-votes-button secondary-button"
-                type="button"
-                (click)="openRematchModal(); $event.stopPropagation()"
-              >
-                <lucide-icon name="vote" size="16" />
-                <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
-              </button>
-            }
           </div>
+        } @else {
+          <section
+            class="focused-board game-table-focused-player"
+            data-testid="player-panel"
+            [attr.data-player-id]="player.id"
+            [attr.data-hand-count]="store.zoneCount(player, 'hand')"
+            [style.--battlefield-card-width]="effectiveBattlefieldCardWidthRem()"
+            [style.--battlefield-card-overlay-scale]="effectiveBattlefieldCardOverlayScale()"
+            [style.--battlefield-gap]="effectiveBattlefieldGapRem()"
+            [style.--battlefield-mana-lane-height]="effectiveBattlefieldManaLaneHeightRem()"
+            [class.active]="snapshot.turn.activePlayerId === player.id"
+            [class.dragging-card]="store.draggingCardInstanceId()"
+          >
+            @if (!aggressiveCompactViewport() || tableLayout.gridAvailable()) {
+              <ng-container [ngTemplateOutlet]="viewControls" />
+            }
 
-          <app-focused-battlefield
-            [player]="player"
-            [isCurrentPlayer]="isCurrentPlayer"
-            [allowArrowTargetSelection]="manualRelationTargetingActive()"
-            [focusEffectsEnabled]="focusEffectsEnabled()"
-            [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
-            [isDropZoneHighlighted]="isDropZoneHighlighted"
-            [cardPosition]="cardPosition"
-            [isSelected]="isSelected"
-            [isDraggingCard]="isDraggingCard"
-            [canDragBattlefieldCard]="canDragBattlefieldCard"
-            [isPendingBattlefieldTransfer]="isPendingBattlefieldTransfer"
-            [cardImage]="cardImage"
-            [shouldShowPowerToughness]="shouldShowPowerToughness"
-            [cardPowerValue]="cardPowerValue"
-            [cardToughnessValue]="cardToughnessValue"
-            [cardBattleValue]="cardBattleValue"
-            [cardLoyaltyValue]="cardLoyaltyValue"
-            [firstCounter]="firstCounter"
-            [alignmentGuideFor]="alignmentGuideFor"
-            [showManaRow]="gamePreferences.enableManaRow"
-            [isManaLaneHighlighted]="isManaLaneHighlighted"
-            [manaPool]="store.manaPool"
-            [canEditManaPool]="canControlPlayer"
-            [isManaPoolHidden]="store.isManaPoolHidden"
-            [pendingManaColors]="pendingManaPoolColorsFor(player.id)"
-            [layoutKey]="effectiveBattlefieldZoomPercent()"
-            [zoomPercent]="effectiveBattlefieldZoomPercent()"
-            [landStackDropPreview]="store.landStackDropPreview()"
-            [attachments]="snapshot.attachments ?? []"
-            [battlefieldStacks]="snapshot.battlefieldStacks ?? []"
-            [isCardDropSettling]="isCardDropSettling"
-            [isManaDropSettling]="isManaDropSettling"
-            [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
-            [isCommanderEntrySettling]="isCommanderEntrySettling"
-            [isCardTransferPending]="isCardTransferPending"
-            (battlefieldDragOver)="store.allowDrop($event)"
-            (battlefieldDropped)="handleZoneDrop($event)"
-            (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
-            (manaPoolMenuOpened)="store.openManaPoolMenu($event.event, $event.playerId)"
-            (cardPointerDown)="
-              startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)
-            "
-            (cardClicked)="
-              store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)
-            "
-            (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
-            (cardMenuOpened)="
-              store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card, {
-                forceOpenLeft: $event.forceOpenLeft,
-              })
-            "
-            (cardPreviewShown)="store.showCardPreview($event)"
-            (cardPreviewRequested)="store.showImmediateCardPreview($event)"
-            (cardPreviewHidden)="store.hideCardPreview()"
-            (cardPowerChanged)="
-              store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)
-            "
-            (cardToughnessChanged)="
-              store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)
-            "
-            (cardBattleChanged)="
-              store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)
-            "
-            (cardSagaChanged)="
-              store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)
-            "
-            (cardLoyaltyChanged)="
-              store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)
-            "
-            (cardCounterChanged)="
-              store.changeCardCounterForCard(
-                $event.playerId,
-                $event.zone,
-                $event.card,
-                $event.key,
-                $event.delta
-              )
-            "
-            (cardCounterDeleteRequested)="
-              store.openCounterDeleteMenu(
-                $event.event,
-                $event.playerId,
-                $event.zone,
-                $event.card,
-                $event.key
-              )
-            "
-            (dungeonMarkerChanged)="
-              store.changeDungeonMarker($event.playerId, $event.card, $event.marker)
-            "
-            (dungeonMarkerPreviewChanged)="
-              store.updateDungeonMarkerPreview($event.card, $event.marker)
-            "
-            (manaLaneDragOver)="store.allowDrop($event)"
-            (manaLaneDropped)="handleManaLaneDrop($event)"
-            (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
-            (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
-            (manaPoolHidden)="store.hideManaPool($event.playerId)"
-            (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
+            <div class="battlefield-top-left-controls">
+              @if (focusedOpponentPlayer(); as battlefieldOwner) {
+                <div
+                  class="battlefield-owner-summary"
+                  data-testid="battlefield-owner-summary"
+                  (click)="$event.stopPropagation()"
+                  (contextmenu)="$event.stopPropagation()"
+                >
+                  <app-player-summary-panel
+                    class="player-summary-panel-context"
+                    [contextLabel]="'game.gameTable.focusedOpponentLabel' | runtimeTranslate"
+                    [returnActionLabel]="'game.gameTable.returnToOwnBattlefield' | runtimeTranslate"
+                    [player]="battlefieldOwner"
+                    [players]="store.players()"
+                    [colorAccent]="colorAccent"
+                    [deckLabel]="deckLabel"
+                    [manaSymbols]="manaSymbols"
+                    [playerCounterValue]="playerCounterValue"
+                    [canEditCounters]="false"
+                    [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+                    (helperPreviewRequested)="showHelperPreview($event)"
+                    (helperPreviewHidden)="store.hideCardPreview()"
+                    (helperContextRequested)="handleHelperContextRequest($event)"
+                    (returnRequested)="returnToCurrentPlayerBattlefield()"
+                  />
+                </div>
+              }
+
+              @if (canConcedeFromBattlefieldControls()) {
+                <app-battlefield-concede-button
+                  (concedeRequested)="requestBattlefieldConcedeConfirmation(); $event.stopPropagation()"
+                />
+              }
+
+              @if (shouldShowRematchVotesButton()) {
+                <button
+                  class="rematch-votes-button secondary-button"
+                  type="button"
+                  (click)="openRematchModal(); $event.stopPropagation()"
+                >
+                  <lucide-icon name="vote" size="16" />
+                  <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
+                </button>
+              }
+            </div>
+
+            <ng-container
+              [ngTemplateOutlet]="battlefieldRegion"
+              [ngTemplateOutletContext]="{
+                $implicit: player,
+                grid: false,
+                reportSize: squareBattlefieldSizeChanged,
+              }"
+            />
+
+            <div class="bottom-play-area">
+              @if (store.handPlayer(); as handPlayer) {
+                <ng-container
+                  [ngTemplateOutlet]="handRegion"
+                  [ngTemplateOutletContext]="{ $implicit: handPlayer, grid: false }"
+                />
+              }
+            </div>
+          </section>
+
+          <ng-container
+            [ngTemplateOutlet]="zonesRegion"
+            [ngTemplateOutletContext]="{ $implicit: player, grid: false }"
           />
+        }
+      }
 
-          <div class="bottom-play-area">
-            @if (store.handPlayer(); as handPlayer) {
-              <app-player-hand-panel
-                [player]="handPlayer"
+      @if (tableLayout.mode() === 'square') {
+        <aside
+          appPrettyScroll
+          class="player-sidebar game-table-opponents"
+          [class.opponents-open]="opponentsDrawerOpen()"
+        >
+          <button
+            class="drawer-handle opponents-drawer-handle"
+            type="button"
+            [attr.aria-expanded]="opponentsDrawerOpen()"
+            aria-controls="game-table-opponents-list"
+            (click)="toggleOpponentsDrawer($event)"
+          >
+            {{ 'game.gameTable.opponents' | runtimeTranslate }}
+          </button>
+          <div id="game-table-opponents-list" class="opponents-list">
+            @for (player of opponentSidebarPlayers(); track player.id) {
+              <app-opponent-mini-board
+                [player]="player"
+                [players]="store.players()"
+                [attachments]="snapshot.attachments ?? []"
+                [colorAccent]="colorAccent"
+                [deckLabel]="deckLabel"
+                [backgroundImage]="gameBackgroundImage"
                 [zoneCount]="zoneCount"
-                [cardImage]="handCardImage"
-                [isSelected]="isSelected"
-                [isDraggingCard]="isDraggingCard"
-                [isHandDropTarget]="isHandDropTarget"
-                [isDropZoneHighlighted]="isDropZoneHighlighted"
+                [cardPosition]="cardPosition"
+                [cardImage]="cardImage"
+                [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+                [isCardDropSettling]="isCardDropSettling"
+                [isManaDropSettling]="isManaDropSettling"
+                [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+                [isCommanderEntrySettling]="isCommanderEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
-                [interactionFrozen]="store.contextMenu() !== null"
-                [readOnly]="isHandPlayerReadOnly()"
-                [showCardsFaceDown]="isHandPlayerReadOnly()"
-                [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
-                [hasActiveCardDrag]="
-                  store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null
-                "
-                [externalRevealAllowed]="store.handExternalRevealAllowed()"
-                [motionActive]="handMotionActive()"
-                [motionLayoutMode]="handMotionLayoutMode()"
-                (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
-                (handDropped)="handleHandDropped($event)"
-                (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"
-                (handCardClicked)="
-                  store.handleHandCardClick($event.event, $event.playerId, $event.card)
-                "
-                (handCardPointerReordered)="handleHandCardPointerReordered($event)"
-                (handCardPointerDragStarted)="
-                  store.closeContextMenuForCardDrag($event.card.instanceId)
-                "
-                (handCardPointerMoved)="handleHandCardPointerMoved($event)"
-                (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
-                (cardMenuOpened)="
-                  store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)
-                "
+                [arrowTargeting]="manualRelationTargetingActive()"
+                [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
+                [isOffline]="player.state.isOnline === false"
+                [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
+                [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
+                [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
+                [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
+                [battlefieldSize]="battlefieldLayoutSize()"
+                (focusPlayer)="focusOpponentFromSidebar($event)"
+                (helperPreviewRequested)="showHelperPreview($event)"
+                (helperPreviewHidden)="store.hideCardPreview()"
+                (helperContextRequested)="handleHelperContextRequest($event)"
+                (dropAllowed)="store.allowDrop($event)"
+                (playerDropped)="handlePlayerDrop($event)"
+                (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
                 (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
+                (battlefieldCardClicked)="handleOpponentMiniBattlefieldCardClick($event)"
               />
             }
           </div>
-        </section>
-
-        <app-zone-piles-panel
-          [player]="player"
-          [zones]="store.dockZones"
-          [colorAccent]="colorAccent"
-          [topDraggableCard]="topDraggableCard"
-          [zoneCount]="zoneCount"
-          [isDropZoneHighlighted]="isDropZoneHighlighted"
-          [zoneTitle]="zoneTitle"
-          [zonePreviewCard]="zonePreviewCard"
-          [zonePreviewImage]="zonePreviewImage"
-          [zoneStackLayerImage]="zoneStackLayerImage"
-          [commandZoneCards]="commandZoneCards"
-          [commanderCards]="commanderCards"
-          [cardImage]="cardImage"
-          [commanderCastCount]="commanderCastCount"
-          [canControlPlayer]="canControlPlayer"
-          [isZoneDropSettling]="isZoneDropSettling"
-          [isZoneTransferPending]="isZoneTransferPending"
-          [isCardTransferPending]="isCardTransferPending"
-          [currentDraggingCardInstanceId]="store.draggingCardInstanceId()"
-          (zoneDragStart)="
-            store.dragTopZoneCard($event.event, $event.player, $event.zone, $event.card)
-          "
-          (zoneDragEnd)="store.dragEnd()"
-          (zoneDragOver)="store.allowDrop($event)"
-          (zoneDropped)="handleZoneDrop($event)"
-          (zonePointerDragStarted)="handleZonePointerDragStarted($event)"
-          (zonePointerDropTargetChanged)="store.updatePointerDropTarget($event)"
-          (zonePointerDropped)="handleZonePointerDropped($event)"
-          (zonePointerDragEnded)="store.endZonePointerDrag()"
-          (zoneOpened)="store.openZone($event.playerId, $event.zone)"
-          (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
-          (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
-          (commanderCastChanged)="
-            store.changeCommanderCastCount(
-              $event.playerId,
-              $event.commanderInstanceId,
-              $event.delta
-            )
-          "
-          (cardPreviewShown)="store.showCardPreview($event)"
-          (cardPreviewHidden)="store.hideCardPreview()"
-        />
+        </aside>
       }
-
-      <aside
-        appPrettyScroll
-        class="player-sidebar game-table-opponents"
-        [class.opponents-open]="opponentsDrawerOpen()"
-      >
-        <button
-          class="drawer-handle opponents-drawer-handle"
-          type="button"
-          [attr.aria-expanded]="opponentsDrawerOpen()"
-          aria-controls="game-table-opponents-list"
-          (click)="toggleOpponentsDrawer($event)"
-        >
-          {{ 'game.gameTable.opponents' | runtimeTranslate }}
-        </button>
-        <div id="game-table-opponents-list" class="opponents-list">
-          @for (player of opponentSidebarPlayers(); track player.id) {
-            <app-opponent-mini-board
-              [player]="player"
-              [attachments]="snapshot.attachments ?? []"
-              [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [backgroundImage]="gameBackgroundImage"
-              [zoneCount]="zoneCount"
-              [cardPosition]="cardPosition"
-              [cardImage]="cardImage"
-              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
-              [isCardDropSettling]="isCardDropSettling"
-              [isManaDropSettling]="isManaDropSettling"
-              [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
-              [isCommanderEntrySettling]="isCommanderEntrySettling"
-              [isCardTransferPending]="isCardTransferPending"
-              [arrowTargeting]="manualRelationTargetingActive()"
-              [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
-              [isOffline]="player.state.isOnline === false"
-              [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
-              [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
-              [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
-              [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
-              [battlefieldSize]="battlefieldLayoutSize()"
-              (focusPlayer)="focusOpponentFromSidebar($event)"
-              (helperPreviewRequested)="showHelperPreview($event)"
-              (helperPreviewHidden)="store.hideCardPreview()"
-              (helperContextRequested)="handleHelperContextRequest($event)"
-              (dropAllowed)="store.allowDrop($event)"
-              (playerDropped)="handlePlayerDrop($event)"
-              (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
-              (cardPreviewShown)="store.showCardPreview($event)"
-              (cardPreviewHidden)="store.hideCardPreview()"
-              (battlefieldCardClicked)="handleOpponentMiniBattlefieldCardClick($event)"
-            />
-          }
-        </div>
-      </aside>
 
       @if (numberActionDialog(); as dialog) {
         <app-number-action-dialog
@@ -781,6 +873,7 @@
       <app-game-rematch-modal
         [open]="rematchModalOpen()"
         [winner]="isCurrentPlayerWinner()"
+        [gameFinished]="gameFinished()"
         [players]="rematchVotePlayers()"
         [currentVote]="currentRematchVote()"
         [pending]="rematchPending()"
@@ -853,14 +946,6 @@
         />
       }
 
-      @if (rollModalOpen()) {
-        <app-roll-modal
-          size="big"
-          (rolled)="recordRollResult($event)"
-          (closed)="closeRollModal()"
-        />
-      }
-
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
@@ -913,9 +998,10 @@
         <app-modal
           [open]="true"
           [title]="'game.gameTable.putIntoLibrary' | runtimeTranslate"
-          [message]="pendingLibraryMoveMessage(pendingMove)"
-          primaryLabel="common.ui.top"
-          secondaryLabel="common.ui.bottom"
+          [message]="pendingLibraryMoveMessageKey(pendingMove)"
+          [messageParams]="{ count: pendingLibraryMoveCount(pendingMove) }"
+          primaryLabel="game.gameTable.libraryPlacementTop"
+          secondaryLabel="game.gameTable.libraryPlacementBottom"
           secondaryVariant="primary"
           [showTertiary]="true"
           tertiaryLabel="shared.text.cancel"
@@ -950,8 +1036,8 @@
           [title]="'game.gameTable.moveAllToLibrary' | runtimeTranslate"
           message="common.ui.moveAllCardsToLibrary"
           [messageParams]="{ count: moveAllRequest.count }"
-          primaryLabel="common.ui.top"
-          secondaryLabel="common.ui.bottom"
+          primaryLabel="game.gameTable.libraryPlacementTop"
+          secondaryLabel="game.gameTable.libraryPlacementBottom"
           secondaryVariant="primary"
           [showTertiary]="true"
           tertiaryLabel="shared.text.cancel"
@@ -994,7 +1080,12 @@
         >
           <div class="drag-card-preview-content">
             @if (store.cardImage(preview.card); as image) {
-              <img [src]="image" [alt]="preview.card.name" />
+              <img
+                [appGameScheduledImage]="image"
+                gameImagePriority="interaction"
+                [alt]="preview.card.name"
+                decoding="async"
+              />
             } @else {
               <span>{{ preview.card.name }}</span>
             }
@@ -1046,6 +1137,19 @@
       }
     </main>
 
+    @if (rollModalOpen()) {
+      <app-roll-modal
+        size="big"
+        [authoritative]="true"
+        [pending]="rollModalPending()"
+        [result]="rollModalResult()"
+        (rollRequested)="requestDiceRoll($event)"
+        (resultRevealed)="revealDeferredDiceRollLog()"
+        (selectionChanged)="clearRollModalResult()"
+        (closed)="closeRollModal()"
+      />
+    }
+
     @if (store.mulliganActive()) {
       <app-mulligan-overlay
         [gamePhase]="store.mulliganGamePhase()"
@@ -1077,7 +1181,8 @@
           [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
           [sourceRect]="preview.sourceRect"
           [avoidRect]="contextMenuAvoidRect()"
-          [battlefieldRect]="battlefieldLayoutSize()"
+          [battlefieldRect]="tableLayout.rectangle(preview.playerId) ?? battlefieldLayoutSize()"
+          [useViewportPosition]="tableLayout.mode() === 'grid'"
           [attachmentInfo]="hoveredPreviewAttachmentInfo()"
           [cardStateInfo]="hoveredPreviewCardStateInfo()"
           [revealLabel]="hoveredPreviewRevealLabel()"

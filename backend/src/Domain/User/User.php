@@ -123,6 +123,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean')]
     private bool $combineChatAndGameLog = false;
 
+    #[ORM\Column(type: 'string', length: 16)]
+    private string $defaultBattlefieldLayout = 'grid';
+
+    #[ORM\Column(type: 'string', length: 16)]
+    private string $chosenModeView = 'grid';
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $showCardAlignmentHelper = true;
+
     public function __construct(string $email, string $displayName)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -488,7 +497,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *   autoApplyCommanderDamageToLife?: bool,
      *   gameAnimations?: bool,
      *   chatNotificationSounds?: bool,
-     *   combineChatAndGameLog?: bool
+     *   combineChatAndGameLog?: bool,
+     *   defaultBattlefieldLayout?: 'square'|'grid',
+     *   chosenModeView?: 'square'|'grid',
+     *   showCardAlignmentHelper?: bool
      * } $preferences
      */
     public function updateGamePreferences(array $preferences): void
@@ -501,6 +513,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 'gameAnimations' => $this->gameAnimations = $value,
                 'chatNotificationSounds' => $this->chatNotificationSounds = $value,
                 'combineChatAndGameLog' => $this->combineChatAndGameLog = $value,
+                'defaultBattlefieldLayout' => $this->defaultBattlefieldLayout = $value,
+                'chosenModeView' => $this->chosenModeView = $value,
+                'showCardAlignmentHelper' => $this->showCardAlignmentHelper = $value,
                 default => throw new \InvalidArgumentException('Unsupported game preference.'),
             };
         }
@@ -513,6 +528,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function gamePreferences(): array
     {
         return [
+            'defaultBattlefieldLayout' => $this->defaultBattlefieldLayout,
+            'chosenModeView' => $this->chosenModeView,
+            'showCardAlignmentHelper' => $this->showCardAlignmentHelper,
             'showManaHelperOnStartup' => $this->showManaHelperOnStartup,
             'enableManaRow' => $this->enableManaRow,
             'autoApplyCommanderDamageToLife' => $this->autoApplyCommanderDamageToLife,

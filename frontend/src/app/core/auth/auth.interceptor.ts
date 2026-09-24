@@ -12,10 +12,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const requestToken = auth.token();
   const isApiRequest = request.url.startsWith(API_BASE_URL);
   const isRefreshEndpoint = request.url === `${API_BASE_URL}/auth/refresh`;
+  const isPublicCardsRequest = request.url.startsWith(`${API_BASE_URL}/cards`);
   const isRetriedRequest = request.headers.has(retryHeader);
 
   const authorizedRequest =
-    requestToken && isApiRequest && !isRefreshEndpoint
+    requestToken && isApiRequest && !isRefreshEndpoint && !isPublicCardsRequest
       ? request.clone({ setHeaders: { Authorization: `Bearer ${requestToken}` } })
       : request;
 
@@ -26,6 +27,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         && error.status === 401
         && requestToken
         && isApiRequest
+        && !isPublicCardsRequest
         && auth.token() === requestToken
       ) {
         if (!isRetriedRequest && !isRefreshEndpoint) {

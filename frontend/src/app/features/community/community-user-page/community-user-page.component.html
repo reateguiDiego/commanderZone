@@ -16,6 +16,7 @@
           [profileUserId]="userData.id"
           [profileUsername]="userData.username"
           [profileCanonicalPath]="userData.canonicalPath"
+          [interactive]="false"
           size="xl"
         />
 
@@ -33,19 +34,35 @@
               </button>
             </app-tooltip>
 
-            <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
-              <button
-                czButton="secondary"
-                czButtonSize="sm"
-                type="button"
-                class="secondary-button compact icon-only community-user-action-button is-success"
-                [attr.aria-label]="'shared.text.sendFriendRequest' | runtimeTranslate"
-                [disabled]="sendingFriendRequest()"
-                (click)="sendFriendRequest(userData)"
-              >
-                <lucide-icon name="user-plus" size="18" aria-hidden="true" />
-              </button>
-            </app-tooltip>
+            @if (isFriend()) {
+              <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
+                <button
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  type="button"
+                  class="secondary-button compact icon-only community-user-action-button is-danger"
+                  [attr.aria-label]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate"
+                  [disabled]="removingFriend()"
+                  (click)="requestFriendRemoval(userData)"
+                >
+                  <lucide-icon name="user-round-x" size="18" aria-hidden="true" />
+                </button>
+              </app-tooltip>
+            } @else {
+              <app-tooltip [text]="'shared.text.sendFriendRequest' | runtimeTranslate">
+                <button
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  type="button"
+                  class="secondary-button compact icon-only community-user-action-button is-success"
+                  [attr.aria-label]="'shared.text.sendFriendRequest' | runtimeTranslate"
+                  [disabled]="sendingFriendRequest()"
+                  (click)="sendFriendRequest(userData)"
+                >
+                  <lucide-icon name="user-plus" size="18" aria-hidden="true" />
+                </button>
+              </app-tooltip>
+            }
 
             <app-tooltip [text]="'common.ui.copyProfileLink' | runtimeTranslate">
               <button
@@ -150,3 +167,19 @@
     }
   }
 </section>
+
+<app-modal
+  [open]="pendingFriendRemoval() !== null"
+  title="navigation.friends.friendsDropdown.removeFriend"
+  message="common.modal.cannotBeUndone"
+  primaryLabel="navigation.friends.friendsDropdown.removeFriend"
+  secondaryLabel="shared.text.cancel"
+  [danger]="true"
+  [primaryDisabled]="removingFriend()"
+  (primary)="confirmFriendRemoval()"
+  (secondary)="cancelFriendRemoval()"
+>
+  @if (pendingFriendRemoval(); as friend) {
+    <p class="notice">{{ friend.displayName }}</p>
+  }
+</app-modal>

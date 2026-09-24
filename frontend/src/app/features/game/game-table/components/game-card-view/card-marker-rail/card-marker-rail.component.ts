@@ -1,5 +1,16 @@
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, HostBinding, computed, input, output } from '@angular/core';
+import { CounterHoverIntentDirective } from '../../../directives/counter-hover-intent.directive';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostBinding,
+  OnChanges,
+  computed,
+  input,
+  output,
+  signal,
+  type SimpleChanges,
+} from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 export interface CardMarkerCounter {
@@ -24,6 +35,14 @@ interface CardMarkerCounterView extends CardMarkerCounter {
   readonly kind: CounterMarkerKind;
   readonly color: string | null;
   readonly label: string;
+  readonly pulseClass: string | null;
+}
+
+type CounterPulseDirection = 'increase' | 'decrease';
+
+interface CounterAnimationState {
+  readonly direction: CounterPulseDirection;
+  readonly revision: number;
 }
 
 const COLOR_COUNTER_STYLES: Record<string, string> = {
@@ -36,22 +55,30 @@ const COLOR_COUNTER_STYLES: Record<string, string> = {
 
 @Component({
   selector: 'app-card-marker-rail',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CounterHoverIntentDirective],
   templateUrl: './card-marker-rail.component.html',
   styleUrl: './card-marker-rail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CardMarkerRailComponent {
+export class CardMarkerRailComponent implements OnChanges {
   readonly showTokenCopyMarker = input(false);
   readonly showRulingsMarker = input(false);
   readonly counters = input<readonly CardMarkerCounter[]>([]);
   readonly compact = input(false);
   readonly inline = input(false);
   readonly countersInteractive = input(true);
-  readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.showRulingsMarker() || this.counters().length > 0);
-  readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() =>
-    this.counters().map((counter) => this.counterView(counter)),
+  readonly hasMarkers = computed(
+    () => this.showTokenCopyMarker() || this.showRulingsMarker() || this.counters().length > 0,
   );
+  private previousCounterValues = new Map<string, number>();
+  private readonly counterAnimations = signal<ReadonlyMap<string, CounterAnimationState>>(
+    new Map(),
+  );
+  readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() => {
+    const animations = this.counterAnimations();
+
+    return this.counters().map((counter) => this.counterView(counter, animations.get(counter.key)));
+  });
   readonly counterChanged = output<CardMarkerCounterChange>();
   readonly counterDeleteRequested = output<CardMarkerCounterDeleteRequest>();
   readonly rulingsRequested = output<MouseEvent>();
@@ -59,6 +86,32 @@ export class CardMarkerRailComponent {
   @HostBinding('class.inline-marker-rail')
   get inlineMarkerRail(): boolean {
     return this.inline();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['counters']) {
+      return;
+    }
+
+    const nextCounterValues = new Map(this.counters().map((counter) => [counter.key, counter.value]));
+    const previousAnimations = this.counterAnimations();
+    const nextAnimations = new Map<string, CounterAnimationState>();
+
+    for (const [key, value] of nextCounterValues) {
+      const previousValue = this.previousCounterValues.get(key);
+      if (previousValue === undefined || previousValue === value) {
+        continue;
+      }
+
+      const previousAnimation = previousAnimations.get(key);
+      nextAnimations.set(key, {
+        direction: value > previousValue ? 'increase' : 'decrease',
+        revision: (previousAnimation?.revision ?? 0) + 1,
+      });
+    }
+
+    this.previousCounterValues = nextCounterValues;
+    this.counterAnimations.set(nextAnimations);
   }
 
   changeCounter(event: MouseEvent, counter: CardMarkerCounterView, delta: number): void {
@@ -104,17 +157,48 @@ export class CardMarkerRailComponent {
     this.rulingsRequested.emit(event);
   }
 
-  private counterView(counter: CardMarkerCounter): CardMarkerCounterView {
+  private counterView(
+    counter: CardMarkerCounter,
+    animation: CounterAnimationState | undefined,
+  ): CardMarkerCounterView {
     const key = counter.key.toLowerCase();
     const color = COLOR_COUNTER_STYLES[key] ?? null;
     if (color !== null) {
-      return { ...counter, kind: 'color', color, label: key };
+      return {
+        ...counter,
+        kind: 'color',
+        color,
+        label: key,
+        pulseClass: this.pulseClass(animation),
+      };
     }
 
     if (counter.key === '+1/+1' || counter.key === '-1/-1') {
-      return { ...counter, kind: 'stat', color: null, label: counter.key };
+      return {
+        ...counter,
+        kind: 'stat',
+        color: null,
+        label: counter.key,
+        pulseClass: this.pulseClass(animation),
+      };
     }
 
-    return { ...counter, kind: 'generic', color: null, label: counter.key };
+    return {
+      ...counter,
+      kind: 'generic',
+      color: null,
+      label: counter.key,
+      pulseClass: this.pulseClass(animation),
+    };
+  }
+
+  private pulseClass(animation: CounterAnimationState | undefined): string | null {
+    if (!animation) {
+      return null;
+    }
+
+    const phase = animation.revision % 2 === 0 ? 'b' : 'a';
+
+    return `counter-marker-pulse-${animation.direction}-${phase}`;
   }
 }

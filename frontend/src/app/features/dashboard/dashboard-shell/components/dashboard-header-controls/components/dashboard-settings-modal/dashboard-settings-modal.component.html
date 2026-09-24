@@ -193,6 +193,28 @@
             </header>
 
             <div class="game-settings-toggle-list">
+              <app-toggle
+                class="game-settings-toggle game-settings-layout-toggle"
+                [label]="
+                  ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.label' | runtimeTranslate)
+                  + ': '
+                  + (
+                    gameSettingsDefaultLayout() === 'grid'
+                      ? ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.grid' | runtimeTranslate)
+                      : ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.focused' | runtimeTranslate)
+                  )
+                "
+                [description]="'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.description' | runtimeTranslate"
+                [warning]="
+                  gameSettingsDefaultLayout() === 'grid'
+                    ? ('settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.gridWarning' | runtimeTranslate)
+                    : ''
+                "
+                [checked]="gameSettingsDefaultLayout() === 'grid'"
+                [hoverFeedback]="false"
+                (checkedChange)="setGameSettingsDefaultLayout($event ? 'grid' : 'square')"
+              />
+
               @for (option of gameSettingsToggleOptions; track option.id) {
                 <app-toggle
                   class="game-settings-toggle"

@@ -332,12 +332,8 @@ export function createGameTableNormalizedV2State(
 
   for (const zone of Object.values(bootstrap.zones)) {
     zones[zone.playerId] ??= emptyZones();
-    // Runtime snapshots store libraries with the top card at the tail. The
-    // normalized client state keeps its known library top at index zero so
-    // bootstrap and realtime reveal/reorder patches share one invariant.
-    zones[zone.playerId][zone.name] = zone.name === 'library'
-      ? [...zone.instanceIds].reverse()
-      : [...zone.instanceIds];
+    // The runtime and client share one invariant: library index zero is top.
+    zones[zone.playerId][zone.name] = [...zone.instanceIds];
     zoneCounts[zone.playerId] ??= emptyZoneCounts();
     zoneCounts[zone.playerId][zone.name] = Math.max(0, bootstrap.zoneCounts[zone.zoneId] ?? zone.instanceIds.length);
   }
@@ -352,6 +348,10 @@ export function createGameTableNormalizedV2State(
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
   const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
   const controlPlane = bootstrap.game.controlPlane;
+
+  const staticCards = Object.fromEntries(
+    Object.entries(bootstrap.staticCards).map(([cardRef, card]) => [cardRef, normalizeStaticCard(card)]),
+  ) as Record<string, BootstrapStaticCardV2>;
 
   return {
     game: {
@@ -382,15 +382,19 @@ export function createGameTableNormalizedV2State(
     ),
     turn: { ...bootstrap.turn },
     instances: Object.fromEntries(
-      Object.entries(bootstrap.instances).map(([instanceId, instance]) => [instanceId, normalizeInstance(instance)]),
+      Object.entries(bootstrap.instances).map(([instanceId, instance]) => {
+        const normalizedInstance = normalizeInstance(instance);
+        return [
+          instanceId,
+          completeInstanceIdentity(normalizedInstance, staticCards[normalizedInstance.cardRef]),
+        ];
+      }),
     ),
     zones,
     zoneCounts,
     relations,
     stack,
-    staticCards: Object.fromEntries(
-      Object.entries(bootstrap.staticCards).map(([cardRef, card]) => [cardRef, normalizeStaticCard(card)]),
-    ),
+    staticCards,
     chat,
     log,
     lastAppliedVersion: bootstrap.game.version,
@@ -2037,7 +2041,14 @@ function revealLibraryTop(
       );
     }
     nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
-      normalized.instance,
+      {
+        ...normalized.instance,
+        // This operation is delivered only to a viewer authorised to inspect
+        // the card. Keep that semantic guarantee even if an older server
+        // snapshot still carries the library's previous hidden flag.
+        hidden: false,
+        faceDown: false,
+      },
       nextStaticCards[normalized.instance.cardRef],
     );
     topIds.push(normalized.instance.instanceId);
@@ -2888,6 +2899,7 @@ function hydrateCardInstance(
     faceRuntimeStats: instance.faceRuntimeStats?.map((stats) => ({ ...stats })),
     dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
+    staticCardPending: instance.staticCardPending === true,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
     revealMarker: instance.revealMarker ?? undefined,
     position: instance.position ?? undefined,
@@ -3040,7 +3052,9 @@ function completeInstanceIdentity(
   staticCard: BootstrapStaticCardV2 | undefined,
 ): BootstrapInstanceV2 {
   if (!staticCard) {
-    return instance;
+    return hasCompleteInstanceIdentity(instance)
+      ? { ...instance, staticCardPending: true }
+      : instance;
   }
 
   return {
@@ -3455,6 +3469,16 @@ function isIncomingIdentityCompatibleWithExisting(
 
 function nonEmptyString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim() !== '';
+}
+
+function hasCompleteInstanceIdentity(instance: BootstrapInstanceV2): boolean {
+  return [
+    instance.cardKey,
+    instance.printId,
+    instance.cardVersion,
+    instance.language,
+    instance.viewerVisibility,
+  ].every(nonEmptyString);
 }
 
 function isSyntheticUnknownStaticCard(staticCard: BootstrapStaticCardV2, instanceId: string): boolean {

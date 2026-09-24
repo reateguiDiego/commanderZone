@@ -7,6 +7,11 @@
   position: relative;
 }
 
+.submenu.side-left,
+.submenu.child-side-left {
+  --context-menu-gradient-angle: 225deg;
+}
+
 .submenu-trigger {
   display: flex;
   align-items: center;
@@ -28,7 +33,7 @@
 .submenu-trigger:hover:not(:disabled),
 .submenu-trigger:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
@@ -38,7 +43,7 @@
 
 .submenu-trigger:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
     rgb(var(--highlight-rgb) / 3%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
@@ -89,6 +94,16 @@
   filter: drop-shadow(0 0.05rem 0.12rem rgb(var(--shadow-rgb) / 55%));
 }
 
+.submenu.theme-icons .submenu-item-mana-icon {
+  --submenu-mechanic-icon-gold: var(--game-accent);
+}
+
+.submenu.theme-icons .submenu-item-mana-icon.ms-mechanic {
+  background: none;
+  -webkit-background-clip: border-box;
+  -webkit-text-fill-color: var(--game-accent);
+}
+
 .submenu-item-graveyard-icon {
   width: 1.12rem;
   height: 1.12rem;
@@ -136,8 +151,17 @@
 }
 
 .submenu.side-left .submenu-trigger,
+.submenu.side-left .submenu-panel button,
 .submenu.child-side-left .submenu-panel .submenu-item > button,
 .submenu.child-side-left .submenu-child-panel button {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.submenu.side-left .submenu-trigger .submenu-item-label,
+.submenu.side-left .submenu-panel .submenu-item-label,
+.submenu.child-side-left .submenu-panel .submenu-item-label,
+.submenu.child-side-left .submenu-child-panel .submenu-item-label {
   flex-direction: row-reverse;
   text-align: right;
 }
@@ -181,7 +205,7 @@
   border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 10%), transparent 42%),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 10%), transparent 42%),
     var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 92%));
   box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
 }
@@ -223,7 +247,7 @@
 .submenu-child-panel button:hover:not(:disabled),
 .submenu-child-panel button:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
@@ -234,7 +258,7 @@
 .submenu-panel button:active:not(:disabled),
 .submenu-child-panel button:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
     rgb(var(--highlight-rgb) / 3%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
@@ -278,7 +302,7 @@
   border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 10%), transparent 42%),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 10%), transparent 42%),
     var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 94%));
   box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
 }
@@ -286,6 +310,12 @@
 .submenu.child-side-left .submenu-child-panel {
   right: calc(100% + 0.35rem);
   left: auto;
+}
+
+.submenu.side-left .submenu-item-counter-pill-icon::after,
+.submenu.child-side-left .submenu-item-counter-pill-icon::after {
+  right: auto;
+  left: -0.26rem;
 }
 
 .submenu-child-panel button {
@@ -305,7 +335,7 @@
 .submenu-child-panel .danger-menu-item:hover:not(:disabled),
 .submenu-child-panel .danger-menu-item:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(248 113 113 / 42%),

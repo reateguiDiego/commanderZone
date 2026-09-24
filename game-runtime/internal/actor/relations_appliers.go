@@ -3,6 +3,7 @@ package actor
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -278,13 +279,35 @@ func (HelperCreatedApplier) Apply(_ context.Context, game *state.GameState, comm
 		id = "helper-" + command.ClientActionID
 	}
 	meta := helperMeta(command.Payload)
+	template := optionalString(meta, "template")
+	if existingID, exists := globalDesignationID(game, template); exists {
+		id = existingID
+	}
 	meta["id"] = id
 	ops := state.NewRelationsOps()
+	if _, exists := game.Relations.Helpers[id]; exists {
+		relation, err := ops.UpdateHelper(game, id, meta)
+		if err != nil {
+			return nil, err
+		}
+		emitter.EmitPublic(protocol.PatchOp{Op: "helper.update", Data: map[string]any{"entity": helperPatch(relation)}})
+		if err := removeConflictingGlobalDesignations(game, template, id, ops, emitter); err != nil {
+			return nil, err
+		}
+		payload := cloneMap(relation.Meta)
+		payload["entityId"] = id
+		payload["id"] = id
+		payload["metrics"] = relationsMetrics(start, ops, emitter)
+		return payload, nil
+	}
 	relation := state.Relation{ID: id, Meta: meta}
 	if err := ops.AddHelper(game, relation); err != nil {
 		return nil, err
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "helper.add", Data: map[string]any{"entity": helperPatch(relation)}})
+	if err := removeConflictingGlobalDesignations(game, template, id, ops, emitter); err != nil {
+		return nil, err
+	}
 	payload := cloneMap(meta)
 	payload["entityId"] = id
 	payload["id"] = id
@@ -326,11 +349,16 @@ func (HelperRemovedApplier) Apply(_ context.Context, game *state.GameState, comm
 		return nil, err
 	}
 	ops := state.NewRelationsOps()
-	if _, err := ops.RemoveHelper(game, id); err != nil {
+	relation, err := ops.RemoveHelper(game, id)
+	if err != nil {
 		return nil, err
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "helper.remove", Data: map[string]any{"id": id}})
-	return map[string]any{"entityId": id, "metrics": relationsMetrics(start, ops, emitter)}, nil
+	payload := cloneMap(relation.Meta)
+	payload["entityId"] = id
+	payload["id"] = id
+	payload["metrics"] = relationsMetrics(start, ops, emitter)
+	return payload, nil
 }
 
 func stackItemPatch(item state.StackItem) map[string]any {
@@ -410,6 +438,74 @@ func helperMeta(payload map[string]any) map[string]any {
 		meta["card"] = sanitized
 	}
 	return meta
+}
+
+func isGlobalDesignationTemplate(template string) bool {
+	return template == "monarch" || template == "initiative"
+}
+
+func globalDesignationID(game *state.GameState, template string) (string, bool) {
+	if !isGlobalDesignationTemplate(template) {
+		return "", false
+	}
+
+	var selectedID string
+	for id, helper := range game.Relations.Helpers {
+		if optionalString(helper.Meta, "template") != template {
+			continue
+		}
+		if selectedID == "" || id < selectedID {
+			selectedID = id
+		}
+	}
+
+	return selectedID, selectedID != ""
+}
+
+func actorOwnsGlobalDesignation(game *state.GameState, template string, actorID string) bool {
+	if !isGlobalDesignationTemplate(template) || actorID == "" {
+		return false
+	}
+
+	for _, helper := range game.Relations.Helpers {
+		if optionalString(helper.Meta, "template") != template {
+			continue
+		}
+		if optionalString(helper.Meta, "ownerPlayerId") == actorID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func removeConflictingGlobalDesignations(
+	game *state.GameState,
+	template string,
+	keptID string,
+	ops *state.RelationsOps,
+	emitter *PatchEmitter,
+) error {
+	if !isGlobalDesignationTemplate(template) {
+		return nil
+	}
+
+	ids := make([]string, 0)
+	for id, helper := range game.Relations.Helpers {
+		if id == keptID || optionalString(helper.Meta, "template") != template {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		if _, err := ops.RemoveHelper(game, id); err != nil {
+			return err
+		}
+		emitter.EmitPublic(protocol.PatchOp{Op: "helper.remove", Data: map[string]any{"id": id}})
+	}
+
+	return nil
 }
 
 func optionalString(payload map[string]any, key string) string {

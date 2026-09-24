@@ -30,10 +30,14 @@
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
-    @if (image(); as cardImage) {
+    @if (renderedImage(); as cardImage) {
       <img
-        [src]="cardImage"
+        [appGameScheduledImage]="cardImage"
+        [gameImagePriority]="scheduledImagePriority()"
         [alt]="currentCard.name"
+        [loading]="imageLoading()"
+        decoding="async"
+        [attr.fetchpriority]="imagePriority()"
         [appPreloadCardAlternateFace]="currentCard"
         [cardVisibleFaceIndex]="currentCard.activeFaceIndex ?? 0"
       />
@@ -60,6 +64,7 @@
 } @else {
   <button
     type="button"
+    data-card-image-viewport-target
     [class]="currentMode === 'hand' ? 'mini-card hand-card' : 'game-card'"
     data-testid="game-card"
     [attr.data-card-instance-id]="currentCard.instanceId"
@@ -68,7 +73,9 @@
     [attr.data-owner-player-id]="playerId()"
     [attr.data-zone]="zone()"
     [attr.data-arrow-card-player-id]="currentMode === 'battlefield' ? playerId() : null"
-    [attr.data-arrow-card-instance-id]="currentMode === 'battlefield' ? currentCard.instanceId : null"
+    [attr.data-arrow-card-instance-id]="
+      currentMode === 'battlefield' ? currentCard.instanceId : null
+    "
     [attr.data-arrow-card-surface]="currentMode === 'battlefield' ? 'battlefield' : null"
     [attr.draggable]="draggable() ? 'true' : null"
     [class.free-position]="freePosition()"
@@ -85,6 +92,8 @@
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.stat-drop-settling]="statDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
+    [class.commander-entry-from-left]="commanderEntrySettling() && commanderEntryDirection() === 'left'"
+    [class.commander-entry-from-right]="commanderEntrySettling() && commanderEntryDirection() === 'right'"
     [class.stat-overlay-arriving]="statOverlayArriving()"
     [class.face-flipping]="faceFlipAnimating()"
     [class.loyalty-card]="loyaltyVisible()"
@@ -95,16 +104,17 @@
     [class.attachment-stack-equipment]="attachmentStackRole() === 'equipment'"
     [class.attachment-stack-aura]="attachmentStackHighlighted()"
     [class.land-stack-drop-target]="landStackDropTarget()"
-    [class.attachment-stack-drop-target]="landStackDropTarget() && landStackDropKind() === 'attachment'"
+    [class.attachment-stack-drop-target]="
+      landStackDropTarget() && landStackDropKind() === 'attachment'
+    "
     [class.face-down]="faceDown()"
     [class.hand-motion-active]="motionActive()"
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
     [class.hand-row-layout]="handLayout() === 'row'"
-    [class.hand-active-hover]="currentMode === 'hand' && activeHoverInstanceId() === currentCard.instanceId"
-    [class.focus-entry-left]="battlefieldFocusEntry() === 'left'"
-    [class.focus-entry-right]="battlefieldFocusEntry() === 'right'"
-    [class.focus-entry-fade]="battlefieldFocusEntry() === 'fade'"
+    [class.hand-active-hover]="
+      currentMode === 'hand' && activeHoverInstanceId() === currentCard.instanceId
+    "
     [disabled]="disabled()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.z-index]="cardZIndex()"
@@ -140,20 +150,36 @@
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
+    @if (commanderEntrySettling()) {
+      <span class="commander-theme-aura" aria-hidden="true"></span>
+    }
     @if (landStackDropTarget()) {
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {
-          <lucide-icon class="land-stack-preview-link-icon" name="link" size="18" aria-hidden="true" />
+          <lucide-icon
+            class="land-stack-preview-link-icon"
+            name="link"
+            size="18"
+            aria-hidden="true"
+          />
           <span>{{ 'game.gameCardView.attach' | runtimeTranslate }}</span>
         } @else {
-          <lucide-icon class="land-stack-preview-stack-icon" name="layers-3" size="18" aria-hidden="true" />
+          <lucide-icon
+            class="land-stack-preview-stack-icon"
+            name="layers-3"
+            size="18"
+            aria-hidden="true"
+          />
           <span>{{ 'game.gameCardView.stack' | runtimeTranslate }}</span>
         }
       </span>
     }
     <span class="card-visual">
       @if (showRevealIndicator()) {
-        <span class="reveal-indicator" [attr.aria-label]="'common.ui.revealedCard' | runtimeTranslate">
+        <span
+          class="reveal-indicator"
+          [attr.aria-label]="'common.ui.revealedCard' | runtimeTranslate"
+        >
           <lucide-icon name="eye" size="15" aria-hidden="true" />
         </span>
       }
@@ -166,16 +192,25 @@
         (counterChanged)="changeCounter($event)"
         (counterDeleteRequested)="requestCounterDelete($event)"
       />
-      @if (image(); as cardImage) {
+      @if (renderedImage(); as cardImage) {
         <img
-          [src]="cardImage"
+          [appGameScheduledImage]="cardImage"
+          [gameImagePriority]="scheduledImagePriority()"
           [alt]="currentCard.name"
+          [loading]="imageLoading()"
+          decoding="async"
+          [attr.fetchpriority]="imagePriority()"
           [appPreloadCardAlternateFace]="currentCard"
           [cardVisibleFaceIndex]="currentCard.activeFaceIndex ?? 0"
           draggable="false"
         />
+      } @else if (currentCard.staticCardPending === true) {
+        <span class="card-back" aria-hidden="true"></span>
       } @else if (monarchCard()) {
-        <span class="monarch-card-visual" [attr.aria-label]="'shared.text.monarch' | runtimeTranslate">
+        <span
+          class="monarch-card-visual"
+          [attr.aria-label]="'shared.text.monarch' | runtimeTranslate"
+        >
           <i
             class="monarch-card-icon"
             appMtgIcon="ms-ability-role-royal"
@@ -223,10 +258,15 @@
         <span
           class="power-toughness-overlay"
           [attr.aria-label]="'shared.text.powerAndToughness' | runtimeTranslate"
-          [class.stat-pair-pulse-increase]="powerPulse() === 'increase' && toughnessPulse() === 'increase'"
-          [class.stat-pair-pulse-decrease]="powerPulse() === 'decrease' && toughnessPulse() === 'decrease'"
+          [class.stat-pair-pulse-increase]="
+            powerPulse() === 'increase' && toughnessPulse() === 'increase'
+          "
+          [class.stat-pair-pulse-decrease]="
+            powerPulse() === 'decrease' && toughnessPulse() === 'decrease'
+          "
         >
           <span
+            appCounterHoverIntent
             role="button"
             tabindex="0"
             [title]="'game.gameCardView.powerLeftClickAddsRightClickRemoves' | runtimeTranslate"
@@ -240,6 +280,7 @@
             {{ powerValue() }}
           </span>
           <span
+            appCounterHoverIntent
             role="button"
             tabindex="0"
             [title]="'game.gameCardView.toughnessLeftClickAddsRightClickRemoves' | runtimeTranslate"

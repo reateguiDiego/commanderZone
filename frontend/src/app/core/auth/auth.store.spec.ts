@@ -11,6 +11,7 @@ describe('AuthStore backend auth', () => {
     login: ReturnType<typeof vi.fn>;
     exchangeGoogleCredential: ReturnType<typeof vi.fn>;
     register: ReturnType<typeof vi.fn>;
+    updateMe: ReturnType<typeof vi.fn>;
     me: ReturnType<typeof vi.fn>;
     offline: ReturnType<typeof vi.fn>;
     refresh: ReturnType<typeof vi.fn>;
@@ -32,6 +33,7 @@ describe('AuthStore backend auth', () => {
       login: vi.fn().mockReturnValue(of({ token: 'jwt-token' })),
       exchangeGoogleCredential: vi.fn().mockReturnValue(of({ token: 'google-jwt-token' })),
       register: vi.fn().mockReturnValue(of({ user })),
+      updateMe: vi.fn().mockReturnValue(of({ user })),
       me: vi.fn().mockReturnValue(of({ user })),
       offline: vi.fn().mockReturnValue(of(undefined)),
       refresh: vi.fn().mockReturnValue(of({ token: 'refresh-token' })),
@@ -86,6 +88,26 @@ describe('AuthStore backend auth', () => {
 
     expect(store.user()?.preferences?.themeId).toBe('mystic-grove');
     expect(localStorage.getItem('commanderzone.user')).toContain('"themeId":"mystic-grove"');
+  });
+
+  it('updates the cached game preferences from the profile response', async () => {
+    const userWithChosenView: User = {
+      ...user,
+      preferences: {
+        cardLanguage: 'en',
+        appLanguage: 'en',
+        themeId: 'sunrise',
+        game: { defaultBattlefieldLayout: 'square', chosenModeView: 'grid' },
+      },
+    };
+    authApi.updateMe.mockReturnValueOnce(of({ user: userWithChosenView }));
+    const store = TestBed.inject(AuthStore);
+
+    await store.updateGamePreferences({ chosenModeView: 'grid' });
+
+    expect(authApi.updateMe).toHaveBeenCalledWith({ gamePreferences: { chosenModeView: 'grid' } });
+    expect(store.user()?.preferences?.game?.chosenModeView).toBe('grid');
+    expect(localStorage.getItem('commanderzone.user')).toContain('"chosenModeView":"grid"');
   });
 
   it('applies the persisted account theme returned by /me', async () => {

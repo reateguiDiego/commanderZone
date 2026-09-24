@@ -11,8 +11,9 @@
   [attr.data-game-drop-zone]="'battlefield'"
   [attr.data-motion-zone]="focusedPlayer.id + ':battlefield'"
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
+  [class.battlefield-vertically-inverted]="verticallyInverted()"
+  [attr.data-battlefield-vertically-inverted]="verticallyInverted() ? '' : null"
   [class.arrow-targeting]="allowArrowTargetSelection()"
-  [class.board-transitioning]="boardTransitioning()"
   appGameTableLongPress
   [appGameTableLongPressSelfOnly]="true"
   (appGameTableLongPressed)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
@@ -22,16 +23,18 @@
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
 >
+  <span class="battlefield-card-size-probe" data-battlefield-card-size-probe aria-hidden="true"></span>
   @for (card of battlefieldCards(); track card.instanceId) {
     @let stackPresentation = stackPresentationView(card);
     @let displayPosition = displayedCardPosition(card);
     <app-game-card-view
-      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem)"
+      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem); --game-card-overlay-scale: var(--battlefield-card-overlay-scale, 1)"
       mode="battlefield"
       [card]="card"
       [playerId]="focusedPlayer.id"
       zone="battlefield"
       [image]="cardImage()(card)"
+      [deferImageUntilVisible]="true"
       [freePosition]="!!displayPosition"
       [position]="displayPosition"
       [selected]="isCurrentPlayer()(focusedPlayer.id) && isSelected()(card.instanceId)"
@@ -44,11 +47,11 @@
       [manaDropSettling]="isManaDropSettling()(focusedPlayer.id, card)"
       [statDropSettling]="isBattlefieldEntrySettling()(focusedPlayer.id, card)"
       [commanderEntrySettling]="isCommanderEntrySettling()(focusedPlayer.id, card)"
+      [commanderEntryDirection]="commanderEntryDirection(card)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
       [disabled]="false"
       [visible]="cardVisibility(focusedPlayer.id, card)"
-      [battlefieldFocusEntry]="battlefieldFocusEntry(card)"
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
       [toughnessValue]="cardToughnessValue()(card)"
@@ -89,14 +92,20 @@
       [cards]="mechanicCards()"
       [playerId]="focusedPlayer.id"
       [image]="cardImage()"
+      [countersEditable]="isCurrentPlayer()(focusedPlayer.id)"
+      [canInteract]="canInteractWithFocusedCard"
       (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card, $event.forceOpenLeft)"
+      (cardPointerDown)="onMechanicCardPointerDown($event.event, focusedPlayer.id, $event.card)"
+      (cardClicked)="onCardClick($event.event, focusedPlayer.id, $event.card)"
+      (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
       (cardPreviewShown)="cardPreviewShown.emit($event)"
       (cardPreviewRequested)="cardPreviewRequested.emit($event)"
       (cardPreviewHidden)="onCardPointerLeft()"
+      (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
     />
   }
   @if (activeAlignmentGuide; as guide) {
-    <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
+    <div class="alignment-guide" [style.top.px]="displayedAlignmentGuideY(guide.y, guide.referenceInstanceIds)" aria-hidden="true"></div>
   }
   @if (showManaRow() || (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id))) {
     <div

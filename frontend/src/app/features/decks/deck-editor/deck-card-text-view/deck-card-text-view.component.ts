@@ -6,7 +6,7 @@ import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-
 import { MTGIconComponent } from '../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { cardDisplayFace, cardFaceImage } from '../../../../shared/utils/card-faces';
-import { preloadImage } from '../../../../shared/utils/image-preload';
+import { ImagePreloadQueueService } from '../../../../shared/services/image-preload-queue.service';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
@@ -35,6 +35,7 @@ export class DeckCardTextViewComponent {
   readonly interactive = input(true);
   readonly cardClickEnabled = input(true);
   readonly store = inject(DECK_VIEW_STORE);
+  private readonly imagePreloadQueue = inject(ImagePreloadQueueService);
   private readonly pendingFaceFlips = new Set<string>();
 
   showCardPreview(event: MouseEvent, card: Card): void {
@@ -76,7 +77,7 @@ export class DeckCardTextViewComponent {
 
     this.pendingFaceFlips.add(card.scryfallId);
     const nextFaceImage = cardFaceImage(card, !this.store.isFaceFlipped(card));
-    const imageLoaded = nextFaceImage === null || await preloadImage(nextFaceImage);
+    const imageLoaded = nextFaceImage === null || await this.imagePreloadQueue.preload(nextFaceImage, 'interaction');
     this.pendingFaceFlips.delete(card.scryfallId);
     if (!imageLoaded) {
       return;

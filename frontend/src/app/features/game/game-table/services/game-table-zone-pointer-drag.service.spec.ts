@@ -67,6 +67,47 @@ describe('GameTableZonePointerDragService', () => {
     restore();
   });
 
+  it.each(['library', 'graveyard', 'exile'] as const)(
+    'uses the owning battlefield card size for the %s drag ghost',
+    (fromZone) => {
+      const zone = zoneElement();
+      const battlefield = document.createElement('div');
+      battlefield.className = 'battlefield';
+      battlefield.dataset['playerId'] = 'player-1';
+      const sizeProbe = document.createElement('div');
+      sizeProbe.dataset['battlefieldCardSizeProbe'] = '';
+      sizeProbe.getBoundingClientRect = () => ({
+        x: 0,
+        y: 0,
+        width: 154,
+        height: 215,
+        top: 0,
+        right: 154,
+        bottom: 215,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+      battlefield.appendChild(sizeProbe);
+      document.body.appendChild(battlefield);
+
+      try {
+        const started = service.start(pointerEvent({
+          currentTarget: zone,
+          pointerId: 13,
+          clientX: 20,
+          clientY: 20,
+        }), 'player-1', fromZone, { ...card(), zone: fromZone });
+        const move = service.move(pointerEvent({ pointerId: 13, clientX: 80, clientY: 20 }));
+
+        expect(started).toBe(true);
+        expect(move?.source.cardWidth).toBe(154);
+        expect(move?.source.cardHeight).toBe(215);
+      } finally {
+        battlefield.remove();
+      }
+    },
+  );
+
   it('does not start without a top zone card', () => {
     const zone = zoneElement();
 
@@ -78,6 +119,21 @@ describe('GameTableZonePointerDragService', () => {
     }), 'player-1', 'graveyard', null);
 
     expect(started).toBe(false);
+  });
+
+  it('uses the zone button bounds when its artwork has no layout size', () => {
+    const zone = zoneElement();
+    const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
+    zone.getBoundingClientRect = () => rect(12, 18, 100, 140);
+    zoneArt.getBoundingClientRect = () => rect(12, 18, 0, 0);
+
+    const started = service.start(pointerEvent({
+      currentTarget: zone,
+      clientX: 62,
+      clientY: 88,
+    }), 'player-1', 'library', { ...card(), zone: 'library' });
+
+    expect(started).toBe(true);
   });
 
   it('waits for the movement threshold before starting a touch drag', () => {
@@ -323,19 +379,23 @@ function zoneElement(): HTMLElement {
   const zone = document.createElement('button');
   zone.innerHTML = '<span class="zone-art"></span>';
   const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
-  zoneArt.getBoundingClientRect = () => ({
-    x: 0,
-    y: 0,
-    width: 100,
-    height: 140,
-    top: 0,
-    right: 100,
-    bottom: 140,
-    left: 0,
-    toJSON: () => ({}),
-  } as DOMRect);
+  zoneArt.getBoundingClientRect = () => rect(0, 0, 100, 140);
 
   return zone;
+}
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 function mockElementsFromPoint(elements: Element[]): () => void {

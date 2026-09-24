@@ -58,9 +58,6 @@ describe('GameTableWebsocketTransportService', () => {
   };
 
   beforeEach(() => {
-    vi.spyOn(console, 'debug').mockImplementation(() => undefined);
-    vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     sockets = [];
     gamesApi.snapshot.mockReset();
     gamesApi.websocketTicket.mockReset();
@@ -106,16 +103,6 @@ describe('GameTableWebsocketTransportService', () => {
     expect(sockets).toHaveLength(1);
     expect(sockets[0].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-1');
     expect(gamesApi.snapshot).not.toHaveBeenCalled();
-    expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
-      source: 'connect',
-      reason: 'initial_connect',
-      result: 'ticket_received',
-      gameId: 'game-1',
-      route: 'runtime_ws',
-      'gameplay.ws.route': 'runtime_ws',
-      lastAppliedVersion: null,
-      websocketUrl: 'ws://127.0.0.1:8091/ws',
-    }));
   });
 
   it.each(['php_gateway_ws', 'legacy_ws'] as const)('rejects disabled %s routes instead of falling back silently', async (route) => {
@@ -132,7 +119,8 @@ describe('GameTableWebsocketTransportService', () => {
     expect(service.status()).toBe('error');
   });
 
-  it('logs incoming websocket message format without exposing the ticket', async () => {
+  it('publishes incoming websocket messages to subscribers', async () => {
+    const messages = receivedMessages(service);
     await service.connect('game-1');
     sockets[0].emitMessage({
       kind: 'patch.v2',
@@ -142,18 +130,8 @@ describe('GameTableWebsocketTransportService', () => {
       ops: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
     });
 
-    expect(console.debug).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
-      source: 'message.received',
-      gameId: 'game-1',
-      route: 'runtime_ws',
-      'gameplay.ws.route': 'runtime_ws',
-      kind: 'patch.v2',
-      type: 'player.life.set',
-      patchV2: true,
-      gamePatch: false,
-      resyncRequired: false,
-    }));
-    expect(JSON.stringify((console.info as unknown as { mock: { calls: unknown[][] } }).mock.calls)).not.toContain('ticket-1');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ kind: 'patch.v2', gameId: 'game-1', version: 2 });
   });
 
   it('retains the latest websocket player presence for the active game', async () => {
@@ -229,13 +207,6 @@ describe('GameTableWebsocketTransportService', () => {
       expect(sockets).toHaveLength(2);
       expect(sockets[1].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-2&lastAppliedVersion=8');
       expect(service.status()).toBe('connecting');
-      expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
-        source: 'reconnect',
-        reason: 'socket_reconnect',
-        result: 'ticket_received',
-        lastAppliedVersion: 8,
-        websocketUrl: 'ws://127.0.0.1:8091/ws?lastAppliedVersion=8',
-      }));
     } finally {
       vi.useRealTimers();
     }

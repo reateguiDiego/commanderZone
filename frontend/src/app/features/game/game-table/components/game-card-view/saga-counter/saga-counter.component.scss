@@ -3,6 +3,8 @@
   right: 0.08rem;
   bottom: 0.08rem;
   z-index: 6;
+  transform: scale(var(--game-card-overlay-scale, 1));
+  transform-origin: bottom right;
 }
 
 :host(.inline-saga-counter) {
@@ -30,6 +32,12 @@
   transition:
     filter 160ms ease,
     transform 160ms ease;
+}
+
+.saga-counter.counter-hover-active,
+.saga-counter:focus-visible {
+  z-index: 1;
+  transform: scale(max(1, calc(1 / var(--game-card-overlay-scale, 1))));
 }
 
 .saga-counter::before {

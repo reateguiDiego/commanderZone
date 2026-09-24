@@ -1,7 +1,6 @@
 :host {
   display: contents;
 }
-
 .battlefield {
   --game-card-view-width: var(--battlefield-card-width, 7.2rem);
   --focused-mana-lane-height: var(--battlefield-mana-lane-height, 11.2rem);
@@ -23,71 +22,48 @@
   -webkit-touch-callout: none;
 }
 
+// In Grid the summary is a sibling of the battlefield. Do not trap the
+// mechanics overlay in the battlefield's base stacking context: its own
+// z-index must be able to clear the summary while ordinary cards stay below.
+:host-context(.player-cell) .battlefield {
+  z-index: auto;
+}
+
+// Grid normally clips a player cell. During the commander entrance its card
+// travels in from outside that cell and the theme aura expands beyond it.
+// The Grid host raises just this active cell above its neighbours.
+:host-context(.player-cell:has(.game-card.commander-entry-settling)) .battlefield {
+  z-index: 180;
+  overflow: visible;
+}
+
+// A lifted regular battlefield card must clear Grid's reduced player summary.
+// Mechanics live in their own overlay above that summary. Including one here
+// would trap the overlay below it as soon as its card is hovered, causing a
+// repeated pointer enter/leave loop.
+.battlefield:has(> app-game-card-view > .game-card.battlefield-preview-active) {
+  z-index: 40;
+}
+
+.battlefield.counter-hover-bounds-active {
+  z-index: 40;
+  overflow: visible;
+}
+
+.battlefield-card-size-probe {
+  position: absolute;
+  width: var(--game-card-view-width);
+  aspect-ratio: 0.716;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .drop-target-active {
   box-shadow: inset 0 0 0 2px var(--game-accent);
 }
 
 .battlefield.arrow-targeting {
   cursor: crosshair;
-}
-
-.battlefield.board-transitioning {
-  animation: focused-battlefield-enter 980ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.battlefield.board-transitioning::after {
-  content: '';
-  position: absolute;
-  inset: -8%;
-  z-index: 680;
-  background:
-    radial-gradient(ellipse at 50% 44%, transparent 0 34%, rgb(var(--shadow-rgb) / 36%) 72%),
-    linear-gradient(100deg, transparent 0 22%, rgb(255 232 164 / 13%) 44%, transparent 66%);
-  opacity: 0;
-  transform: translateX(-10%) scale(1.04);
-  pointer-events: none;
-  animation: focused-battlefield-wipe 980ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes focused-battlefield-enter {
-  0% {
-    opacity: 0.28;
-    filter: blur(18px) brightness(0.52) saturate(0.86);
-    transform: scale(1.048) translateY(0.72rem);
-  }
-
-  42% {
-    opacity: 1;
-    filter: blur(2px) brightness(1.13) saturate(1.04);
-    transform: scale(1.012);
-  }
-
-  70% {
-    filter: brightness(1.04) saturate(1.02);
-    transform: scale(0.996);
-  }
-
-  100% {
-    filter: none;
-    transform: none;
-  }
-}
-
-@keyframes focused-battlefield-wipe {
-  0% {
-    opacity: 0.84;
-    transform: translateX(-12%) scale(1.06);
-  }
-
-  48% {
-    opacity: 0.52;
-    transform: translateX(4%) scale(1.02);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(10%) scale(1);
-  }
 }
 
 .alignment-guide {
@@ -111,6 +87,10 @@
   pointer-events: none;
 }
 
+.battlefield.battlefield-vertically-inverted .mana-lane {
+  inset: 0 0 auto;
+}
+
 .mana-lane.mana-lane-helper-only {
   min-height: 0;
   padding: 0;
@@ -124,6 +104,12 @@
   z-index: 2;
   pointer-events: auto;
   transform: translateY(calc(-50% - var(--focused-mana-pool-stack-clearance)));
+}
+
+.battlefield.battlefield-vertically-inverted .mana-pool-panel-anchor {
+  top: auto;
+  bottom: 0;
+  transform: translateY(calc(50% + var(--focused-mana-pool-stack-clearance)));
 }
 
 .mana-lane.drag-over {
@@ -160,12 +146,5 @@
 
     gap: 0.35rem;
     padding: 0.18rem 0.28rem 0.45rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .battlefield.board-transitioning,
-  .battlefield.board-transitioning::after {
-    animation: none;
   }
 }

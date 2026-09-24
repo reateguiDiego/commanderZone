@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, HostBinding, OnDestroy, input, output, signal } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { StatCounterChangeEvent } from '../stat-counter/stat-counter.component';
+import { CounterHoverIntentDirective } from '../../../directives/counter-hover-intent.directive';
 
 type StatPulse = 'increase' | 'decrease' | null;
 const PRESS_FEEDBACK_MS = 420;
 
 @Component({
   selector: 'app-saga-counter',
-  imports: [RuntimeTranslatePipe],
+  imports: [RuntimeTranslatePipe, CounterHoverIntentDirective],
   templateUrl: './saga-counter.component.html',
   styleUrl: './saga-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

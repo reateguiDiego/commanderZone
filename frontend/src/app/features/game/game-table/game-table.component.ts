@@ -1,3 +1,8 @@
+import type { BattlefieldLayoutRect, BattlefieldViewLayout } from './game-table-layout/game-table-grid-seat.model';
+import { measuredBattlefieldCardSize } from './utils/battlefield-position';
+import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
+import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
+import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   RuntimeTranslatePipe,
@@ -68,6 +73,8 @@ import { GameTablePointerDragService } from './services/game-table-pointer-drag.
 import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { ImagePreloadQueueService } from '../../../shared/services/image-preload-queue.service';
+import { GameScheduledImageDirective } from './directives/game-scheduled-image.directive';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
@@ -98,6 +105,7 @@ import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-batt
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
 import {
   GameTableBattlefieldZoomState,
+  GameTableGridBattlefieldZoomState,
   MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
@@ -124,6 +132,7 @@ import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.sta
 import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
 import { GameTableNormalizedV2Store } from './state/realtime/game-table-normalized-v2.store';
 import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
+import { SpecialEntityPreviewRequest } from './models/special-entity-preview-request.model';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { gamePlayerNameColor } from './utils/game-player-name-color';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
@@ -179,7 +188,7 @@ import {
 } from './components/token-search-modal/token-search-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
-import { type RollResult } from '../../../core/ui/roll-modal/roll';
+import { type RollKind } from '../../../core/ui/roll-modal/roll';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
@@ -192,6 +201,7 @@ import {
 import { dungeonMarkerForCard } from './utils/dungeon-marker';
 import {
   isDayNightCard,
+  isBattlefieldMechanicOverlayCard,
   isDungeonCard,
   isEmblemCard,
   isGameplayCardTapLocked,
@@ -386,18 +396,6 @@ interface ArrowTargetDialogRequest {
   readonly targetCount: number;
 }
 
-interface BattlefieldLayoutSize {
-  readonly width: number;
-  readonly height: number;
-}
-
-interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
-}
-
 interface ContextMenuAvoidRect {
   readonly left: number;
   readonly top: number;
@@ -425,8 +423,19 @@ interface HandCardPointerMovedEvent {
   readonly targetPlayerId: string;
   readonly movedInstanceId: string;
   readonly toZone: GameZoneName;
+  readonly sourceRect: MotionSourceRect;
   readonly rawZone?: string;
   readonly position?: { x: number; y: number };
+}
+
+function uniqueCardInstances(cards: readonly GameCardInstance[]): readonly GameCardInstance[] {
+  const cardsByInstanceId = new Map<string, GameCardInstance>();
+
+  for (const card of cards) {
+    cardsByInstanceId.set(card.instanceId, card);
+  }
+
+  return [...cardsByInstanceId.values()];
 }
 
 interface HandDroppedEvent {
@@ -530,6 +539,11 @@ interface MotionSourceRect {
   readonly height: number;
 }
 
+interface DeferredDiceLog {
+  readonly actorId: string | null;
+  readonly existingEntryIds: ReadonlySet<string>;
+}
+
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -549,6 +563,8 @@ interface MotionSourceRect {
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
     BattlefieldZoomControlsComponent,
+    BattlefieldConcedeButtonComponent,
+    GameTableGridLayoutComponent,
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
@@ -572,8 +588,10 @@ interface MotionSourceRect {
     GlobalLoaderComponent,
     RollModalComponent,
     TabListComponent,
+    GameScheduledImageDirective,
   ],
   providers: [
+    GameTableLayoutState,
     GameTableStore,
     GameTableCoreState,
     GameTableCommandStore,
@@ -583,6 +601,7 @@ interface MotionSourceRect {
     GameTableOpponentTargetsState,
     GameTableBattlefieldState,
     GameTableBattlefieldZoomState,
+    GameTableGridBattlefieldZoomState,
     GameTableCardsState,
     GameTableContextStore,
     GameTableCountersState,
@@ -610,6 +629,7 @@ interface MotionSourceRect {
     GameTableCommandService,
     GameTableSelectionService,
     GameTableSessionService,
+    ImagePreloadQueueService,
     GameTableDragService,
     GameTableDropActionsService,
     GameTableInteractionActionsService,
@@ -673,7 +693,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
+  readonly tableLayout = inject(GameTableLayoutState);
+  readonly squareBattlefieldSizeChanged = (rect: BattlefieldLayoutRect): void => this.updateBattlefieldLayoutSize(rect);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
+  readonly gridBattlefieldZoom = inject(GameTableGridBattlefieldZoomState);
+  readonly suppressFloatingPanelHoverExpansion = signal(false);
   readonly aggressiveCompactViewport = signal(false);
   readonly effectiveBattlefieldZoomPercent = computed(() =>
     this.aggressiveCompactViewport()
@@ -682,6 +706,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   );
   readonly effectiveBattlefieldCardWidthRem = computed(() =>
     this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()),
+  );
+  readonly gridBattlefieldCardOverlayScale = computed(() =>
+    this.gridBattlefieldZoom.zoomPercent() / this.battlefieldZoom.defaultZoomPercent,
+  );
+  readonly effectiveBattlefieldCardOverlayScale = computed(() =>
+    Math.min(
+      1,
+      this.effectiveBattlefieldZoomPercent() / this.battlefieldZoom.defaultZoomPercent,
+    ),
   );
   readonly effectiveBattlefieldGapRem = computed(() =>
     this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()),
@@ -720,6 +753,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.commanderCastCount(player, commander);
   readonly playerCounterValue = (player: PlayerView, key: string): number =>
     this.store.playerCounterValue(player.id, key);
+  readonly gridHelperPreviewRequested = (request: SpecialEntityPreviewRequest): void => this.showHelperPreview(request);
+  readonly gridHelperContextRequested = (event: MouseEvent, entity: GameSpecialEntity): void =>
+    this.handleHelperContextRequest({ event, entity });
+  readonly gridLifeChanged = (playerId: string, delta: number): void =>
+    void this.store.changeLife(playerId, delta, { debounce: false });
+  readonly gridCommanderDamageChanged = (
+    targetPlayerId: string,
+    sourcePlayerId: string,
+    commanderInstanceId: string,
+    delta: number,
+  ): void =>
+    void this.store.setCommanderDamage(targetPlayerId, sourcePlayerId, commanderInstanceId, delta);
+  readonly gridPlayerCounterChanged = (playerId: string, key: string, delta: number): void =>
+    void this.store.changePlayerCounter(playerId, key, delta);
+  readonly hideGridHelperPreview = (): void => this.store.hideCardPreview();
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string =>
     this.store.gameBackgroundImage(player);
@@ -731,11 +779,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null =>
     this.store.cardPosition(card);
-  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] => [
-    ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
-    ...this.battlefieldEmblemsForPlayer(playerId),
-  ];
+  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] => {
+    const battlefieldMechanics = this.store.players()
+      .find((player) => player.id === playerId)
+      ?.state.zones.battlefield.filter(isBattlefieldMechanicOverlayCard) ?? [];
+
+    return uniqueCardInstances([
+      ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
+      ...this.battlefieldEmblemsForPlayer(playerId),
+      ...battlefieldMechanics,
+    ]);
+  };
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly cardBackImage = (player: PlayerView): string => this.store.cardBackImage(player);
   readonly dungeonMarkerForCard = dungeonMarkerForCard;
   readonly dungeonPinSizeForWidth = (width: number): string =>
     `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
@@ -834,7 +890,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly alignmentGuideFor = (
     playerId: string,
   ): { y: number; referenceInstanceIds: readonly string[] } | null =>
-    this.store.alignmentGuideFor(playerId);
+    this.gamePreferences.showCardAlignmentHelper ? this.store.alignmentGuideFor(playerId) : null;
   readonly isManaLaneHighlighted = (playerId: string): boolean =>
     this.store.isManaLaneHighlighted(playerId);
   readonly manaSourceSuggestion = (
@@ -878,6 +934,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       .find((player) => player.id === playerId)
       ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly rollModalOpen = signal(false);
+  readonly rollModalPending = signal(false);
+  readonly rollModalResult = signal<string | null>(null);
+  private readonly deferredDiceLog = signal<DeferredDiceLog | null>(null);
+  readonly visibleEventLog = computed(() => {
+    const entries = this.store.eventLog();
+    const deferredDiceLog = this.deferredDiceLog();
+    if (!deferredDiceLog) {
+      return entries;
+    }
+
+    return entries.filter((entry) => (
+      entry.type !== 'dice.rolled'
+      || deferredDiceLog.existingEntryIds.has(entry.id)
+      || (deferredDiceLog.actorId !== null && entry.actorId !== deferredDiceLog.actorId)
+    ));
+  });
   readonly tableExitTitle = computed(() =>
     this.tableExitAction() === 'leave'
       ? 'game.gameTable.leaveTableConfirmationTitle'
@@ -903,15 +975,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         Object.values(localPlayer.state.commanderDamage).some((damage) => damage >= 21))
     );
   });
+  readonly canConcedeForPlayer = (playerId: string): boolean =>
+    this.store.currentPlayer()?.id === playerId && this.canConcedeFromBattlefieldControls();
   private readonly leavingTable = signal(false);
   private readonly tableExitPending = computed(
     () => this.tableExitAction() !== null || this.leavingTable(),
   );
   readonly manualRelationTargetingActive = computed(
     () => this.store.pendingArrowSource() !== null || this.store.pendingAttachmentSource() !== null,
-  );
-  readonly focusEffectsEnabled = computed(
-    () => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive(),
   );
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({
     width: 900,
@@ -928,10 +999,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return null;
     }
 
-    const width =
+    const width = menu.width ?? (
       menu.kind === 'counter' || menu.kind === 'arrow'
         ? CONTEXT_MENU_AVOID_COMPACT_WIDTH
-        : CONTEXT_MENU_AVOID_WIDTH;
+        : CONTEXT_MENU_AVOID_WIDTH
+    );
     const top =
       menu.verticalOrigin === 'bottom'
         ? viewportHeight - menu.y - CONTEXT_MENU_AVOID_HEIGHT
@@ -954,7 +1026,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     );
   });
   readonly collapsedPreviewLogEntries = computed(() =>
-    this.store.eventLog().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
+    this.visibleEventLog().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
   );
   readonly collapsedPreviewChatMessages = computed(() =>
     (this.store.snapshot()?.chat ?? []).slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
@@ -964,7 +1036,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly latestChatMessage = computed(() => this.collapsedPreviewChatMessages().at(-1) ?? null);
   readonly combineChatAndGameLog = computed(() => this.gamePreferences.combineChatAndGameLog);
   readonly gameActivityTimeline = computed(() =>
-    buildGameActivityTimeline(this.store.eventLog(), this.store.snapshot()?.chat ?? []),
+    buildGameActivityTimeline(this.visibleEventLog(), this.store.snapshot()?.chat ?? []),
   );
   readonly collapsedPreviewGameActivities = computed(() =>
     this.gameActivityTimeline().slice(-COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT),
@@ -1105,9 +1177,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     reaction: ChatReactionType,
   ): boolean => this.shouldShowChatReactionUsers(message, reaction);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
+  readonly presentedPlayer = computed(() =>
+    this.tableLayout.mode() === 'grid' ? this.store.currentPlayer() : this.store.focusedPlayer(),
+  );
   readonly tableBackgroundImage = computed(
     () =>
-      `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`,
+      `url("${this.store.gameBackgroundImage(this.presentedPlayer() ?? this.store.currentPlayer())}")`,
   );
   readonly focusedOpponentPlayer = computed<PlayerView | null>(() => {
     const currentPlayer = this.store.currentPlayer();
@@ -1146,6 +1221,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return kind && currentPlayerId ? `${currentPlayerId}:${kind}` : '';
   });
   readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
+  readonly gameFinished = computed(() => {
+    const snapshot = this.store.snapshot();
+
+    return snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
+  });
   readonly shouldShowRematchVotesButton = computed(
     () => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending(),
   );
@@ -1258,6 +1338,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   >;
 
   constructor() {
+    this.tableLayout.connect({ players: this.store.players, currentPlayer: this.store.currentPlayer });
     this.e2eStaticCardCacheTools.install();
 
     this.realtimeAnimationSubscriptions.add(
@@ -1315,8 +1396,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       // the authoritative finish handoff. A conceded spectator may vote
       // early while gameplay continues; that must never start an endgame UI
       // countdown.
-      const gameFinished = snapshot?.status === 'finished' || snapshot?.gamePhase === 'FINISHED';
-      const deadlineAt = gameFinished ? (snapshot?.rematch?.deadlineAt ?? null) : null;
+      const deadlineAt = this.gameFinished() ? (snapshot?.rematch?.deadlineAt ?? null) : null;
       queueMicrotask(() => this.syncRematchCountdown(deadlineAt));
     });
 
@@ -1336,7 +1416,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       const activeTab = this.store.activeFloatingTab();
       const combined = this.combineChatAndGameLog();
       const latestChat = snapshot?.chat.at(-1);
-      const eventLog = this.store.eventLog();
+      const eventLog = this.visibleEventLog();
       const latestLog = eventLog.at(-1);
       const unreadKey = [
         activeTab,
@@ -1363,6 +1443,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngAfterViewInit(): void {
     if (this.gameScreen) {
+      this.tableLayout.observeViewport(this.gameScreen.nativeElement);
       this.motion.init(this.gameScreen);
     }
     if (this.gamePreferences.chatNotificationSounds) {
@@ -1386,11 +1467,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const log = this.store.eventLog();
+    const log = this.visibleEventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
     const latestLog = log.at(-1)?.id ?? '';
-    const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
-    const key = `${this.combineChatAndGameLog()}:${this.store.activeFloatingTab()}:${latestChat}:${rawLatestLog}:${latestLog}`;
+    const key = `${this.combineChatAndGameLog()}:${this.store.activeFloatingTab()}:${latestChat}:${latestLog}`;
     if (key === this.lastAutoScrollKey) {
       return;
     }
@@ -1591,7 +1671,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return this.fadingChatMessageKeys().includes(this.chatMessageKey(message, index));
   }
 
-  readonly playerNameColor = gamePlayerNameColor;
+  readonly playerNameColor = (playerId: string | null | undefined): string =>
+    gamePlayerNameColor(playerId, this.store.players());
 
   isOwnChatMessage(message: ChatMessage): boolean {
     const currentPlayer = this.store.currentPlayer();
@@ -1677,6 +1758,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   handleFloatingPanelLeave(): void {
+    this.suppressFloatingPanelHoverExpansion.set(false);
     this.queueFloatingContentScrollToBottom();
     if (this.combineChatAndGameLog()) {
       void Promise.all([this.logHistory.restoreLatest(), this.chatHistory.restoreLatest()]);
@@ -1714,13 +1796,27 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.queueBattlefieldReflow();
   }
 
+  selectBattlefieldViewLayout(layout: BattlefieldViewLayout): void {
+    const leavingGridForSquare = this.tableLayout.mode() === 'grid' && layout === 'square';
+    this.suppressFloatingPanelHoverExpansion.set(leavingGridForSquare);
+    this.tableLayout.select(layout);
+  }
+
   setBattlefieldZoom(percent: number): void {
-    this.battlefieldZoom.setZoomPercent(percent);
+    if (this.tableLayout.mode() === 'grid') {
+      this.gridBattlefieldZoom.setZoomPercent(percent);
+    } else {
+      this.battlefieldZoom.setZoomPercent(percent);
+    }
     this.queueBattlefieldZoomReflow();
   }
 
   resetBattlefieldZoom(): void {
-    this.battlefieldZoom.resetZoom();
+    if (this.tableLayout.mode() === 'grid') {
+      this.gridBattlefieldZoom.resetZoom();
+    } else {
+      this.battlefieldZoom.resetZoom();
+    }
     this.queueBattlefieldZoomReflow();
   }
 
@@ -2146,7 +2242,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     operation: Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
       return;
     }
 
@@ -2166,7 +2262,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     operation: Extract<GameSnapshotPatchOperation, { op: 'cards.state.set' }>,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
       return;
     }
 
@@ -2189,7 +2285,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     >,
     animations: Array<() => void>,
   ): void {
-    if (!this.shouldAnimateFocusedBattlefield(state.playerId, state.zone)) {
+    if (!this.shouldAnimateVisibleBattlefield(state.playerId, state.zone)) {
       return;
     }
 
@@ -2350,25 +2446,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     for (const operation of event.patch.operations) {
       switch (operation.op) {
         case 'card.move':
-          if (this.shouldAnimateFocusedBattlefield(operation.to.playerId, operation.to.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.to.playerId, operation.to.zone)) {
             punchCardIds.add(operation.instanceId);
           }
           break;
         case 'card.create':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             punchCardIds.add(operation.card.instanceId);
           }
           break;
         case 'card.counters.set':
         case 'card.stats.set':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             punchCardIds.add(operation.instanceId);
           }
           break;
         case 'card.state.set':
           if (
             operation.counters !== undefined &&
-            this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)
+            this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)
           ) {
             punchCardIds.add(operation.instanceId);
           }
@@ -2404,7 +2500,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           }
           break;
         case 'zone.cards.add':
-          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+          if (this.shouldAnimateVisibleBattlefield(operation.playerId, operation.zone)) {
             operation.cards.forEach((card) => punchCardIds.add(card.instanceId));
           }
           break;
@@ -2463,7 +2559,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     zone: GameZoneName,
     instanceId: string,
   ): void {
-    if (this.shouldAnimateFocusedBattlefield(playerId, zone)) {
+    if (this.shouldAnimateVisibleBattlefield(playerId, zone)) {
       instanceIds.add(instanceId);
     }
   }
@@ -2497,8 +2593,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     });
   }
 
-  private shouldAnimateFocusedBattlefield(playerId: string, zone: GameZoneName): boolean {
-    return zone === 'battlefield' && this.store.focusedPlayer()?.id === playerId;
+  private shouldAnimateVisibleBattlefield(playerId: string, zone: GameZoneName): boolean {
+    return (
+      zone === 'battlefield' &&
+      (this.tableLayout.mode() === 'grid' || this.store.focusedPlayer()?.id === playerId)
+    );
   }
 
   private realtimeBattlefieldCardSelector(instanceId: string): string {
@@ -2895,10 +2994,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return { element: battlefieldTarget };
     }
 
-    const targetPoint = battlefieldPosition
+    const targetCardSize = battlefieldPosition
+      ? measuredBattlefieldCardSize(battlefieldTarget)
+      : null;
+    const targetPoint = battlefieldPosition && targetCardSize
       ? {
-          x: rect.left + battlefieldPosition.x,
-          y: rect.top + battlefieldPosition.y,
+          x: rect.left + battlefieldPosition.x + targetCardSize.width / 2,
+          y: rect.top + battlefieldPosition.y + targetCardSize.height / 2,
         }
       : dropEvent
         ? { x: dropEvent.clientX, y: dropEvent.clientY }
@@ -3822,7 +3924,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private canAnimateManaComets(playerId: string): boolean {
     return (
       this.gamePreferences.gameAnimations &&
-      this.store.focusedPlayer()?.id === playerId &&
+      (this.tableLayout.mode() === 'grid' || this.store.focusedPlayer()?.id === playerId) &&
       this.canControlPlayer(playerId) &&
       !this.store.isManaPoolHidden(playerId)
     );
@@ -3868,14 +3970,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       this.animateGhostToHand({
         sourceElement,
         sourceInstanceId: event.movedInstanceId,
+        sourceRect: event.sourceRect,
         targetPlayerId: event.targetPlayerId,
       });
     } else {
       this.animateGhostToDropZone({
         sourceElement,
         sourceInstanceId: event.movedInstanceId,
+        sourceRect: event.sourceRect,
         targetPlayerId: event.targetPlayerId,
         targetZone: event.rawZone === 'mana' ? 'mana' : event.toZone,
+        battlefieldPosition: event.toZone === 'battlefield' ? event.position : undefined,
       });
     }
 
@@ -3906,6 +4011,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       );
     }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  handleGridBattlefieldDrop(event: ZoneDropEvent): void {
+    const sourcePlayerId = this.handDragPayload(event.event)?.playerId;
+    if (sourcePlayerId && sourcePlayerId !== event.playerId) {
+      this.handlePlayerDrop(event);
+      return;
+    }
+
+    this.handleZoneDrop(event);
   }
 
   handleZonePointerDragStarted(event: ZonePointerDragStartedEvent): void {
@@ -4302,18 +4417,49 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   openRollModal(): void {
     this.store.closeContextMenu();
+    this.rollModalPending.set(false);
+    this.rollModalResult.set(null);
     this.rollModalOpen.set(true);
   }
 
   closeRollModal(): void {
+    this.rollModalPending.set(false);
+    this.rollModalResult.set(null);
+    this.revealDeferredDiceRollLog();
     this.rollModalOpen.set(false);
   }
 
-  async recordRollResult(result: RollResult): Promise<void> {
-    this.closeRollModal();
-    await this.store.recordDiceRoll({
-      kind: result.kind,
-    });
+  clearRollModalResult(): void {
+    if (!this.rollModalPending()) {
+      this.rollModalResult.set(null);
+    }
+  }
+
+  async requestDiceRoll(kind: RollKind): Promise<void> {
+    if (this.rollModalPending()) {
+      return;
+    }
+
+    this.deferDiceRollLog();
+    this.rollModalPending.set(true);
+    this.rollModalResult.set(null);
+    let receivedResult = false;
+    try {
+      const result = await this.store.recordDiceRoll({ kind });
+      if (result?.kind === kind) {
+        this.rollModalResult.set(result.finalResult);
+        receivedResult = true;
+      }
+    } finally {
+      this.rollModalPending.set(false);
+      if (!receivedResult) {
+        this.revealDeferredDiceRollLog();
+      }
+    }
+  }
+
+  revealDeferredDiceRollLog(): void {
+    this.deferredDiceLog.set(null);
   }
 
   openDebugTab(): void {
@@ -4365,13 +4511,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     );
   }
 
-  pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
+  pendingLibraryMoveCount(pendingMove: PendingLibraryMove): number {
     const instanceIds = pendingMove.payload['instanceIds'];
-    const movedCount = Array.isArray(instanceIds) ? instanceIds.length : 1;
 
-    return movedCount > 1
-      ? `Donde quieres poner estas ${movedCount} cartas?`
-      : 'Donde quieres poner esta carta?';
+    return Array.isArray(instanceIds) ? instanceIds.length : 1;
+  }
+
+  pendingLibraryMoveMessageKey(pendingMove: PendingLibraryMove): string {
+    return this.pendingLibraryMoveCount(pendingMove) > 1
+      ? 'game.gameTable.libraryPlacementMultiplePrompt'
+      : 'game.gameTable.libraryPlacementSinglePrompt';
   }
 
   updateLibraryMoveRandomOrder(event: Event): void {
@@ -4411,6 +4560,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   focusPlayerBattlefield(playerId: string): void {
+    if (this.tableLayout.mode() === 'grid') {
+      return;
+    }
     const focused = this.store.focusPlayer(playerId);
     if (focused) {
       this.refreshFocusedPlayerView(playerId);
@@ -4677,13 +4829,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return dungeon?.name ?? null;
   }
 
-  showHelperPreview(entity: GameSpecialEntity): void {
+  showHelperPreview(request: SpecialEntityPreviewRequest): void {
+    const { entity, sourceRect } = request;
     const previewCard = this.specialEntityState.helperPreviewCard(entity);
     if (!previewCard) {
       return;
     }
 
-    this.store.showCardPreview(previewCard, entity.ownerPlayerId ?? undefined, 'command');
+    this.store.showCardPreview({
+      card: previewCard,
+      playerId: entity.ownerPlayerId ?? '',
+      zone: 'command',
+      sourceRect,
+    });
   }
 
   handleHelperContextRequest(request: { event: MouseEvent; entity: GameSpecialEntity }): void {
@@ -4989,6 +5147,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private syncFollowActiveTurnPlayer(activePlayerId: string | null | undefined): void {
+    if (this.tableLayout.mode() === 'grid') {
+      return;
+    }
     if (!this.followActiveTurnPlayer()) {
       this.lastFocusedTurnPlayerId = null;
       return;
@@ -5053,7 +5214,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.fadeHighlightedLogEntryIds();
     this.unreadLog.set(false);
     this.lastObservedLogKey = this.latestLogKey();
-    this.lastObservedLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+    this.lastObservedLogEntryId = this.visibleEventLog().at(-1)?.id ?? null;
   }
 
   private syncChatUnreadState(activeTab: FloatingPanelTab, chatKey: string): void {
@@ -5127,7 +5288,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private syncLogUnreadState(activeTab: FloatingPanelTab, logKey: string): void {
     const previousLatestLogEntryId = this.lastObservedLogEntryId;
-    const latestLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+    const latestLogEntryId = this.visibleEventLog().at(-1)?.id ?? null;
 
     if (this.lastObservedLogKey === null) {
       this.lastObservedLogKey = logKey;
@@ -5151,7 +5312,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private newLogEntryIdsAfter(previousLatestLogEntryId: string | null): string[] {
-    const entries = this.store.eventLog();
+    const entries = this.visibleEventLog();
     if (!previousLatestLogEntryId) {
       return entries.map((entry) => entry.id);
     }
@@ -5300,8 +5461,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       : '0';
   }
 
+  private deferDiceRollLog(): void {
+    this.deferredDiceLog.set({
+      actorId: this.authStore.user()?.id ?? null,
+      existingEntryIds: new Set(this.store.eventLog().map((entry) => entry.id)),
+    });
+  }
+
   private latestLogKey(): string {
-    const entries = this.store.eventLog();
+    const entries = this.visibleEventLog();
     const latest = entries.at(-1);
 
     return latest ? `${entries.length}:${latest.id}` : '0';
@@ -5435,7 +5603,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       if (response.status === 'waiting_for_game_end') {
         this.rematchModalOpen.set(false);
         this.showRematchToast(
-          response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.',
+          response.message ?? this.translateText('game.gameRematchModal.waitForGameEnd'),
         );
       }
     } catch (error) {

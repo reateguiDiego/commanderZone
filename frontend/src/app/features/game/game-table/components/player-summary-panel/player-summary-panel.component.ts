@@ -9,8 +9,10 @@ import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/pl
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../../game-table.store';
 import { GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS } from '../../services/game-table-debounced-value-commands.service';
+import { gamePlayerNameColor } from '../../utils/game-player-name-color';
 import { clampPlayerLife } from '../../utils/player-life-bounds';
 import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
+import { SpecialEntityPreviewRequest } from '../../models/special-entity-preview-request.model';
 
 interface LifeChangeEvent {
   playerId: string;
@@ -61,6 +63,7 @@ interface CounterFeedback {
 export const PLAYER_SUMMARY_ACTION_DEBOUNCE_MS = GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS;
 export const PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS = 1180;
 const CONTEXT_PANEL_LONG_NAME_THRESHOLD = 18;
+const GRID_EXTRA_ACTIONS_MENU_WIDTH = 'min(32.5rem, calc(100vw - 1rem))';
 
 const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
   { key: 'poison', label: 'game.playerCounters.poison', icon: 'biohazard' },
@@ -96,6 +99,10 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly gridLayout = input(false);
+  readonly gridPresentation = input(false);
+  readonly mirrorLayout = input(false);
+  readonly isTurnActive = input(false);
   readonly autoApplyCommanderDamageToLifeDefault = input(true, { alias: 'autoApplyCommanderDamageToLife' });
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
   readonly contextLabel = input<string | null>(null);
@@ -103,7 +110,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly lifeChanged = output<LifeChangeEvent>();
   readonly commanderDamageChanged = output<CommanderDamageChangeEvent>();
   readonly playerCounterChanged = output<PlayerCounterChangeEvent>();
-  readonly helperPreviewRequested = output<GameSpecialEntity>();
+  readonly helperPreviewRequested = output<SpecialEntityPreviewRequest>();
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly returnRequested = output<void>();
@@ -116,6 +123,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   );
   readonly hasLongDisplayName = computed(
     () => this.player().state.user.displayName.trim().length > CONTEXT_PANEL_LONG_NAME_THRESHOLD,
+  );
+  readonly extraActionsMenuWidth = computed(() =>
+    this.gridPresentation() ? GRID_EXTRA_ACTIONS_MENU_WIDTH : null,
   );
   readonly commanderDamageRows = computed<readonly CommanderDamageRow[]>(() => {
     const targetPlayer = this.player();
@@ -136,6 +146,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly hasActiveOtherCounter = computed(() =>
     this.playerCounterTrackers.some((tracker) => this.counterValue(tracker.key) > 0),
   );
+
+  readonly playerNameColor = (playerId: string | null | undefined): string =>
+    gamePlayerNameColor(playerId, this.players());
 
   readonly displayedLife = computed(() => {
     const currentPlayer = this.player();

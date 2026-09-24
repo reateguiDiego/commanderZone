@@ -46,17 +46,37 @@ describe('BattlefieldZoomControlsComponent', () => {
     expect(sliderRow.contains(sliderInput(fixture))).toBe(true);
   });
 
-  it('selects exactly one view layout at a time', async () => {
+  it('emits layout intent and displays the layout supplied by the table', async () => {
     const fixture = await renderControls();
     openZoomControls(fixture);
     const squareButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-square-button"]') as HTMLButtonElement;
     const gridButton = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]') as HTMLButtonElement;
 
+    const changed = vi.fn();
+    fixture.componentInstance.viewLayoutChanged.subscribe(changed);
     gridButton.click();
+    expect(changed).toHaveBeenLastCalledWith('grid');
+    expect(squareButton.getAttribute('aria-pressed')).toBe('true');
+    fixture.componentRef.setInput('selectedViewLayout', 'grid');
     fixture.detectChanges();
+    squareButton.click();
+    expect(changed).toHaveBeenLastCalledWith('square');
 
     expect(squareButton.getAttribute('aria-pressed')).toBe('false');
     expect(gridButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it.each([1, 2, 3, 4])('keeps the View toggle available without the zoom slider for %i players', async (playerCount) => {
+    const fixture = await renderControls({ playerCount });
+    fixture.componentRef.setInput('showZoom', false);
+    fixture.detectChanges();
+
+    expect(toggleButton(fixture)).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-popover"]')).toBeNull();
+    openZoomControls(fixture);
+
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-slider"]')).toBeNull();
   });
 
   it('hides the view layout controls for games with more than four players', async () => {

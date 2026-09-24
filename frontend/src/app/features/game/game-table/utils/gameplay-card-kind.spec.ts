@@ -20,16 +20,17 @@ describe('gameplay-card-kind', () => {
     expect(isTheRingCard(card({ name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token' }))).toBe(true);
     expect(isTheRingCard(card({ name: 'The Ring', layout: 'double_faced_token' }))).toBe(true);
     expect(isTheRingCard(card({ name: 'Unexpected Name', scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af', layout: 'double_faced_token' }))).toBe(true);
+    expect(isTheRingCard(card({ name: 'The Ring // The Ring Tempts You' }))).toBe(true);
     expect(isGameplayCard(card({ name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token', typeLine: 'Emblem // Card' }))).toBe(false);
     expect(isGameplayCard(card({ name: 'The Ring', layout: 'double_faced_token', typeLine: 'Emblem // Card' }))).toBe(false);
     expect(isGameplayCard(card({ name: 'Unexpected Name', scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af', layout: 'double_faced_token', typeLine: 'Emblem // Card' }))).toBe(false);
     expect(isGameplayCard(card({ name: 'Sol Ring', typeLine: 'Artifact' }))).toBe(false);
   });
 
-  it('tap-locks monarch, initiative and The Ring like other gameplay helper cards', () => {
+  it('tap-locks gameplay helper cards but not The Ring', () => {
     expect(isGameplayCardTapLocked(card({ name: 'Monarch', layout: 'monarch' }))).toBe(true);
     expect(isGameplayCardTapLocked(card({ name: 'The Initiative', layout: 'initiative' }))).toBe(true);
-    expect(isGameplayCardTapLocked(card({ name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token' }))).toBe(true);
+    expect(isGameplayCardTapLocked(card({ name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token' }))).toBe(false);
     expect(isGameplayCardTapLocked(card({ name: 'Sol Ring', typeLine: 'Artifact' }))).toBe(false);
   });
 
@@ -39,7 +40,18 @@ describe('gameplay-card-kind', () => {
     expect(isBattlefieldMechanicOverlayCard(card({ name: 'The Initiative', layout: 'initiative' }))).toBe(true);
     expect(isBattlefieldMechanicOverlayCard(card({ layout: 'emblem', typeLine: 'Emblem' }))).toBe(true);
     expect(isBattlefieldMechanicOverlayCard(card({ layout: 'dungeon', typeLine: 'Dungeon' }))).toBe(false);
-    expect(isBattlefieldMechanicOverlayCard(card({ name: 'The Ring', layout: 'double_faced_token', typeLine: 'Emblem // Card' }))).toBe(false);
+    expect(isBattlefieldMechanicOverlayCard(card({
+      name: 'The Ring',
+      layout: 'double_faced_token',
+      typeLine: 'Emblem // Card',
+      position: { x: 0, y: 0, unit: 'ratio' },
+    }))).toBe(false);
+    expect(isBattlefieldMechanicOverlayCard(card({
+      name: 'The Ring',
+      layout: 'double_faced_token',
+      typeLine: 'Emblem // Card',
+      position: { x: 0.4, y: 0.3, unit: 'ratio' },
+    }))).toBe(false);
   });
 });
 

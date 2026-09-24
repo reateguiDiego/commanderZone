@@ -833,6 +833,7 @@
       "playersMissingExtra": "{{ playerNames }} doivent encore voter. Ils ont {{ seconds }} s supplémentaires.",
       "timeLimit": "Délai",
       "winnerMessage": "La table est à vous. Vous avez survécu au chaos et remporté la partie avec autorité.",
+      "waitForGameEnd": "Attendez la fin de la partie avant de lancer une revanche.",
       "youDied": "Tu es mort",
       "youHaveSecondsToVote": "Vous avez {{ seconds }} s pour voter.",
       "yourVoteMissingExtra": "Votre vote est manquant. Vous disposez de {{ seconds }} supplémentaires pour voter.",
@@ -873,11 +874,13 @@
     "tokenSearchModal": {
       "tokenCreationControls": "Contrôles de création de jetons",
       "loadingDeckTokens": "Chargement des jetons de deck...",
-      "searchingTokens": "Recherche de jetons..."
+      "searchingTokens": "Recherche de jetons...",
+      "theRingFromGameMechanics": "L'Anneau ne peut être ajouté que depuis le champ de bataille. Faites un clic droit sur le champ de bataille, puis choisissez « Mécaniques de jeu »."
     },
     "playersOrder": {
       "currentTurnLabel": "Tournez {{ turnNumber }}",
       "upcomingTurnLabel": "Dans {{ count }}",
+      "nextPlayerLabel": "Joueur suivant :",
       "currentTurnTitle": "{{ name }} a le tour",
       "upcomingTurnTitle": "{{ name }} est à {{ count }} à un tour(s)"
     },
@@ -887,6 +890,7 @@
       "focusTheActiveTurnPlayer": "Concentrez le joueur actif du tour",
       "focusTurn": "Centrer le tour",
       "advancePhase": "Avancer la phase",
+      "phaseActionLabel": "Phase",
       "phaseLabels": {
         "untap": "Dégagement",
         "upkeep": "Entretien",
@@ -998,6 +1002,7 @@
       "moveToHand": "Mettre en main ?",
       "moveAllToLibrary": "Mettez tout dans la bibliothèque",
       "gamesCanOnlyBePlayedInLandscape": "Les parties ne peuvent être jouées qu’en mode paysage sur mobile et tablette.",
+      "defeatedActionBlocked": "Vous avez été vaincu : vous ne pouvez plus effectuer d’actions de jeu. Vous pouvez encore utiliser le chat en attendant la fin de la partie.",
       "thisTableNeedsALittleMoreRoom": "Cette table a besoin d’un peu plus de place",
       "sorryThisResolutionIsTooCrampedFor": "Désolé, cette résolution est trop étroite pour une partie de Commander. Veuillez ajuster le zoom du navigateur ou utiliser une fenêtre plus grande.",
       "useCtrl0InYourBrowserTo": "Utilisez Ctrl+0 dans votre navigateur pour réinitialiser le zoom à 100 %, puis actualisez ou redimensionnez cette fenêtre.",
@@ -1014,6 +1019,10 @@
       "chatUnreadMessages": "Chat, messages non lus",
       "moveCardToAnotherBattlefield": "Déplacer la carte vers un autre champ de bataille",
       "putIntoLibrary": "Mettre en bibliothèque",
+      "libraryPlacementSinglePrompt": "Où voulez-vous placer cette carte ?",
+      "libraryPlacementMultiplePrompt": "Où voulez-vous placer ces {{ count }} cartes ?",
+      "libraryPlacementTop": "Dessus",
+      "libraryPlacementBottom": "Dessous",
       "focusedOpponentLabel": "Vous regardez :",
       "returnToOwnBattlefield": "Aller sur votre champ de bataille",
       "leaveTableConfirmationTitle": "Quitter la table ?",
@@ -1278,6 +1287,16 @@
     },
     "tokenCopy": {
       "created": "{{ actor }} a créé une copie du jeton."
+    },
+    "mechanic": {
+      "monarch": { "claimed": "{{ player }} est devenu le monarque.", "passed": "{{ actor }} a donné la monarchie à {{ player }}.", "removed": "{{ actor }} a retiré la désignation de monarque." },
+      "initiative": { "claimed": "{{ player }} a pris l'initiative.", "passed": "{{ actor }} a donné l'initiative à {{ player }}.", "removed": "{{ actor }} a retiré l'initiative." },
+      "citysBlessing": { "granted": "{{ player }} a reçu la bénédiction de la cité.", "removed": "{{ actor }} a retiré la bénédiction de la cité à {{ player }}." },
+      "dayNight": { "startedDay": "{{ actor }} a démarré le cycle jour/nuit de jour.", "startedNight": "{{ actor }} a démarré le cycle jour/nuit de nuit.", "setDay": "{{ actor }} a réglé l'état jour/nuit sur le jour.", "setNight": "{{ actor }} a réglé l'état jour/nuit sur la nuit.", "removed": "{{ actor }} a retiré jour/nuit." },
+      "ring": { "created": "{{ player }} a reçu l'Anneau.", "removed": "{{ actor }} a retiré l'Anneau." },
+      "dungeon": { "entered": "{{ player }} est entré dans {{ cardName }}.", "advanced": "{{ actor }} a progressé dans un donjon.", "removed": "{{ actor }} a retiré le donjon {{ cardName }}." },
+      "emblem": { "created": "{{ player }} a créé l'emblème {{ cardName }}.", "removed": "{{ actor }} a retiré l'emblème {{ cardName }}." },
+      "helper": { "created": "{{ actor }} a ajouté une mécanique de jeu.", "updated": "{{ actor }} a mis à jour une mécanique de jeu.", "removed": "{{ actor }} a retiré une mécanique de jeu." }
     },
     "game": {
       "concede": "{{ player }} accordé."
@@ -2186,6 +2205,17 @@
       "changeTheme": "Changer de thème",
       "gameSettings": {
         "title": "Préférences de jeu",
+        "defaultBattlefieldLayout": {
+          "label": "Disposition de la table",
+          "description": "Choisissez comment la table est organisée à l'ouverture d'une partie.",
+          "grid": "Grille",
+          "focused": "Centrée",
+          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la vue centrée sera utilisée automatiquement."
+        },
+        "showCardAlignmentHelper": {
+          "label": "Aide à l'alignement des cartes",
+          "description": "Lors du déplacement d'une carte, affiche un guide d'aide pour aligner sa position verticale sur celle des cartes voisines."
+        },
         "showManaHelperOnStartup": {
           "label": "Afficher l’assistant de mana au démarrage",
           "description": "Affiche l’aide au comptage du mana au début d’une partie. Vous pouvez la masquer ou l’afficher de nouveau à tout moment pendant la partie."

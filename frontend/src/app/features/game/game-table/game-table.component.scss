@@ -114,6 +114,16 @@
   z-index: 240;
 }
 
+.game-screen > app-roll-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+}
+
+.game-screen > app-game-table-header.grid-layout-header {
+  --game-table-header-peek-height: 2px;
+}
+
 .game-screen > app-arrow-target-dialog {
   position: fixed;
   inset: 0;
@@ -303,6 +313,13 @@
   padding-bottom: var(--bottom-gap);
 }
 
+// The shuffle animation may extend beyond its source Zone Piles dock. The
+// viewport still clips at .game-screen; this merely prevents the table grid
+// from cutting the transient card fan in Square or Grid mode.
+.table-surface:has(app-zone-card-stack.is-shuffling) {
+  overflow: visible;
+}
+
 .focused-board {
   position: relative;
   display: grid;
@@ -340,60 +357,6 @@
   font-size: 0.82rem;
   font-weight: 900;
   pointer-events: auto;
-}
-
-.battlefield-concede-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 8px;
-  border: 1px solid rgb(255 105 116 / 92%);
-  background: linear-gradient(135deg, rgb(127 25 35 / 96%), rgb(77 13 22 / 96%));
-  box-shadow:
-    0 0 0.5rem rgb(255 52 73 / 90%),
-    0 0 1.2rem rgb(232 31 57 / 72%),
-    inset 0 0 0.7rem rgb(255 131 138 / 32%);
-  color: #fff7f7;
-  font-size: 0.82rem;
-  font-weight: 900;
-  pointer-events: auto;
-  text-shadow: 0 0 0.45rem rgb(255 219 221 / 82%);
-  animation: battlefield-concede-glow 1.35s ease-in-out infinite alternate;
-}
-
-.battlefield-concede-button:hover,
-.battlefield-concede-button:focus-visible {
-  border-color: #ffe2e4;
-  box-shadow:
-    0 0 0.75rem rgb(255 103 116),
-    0 0 1.7rem rgb(255 39 65 / 94%),
-    0 0 2.6rem rgb(211 14 43 / 72%),
-    inset 0 0 0.8rem rgb(255 171 177 / 46%);
-  outline: none;
-  transform: translateY(-1px) scale(1.025);
-}
-
-@keyframes battlefield-concede-glow {
-  from {
-    box-shadow:
-      0 0 0.45rem rgb(255 52 73 / 76%),
-      0 0 1rem rgb(232 31 57 / 58%),
-      inset 0 0 0.55rem rgb(255 131 138 / 24%);
-  }
-
-  to {
-    box-shadow:
-      0 0 0.8rem rgb(255 91 106),
-      0 0 1.55rem rgb(241 25 55 / 90%),
-      0 0 2.2rem rgb(190 12 37 / 58%),
-      inset 0 0 0.85rem rgb(255 161 167 / 44%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .battlefield-concede-button {
-    animation: none;
-  }
 }
 
 .battlefield-zoom-host {
@@ -531,7 +494,7 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-.floating-panel:hover,
+.floating-panel:not(.suppress-hover-expansion):hover,
 .floating-panel:has(.floating-expanded-content:focus-within) {
   z-index: 2600;
   width: 100%;
@@ -570,7 +533,7 @@
   visibility: hidden;
 }
 
-.floating-panel:hover .floating-collapsed-preview,
+.floating-panel:not(.suppress-hover-expansion):hover .floating-collapsed-preview,
 .floating-panel:has(.floating-expanded-content:focus-within) .floating-collapsed-preview {
   opacity: 0;
   pointer-events: none;
@@ -578,7 +541,7 @@
   visibility: hidden;
 }
 
-.floating-panel:hover .floating-expanded-content,
+.floating-panel:not(.suppress-hover-expansion):hover .floating-expanded-content,
 .floating-panel:has(.floating-expanded-content:focus-within) .floating-expanded-content {
   opacity: 1;
   pointer-events: auto;
@@ -843,4 +806,70 @@
   }
 }
 
+.table-surface.layout-grid {
+  --grid-layout-main-top-height: calc(var(--game-log-overlay-peek-height) * 0.5);
 
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--grid-layout-main-top-height) minmax(0, 1fr);
+  grid-template-areas: "mainTop" "board";
+  // Keep only the clearance required by the active-turn fuse outside each cell.
+  padding-bottom: 5px;
+}
+
+.table-surface:is(.layout-grid, .compact-grid-header) .player-strip > app-turn-phase-panel {
+  grid-column: span 2;
+  --turn-phase-panel-max-width: none;
+}
+
+.table-surface:is(.layout-grid, .compact-grid-header)
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within)) {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.table-surface:is(.layout-grid, .compact-grid-header)
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within))
+  header {
+  min-height: 0;
+}
+
+.table-surface:is(.layout-grid, .compact-grid-header)
+  .floating-panel:not(:hover):not(:has(.floating-expanded-content:focus-within))
+  .floating-collapsed-preview {
+  align-content: center;
+}
+
+.table-surface:is(.layout-grid, .compact-grid-header) .floating-panel .floating-collapsed-preview > p:not(:last-child) {
+  display: none;
+}
+
+.grid-layout-surface {
+  position: relative;
+  // The shared Grid controls need the same sizing reference as a player cell
+  // when they are docked beside the upper-right player's Zone Piles.
+  container-type: inline-size;
+  grid-area: board;
+  min-width: 0;
+  min-height: 0;
+  > .battlefield-zoom-host {
+    top: 0.1rem;
+    right: 0.4rem;
+  }
+}
+
+// In a two-column Grid, dock the controls immediately before the upper-right
+// player's Zone Piles. The dock can be a compact side rail or the wider
+// horizontal presentation, so mirror the player's own responsive width.
+.grid-layout-surface:has(.player-grid.grid--3-players, .player-grid.grid--4-players) > .battlefield-zoom-host {
+  --grid-controls-zone-dock-width: 7.2rem;
+
+  right: calc(var(--grid-controls-zone-dock-width) + 0.4rem);
+  left: auto;
+}
+
+.grid-layout-surface:has(
+    .player-grid.grid--3-players .player-cell.is-right-column.is-top-row.zone-row-presentation,
+    .player-grid.grid--4-players .player-cell.is-right-column.is-top-row.zone-row-presentation
+  )
+  > .battlefield-zoom-host {
+  --grid-controls-zone-dock-width: min(36rem, max(0px, calc(50cqi - 12rem)));
+}

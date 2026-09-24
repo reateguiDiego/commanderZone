@@ -1,6 +1,11 @@
 @if (hasMarkers()) {
   @if (showTokenCopyMarker() || markerCounters().length > 0) {
-    <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
+    <span
+      class="card-marker-rail"
+      [class.compact]="compact()"
+      [class.reserves-rulings-space]="showRulingsMarker()"
+      aria-hidden="false"
+    >
       @if (showTokenCopyMarker()) {
         <span class="card-marker token-copy-marker" [title]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate" [attr.aria-label]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate">
           <img src="assets/icons/gameplay/token-copy.png" alt="" />
@@ -8,7 +13,10 @@
       }
       @for (currentCounter of markerCounters(); track currentCounter.key) {
         <span
-          class="card-marker counter-marker"
+          animate.enter="counter-marker-enter"
+          animate.leave="counter-marker-leave"
+          appCounterHoverIntent
+          [class]="'card-marker counter-marker ' + (currentCounter.pulseClass ?? '')"
           [class.readonly-counter-marker]="!countersInteractive()"
           [class.color-counter-marker]="currentCounter.kind === 'color'"
           [class.stat-counter-marker]="currentCounter.kind === 'stat'"

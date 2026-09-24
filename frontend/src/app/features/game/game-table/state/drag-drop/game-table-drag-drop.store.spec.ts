@@ -246,12 +246,24 @@ describe('GameTableDragDropStore', () => {
     });
 
     expect(dragState.activeDropTarget()).toEqual({ playerId: 'player-2', zone: 'battlefield' });
+    expect(store.isPlayerDropHighlighted('player-2')).toBe(true);
+    expect(store.isPlayerDropHighlighted('player-1')).toBe(false);
+    expect(store.isDropZoneHighlighted('player-2', 'battlefield')).toBe(true);
+    expect(store.isDropZoneHighlighted('player-1', 'battlefield')).toBe(false);
     expect(updateExternalBattlefieldAlignmentGuide).toHaveBeenCalledWith(
       expect.objectContaining({ zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'] }),
       'player-2',
       'card-1',
       { x: 10, y: 20 },
     );
+  });
+
+  it('highlights only an opponent battlefield when the player is the drop target', () => {
+    dragState.setActivePlayerDropTarget('player-2');
+
+    expect(store.isDropZoneHighlighted('player-2', 'battlefield')).toBe(true);
+    expect(store.isDropZoneHighlighted('player-2', 'graveyard')).toBe(false);
+    expect(store.isDropZoneHighlighted('player-1', 'battlefield')).toBe(false);
   });
 
   it('does not select the whole land stack when the top card only starts a battlefield pointer drag', () => {
@@ -925,12 +937,14 @@ describe('GameTableDragDropStore', () => {
         selectedCards = cards;
       },
       canControlOwnedCard: () => true,
+      battlefieldCardSize: () => ({ width: 120, height: 168 }),
       battlefieldDragContext: () => ({
         zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
         snapshot: () => null,
         selectedCards: () => selectedCards,
         findCard: () => null,
         cardPosition: () => null,
+        battlefieldCardSize: () => ({ width: 120, height: 168 }),
         updateLocalCardPosition: () => undefined,
       }),
       pointerDragActionContext: () => ({} as never),

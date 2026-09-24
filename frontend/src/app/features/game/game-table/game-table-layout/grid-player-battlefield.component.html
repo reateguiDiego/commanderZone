@@ -1,0 +1,109 @@
+<section
+  class="player-cell"
+  data-testid="grid-player-panel"
+  [attr.data-player-id]="playerSeat().player.id"
+  [attr.data-player-drop-target]="playerSeat().player.id"
+  [attr.data-seat]="playerSeat().seat"
+  [attr.data-player-count]="playerCount()"
+  [style.--grid-player-playmat]="playerPlaymatImageCss()"
+  [class.is-current]="playerSeat().seat === 'current'"
+  [class.is-turn-owner]="isTurnOwner()"
+  [class.is-top-row]="isTopRow()"
+  [class.is-right-column]="isRightColumn()"
+  [class.is-defeated]="isDefeated()"
+  [class.zone-row-presentation]="useSquareZonePresentation()"
+  [class.single-player-row]="isSinglePlayerRow()"
+  (dragover)="dropAllowed.emit($event)"
+  (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
+>
+  <div class="player-cell-playmat-backdrop" aria-hidden="true"></div>
+  <div class="player-cell-playmat" aria-hidden="true"></div>
+  @if (isDefeated()) {
+    <div class="grid-player-defeated-overlay" data-testid="grid-player-defeated-overlay">
+      <img
+        class="grid-player-defeated-skull"
+        data-testid="grid-player-battlefield-skull"
+        [src]="defeatedSkullImage"
+        [alt]="'game.opponentMiniBoard.playerDefeated' | runtimeTranslate"
+        draggable="false"
+      />
+    </div>
+  }
+  <div class="player-cell-summary">
+    <app-player-summary-panel
+      class="player-summary-panel-context"
+      [player]="playerSeat().player"
+      [players]="summaryBindings().players"
+      [colorAccent]="summaryBindings().colorAccent"
+      [deckLabel]="summaryBindings().deckLabel"
+      [manaSymbols]="summaryBindings().manaSymbols"
+      [playerCounterValue]="summaryBindings().playerCounterValue"
+      [canEditCounters]="summaryBindings().canEditCounters(playerSeat().player.id)"
+      [gridLayout]="usesCompactSummary()"
+      [gridPresentation]="true"
+      [mirrorLayout]="isRightColumn()"
+      [isTurnActive]="isTurnOwner()"
+      [autoApplyCommanderDamageToLife]="summaryBindings().autoApplyCommanderDamageToLife"
+      [specialEntities]="summaryBindings().specialEntities(playerSeat().player.id)"
+      (helperPreviewRequested)="summaryBindings().showHelperPreview($event)"
+      (helperPreviewHidden)="summaryBindings().hideHelperPreview()"
+      (helperContextRequested)="summaryBindings().openHelperContext($event.event, $event.entity)"
+      (lifeChanged)="summaryBindings().changeLife($event.playerId, $event.delta)"
+      (commanderDamageChanged)="
+        summaryBindings().changeCommanderDamage(
+          $event.targetPlayerId,
+          $event.sourcePlayerId,
+          $event.commanderInstanceId,
+          $event.delta
+        )
+      "
+      (playerCounterChanged)="
+        summaryBindings().changePlayerCounter($event.playerId, $event.key, $event.delta)
+      "
+    />
+    @if (canConcede()(playerSeat().player.id)) {
+      <app-battlefield-concede-button
+        class="grid-player-concede-button"
+        (concedeRequested)="concedeRequested.emit($event)"
+      />
+    }
+  </div>
+  @if (turnStatus(); as status) {
+    <div
+      class="player-cell-turn-status"
+      [class.is-active-turn]="status.isActive"
+      [class.is-upcoming-turn]="!status.isActive"
+      data-testid="grid-turn-status"
+      role="status"
+    >
+      @for (statusKey of [status.key]; track statusKey) {
+        <span class="player-cell-turn-status-content">
+          @if (status.isActive) {
+            {{ 'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate }}
+          } @else {
+            {{ status.labelKey | runtimeTranslate: { count: status.distance } }}
+          }
+        </span>
+      }
+    </div>
+  }
+  @if (isOffline()) {
+    <span class="player-cell-offline-status" data-testid="grid-offline-status">
+      {{ 'shared.text.offline' | runtimeTranslate }}
+    </span>
+  }
+  <div class="player-cell-layout">
+    <div class="player-cell-battlefield">
+      <ng-container
+        [ngTemplateOutlet]="regions().battlefield"
+        [ngTemplateOutletContext]="context()"
+      />
+    </div>
+    <div class="player-cell-zones">
+      <ng-container [ngTemplateOutlet]="regions().zones" [ngTemplateOutletContext]="context()" />
+    </div>
+    <div class="player-cell-hand">
+      <ng-container [ngTemplateOutlet]="regions().hand" [ngTemplateOutletContext]="context()" />
+    </div>
+  </div>
+</section>

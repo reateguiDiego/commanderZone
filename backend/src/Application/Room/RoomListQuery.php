@@ -17,7 +17,7 @@ final class RoomListQuery
         if (!in_array($status, ['active', 'all'], true) || $limit < 1 || $limit > 100) {
             throw new \InvalidArgumentException('Unsupported room status filter or limit (1-100).');
         }
-        $params = $status === 'all' ? ['viewer' => $viewer] : [];
+        $params = [];
         $after = '';
         if ($cursor !== null) {
             $key = $this->decodeCursor($cursor, $viewer, $status);
@@ -102,13 +102,9 @@ final class RoomListQuery
         $columns = 'r.id, r.name, r.owner_id, r.status, r.visibility, r.format, r.max_players,
                 r.starting_life, r.timer_mode, r.timer_duration_seconds, r.mulligan_rule,
                 r.first_mulligan_free, r.game_id';
-        $source = "SELECT $columns FROM room r WHERE r.status = 'waiting' AND r.game_id IS NULL";
-        if ($status === 'all') {
-            $source .= " UNION ALL SELECT $columns FROM room r WHERE r.status = 'started'
-                AND r.id IN (SELECT owned.id FROM room owned WHERE owned.status = 'started' AND owned.owner_id = :viewer
-                    UNION SELECT member.room_id FROM room_player member WHERE member.user_id = :viewer)
+        $source = "SELECT $columns FROM room r WHERE r.status = 'waiting' AND r.game_id IS NULL
+            UNION ALL SELECT $columns FROM room r WHERE r.status = 'started'
                 AND EXISTS (SELECT 1 FROM game g WHERE g.id = r.game_id AND g.status = 'active')";
-        }
         // MATERIALIZED ensures historical rooms are removed before occupancy probes.
         return "WITH eligible AS MATERIALIZED (
             $source

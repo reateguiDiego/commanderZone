@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { MobileViewportSyncService } from '../../services/mobile-viewport-sync.service';
 import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 
@@ -11,6 +12,7 @@ export interface FormatSelectOption {
   readonly labelKey?: string;
   readonly translationParams?: Record<string, unknown>;
   readonly flagAsset?: string;
+  readonly manaSymbols?: readonly string[];
   readonly disabled?: boolean;
 }
 
@@ -32,7 +34,7 @@ export type FormatSelectMenuPositioning = 'fixed' | 'absolute';
 
 @Component({
   selector: 'app-format-select',
-  imports: [RuntimeTranslatePipe, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './format-select.component.html',
   styleUrl: './format-select.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

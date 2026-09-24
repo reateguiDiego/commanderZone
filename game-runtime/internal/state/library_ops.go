@@ -67,12 +67,15 @@ func (ops *LibraryOps) DrawMany(game *GameState, playerID string, count int) ([]
 	if len(zones.Library) < count {
 		return nil, ErrEmptyLibrary
 	}
-	start := len(zones.Library) - count
-	drawn := append([]string(nil), zones.Library[start:]...)
-	reverseStrings(drawn)
-	zones.Library = zones.Library[:start]
+	drawn := append([]string(nil), zones.Library[:count]...)
+	zones.Library = zones.Library[count:]
 	zones.Hand = append(zones.Hand, drawn...)
 	game.Zones[playerID] = zones
+	for index, instanceID := range zones.Library {
+		location := game.Loc[instanceID]
+		location.Index = index
+		game.Loc[instanceID] = location
+	}
 
 	for index, instanceID := range drawn {
 		instance := game.Instances[instanceID]
@@ -92,11 +95,16 @@ func (ops *LibraryOps) PutOnTop(game *GameState, playerID string, instanceID str
 	if !ok {
 		return ErrMissingInstance
 	}
-	zones.Library = append(zones.Library, instanceID)
+	zones.Library = append([]string{instanceID}, zones.Library...)
 	game.Zones[playerID] = zones
+	for index, existingID := range zones.Library[1:] {
+		location := game.Loc[existingID]
+		location.Index = index + 1
+		game.Loc[existingID] = location
+	}
 	instance.Zone = ZoneLibrary
 	game.Instances[instanceID] = instance
-	game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: len(zones.Library) - 1, ControllerID: instance.ControllerID}
+	game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: 0, ControllerID: instance.ControllerID}
 	return nil
 }
 
@@ -113,17 +121,10 @@ func (ops *LibraryOps) PutManyOnBottom(game *GameState, playerID string, instanc
 		return ErrMissingZone
 	}
 	library := make([]string, 0, len(instanceIDs)+len(zones.Library))
-	library = append(library, instanceIDs...)
 	library = append(library, zones.Library...)
+	library = append(library, instanceIDs...)
 	zones.Library = library
 	game.Zones[playerID] = zones
-	for _, existingID := range zones.Library[len(instanceIDs):] {
-		location := game.Loc[existingID]
-		if location.PlayerID == playerID && location.Zone == ZoneLibrary {
-			location.Index += len(instanceIDs)
-			game.Loc[existingID] = location
-		}
-	}
 	for index, instanceID := range instanceIDs {
 		instance, ok := game.Instances[instanceID]
 		if !ok {
@@ -131,7 +132,7 @@ func (ops *LibraryOps) PutManyOnBottom(game *GameState, playerID string, instanc
 		}
 		instance.Zone = ZoneLibrary
 		game.Instances[instanceID] = instance
-		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: index, ControllerID: instance.ControllerID}
+		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: len(zones.Library) - len(instanceIDs) + index, ControllerID: instance.ControllerID}
 	}
 	return nil
 }
@@ -147,9 +148,7 @@ func (ops *LibraryOps) PeekTop(game *GameState, playerID string, count int) ([]s
 	if len(zones.Library) < count {
 		return nil, ErrInvalidWindow
 	}
-	start := len(zones.Library) - count
-	top := append([]string(nil), zones.Library[start:]...)
-	reverseStrings(top)
+	top := append([]string(nil), zones.Library[:count]...)
 	return top, nil
 }
 
@@ -168,11 +167,14 @@ func (ops *LibraryOps) MoveTopToPlayerZone(game *GameState, playerID string, cou
 	if len(zones.Library) < count {
 		return nil, ErrInvalidWindow
 	}
-	start := len(zones.Library) - count
-	moved := append([]string(nil), zones.Library[start:]...)
-	zones.Library = zones.Library[:start]
-	reverseStrings(moved)
+	moved := append([]string(nil), zones.Library[:count]...)
+	zones.Library = zones.Library[count:]
 	game.Zones[playerID] = zones
+	for index, instanceID := range zones.Library {
+		location := game.Loc[instanceID]
+		location.Index = index
+		game.Loc[instanceID] = location
+	}
 	toZones, ok := game.Zones[toPlayerID]
 	if !ok {
 		toZones = PlayerZones{}
@@ -203,27 +205,20 @@ func (ops *LibraryOps) MoveTopToBottom(game *GameState, playerID string, count i
 	if len(zones.Library) < count {
 		return nil, ErrInvalidWindow
 	}
-	start := len(zones.Library) - count
-	moved := append([]string(nil), zones.Library[start:]...)
-	zones.Library = zones.Library[:start]
-	reverseStrings(moved)
-	library := make([]string, 0, len(moved)+len(zones.Library))
-	library = append(library, moved...)
-	library = append(library, zones.Library...)
-	zones.Library = library
+	moved := append([]string(nil), zones.Library[:count]...)
+	zones.Library = append(zones.Library[count:], moved...)
 	game.Zones[playerID] = zones
-	for _, existingID := range zones.Library[len(moved):] {
+	for index, existingID := range zones.Library {
 		location := game.Loc[existingID]
 		if location.PlayerID == playerID && location.Zone == ZoneLibrary {
-			location.Index += len(moved)
+			location.Index = index
 			game.Loc[existingID] = location
 		}
 	}
-	for index, instanceID := range moved {
+	for _, instanceID := range moved {
 		instance := game.Instances[instanceID]
 		instance.Zone = ZoneLibrary
 		game.Instances[instanceID] = instance
-		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: index, ControllerID: instance.ControllerID}
 	}
 	return moved, nil
 }
@@ -247,14 +242,11 @@ func (ops *LibraryOps) ReorderTop(game *GameState, playerID string, orderedTopID
 	if !sameStringSet(currentTop, orderedTopIDs) {
 		return ErrInvalidReorderSet
 	}
-	tailOrder := append([]string(nil), orderedTopIDs...)
-	reverseStrings(tailOrder)
-	start := len(zones.Library) - count
-	copy(zones.Library[start:], tailOrder)
+	copy(zones.Library[:count], orderedTopIDs)
 	game.Zones[playerID] = zones
-	for offset, instanceID := range tailOrder {
+	for offset, instanceID := range orderedTopIDs {
 		instance := game.Instances[instanceID]
-		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: start + offset, ControllerID: instance.ControllerID}
+		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: offset, ControllerID: instance.ControllerID}
 	}
 	return nil
 }
@@ -389,8 +381,8 @@ func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Locati
 	if current := s.Visibility.LibraryEpochByOwner[location.PlayerID]; window.Epoch != current {
 		return false
 	}
-	zones, ok := s.Zones[location.PlayerID]
-	if !ok || location.Index < len(zones.Library)-window.Count || location.Index >= len(zones.Library) {
+	_, ok = s.Zones[location.PlayerID]
+	if !ok || location.Index < 0 || location.Index >= window.Count {
 		return false
 	}
 	for _, candidate := range window.To {

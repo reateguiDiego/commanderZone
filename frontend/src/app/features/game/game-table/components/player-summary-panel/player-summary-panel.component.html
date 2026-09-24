@@ -4,38 +4,50 @@
 <div
   class="player-summary-panel"
   data-testid="player-summary-panel"
+  [class.player-summary-panel-grid]="gridLayout()"
+  [class.player-summary-panel-mirrored]="mirrorLayout()"
+  [class.is-turn-active]="isTurnActive()"
   [class.player-summary-panel-long-name]="hasLongDisplayName()"
   [class.player-summary-panel-has-special-entities]="visibleSpecialEntities().length > 0"
   [style.--player-accent]="colorAccent()(currentPlayer)"
 >
-  @if (contextLabel(); as label) {
-    <p class="player-summary-context-label">{{ label }}</p>
-  }
-  <app-player-avatar
-    class="player-avatar"
-    [displayName]="currentPlayer.state.user.displayName"
-    [avatar]="currentPlayer.state.user.avatar"
-    size="sm"
-  />
-  <div class="player-copy">
-    <app-player-name
-      data-testid="focused-player-name"
+  @if (!gridLayout()) {
+    @if (contextLabel(); as label) {
+      <p class="player-summary-context-label">{{ label }}</p>
+    }
+    <app-player-avatar
+      class="player-avatar"
       [displayName]="currentPlayer.state.user.displayName"
-      [nameStyle]="currentPlayer.state.user.displayNameStyle"
-      size="md"
-      plateSize="sm"
-      plateWidth="100%"
-      plateHeight="3rem"
-      plateLabelWidth="calc(100% - 3.05rem)"
-      [fill]="true"
+      [avatar]="currentPlayer.state.user.avatar"
+      size="sm"
     />
-    <div class="player-deck-meta">
-      @if (deckLabel()(currentPlayer); as label) {
-        <small>{{ label }}</small>
-      }
-      <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" [fallback]="'shared.text.colorless' | runtimeTranslate" size="small" />
+    <div class="player-copy">
+      <app-player-name
+        data-testid="focused-player-name"
+        [displayName]="currentPlayer.state.user.displayName"
+        [nameStyle]="currentPlayer.state.user.displayNameStyle"
+        size="md"
+        plateSize="sm"
+        plateWidth="100%"
+        plateHeight="3rem"
+        plateLabelWidth="calc(100% - 3.05rem)"
+        [fill]="true"
+      />
+      <div class="player-deck-meta">
+        @if (deckLabel()(currentPlayer); as label) {
+          <small>{{ label }}</small>
+        }
+        <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" [fallback]="'shared.text.colorless' | runtimeTranslate" size="small" />
+      </div>
     </div>
-  </div>
+  }
+  @if (gridLayout()) {
+    <span
+      class="grid-player-name"
+      data-testid="grid-player-name"
+      [style.color]="playerNameColor(currentPlayer.id)"
+    >{{ currentPlayer.state.user.displayName }}</span>
+  }
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <div class="life-stepper" [attr.aria-label]="'game.playerSummaryPanel.lifeControls' | runtimeTranslate">
       @if (canEditCounters()) {
@@ -101,7 +113,9 @@
       icon="chevron-down"
       align="right"
       variant="gold"
-      [viewportSafe]="true"
+      [viewportSafe]="!gridPresentation()"
+      [viewportPanelWidth]="gridPresentation() ? 520 : 336"
+      [style.--extra-actions-menu-width]="extraActionsMenuWidth()"
       (openedChange)="syncOtherCountersExpansion($event)"
     >
       <section class="player-counter-menu" [attr.aria-label]="'game.playerSummaryPanel.playerCounters' | runtimeTranslate" [class.read-only]="!canEditCounters()">
@@ -269,13 +283,13 @@
     <app-special-entity-strip
       class="player-summary-special-entity-strip"
       [entities]="visibleSpecialEntities()"
-      variant="summary"
+      [variant]="gridLayout() ? 'compact' : 'summary'"
       (previewRequested)="helperPreviewRequested.emit($event)"
       (previewHidden)="helperPreviewHidden.emit()"
       (entityContextRequested)="helperContextRequested.emit($event)"
     />
   }
-  @if (returnActionLabel(); as label) {
+  @if (!gridLayout() && returnActionLabel(); as label) {
     <button
       type="button"
       class="summary-return-button"

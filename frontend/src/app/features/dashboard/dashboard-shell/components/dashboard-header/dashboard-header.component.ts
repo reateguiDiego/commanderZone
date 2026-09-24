@@ -5,6 +5,7 @@ import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-asset
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
 import { DashboardHeaderControlsComponent } from '../dashboard-header-controls/dashboard-header-controls.component';
+import { FriendRemovalRequest } from '../../../../friends/friends-dropdown/friends-dropdown.component';
 
 @Component({
   selector: 'app-dashboard-header',
@@ -32,4 +33,5 @@ export class DashboardHeaderComponent {
   readonly closeFriends = output<void>();
   readonly closeMessages = output<void>();
   readonly logout = output<void>();
+  readonly friendRemovalRequested = output<FriendRemovalRequest>();
 }

@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 
 interface ZoneCardStackLayer {
   key: number;
@@ -26,7 +27,12 @@ interface ShuffleCardVariation {
 
 @Component({
   selector: 'app-zone-card-stack',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, PreloadCardAlternateFaceDirective],
+  imports: [
+    LucideAngularModule,
+    RuntimeTranslatePipe,
+    GameScheduledImageDirective,
+    PreloadCardAlternateFaceDirective,
+  ],
   templateUrl: './zone-card-stack.component.html',
   styleUrl: './zone-card-stack.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

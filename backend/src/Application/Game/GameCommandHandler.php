@@ -842,7 +842,6 @@ class GameCommandHandler
             'tapped' => ($card['tapped'] ?? false) === true,
             'isCommander' => ($card['isCommander'] ?? false) === true,
             'isDungeon' => $this->isDungeonCard($card),
-            'isTheRing' => $this->isTheRingCard($card),
             'isEmblem' => $this->isEmblemCard($card),
         ], static fn (bool $enabled): bool => $enabled);
     }
@@ -1312,11 +1311,6 @@ class GameCommandHandler
                 return '';
             }
             $previousValue = (int) ($card['counters'][$key] ?? 0);
-            if ($this->isTheRingLevelCounter($card, $key)) {
-                $card['counters'][$key] = 1;
-
-                return sprintf('Set %s %s counters to 1.', $this->cardLogName($card), $key);
-            }
             unset($card['counters'][$key]);
             $this->applyStatCounterDelta($card, $key, -$previousValue);
 
@@ -1331,18 +1325,11 @@ class GameCommandHandler
             ? (int) $payload['value']
             : (int) ($card['counters'][$key] ?? 0) + (int) ($payload['delta'] ?? 0);
         $previousValue = (int) ($card['counters'][$key] ?? 0);
-        $nextValue = $this->isTheRingLevelCounter($card, $key)
-            ? max(1, min(4, $value))
-            : max(0, $value);
+        $nextValue = max(0, $value);
         $card['counters'][$key] = $nextValue;
         $this->applyStatCounterDelta($card, $key, $nextValue - $previousValue);
 
         return sprintf('Set %s %s counters to %d.', $this->cardLogName($card), $key, $nextValue);
-    }
-
-    private function isTheRingLevelCounter(array $card, string $key): bool
-    {
-        return strtolower(trim($key)) === 'level' && $this->isTheRingCard($card);
     }
 
     private function applyPowerToughnessChanged(array &$snapshot, array $payload): string
@@ -1874,7 +1861,6 @@ class GameCommandHandler
             'mutableOverrides' => $this->tokenMutableOverrides($card),
             'flags' => [
                 'isDungeon' => $isDungeon,
-                'isTheRing' => $isTheRing,
                 'isEmblem' => $isEmblem,
             ],
         ];
@@ -1900,19 +1886,16 @@ class GameCommandHandler
                 'tokenMeta' => $tokenMeta,
             ], $playerId, 'battlefield');
             if ($isTheRing) {
-                $tokens[$index]['counters'] = ['Level' => 1];
+                $tokens[$index]['counters'] = ['Level' => 0];
             }
         }
 
         if ($isDungeon) {
             $this->removePlayerBattlefieldDungeons($snapshot, $playerId);
         }
-        if ($isTheRing) {
-            $this->removePlayerBattlefieldTheRingCards($snapshot, $playerId);
-        }
         array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
         $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
-        if ($isDungeon || $isTheRing) {
+        if ($isDungeon) {
             $this->pruneBattlefieldRelations($snapshot);
         }
 
@@ -2092,7 +2075,7 @@ class GameCommandHandler
                 $snapshot,
                 $playerId,
                 'library',
-                max(0, count($snapshot['players'][$playerId]['zones']['library']) - count($requestedIds)),
+                0,
             );
 
             return 'Reordered library.';
@@ -2522,7 +2505,7 @@ class GameCommandHandler
             $snapshot,
             $playerId,
             'library',
-            max(0, count($snapshot['players'][$playerId]['zones']['library']) - $count),
+            0,
         );
 
         return sprintf('ha alterado el orden de sus proximos %d robos.', $count);
@@ -2536,6 +2519,7 @@ class GameCommandHandler
             if ($instanceId !== '') {
                 unset($snapshot['loc'][$instanceId]);
             }
+            $this->reindexZoneLocations($snapshot, $playerId, 'library');
         }
 
         return is_array($card) ? $card : null;
@@ -2553,6 +2537,7 @@ class GameCommandHandler
                 unset($snapshot['loc'][$instanceId]);
             }
         }
+        $this->reindexZoneLocations($snapshot, $playerId, 'library');
 
         return $cards;
     }
@@ -2672,9 +2657,6 @@ class GameCommandHandler
         }
         if ($this->isGameplayCard($equipmentCard)) {
             throw new \InvalidArgumentException(sprintf('%s cannot be attached to another permanent.', $this->gameplayCardLabel($equipmentCard)));
-        }
-        if ($this->isTheRingCard($attachedToCard)) {
-            throw new \InvalidArgumentException('The Ring cannot be an attachment target.');
         }
         if ($this->isGameplayCard($attachedToCard)) {
             throw new \InvalidArgumentException(sprintf('%s cannot be attachment targets.', $this->gameplayCardLabel($attachedToCard)));
@@ -3039,21 +3021,6 @@ class GameCommandHandler
         $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
             $battlefield,
             fn (mixed $card): bool => !is_array($card) || !$this->isDungeonCard($card),
-        ));
-        $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
-    }
-
-    private function removePlayerBattlefieldTheRingCards(array &$snapshot, string $playerId): void
-    {
-        $battlefield = $snapshot['players'][$playerId]['zones']['battlefield'] ?? [];
-        if (!is_array($battlefield)) {
-            return;
-        }
-
-        $this->clearLocationEntriesForCards($snapshot, $battlefield);
-        $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
-            $battlefield,
-            fn (mixed $card): bool => !is_array($card) || !$this->isTheRingCard($card),
         ));
         $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
     }
@@ -5283,11 +5250,6 @@ class GameCommandHandler
         return count($operation) > 4 ? $operation : null;
     }
 
-    public function v2IsTheRingLevelCounter(array $card, string $key): bool
-    {
-        return $this->isTheRingLevelCounter($card, $key);
-    }
-
     public function v2IsDayNightCard(array $card): bool
     {
         return $this->isDayNightCard($card);
@@ -5757,7 +5719,7 @@ class GameCommandHandler
                 $snapshot,
                 $playerId,
                 'library',
-                max(0, count($snapshot['players'][$playerId]['zones']['library']) - count($instanceIds)),
+                0,
             );
         } else {
             $existingIds = $this->v2ZoneInstanceIds($snapshot, $playerId, $zone);
@@ -6200,7 +6162,11 @@ class GameCommandHandler
                 $this->reindexZoneLocations($snapshot, $targetPlayerId, 'library');
                 foreach (array_keys($preparedCards) as $moveIndex) {
                     $location = $this->assertLocation($snapshot, (string) $moves[$moveIndex]['instanceId'], 'library');
-                    $moves[$moveIndex]['targetIndex'] = $location['index'];
+                    $moves[$moveIndex]['targetIndex'] = $this->libraryProjectionIndex(
+                        $snapshot,
+                        $targetPlayerId,
+                        $location['index'],
+                    );
                 }
 
                 continue;
@@ -6298,6 +6264,17 @@ class GameCommandHandler
         }
 
         return $operations;
+    }
+
+    private function libraryProjectionIndex(array $snapshot, string $playerId, int $storageIndex): int
+    {
+        $library = $snapshot['players'][$playerId]['zones']['library'] ?? [];
+        $libraryCount = is_array($library) ? count($library) : 0;
+        if (!$this->libraryOps->usesTailTop($snapshot['players'][$playerId])) {
+            return $storageIndex;
+        }
+
+        return max(0, $libraryCount - 1 - $storageIndex);
     }
 
     /**

@@ -1,6 +1,6 @@
 import { GameAttachment, GameBattlefieldStack, GameCardInstance } from '../../../../core/models/game.model';
-import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
-import { isDayNightCard, isGameplayCard, isTheRingCard } from './gameplay-card-kind';
+import { BattlefieldCardSize, DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
+import { isDayNightCard, isGameplayCard } from './gameplay-card-kind';
 import { buildLandStackGroups, landStackGroupContaining, landStackOffsetX, landStackOffsetY } from './land-stack';
 import { buildPermanentStackPresentationGroups } from './permanent-stack-presentation';
 
@@ -58,6 +58,8 @@ export function attachmentDropTarget(
   equipmentInstanceId: string,
   equipmentPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  minimumOverlapRatio: number = DROP_OVERLAP_RATIO,
+  cardSize: BattlefieldCardSize = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): AttachmentDropTarget | null {
   const equipment = cards.find((card) => card.instanceId === equipmentInstanceId);
   const landGroups = buildLandStackGroups(cards, battlefieldStacks, positionFor);
@@ -74,8 +76,8 @@ export function attachmentDropTarget(
 
   const targetCards = cards.filter((card) => card.instanceId !== equipmentInstanceId);
   const groups = buildAttachmentStackGroups(targetCards, attachments, positionFor);
-  const target = bestDropTarget(targetCards, equipmentInstanceId, equipmentPosition, positionFor);
-  if (!target || isDayNightCard(target) || isGameplayCard(target) || isTheRingCard(target) || target.instanceId === equipmentInstanceId || attachments.some((attachment) =>
+  const target = bestDropTarget(targetCards, equipmentInstanceId, equipmentPosition, positionFor, minimumOverlapRatio, cardSize);
+  if (!target || isDayNightCard(target) || isGameplayCard(target) || target.instanceId === equipmentInstanceId || attachments.some((attachment) =>
     attachment.equipmentInstanceId === equipmentInstanceId && attachment.attachedToInstanceId === target.instanceId,
   )) {
     return null;
@@ -307,30 +309,32 @@ function bestDropTarget(
   draggedInstanceId: string,
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  minimumOverlapRatio: number,
+  cardSize: BattlefieldCardSize,
 ): GameCardInstance | null {
-  const draggedRect = cardRect(draggedPosition);
+  const draggedRect = cardRect(draggedPosition, cardSize);
 
   return cards
     .filter((card) => card.instanceId !== draggedInstanceId)
     .map((card) => {
       const position = positionFor(card);
 
-      return position ? { card, overlap: overlapRatio(draggedRect, cardRect(position)) } : null;
+      return position ? { card, overlap: overlapRatio(draggedRect, cardRect(position, cardSize)) } : null;
     })
-    .filter((entry): entry is { card: GameCardInstance; overlap: number } => entry !== null && entry.overlap >= DROP_OVERLAP_RATIO)
+    .filter((entry): entry is { card: GameCardInstance; overlap: number } => entry !== null && entry.overlap >= minimumOverlapRatio)
     .sort((left, right) => right.overlap - left.overlap)[0]?.card ?? null;
 }
 
-function cardRect(position: { x: number; y: number }): DOMRect {
+function cardRect(position: { x: number; y: number }, cardSize: BattlefieldCardSize): DOMRect {
   return {
     x: position.x,
     y: position.y,
     left: position.x,
     top: position.y,
-    right: position.x + DEFAULT_BATTLEFIELD_CARD_SIZE.width,
-    bottom: position.y + DEFAULT_BATTLEFIELD_CARD_SIZE.height,
-    width: DEFAULT_BATTLEFIELD_CARD_SIZE.width,
-    height: DEFAULT_BATTLEFIELD_CARD_SIZE.height,
+    right: position.x + cardSize.width,
+    bottom: position.y + cardSize.height,
+    width: cardSize.width,
+    height: cardSize.height,
     toJSON: () => ({}),
   } as DOMRect;
 }

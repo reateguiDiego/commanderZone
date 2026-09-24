@@ -432,7 +432,7 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 	}
 	card := cardPatchData(game, playerID, instanceID)
 	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.remove", Data: map[string]any{"playerId": from.PlayerID, "zone": from.Zone, "instanceIds": []string{instanceID}}})
-	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": playerID, "zone": state.ZoneLibrary, "cards": []map[string]any{card}}})
+	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": playerID, "zone": state.ZoneLibrary, "index": game.Loc[instanceID].Index, "cards": []map[string]any{card}}})
 	emitZoneCount(emitter, game, from.PlayerID, from.Zone)
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	if top {
@@ -459,7 +459,7 @@ func emitCurrentTopWhenPlayTopRevealed(emitter *PatchEmitter, game *state.GameSt
 		emitTopRevealHidden(emitter, playerID, window.To, window.Mask)
 		return
 	}
-	instanceID := zones.Library[len(zones.Library)-1]
+	instanceID := zones.Library[0]
 	instance, ok := game.Instances[instanceID]
 	if !ok {
 		return
@@ -632,7 +632,7 @@ func stopRevealingTopLibraryCard(game *state.GameState, playerID string, payload
 			remainingViewers = withoutViewerIDs(window.To, targetViewers)
 		}
 		if zones, ok := game.Zones[playerID]; ok && len(zones.Library) > 0 {
-			topID := zones.Library[len(zones.Library)-1]
+			topID := zones.Library[0]
 			instance := game.Instances[topID]
 			instance.VisibleToMask &^= removeMask
 			game.Instances[topID] = instance

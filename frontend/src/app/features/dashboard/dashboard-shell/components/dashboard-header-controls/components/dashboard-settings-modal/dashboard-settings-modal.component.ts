@@ -26,6 +26,7 @@ import {
   UserAvatar,
   UserDisplayNameStyle,
   UserGamePreferences,
+  UserGameLayoutPreference,
 } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
@@ -44,7 +45,7 @@ type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
 type PasswordResetRequestState = 'idle' | 'sending' | 'sent' | 'error';
-type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'autoApplyCommanderDamageToLife' | 'gameAnimations' | 'chatNotificationSounds' | 'combineChatAndGameLog';
+type GameSettingsToggleId = 'showCardAlignmentHelper' | 'showManaHelperOnStartup' | 'enableManaRow' | 'autoApplyCommanderDamageToLife' | 'gameAnimations' | 'chatNotificationSounds' | 'combineChatAndGameLog';
 export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
@@ -71,6 +72,12 @@ const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
 );
 const GAME_SETTINGS_TOGGLE_DEFAULTS: UserGamePreferences = { ...DEFAULT_USER_GAME_PREFERENCES };
 const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
+  {
+    id: 'showCardAlignmentHelper',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.showCardAlignmentHelper.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.showCardAlignmentHelper.description',
+    warningKey: '',
+  },
   {
     id: 'showManaHelperOnStartup',
     labelKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label',
@@ -209,6 +216,7 @@ export class DashboardSettingsModalComponent {
   readonly cardLanguageCoverageLoading = signal(false);
   readonly gameSettingsToggleOptions = GAME_SETTINGS_TOGGLE_OPTIONS;
   readonly gameSettingsToggleState = signal<UserGamePreferences>({ ...GAME_SETTINGS_TOGGLE_DEFAULTS });
+  readonly gameSettingsDefaultLayout = computed(() => this.gameSettingsToggleState().defaultBattlefieldLayout);
   private readonly draftInitialized = signal(false);
 
   readonly profileForm = this.formBuilder.group({
@@ -421,7 +429,7 @@ export class DashboardSettingsModalComponent {
       displayName?: string;
       cardLanguage?: SupportedCardLanguageCode;
       appLanguage?: SupportedLanguageCode;
-      gamePreferences?: UserGamePreferences;
+      gamePreferences?: Omit<UserGamePreferences, 'chosenModeView'>;
     } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
@@ -441,7 +449,7 @@ export class DashboardSettingsModalComponent {
       payload.appLanguage = nextAppLanguage;
     }
     if (this.gameSettingsChanged()) {
-      payload.gamePreferences = this.gameSettingsToggleState();
+      payload.gamePreferences = this.gameSettingsPayload();
     }
 
     this.saveInProgress.set(true);
@@ -628,11 +636,25 @@ export class DashboardSettingsModalComponent {
     }));
   }
 
+  setGameSettingsDefaultLayout(layout: UserGameLayoutPreference): void {
+    this.gameSettingsToggleState.update((current) => ({
+      ...current,
+      defaultBattlefieldLayout: layout,
+    }));
+  }
+
+  private gameSettingsPayload(): Omit<UserGamePreferences, 'chosenModeView'> {
+    const { chosenModeView: _legacyChosenModeView, ...preferences } = this.gameSettingsToggleState();
+
+    return preferences;
+  }
+
   private gameSettingsChanged(): boolean {
     const baseline = this.profileBaseline().gamePreferences;
     const current = this.gameSettingsToggleState();
 
-    return GAME_SETTINGS_TOGGLE_OPTIONS.some((option) => current[option.id] !== baseline[option.id]);
+    return current.defaultBattlefieldLayout !== baseline.defaultBattlefieldLayout
+      || GAME_SETTINGS_TOGGLE_OPTIONS.some((option) => current[option.id] !== baseline[option.id]);
   }
 
   private normalizeGamePreferences(preferences: Partial<UserGamePreferences> | null | undefined): UserGamePreferences {

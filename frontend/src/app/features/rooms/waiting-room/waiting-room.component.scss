@@ -223,13 +223,10 @@
   min-height: 2.75rem;
 }
 
-.roll-dice-preview { display: grid; place-items: center; padding: 0.35rem 0 0.1rem; }
-
-.roll-dice-preview img { width: min(8.5rem, 42vw); height: auto; }
-
-.roll-lock-warning {
-  margin: 0.2rem auto 0;
-  max-width: 30rem;
+app-roll-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
 }
 
 .friends-list { display: grid; gap: 0.55rem; max-height: 20rem; overflow: auto; }

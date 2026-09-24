@@ -1,13 +1,34 @@
-import { AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DoCheck,
+  ElementRef,
+  HostListener,
+  OnChanges,
+  OnDestroy,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
-import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget } from '../../services/game-table-pointer-drag.service';
+import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
+import {
+  GameTablePointerDragService,
+  HandPointerDropPreview,
+  PointerDropTarget,
+} from '../../services/game-table-pointer-drag.service';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
 import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
+import { measuredBattlefieldCardSize } from '../../utils/battlefield-position';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -37,8 +58,16 @@ interface HandPointerZoneMoveEvent {
   targetPlayerId: string;
   movedInstanceId: string;
   toZone: GameZoneName;
+  sourceRect: HandPointerSourceRect;
   rawZone?: string;
   position?: { x: number; y: number };
+}
+
+interface HandPointerSourceRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 interface HandPointerDragStartEvent {
@@ -52,6 +81,7 @@ interface HandPointerDrag {
   playerId: string;
   card: GameCardInstance;
   pointerId: number;
+  sourceRect: HandPointerSourceRect;
   startX: number;
   startY: number;
   cardWidth: number;
@@ -74,7 +104,12 @@ interface ResolvedHandPointerDrag {
 
 @Component({
   selector: 'app-player-hand-panel',
-  imports: [RuntimeTranslatePipe, GameCardViewComponent, PrettyScrollDirective],
+  imports: [
+    RuntimeTranslatePipe,
+    GameCardViewComponent,
+    GameScheduledImageDirective,
+    PrettyScrollDirective,
+  ],
   templateUrl: './player-hand-panel.component.html',
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -107,20 +142,33 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private pendingRowScrollAnchor: { scrollProgress: number } | null = null;
   private lastPointerPosition: { clientX: number; clientY: number } | null = null;
   private stableHandInstanceIds: ReadonlySet<string> = new Set();
-  private retainedHandDropPreview: { targetInstanceId: string; placement: 'before' | 'after' } | null = null;
+  private retainedHandDropPreview: {
+    targetInstanceId: string;
+    placement: 'before' | 'after';
+  } | null = null;
   private focusInside = false;
   private pointerInside = false;
   private suppressHandHoverUntilPointerLeaves = false;
   private readonly handInteractionSuspended = signal(false);
   private suppressedClickInstanceId: string | null = null;
+  readonly compact = input(false);
+  readonly renderCards = input(true);
+  readonly isTurnActive = input(false);
   readonly player = input.required<PlayerView>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
   readonly isDraggingCard = input.required<(card: GameCardInstance) => boolean>();
-  readonly isHandDropTarget = input.required<(playerId: string, card: GameCardInstance, placement: 'before' | 'after') => boolean>();
-  readonly isDropZoneHighlighted = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
-  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isHandDropTarget =
+    input.required<
+      (playerId: string, card: GameCardInstance, placement: 'before' | 'after') => boolean
+    >();
+  readonly isDropZoneHighlighted = input<(playerId: string, zone: GameZoneName) => boolean>(
+    () => false,
+  );
+  readonly isCardTransferPending = input<
+    (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean
+  >(() => false);
   readonly interactionFrozen = input(false);
   readonly readOnly = input(false);
   readonly showCardsFaceDown = input(false);
@@ -129,6 +177,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   readonly externalRevealAllowed = input(true);
   readonly motionActive = input(false);
   readonly motionLayoutMode = input<'fan' | 'row' | null>(null);
+  readonly handPosition = input<'top' | 'bottom'>('bottom');
 
   readonly handDragOver = output<HandZoneDropEvent>();
   readonly handDropped = output<HandZoneDropEvent>();
@@ -152,8 +201,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     const handPlayer = this.player();
     const orderedCards = this.visualHandCards(handPlayer.state.zones.hand, handPlayer.id);
     const containsRevealedIdentity = orderedCards.some((card) => this.isRevealedHandCard(card));
-    const visibleCards = orderedCards
-      .map((card, index) => this.withRevealMarker(card, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
+    const visibleCards = orderedCards.map((card, index) =>
+      this.withRevealMarker(
+        card,
+        handPlayer.state.revealedHandIndexes,
+        index,
+        !containsRevealedIdentity,
+      ),
+    );
     const expectedCount = Math.max(0, this.zoneCount()(handPlayer, 'hand'));
     if (!this.showCardsFaceDown()) {
       return visibleCards;
@@ -164,15 +219,25 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     // extra card backs on screen after a card leaves that hand.
     const authoritativeCards = visibleCards.slice(0, expectedCount);
 
-    return Array.from({ length: expectedCount }, (_, index): GameCardInstance => authoritativeCards[index] ?? this.withRevealMarker({
-      instanceId: `${handPlayer.id}-hidden-hand-${index}`,
-      ownerId: handPlayer.id,
-      controllerId: handPlayer.id,
-      name: 'Hidden card',
-      tapped: false,
-      hidden: true,
-      zone: 'hand',
-    }, handPlayer.state.revealedHandIndexes, index, !containsRevealedIdentity));
+    return Array.from(
+      { length: expectedCount },
+      (_, index): GameCardInstance =>
+        authoritativeCards[index] ??
+        this.withRevealMarker(
+          {
+            instanceId: `${handPlayer.id}-hidden-hand-${index}`,
+            ownerId: handPlayer.id,
+            controllerId: handPlayer.id,
+            name: 'Hidden card',
+            tapped: false,
+            hidden: true,
+            zone: 'hand',
+          },
+          handPlayer.state.revealedHandIndexes,
+          index,
+          !containsRevealedIdentity,
+        ),
+    );
   });
   readonly handLayoutMode = computed<'fan' | 'row'>(() => {
     if (this.handInteractionSuspended()) {
@@ -180,7 +245,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
-    if (externalDragActive && this.isExternalHandDropReceiverHighlighted() && !this.readOnly() && !this.showCardsFaceDown()) {
+    if (
+      externalDragActive &&
+      this.isExternalHandDropReceiverHighlighted() &&
+      !this.readOnly() &&
+      !this.showCardsFaceDown()
+    ) {
       return 'row';
     }
 
@@ -209,16 +279,20 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return 'row';
     }
 
-    return (this.handHovered() || this.hasOpenHandContextMenu()) && this.isHandVisuallyRevealed() ? 'row' : 'fan';
+    return (this.handHovered() || this.hasOpenHandContextMenu()) && this.isHandVisuallyRevealed()
+      ? 'row'
+      : 'fan';
   });
 
   ngDoCheck(): void {
     this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
 
     const nextLayoutMode = this.handLayoutMode();
-    if (this.renderedHandLayoutMode === null
-      || this.pendingHandLayoutFlip !== null
-      || nextLayoutMode === this.renderedHandLayoutMode) {
+    if (
+      this.renderedHandLayoutMode === null ||
+      this.pendingHandLayoutFlip !== null ||
+      nextLayoutMode === this.renderedHandLayoutMode
+    ) {
       return;
     }
 
@@ -246,10 +320,19 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     const handGrew = this.previousHandCount !== null && handCount > this.previousHandCount;
-    if (!skipRowAnchorAdjustments && currentLayoutMode === 'row' && this.previousHandLayoutMode !== 'row') {
+    if (
+      !skipRowAnchorAdjustments &&
+      currentLayoutMode === 'row' &&
+      this.previousHandLayoutMode !== 'row'
+    ) {
       this.scrollHandRowToPointerAnchor();
     }
-    if (!skipRowAnchorAdjustments && currentLayoutMode === 'fan' && !externalDragActive && (handGrew || this.previousHandLayoutMode !== 'fan')) {
+    if (
+      !skipRowAnchorAdjustments &&
+      currentLayoutMode === 'fan' &&
+      !externalDragActive &&
+      (handGrew || this.previousHandLayoutMode !== 'fan')
+    ) {
       this.centerHandFan();
     }
 
@@ -297,10 +380,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    if (this.pointerInside
-      && !this.suppressHandHoverUntilPointerLeaves
-      && !this.interactionFrozen()
-      && this.canRevealFromPointer()) {
+    if (
+      this.pointerInside &&
+      !this.suppressHandHoverUntilPointerLeaves &&
+      !this.interactionFrozen() &&
+      this.canRevealFromPointer()
+    ) {
       this.scheduleHandReveal();
       return;
     }
@@ -332,7 +417,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
-    const intendedMode = drag.mode === 'pending' ? this.nextPointerDragMode(deltaX, deltaY) : drag.mode;
+    const intendedMode =
+      drag.mode === 'pending' ? this.nextPointerDragMode(deltaX, deltaY) : drag.mode;
     if (intendedMode === 'pending') {
       return;
     }
@@ -411,11 +497,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
     const resolved = this.resolvePointerDrag(event, drag, drag.mode);
 
-    const reorderPreview = resolved?.mode === 'reorder'
-      ? resolved.preview ?? drag.preview ?? pendingReorderPreview
-      : drag.mode === 'reorder' && drag.preview && !resolved?.target
-        ? drag.preview
-        : null;
+    const reorderPreview =
+      resolved?.mode === 'reorder'
+        ? (resolved.preview ?? drag.preview ?? pendingReorderPreview)
+        : drag.mode === 'reorder' && drag.preview && !resolved?.target
+          ? drag.preview
+          : null;
     if (reorderPreview) {
       this.keepHandOpenAfterReorder(event, drag.playerId);
       this.pointerDrag.set(null);
@@ -436,6 +523,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
           targetPlayerId: resolved.target.targetPlayerId,
           movedInstanceId: drag.card.instanceId,
           toZone: resolved.target.toZone,
+          sourceRect: drag.sourceRect,
           ...(resolved.target.rawZone === 'mana' ? { rawZone: resolved.target.rawZone } : {}),
           ...(resolved.target.position ? { position: resolved.target.position } : {}),
         });
@@ -580,10 +668,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   blurHand(event: FocusEvent): void {
-    if (this.motionActive()) {
-      return;
-    }
-
     const currentTarget = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const nextTarget = event.relatedTarget instanceof Node ? event.relatedTarget : null;
     if (currentTarget?.contains(nextTarget)) {
@@ -591,6 +675,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.focusInside = false;
+    if (this.motionActive()) {
+      return;
+    }
+
     if (!this.pointerInside && !this.interactionFrozen()) {
       this.hideHand();
     }
@@ -614,10 +702,23 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     const target = this.handPointerSourceElement(event);
     target?.setPointerCapture?.(event.pointerId);
     const bounds = visualBounds;
-    const cardWidth = bounds?.width || 103;
-    const cardHeight = bounds?.height || 144;
-    const offsetX = bounds && bounds.width > 0 ? Math.max(0, Math.min(cardWidth, event.clientX - bounds.left)) : cardWidth / 2;
-    const offsetY = bounds && bounds.height > 0 ? Math.max(0, Math.min(cardHeight, event.clientY - bounds.top)) : cardHeight / 2;
+    const cardSize = this.battlefieldCardSizeFor(playerId);
+    const cardWidth = cardSize.width;
+    const cardHeight = cardSize.height;
+    const offsetX =
+      bounds && bounds.width > 0
+        ? Math.max(
+            0,
+            Math.min(cardWidth, ((event.clientX - bounds.left) / bounds.width) * cardWidth),
+          )
+        : cardWidth / 2;
+    const offsetY =
+      bounds && bounds.height > 0
+        ? Math.max(
+            0,
+            Math.min(cardHeight, ((event.clientY - bounds.top) / bounds.height) * cardHeight),
+          )
+        : cardHeight / 2;
     this.clearReorderPreviewTimer();
     this.keepHandRevealedDuringOwnPointerDrag();
     this.cardPreviewHidden.emit();
@@ -625,6 +726,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       playerId,
       card,
       pointerId: event.pointerId,
+      sourceRect: this.sourceRectFromBounds(visualBounds),
       startX: event.clientX,
       startY: event.clientY,
       cardWidth,
@@ -668,7 +770,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
         card,
         playerId: this.player().id,
         zone: 'hand',
-        sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
+        sourceRect: previewRectFromElement(
+          event.currentTarget instanceof Element ? event.currentTarget : null,
+        ),
       });
     }
   }
@@ -748,8 +852,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
     const drag = this.pointerDrag();
 
-    return hand.length === 1
-      && Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === hand[0]?.instanceId);
+    return (
+      hand.length === 1 &&
+      Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === hand[0]?.instanceId)
+    );
   }
 
   hasCompactHandDropTarget(): boolean {
@@ -761,7 +867,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   isEmptyHandDropTargetActive(): boolean {
     const drag = this.pointerDrag();
 
-    return this.isHandDropReceiverVisuallyHighlighted() || Boolean(drag && drag.mode !== 'pending' && drag.overOwnHand);
+    return (
+      this.isHandDropReceiverVisuallyHighlighted() ||
+      Boolean(drag && drag.mode !== 'pending' && drag.overOwnHand)
+    );
   }
 
   isDraggingHandCard(card: GameCardInstance): boolean {
@@ -770,9 +879,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return this.isSelected()(card.instanceId);
     }
 
-    return Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === card.instanceId)
-      || this.isDraggingCard()(card)
-      || this.isCardTransferPending()(this.player().id, 'hand', card);
+    return (
+      Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === card.instanceId) ||
+      this.isDraggingCard()(card) ||
+      this.isCardTransferPending()(this.player().id, 'hand', card)
+    );
   }
 
   floatingDragCount(): number {
@@ -781,7 +892,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return 1;
     }
 
-    return Math.max(1, this.player().state.zones.hand.filter((card) => this.isSelected()(card.instanceId)).length);
+    return Math.max(
+      1,
+      this.player().state.zones.hand.filter((card) => this.isSelected()(card.instanceId)).length,
+    );
   }
 
   floatingCardImage(): string | null {
@@ -811,15 +925,19 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   isHandDropReceiverHighlighted(): boolean {
     const drag = this.pointerDrag();
 
-    return this.isExternalHandDropReceiverHighlighted()
-      || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
+    return (
+      this.isExternalHandDropReceiverHighlighted() ||
+      Boolean(drag && (drag.mode === 'reorder' || (drag.mode !== 'pending' && drag.overOwnHand)))
+    );
   }
 
   isHandDropReceiverVisuallyHighlighted(): boolean {
     const drag = this.pointerDrag();
 
-    return this.handDropReceiverRevealed()
-      || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
+    return (
+      this.handDropReceiverRevealed() ||
+      Boolean(drag && (drag.mode === 'reorder' || (drag.mode !== 'pending' && drag.overOwnHand)))
+    );
   }
 
   private isRevealedHandCard(card: GameCardInstance): boolean {
@@ -832,8 +950,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     index: number,
     showPublicMarker: boolean,
   ): GameCardInstance {
-    const revealMarker = (showPublicMarker && revealedHandIndexes?.includes(index))
-      || (card.revealedTo?.length ?? 0) > 0;
+    const revealMarker =
+      (showPublicMarker && revealedHandIndexes?.includes(index)) ||
+      (card.revealedTo?.length ?? 0) > 0;
 
     return card.revealMarker === revealMarker ? card : { ...card, revealMarker };
   }
@@ -842,7 +961,19 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return !this.readOnly() && card.hidden !== true;
   }
 
-  private visualHandCards(cards: readonly GameCardInstance[], playerId: string): readonly GameCardInstance[] {
+  private battlefieldCardSizeFor(playerId: string): { width: number; height: number } {
+    const battlefield =
+      Array.from(document.querySelectorAll<HTMLElement>('.battlefield')).find(
+        (element) => element.dataset['playerId'] === playerId,
+      ) ?? null;
+
+    return measuredBattlefieldCardSize(battlefield);
+  }
+
+  private visualHandCards(
+    cards: readonly GameCardInstance[],
+    playerId: string,
+  ): readonly GameCardInstance[] {
     if (this.stableHandInstanceIds.size === 0) {
       return cards;
     }
@@ -853,19 +984,28 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     const movedCards = cards.filter((card) => !this.stableHandInstanceIds.has(card.instanceId));
-    if (movedCards.length === 0 || movedCards.some((card) => card.instanceId === preview.targetInstanceId)) {
+    if (
+      movedCards.length === 0 ||
+      movedCards.some((card) => card.instanceId === preview.targetInstanceId)
+    ) {
       return cards;
     }
 
     const movedIds = new Set(movedCards.map((card) => card.instanceId));
     const withoutMoved = cards.filter((card) => !movedIds.has(card.instanceId));
-    const targetIndex = withoutMoved.findIndex((card) => card.instanceId === preview.targetInstanceId);
+    const targetIndex = withoutMoved.findIndex(
+      (card) => card.instanceId === preview.targetInstanceId,
+    );
     if (targetIndex < 0) {
       return cards;
     }
 
     const visuallyOrdered = [...withoutMoved];
-    visuallyOrdered.splice(preview.placement === 'after' ? targetIndex + 1 : targetIndex, 0, ...movedCards);
+    visuallyOrdered.splice(
+      preview.placement === 'after' ? targetIndex + 1 : targetIndex,
+      0,
+      ...movedCards,
+    );
 
     return visuallyOrdered;
   }
@@ -901,7 +1041,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return activePreview;
     }
 
-    if (this.retainedHandDropPreview && this.hasUnstableHandCards(cards) && this.hasPreviewTarget(cards, this.retainedHandDropPreview)) {
+    if (
+      this.retainedHandDropPreview &&
+      this.hasUnstableHandCards(cards) &&
+      this.hasPreviewTarget(cards, this.retainedHandDropPreview)
+    ) {
       return this.retainedHandDropPreview;
     }
 
@@ -942,7 +1086,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     preview: { targetInstanceId: string; placement: 'before' | 'after' },
   ): boolean {
     const movedIndexes = cards
-      .map((card, index) => this.stableHandInstanceIds.has(card.instanceId) ? -1 : index)
+      .map((card, index) => (this.stableHandInstanceIds.has(card.instanceId) ? -1 : index))
       .filter((index) => index >= 0);
     if (movedIndexes.length === 0) {
       return false;
@@ -1027,13 +1171,15 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     const rawDelta = event.deltaX + event.deltaY;
-    const fallbackDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    const fallbackDelta =
+      Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
     const delta = rawDelta === 0 ? fallbackDelta : rawDelta;
-    const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
-      ? 16
-      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-        ? row.clientWidth
-        : 1;
+    const multiplier =
+      event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? row.clientWidth
+          : 1;
 
     row.scrollLeft += delta * multiplier;
     event.preventDefault();
@@ -1041,7 +1187,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private scheduleHandReveal(): void {
-    if (this.suppressHandHoverUntilPointerLeaves || this.handRevealed() || this.revealTimer !== null) {
+    if (
+      this.suppressHandHoverUntilPointerLeaves ||
+      this.handRevealed() ||
+      this.revealTimer !== null
+    ) {
       return;
     }
 
@@ -1053,7 +1203,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private canRevealFromPointer(): boolean {
-    return !this.showCardsFaceDown() && (!this.isExternalCardDrag() || this.externalRevealAllowed());
+    return (
+      !this.showCardsFaceDown() && (!this.isExternalCardDrag() || this.externalRevealAllowed())
+    );
   }
 
   private isExternalCardDrag(): boolean {
@@ -1094,10 +1246,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    const shouldKeepRow = this.isHandVisuallyRevealed()
-      || this.handHovered()
-      || this.handDropReceiverRevealed()
-      || this.previousHandLayoutMode === 'row';
+    const shouldKeepRow =
+      this.isHandVisuallyRevealed() ||
+      this.handHovered() ||
+      this.handDropReceiverRevealed() ||
+      this.previousHandLayoutMode === 'row';
 
     if (!shouldKeepRow) {
       return;
@@ -1148,20 +1301,31 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    if (!this.isPointInsideHandHoverBounds(this.lastPointerPosition.clientX, this.lastPointerPosition.clientY)
-      && this.previousHandLayoutMode === 'row') {
+    if (
+      !this.isPointInsideHandHoverBounds(
+        this.lastPointerPosition.clientX,
+        this.lastPointerPosition.clientY,
+      ) &&
+      this.previousHandLayoutMode === 'row'
+    ) {
       this.holdHandAfterMotionIfNeeded();
       return;
     }
 
-    this.syncHandHoverFromCoordinates(this.lastPointerPosition.clientX, this.lastPointerPosition.clientY);
+    this.syncHandHoverFromCoordinates(
+      this.lastPointerPosition.clientX,
+      this.lastPointerPosition.clientY,
+    );
   }
 
   private rememberPointerPosition(clientX: number, clientY: number): void {
     this.resumeHandInteraction({ clientX, clientY });
   }
 
-  private resumeHandInteraction(pointer?: { readonly clientX: number; readonly clientY: number }): void {
+  private resumeHandInteraction(pointer?: {
+    readonly clientX: number;
+    readonly clientY: number;
+  }): void {
     this.handInteractionSuspended.set(false);
     if (pointer) {
       this.lastPointerPosition = pointer;
@@ -1192,7 +1356,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     this.revealTimer = null;
   }
 
-  private visibleReorderPreview(drag: HandPointerDrag, resolved: ResolvedHandPointerDrag): HandPointerDropPreview | null {
+  private visibleReorderPreview(
+    drag: HandPointerDrag,
+    resolved: ResolvedHandPointerDrag,
+  ): HandPointerDropPreview | null {
     if (resolved.mode !== 'reorder') {
       this.clearReorderPreviewTimer();
       return null;
@@ -1270,7 +1437,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.handHoverClearTimer = window.setTimeout(() => {
-      if (this.pointerInside || this.focusInside || this.hasOpenHandContextMenu()) {
+      if (
+        this.pointerInside ||
+        this.syncFocusInsideFromDocument() ||
+        this.hasOpenHandContextMenu()
+      ) {
         this.handHoverClearTimer = null;
         return;
       }
@@ -1287,11 +1458,13 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private scheduleHandRowOpen(): void {
-    if (this.suppressHandHoverUntilPointerLeaves
-      || this.isExternalCardDrag()
-      || this.readOnly()
-      || this.interactionFrozen()
-      || !this.canRevealFromPointer()) {
+    if (
+      this.suppressHandHoverUntilPointerLeaves ||
+      this.isExternalCardDrag() ||
+      this.readOnly() ||
+      this.interactionFrozen() ||
+      !this.canRevealFromPointer()
+    ) {
       return;
     }
 
@@ -1347,7 +1520,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private revealHandForExternalDrop(): void {
-    if (this.motionActive() || this.readOnly() || this.interactionFrozen() || !this.canRevealFromPointer()) {
+    if (
+      this.motionActive() ||
+      this.readOnly() ||
+      this.interactionFrozen() ||
+      !this.canRevealFromPointer()
+    ) {
       return;
     }
 
@@ -1373,9 +1551,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     });
   }
 
-  private collapseHandAfterDragTransfer(options: {
-    readonly animateLayout?: boolean;
-  } = {}): void {
+  private collapseHandAfterDragTransfer(
+    options: {
+      readonly animateLayout?: boolean;
+    } = {},
+  ): void {
     const animateLayout = options.animateLayout ?? true;
     this.suppressHandHoverUntilPointerLeaves = true;
     this.pointerInside = false;
@@ -1401,7 +1581,19 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     const pointer = this.lastPointerPosition;
     const bounds = this.handAreaElement()?.getBoundingClientRect();
 
-    return Boolean(pointer && bounds && this.isInsideBounds(pointer.clientX, pointer.clientY, bounds));
+    return Boolean(
+      pointer && bounds && this.isInsideBounds(pointer.clientX, pointer.clientY, bounds),
+    );
+  }
+
+  private syncFocusInsideFromDocument(): boolean {
+    const handArea = this.handAreaElement();
+    const activeElement = document.activeElement;
+    const focusInside = Boolean(handArea && activeElement && handArea.contains(activeElement));
+
+    this.focusInside = focusInside;
+
+    return focusInside;
   }
 
   private holdHandAfterMotionIfNeeded(): void {
@@ -1416,7 +1608,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     this.handHovered.set(true);
     this.postMotionHoldTimer = window.setTimeout(() => {
       this.postMotionHoldTimer = null;
-      if (this.pointerInside || this.focusInside || this.hasOpenHandContextMenu() || this.hasOwnPointerDrag()) {
+      if (
+        this.pointerInside ||
+        this.focusInside ||
+        this.hasOpenHandContextMenu() ||
+        this.hasOwnPointerDrag()
+      ) {
         return;
       }
 
@@ -1469,6 +1666,15 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return null;
   }
 
+  private sourceRectFromBounds(bounds: DOMRect): HandPointerSourceRect {
+    return {
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+    };
+  }
+
   private handPointerSourceElement(event: PointerEvent): HTMLElement | null {
     if (event.currentTarget instanceof HTMLElement) {
       return event.currentTarget;
@@ -1480,7 +1686,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private isInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
-    return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
+    return (
+      clientX >= bounds.left &&
+      clientX <= bounds.right &&
+      clientY >= bounds.top &&
+      clientY <= bounds.bottom
+    );
   }
 
   private clearReorderPreviewTimer(): void {
@@ -1516,7 +1727,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
         const maxScrollLeft = row.scrollWidth - row.clientWidth;
 
-        row.scrollLeft = Math.max(0, Math.min(maxScrollLeft, maxScrollLeft * anchor.scrollProgress));
+        row.scrollLeft = Math.max(
+          0,
+          Math.min(maxScrollLeft, maxScrollLeft * anchor.scrollProgress),
+        );
         this.pendingRowScrollAnchor = null;
       });
     });
@@ -1527,8 +1741,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    const handBounds = this.handAreaElement()?.getBoundingClientRect()
-      ?? (event.currentTarget instanceof HTMLElement ? event.currentTarget.getBoundingClientRect() : null);
+    const handBounds =
+      this.handAreaElement()?.getBoundingClientRect() ??
+      (event.currentTarget instanceof HTMLElement
+        ? event.currentTarget.getBoundingClientRect()
+        : null);
     if (!handBounds) {
       return;
     }
@@ -1609,15 +1826,21 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     intendedMode: Exclude<HandPointerDragMode, 'pending'>,
   ): ResolvedHandPointerDrag {
     const insideOwnHand = this.isPointerDragInsideRevealedHand(event, drag);
-    const target = this.pointerDragService.zoneTargetAt(event, {
-      width: drag.cardWidth,
-      height: drag.cardHeight,
-      offsetX: drag.offsetX,
-      offsetY: drag.offsetY,
-    }, {
-      draggedCard: drag.card,
-      knownCommanderInstanceIds: this.knownCommanderIds(),
-    });
+    const target = this.pointerDragService.zoneTargetAt(
+      event,
+      {
+        width: drag.cardWidth,
+        height: drag.cardHeight,
+        offsetX: drag.offsetX,
+        offsetY: drag.offsetY,
+      },
+      {
+        sourcePlayerId: drag.playerId,
+        draggedCard: drag.card,
+        knownCommanderInstanceIds: this.knownCommanderIds(),
+        useBattlefieldCardSize: this.compact(),
+      },
+    );
     if (target && !insideOwnHand) {
       return {
         mode: 'transfer',
@@ -1631,8 +1854,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       };
     }
 
-    const overOwnHand = insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);
-    const ownHandReorderGesture = drag.mode === 'reorder' || drag.mode === 'pending' && intendedMode === 'reorder';
+    const overOwnHand =
+      insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);
+    const ownHandReorderGesture =
+      drag.mode === 'reorder' || (drag.mode === 'pending' && intendedMode === 'reorder');
     if (insideOwnHand || ownHandReorderGesture) {
       return {
         mode: 'reorder',
@@ -1648,7 +1873,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private knownCommanderIds(): ReadonlySet<string> {
     const player = this.player();
 
-    return player.knownCommanderInstanceIds ?? knownCommanderInstanceIdsFromPlayerState(player.state);
+    return (
+      player.knownCommanderInstanceIds ?? knownCommanderInstanceIdsFromPlayerState(player.state)
+    );
   }
 
   private isPointerDragInsideRevealedHand(event: PointerEvent, drag: HandPointerDrag): boolean {
@@ -1670,7 +1897,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return false;
     }
 
-    return !this.hasExceededTopExitThreshold(previewTop, drag.cardHeight, bounds.top, this.ownHandTopExitRatio);
+    return !this.hasExceededTopExitThreshold(
+      previewTop,
+      drag.cardHeight,
+      bounds.top,
+      this.ownHandTopExitRatio,
+    );
   }
 
   private handVisualBounds(hand: HTMLElement): DOMRect {
@@ -1702,14 +1934,26 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return this.isInsideBounds(clientX, clientY, bounds);
   }
 
-  private hasEnoughHandHorizontalOverlap(previewLeft: number, previewWidth: number, bounds: DOMRect): boolean {
-    const overlapWidth = Math.max(0, Math.min(previewLeft + previewWidth, bounds.right) - Math.max(previewLeft, bounds.left));
+  private hasEnoughHandHorizontalOverlap(
+    previewLeft: number,
+    previewWidth: number,
+    bounds: DOMRect,
+  ): boolean {
+    const overlapWidth = Math.max(
+      0,
+      Math.min(previewLeft + previewWidth, bounds.right) - Math.max(previewLeft, bounds.left),
+    );
     const horizontalOverlapRatio = previewWidth > 0 ? overlapWidth / previewWidth : 0;
 
     return horizontalOverlapRatio >= this.ownHandHorizontalRetentionOverlap;
   }
 
-  private hasExceededTopExitThreshold(previewTop: number, previewHeight: number, zoneTop: number, exitRatio: number): boolean {
+  private hasExceededTopExitThreshold(
+    previewTop: number,
+    previewHeight: number,
+    zoneTop: number,
+    exitRatio: number,
+  ): boolean {
     if (previewHeight <= 0) {
       return false;
     }
@@ -1730,5 +1974,4 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
     return 'pending';
   }
-
 }

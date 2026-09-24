@@ -145,6 +145,79 @@ func TestRuntimeLogMessageCoversPublicGameplayActions(t *testing.T) {
 	}
 }
 
+func TestGameMechanicCommandsEmitTranslatedSemanticLogEntries(t *testing.T) {
+	game := testState()
+	cases := []struct {
+		name    string
+		command string
+		payload map[string]any
+		key     string
+	}{
+		{"monarch claimed", "helper.created", map[string]any{"template": "monarch", "ownerPlayerId": "p1"}, "gameLog.mechanic.monarch.claimed"},
+		{"monarch passed", "helper.created", map[string]any{"template": "monarch", "ownerPlayerId": "p2"}, "gameLog.mechanic.monarch.passed"},
+		{"monarch removed", "helper.removed", map[string]any{"template": "monarch", "ownerPlayerId": "p1"}, "gameLog.mechanic.monarch.removed"},
+		{"initiative claimed", "helper.created", map[string]any{"template": "initiative", "ownerPlayerId": "p1"}, "gameLog.mechanic.initiative.claimed"},
+		{"initiative passed", "helper.created", map[string]any{"template": "initiative", "ownerPlayerId": "p2"}, "gameLog.mechanic.initiative.passed"},
+		{"initiative removed", "helper.removed", map[string]any{"template": "initiative", "ownerPlayerId": "p1"}, "gameLog.mechanic.initiative.removed"},
+		{"city blessing granted", "helper.created", map[string]any{"template": "citys_blessing", "ownerPlayerId": "p1"}, "gameLog.mechanic.citysBlessing.granted"},
+		{"city blessing removed", "helper.removed", map[string]any{"template": "citys_blessing", "ownerPlayerId": "p1"}, "gameLog.mechanic.citysBlessing.removed"},
+		{"day night started", "helper.created", map[string]any{"template": "day_night", "state": map[string]any{"mode": "day"}}, "gameLog.mechanic.dayNight.startedDay"},
+		{"day night started at night", "helper.created", map[string]any{"template": "day_night", "state": map[string]any{"mode": "night"}}, "gameLog.mechanic.dayNight.startedNight"},
+		{"day night set", "helper.updated", map[string]any{"template": "day_night", "state": map[string]any{"mode": "day"}}, "gameLog.mechanic.dayNight.setDay"},
+		{"day night set to night", "helper.updated", map[string]any{"template": "day_night", "state": map[string]any{"mode": "night"}}, "gameLog.mechanic.dayNight.setNight"},
+		{"day night removed", "helper.removed", map[string]any{"template": "day_night"}, "gameLog.mechanic.dayNight.removed"},
+		{"ring", "card.token.created", map[string]any{"playerId": "p1", "name": "The Ring // The Ring Tempts You"}, "gameLog.mechanic.ring.created"},
+		{"dungeon", "card.token.created", map[string]any{"playerId": "p1", "name": "Undercity", "tokenMeta": map[string]any{"flags": map[string]any{"isDungeon": true}}}, "gameLog.mechanic.dungeon.entered"},
+		{"dungeon advanced", "card.dungeon_marker.changed", map[string]any{"playerId": "p1"}, "gameLog.mechanic.dungeon.advanced"},
+		{"emblem", "card.token.created", map[string]any{"playerId": "p1", "name": "Chandra Emblem", "tokenMeta": map[string]any{"flags": map[string]any{"isEmblem": true}}}, "gameLog.mechanic.emblem.created"},
+	}
+
+	for index, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			command := protocol.CommandEnvelopeV2{
+				GameID:         "game-1",
+				ClientActionID: fmt.Sprintf("mechanic-log-%d", index),
+				Type:           testCase.command,
+				Payload:        testCase.payload,
+			}
+			entries := runtimeEventLogEntries(&game, command, testCase.payload, "p1", 2, time.Now())
+			if len(entries) != 1 {
+				t.Fatalf("entries = %#v, want one log entry", entries)
+			}
+			if entries[0]["i18nKey"] != testCase.key {
+				t.Fatalf("i18nKey = %#v, want %q", entries[0]["i18nKey"], testCase.key)
+			}
+		})
+	}
+}
+
+func TestHelperCommandsAppendGameLogPatches(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	created := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "citys-blessing-create", "helper.created", map[string]any{
+		"template":      "citys_blessing",
+		"scope":         "player",
+		"ownerPlayerId": "p1",
+	}), "p1")
+	if created.Err != nil {
+		t.Fatalf("helper create failed: %v", created.Err)
+	}
+	createEntry := requireRuntimeLogEntry(t, created)
+	if createEntry["i18nKey"] != "gameLog.mechanic.citysBlessing.granted" {
+		t.Fatalf("create log = %#v", createEntry)
+	}
+
+	removed := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "citys-blessing-remove", "helper.removed", map[string]any{
+		"entityId": "helper-citys-blessing-create",
+	}), "p1")
+	if removed.Err != nil {
+		t.Fatalf("helper remove failed: %v", removed.Err)
+	}
+	removeEntry := requireRuntimeLogEntry(t, removed)
+	if removeEntry["i18nKey"] != "gameLog.mechanic.citysBlessing.removed" {
+		t.Fatalf("remove log = %#v", removeEntry)
+	}
+}
+
 func TestDiceRolledEmitsServerResultPatchAndGameLog(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dice-d20", "dice.rolled", map[string]any{
@@ -1046,7 +1119,7 @@ func TestLibraryMoveTopToBottomUsesLibraryOps(t *testing.T) {
 		t.Fatalf("move top bottom failed: %v", result.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "l3,l2,l1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "l3,l1,l2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
 	}
 	metrics := result.Event.Payload["metrics"].(map[string]any)
@@ -1069,7 +1142,7 @@ func TestLibraryMoveTopToOpponentHandKeepsPatchPrivate(t *testing.T) {
 		t.Fatalf("move top hand failed: %v", result.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p2"].Hand), "l3"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p2"].Hand), "l1"; got != want {
 		t.Fatalf("opponent hand got %s want %s", got, want)
 	}
 	for _, envelope := range result.Patches {
@@ -1094,8 +1167,14 @@ func TestLibraryPutTopAndBottomCommands(t *testing.T) {
 		t.Fatalf("put bottom failed: %v", bottom.Err)
 	}
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h2,l1,l2,l3,h1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h1,l1,l2,l3,h2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
+	}
+	if add := patchForVisibility(top.Patches, protocol.PlayerVisibility("p1"), "zone.cards.add"); add == nil || add.Data["index"] != 0 {
+		t.Fatalf("top library patch must insert at index 0: %#v", top.Patches)
+	}
+	if add := patchForVisibility(bottom.Patches, protocol.PlayerVisibility("p1"), "zone.cards.add"); add == nil || add.Data["index"] != 4 {
+		t.Fatalf("bottom library patch must insert at the tail: %#v", bottom.Patches)
 	}
 }
 
@@ -1133,7 +1212,7 @@ func TestLibraryViewIsPrivateAndDoesNotMutateLibrary(t *testing.T) {
 
 func TestLibraryReorderTopEmitsPrivateOrderAndPublicCount(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}), "p1")
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l1"}}), "p1")
 	if result.Err != nil {
 		t.Fatalf("reorder failed: %v", result.Err)
 	}
@@ -1251,7 +1330,7 @@ func TestLibraryCommandsAreIdempotentForRetry(t *testing.T) {
 	}{
 		{name: "draw", commandType: "library.draw", payload: map[string]any{"playerId": "p1"}},
 		{name: "move-top-bottom", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "toZone": "library", "position": "bottom", "count": 1}},
-		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
+		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l1"}}},
 		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
 	}
 
@@ -1403,7 +1482,7 @@ func TestPlayTopFaceDownEmitsPublicLogWithoutCardIdentity(t *testing.T) {
 	if result.Err != nil {
 		t.Fatalf("play top face down failed: %v", result.Err)
 	}
-	if !gameActor.Snapshot().Instances["l3"].FaceDown {
+	if !gameActor.Snapshot().Instances["l1"].FaceDown {
 		t.Fatal("top library card was not moved face down")
 	}
 	publicMove := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
@@ -1422,7 +1501,7 @@ func TestPlayTopFaceDownEmitsPublicLogWithoutCardIdentity(t *testing.T) {
 		t.Fatalf("missing private owner play-top-face-down patch: %#v", result.Patches)
 	}
 	ownerCard := requireMap(t, ownerMove.Data["card"])
-	if ownerCard["cardKey"] != "library-3@1" || ownerCard["hidden"] == true {
+	if ownerCard["cardKey"] != "library-1@1" || ownerCard["hidden"] == true {
 		t.Fatalf("owner did not receive the played face-down card identity: %#v", ownerCard)
 	}
 	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
@@ -1621,7 +1700,7 @@ func TestRevealedCardNameIsOnlyAddedToTheSelectedViewerLog(t *testing.T) {
 		t.Fatalf("selected viewer did not receive a private top reveal log: %#v", topResult.Patches)
 	}
 	privateTopEntry := privateTopPatch.Data["entries"].([]map[string]any)[0]
-	if privateTopEntry["i18nKey"] != "gameLog.library.revealTopNamed" || privateTopEntry["cardInstanceId"] != "l3" {
+	if privateTopEntry["i18nKey"] != "gameLog.library.revealTopNamed" || privateTopEntry["cardInstanceId"] != "l1" {
 		t.Fatalf("private top reveal log is missing its card reference: %#v", privateTopEntry)
 	}
 }
@@ -1836,7 +1915,7 @@ func TestPlayTopRevealedRuntimeEmitsTopOnlyToTheSelectedViewer(t *testing.T) {
 		t.Fatalf("play top revealed the card publicly instead of to its selected viewer: %#v", result.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
-	if len(cards) != 1 || cards[0]["instanceId"] != "l3" || cards[0]["cardKey"] != "library-3@1" {
+	if len(cards) != 1 || cards[0]["instanceId"] != "l1" || cards[0]["cardKey"] != "library-1@1" {
 		t.Fatalf("bad targeted top reveal: %#v", cards)
 	}
 	if viewers := gameActor.Snapshot().Players["p1"]["playTopLibraryRevealedTo"]; fmt.Sprintf("%v", viewers) != "[p2]" {
@@ -1915,7 +1994,7 @@ func TestPlayTopRevealedPublishesTheCurrentTopCardAfterShuffle(t *testing.T) {
 		t.Fatalf("missing refreshed top reveal after shuffle: %#v", shuffled.Patches)
 	}
 	cards := reveal.Data["cards"].([]map[string]any)
-	wantTop := gameActor.Snapshot().Zones["p1"].Library[len(gameActor.Snapshot().Zones["p1"].Library)-1]
+	wantTop := gameActor.Snapshot().Zones["p1"].Library[0]
 	if len(cards) != 1 || cards[0]["instanceId"] != wantTop {
 		t.Fatalf("shuffle revealed stale top card: cards=%#v want=%s", cards, wantTop)
 	}
@@ -1986,6 +2065,39 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	metrics := result.Event.Payload["metrics"].(map[string]any)
 	if metrics["edge.runtime_route"] != 1 || metrics["edge.patch_bytes"].(int) <= 0 {
 		t.Fatalf("missing edge metrics: %#v", metrics)
+	}
+}
+
+func TestTheRingTokenCreateRuntimeInitializesLevelZero(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "ring-token-create", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"card": map[string]any{
+			"scryfallId": theRingScryfallID,
+			"name":       "The Ring // The Ring Tempts You",
+			"layout":     "double_faced_token",
+		},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("the ring token create failed: %v", result.Err)
+	}
+
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing The Ring add patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if len(cards) != 1 {
+		t.Fatalf("unexpected The Ring patch cards: %#v", cards)
+	}
+	counters, ok := cards[0]["counters"].(map[string]int)
+	if !ok || counters["Level"] != 0 {
+		t.Fatalf("The Ring patch must include Level 0: %#v", cards[0])
+	}
+
+	instanceID := cards[0]["instanceId"].(string)
+	if gameActor.Snapshot().Instances[instanceID].Counters["Level"] != 0 {
+		t.Fatalf("The Ring runtime instance must retain Level 0: %#v", gameActor.Snapshot().Instances[instanceID])
 	}
 }
 
@@ -3238,7 +3350,7 @@ func TestMoveHandToLibraryTopAndBottomPreservesRuntimeOrder(t *testing.T) {
 	}
 
 	snapshot := gameActor.Snapshot()
-	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h2,l1,l2,l3,h1"; got != want {
+	if got, want := joinStrings(snapshot.Zones["p1"].Library), "h1,l1,l2,l3,h2"; got != want {
 		t.Fatalf("library got %s want %s", got, want)
 	}
 	if topMetrics := top.Event.Payload["metrics"].(map[string]any); topMetrics["movement.full_scan_count"] != 0 || topMetrics["movement.reindex_count"] != 0 {
@@ -3246,6 +3358,101 @@ func TestMoveHandToLibraryTopAndBottomPreservesRuntimeOrder(t *testing.T) {
 	}
 	if bottomMetrics := bottom.Event.Payload["metrics"].(map[string]any); bottomMetrics["movement.full_scan_count"] != 0 || bottomMetrics["movement.reindex_count"] != 0 {
 		t.Fatalf("unexpected bottom metrics: %#v", bottomMetrics)
+	}
+}
+
+func TestCardsMovedToLibraryTopDrawsTheLastMovedCardFirst(t *testing.T) {
+	for count := 1; count <= 10; count++ {
+		t.Run(fmt.Sprintf("%d cards", count), func(t *testing.T) {
+			initial := benchmarkState(100)
+			gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+			moved := make([]string, count)
+			wantDrawOrder := make([]string, count)
+			for index := range count {
+				moved[index] = fmt.Sprintf("h%03d", index)
+				wantDrawOrder[count-1-index] = moved[index]
+			}
+
+			move := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-top-batch", "cards.moved", map[string]any{
+				"playerId":    "p1",
+				"fromZone":    "hand",
+				"toZone":      "library",
+				"instanceIds": moved,
+				"position":    "top",
+			}), "p1")
+			if move.Err != nil {
+				t.Fatalf("move to library top failed: %v", move.Err)
+			}
+			if got, want := move.Event.Payload["position"], "top"; got != want {
+				t.Fatalf("event position got %#v want %q", got, want)
+			}
+
+			draw := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "draw-moved-top", "library.draw_many", map[string]any{
+				"playerId": "p1",
+				"count":    count,
+			}), "p1")
+			if draw.Err != nil {
+				t.Fatalf("draw failed: %v", draw.Err)
+			}
+			if got, want := joinStrings(stringsFromAny(draw.Event.Payload["instanceIds"])), joinStrings(wantDrawOrder); got != want {
+				t.Fatalf("draw order got %s want %s", got, want)
+			}
+
+			replayed := initial.Clone()
+			if err := ReplayEventWithAppliers(&replayed, move.Event, DefaultAppliers()); err != nil {
+				t.Fatalf("replay move failed: %v", err)
+			}
+			if err := ReplayEvent(&replayed, draw.Event); err != nil {
+				t.Fatalf("replay draw failed: %v", err)
+			}
+			if got, want := joinStrings(replayed.Zones["p1"].Hand[len(replayed.Zones["p1"].Hand)-count:]), joinStrings(wantDrawOrder); got != want {
+				t.Fatalf("replayed draw order got %s want %s", got, want)
+			}
+		})
+	}
+}
+
+func TestCardsMovedToLibraryBottomKeepsInputOrderAtTheVisualBottom(t *testing.T) {
+	for count := 1; count <= 10; count++ {
+		t.Run(fmt.Sprintf("%d cards", count), func(t *testing.T) {
+			initial := benchmarkState(100)
+			gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+			moved := make([]string, count)
+			events := make([]protocol.EventPayloadV2, 0, count)
+			for index := range count {
+				moved[index] = fmt.Sprintf("h%03d", index)
+				result := gameActor.ApplyDirect(context.Background(), command("game-1", int64(index+1), fmt.Sprintf("move-bottom-%d", index), "card.moved", map[string]any{
+					"playerId":   "p1",
+					"fromZone":   "hand",
+					"toZone":     "library",
+					"instanceId": moved[index],
+					"position":   "bottom",
+				}), "p1")
+				if result.Err != nil {
+					t.Fatalf("move %s to library bottom failed: %v", moved[index], result.Err)
+				}
+				if got, want := result.Event.Payload["position"], "bottom"; got != want {
+					t.Fatalf("event position got %#v want %q", got, want)
+				}
+				events = append(events, result.Event)
+			}
+
+			snapshot := gameActor.Snapshot()
+			visualBottom := append([]string(nil), snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-count:]...)
+			if got, want := joinStrings(visualBottom), joinStrings(moved); got != want {
+				t.Fatalf("visual bottom got %s want %s", got, want)
+			}
+
+			replayed := initial.Clone()
+			for index, instanceID := range moved {
+				if err := ReplayEventWithAppliers(&replayed, events[index], DefaultAppliers()); err != nil {
+					t.Fatalf("replay move %s failed: %v", instanceID, err)
+				}
+			}
+			if got, want := joinStrings(replayed.Zones["p1"].Library[len(replayed.Zones["p1"].Library)-count:]), joinStrings(snapshot.Zones["p1"].Library[len(snapshot.Zones["p1"].Library)-count:]); got != want {
+				t.Fatalf("replayed storage bottom got %s want %s", got, want)
+			}
+		})
 	}
 }
 
@@ -3841,6 +4048,119 @@ func TestHelpersCreateUpdateRemoveWithoutStaticPayload(t *testing.T) {
 	}
 	if len(gameActor.Snapshot().Relations.Helpers) != 0 {
 		t.Fatalf("helper not removed: %#v", gameActor.Snapshot().Relations.Helpers)
+	}
+}
+
+func TestCurrentMonarchCanPassItToAnotherPlayer(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	claimed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "monarch-claimed", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p1")
+	if claimed.Err != nil {
+		t.Fatalf("claiming monarch failed: %v", claimed.Err)
+	}
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "monarch-passed", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p2",
+	}), "p1")
+	if passed.Err != nil {
+		t.Fatalf("passing monarch failed: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing monarch helper update patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected one global designation, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p2" {
+			t.Fatalf("monarch owner got %q want p2", ownerPlayerID)
+		}
+	}
+
+	rejected := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "monarch-unauthorized", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p2",
+	}), "p1")
+	if !errors.Is(rejected.Err, ErrActorPermission) {
+		t.Fatalf("non-holder should not pass monarch, got %v", rejected.Err)
+	}
+}
+
+func TestCurrentMonarchCanPassAndConsolidatesLegacyDuplicates(t *testing.T) {
+	game := testState()
+	game.Relations.Helpers = map[string]state.Relation{
+		"helper-monarch-p1":  {ID: "helper-monarch-p1", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p1"}},
+		"helper-monarch-p2":  {ID: "helper-monarch-p2", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p2"}},
+		"helper-monarch-old": {ID: "helper-monarch-old", Meta: map[string]any{"template": "monarch", "ownerPlayerId": "p1"}},
+	}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "monarch-passed-legacy", "helper.created", map[string]any{
+		"template":      "monarch",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p2")
+	if passed.Err != nil {
+		t.Fatalf("legacy monarch holder could not pass: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing monarch helper update patch: %#v", passed.Patches)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.remove"); patch == nil {
+		t.Fatalf("missing legacy monarch cleanup patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected legacy monarchs to consolidate, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p1" {
+			t.Fatalf("monarch owner got %q want p1", ownerPlayerID)
+		}
+	}
+}
+
+func TestCurrentInitiativeHolderCanPassAndConsolidatesLegacyDuplicates(t *testing.T) {
+	game := testState()
+	game.Relations.Helpers = map[string]state.Relation{
+		"helper-initiative-p1":  {ID: "helper-initiative-p1", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p1"}},
+		"helper-initiative-p2":  {ID: "helper-initiative-p2", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p2"}},
+		"helper-initiative-old": {ID: "helper-initiative-old", Meta: map[string]any{"template": "initiative", "ownerPlayerId": "p1"}},
+	}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	passed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "initiative-passed-legacy", "helper.created", map[string]any{
+		"template":      "initiative",
+		"scope":         "global",
+		"ownerPlayerId": "p1",
+	}), "p2")
+	if passed.Err != nil {
+		t.Fatalf("legacy initiative holder could not pass: %v", passed.Err)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.update"); patch == nil {
+		t.Fatalf("missing initiative helper update patch: %#v", passed.Patches)
+	}
+	if patch := patchForVisibility(passed.Patches, "public", "helper.remove"); patch == nil {
+		t.Fatalf("missing legacy initiative cleanup patch: %#v", passed.Patches)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if len(snapshot.Relations.Helpers) != 1 {
+		t.Fatalf("expected legacy initiatives to consolidate, got %#v", snapshot.Relations.Helpers)
+	}
+	for _, helper := range snapshot.Relations.Helpers {
+		if ownerPlayerID := optionalString(helper.Meta, "ownerPlayerId"); ownerPlayerID != "p1" {
+			t.Fatalf("initiative owner got %q want p1", ownerPlayerID)
+		}
 	}
 }
 

@@ -1,5 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { GameTableBattlefieldZoomState } from './game-table-battlefield-zoom.state';
+import {
+  GameTableBattlefieldZoomState,
+  GameTableGridBattlefieldZoomState,
+} from './game-table-battlefield-zoom.state';
 
 describe('GameTableBattlefieldZoomState', () => {
   beforeEach(() => {
@@ -77,10 +80,46 @@ describe('GameTableBattlefieldZoomState', () => {
   });
 });
 
+describe('GameTableGridBattlefieldZoomState', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('uses an independent 40–70% range with a 60% default', () => {
+    const state = createGridState();
+
+    expect(state.zoomPercent()).toBe(60);
+    expect(state.minZoomPercent).toBe(40);
+    expect(state.maxZoomPercent).toBe(70);
+    expect(state.cardWidthRem()).toBe('4.32rem');
+
+    state.setZoomPercent(35);
+    expect(state.zoomPercent()).toBe(40);
+
+    state.setZoomPercent(75);
+    expect(state.zoomPercent()).toBe(70);
+
+    state.setZoomPercent(55);
+    expect(window.localStorage.getItem('commanderZone.gameTable.gridBattlefieldZoomPercent')).toBe('55');
+  });
+});
+
 function createState(): GameTableBattlefieldZoomState {
   TestBed.configureTestingModule({
     providers: [GameTableBattlefieldZoomState],
   });
 
   return TestBed.inject(GameTableBattlefieldZoomState);
+}
+
+function createGridState(): GameTableGridBattlefieldZoomState {
+  TestBed.configureTestingModule({
+    providers: [GameTableGridBattlefieldZoomState],
+  });
+
+  return TestBed.inject(GameTableGridBattlefieldZoomState);
 }

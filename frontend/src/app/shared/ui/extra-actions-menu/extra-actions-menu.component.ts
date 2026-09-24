@@ -13,7 +13,7 @@ interface ExtraActionsPanelStyle {
 
 const VIEWPORT_EDGE_GAP = 8;
 const VIEWPORT_PANEL_GAP = 6;
-const VIEWPORT_PANEL_WIDTH = 336;
+const DEFAULT_VIEWPORT_PANEL_WIDTH = 336;
 
 @Component({
   selector: 'app-extra-actions-menu',
@@ -33,6 +33,7 @@ export class ExtraActionsMenuComponent {
   readonly variant = input<ExtraActionsMenuVariant>('gold');
   readonly showText = input(false);
   readonly viewportSafe = input(false);
+  readonly viewportPanelWidth = input(DEFAULT_VIEWPORT_PANEL_WIDTH);
   readonly openedChange = output<boolean>();
   readonly open = signal(false);
   readonly viewportPanelStyle = signal<ExtraActionsPanelStyle | null>(null);
@@ -100,8 +101,9 @@ export class ExtraActionsMenuComponent {
     const rootLeft = rootRect?.left ?? 0;
     const rootTop = rootRect?.top ?? 0;
     const rootWidth = rootRect?.width ?? window.innerWidth;
-    const viewportWidth = rootWidth || VIEWPORT_PANEL_WIDTH + VIEWPORT_EDGE_GAP * 2;
-    const width = Math.max(1, Math.min(VIEWPORT_PANEL_WIDTH, viewportWidth - VIEWPORT_EDGE_GAP * 2));
+    const preferredWidth = this.viewportPanelWidth();
+    const viewportWidth = rootWidth || preferredWidth + VIEWPORT_EDGE_GAP * 2;
+    const width = Math.max(1, Math.min(preferredWidth, viewportWidth - VIEWPORT_EDGE_GAP * 2));
     const alignedLeft = this.alignedPanelLeft(anchor, width) - rootLeft;
 
     return {

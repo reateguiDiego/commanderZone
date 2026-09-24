@@ -3,19 +3,99 @@
 }
 
 .context-menu {
+  --context-menu-gradient-angle: 135deg;
+
   position: fixed;
   z-index: 1800;
-  display: grid;
   width: 16.5rem;
   overflow: visible;
+}
+
+.context-menu.arrow-menu {
+  width: 10.75rem;
+}
+
+.context-menu.side-left-menu {
+  --context-menu-gradient-angle: 225deg;
+}
+
+.context-menu-pointer {
+  position: absolute;
+  top: 0.46rem;
+  left: -0.96rem;
+  width: 1.12rem;
+  height: 0.8rem;
+  z-index: 2;
+  pointer-events: none;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  background: var(--game-line-soft);
+}
+
+.context-menu-pointer::after {
+  content: '';
+  position: absolute;
+  top: 0.07rem;
+  left: 0.13rem;
+  width: 0.98rem;
+  height: 0.66rem;
+  clip-path: inherit;
+  background:
+    radial-gradient(circle at 0 50%, rgb(var(--game-accent-rgb) / 18%), transparent 58%),
+    linear-gradient(145deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 98%));
+}
+
+.context-menu.opens-left .context-menu-pointer {
+  right: -0.96rem;
+  left: auto;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.context-menu.opens-left .context-menu-pointer::after {
+  right: 0.13rem;
+  left: auto;
+  background:
+    radial-gradient(circle at 100% 50%, rgb(var(--game-accent-rgb) / 18%), transparent 58%),
+    linear-gradient(215deg, rgb(var(--game-surface-rgb) / 96%), rgb(var(--game-surface-deep-rgb) / 98%));
+}
+
+.context-menu.opens-up .context-menu-pointer {
+  top: auto;
+  bottom: 0.46rem;
+}
+
+.context-menu-surface {
+  position: relative;
+  display: grid;
+  min-width: 0;
   padding: 0.35rem;
   border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background: var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 88%));
 }
 
-.context-menu.arrow-menu {
-  width: 10.75rem;
+.context-menu-target {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding: 0.26rem 0.4rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--game-accent) 42%, transparent);
+  color: var(--game-accent);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.context-menu-target span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu.side-left-menu .context-menu-target {
+  justify-content: flex-end;
+  text-align: right;
 }
 
 .context-menu button {
@@ -39,7 +119,7 @@
 .context-menu button:hover:not(:disabled),
 .context-menu button:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
+    linear-gradient(var(--context-menu-gradient-angle), rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 34%),
@@ -49,7 +129,7 @@
 
 .context-menu button:active:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
+    linear-gradient(var(--context-menu-gradient-angle), rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
     rgb(var(--highlight-rgb) / 3%);
   box-shadow:
     inset 0 0 0 1px rgb(var(--gold-rgb) / 44%),
@@ -61,9 +141,21 @@
   outline: none;
 }
 
-.context-menu.side-left-menu > button {
-  justify-content: flex-end;
+.context-menu.side-left-menu .context-menu-surface > button {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
   text-align: right;
+}
+
+.context-menu.side-left-menu .context-menu-surface > button .menu-item-label {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.context-menu.side-left-menu .context-menu-surface > button > kbd {
+  min-width: 0.9rem;
+  margin-inline-end: auto;
+  justify-content: center;
 }
 
 .menu-item-label {
@@ -144,6 +236,11 @@
   text-shadow: 0 0 0.18rem rgb(var(--shadow-rgb) / 72%);
 }
 
+.context-menu.side-left-menu .menu-item-remove-stack-icon::after {
+  right: auto;
+  left: -0.26rem;
+}
+
 .danger-menu-item {
   color: #fecaca;
 }
@@ -155,7 +252,7 @@
 .context-menu .danger-menu-item:hover:not(:disabled),
 .context-menu .danger-menu-item:focus-visible:not(:disabled) {
   background:
-    linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
+    linear-gradient(var(--context-menu-gradient-angle), rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(248 113 113 / 42%),

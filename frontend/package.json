@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "npm run write:private-theme-styles && ng serve --configuration development",
-    "start:local": "npm run write:private-theme-styles && ng serve --configuration development",
+    "start": "npm run write:private-theme-styles && ng serve --configuration development --poll=500 --live-reload=true --hmr=false",
+    "start:local": "npm run write:private-theme-styles && ng serve --configuration development --poll=500 --live-reload=true --hmr=false",
     "build": "npm run write:private-theme-styles && npm run write:runtime-config && npm run write:seo-prerender-routes && npm run generate:sitemap && ng build",
     "build:local": "npm run write:private-theme-styles && ng build --configuration development",
     "build:prod": "npm run write:private-theme-styles && npm run write:runtime-config && npm run write:seo-prerender-routes && npm run generate:sitemap && ng build --configuration production",

@@ -209,6 +209,20 @@ export class GameTableSpecialEntitiesState {
   }
 
   helperPreviewCard(entity: GameSpecialEntity): GameCardInstance | null {
+    if (entity.template === 'monarch') {
+      return entity.ownerPlayerId
+        ? this.buildGlobalDesignationCard(entity, entity.ownerPlayerId, {
+            scryfallId: 'monarch',
+            name: 'Monarch',
+            typeLine: 'Game Mechanic - Monarch',
+            layout: 'monarch',
+            oracleText: 'You are the monarch.',
+          }, {
+            zone: 'command',
+          })
+        : null;
+    }
+
     if (entity.template === 'initiative') {
       return entity.ownerPlayerId
         ? this.buildInitiativePreviewCard(entity, entity.ownerPlayerId)

@@ -60,14 +60,19 @@ export class PlayersOrderComponent implements OnChanges, OnDestroy {
       const name = this.playerName(player);
       const isActive = player.id === activePlayerId;
       const isCurrent = player.id === this.currentPlayerId();
+      const turnLabelParams: Readonly<Record<string, number>> = turnDistance === 1
+        ? {}
+        : { count: turnDistance, turnNumber: this.turnNumber() };
 
       return {
         id: player.id,
         name,
         turnLabelKey: turnDistance === 0
           ? 'game.playersOrder.currentTurnLabel'
+          : turnDistance === 1
+            ? 'shared.text.next'
           : 'game.playersOrder.upcomingTurnLabel',
-        turnLabelParams: { count: turnDistance, turnNumber: this.turnNumber() },
+        turnLabelParams,
         titleKey: turnDistance === 0
           ? 'game.playersOrder.currentTurnTitle'
           : 'game.playersOrder.upcomingTurnTitle',

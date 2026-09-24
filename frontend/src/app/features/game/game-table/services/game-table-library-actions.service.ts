@@ -59,7 +59,7 @@ export class GameTableLibraryActionsService {
 
     const sanitizedCount = this.sanitizeCount(count);
     const topCard = sanitizedCount === 1
-      ? context.currentPlayer()?.state.zones.library.at(-1)
+      ? context.currentPlayer()?.state.zones.library[0]
       : undefined;
     const revealedCardName = topCard?.name.trim() ?? '';
 

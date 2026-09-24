@@ -136,6 +136,14 @@ describe('authInterceptor', () => {
     expect(navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
+  it('does not attach an expired bearer token to public card catalog requests', () => {
+    client.get(`${API_BASE_URL}/cards/bulk?ids=card-1`).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/bulk?ids=card-1`);
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({ cards: [] });
+  });
+
   it('does not attach auth headers to non-API requests', () => {
     client.get('https://example.com/ping').subscribe({
       error: () => undefined,

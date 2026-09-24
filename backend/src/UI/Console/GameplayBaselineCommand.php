@@ -382,7 +382,7 @@ final class GameplayBaselineCommand extends Command
     private function runWebsocketReorderTopTenScenario(GameplayBaselineFixture $fixture, string $scenarioName, int $iteration): void
     {
         unset($scenarioName, $iteration);
-        $instanceIds = array_reverse($fixture->libraryTopInstanceIds('p1', 10));
+        $instanceIds = $fixture->libraryTopInstanceIds('p1', 10);
         $this->websocketCommand($fixture, $fixture->user('p1'), 'library.reorder_top', [
             'playerId' => $fixture->playerId('p1'),
             'instanceIds' => $instanceIds,

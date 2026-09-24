@@ -351,6 +351,111 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertArrayNotHasKey('instance:opponent-hidden-library-top', $bootstrap->staticCards);
     }
 
+    public function testBootstrapV2RevealsTheFirstProjectedLibraryCardForAnAuthorizedViewer(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+        $opponentId = 'opponent-player';
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$opponentId] = [
+            'user' => ['id' => $opponentId, 'email' => 'opponent@example.test', 'displayName' => 'Opponent', 'roles' => []],
+            'life' => 40,
+            'status' => 'active',
+            'zoneCounts' => ['library' => 2],
+            'commanderDamage' => [],
+            'counters' => [],
+            'playTopLibraryRevealed' => true,
+            'playTopLibraryRevealedTo' => [$viewer->id()],
+            'zones' => [
+                'library' => [
+                    [
+                        'instanceId' => 'opponent-top-library-card',
+                        'ownerId' => $opponentId,
+                        'controllerId' => $opponentId,
+                        'scryfallId' => '77777777-7777-7777-7777-777777777777',
+                        'name' => 'Visible Top',
+                        'hidden' => true,
+                        'faceDown' => true,
+                        'zone' => 'library',
+                    ],
+                    [
+                        'instanceId' => 'opponent-bottom-library-card',
+                        'ownerId' => $opponentId,
+                        'controllerId' => $opponentId,
+                        'hidden' => true,
+                        'faceDown' => true,
+                        'zone' => 'library',
+                    ],
+                ],
+            ],
+        ];
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
+
+        self::assertFalse($bootstrap->instances['opponent-top-library-card']['hidden'] ?? true);
+        self::assertFalse($bootstrap->instances['opponent-top-library-card']['faceDown'] ?? true);
+        self::assertArrayHasKey('77777777-7777-7777-7777-777777777777:card', $bootstrap->staticCards);
+        self::assertTrue($bootstrap->instances['opponent-bottom-library-card']['hidden'] ?? false);
+        self::assertArrayNotHasKey('cardKey', $bootstrap->instances['opponent-bottom-library-card']);
+    }
+
+    public function testBootstrapV2RestoresAnOwnerTargetedRuntimeTopReveal(): void
+    {
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $room = new Room($viewer);
+        $room->addPlayer(new RoomPlayer($room, $viewer));
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['zones']['library'][0]['hidden'] = true;
+        $snapshot['players'][$viewer->id()]['zones']['library'][0]['faceDown'] = true;
+        $snapshot['visibility'] = [
+            'viewerBits' => [$viewer->id() => 1],
+            'library' => [
+                $viewer->id() => [
+                    'topWindowMasks' => ['library-1' => 1],
+                ],
+            ],
+        ];
+        $game = new Game($room, $snapshot);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+
+        self::assertFalse($bootstrap->instances['library-1']['hidden'] ?? true);
+        self::assertFalse($bootstrap->instances['library-1']['faceDown'] ?? true);
+        self::assertArrayHasKey('11111111-1111-1111-1111-111111111111:card', $bootstrap->staticCards);
+    }
+
+    public function testBootstrapV2KeepsLibraryZoneIdsInTopFirstOrder(): void
+    {
+        [$game, $viewer] = $this->game();
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['zones']['library'] = [
+            [
+                'instanceId' => 'library-top',
+                'ownerId' => $viewer->id(),
+                'controllerId' => $viewer->id(),
+                'scryfallId' => '11111111-1111-1111-1111-111111111111',
+                'name' => 'Visible Top',
+                'zone' => 'library',
+            ],
+            [
+                'instanceId' => 'library-bottom',
+                'ownerId' => $viewer->id(),
+                'controllerId' => $viewer->id(),
+                'hidden' => true,
+                'faceDown' => true,
+                'zone' => 'library',
+            ],
+        ];
+        $snapshot['players'][$viewer->id()]['zoneCounts']['library'] = 2;
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+
+        self::assertSame(
+            ['library-top', 'library-bottom'],
+            $bootstrap->zones[$viewer->id().':library']['instanceIds'],
+        );
+    }
+
     public function testBootstrapV2OmitsStaticCardsKnownByClientCache(): void
     {
         [$game, $viewer] = $this->game();

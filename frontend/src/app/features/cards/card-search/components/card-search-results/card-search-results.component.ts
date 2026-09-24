@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, inject, input, output, signal } from '@angular/core';
 import { Card } from '../../../../../core/models/card.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
 import { CardFaceToggleButtonComponent } from '../../../../../shared/components/card-face-toggle-button/card-face-toggle-button.component';
 import { cardFaceImage, hasAlternateCardFace } from '../../../../../shared/utils/card-faces';
-import { preloadImage } from '../../../../../shared/utils/image-preload';
+import { ImagePreloadQueueService, type ImagePreloadRequest } from '../../../../../shared/services/image-preload-queue.service';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { GameChangerIconComponent } from '../../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { CardSearchViewMode } from '../../card-search.models';
@@ -47,6 +47,7 @@ export interface CardSearchResultActionEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CardSearchResultsComponent implements OnDestroy {
+  private readonly imagePreloadQueue = inject(ImagePreloadQueueService);
   readonly results = input.required<readonly Card[]>();
   readonly loading = input(false);
   readonly error = input<string | null>(null);
@@ -65,9 +66,11 @@ export class CardSearchResultsComponent implements OnDestroy {
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingHoverPreview: PendingCardHoverPreview | null = null;
   private hoverPreviewRequestVersion = 0;
+  private hoverImagePreload: ImagePreloadRequest | null = null;
 
   ngOnDestroy(): void {
     this.clearHoverPreviewTimer();
+    this.cancelHoverImagePreload();
     this.hoverPreviewRequestVersion += 1;
   }
 
@@ -155,6 +158,7 @@ export class CardSearchResultsComponent implements OnDestroy {
 
   hideHoverPreview(): void {
     this.clearHoverPreviewTimer();
+    this.cancelHoverImagePreload();
     this.hoverPreviewRequestVersion += 1;
     this.pendingHoverPreview = null;
     this.hoverPreview.set(null);
@@ -224,8 +228,15 @@ export class CardSearchResultsComponent implements OnDestroy {
 
   private async showLoadedHoverPreview(pending: PendingCardHoverPreview, requestVersion: number): Promise<void> {
     const imageUrl = cardFaceImage(pending.card, this.isFaceFlipped(pending.card));
-    if (!await preloadImage(imageUrl)) {
+    this.cancelHoverImagePreload();
+    const preload = this.imagePreloadQueue.request(imageUrl, 'interaction');
+    this.hoverImagePreload = preload;
+    if (!await preload.completed) {
       return;
+    }
+
+    if (this.hoverImagePreload === preload) {
+      this.hoverImagePreload = null;
     }
 
     const latestPending = this.pendingHoverPreview;
@@ -276,6 +287,11 @@ export class CardSearchResultsComponent implements OnDestroy {
 
     clearTimeout(this.hoverPreviewTimer);
     this.hoverPreviewTimer = null;
+  }
+
+  private cancelHoverImagePreload(): void {
+    this.hoverImagePreload?.cancel();
+    this.hoverImagePreload = null;
   }
 
   private cardTypeLine(card: Card): string {

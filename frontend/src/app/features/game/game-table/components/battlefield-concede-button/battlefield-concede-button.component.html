@@ -1,0 +1,9 @@
+<button
+  class="battlefield-concede-button danger-button"
+  data-testid="battlefield-concede"
+  type="button"
+  (click)="concedeRequested.emit($event)"
+>
+  <lucide-icon name="skull" size="16" />
+  <span>{{ 'game.contextMenu.labels.concede' | runtimeTranslate }}</span>
+</button>
