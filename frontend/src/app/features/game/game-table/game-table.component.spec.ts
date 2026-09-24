@@ -705,7 +705,13 @@ describe('GameTableComponent', () => {
   });
 
   it('uses the historical aggressive compact media query for narrow low-height viewports', async () => {
-    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: squareGamePreferences },
+    });
     const matchMedia = vi.fn(
       (query: string): MediaQueryList => ({
         matches: query === '(max-width: 1180px) and (max-height: 768px)',
@@ -894,7 +900,7 @@ describe('GameTableComponent', () => {
     ) as HTMLButtonElement;
 
     expect(battlefieldControls.children[0]).toBe(ownerSummary);
-    expect(battlefieldControls.children[1]).toBe(concedeButton);
+    expect(battlefieldControls.children[1]?.querySelector('[data-testid="battlefield-concede"]')).toBe(concedeButton);
     concedeButton.click();
     fixture.detectChanges();
 
@@ -4128,20 +4134,14 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    const recordDiceRoll = vi
+      .spyOn(fixture.componentInstance.store, 'recordDiceRoll')
+      .mockResolvedValue({ kind: 'd20', finalResult: '17' });
 
     fixture.componentInstance.openRollModal();
     await fixture.componentInstance.requestDiceRoll('d20');
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'dice.rolled',
-        payload: {
-          kind: 'd20',
-          playerId: 'user-1',
-        },
-      }),
-      'game-1',
-    );
+    expect(recordDiceRoll).toHaveBeenCalledWith({ kind: 'd20' });
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance.rollModalOpen()).toBe(true);
     expect(fixture.componentInstance.rollModalResult()).toBe('17');
@@ -4402,6 +4402,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.backgroundName = 'free_0';
@@ -5881,7 +5882,7 @@ describe('GameTableComponent', () => {
     );
   });
 
-  it('drops the top library pile card onto an empty hand through the DOM drag path', async () => {
+  it('blocks the obsolete native DOM drag path from a library pile to hand', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({
       id: 'user-1',
@@ -5891,18 +5892,6 @@ describe('GameTableComponent', () => {
     });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gameplayWebsocketCommand.mockReturnValue(
-      of({
-        event: {
-          id: 'event-draw',
-          type: 'library.draw',
-          payload: {},
-          createdBy: 'user-1',
-          createdAt: '',
-        },
-        snapshot,
-      }),
-    );
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -5916,7 +5905,8 @@ describe('GameTableComponent', () => {
     ).find((element) => element.textContent?.includes('Library'));
     expect(libraryButton).toBeTruthy();
 
-    libraryButton!.dispatchEvent(dragEvent('dragstart', dataTransfer, libraryButton!));
+    const dragStart = dragEvent('dragstart', dataTransfer, libraryButton!);
+    libraryButton!.dispatchEvent(dragStart);
     fixture.detectChanges();
 
     const emptyHandTarget = fixture.nativeElement.querySelector(
@@ -5926,16 +5916,11 @@ describe('GameTableComponent', () => {
     emptyHandTarget.dispatchEvent(dragEvent('drop', dataTransfer, emptyHandTarget));
     await fixture.whenStable();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'library.draw',
-        payload: { playerId: 'user-1', count: 1 },
-      }),
-      'game-1',
-    );
+    expect(dragStart.defaultPrevented).toBe(true);
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
-  it('drops a top zone pile card onto the battlefield through the native DOM drag path', async () => {
+  it('blocks the obsolete native DOM drag path from a zone pile to the battlefield', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({
       id: 'user-1',
@@ -5944,20 +5929,7 @@ describe('GameTableComponent', () => {
       roles: [],
     });
     const snapshot = snapshotWithStatus('active');
-    const topLibraryCard = snapshot.players['user-1']!.zones.library[0]!;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gameplayWebsocketCommand.mockReturnValue(
-      of({
-        event: {
-          id: 'event-move',
-          type: 'card.moved',
-          payload: {},
-          createdBy: 'user-1',
-          createdAt: '',
-        },
-        snapshot,
-      }),
-    );
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -5987,25 +5959,15 @@ describe('GameTableComponent', () => {
         toJSON: () => ({}),
       }) as DOMRect;
 
-    libraryButton!.dispatchEvent(dragEvent('dragstart', dataTransfer, libraryButton!));
+    const dragStart = dragEvent('dragstart', dataTransfer, libraryButton!);
+    libraryButton!.dispatchEvent(dragStart);
     fixture.detectChanges();
     battlefield.dispatchEvent(dragEvent('dragover', dataTransfer, battlefield));
     battlefield.dispatchEvent(dragEvent('drop', dataTransfer, battlefield));
     await fixture.whenStable();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'card.moved',
-        payload: expect.objectContaining({
-          playerId: 'user-1',
-          fromZone: 'library',
-          toZone: 'battlefield',
-          targetPlayerId: 'user-1',
-          instanceId: topLibraryCard.instanceId,
-        }),
-      }),
-      'game-1',
-    );
+    expect(dragStart.defaultPrevented).toBe(true);
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it.each(['graveyard', 'exile'] as const)(
@@ -6540,6 +6502,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
@@ -7554,6 +7517,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-2'] = {
@@ -8096,6 +8060,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['seat-2'] = {
@@ -8151,6 +8116,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
@@ -8952,6 +8918,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.zones.battlefield[0]!.position = { x: 700, y: 520 };

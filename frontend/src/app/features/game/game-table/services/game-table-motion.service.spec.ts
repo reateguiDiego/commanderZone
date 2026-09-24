@@ -428,23 +428,13 @@ function stubMatchMedia(matches: (query: string) => boolean): void {
 function addHandCard(
   host: HTMLElement,
   instanceId: string,
-  rect: { left: number; top: number; width: number; height: number } = { left: 10, top: 20, width: 72, height: 100 },
+  bounds: { left: number; top: number; width: number; height: number } = { left: 10, top: 20, width: 72, height: 100 },
 ): HTMLElement {
   const card = document.createElement('button');
   card.dataset['zone'] = 'hand';
   card.dataset['cardInstanceId'] = instanceId;
   card.dataset['flipId'] = instanceId;
-  card.getBoundingClientRect = (): DOMRect => ({
-    x: rect.left,
-    y: rect.top,
-    width: rect.width,
-    height: rect.height,
-    top: rect.top,
-    right: rect.left + rect.width,
-    bottom: rect.top + rect.height,
-    left: rect.left,
-    toJSON: () => ({}),
-  } as DOMRect);
+  card.getBoundingClientRect = (): DOMRect => rect(bounds.left, bounds.top, bounds.width, bounds.height);
   const visual = document.createElement('span');
   visual.classList.add('card-visual');
   card.appendChild(visual);
@@ -468,21 +458,25 @@ function addBattlefieldStackCard(
 
 function addMotionTarget(
   host: HTMLElement,
-  rect: { left: number; top: number; width: number; height: number },
+  bounds: { left: number; top: number; width: number; height: number },
 ): HTMLElement {
   const target = document.createElement('div');
-  target.getBoundingClientRect = (): DOMRect => ({
-    x: rect.left,
-    y: rect.top,
-    width: rect.width,
-    height: rect.height,
-    top: rect.top,
-    right: rect.left + rect.width,
-    bottom: rect.top + rect.height,
-    left: rect.left,
-    toJSON: () => ({}),
-  } as DOMRect);
+  target.getBoundingClientRect = (): DOMRect => rect(bounds.left, bounds.top, bounds.width, bounds.height);
   host.appendChild(target);
 
   return target;
+}
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
