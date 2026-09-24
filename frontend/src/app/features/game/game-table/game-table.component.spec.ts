@@ -112,6 +112,10 @@ import { GameTableGameplayV2FlagsService } from './services/game-table-gameplay-
 class TestRouteStubComponent {}
 
 describe('GameTableComponent', () => {
+  const squareGamePreferences = {
+    defaultBattlefieldLayout: 'square' as const,
+    chosenModeView: 'square' as const,
+  };
   const gameplayWebsocketCommand = vi.fn();
   const gamesApi = {
     snapshot: vi.fn(),
@@ -585,6 +589,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -750,6 +755,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     window.localStorage.setItem('commanderZone.gameTable.battlefieldZoomPercent', '120');
     const snapshot = snapshotWithStatus('active');
@@ -800,6 +806,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
@@ -860,6 +867,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.life = 0;
@@ -952,6 +960,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);

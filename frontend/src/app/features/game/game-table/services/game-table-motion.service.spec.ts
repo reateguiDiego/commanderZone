@@ -179,6 +179,7 @@ describe('GameTableMotionService', () => {
   it('does not scale the battlefield when a card lands on it', () => {
     const battlefield = document.createElement('section');
     battlefield.dataset['zone'] = 'battlefield';
+    battlefield.getBoundingClientRect = () => rect(0, 0, 500, 320);
     host.appendChild(battlefield);
 
     service.impactZone(battlefield);

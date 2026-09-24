@@ -1964,7 +1964,7 @@ describe('PlayerHandPanelComponent', () => {
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
       sourceRect: { left: 0, top: 0, width: 100, height: 140 },
-      position: { x: 120, y: 70 },
+      position: { x: 117, y: 67 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
