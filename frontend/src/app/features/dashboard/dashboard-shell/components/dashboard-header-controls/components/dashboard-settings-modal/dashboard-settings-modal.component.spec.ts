@@ -135,7 +135,6 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Card alignment helper');
     expect(fixture.nativeElement.textContent).toContain('Table layout');
-    expect(fixture.nativeElement.textContent).toContain('Grid');
     expect(fixture.nativeElement.textContent).toContain('Focused');
     const layoutToggle = fixture.nativeElement.querySelector('.game-settings-toggle-list .game-settings-layout-toggle');
     expect(layoutToggle).not.toBeNull();

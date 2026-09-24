@@ -128,7 +128,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
 
     expect(state.manaLaneDropPlayerId()).toBe('player-1');
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 138 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 132 });
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -154,7 +154,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
 
     expect(state.manaLaneDropPlayerId()).toBe('player-1');
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 138 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 132 });
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,

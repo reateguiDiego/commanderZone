@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { LucideAngularModule, RotateCw } from 'lucide-angular';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { DeviceProfileService } from '../../services/device-profile.service';
+import { ImagePreloadQueueService } from '../../services/image-preload-queue.service';
 import { CardFaceImageComponent } from './card-face-image.component';
 
 describe('CardFaceImageComponent', () => {
@@ -38,6 +39,7 @@ describe('CardFaceImageComponent', () => {
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ RotateCw })),
         { provide: DeviceProfileService, useValue: { isMobile, isDesktopLayout, hasCoarsePointer, hasHover } },
+        { provide: ImagePreloadQueueService, useValue: imagePreloadQueueStub() },
       ],
     }).compileComponents();
   });
@@ -339,6 +341,22 @@ function mockGsapFlipAnimation(): void {
       kill: vi.fn(),
     } as unknown as gsap.core.Tween;
   });
+}
+
+function imagePreloadQueueStub() {
+  return {
+    preload: () => Promise.resolve(true),
+    request: (imageUrl: string | null) => {
+      const image = new Image();
+      const completed = new Promise<boolean>((resolve) => {
+        image.onload = () => resolve(true);
+        image.onerror = () => resolve(false);
+        image.src = imageUrl ?? '';
+      });
+
+      return { completed, cancel: () => undefined };
+    },
+  };
 }
 
 function cardFace(name: string, imageUrl: string, typeLine: string | null = null): CardFace {

@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { ChevronDown, LucideAngularModule, Skull } from 'lucide-angular';
 import type { PlayerView } from '../game-table.store';
 import { GameTableGridLayoutComponent } from './game-table-grid-layout.component';
 import { GridPlayerBattlefieldComponent } from './grid-player-battlefield.component';
@@ -46,6 +47,12 @@ class GridHost {
 }
 
 describe('GameTable grid layout', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronDown, Skull }))],
+    });
+  });
+
   it('assigns stable areas for one to four players and rejects incompatible tables', async () => {
     await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
     const fixture = TestBed.createComponent(GridHost);
@@ -93,8 +100,8 @@ describe('GameTable grid layout', () => {
     const layout = TestBed.inject(GameTableLayoutState);
     const players = signal(['local', 'opponent'].map(player));
     layout.connect({ players, currentPlayer: () => players()[0] });
-    layout.select('grid');
     TestBed.tick();
+    layout.select('grid');
     const rect = { width: 400, height: 200, left: 0, right: 400, top: 0, bottom: 200 };
     layout.recordSize({ playerId: 'opponent', rect });
     expect(layout.rectangle('opponent')).toEqual(rect);

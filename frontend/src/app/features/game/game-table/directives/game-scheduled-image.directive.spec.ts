@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import {
   ImagePreloadQueueService,
@@ -18,7 +18,7 @@ import { GameScheduledImageDirective } from './game-scheduled-image.directive';
 })
 class HostComponent {
   imageUrl: string | null = 'https://cards.example.test/test-card.jpg';
-  priority: ImagePreloadQueuePriority = 'visible';
+  @Input() priority: ImagePreloadQueuePriority = 'visible';
 }
 
 describe('GameScheduledImageDirective', () => {
@@ -54,7 +54,7 @@ describe('GameScheduledImageDirective', () => {
   });
 
   it('keeps background images in the bounded queue', () => {
-    fixture.componentInstance.priority = 'background';
+    fixture.componentRef.setInput('priority', 'background');
     fixture.detectChanges();
 
     expect(scheduledRequest).not.toBeNull();

@@ -12,7 +12,7 @@ describe('TurnPhasePanelComponent', () => {
       currentPlayerId: 'player-1',
     });
 
-    expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]')?.textContent).toContain('Draw');
+    expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]')?.textContent).toContain('game.turnPhasePanel.phaseActionLabel');
     expect(fixture.nativeElement.querySelector('[data-testid="pass-turn"]')).not.toBeNull();
   });
 

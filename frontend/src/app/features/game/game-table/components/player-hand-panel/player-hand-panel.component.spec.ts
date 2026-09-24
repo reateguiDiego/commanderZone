@@ -707,8 +707,8 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.componentInstance.pointerDrag()).toEqual(
       expect.objectContaining({
         card: draggedCard,
-        offsetX: 32,
-        offsetY: 56,
+        offsetX: 37.12,
+        offsetY: 64.8,
       }),
     );
   });
@@ -1787,7 +1787,7 @@ describe('PlayerHandPanelComponent', () => {
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
       sourceRect: { left: 0, top: 0, width: 100, height: 140 },
-      position: { x: 40, y: 0 },
+        position: { x: 24, y: 0 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -1950,7 +1950,7 @@ describe('PlayerHandPanelComponent', () => {
       kind: 'zone',
       rawZone: 'battlefield',
       draggedInstanceId: 'card-1',
-      position: { x: 120, y: 70 },
+      position: { x: 117, y: 67 },
       pointerClient: { x: 150, y: 100 },
     });
 

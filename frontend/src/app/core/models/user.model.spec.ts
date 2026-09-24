@@ -1,4 +1,4 @@
-import { UserGamePreferences, normalizeUserGamePreferences } from './user.model';
+import { DEFAULT_USER_GAME_PREFERENCES, UserGamePreferences, normalizeUserGamePreferences } from './user.model';
 
 describe('normalizeUserGamePreferences', () => {
   it('keeps only supported boolean preferences from persisted user data', () => {
@@ -31,7 +31,7 @@ describe('normalizeUserGamePreferences', () => {
   it('keeps only supported default battlefield layouts from persisted user data', () => {
     expect(normalizeUserGamePreferences({ defaultBattlefieldLayout: 'grid' }).defaultBattlefieldLayout).toBe('grid');
     expect(normalizeUserGamePreferences({ defaultBattlefieldLayout: 'list' } as unknown as Partial<UserGamePreferences>).defaultBattlefieldLayout)
-      .toBe('square');
+      .toBe(DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout);
   });
 
   it('uses the default battlefield layout until the player chooses a mode view', () => {

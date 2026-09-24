@@ -31,6 +31,7 @@ describe('GameTableDragDropStore', () => {
     dragStart: ReturnType<typeof vi.fn>;
     dragPayload: ReturnType<typeof vi.fn>;
     dropPosition: ReturnType<typeof vi.fn>;
+    dropGeometry: ReturnType<typeof vi.fn>;
     moveCardPointerDrag: ReturnType<typeof vi.fn>;
     hasActivePointerDrag: ReturnType<typeof vi.fn>;
     cancelCardPointerDrag: ReturnType<typeof vi.fn>;
@@ -50,6 +51,10 @@ describe('GameTableDragDropStore', () => {
       dragStart: vi.fn(),
       dragPayload: vi.fn().mockReturnValue(null),
       dropPosition: vi.fn().mockReturnValue(null),
+      dropGeometry: vi.fn().mockReturnValue({
+        position: { x: 100, y: 200 },
+        cardSize: { width: 103, height: 144 },
+      }),
       moveCardPointerDrag: vi.fn(),
       hasActivePointerDrag: vi.fn().mockReturnValue(false),
       cancelCardPointerDrag: vi.fn(),
@@ -80,6 +85,7 @@ describe('GameTableDragDropStore', () => {
             dragStart: dragService.dragStart,
             dragPayload: dragService.dragPayload,
             dropPosition: dragService.dropPosition,
+            dropGeometry: dragService.dropGeometry,
             moveCardPointerDrag: dragService.moveCardPointerDrag,
             hasActivePointerDrag: dragService.hasActivePointerDrag,
             cancelCardPointerDrag: dragService.cancelCardPointerDrag,

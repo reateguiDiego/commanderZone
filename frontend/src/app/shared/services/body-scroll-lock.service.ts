@@ -75,6 +75,14 @@ export class BodyScrollLockService {
 
   private getScrollbarWidth(html: HTMLElement): number {
     const viewportWidth = this.documentRef.defaultView?.innerWidth ?? html.clientWidth;
+
+    // DOM test environments do not lay out the root element and report a
+    // zero client width. That is not a scrollbar, so compensating with the
+    // complete viewport width would leave a visible inline style behind.
+    if (html.clientWidth <= 0) {
+      return 0;
+    }
+
     return Math.max(0, viewportWidth - html.clientWidth);
   }
 

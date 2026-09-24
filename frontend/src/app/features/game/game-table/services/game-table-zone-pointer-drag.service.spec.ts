@@ -262,7 +262,7 @@ describe('GameTableZonePointerDragService', () => {
       toZone: 'battlefield',
       instanceId: 'graveyard-1',
       rawZone: 'mana',
-      position: { x: 114, y: 141 },
+        position: { x: 117, y: 158 },
     });
 
     restore();

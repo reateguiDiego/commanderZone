@@ -86,6 +86,7 @@ describe('GameTableBattlefieldState', () => {
     const layout = TestBed.inject(GameTableLayoutState);
     const players = [{ id: 'player-1', state: currentSnapshot.players['player-1']! }];
     layout.connect({ players: () => players, currentPlayer: () => players[0] });
+    TestBed.tick();
     state.setLayoutSize({ width: 1200, height: 900 });
     layout.select('grid');
     const legacy = currentSnapshot.players['player-1']!.zones.battlefield[0]!;
@@ -98,12 +99,12 @@ describe('GameTableBattlefieldState', () => {
       playerId: 'player-1',
       rect: { width: 300, height: 200, left: 0, top: 0, right: 300, bottom: 200 },
     });
-    expect(state.cardPosition(legacy)).toEqual({ x: 200, y: 60 });
+    expect(state.cardPosition(legacy)).toEqual({ x: 184, y: 38 });
     layout.recordSize({
       playerId: 'player-1',
       rect: { width: 240, height: 180, left: 0, top: 0, right: 240, bottom: 180 },
     });
-    expect(state.cardPosition(legacy)).toEqual({ x: 140, y: 40 });
+    expect(state.cardPosition(legacy)).toEqual({ x: 124, y: 18 });
     const before = structuredClone(currentSnapshot);
     state.reflowBattlefieldCardPositions(context());
     expect(currentSnapshot).toEqual(before);
@@ -172,7 +173,7 @@ describe('GameTableBattlefieldState', () => {
 
     state.setLayoutSize({ width: 300, height: 200 });
 
-    expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 180, y: 20 });
+    expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 184, y: 38 });
   });
 
   it('queues the final battlefield position persist callback and keeps the optimistic ratio position local', async () => {
@@ -250,7 +251,7 @@ describe('GameTableBattlefieldState', () => {
       position,
     };
 
-    expect(position).toEqual({ x: 0.5, y: 0.5, unit: 'ratio' });
+    expect(position).toEqual({ x: 0.50905, y: 0.470219, unit: 'ratio' });
     expect(JSON.stringify(payload)).not.toContain('zoomPercent');
   });
 

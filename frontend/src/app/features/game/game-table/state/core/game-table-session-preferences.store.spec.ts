@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { AuthStore } from '../../../../../core/auth/auth.store';
-import { User, UserGamePreferences } from '../../../../../core/models/user.model';
+import { DEFAULT_USER_GAME_PREFERENCES, User, UserGamePreferences } from '../../../../../core/models/user.model';
 import { GameTableSessionPreferencesStore } from './game-table-session-preferences.store';
 
 describe('GameTableSessionPreferencesStore', () => {
@@ -55,8 +55,8 @@ describe('GameTableSessionPreferencesStore', () => {
     const store = TestBed.inject(GameTableSessionPreferencesStore);
 
     expect(store.preferences).toEqual({
-      defaultBattlefieldLayout: 'square',
-      chosenModeView: 'square',
+      defaultBattlefieldLayout: DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
+      chosenModeView: DEFAULT_USER_GAME_PREFERENCES.chosenModeView,
       showCardAlignmentHelper: true,
       showManaHelperOnStartup: false,
       enableManaRow: true,

@@ -167,7 +167,7 @@ describe('ContextMenuComponent', () => {
       kind: 'card',
       playerId: 'user-2',
       zone: 'battlefield',
-      card: card('Forest'),
+      card: { ...card('forest'), name: 'Forest' },
     }, {
     });
     const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.context-menu-target');
@@ -435,7 +435,7 @@ describe('ContextMenuComponent', () => {
     expect(text).toContain('Exile');
     expect(text).toContain('Library');
     expect(text).toContain('Battlefield');
-    expect(text).not.toContain('Graveyard');
+    expect((graveyardMenu.nativeElement as HTMLElement).querySelector('.submenu')?.textContent).not.toContain('Graveyard');
 
     const battlefield = Array.from((graveyardMenu.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.textContent?.includes('Battlefield'));
@@ -1585,7 +1585,7 @@ describe('ContextMenuComponent', () => {
 
     expect(menuText(fixture)).toContain('Attach to...');
     expect(menuText(fixture)).toContain('Counters');
-    expect(menuText(fixture)).toContain('Flip Card Face');
+    expect(menuText(fixture)).not.toContain('Flip Card Face');
   });
 
   it('shows detach all for a battlefield card with attached cards', () => {

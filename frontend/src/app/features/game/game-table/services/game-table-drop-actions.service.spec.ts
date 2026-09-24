@@ -590,7 +590,7 @@ describe('GameTableDropActionsService', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceIds: ['moved', 'selected-2'],
-        position: { x: 122, y: 158 },
+          position: { x: 122, y: 159 },
       },
     }]);
   });
@@ -622,7 +622,7 @@ describe('GameTableDropActionsService', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceIds: ['moved', 'selected-2'],
-        position: { x: 122, y: 158 },
+          position: { x: 122, y: 159 },
       },
     }]);
   });

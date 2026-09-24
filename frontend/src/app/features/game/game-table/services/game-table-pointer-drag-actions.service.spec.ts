@@ -217,7 +217,7 @@ describe('GameTablePointerDragActionsService', () => {
       () => true,
     ), { clientX: 120, clientY: 280 } as PointerEvent);
 
-    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 44, y: 320 }, 162);
+    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 44, y: 320 }, 168);
     expect(battlefieldDragService.positionWithManaLane).not.toHaveBeenCalled();
     expect(battlefieldDragService.positionWithAlignmentGuide).not.toHaveBeenCalled();
     expect(commands).toEqual([{
@@ -360,7 +360,7 @@ describe('GameTablePointerDragActionsService', () => {
       updateLocalCardPosition,
     ), { clientX: 120, clientY: 220 } as PointerEvent);
 
-    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 100, y: 200 }, 162);
+    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 100, y: 200 }, 168);
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'top', { x: 100, y: 296 });
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 110, y: 278 });
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 120, y: 260 });
@@ -604,7 +604,7 @@ describe('GameTablePointerDragActionsService', () => {
       updateLocalCardPosition,
     ), { clientX: 120, clientY: 280 } as PointerEvent);
 
-    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 120, y: 320 }, 162);
+    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 120, y: 320 }, 168);
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'top', { x: 120, y: 296 });
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 130, y: 278 });
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'bottom', { x: 140, y: 260 });
@@ -1047,7 +1047,7 @@ describe('GameTablePointerDragActionsService', () => {
     }, { clientX: 120, clientY: 280 } as PointerEvent);
 
     expect(markPendingManaDrop).not.toHaveBeenCalled();
-    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 260, y: 212 }, 162);
+    expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 260, y: 212 }, 168);
     expect(commands[0]).toEqual({
       type: 'cards.position.changed',
       payload: {

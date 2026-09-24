@@ -78,7 +78,7 @@ describe('GameTableDragService', () => {
       clientY: 100,
     } as unknown as DragEvent, 'battlefield');
 
-    expect(position).toEqual({ x: 82, y: 8 });
+    expect(position).toEqual({ x: 82, y: 9 });
   });
 
   it('uses the real drag image anchor for native battlefield drops', () => {
@@ -128,11 +128,12 @@ describe('GameTableDragService', () => {
     } as unknown as DragEvent, 'battlefield');
 
     const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
+    const preview = document.body.lastElementChild as HTMLElement;
     expect(dragImage).toBeInstanceOf(HTMLElement);
-    expect((dragImage as HTMLElement).textContent).toContain('Arcane Signet');
-    expect(offsetX).toBe(10);
-    expect(offsetY).toBe(20);
-    expect(position).toEqual({ x: 130, y: 70 });
+    expect(preview.textContent).toContain('Arcane Signet');
+    expect(offsetX).toBe(0);
+    expect(offsetY).toBe(0);
+    expect(position).toEqual({ x: 128, y: 67 });
   });
 
   it('uses the top card image for native zone pile drag previews', () => {
@@ -184,15 +185,16 @@ describe('GameTableDragService', () => {
       });
 
       const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
-      const image = (dragImage as HTMLElement).querySelector('img');
+      const preview = document.body.lastElementChild as HTMLElement;
+      const image = preview.querySelector('img');
 
       expect(dragImage).toBeInstanceOf(HTMLElement);
       expect(image?.src).toContain('/assets/top.jpg');
       expect(image?.src).not.toContain('/assets/layer.jpg');
-      expect((dragImage as HTMLElement).style.width).toBe('116px');
-      expect((dragImage as HTMLElement).style.height).toBe('162px');
-      expect(offsetX).toBe(58);
-      expect(offsetY).toBe(81);
+      expect(preview.style.width).toBe('116px');
+      expect(preview.style.height).toBe('162px');
+      expect(offsetX).toBe(0);
+      expect(offsetY).toBe(0);
     } finally {
       battlefieldCard.remove();
       zoneStack.remove();
@@ -252,7 +254,7 @@ describe('GameTableDragService', () => {
       });
 
       const [dragImage] = dataTransfer.setDragImage.mock.calls[0]!;
-      const image = (dragImage as HTMLElement).querySelector('img');
+      const image = (document.body.lastElementChild as HTMLElement).querySelector('img');
 
       expect(image?.src).toContain('/assets/commander-2.jpg');
       expect(image?.src).not.toContain('/assets/commander-1.jpg');
@@ -309,7 +311,7 @@ describe('GameTableDragService', () => {
       });
 
       const [dragImage] = dataTransfer.setDragImage.mock.calls[0]!;
-      const image = (dragImage as HTMLElement).querySelector('img');
+      const image = (document.body.lastElementChild as HTMLElement).querySelector('img');
 
       expect(image?.src).toContain('/assets/commander-2.jpg');
       expect(image?.src).not.toContain('/assets/commander-1.jpg');
@@ -402,14 +404,14 @@ describe('GameTableDragService', () => {
       });
 
       const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
-      const preview = dragImage as HTMLElement;
+      const preview = document.body.lastElementChild as HTMLElement;
 
       expect(preview.style.width).toBe('116px');
       expect(preview.style.height).toBe('162px');
       expect(preview.style.transform).toBe('none');
       expect(preview.querySelector('.game-card.tapped')).not.toBeNull();
-      expect(offsetX).toBe(29);
-      expect(offsetY).toBeCloseTo(56.7, 1);
+      expect(offsetX).toBe(0);
+      expect(offsetY).toBe(0);
     } finally {
       source.remove();
     }

@@ -26,7 +26,9 @@ describe('GameTableLibraryTopState', () => {
     snapshotSignal.set(snapshot([card('card-1'), card('card-2', true), card('card-3')]));
     errorSignal.set(null);
     zoneModalSignal.set(null);
+    view.mockReset();
     view.mockResolvedValue(undefined);
+    reorderTop.mockReset();
     reorderTop.mockResolvedValue(undefined);
     openFixedZone.mockClear();
     replaceZoneModalCards.mockClear();

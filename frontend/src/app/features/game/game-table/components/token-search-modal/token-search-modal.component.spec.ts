@@ -143,7 +143,7 @@ describe('TokenSearchModalComponent', () => {
 
     expect(cardsApi.search).not.toHaveBeenCalled();
     expect(fixture.componentInstance.searchResults()).toEqual([]);
-    expect(fixture.nativeElement.textContent).toContain('The Ring can only be added from the battlefield.');
+    expect(fixture.nativeElement.textContent).toContain('game.tokenSearchModal.theRingFromGameMechanics');
   });
 
   it('clamps token quantity to the supported range', () => {

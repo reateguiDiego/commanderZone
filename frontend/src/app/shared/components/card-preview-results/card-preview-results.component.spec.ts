@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { LucideAngularModule, RotateCw } from 'lucide-angular';
 import { CardFace } from '../../../core/models/card.model';
 import { DeviceProfileService } from '../../services/device-profile.service';
+import { ImagePreloadQueueService } from '../../services/image-preload-queue.service';
 import { CardPreviewResultsComponent } from './card-preview-results.component';
 
 describe('CardPreviewResultsComponent', () => {
@@ -13,6 +14,13 @@ describe('CardPreviewResultsComponent', () => {
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ RotateCw })),
         { provide: DeviceProfileService, useValue: { isMobile: signal(true), isDesktopLayout: signal(false), hasCoarsePointer: signal(true), hasHover: signal(false) } },
+        {
+          provide: ImagePreloadQueueService,
+          useValue: {
+            preload: () => Promise.resolve(true),
+            request: () => ({ completed: Promise.resolve(true), cancel: () => undefined }),
+          },
+        },
       ],
     }).compileComponents();
   });

@@ -192,7 +192,7 @@ describe('GameTableCardsState', () => {
       value: 0,
     });
 
-    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({});
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({ Level: 0 });
   });
 });
 

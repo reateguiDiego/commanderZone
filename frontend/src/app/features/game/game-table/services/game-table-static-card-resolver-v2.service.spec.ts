@@ -302,12 +302,12 @@ describe('GameTableStaticCardResolverV2Service', () => {
   });
 
   it('hydrates visible compact cards from the initial bootstrap', async () => {
-    cardsApi.getManySilently.mockReturnValue(of({ cards: [card('print-forest', 'Forest')] }));
+    cardsApi.getSilently.mockReturnValue(of({ card: card('print-forest', 'Forest') }));
     const bootstrap = bootstrapWithVisibleForest();
 
     const hydrated = await service.hydrateBootstrap(bootstrap);
 
-    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['print-forest']);
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('print-forest');
     expect(hydrated.staticCards['forest']?.name).toBe('Forest');
   });
 
