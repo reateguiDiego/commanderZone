@@ -3301,8 +3301,13 @@ function canReuseExistingInstanceStaticCard(
 ): boolean {
   const existingZone = zoneNameFromZoneId(existing.zoneId);
   return legacy.instanceId === existing.instanceId
+    && !hasExplicitLegacyStaticIdentity(legacy)
     && ((existingZone === 'library' || existingZone === 'hand') || existing.isTokenCopy === true)
     && hasRenderableStaticContent(existingStaticCard);
+}
+
+function hasExplicitLegacyStaticIdentity(card: LegacyCardPatchPayload): boolean {
+  return [card.cardRef, card.cardKey, card.printId, card.scryfallId].some(nonEmptyString);
 }
 
 function staticCardForIncomingKeys(

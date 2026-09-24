@@ -91,8 +91,8 @@ describe('game table normalized v2 store', () => {
       },
     ]));
 
-    expect(top.state.zones['player-1'].library).toEqual(['hand-1', 'library-1']);
-    expect(bottom.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'battlefield-1']);
+    expect(top.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'library-2']);
+    expect(bottom.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'battlefield-1', 'library-2']);
   });
 
   it('applies ordered patches and keeps version idempotent', () => {
@@ -2292,7 +2292,7 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.hand.find((card) => card.instanceId === 'library-1')?.name).toBe('Forest');
   });
 
-  it('requests resync for visible compact runtime draw cards without cached static data', () => {
+  it('applies visible compact runtime draw cards while their static data is pending', () => {
     const store = new GameTableNormalizedV2Store();
     store.applyBootstrap(bootstrapV2());
     const result = store.applyPatch(patch(6, [
@@ -2307,8 +2307,39 @@ describe('game table normalized v2 store', () => {
       { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
     ]));
 
-    expect(result).toMatchObject({ status: 'resync_required', reason: 'invalid_operation' });
-    expect(store.state()?.lastAppliedVersion).toBe(5);
+    expect(result.status).toBe('applied');
+    expect(store.state()?.lastAppliedVersion).toBe(6);
+    expect(store.state()?.instances['library-1']?.staticCardPending).toBe(true);
+  });
+
+  it('does not reuse a stale library identity when a compact runtime draw provides a new one', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [{
+          instanceId: 'library-1',
+          cardKey: 'card:runtime-private',
+          printId: 'runtime-print-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1']).toMatchObject({
+      cardRef: 'card:runtime-private',
+      cardKey: 'card:runtime-private',
+      printId: 'runtime-print-forest',
+      staticCardPending: true,
+    });
   });
 
   it('hydrates visible hand count from zone.count.set instead of stale hand array length', () => {
@@ -3185,7 +3216,7 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.hand[0]?.imageUris?.['normal']).toBe('https://cards.test/mulligan-a.jpg');
   });
 
-  it('requests resync instead of throwing when runtime mulligan hand lacks static identity', () => {
+  it('applies a runtime mulligan hand while its static identity is pending', () => {
     const store = new GameTableNormalizedV2Store();
     store.applyBootstrap({
       ...bootstrapV2(),
@@ -3205,8 +3236,9 @@ describe('game table normalized v2 store', () => {
       },
     ]));
 
-    expect(result).toMatchObject({ status: 'resync_required', reason: 'invalid_operation' });
-    expect(store.state()?.lastAppliedVersion).toBe(5);
+    expect(result.status).toBe('applied');
+    expect(store.state()?.lastAppliedVersion).toBe(6);
+    expect(store.state()?.instances['runtime-missing-static']?.staticCardPending).toBe(true);
   });
 
   it('applies mulligan completion and phase patches by version', () => {

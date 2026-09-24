@@ -181,7 +181,7 @@ describe('GameTableWebsocketGameplayService', () => {
 
   it('opens a local top-library view from its applied private patch', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
-    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('s1', 'Viewed library card') }));
+    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('runtime-viewed-library', 'Viewed library card') }));
     TestBed.inject(GameTableNormalizedV2Store).applyBootstrap(bootstrapV2());
 
     const sent = service.sendCommand(context(), 'library.view', { playerId: 'player-1', count: 1 });
@@ -199,8 +199,8 @@ describe('GameTableWebsocketGameplayService', () => {
           count: 1,
           cards: [{
             instanceId: 'library-1',
-            cardKey: 'card-1',
-            printId: 's1',
+            cardKey: 'runtime-viewed-library',
+            printId: 'runtime-viewed-library',
             cardVersion: 'legacy-snapshot-v1',
             language: 'en',
             viewerVisibility: 'private',
@@ -218,7 +218,7 @@ describe('GameTableWebsocketGameplayService', () => {
       hidden: false,
       name: 'Viewed library card',
     });
-    expect(cardsApi.getSilently).toHaveBeenCalledWith('s1');
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('runtime-viewed-library');
   });
 
   it('emits remote V2 patches for battlefield arrival animations', async () => {
@@ -286,7 +286,12 @@ describe('GameTableWebsocketGameplayService', () => {
       ],
     });
 
-    await vi.waitFor(() => expect(snapshotState.version).toBe(2));
+    await vi.waitFor(() => expect(snapshotState.players['player-1'].zones.hand[0]).toMatchObject({
+      instanceId: 'library-1',
+      scryfallId: 'runtime-print-forest',
+      name: 'Runtime Forest',
+      imageUris: { normal: 'https://cards.test/runtime-print-forest.jpg' },
+    }));
 
     expect(cardsApi.getSilently).toHaveBeenCalledWith('runtime-print-forest');
     expect(snapshotState.players['player-1'].zones.hand[0]).toMatchObject({
@@ -1457,11 +1462,11 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
-  it('opens an authorized library reveal after one bulk catalog hydration', async () => {
+  it('opens an authorized library reveal after catalog hydration', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
     normalizedStore.applyBootstrap(bootstrapV2());
-    cardsApi.getManySilently.mockReturnValue(of({ cards: [catalogCard('unresolved', 'Resolved library card')] }));
+    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('unresolved', 'Resolved library card') }));
 
     messages.next({
       kind: 'patch.v2',
@@ -1489,7 +1494,8 @@ describe('GameTableWebsocketGameplayService', () => {
 
     await vi.waitFor(() => expect(onLibraryRevealedSpy).toHaveBeenCalledWith('player-1'));
     expect(snapshotState.players['player-1'].zones.library[0]?.instanceId).toBe('library-1');
-    expect(cardsApi.getManySilently).toHaveBeenCalledWith(['unresolved']);
+    expect(snapshotState.players['player-1'].zones.library[0]?.name).toBe('Resolved library card');
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('unresolved');
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
