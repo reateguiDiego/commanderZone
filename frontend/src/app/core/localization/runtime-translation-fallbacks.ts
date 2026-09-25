@@ -1450,7 +1450,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.mulliganOverlay.firstMulliganFree': 'First mulligan is free',
   'game.mulliganOverlay.firstMulliganNotFree': 'First mulligan is not free',
   'game.mulliganOverlay.metaAriaLabel': 'Mulligan status',
-  'game.mulliganOverlay.mulligansTaken': 'You have taken {{ count }} mulligans',
+  'game.mulliganOverlay.mulligansTakenPrefix': 'You have taken ',
+  'game.mulliganOverlay.mulligansTakenSuffix': ' mulligans',
   'game.mulliganOverlay.noOtherPlayers': 'No other players.',
   'game.mulliganOverlay.otherPlayersStatus': 'Other players status',
   'game.mulliganOverlay.players': 'Players',
@@ -1727,6 +1728,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.roomBrowser.roomName': 'Room name',
   'rooms.roomBrowser.searchOwner': 'Search owner',
   'rooms.roomBrowser.searchRoom': 'Search room',
+  'rooms.roomBrowser.noRoomsAvailable': 'No rooms yet. Time to shuffle up!',
   'rooms.roomBrowser.started': 'Started',
   'rooms.roomBrowser.status': 'Status',
   'rooms.roomBrowser.visibility': 'Visibility',
@@ -1740,7 +1742,9 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.roomCreatePanel.roomSetup': 'Room setup',
   'rooms.roomCurrentBanner.currentRoom': 'Current room',
   'rooms.roomCurrentBanner.currentRoomDetails': 'Current room details',
+  'rooms.roomCurrentBanner.inProgress': 'Live',
   'rooms.roomCurrentBanner.turn': 'Turn',
+  'rooms.roomCurrentBanner.waiting': 'Waiting',
   'rooms.roomCurrentBanner.yourDeck': 'Your deck',
   'rooms.roomInvitesPanel.accept': 'Accept',
   'rooms.roomInvitesPanel.decline': 'Decline',
@@ -1772,6 +1776,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.roomSetupControls.mulliganRules.vancouver': 'Vancouver',
   'rooms.roomSetupControls.noTimer': 'No timer',
   'rooms.roomSetupControls.timer': 'Timer',
+  'rooms.roomSetupControls.timerComingSoon': 'Coming soon',
   'rooms.roomSetupModal.createRoom': 'Create room',
   'rooms.roomSetupModal.editRoomConfigurationBeforeStarting':
     'Adjust the room configuration before starting.',
@@ -1785,7 +1790,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.setup.gameSetupLifeControl.startingLifePresets': 'Starting life total presets',
   'rooms.setup.gameSetupLifeControl.startingTotal': 'Starting total',
   'rooms.setup.gameSetupLifeControl.totalLife': 'Life total',
-  'rooms.setup.gameSetupSeatsControl.seats': 'Seats',
+  'rooms.setup.gameSetupSeatsControl.seats': 'Players',
   'rooms.setup.gameSetupSeatsControl.setTableSizeToPlayers':
     'Set table size to {{ count }} players',
   'rooms.setup.gameSetupSeatsControl.tableSize': 'Table size',
@@ -1795,8 +1800,6 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.waitingRoom.allPlayersReady': 'All players ready',
   'rooms.waitingRoom.chooseAcceptedFriendsToInvite':
     'Choose accepted friends to invite to this room.',
-  'rooms.waitingRoom.chooseYourDeckAndGetReadyBefore':
-    'Choose your deck and get ready before starting.',
   'rooms.waitingRoom.deleteRoom': 'Delete room',
   'rooms.waitingRoom.inRoom': 'In room',
   'rooms.waitingRoom.invalidDeck': 'Invalid deck',
@@ -1833,9 +1836,9 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'rooms.waitingRoomPlayerCard.d20RollResult': 'd20 roll result',
   'rooms.waitingRoomPlayerCard.host': 'Host',
   'rooms.waitingRoomPlayerCard.kickPlayer': 'Kick player',
-  'rooms.waitingRoomPlayerCard.openSlot': 'Open slot',
+  'rooms.waitingRoomPlayerCard.openSlot': 'Available spot',
   'rooms.waitingRoomPlayerCard.turnOrder': 'Turn order',
-  'rooms.waitingRoomPlayerCard.waitingForPlayer': 'Waiting for player',
+  'rooms.waitingRoomPlayerCard.waitingForPlayer': 'Waiting for a player',
   'settings.dashboardSettingsModal.accountDetails': 'Account details',
   'settings.dashboardSettingsModal.areYouSureYouWantToPermanently':
     'Are you sure you want to permanently delete your account?',
@@ -1863,12 +1866,12 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
     'Show chat messages and game actions together in a single tab.',
   'settings.dashboardSettingsModal.gameSettings.combineChatAndGameLog.label':
     'Combine chat and game log',
-  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.focused': 'Focused',
+  'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.focused': 'Square',
   'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.description':
-    'Choose how the table is arranged when you open a game.',
+    'Square shows one battlefield. Grid shows all players at once (up to 4).',
   'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.grid': 'Grid',
   'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.gridWarning':
-    'Grid is only available in games with up to 4 players. With 5 or more players, the Focused layout will be used automatically.',
+    'Grid is only available in games with up to 4 players. With 5 or more players, Square will be used automatically.',
   'settings.dashboardSettingsModal.gameSettings.defaultBattlefieldLayout.label': 'Table layout',
   'settings.dashboardSettingsModal.gameSettings.enableManaRow.description':
     'Show a visual guide at the bottom of the battlefield for placing mana-producing cards. You can place any type of card there; it is only a visual aid.',

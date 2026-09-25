@@ -7,6 +7,7 @@
   [showSecondary]="!nestedEditorOpen()"
   [showPrimary]="!nestedEditorOpen()"
   [primaryDisabled]="!canSave()"
+  [showCloseButton]="true"
   [footerNotice]="canSave() ? saveDisclaimer() : ''"
   [showBackButton]="nestedEditorOpen()"
   [showHeaderAction]="avatarEditorOpen() && (avatarUploadOpen() || avatarEditorTier() === 'premium')"
@@ -14,6 +15,7 @@
   (back)="closeNestedEditor()"
   (headerAction)="toggleAvatarUploadMode()"
   (secondary)="cancel()"
+  (close)="cancel()"
   (primary)="savePreferences()"
 >
   <div class="settings-modal-layout" [class.editor-mode]="nestedEditorOpen()" (click)="closeDeleteConfirmationOnOutsideClick($event)">

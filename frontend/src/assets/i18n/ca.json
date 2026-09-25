@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Encara no hi ha sales. És hora de barrejar la baralla!",
       "searchRoom": "Cerca sala",
       "searchOwner": "Cerca amfitrió",
       "anonymous": "Anònim",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Detalls de la sala actual",
       "currentRoom": "Sala actual",
+      "inProgress": "En joc",
+      "waiting": "Esperant",
       "yourDeck": "La teva baralla"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Compta",
-      "noTimer": "Sense temporitzador"
+      "noTimer": "Sense temporitzador",
+      "timerComingSoon": "Properament"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Ajusta la configuració de la sala abans de començar.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "Resultat de la tirada de D20",
-      "waitingForPlayer": "Esperant el jugador",
+      "waitingForPlayer": "Esperant un jugador",
       "d20Roll": "Tirada de D20",
-      "openSlot": "Seient lliure"
+      "openSlot": "Plaça disponible"
     },
     "waitingRoom": {
       "setup": "Configuració",
-      "chooseYourDeckAndGetReadyBefore": "Tria la teva baralla i prepara't abans de començar.",
       "afterRollingYourDeckSelectionWillBe": "Després de tirar el dau, la teva selecció de baralla quedarà bloquejada i no es podrà canviar.",
       "noAcceptedFriendsYet": "Encara no hi ha amics acceptats.",
       "inRoom": "A la sala",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Mida de la taula",
-        "seats": "Seients",
+        "seats": "Jugadors",
         "setTableSizeToPlayers": "Estableix la mida de la taula a {{ count }} jugadors"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Estat del mulligan",
-      "mulligansTaken": "Has fet {{ count }} mulligans",
+      "mulligansTakenPrefix": "Has fet ",
+      "mulligansTakenSuffix": " mulligans",
       "effectiveMulligans": "Efectius: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Tria què vols fer amb la carta superior de la teva biblioteca.",
@@ -2207,10 +2211,10 @@
         "title": "Preferències de joc",
         "defaultBattlefieldLayout": {
           "label": "Disseny de la taula",
-          "description": "Tria com s'organitza la taula en obrir una partida.",
+          "description": "Quadrat mostra un camp de batalla. Quadrícula mostra tots els jugadors alhora (fins a 4).",
           "grid": "Quadrícula",
-          "focused": "Enfocada",
-          "gridWarning": "La quadrícula només està disponible en partides de fins a 4 jugadors. Amb 5 jugadors o més, s'utilitzarà automàticament la vista enfocada."
+          "focused": "Quadrat",
+          "gridWarning": "La quadrícula només està disponible en partides de fins a 4 jugadors. Amb 5 jugadors o més, s'utilitzarà automàticament la vista quadrada."
         },
         "showCardAlignmentHelper": {
           "label": "Ajuda d'alineació de cartes",

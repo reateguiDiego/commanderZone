@@ -553,17 +553,17 @@ describe('GameTableComponent', () => {
         fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-popover"]'),
       ).not.toBeNull();
       expect(zoomControls.textContent).not.toContain('100%');
-      expect(zoomSlider.min).toBe('70');
+      expect(zoomSlider.min).toBe('40');
       expect(zoomSlider.max).toBe('140');
       expect(zoomSlider.step).toBe('1');
       expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('7.2rem');
       expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('1');
 
-      zoomSlider.value = '70';
+      zoomSlider.value = '40';
       zoomSlider.dispatchEvent(new Event('input'));
       fixture.detectChanges();
 
-      expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('0.7');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-overlay-scale')).toBe('0.4');
 
       zoomSlider.value = '111';
       zoomSlider.dispatchEvent(new Event('input'));

@@ -1,16 +1,16 @@
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, forwardRef, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { MTGIconComponent } from '../../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { contextMenuDisplayLabel } from '../context-menu-label';
 
 export type ContextSubmenuDirection = 'down' | 'up';
 export type ContextSubmenuSide = 'right' | 'left';
+export type ContextSubmenuDepth = 1 | 2 | 3 | 4 | 5;
 
 const SUBMENU_EDGE_GAP_PX = 12;
 const SUBMENU_PANEL_GAP_PX = 6;
 const SUBMENU_PANEL_ESTIMATED_WIDTH_PX = 208;
-const SUBMENU_CHILD_PANEL_ESTIMATED_WIDTH_PX = 192;
 
 export interface ContextSubmenuItem {
   readonly value: string;
@@ -27,7 +27,7 @@ export interface ContextSubmenuItem {
 
 @Component({
   selector: 'app-context-submenu',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, MTGIconComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, MTGIconComponent, forwardRef(() => ContextSubmenuComponent)],
   templateUrl: './context-submenu.component.html',
   styleUrl: './context-submenu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,11 +41,21 @@ export class ContextSubmenuComponent {
   readonly side = input<ContextSubmenuSide>('right');
   readonly childSide = input<ContextSubmenuSide>('right');
   readonly themeIcons = input(false);
+  readonly depth = input<ContextSubmenuDepth>(1);
+  readonly disabled = input(false);
+  readonly danger = input(false);
+  readonly preserveCase = input(false);
   readonly expandedChild = signal<string | null>(null);
   private readonly resolvedPanelSide = signal<ContextSubmenuSide | null>(null);
-  private readonly resolvedChildSide = signal<ContextSubmenuSide | null>(null);
   readonly panelSide = computed(() => this.resolvedPanelSide() ?? this.side());
-  readonly activeChildSide = computed(() => this.resolvedChildSide() ?? this.childSide());
+  readonly opensLeftToFit = computed(() => this.side() === 'right' && this.resolvedPanelSide() === 'left');
+  readonly activeChildSide = computed(() => this.childSide());
+  readonly isExpanded = computed(() => this.expanded());
+  readonly nestedDepth = computed<ContextSubmenuDepth>(() => Math.min(this.depth() + 1, 5) as ContextSubmenuDepth);
+  readonly arrowDirection = computed<ContextSubmenuSide>(() => this.panelSide());
+  readonly triggerLabel = computed(() => this.preserveCase()
+    ? runtimeTranslationFallback(this.label())
+    : contextMenuDisplayLabel(this.label()));
 
   readonly toggled = output<MouseEvent>();
   readonly itemSelected = output<string>();
@@ -53,12 +63,23 @@ export class ContextSubmenuComponent {
   toggle(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    if (this.disabled()) {
+      return;
+    }
+
+    const willExpand = !this.isExpanded();
     this.resolvedPanelSide.set(
-      this.expanded()
+      !willExpand
         ? null
         : this.resolveSide(event.currentTarget, SUBMENU_PANEL_ESTIMATED_WIDTH_PX, this.side()),
     );
     this.toggled.emit(event);
+  }
+
+  toggleChild(event: MouseEvent, value: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.expandedChild.update((current) => current === value ? null : value);
   }
 
   selectItem(event: MouseEvent, item: ContextSubmenuItem): void {
@@ -67,17 +88,6 @@ export class ContextSubmenuComponent {
     if (item.disabled) {
       return;
     }
-    if (item.children?.length) {
-      const willExpand = this.expandedChild() !== item.value;
-      this.resolvedChildSide.set(
-        willExpand
-          ? this.resolveSide(event.currentTarget, SUBMENU_CHILD_PANEL_ESTIMATED_WIDTH_PX, this.childSide())
-          : null,
-      );
-      this.expandedChild.set(willExpand ? item.value : null);
-      return;
-    }
-
     this.itemSelected.emit(item.value);
   }
 

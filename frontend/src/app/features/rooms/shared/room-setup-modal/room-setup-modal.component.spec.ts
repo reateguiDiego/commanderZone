@@ -1,7 +1,9 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Globe, Lock, LucideAngularModule, Minus, Plus, X } from 'lucide-angular';
-import { RoomSetupModalComponent } from './room-setup-modal.component';
+import { GameSetupLifeControlComponent } from '../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
+import { RoomSetupModalComponent, type RoomSetupUpdatePayload } from './room-setup-modal.component';
 
 describe('RoomSetupModalComponent', () => {
   let fixture: ComponentFixture<RoomSetupModalComponent>;
@@ -32,6 +34,87 @@ describe('RoomSetupModalComponent', () => {
 
   it('defaults new rooms to public privacy', () => {
     expect(fixture.componentInstance.createRoomForm.controls.privacy.value).toBe('public');
+  });
+
+  it('uses the 1–99 life slider with Commander quick values when creating a room', () => {
+    const lifeControl = fixture.debugElement
+      .query(By.directive(GameSetupLifeControlComponent))
+      .componentInstance as GameSetupLifeControlComponent;
+
+    expect(lifeControl.mode()).toBe('slider');
+    expect(lifeControl.minValue()).toBe(1);
+    expect(lifeControl.maxValue()).toBe(99);
+    expect(lifeControl.presets()).toEqual([20, 40, 60]);
+    expect(lifeControl.sliderHints()).toEqual([1, 20, 40, 60, 80, 99]);
+    expect(lifeControl.sliderSnapValues()).toEqual([20, 40, 60]);
+  });
+
+  it('uses the same life slider when editing a waiting room', () => {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.detectChanges();
+
+    const lifeControl = fixture.debugElement
+      .query(By.directive(GameSetupLifeControlComponent))
+      .componentInstance as GameSetupLifeControlComponent;
+
+    expect(lifeControl.mode()).toBe('slider');
+    expect(lifeControl.minValue()).toBe(1);
+    expect(lifeControl.maxValue()).toBe(99);
+    expect(lifeControl.presets()).toEqual([20, 40, 60]);
+    expect(lifeControl.sliderHints()).toEqual([1, 20, 40, 60, 80, 99]);
+    expect(lifeControl.sliderSnapValues()).toEqual([20, 40, 60]);
+  });
+
+  it('labels the timer as coming soon in create and waiting-room setup', () => {
+    expect(fixture.nativeElement.querySelector('.timer-coming-soon')?.textContent).toContain('Coming soon');
+
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.timer-coming-soon')?.textContent).toContain('Coming soon');
+  });
+
+  it('enables Done only after changing the waiting-room setup and emits only those changes', () => {
+    fixture.componentRef.setInput('mode', 'edit');
+    fixture.detectChanges();
+    const updates: RoomSetupUpdatePayload[] = [];
+    fixture.componentInstance.updateRequested.subscribe((update) => updates.push(update));
+
+    const doneButton = fixture.nativeElement.querySelector('.modal-panel footer .primary-button') as HTMLButtonElement;
+    expect(doneButton.disabled).toBe(true);
+
+    fixture.componentInstance.editStartingLife.set(41);
+    fixture.detectChanges();
+
+    expect(doneButton.disabled).toBe(false);
+    doneButton.click();
+
+    expect(updates).toEqual([{ startingLife: 41 }]);
+  });
+
+  it('groups create-room settings into two full-width configuration columns', () => {
+    const columns = fixture.nativeElement.querySelectorAll('.setup-modal-column') as NodeListOf<HTMLElement>;
+
+    expect(columns.length).toBe(2);
+    expect(columns[0].querySelectorAll('.setup-modal-section').length).toBe(4);
+    expect(columns[1].querySelectorAll('.setup-modal-section').length).toBe(4);
+  });
+
+  it('provides split create actions and a danger close button', () => {
+    let closeCount = 0;
+    fixture.componentInstance.closed.subscribe(() => closeCount++);
+
+    const footer = fixture.nativeElement.querySelector('.modal-panel footer') as HTMLElement;
+    const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement;
+    const footerButtons = footer.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
+
+    expect(footer.classList).toContain('split-actions');
+    expect(footerButtons[0].classList).toContain('secondary-button');
+    expect(footerButtons[1].classList).toContain('primary-button');
+
+    closeButton.click();
+
+    expect(closeCount).toBe(1);
   });
 
   it('defaults non-Commander rooms to no free first mulligan', () => {

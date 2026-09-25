@@ -7,6 +7,8 @@
 
   <div class="cards-shell">
     <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" [attr.aria-label]="'deckBuilder.cards.cardSearch.filtersAriaLabel' | runtimeTranslate">
+      <h2 class="cards-advanced-search-modal-title">{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</h2>
+
       <app-card-advanced-search-form
         #advancedSearchForm
         [options]="options()"

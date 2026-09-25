@@ -52,6 +52,7 @@ export class RoomBrowserComponent {
     { id: 'full', labelKey: 'shared.text.full' },
     { id: 'started', labelKey: 'shared.text.started' },
   ];
+  readonly hasRooms = computed(() => this.rooms().length > 0);
 
   readonly filteredRooms = computed(() => {
     const nameFilter = this.normalizeFilter(this.roomNameFilter());

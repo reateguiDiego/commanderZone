@@ -175,6 +175,18 @@ describe('ContextMenuComponent', () => {
     expect(target?.textContent).toContain('Forest');
   });
 
+  it('uses the shared pretty scroll treatment for the context menu surface', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-2',
+      zone: 'battlefield',
+      card: card('forest'),
+    });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu-surface')?.classList)
+      .toContain('app-pretty-scroll');
+  });
+
   it('uses the zone label instead of revealing a face-down card name in the menu header', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',

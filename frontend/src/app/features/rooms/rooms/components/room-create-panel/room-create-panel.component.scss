@@ -12,6 +12,10 @@
   box-shadow: none;
 }
 
+.rooms-create-panel.join-code-hidden {
+  grid-template-columns: minmax(0, 10.5rem);
+}
+
 .room-code-card {
   position: relative;
   z-index: 2;

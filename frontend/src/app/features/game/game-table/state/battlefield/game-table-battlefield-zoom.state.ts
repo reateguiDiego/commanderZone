@@ -2,7 +2,7 @@ import { Injectable, computed, signal, type Signal, type WritableSignal } from '
 
 export type BattlefieldZoomPercent = number;
 
-export const MIN_BATTLEFIELD_ZOOM_PERCENT = 70;
+export const MIN_BATTLEFIELD_ZOOM_PERCENT = 40;
 export const MAX_BATTLEFIELD_ZOOM_PERCENT = 140;
 export const DEFAULT_BATTLEFIELD_ZOOM_PERCENT = 100;
 export const BATTLEFIELD_ZOOM_STEP_PERCENT = 1;

@@ -39,15 +39,19 @@
 }
 
 :host ::ng-deep .modal-title-row h2 {
-  color: var(--cz-text);
+  color: var(--cz-accent);
   font-size: clamp(1.8rem, 3.2vw, 2.35rem);
+  font-weight: 950;
   line-height: 0.95;
 }
 
 :host ::ng-deep .modal-close-button {
-  border-color: rgb(var(--room-setup-border-rgb) / 48%);
-  background: rgb(var(--cz-bg-rgb) / 72%);
-  box-shadow: 0 0.7rem 1.5rem rgb(var(--cz-bg-rgb) / 32%);
+  border-color: rgb(var(--cz-danger-rgb) / 56%);
+  background:
+    linear-gradient(180deg, rgb(var(--cz-danger-rgb) / 20%), rgb(var(--cz-danger-rgb) / 8%)),
+    rgb(var(--cz-bg-rgb) / 72%);
+  color: var(--cz-danger);
+  box-shadow: 0 0.7rem 1.5rem rgb(var(--cz-bg-rgb) / 32%), inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%);
 }
 
 :host ::ng-deep .modal-body {
@@ -71,34 +75,48 @@
 
 .setup-modal-form {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  width: 100%;
-}
-
-.setup-modal-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
-  gap: clamp(1.35rem, 3vw, 2.1rem);
-  align-items: start;
-}
-
-.setup-modal-row:first-of-type {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  width: 100%;
 }
 
-.setup-modal-row:first-of-type > .create-fields {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
+.setup-modal-column {
+  display: contents;
 }
 
-.setup-modal-row:first-of-type > app-game-setup-life-control {
-  justify-self: stretch;
+.setup-modal-section {
+  position: relative;
   width: 100%;
   min-width: 0;
+  padding-block: 0.85rem;
+}
+
+.setup-modal-section:first-child {
+  padding-top: 0;
+}
+
+.setup-modal-section:last-child {
+  padding-bottom: 0;
+}
+
+.setup-modal-section:not(:last-child)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--room-setup-accent-rgb) / 38%) 12%,
+    rgb(var(--room-setup-border-rgb) / 52%) 50%,
+    rgb(var(--room-setup-accent-rgb) / 38%) 88%,
+    transparent
+  );
+  box-shadow: 0 1px 0 rgb(var(--cz-text-rgb) / 4%);
+  content: '';
 }
 
 .create-fields {
@@ -132,6 +150,26 @@
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.timer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.timer-coming-soon {
+  padding: 0.12rem 0.34rem;
+  border: 1px solid rgb(var(--cz-warning-rgb) / 36%);
+  border-radius: 999px;
+  background: rgb(var(--cz-warning-rgb) / 10%);
+  color: var(--cz-warning);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .required-mark,
@@ -194,7 +232,6 @@
 
 :host ::ng-deep .format-select-trigger,
 :host ::ng-deep .life-control:not(.has-presets) .life-editor,
-:host ::ng-deep .capacity-editor,
 :host ::ng-deep app-table-assistant-timer-settings .segmented-control button {
   min-height: 2.85rem;
   border-color: rgb(var(--room-setup-border-rgb) / 30%);
@@ -280,15 +317,15 @@
   align-items: stretch;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control,
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
+:host ::ng-deep .life-setup-section app-game-setup-life-control,
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets {
   width: 100%;
   min-width: 0;
   max-width: none;
   box-sizing: border-box;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.46rem;
@@ -299,7 +336,7 @@
   box-shadow: none;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .control-copy {
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .control-copy {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -308,7 +345,7 @@
   text-align: left;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .eyebrow {
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .eyebrow {
   color: var(--cz-text);
   font-size: 0.74rem;
   font-weight: 900;
@@ -316,14 +353,18 @@
   text-transform: uppercase;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-editor {
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-editor {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   width: 100%;
   min-height: 2.5rem;
 }
 
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-step-button,
-:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-value-button {
+:host ::ng-deep .life-setup-section app-game-setup-life-control .life-presets {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-step-button,
+:host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-value-button {
   width: 100%;
   min-width: 0;
 }
@@ -344,7 +385,7 @@
 }
 
 :host ::ng-deep .life-control:not(.has-presets) .life-editor,
-:host ::ng-deep .capacity-editor {
+:host ::ng-deep app-game-setup-seats-control .players-tab-list {
   width: 100%;
 }
 
@@ -380,28 +421,14 @@
 }
 
 :host ::ng-deep .life-control:not(.has-presets) .life-editor button,
-:host ::ng-deep .life-control:not(.has-presets) .life-value-button,
-:host ::ng-deep .capacity-editor button {
+:host ::ng-deep .life-control:not(.has-presets) .life-value-button {
   min-height: 2.25rem;
 }
 
 :host ::ng-deep .life-control:not(.has-presets) .life-value-button,
-:host ::ng-deep .capacity-editor button.selected,
 :host ::ng-deep app-table-assistant-timer-settings .segmented-control button.active {
   background: linear-gradient(180deg, rgb(var(--room-setup-accent-rgb) / 20%), rgb(var(--room-setup-accent-rgb) / 8%));
   color: var(--room-setup-accent);
-}
-
-:host ::ng-deep .capacity-editor {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  padding: 0.28rem;
-  border-radius: 12px;
-}
-
-:host ::ng-deep .capacity-editor button {
-  min-width: 0;
-  width: 100%;
 }
 
 :host ::ng-deep app-table-assistant-timer-settings .segmented-control {
@@ -439,19 +466,174 @@
     width: min(34rem, 100%);
   }
 
-  .setup-modal-row {
+  .setup-modal-form {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-flow: row;
     gap: 0.85rem;
   }
+}
 
-  .setup-modal-row:first-of-type {
-    grid-template-columns: 1fr;
+@media (max-width: 760px), (max-height: 740px) {
+  :host ::ng-deep .modal-backdrop {
+    padding: 0.5rem;
   }
 
-  .setup-modal-row:first-of-type > app-game-setup-life-control,
-  :host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
-    justify-self: stretch;
-    width: 100%;
-    max-width: none;
+  :host ::ng-deep .modal-panel {
+    gap: 0.65rem;
+    max-height: calc(100dvh - 1rem);
+    padding: 0.8rem;
+  }
+
+  :host ::ng-deep .modal-title-row h2 {
+    font-size: clamp(1.5rem, 5.5vw, 1.9rem);
+  }
+
+  :host ::ng-deep .modal-body {
+    gap: 0.45rem;
+  }
+
+  :host ::ng-deep .modal-panel footer {
+    margin-top: 0;
+  }
+
+  :host ::ng-deep .modal-panel footer .primary-button,
+  :host ::ng-deep .modal-panel footer .secondary-button {
+    min-height: 2.4rem;
+  }
+
+  .setup-modal-form {
+    gap: 0.65rem;
+  }
+
+  .setup-modal-section {
+    padding-block: 0.55rem;
+  }
+
+  .room-name-field,
+  .mulligan-select-field,
+  .mulligan-toggle-field,
+  :host ::ng-deep .format-select-field,
+  :host ::ng-deep .visibility-choice,
+  .modal-setup-field,
+  .timer-control {
+    gap: 0.35rem;
+  }
+
+  .setup-field-label,
+  :host ::ng-deep .format-select-label,
+  :host ::ng-deep .visibility-choice__label,
+  :host ::ng-deep .eyebrow {
+    font-size: 0.68rem;
+  }
+
+  .room-name-field input,
+  :host ::ng-deep .format-select-trigger,
+  :host ::ng-deep .life-control:not(.has-presets) .life-editor,
+  :host ::ng-deep app-table-assistant-timer-settings .segmented-control button {
+    min-height: 2.4rem;
+  }
+
+  .room-name-field input {
+    border-radius: 10px;
+    padding-inline: 0.7rem;
+  }
+
+  .character-count,
+  .mulligan-description {
+    font-size: 0.68rem;
+  }
+
+  :host ::ng-deep .visibility-choice__group {
+    gap: 0.4rem;
+  }
+
+  :host ::ng-deep .visibility-choice__button {
+    min-height: 2.55rem;
+    padding: 0.38rem 0.55rem;
+  }
+
+  :host ::ng-deep .visibility-choice__main {
+    font-size: 0.8rem;
+  }
+
+  :host ::ng-deep .visibility-choice__subtitle {
+    font-size: 0.66rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets {
+    gap: 0.32rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-editor {
+    min-height: 2.1rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-step-button,
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-value-button {
+    min-height: 1.9rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-step-button {
+    height: 1.9rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .setup-control.has-presets .life-value {
+    font-size: 1.3rem;
+  }
+
+  :host ::ng-deep .life-setup-section app-game-setup-life-control .life-preset-button {
+    min-height: 1.25rem;
+    font-size: 0.66rem;
+  }
+
+  :host ::ng-deep app-table-assistant-timer-settings .segmented-control {
+    gap: 0.4rem;
+  }
+
+  :host ::ng-deep app-table-assistant-timer-settings .segmented-control button {
+    border-radius: 8px;
+    padding-inline: 0.48rem;
+    font-size: 0.7rem;
+  }
+
+  :host ::ng-deep app-toggle .toggle {
+    --toggle-gap: 0.65rem;
+    --toggle-min-height: 2.45rem;
+    --toggle-padding: 0.25rem 0;
+    --toggle-label-font-size: 0.82rem;
+    --toggle-description-font-size: 0.72rem;
+    --toggle-switch-width: 3rem;
+    --toggle-switch-height: 1.65rem;
+    --toggle-thumb-size: 1.12rem;
+    --toggle-thumb-on-x: 1.3rem;
+  }
+}
+
+@media (max-height: 620px) {
+  :host ::ng-deep .modal-panel {
+    gap: 0.45rem;
+    padding: 0.65rem;
+  }
+
+  :host ::ng-deep .modal-title-row h2 {
+    font-size: 1.4rem;
+  }
+
+  .setup-modal-form {
+    gap: 0.5rem;
+  }
+
+  .setup-modal-section {
+    padding-block: 0.4rem;
+  }
+
+  :host ::ng-deep .modal-panel footer .primary-button,
+  :host ::ng-deep .modal-panel footer .secondary-button {
+    min-height: 2.25rem;
+  }
+
+  :host ::ng-deep .visibility-choice__button {
+    min-height: 2.35rem;
   }
 }

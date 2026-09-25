@@ -123,8 +123,8 @@
   min-width: var(--format-select-menu-min-width, 0);
   max-width: var(--format-select-menu-max-width, none);
   max-height: var(--format-select-menu-max-height, 14rem);
-  overflow-x: var(--format-select-menu-overflow-x, visible);
-  overflow-y: auto;
+  overflow-x: var(--format-select-menu-overflow-x, hidden);
+  overflow-y: hidden;
   border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 12px;
   padding: 0.35rem;
@@ -144,6 +144,10 @@
 
 .format-select-menu.is-positioned {
   visibility: visible;
+}
+
+.format-select-menu.has-scrollable-content {
+  overflow-y: auto;
 }
 
 .format-select-menu.is-absolute {

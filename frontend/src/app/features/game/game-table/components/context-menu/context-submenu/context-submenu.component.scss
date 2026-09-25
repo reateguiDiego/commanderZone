@@ -5,10 +5,56 @@
 
 .submenu {
   position: relative;
+  --context-menu-motion-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --context-menu-motion-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.submenu.side-left,
-.submenu.child-side-left {
+.submenu.level-1 {
+  --submenu-panel-gradient:
+    linear-gradient(138deg, rgb(var(--gold-rgb) / 36%), rgb(var(--game-accent-rgb) / 16%) 44%, transparent 88%),
+    radial-gradient(circle at 94% 88%, rgb(var(--game-accent-rgb) / 14%), transparent 52%);
+  --submenu-panel-border: rgb(var(--gold-rgb) / 58%);
+  --submenu-panel-accent: rgb(var(--gold-rgb) / 68%);
+  --submenu-panel-glow: rgb(var(--gold-rgb) / 22%);
+}
+
+.submenu.level-2 {
+  --submenu-panel-gradient:
+    linear-gradient(158deg, rgb(var(--game-accent-rgb) / 34%), rgb(var(--highlight-rgb) / 14%) 46%, transparent 88%),
+    radial-gradient(circle at 10% 92%, rgb(var(--highlight-rgb) / 13%), transparent 54%);
+  --submenu-panel-border: rgb(var(--game-accent-rgb) / 56%);
+  --submenu-panel-accent: rgb(var(--game-accent-rgb) / 66%);
+  --submenu-panel-glow: rgb(var(--game-accent-rgb) / 21%);
+}
+
+.submenu.level-3 {
+  --submenu-panel-gradient:
+    linear-gradient(202deg, rgb(var(--highlight-rgb) / 27%), rgb(var(--gold-rgb) / 19%) 48%, transparent 90%),
+    radial-gradient(circle at 92% 12%, rgb(var(--gold-rgb) / 14%), transparent 50%);
+  --submenu-panel-border: rgb(var(--highlight-rgb) / 50%);
+  --submenu-panel-accent: rgb(var(--highlight-rgb) / 60%);
+  --submenu-panel-glow: rgb(var(--highlight-rgb) / 19%);
+}
+
+.submenu.level-4 {
+  --submenu-panel-gradient:
+    linear-gradient(224deg, rgb(var(--gold-rgb) / 31%), rgb(var(--game-accent-rgb) / 17%) 52%, transparent 90%),
+    radial-gradient(circle at 8% 10%, rgb(var(--game-accent-rgb) / 13%), transparent 52%);
+  --submenu-panel-border: rgb(var(--gold-rgb) / 54%);
+  --submenu-panel-accent: rgb(var(--gold-rgb) / 62%);
+  --submenu-panel-glow: rgb(var(--gold-rgb) / 20%);
+}
+
+.submenu.level-5 {
+  --submenu-panel-gradient:
+    linear-gradient(292deg, rgb(var(--game-accent-rgb) / 33%), rgb(var(--highlight-rgb) / 16%) 50%, transparent 90%),
+    radial-gradient(circle at 90% 90%, rgb(var(--highlight-rgb) / 14%), transparent 54%);
+  --submenu-panel-border: rgb(var(--game-accent-rgb) / 55%);
+  --submenu-panel-accent: rgb(var(--game-accent-rgb) / 64%);
+  --submenu-panel-glow: rgb(var(--game-accent-rgb) / 21%);
+}
+
+.submenu.side-left {
   --context-menu-gradient-angle: 225deg;
 }
 
@@ -24,10 +70,11 @@
   text-align: left;
   border-radius: 7px;
   transition:
-    background-color 120ms ease,
-    box-shadow 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    background-color 180ms var(--context-menu-motion-standard),
+    box-shadow 180ms var(--context-menu-motion-standard),
+    color 180ms var(--context-menu-motion-standard),
+    transform 200ms var(--context-menu-motion-standard),
+    translate 320ms var(--context-menu-motion-emphasized);
 }
 
 .submenu-trigger:hover:not(:disabled),
@@ -53,6 +100,21 @@
 
 .submenu-trigger:focus-visible {
   outline: none;
+}
+
+.submenu.expanded > .submenu-trigger:not(:disabled) {
+  background:
+    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 14%), rgb(var(--game-accent-rgb) / 7%)),
+    rgb(var(--highlight-rgb) / 3%);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--gold-rgb) / 28%),
+    inset 0 1px 0 rgb(var(--game-accent-rgb) / 12%),
+    0 0.3rem 0.85rem rgb(var(--shadow-rgb) / 20%);
+}
+
+.submenu.opens-left-to-fit.expanded > .submenu-trigger:not(:disabled) {
+  translate: -0.18rem 0;
+  animation: context-submenu-trigger-shift-left 420ms var(--context-menu-motion-emphasized) both;
 }
 
 .submenu-item-label {
@@ -151,22 +213,20 @@
 }
 
 .submenu.side-left .submenu-trigger,
-.submenu.side-left .submenu-panel button,
-.submenu.child-side-left .submenu-panel .submenu-item > button,
-.submenu.child-side-left .submenu-child-panel button {
+.submenu.side-left .submenu-panel button {
   flex-direction: row-reverse;
   text-align: right;
 }
 
 .submenu.side-left .submenu-trigger .submenu-item-label,
-.submenu.side-left .submenu-panel .submenu-item-label,
-.submenu.child-side-left .submenu-panel .submenu-item-label,
-.submenu.child-side-left .submenu-child-panel .submenu-item-label {
+.submenu.side-left .submenu-panel .submenu-item-label {
   flex-direction: row-reverse;
   text-align: right;
 }
 
 .submenu-arrow {
+  --submenu-arrow-rotation: 0deg;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -177,24 +237,21 @@
   position: relative;
   top: -0.12rem;
   color: var(--game-accent);
-  transition: transform 140ms ease;
+  transform: rotate(var(--submenu-arrow-rotation));
+  transition: transform 260ms var(--context-menu-motion-standard);
 }
 
-.submenu.expanded .submenu-arrow {
-  transform: translateX(0.1rem);
+.submenu-arrow.direction-left {
+  --submenu-arrow-rotation: 180deg;
 }
 
-.submenu.side-left .submenu-trigger .submenu-arrow,
-.submenu.child-side-left .submenu-panel .submenu-item > button .submenu-arrow {
-  transform: rotate(180deg);
-}
-
-.submenu.side-left.expanded .submenu-trigger .submenu-arrow,
-.submenu.child-side-left.expanded .submenu-panel .submenu-item > button .submenu-arrow {
-  transform: rotate(180deg) translateX(0.1rem);
+.submenu.expanded > .submenu-trigger .submenu-arrow {
+  transform: rotate(var(--submenu-arrow-rotation)) translateX(0.1rem);
 }
 
 .submenu-panel {
+  --submenu-panel-accent-edge: inset 0.18rem 0 0 var(--submenu-panel-accent);
+
   position: absolute;
   top: -0.35rem;
   left: calc(100% + 0.35rem);
@@ -202,12 +259,18 @@
   display: grid;
   min-width: 13rem;
   padding: 0.35rem;
-  border: 1px solid var(--game-line-soft);
+  border: 1px solid var(--submenu-panel-border);
   border-radius: 8px;
   background:
-    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 10%), transparent 42%),
+    var(--submenu-panel-gradient),
     var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 92%));
-  box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
+  box-shadow:
+    var(--submenu-panel-accent-edge),
+    inset 0 1px 0 rgb(var(--game-accent-rgb) / 22%),
+    0 0.8rem 1.9rem rgb(var(--shadow-rgb) / 42%),
+    0 0 1.2rem var(--submenu-panel-glow);
+  transform-origin: left center;
+  animation: context-submenu-enter-right 320ms var(--context-menu-motion-emphasized) both;
 }
 
 .submenu.direction-up .submenu-panel {
@@ -216,8 +279,12 @@
 }
 
 .submenu.side-left .submenu-panel {
+  --submenu-panel-accent-edge: inset -0.18rem 0 0 var(--submenu-panel-accent);
+
   right: calc(100% + 0.35rem);
   left: auto;
+  transform-origin: right center;
+  animation-name: context-submenu-enter-left;
 }
 
 .submenu-item {
@@ -236,16 +303,14 @@
   text-align: left;
   border-radius: 7px;
   transition:
-    background-color 120ms ease,
-    box-shadow 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    background-color 180ms var(--context-menu-motion-standard),
+    box-shadow 180ms var(--context-menu-motion-standard),
+    color 180ms var(--context-menu-motion-standard),
+    transform 200ms var(--context-menu-motion-standard);
 }
 
 .submenu-panel button:hover:not(:disabled),
-.submenu-panel button:focus-visible:not(:disabled),
-.submenu-child-panel button:hover:not(:disabled),
-.submenu-child-panel button:focus-visible:not(:disabled) {
+.submenu-panel button:focus-visible:not(:disabled) {
   background:
     linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 16%), rgb(var(--gold-rgb) / 6%)),
     rgb(var(--highlight-rgb) / 2%);
@@ -256,7 +321,7 @@
 }
 
 .submenu-panel button:active:not(:disabled),
-.submenu-child-panel button:active:not(:disabled) {
+.submenu-panel button:active:not(:disabled) {
   background:
     linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 20%), rgb(var(--gold-rgb) / 10%)),
     rgb(var(--highlight-rgb) / 3%);
@@ -266,8 +331,7 @@
   transform: translateY(0);
 }
 
-.submenu-panel button:focus-visible,
-.submenu-child-panel button:focus-visible {
+.submenu-panel button:focus-visible {
   outline: none;
 }
 
@@ -291,35 +355,9 @@
   opacity: 0.48;
 }
 
-.submenu-child-panel {
-  position: absolute;
-  top: -0.35rem;
-  left: calc(100% + 0.35rem);
-  z-index: 2;
-  display: grid;
-  min-width: 12rem;
-  padding: 0.35rem;
-  border: 1px solid var(--game-line-soft);
-  border-radius: 8px;
-  background:
-    linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(var(--gold-rgb) / 10%), transparent 42%),
-    var(--game-surface-deep, rgb(var(--game-surface-deep-rgb) / 94%));
-  box-shadow: 0 1rem 2.2rem rgb(var(--shadow-rgb) / 38%);
-}
-
-.submenu.child-side-left .submenu-child-panel {
-  right: calc(100% + 0.35rem);
-  left: auto;
-}
-
-.submenu.side-left .submenu-item-counter-pill-icon::after,
-.submenu.child-side-left .submenu-item-counter-pill-icon::after {
+.submenu.side-left .submenu-item-counter-pill-icon::after {
   right: auto;
   left: -0.26rem;
-}
-
-.submenu-child-panel button {
-  color: var(--game-text);
 }
 
 .danger-menu-item {
@@ -331,13 +369,114 @@
 }
 
 .submenu-panel .danger-menu-item:hover:not(:disabled),
-.submenu-panel .danger-menu-item:focus-visible:not(:disabled),
-.submenu-child-panel .danger-menu-item:hover:not(:disabled),
-.submenu-child-panel .danger-menu-item:focus-visible:not(:disabled) {
+.submenu-panel .danger-menu-item:focus-visible:not(:disabled) {
   background:
     linear-gradient(var(--context-menu-gradient-angle, 135deg), rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
     rgb(var(--highlight-rgb) / 2%);
   box-shadow:
     inset 0 0 0 1px rgb(248 113 113 / 42%),
     0 0.45rem 1rem rgb(var(--shadow-rgb) / 28%);
+}
+
+@keyframes context-submenu-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(-0.42rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes context-submenu-trigger-shift-left {
+  from {
+    translate: 0.08rem 0;
+  }
+
+  72% {
+    translate: -0.24rem 0;
+  }
+
+  to {
+    translate: -0.18rem 0;
+  }
+}
+
+@keyframes context-submenu-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(0.42rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes context-submenu-enter-down {
+  from {
+    opacity: 0;
+    transform: translateY(-0.32rem) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 48rem), (max-height: 44rem) {
+  .submenu-trigger,
+  .submenu-panel button {
+    gap: 0.75rem;
+    padding: 0.36rem 0.45rem;
+    font-size: 0.875rem;
+  }
+
+  .submenu-item-label {
+    gap: 0.5rem;
+  }
+
+  .submenu-item-image-icon,
+  .submenu-item-mana-icon,
+  .submenu-item-graveyard-icon {
+    width: 0.96rem;
+    height: 0.96rem;
+  }
+
+  .submenu-panel {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.15rem;
+    padding: 0.25rem;
+    border-radius: 6px;
+    box-shadow: 0 0.55rem 1.3rem rgb(var(--shadow-rgb) / 28%);
+    transform-origin: top center;
+    animation-name: context-submenu-enter-down;
+  }
+
+  .submenu .submenu-arrow {
+    --submenu-arrow-rotation: 90deg;
+  }
+
+  .submenu.side-left > .submenu-panel {
+    animation-name: context-submenu-enter-down;
+  }
+
+  .submenu.opens-left-to-fit.expanded > .submenu-trigger:not(:disabled) {
+    translate: 0;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .submenu-arrow,
+  .submenu-panel {
+    animation: none;
+    transition: none;
+  }
 }

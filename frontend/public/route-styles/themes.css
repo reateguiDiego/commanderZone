@@ -20,6 +20,7 @@
   --cz-success-rgb: 74 222 128;
   --cz-danger: #f43f5e;
   --cz-danger-rgb: 244 63 94;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #d2ac47;
   --cz-warning-rgb: 210 172 71;
   --cz-info: #38bdf8;
@@ -72,6 +73,7 @@
   --cz-success-rgb: 40 242 156;
   --cz-danger: #ff3b4f;
   --cz-danger-rgb: 255 59 79;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #ffd84d;
   --cz-warning-rgb: 255 216 77;
   --cz-info: #3ba7ff;
@@ -107,6 +109,7 @@
   --cz-success-rgb: 0 70 40;
   --cz-danger: #800018;
   --cz-danger-rgb: 128 0 24;
+  --cz-on-danger: #fff4fa;
   --cz-warning: #5b3200;
   --cz-warning-rgb: 91 50 0;
   --cz-info: #003677;
@@ -195,6 +198,7 @@
   --cz-success-rgb: 121 213 165;
   --cz-danger: #ff8795;
   --cz-danger-rgb: 255 135 149;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #f2c66d;
   --cz-warning-rgb: 242 198 109;
   --cz-info: #86bfff;
@@ -304,6 +308,7 @@
   --cz-success-rgb: 34 197 94;
   --cz-danger: #ef4444;
   --cz-danger-rgb: 239 68 68;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #eab308;
   --cz-warning-rgb: 234 179 8;
   --cz-info: #06b6d4;
@@ -329,6 +334,7 @@
   --cz-success-rgb: 74 222 128;
   --cz-danger: #f43f5e;
   --cz-danger-rgb: 244 63 94;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #facc15;
   --cz-warning-rgb: 250 204 21;
   --cz-info: #38bdf8;

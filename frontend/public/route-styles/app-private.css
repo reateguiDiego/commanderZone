@@ -898,7 +898,6 @@ app-dashboard-shell .user-strip {
   border-radius: 10px;
   background: rgb(var(--cz-bg-rgb) / 36%);
   box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
-  backdrop-filter: blur(8px);
 }
 
 @media (max-width: 720px) {

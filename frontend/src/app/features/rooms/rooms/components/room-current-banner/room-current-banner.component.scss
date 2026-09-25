@@ -61,6 +61,10 @@
   min-width: 0;
 }
 
+.banner-main:not(.has-deck) {
+  grid-template-columns: minmax(12rem, 1fr) minmax(5.4rem, .24fr);
+}
+
 .room-copy {
   display: grid;
   align-content: center;
@@ -250,6 +254,10 @@
 
   .turn-summary {
     display: none;
+  }
+
+  .banner-main:not(.has-deck) {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

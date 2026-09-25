@@ -25,7 +25,7 @@ import { DeviceProfileService } from '../../../../shared/services/device-profile
 import { CardFaceImageComponent } from '../../../../shared/components/card-face-image/card-face-image.component';
 import { DeckBracketEstimate } from '../../../../core/models/deck-analysis.model';
 import { BracketPillComponent } from '../../../../shared/ui/bracket-pill/bracket-pill.component';
-import { DeckViewModeSelectComponent } from '../../../decks/deck-editor/deck-view-mode-select/deck-view-mode-select.component';
+import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
 
 const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
 
@@ -36,7 +36,7 @@ const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
     BracketPillComponent,
     DeckCardTextViewComponent,
     DeckCardSpoilerViewComponent,
-    DeckViewModeSelectComponent,
+    TabListComponent,
     CommonCardMenuComponent,
     CardFaceImageComponent,
   ],
@@ -54,6 +54,10 @@ export class DeckViewerComponent {
   private readonly documentRef = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   readonly viewMode = signal<DeckEditorViewMode>(this.resolveInitialViewMode());
+  readonly viewModeTabItems: readonly TabListItem[] = [
+    { id: 'text', label: 'shared.text.text', icon: 'list' },
+    { id: 'spoiler', label: 'shared.text.spoiler', icon: 'image' },
+  ];
 
   @HostListener('document:click')
   handleDocumentClick(): void {
@@ -93,6 +97,12 @@ export class DeckViewerComponent {
   selectViewMode(value: DeckEditorViewMode): void {
     this.viewMode.set(value);
     this.rememberViewMode(value);
+  }
+
+  selectViewModeTab(value: string): void {
+    if (value === 'text' || value === 'spoiler') {
+      this.selectViewMode(value);
+    }
   }
 
   isBattlePreviewCard(card: Card): boolean {

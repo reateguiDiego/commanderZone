@@ -152,6 +152,8 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store.newDeckVisibility).toBe('public');
+    expect(fixture.nativeElement.querySelector('app-modal.create-deck-modal')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-modal.create-deck-modal')?.classList).toContain('create-deck-modal--form');
 
     fixture.componentInstance.store.newDeckVisibility = 'private';
     fixture.componentInstance.store.closeCreateModal();

@@ -47,6 +47,10 @@
   min-height: 0;
 }
 
+.cards-advanced-search-modal-title {
+  display: none;
+}
+
 .cards-aside-actions {
   position: sticky;
   bottom: 0;
@@ -294,7 +298,8 @@
       clamp(0.55rem, 2vw, 1rem);
     z-index: 170;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0.55rem;
     align-content: stretch;
     max-height: none;
     overflow: hidden;
@@ -308,6 +313,19 @@
     box-shadow:
       0 28px 70px rgb(0 0 0 / 36%),
       inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%);
+  }
+
+  .cards-advanced-search-modal-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0;
+    padding: 0.1rem 0 0.2rem;
+    color: var(--cz-accent);
+    font-size: clamp(1.2rem, 3.8vw, 1.55rem);
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1;
   }
 
   .cards-aside--expanded > app-card-advanced-search-form {

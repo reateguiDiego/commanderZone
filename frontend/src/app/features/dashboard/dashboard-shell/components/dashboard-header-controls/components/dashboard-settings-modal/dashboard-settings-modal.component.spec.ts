@@ -135,7 +135,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Card alignment helper');
     expect(fixture.nativeElement.textContent).toContain('Table layout');
-    expect(fixture.nativeElement.textContent).toContain('Focused');
+    expect(fixture.nativeElement.textContent).toContain('Square');
     const layoutToggle = fixture.nativeElement.querySelector('.game-settings-toggle-list .game-settings-layout-toggle');
     expect(layoutToggle).not.toBeNull();
     expect(layoutToggle.querySelector('[role="switch"]')).not.toBeNull();
@@ -148,6 +148,24 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
     expect(fixture.nativeElement.textContent).toContain('We recommend disabling them only if you experience performance issues during a match.');
     expect(fixture.nativeElement.querySelector('.game-settings-toggle [role="switch"]')?.classList.contains('toggle--no-hover-feedback')).toBe(true);
+  });
+
+  it('provides a tooltip-free danger button to close settings', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    const closeRequested = vi.fn();
+    fixture.componentInstance.closeRequested.subscribe(closeRequested);
+
+    const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement;
+
+    expect(closeButton).not.toBeNull();
+    expect(closeButton.classList).toContain('cz-button--tone-danger');
+    expect(closeButton.closest('app-tooltip')).toBeNull();
+
+    closeButton.click();
+
+    expect(closeRequested).toHaveBeenCalledOnce();
   });
 
   it('saves gameplay preferences from the game tab through /me', async () => {

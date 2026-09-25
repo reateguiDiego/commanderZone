@@ -11,30 +11,72 @@
       <strong>{{ summary() | runtimeTranslate }}</strong>
     }
   </div>
-  <div class="life-editor" [attr.aria-label]="'shared.text.startingLifeTotal' | runtimeTranslate">
-    <button
-      type="button"
-      class="life-step-button"
-      [disabled]="decreaseDisabled()"
-      [attr.aria-label]="'rooms.setup.gameSetupLifeControl.decreaseStartingLife' | runtimeTranslate"
-      (click)="decrease()"
-    >
-      <lucide-icon name="minus" size="16" aria-hidden="true" />
-    </button>
-    <span class="life-value-button" aria-live="polite">
-      <span class="life-value">{{ value() }}</span>
-      <span class="life-unit">{{ 'rooms.setup.gameSetupLifeControl.lifeUnit' | runtimeTranslate }}</span>
-    </span>
-    <button
-      type="button"
-      class="life-step-button"
-      [disabled]="increaseDisabled()"
-      [attr.aria-label]="'rooms.setup.gameSetupLifeControl.increaseStartingLife' | runtimeTranslate"
-      (click)="increase()"
-    >
-      <lucide-icon name="plus" size="16" aria-hidden="true" />
-    </button>
-  </div>
+  @if (usesSlider()) {
+    <div class="life-slider-editor">
+      <output class="life-slider-value" aria-live="polite">
+        <span class="life-value">{{ value() }}</span>
+        <span class="life-unit">{{ 'rooms.setup.gameSetupLifeControl.lifeUnit' | runtimeTranslate }}</span>
+      </output>
+      <span
+        class="life-slider-shell"
+        [style.--life-slider-current-position]="currentSliderPosition()"
+        (pointerdown)="startSliderDrag($event)"
+        (pointermove)="moveSliderDrag($event)"
+        (pointerup)="endSliderDrag($event)"
+        (pointercancel)="endSliderDrag($event)"
+        (lostpointercapture)="cancelSliderDrag()"
+      >
+        <span class="life-slider-track" aria-hidden="true">
+          <span class="life-slider-progress"></span>
+          @for (hint of sliderHintPositions(); track hint.value) {
+            <span
+              class="life-slider-hint"
+              [class.is-minimum]="hint.value === minValue()"
+              [class.is-maximum]="hint.value === maxValue()"
+              [style.--life-slider-hint-position]="hint.position"
+            >{{ hint.value }}</span>
+          }
+          <span class="life-slider-thumb"></span>
+        </span>
+        <input
+          type="range"
+          class="life-slider"
+          [min]="minValue()"
+          [max]="maxValue()"
+          step="1"
+          [value]="value()"
+          [disabled]="disabled()"
+          [attr.aria-label]="'shared.text.startingLifeTotal' | runtimeTranslate"
+          (input)="updateSlider($event)"
+        />
+      </span>
+    </div>
+  } @else {
+    <div class="life-editor" [attr.aria-label]="'shared.text.startingLifeTotal' | runtimeTranslate">
+      <button
+        type="button"
+        class="life-step-button"
+        [disabled]="decreaseDisabled()"
+        [attr.aria-label]="'rooms.setup.gameSetupLifeControl.decreaseStartingLife' | runtimeTranslate"
+        (click)="decrease()"
+      >
+        <lucide-icon name="minus" size="16" aria-hidden="true" />
+      </button>
+      <span class="life-value-button" aria-live="polite">
+        <span class="life-value">{{ value() }}</span>
+        <span class="life-unit">{{ 'rooms.setup.gameSetupLifeControl.lifeUnit' | runtimeTranslate }}</span>
+      </span>
+      <button
+        type="button"
+        class="life-step-button"
+        [disabled]="increaseDisabled()"
+        [attr.aria-label]="'rooms.setup.gameSetupLifeControl.increaseStartingLife' | runtimeTranslate"
+        (click)="increase()"
+      >
+        <lucide-icon name="plus" size="16" aria-hidden="true" />
+      </button>
+    </div>
+  }
 
   @if (hasPresets()) {
     <div class="life-presets" [attr.aria-label]="'rooms.setup.gameSetupLifeControl.startingLifePresets' | runtimeTranslate">

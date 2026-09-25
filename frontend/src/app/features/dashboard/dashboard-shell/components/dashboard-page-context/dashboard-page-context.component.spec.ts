@@ -268,7 +268,9 @@ describe('DashboardPageContextComponent', () => {
     expect(metrics).not.toBeNull();
     expect(metrics?.textContent).toContain('8');
     expect(metrics?.textContent).toContain('3');
+    expect(metrics?.querySelectorAll('app-tooltip')).toHaveLength(2);
   });
+
 });
 
 function buildBracketEstimate() {

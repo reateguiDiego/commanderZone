@@ -1,12 +1,18 @@
 <div
   class="submenu"
-  [class.expanded]="expanded()"
+  [class.expanded]="isExpanded()"
   [class.direction-up]="direction() === 'up'"
   [class.side-left]="panelSide() === 'left'"
+  [class.opens-left-to-fit]="opensLeftToFit()"
   [class.child-side-left]="activeChildSide() === 'left'"
   [class.theme-icons]="themeIcons()"
+  [class.level-1]="depth() === 1"
+  [class.level-2]="depth() === 2"
+  [class.level-3]="depth() === 3"
+  [class.level-4]="depth() === 4"
+  [class.level-5]="depth() === 5"
 >
-  <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
+  <button type="button" class="submenu-trigger" [disabled]="disabled()" [class.danger-menu-item]="danger()" [attr.aria-expanded]="isExpanded()" (click)="toggle($event)">
     <span class="submenu-item-label">
       @if (icon()) {
         @if (isCounterPillIcon(icon()!)) {
@@ -19,81 +25,70 @@
           <lucide-icon [name]="icon()!" size="17" aria-hidden="true" />
         }
       }
-      <span>{{ displayLabel(label()) }}</span>
+      <span>{{ triggerLabel() }}</span>
     </span>
-    <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
+    <span
+      class="submenu-arrow"
+      [class.direction-left]="arrowDirection() === 'left'"
+      [class.direction-right]="arrowDirection() === 'right'"
+      aria-hidden="true"
+    >&rsaquo;</span>
   </button>
 
-  @if (expanded()) {
+  @if (isExpanded()) {
     <div class="submenu-panel" role="menu">
       @for (item of items(); track item.value) {
-        <div class="submenu-item">
-          <button
-            type="button"
-            role="menuitem"
-            [disabled]="item.disabled"
-            [class.danger-menu-item]="item.danger"
-            [class.submenu-item-image-only]="item.imageOnly"
-            (click)="selectItem($event, item)"
-          >
-            <span class="submenu-item-label">
-              @if (item.icon) {
-                @if (item.iconKind === 'mana') {
-                  <i class="submenu-item-mana-icon" [appMtgIcon]="item.icon" mtgIconKind="mechanic" aria-hidden="true"></i>
-                } @else if (isCounterPillIcon(item.icon)) {
-                  <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
-                } @else if (isGraveyardAssetIcon(item.icon)) {
-                  <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
-                } @else if (isAssetIcon(item.icon)) {
-                  <img class="submenu-item-image-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
-                } @else {
-                  <lucide-icon [name]="item.icon" size="17" aria-hidden="true" />
-                }
-              }
-              @if (!item.imageOnly) {
-                <span>{{ displayLabel(item) }}</span>
-              }
-            </span>
-            @if (item.children?.length) {
-              <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
-            } @else if (item.shortcut) {
-              <kbd>{{ item.shortcut }}</kbd>
-            }
-          </button>
-          @if (item.children?.length && expandedChild() === item.value) {
-            <div class="submenu-child-panel" role="menu">
-              @for (child of item.children; track child.value) {
-                <button
-                  type="button"
-                  role="menuitem"
-                  [disabled]="child.disabled"
-                  [class.danger-menu-item]="child.danger"
-                  (click)="selectItem($event, child)"
-                >
-                  <span class="submenu-item-label">
-                    @if (child.icon) {
-                      @if (child.iconKind === 'mana') {
-                        <i class="submenu-item-mana-icon" [appMtgIcon]="child.icon" mtgIconKind="mechanic" aria-hidden="true"></i>
-                      } @else if (isCounterPillIcon(child.icon)) {
-                        <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
-                      } @else if (isGraveyardAssetIcon(child.icon)) {
-                        <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="child.icon" alt="" aria-hidden="true" draggable="false" />
-                      } @else if (isAssetIcon(child.icon)) {
-                        <img class="submenu-item-image-icon" [src]="child.icon" alt="" aria-hidden="true" draggable="false" />
-                      } @else {
-                        <lucide-icon [name]="child.icon" size="17" aria-hidden="true" />
-                      }
-                    }
-                    <span>{{ displayLabel(child) }}</span>
-                  </span>
-                  @if (child.shortcut) {
-                    <kbd>{{ child.shortcut }}</kbd>
+        @if (item.children?.length) {
+          <app-context-submenu
+            class="submenu-item"
+            [label]="item.label"
+            [icon]="item.icon ?? null"
+            [items]="item.children!"
+            [expanded]="expandedChild() === item.value"
+            [side]="activeChildSide()"
+            [childSide]="activeChildSide()"
+            [themeIcons]="themeIcons()"
+            [depth]="nestedDepth()"
+            [disabled]="item.disabled === true"
+            [danger]="item.danger === true"
+            [preserveCase]="item.preserveCase === true"
+            (toggled)="toggleChild($event, item.value)"
+            (itemSelected)="itemSelected.emit($event)"
+          />
+        } @else {
+          <div class="submenu-item">
+            <button
+              type="button"
+              role="menuitem"
+              [disabled]="item.disabled"
+              [class.danger-menu-item]="item.danger"
+              [class.submenu-item-image-only]="item.imageOnly"
+              (click)="selectItem($event, item)"
+            >
+              <span class="submenu-item-label">
+                @if (item.icon) {
+                  @if (item.iconKind === 'mana') {
+                    <i class="submenu-item-mana-icon" [appMtgIcon]="item.icon" mtgIconKind="mechanic" aria-hidden="true"></i>
+                  } @else if (isCounterPillIcon(item.icon)) {
+                    <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
+                  } @else if (isGraveyardAssetIcon(item.icon)) {
+                    <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
+                  } @else if (isAssetIcon(item.icon)) {
+                    <img class="submenu-item-image-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
+                  } @else {
+                    <lucide-icon [name]="item.icon" size="17" aria-hidden="true" />
                   }
-                </button>
+                }
+                @if (!item.imageOnly) {
+                  <span>{{ displayLabel(item) }}</span>
+                }
+              </span>
+              @if (item.shortcut) {
+                <kbd>{{ item.shortcut }}</kbd>
               }
-            </div>
-          }
-        </div>
+            </button>
+          </div>
+        }
       }
     </div>
   }

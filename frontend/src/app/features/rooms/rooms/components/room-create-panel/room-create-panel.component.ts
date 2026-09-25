@@ -15,6 +15,7 @@ import { isValidRoomCodeInput, normalizeRoomCodeInput } from '../../../shared/ro
 export class RoomCreatePanelComponent {
   readonly lockedRoomTooltip = 'rooms.roomCreatePanel.alreadyInRoomTooltip';
   readonly actionsLocked = input(false);
+  readonly showJoinWithCode = input(true);
   readonly codeJoinRequested = output<string>();
   readonly createRequested = output<void>();
   readonly roomCode = signal('');

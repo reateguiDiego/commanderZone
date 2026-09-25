@@ -121,6 +121,24 @@ describe('FormatSelectComponent', () => {
     expect(menu.style.left).toBe('24px');
   });
 
+  it('reserves a vertical scrollbar only when menu content overflows', async () => {
+    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
+
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.format-select-menu') as HTMLElement;
+    expect(menu.classList.contains('has-scrollable-content')).toBe(false);
+
+    Object.defineProperty(menu, 'scrollHeight', { configurable: true, value: 500 });
+    window.dispatchEvent(new Event('resize'));
+    fixture.detectChanges();
+
+    expect(menu.classList.contains('has-scrollable-content')).toBe(true);
+  });
+
   it('returns focus to the trigger before hiding the dropdown menu', () => {
     fixture.nativeElement.querySelector('.format-select-trigger').click();
     fixture.detectChanges();

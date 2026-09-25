@@ -7,17 +7,18 @@
   secondaryLabel="shared.text.cancel"
   [showPrimary]="!(mode() === 'edit' && readOnly())"
   [showSecondary]="mode() === 'create'"
-  [primaryDisabled]="mode() === 'create' && (actionsLocked() || createRoomForm.invalid)"
+  [footerLayout]="mode() === 'create' ? 'split' : 'default'"
+  [primaryDisabled]="mode() === 'create' ? (actionsLocked() || createRoomForm.invalid) : !editHasChanges()"
   [showHeaderRule]="mode() === 'create'"
-  [showCloseButton]="mode() !== 'create'"
+  [showCloseButton]="true"
   (close)="closed.emit()"
   (secondary)="closed.emit()"
   (primary)="confirmPrimaryAction()"
 >
   @if (mode() === 'create') {
     <form class="setup-modal-form" [formGroup]="createRoomForm" (ngSubmit)="submitCreate()">
-      <div class="setup-modal-row">
-        <div class="create-fields">
+      <div class="setup-modal-column">
+        <section class="setup-modal-section create-fields">
           <label class="room-name-field">
             <span class="setup-field-label">
               {{ 'shared.text.roomName' | runtimeTranslate }}
@@ -26,22 +27,9 @@
             <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.exampleRoomName' | runtimeTranslate" />
             <small class="character-count">{{ roomNameLength() }}/30</small>
           </label>
-        </div>
+        </section>
 
-        <app-game-setup-life-control
-          class="modal-setup-field"
-          label="shared.text.lifeTotal"
-          summary=""
-          [value]="createStartingLife()"
-          [step]="startingLifeStep()"
-          [presets]="startingLifePresets"
-          [disabled]="actionsLocked()"
-          (valueChange)="createStartingLife.set($event)"
-        />
-      </div>
-
-      <div class="setup-modal-row">
-        <div class="create-fields">
+        <section class="setup-modal-section create-fields">
           <app-format-select
             name="roomFormat"
             [formats]="formats()"
@@ -49,11 +37,56 @@
             [value]="createFormat()"
             (valueChange)="changeCreateFormat($event)"
           />
-        </div>
+        </section>
 
-        <div class="setup-control timer-control modal-setup-field">
+        <section class="setup-modal-section mulligan-select-field">
+          <app-format-select
+            name="mulliganRule"
+            labelKey="shared.text.mulligan"
+            [formats]="mulliganSelectOptions()"
+            [value]="createMulliganRule()"
+            [disabled]="actionsLocked()"
+            (valueChange)="changeCreateMulliganRule($event)"
+          />
+          <p class="mulligan-description">{{ createMulliganDescriptionKey() | runtimeTranslate }}</p>
+        </section>
+
+        <section class="setup-modal-section mulligan-toggle-field">
+          <app-toggle
+            [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
+            [description]="(createFirstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+            [checked]="createFirstMulliganFree()"
+            [disabled]="actionsLocked()"
+            (checkedChange)="changeCreateFirstMulliganFree($event)"
+          />
+        </section>
+      </div>
+
+      <div class="setup-modal-column">
+        <section class="setup-modal-section life-setup-section">
+          <app-game-setup-life-control
+            class="modal-setup-field"
+            label="shared.text.lifeTotal"
+            summary=""
+            [value]="createStartingLife()"
+            [step]="startingLifeStep()"
+            [minValue]="1"
+            [maxValue]="99"
+            mode="slider"
+            [presets]="startingLifePresets"
+            [sliderHints]="startingLifeSliderHints"
+            [sliderSnapValues]="startingLifePresets"
+            [disabled]="actionsLocked()"
+            (valueChange)="createStartingLife.set($event)"
+          />
+        </section>
+
+        <section class="setup-modal-section setup-control timer-control modal-setup-field">
           <div class="control-copy">
-            <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
+            <div class="timer-title">
+              <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
+              <span class="timer-coming-soon">{{ 'rooms.roomSetupControls.timerComingSoon' | runtimeTranslate }}</span>
+            </div>
             <strong>{{ createTimerSummary() | runtimeTranslate }}</strong>
           </div>
           <app-table-assistant-timer-settings
@@ -65,63 +98,39 @@
             (timerModeChange)="changeCreateTimerMode($event)"
             (timerDurationSecondsChange)="createTimerDurationSeconds.set($event)"
           />
-        </div>
-      </div>
+        </section>
 
-      <div class="setup-modal-row">
-        <div class="mulligan-select-field">
-          <app-format-select
-            name="mulliganRule"
-            labelKey="shared.text.mulligan"
-            [formats]="mulliganSelectOptions()"
-            [value]="createMulliganRule()"
-            [disabled]="actionsLocked()"
-            (valueChange)="changeCreateMulliganRule($event)"
-          />
-          <p class="mulligan-description">{{ createMulliganDescriptionKey() | runtimeTranslate }}</p>
-        </div>
-
-        <div class="create-fields">
+        <section class="setup-modal-section create-fields">
           <app-visibility-choice
             label="common.visibility.visibilityChoice.privacy"
             [required]="true"
             [value]="createRoomForm.controls.privacy.value"
             (valueChange)="createRoomForm.controls.privacy.setValue($event)"
           />
-        </div>
-      </div>
+        </section>
 
-      <div class="setup-modal-row">
-        <div class="mulligan-toggle-field">
-          <app-toggle
-            [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
-            [description]="(createFirstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
-            [checked]="createFirstMulliganFree()"
+        <section class="setup-modal-section">
+          <app-game-setup-seats-control
+            class="modal-setup-field"
+            label="rooms.setup.gameSetupSeatsControl.seats"
+            [value]="createMaxPlayers()"
+            [minimumValue]="2"
+            [options]="maxPlayersOptions()"
             [disabled]="actionsLocked()"
-            (checkedChange)="changeCreateFirstMulliganFree($event)"
+            (valueChange)="createMaxPlayers.set($event)"
           />
-        </div>
-
-        <app-game-setup-seats-control
-          class="modal-setup-field"
-          label="rooms.setup.gameSetupSeatsControl.seats"
-          [value]="createMaxPlayers()"
-          [minimumValue]="2"
-          [options]="maxPlayersOptions()"
-          [disabled]="actionsLocked()"
-          (valueChange)="createMaxPlayers.set($event)"
-        />
+        </section>
       </div>
     </form>
   } @else {
     <app-room-setup-controls
-      [maxPlayers]="maxPlayers()"
+      [maxPlayers]="editMaxPlayers()"
       [minimumPlayers]="joinedPlayers()"
-      [startingLife]="startingLife()"
-      [timerMode]="timerMode()"
-      [timerDurationSeconds]="timerDurationSeconds()"
-      [mulliganRule]="mulliganRule()"
-      [firstMulliganFree]="firstMulliganFree()"
+      [startingLife]="editStartingLife()"
+      [timerMode]="editTimerMode()"
+      [timerDurationSeconds]="editTimerDurationSeconds()"
+      [mulliganRule]="editMulliganRule()"
+      [firstMulliganFree]="editFirstMulliganFree()"
       [maxPlayersOptions]="maxPlayersOptions()"
       [startingLifeStep]="startingLifeStep()"
       [disabled]="actionsLocked()"
@@ -129,12 +138,12 @@
       [updatingStartingLife]="updatingStartingLife()"
       [updatingTimer]="updatingTimer()"
       [updatingMulligan]="updatingMulligan()"
-      (maxPlayersChange)="maxPlayersChange.emit($event)"
-      (startingLifeChange)="startingLifeChange.emit($event)"
-      (timerModeChange)="timerModeChange.emit($event)"
-      (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
-      (mulliganRuleChange)="mulliganRuleChange.emit($event)"
-      (firstMulliganFreeChange)="firstMulliganFreeChange.emit($event)"
+      (maxPlayersChange)="editMaxPlayers.set($event)"
+      (startingLifeChange)="editStartingLife.set($event)"
+      (timerModeChange)="editTimerMode.set($event)"
+      (timerDurationSecondsChange)="editTimerDurationSeconds.set($event)"
+      (mulliganRuleChange)="editMulliganRule.set($event)"
+      (firstMulliganFreeChange)="editFirstMulliganFree.set($event)"
     />
   }
 </app-modal>

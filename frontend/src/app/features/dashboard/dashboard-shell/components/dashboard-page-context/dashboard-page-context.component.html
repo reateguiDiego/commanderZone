@@ -9,14 +9,18 @@
           <div class="page-header-detail-row" [class.has-actions]="visibleActions().length">
             @if (headerState.deckMetrics; as metrics) {
               <div class="deck-card-metrics owner-metrics page-header-owner-metrics">
-                <span class="deck-card-metric deck-card-metric-likes" [attr.aria-label]="'community.deckCard.likes' | runtimeTranslate: { count: metrics.likes }">
-                  <lucide-icon name="heart" size="14" aria-hidden="true" />
-                  <span>{{ metrics.likes }}</span>
-                </span>
-                <span class="deck-card-metric deck-card-metric-copies" [attr.aria-label]="'community.deckCard.copies' | runtimeTranslate: { count: metrics.copies }">
-                  <lucide-icon name="copy" size="14" aria-hidden="true" />
-                  <span>{{ metrics.copies }}</span>
-                </span>
+                <app-tooltip [text]="'community.deckCard.likes' | runtimeTranslate: { count: metrics.likes }" [stretch]="true">
+                  <span class="deck-card-metric deck-card-metric-likes" [attr.aria-label]="'community.deckCard.likes' | runtimeTranslate: { count: metrics.likes }">
+                    <lucide-icon name="heart" size="14" aria-hidden="true" />
+                    <span>{{ metrics.likes }}</span>
+                  </span>
+                </app-tooltip>
+                <app-tooltip [text]="'community.deckCard.copies' | runtimeTranslate: { count: metrics.copies }" [stretch]="true">
+                  <span class="deck-card-metric deck-card-metric-copies" [attr.aria-label]="'community.deckCard.copies' | runtimeTranslate: { count: metrics.copies }">
+                    <lucide-icon name="copy" size="14" aria-hidden="true" />
+                    <span>{{ metrics.copies }}</span>
+                  </span>
+                </app-tooltip>
               </div>
             }
             @if (visibleActions().length) {

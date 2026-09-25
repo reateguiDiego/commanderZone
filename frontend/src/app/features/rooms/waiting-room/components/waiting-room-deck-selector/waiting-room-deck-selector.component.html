@@ -102,9 +102,11 @@
       }
     </div>
 
-    <button class="random-deck-button" [class.roll-pending]="canRoll()" type="button" [title]="'shared.text.rollDice' | runtimeTranslate" [attr.aria-label]="'shared.text.rollDice' | runtimeTranslate" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
-      <img src="/assets/icons/chance/dice_20.png" alt="" />
-    </button>
+    <app-tooltip [text]="'shared.text.rollDice' | runtimeTranslate">
+      <button class="random-deck-button" [class.roll-pending]="canRoll()" type="button" [attr.aria-label]="'shared.text.rollDice' | runtimeTranslate" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
+        <img src="/assets/icons/chance/dice_20.png" alt="" />
+      </button>
+    </app-tooltip>
   </div>
 </label>
 

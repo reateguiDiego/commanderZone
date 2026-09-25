@@ -36,6 +36,8 @@ export class RoomSetupControlsComponent {
   readonly updatingStartingLife = input(false);
   readonly updatingTimer = input(false);
   readonly updatingMulligan = input(false);
+  readonly startingLifePresets: readonly number[] = [20, 40, 60];
+  readonly startingLifeSliderHints: readonly number[] = [1, 20, 40, 60, 80, 99];
   readonly mulliganOptions: readonly { value: RoomMulliganRule; labelKey: string }[] = [
     { value: 'LONDON', labelKey: 'shared.text.london' },
     { value: 'VANCOUVER', labelKey: 'shared.text.vancouver' },

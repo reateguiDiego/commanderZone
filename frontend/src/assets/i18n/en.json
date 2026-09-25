@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "No rooms yet. Time to shuffle up!",
       "searchRoom": "Search room",
       "searchOwner": "Search owner",
       "anonymous": "Anonymous",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Current room details",
       "currentRoom": "Current room",
+      "inProgress": "Live",
+      "waiting": "Waiting",
       "yourDeck": "Your deck"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Counts as a mulligan",
-      "noTimer": "No timer"
+      "noTimer": "No timer",
+      "timerComingSoon": "Coming soon"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Adjust the room configuration before starting.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "d20 roll result",
-      "waitingForPlayer": "Waiting for player",
+      "waitingForPlayer": "Waiting for a player",
       "d20Roll": "d20 roll",
-      "openSlot": "Open slot"
+      "openSlot": "Available spot"
     },
     "waitingRoom": {
       "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
       "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
       "noAcceptedFriendsYet": "No accepted friends yet.",
       "inRoom": "In room",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Table size",
-        "seats": "Seats",
+        "seats": "Players",
         "setTableSizeToPlayers": "Set table size to {{ count }} players"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Mulligan status",
-      "mulligansTaken": "You have taken {{ count }} mulligans",
+      "mulligansTakenPrefix": "You have taken ",
+      "mulligansTakenSuffix": " mulligans",
       "effectiveMulligans": "Effective: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Choose what to do with the top card of your library.",
@@ -2207,10 +2211,10 @@
         "title": "Gameplay preferences",
         "defaultBattlefieldLayout": {
           "label": "Table layout",
-          "description": "Choose how the table is arranged when you open a game.",
+          "description": "Square shows one battlefield. Grid shows all players at once (up to 4).",
           "grid": "Grid",
-          "focused": "Focused",
-          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, the Focused layout will be used automatically."
+          "focused": "Square",
+          "gridWarning": "Grid is only available in games with up to 4 players. With 5 or more players, Square will be used automatically."
         },
         "showCardAlignmentHelper": {
           "label": "Card alignment helper",

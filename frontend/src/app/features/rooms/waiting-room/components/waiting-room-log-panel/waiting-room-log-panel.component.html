@@ -1,18 +1,33 @@
-<aside class="room-log-panel">
-  <header>
-    <strong>{{ 'rooms.waitingRoomLogPanel.activity' | runtimeTranslate }}</strong>
-  </header>
-
-  <section appPrettyScroll class="room-log" [attr.aria-label]="'rooms.waitingRoomLogPanel.activity' | runtimeTranslate">
-    @if (entries().length > 0) {
-      @for (entry of entries(); track entry.id) {
-        <article class="room-log-entry" [class.success]="entry.tone === 'success'">
-          <span>{{ entryTime(entry) }}</span>
-          <strong>{{ entry.label }}</strong>
-        </article>
+<aside
+  class="room-log-panel"
+  [class.fill-available-height]="fillAvailableHeight()"
+  [class.is-compact-layout]="compactLayout()"
+  [class.is-empty]="!hasEntries()"
+  [class.is-expanded]="expanded()"
+>
+  <div class="room-log-content">
+    <header>
+      @if (compactLayout()) {
+        <button class="activity-toggle" type="button" [attr.aria-expanded]="expanded()" (click)="toggleExpanded()">
+          <strong>{{ 'rooms.waitingRoomLogPanel.activity' | runtimeTranslate }}</strong>
+          <span class="activity-toggle-indicator" aria-hidden="true">⌄</span>
+        </button>
+      } @else {
+        <strong>{{ 'rooms.waitingRoomLogPanel.activity' | runtimeTranslate }}</strong>
       }
-    } @else {
-      <p class="muted">{{ 'rooms.waitingRoomLogPanel.roomEventsWillAppearHere' | runtimeTranslate }}</p>
+    </header>
+
+    @if (!compactLayout() || expanded()) {
+      <section appPrettyScroll class="room-log" [attr.aria-label]="'rooms.waitingRoomLogPanel.activity' | runtimeTranslate">
+        @if (entries().length > 0) {
+          @for (entry of entries(); track entry.id) {
+            <article class="room-log-entry" [class.success]="entry.tone === 'success'">
+              <span>{{ entryTime(entry) }}</span>
+              <strong>{{ entry.label }}</strong>
+            </article>
+          }
+        }
+      </section>
     }
-  </section>
+  </div>
 </aside>

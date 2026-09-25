@@ -107,6 +107,19 @@ describe('RoomsComponent', () => {
     ]);
   });
 
+  it('places room creation below the empty-state notice when there are no rooms', () => {
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+
+    const emptyState = fixture.nativeElement.querySelector('.rooms-table-toolbar.is-empty') as HTMLElement | null;
+
+    expect(emptyState).not.toBeNull();
+    expect(emptyState?.children[0]?.classList.contains('notice')).toBe(true);
+    expect(emptyState?.children[1]?.classList.contains('rooms-table-actions')).toBe(true);
+    expect(emptyState?.querySelector('app-room-create-panel')).not.toBeNull();
+    expect(emptyState?.querySelector('.room-code-card')).toBeNull();
+  });
+
   it('calculates room header stats in the requested order', async () => {
     roomsApi.list.mockReturnValue(of({ data: [
       roomFixture({

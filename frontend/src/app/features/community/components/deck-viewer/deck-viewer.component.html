@@ -14,10 +14,14 @@
       </div>
     </div>
 
-    <app-deck-view-mode-select
-      idPrefix="deck-view-mode"
-      [value]="viewMode()"
-      (valueChange)="selectViewMode($event)"
+    <app-tab-list
+      class="deck-view-mode-tabs"
+      [items]="viewModeTabItems"
+      [activeId]="viewMode()"
+      ariaLabel="shared.text.view"
+      variant="pill"
+      size="md"
+      (tabSelected)="selectViewModeTab($event)"
     />
   </div>
 

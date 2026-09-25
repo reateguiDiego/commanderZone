@@ -136,8 +136,7 @@ describe('WaitingRoomComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Done');
 
     roomsApi.update.mockClear();
-    setupModal.maxPlayersChange.emit(3);
-    setupModal.mulliganRuleChange.emit('GENEROUS');
+    setupModal.updateRequested.emit({ maxPlayers: 3, mulliganRule: 'GENEROUS' });
     await fixture.whenStable();
 
     expect(roomsApi.update).not.toHaveBeenCalled();
@@ -151,9 +150,11 @@ describe('WaitingRoomComponent', () => {
     const header = TestBed.inject(PageHeaderStore).state();
 
     expect(header?.title).toBe('Dragon Crucible');
+    expect(header?.context).toBe('waiting-room');
     expect(header?.actions?.[0]?.id).toBe('invite-friends');
     expect(header?.actions?.[0]?.label).toBe('Invite friends');
     expect(header?.actions?.map((action) => action.id)).toEqual(['invite-friends', 'copy-room-code', 'share-room-link']);
+    expect(header?.actions?.every((action) => action.tooltip === undefined)).toBe(true);
   });
 
   it('sorts deck choices by Commander validity and natural name order', async () => {
@@ -417,18 +418,12 @@ describe('WaitingRoomComponent', () => {
     const setupModal = fixture.debugElement.query(By.directive(RoomSetupModalComponent)).componentInstance as RoomSetupModalComponent;
     expect(setupModal.readOnly()).toBe(false);
     expect(setupModal.actionsLocked()).toBe(false);
-    roomsApi.update.mockReturnValueOnce(of({ room: room({ maxPlayers: 3 }) }));
-    setupModal.maxPlayersChange.emit(3);
+    roomsApi.update.mockReturnValueOnce(of({ room: room({ maxPlayers: 3, mulliganRule: 'VANCOUVER' }) }));
+    setupModal.updateRequested.emit({ maxPlayers: 3, mulliganRule: 'VANCOUVER' });
     await fixture.whenStable();
 
-    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { maxPlayers: 3 }, true);
+    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { maxPlayers: 3, mulliganRule: 'VANCOUVER' }, true);
     expect(component.currentRoom()?.maxPlayers).toBe(3);
-
-    roomsApi.update.mockReturnValueOnce(of({ room: room({ mulliganRule: 'VANCOUVER' }) }));
-    setupModal.mulliganRuleChange.emit('VANCOUVER');
-    await fixture.whenStable();
-
-    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { mulliganRule: 'VANCOUVER' }, true);
     expect(component.currentRoom()?.mulliganRule).toBe('VANCOUVER');
   });
 

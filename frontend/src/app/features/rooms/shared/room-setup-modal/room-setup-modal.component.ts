@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DeckFormat } from '../../../../core/models/deck.model';
@@ -24,6 +24,15 @@ export interface RoomCreatePayload {
   firstMulliganFree: boolean;
   visibility: RoomVisibility;
   format: RoomFormat;
+}
+
+export interface RoomSetupUpdatePayload {
+  maxPlayers?: number;
+  startingLife?: number;
+  timerMode?: RoomTimerMode;
+  timerDurationSeconds?: number;
+  mulliganRule?: RoomMulliganRule;
+  firstMulliganFree?: boolean;
 }
 
 export type RoomSetupModalMode = 'create' | 'edit';
@@ -70,12 +79,7 @@ export class RoomSetupModalComponent {
 
   readonly closed = output<void>();
   readonly createRequested = output<RoomCreatePayload>();
-  readonly maxPlayersChange = output<number>();
-  readonly startingLifeChange = output<number>();
-  readonly timerModeChange = output<RoomTimerMode>();
-  readonly timerDurationSecondsChange = output<number>();
-  readonly mulliganRuleChange = output<RoomMulliganRule>();
-  readonly firstMulliganFreeChange = output<boolean>();
+  readonly updateRequested = output<RoomSetupUpdatePayload>();
 
   readonly createMaxPlayers = signal(4);
   readonly createStartingLife = signal(40);
@@ -85,7 +89,14 @@ export class RoomSetupModalComponent {
   readonly createFirstMulliganFree = signal(true);
   readonly createFirstMulliganFreeTouched = signal(false);
   readonly createFormat = signal<RoomFormat>('commander');
-  readonly startingLifePresets: readonly number[] = [20, 30, 40, 60];
+  readonly editMaxPlayers = signal(4);
+  readonly editStartingLife = signal(40);
+  readonly editTimerMode = signal<RoomTimerMode>('none');
+  readonly editTimerDurationSeconds = signal(300);
+  readonly editMulliganRule = signal<RoomMulliganRule>('LONDON');
+  readonly editFirstMulliganFree = signal(true);
+  readonly startingLifePresets: readonly number[] = [20, 40, 60];
+  readonly startingLifeSliderHints: readonly number[] = [1, 20, 40, 60, 80, 99];
   readonly mulliganOptions: readonly { value: RoomMulliganRule; labelKey: string }[] = [
     { value: 'LONDON', labelKey: 'shared.text.london' },
     { value: 'VANCOUVER', labelKey: 'shared.text.vancouver' },
@@ -124,6 +135,32 @@ export class RoomSetupModalComponent {
     return seconds === 0 ? `${minutes} min` : `${minutes}:${seconds.toString().padStart(2, '0')}`;
   });
   readonly createMulliganDescriptionKey = computed(() => this.descriptionKeyForMulliganRule(this.createMulliganRule()));
+  readonly editChanges = computed<RoomSetupUpdatePayload>(() => {
+    const changes: RoomSetupUpdatePayload = {};
+
+    if (this.editMaxPlayers() !== this.maxPlayers()) {
+      changes.maxPlayers = this.editMaxPlayers();
+    }
+    if (this.editStartingLife() !== this.startingLife()) {
+      changes.startingLife = this.editStartingLife();
+    }
+    if (this.editTimerMode() !== this.timerMode()) {
+      changes.timerMode = this.editTimerMode();
+    }
+    if (this.editTimerDurationSeconds() !== this.timerDurationSeconds()) {
+      changes.timerDurationSeconds = this.editTimerDurationSeconds();
+    }
+    if (this.editMulliganRule() !== this.mulliganRule()) {
+      changes.mulliganRule = this.editMulliganRule();
+    }
+    if (this.editFirstMulliganFree() !== this.firstMulliganFree()) {
+      changes.firstMulliganFree = this.editFirstMulliganFree();
+    }
+
+    return changes;
+  });
+  readonly editHasChanges = computed(() => Object.keys(this.editChanges()).length > 0);
+  private wasEditModalOpen = false;
 
   constructor() {
     effect(() => {
@@ -132,6 +169,13 @@ export class RoomSetupModalComponent {
       if (formats.length > 0 && !formats.some((format) => format.id === selectedFormat)) {
         this.changeCreateFormat(formats[0].id as RoomFormat);
       }
+    });
+    effect(() => {
+      const isEditModalOpen = this.mode() === 'edit' && this.open();
+      if (isEditModalOpen && !this.wasEditModalOpen) {
+        untracked(() => this.resetEditDraft());
+      }
+      this.wasEditModalOpen = isEditModalOpen;
     });
     this.createRoomForm.controls.roomName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -173,6 +217,12 @@ export class RoomSetupModalComponent {
       return;
     }
 
+    const changes = this.editChanges();
+    if (Object.keys(changes).length === 0) {
+      return;
+    }
+
+    this.updateRequested.emit(changes);
     this.closed.emit();
   }
 
@@ -209,5 +259,14 @@ export class RoomSetupModalComponent {
 
   private defaultFirstMulliganFreeForFormat(format: RoomFormat): boolean {
     return format === 'commander';
+  }
+
+  private resetEditDraft(): void {
+    this.editMaxPlayers.set(this.maxPlayers());
+    this.editStartingLife.set(this.startingLife());
+    this.editTimerMode.set(this.timerMode());
+    this.editTimerDurationSeconds.set(this.timerDurationSeconds());
+    this.editMulliganRule.set(this.mulliganRule());
+    this.editFirstMulliganFree.set(this.firstMulliganFree());
   }
 }

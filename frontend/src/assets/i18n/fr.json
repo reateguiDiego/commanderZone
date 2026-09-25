@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Pas encore de salle. C’est l’heure de mélanger les cartes !",
       "searchRoom": "Rechercher une salle",
       "searchOwner": "Rechercher un hôte",
       "anonymous": "Anonyme",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Détails actuels de la salle",
       "currentRoom": "Salle actuelle",
+      "inProgress": "En jeu",
+      "waiting": "En attente",
       "yourDeck": "Votre deck"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Comptes",
-      "noTimer": "Pas de minuteur"
+      "noTimer": "Pas de minuteur",
+      "timerComingSoon": "Bientôt"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Ajustez la configuration de la salle avant de commencer.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "Résultat du lancer de D20",
-      "waitingForPlayer": "En attente du joueur",
+      "waitingForPlayer": "En attente d’un joueur",
       "d20Roll": "Lancer de D20",
-      "openSlot": "Emplacement ouvert"
+      "openSlot": "Place disponible"
     },
     "waitingRoom": {
       "setup": "Installation",
-      "chooseYourDeckAndGetReadyBefore": "Choisissez votre deck et préparez-vous avant de commencer.",
       "afterRollingYourDeckSelectionWillBe": "Après le lancer, votre sélection de deck sera verrouillée et ne pourra plus être modifiée.",
       "noAcceptedFriendsYet": "Aucun ami accepté pour l’instant.",
       "inRoom": "Dans la salle",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Taille de la table",
-        "seats": "Sièges",
+        "seats": "Joueurs",
         "setTableSizeToPlayers": "Définir la taille de la table pour les joueurs {{ count }}"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "État du mulligan",
-      "mulligansTaken": "Vous avez pris {{ count }} mulligans",
+      "mulligansTakenPrefix": "Vous avez pris ",
+      "mulligansTakenSuffix": " mulligans",
       "effectiveMulligans": "Effectifs : {{ count }}",
       "scryTitle": "Regard 1",
       "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothèque.",
@@ -2207,10 +2211,10 @@
         "title": "Préférences de jeu",
         "defaultBattlefieldLayout": {
           "label": "Disposition de la table",
-          "description": "Choisissez comment la table est organisée à l'ouverture d'une partie.",
+          "description": "Carré affiche un champ de bataille. Grille affiche tous les joueurs à la fois (jusqu’à 4).",
           "grid": "Grille",
-          "focused": "Centrée",
-          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la vue centrée sera utilisée automatiquement."
+          "focused": "Carré",
+          "gridWarning": "La grille est disponible uniquement pour les parties de 4 joueurs maximum. À partir de 5 joueurs, la vue carrée sera utilisée automatiquement."
         },
         "showCardAlignmentHelper": {
           "label": "Aide à l'alignement des cartes",

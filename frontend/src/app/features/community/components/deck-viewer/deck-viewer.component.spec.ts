@@ -1,7 +1,15 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
+import {
+  ChevronDown,
+  ChevronRight,
+  Image,
+  List,
+  LucideAngularModule,
+  RotateCw,
+  TriangleAlert,
+} from 'lucide-angular';
 import { DeckBracketEstimate } from '../../../../core/models/deck-analysis.model';
 import { Deck } from '../../../../core/models/deck.model';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
@@ -63,7 +71,9 @@ describe('DeckViewerComponent', () => {
       imports: [DeckViewerComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, Image, List, RotateCw, TriangleAlert }),
+        ),
         CommunityDeckViewerStore,
         { provide: DECK_VIEW_STORE, useExisting: CommunityDeckViewerStore },
         { provide: DECK_ANALYSIS_STORE, useExisting: CommunityDeckViewerStore },
@@ -93,6 +103,29 @@ describe('DeckViewerComponent', () => {
     expect(element.textContent).not.toContain('Delete');
   });
 
+  it('uses text and spoiler tabs to change the persisted view mode', () => {
+    TestBed.inject(CommunityDeckViewerStore).setDeck(deckFixture);
+    const fixture = TestBed.createComponent(DeckViewerComponent);
+    fixture.componentRef.setInput('deck', deckFixture);
+    fixture.detectChanges();
+
+    const tabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.deck-view-mode-tabs [role="tab"]'),
+    ) as HTMLButtonElement[];
+    const spoilerTab = tabs.find((tab) => tab.textContent?.includes('Spoiler'));
+
+    expect(fixture.nativeElement.querySelector('app-deck-view-mode-select')).toBeNull();
+    expect(tabs).toHaveLength(2);
+    expect(spoilerTab).toBeDefined();
+
+    spoilerTab?.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.viewMode()).toBe('spoiler');
+    expect(sessionStorage.getItem('community.deckViewer.viewMode')).toBe('spoiler');
+    expect(fixture.nativeElement.querySelector('app-deck-card-spoiler-view')).not.toBeNull();
+  });
+
   it('renders the bracket pill before the summary counts', () => {
     TestBed.inject(CommunityDeckViewerStore).setDeck(deckFixture);
     const fixture = TestBed.createComponent(DeckViewerComponent);
@@ -116,7 +149,9 @@ describe('DeckViewerComponent', () => {
       imports: [DeckViewerComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, Image, List, RotateCw, TriangleAlert }),
+        ),
         CommunityDeckViewerStore,
         { provide: DECK_VIEW_STORE, useExisting: CommunityDeckViewerStore },
         { provide: DECK_ANALYSIS_STORE, useExisting: CommunityDeckViewerStore },
@@ -147,7 +182,9 @@ describe('DeckViewerComponent', () => {
       imports: [DeckViewerComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(
+          LucideAngularModule.pick({ ChevronDown, ChevronRight, Image, List, RotateCw, TriangleAlert }),
+        ),
         CommunityDeckViewerStore,
         { provide: DECK_VIEW_STORE, useExisting: CommunityDeckViewerStore },
         { provide: DECK_ANALYSIS_STORE, useExisting: CommunityDeckViewerStore },

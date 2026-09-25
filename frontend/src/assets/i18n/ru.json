@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Комнат пока нет. Пора тасовать колоду!",
       "searchRoom": "Поиск комнаты",
       "searchOwner": "Поиск хоста",
       "anonymous": "Анонимный",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Детали текущей комнаты",
       "currentRoom": "Текущая комната",
+      "inProgress": "В игре",
+      "waiting": "Ожидание",
       "yourDeck": "Ваша колода"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Учитывается",
-      "noTimer": "Без таймера"
+      "noTimer": "Без таймера",
+      "timerComingSoon": "Скоро"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Настройте комнату перед стартом.",
@@ -523,11 +527,10 @@
       "d20RollResult": "Результат броска D20",
       "waitingForPlayer": "Ожидание игрока",
       "d20Roll": "Бросок D20",
-      "openSlot": "Открыть слот"
+      "openSlot": "Свободное место"
     },
     "waitingRoom": {
       "setup": "Настройка",
-      "chooseYourDeckAndGetReadyBefore": "Выберите колоду и подготовьтесь перед началом.",
       "afterRollingYourDeckSelectionWillBe": "После броска выбор колоды будет заблокирован и не может быть изменен.",
       "noAcceptedFriendsYet": "Принятых друзей пока нет.",
       "inRoom": "В комнате",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Размер стола",
-        "seats": "Сиденья",
+        "seats": "Игроки",
         "setTableSizeToPlayers": "Установить размер стола для игроков {{ count }}"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Статус Маллигана",
-      "mulligansTaken": "You have taken {{ count }} mulligans",
+      "mulligansTakenPrefix": "Муллиганов: ",
+      "mulligansTakenSuffix": "",
       "effectiveMulligans": "Учитываемые: {{ count }}",
       "scryTitle": "Предсказание 1",
       "scryDescription": "Выберите, что сделать с верхней картой библиотеки.",
@@ -2207,10 +2211,10 @@
         "title": "Настройки игрового процесса",
         "defaultBattlefieldLayout": {
           "label": "Макет стола",
-          "description": "Выберите, как будет организован стол при открытии игры.",
+          "description": "Квадрат показывает одно поле боя. Сетка показывает всех игроков сразу (до 4).",
           "grid": "Сетка",
-          "focused": "В фокусе",
-          "gridWarning": "Сетка доступна только в играх с участием до 4 игроков. При 5 или более игроках автоматически будет использован режим «В фокусе»."
+          "focused": "Квадрат",
+          "gridWarning": "Сетка доступна только в играх с участием до 4 игроков. При 5 или более игроках автоматически будет использован квадратный вид."
         },
         "showCardAlignmentHelper": {
           "label": "Помощь с выравниванием карт",

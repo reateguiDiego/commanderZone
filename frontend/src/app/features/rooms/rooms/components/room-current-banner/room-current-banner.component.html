@@ -4,7 +4,7 @@
     <img class="banner-art" [src]="imageUrl" alt="" aria-hidden="true" />
   }
 
-  <div class="banner-main">
+  <div class="banner-main" [class.has-deck]="hasSelectedDeck()">
     <div class="room-copy">
       <span class="eyebrow">{{ 'rooms.roomCurrentBanner.currentRoom' | runtimeTranslate }}</span>
       <div class="room-title-line">
@@ -19,23 +19,32 @@
       </div>
     </div>
 
-    <div class="deck-summary">
-      <div class="deck-art" [class.is-empty]="!deckImageUrl()">
-        @if (deckImageUrl(); as imageUrl) {
-          <img [src]="imageUrl" [alt]="playerDeckName() | runtimeTranslate" />
-        } @else {
-          <lucide-icon name="library" size="22" />
-        }
+    @if (hasSelectedDeck()) {
+      <div class="deck-summary">
+        <div class="deck-art" [class.is-empty]="!deckImageUrl()">
+          @if (deckImageUrl(); as imageUrl) {
+            <img [src]="imageUrl" [alt]="playerDeckName() | runtimeTranslate" />
+          } @else {
+            <lucide-icon name="library" size="22" />
+          }
+        </div>
+        <div class="deck-copy">
+          <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
+          <strong>{{ playerDeckName() | runtimeTranslate }}</strong>
+        </div>
       </div>
-      <div class="deck-copy">
-        <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
-        <strong>{{ playerDeckName() | runtimeTranslate }}</strong>
-      </div>
-    </div>
+    }
 
     <div class="turn-summary">
       <span czTextFit czTextFitMinScale="0.78">{{ 'shared.text.turn' | runtimeTranslate }}</span>
-      <strong>{{ turnLabelKey() | runtimeTranslate: turnLabelParams() }}</strong>
+      @let currentTurnNumber = turnNumber();
+      <strong>
+        @if (currentTurnNumber !== null) {
+          {{ currentTurnNumber }}
+        } @else {
+          {{ turnStateLabelKey() | runtimeTranslate }}
+        }
+      </strong>
     </div>
   </div>
 
