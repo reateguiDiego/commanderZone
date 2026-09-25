@@ -11,10 +11,15 @@
 
 .deck-summary {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.8rem;
+}
+
+.deck-view-mode-tabs {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .deck-summary-status {
@@ -70,7 +75,11 @@
     flex-wrap: nowrap;
   }
 
-  app-deck-view-mode-select {
+  app-tab-list.deck-view-mode-tabs {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
     width: 100%;
     min-width: 0;
   }
@@ -94,7 +103,7 @@
     grid-template-columns: minmax(0, 40%) minmax(0, 60%);
   }
 
-  app-deck-view-mode-select {
+  app-tab-list.deck-view-mode-tabs {
     width: 100%;
   }
 }

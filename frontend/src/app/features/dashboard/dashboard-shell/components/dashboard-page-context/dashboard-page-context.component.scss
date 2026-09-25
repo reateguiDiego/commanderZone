@@ -165,6 +165,28 @@
   max-width: min(40rem, 50vw);
 }
 
+.page-header-context[data-page-context="waiting-room"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: clamp(1rem, 3vw, 2.5rem);
+}
+
+.page-header-context[data-page-context="waiting-room"] .page-header-detail-row {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.page-header-context[data-page-context="waiting-room"] .page-header-actions-stack {
+  margin-left: 0;
+}
+
+.page-header-context[data-page-context="waiting-room"] .page-header-actions-stack .page-header-actions {
+  flex-wrap: nowrap;
+}
+
 .page-header-context[data-page-context="rooms"] .page-header-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(8.25rem, 1fr));
@@ -311,12 +333,18 @@
   backdrop-filter: none;
 }
 
+.page-header-owner-metrics app-tooltip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .page-header-owner-metrics .deck-card-metric {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
   flex: 1 1 0;
+  width: 100%;
   min-width: 0;
   min-height: 1.75rem;
   padding: 0 0.45rem;
@@ -505,6 +533,22 @@ button.cz-button--tone-danger:disabled {
 
   .page-header-detail-row {
     width: 100%;
+  }
+
+  .page-header-context[data-page-context="waiting-room"] {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .page-header-context[data-page-context="waiting-room"] .page-header-detail-row {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: stretch;
+    flex-wrap: wrap;
+  }
+
+  .page-header-context[data-page-context="waiting-room"] .page-header-actions-stack .page-header-actions {
+    flex-wrap: wrap;
   }
 
   .page-header-detail-row.has-actions:not(.has-stats) {

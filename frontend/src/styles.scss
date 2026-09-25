@@ -19,6 +19,7 @@
   --cz-success-rgb: 74 222 128;
   --cz-danger: #f43f5e;
   --cz-danger-rgb: 244 63 94;
+  --cz-on-danger: var(--cz-bg);
   --cz-warning: #d2ac47;
   --cz-warning-rgb: 210 172 71;
   --cz-info: #38bdf8;
@@ -183,13 +184,14 @@ img.cz-game-card-image--failed {
 .cz-button--primary.cz-button--tone-danger {
   border-color: rgb(var(--cz-danger-rgb) / 78%);
   background: linear-gradient(180deg, color-mix(in srgb, var(--cz-danger) 88%, var(--cz-text) 12%), var(--cz-danger));
-  color: var(--cz-text);
+  color: var(--cz-on-danger);
 }
 
 .cz-button--primary.cz-button--tone-danger:hover:not(:disabled),
 .cz-button--primary.cz-button--tone-danger:focus-visible:not(:disabled) {
   border-color: rgb(var(--cz-danger-rgb) / 94%);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-danger) 78%, var(--cz-text) 22%), var(--cz-danger));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-danger) 86%, var(--cz-text) 14%), var(--cz-danger));
+  color: var(--cz-on-danger);
 }
 
 .cz-button--primary.cz-button--tone-danger:disabled {
@@ -197,7 +199,7 @@ img.cz-game-card-image--failed {
   background:
     linear-gradient(180deg, rgb(var(--cz-danger-rgb) / 72%), rgb(var(--cz-danger-rgb) / 58%)),
     rgb(var(--cz-surface-elevated-rgb) / 92%);
-  color: var(--cz-text);
+  color: var(--cz-on-danger);
   opacity: 1;
 }
 

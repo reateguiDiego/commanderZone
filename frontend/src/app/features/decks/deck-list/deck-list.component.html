@@ -269,6 +269,8 @@
   }
 
   <app-modal
+    class="create-deck-modal"
+    [class.create-deck-modal--form]="activeCosmeticEditor() === null"
     [open]="store.createModalOpen()"
     [title]="createModalTitle()"
     [primaryLabel]="store.createPrimaryLabel()"

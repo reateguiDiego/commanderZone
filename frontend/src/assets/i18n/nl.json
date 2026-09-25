@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Nog geen kamers. Tijd om de kaarten te schudden!",
       "searchRoom": "Kamer zoeken",
       "searchOwner": "Zoek host",
       "anonymous": "Anoniem",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Huidige kamerdetails",
       "currentRoom": "Huidige kamer",
+      "inProgress": "Actief",
+      "waiting": "Wachtend",
       "yourDeck": "Joje deck"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Telt",
-      "noTimer": "Geen timer"
+      "noTimer": "Geen timer",
+      "timerComingSoon": "Binnenkort"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Pas de kamerconfiguratie aan voordat je begint.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "D20-worpresultaat",
-      "waitingForPlayer": "Wachten op speler",
+      "waitingForPlayer": "Wachten op een speler",
       "d20Roll": "D20-worp",
-      "openSlot": "Open sleuf"
+      "openSlot": "Beschikbare plek"
     },
     "waitingRoom": {
       "setup": "Instellingen",
-      "chooseYourDeckAndGetReadyBefore": "Kies je deck en bereid je voor voordat je begint.",
       "afterRollingYourDeckSelectionWillBe": "Na de worp wordt je deckselectie vergrendeld en kan deze niet meer worden gewijzigd.",
       "noAcceptedFriendsYet": "Nog geen geaccepteerde vrienden.",
       "inRoom": "In de kamer",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Tafelgrootte",
-        "seats": "Zitplaatsen",
+        "seats": "Spelers",
         "setTableSizeToPlayers": "Stel tafelgrootte in op {{ count }} spelers"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Mulligan-status",
-      "mulligansTaken": "Je hebt {{ count }} mulligans genomen",
+      "mulligansTakenPrefix": "Je hebt ",
+      "mulligansTakenSuffix": " mulligans genomen",
       "effectiveMulligans": "Effectief: {{ count }}",
       "scryTitle": "Scry 1",
       "scryDescription": "Kies wat je met de bovenste kaart van je library wilt doen.",
@@ -2206,10 +2210,10 @@
         "title": "Gameplay-voorkeuren",
         "defaultBattlefieldLayout": {
           "label": "Tafelindeling",
-          "description": "Kies hoe de tafel wordt ingedeeld wanneer je een spel opent.",
+          "description": "Vierkant toont één speelveld. Raster toont alle spelers tegelijk (maximaal 4).",
           "grid": "Raster",
-          "focused": "Gefocust",
-          "gridWarning": "Het raster is alleen beschikbaar in spellen met maximaal 4 spelers. Bij 5 of meer spelers wordt automatisch de gefocuste weergave gebruikt."
+          "focused": "Vierkant",
+          "gridWarning": "Het raster is alleen beschikbaar in spellen met maximaal 4 spelers. Bij 5 of meer spelers wordt automatisch de vierkante weergave gebruikt."
         },
         "showCardAlignmentHelper": {
           "label": "Hulp bij kaartuitlijning",

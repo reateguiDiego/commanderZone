@@ -480,6 +480,63 @@
   gap: 0.85rem;
 }
 
+:host ::ng-deep app-modal.create-deck-modal .modal-panel {
+  --create-deck-modal-viewport-gutter: 2rem;
+
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(0.65rem, 1.25vw, 1rem);
+  width: min(44rem, calc(100vw - var(--create-deck-modal-viewport-gutter)));
+  max-width: calc(100vw - var(--create-deck-modal-viewport-gutter));
+  height: min(48rem, calc(100dvh - var(--create-deck-modal-viewport-gutter)));
+  max-height: calc(100dvh - var(--create-deck-modal-viewport-gutter));
+  overflow: hidden;
+  padding: clamp(0.85rem, 1.75vw, 1.25rem);
+}
+
+:host ::ng-deep app-modal.create-deck-modal--form .modal-title-row h2 {
+  color: var(--cz-accent);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-inline-end: 0.3rem;
+  scrollbar-color: transparent transparent;
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body::-webkit-scrollbar {
+  width: 0.55rem;
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body.is-scrolling {
+  scrollbar-color: rgb(var(--cz-accent-rgb) / 62%) rgb(var(--cz-bg-rgb) / 42%);
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body.is-scrolling::-webkit-scrollbar-track {
+  background: rgb(var(--cz-bg-rgb) / 42%);
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-body.is-scrolling::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(var(--cz-accent-rgb) / 86%), rgb(var(--cz-primary-rgb) / 88%));
+}
+
+:host ::ng-deep app-modal.create-deck-modal .modal-panel footer {
+  padding-top: 0.15rem;
+}
+
 .create-deck-form fieldset {
   min-width: 0;
   margin: 0;
@@ -882,6 +939,50 @@
 }
 
 @media (max-width: 520px) {
+  :host ::ng-deep app-modal.create-deck-modal .modal-backdrop {
+    overflow-x: hidden;
+    padding: 0.5rem;
+  }
+
+  :host ::ng-deep app-modal.create-deck-modal .modal-panel {
+    --create-deck-modal-viewport-gutter: 1rem;
+
+    min-width: 0;
+    padding: 0.75rem;
+  }
+
+  :host ::ng-deep app-modal.create-deck-modal .modal-body {
+    max-width: 100%;
+    margin-inline-start: -0.25rem;
+    margin-inline-end: -0.35rem;
+    padding-inline-end: 0.9rem;
+    scrollbar-gutter: stable;
+  }
+
+  .create-deck-form,
+  .create-deck-form fieldset,
+  .create-name-row,
+  .create-meta-row.has-folder {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .create-name-row,
+  .create-meta-row.has-folder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .create-deck-form app-format-select,
+  .create-deck-form app-visibility-choice,
+  .create-deck-form app-compact-checkbox {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .create-empty-checkbox {
+    margin-top: 0;
+  }
+
   .import-decklist-heading .field-label {
     align-items: flex-start;
   }
@@ -902,5 +1003,27 @@
 
   .deck-table-list > :last-child:nth-child(odd) {
     grid-column: auto;
+  }
+}
+
+@media (max-height: 720px) {
+  :host ::ng-deep app-modal.create-deck-modal .modal-panel {
+    --create-deck-modal-viewport-gutter: 1rem;
+
+    gap: 0.6rem;
+    padding: 0.75rem;
+  }
+
+  :host ::ng-deep app-modal.create-deck-modal .modal-body {
+    gap: 0.6rem;
+  }
+
+  .create-deck-form .form-stack {
+    gap: 0.65rem;
+  }
+
+  .create-deck-form textarea {
+    min-block-size: 6rem;
+    block-size: min(8rem, 24dvh);
   }
 }

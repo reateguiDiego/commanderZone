@@ -50,6 +50,8 @@ export class FormatSelectComponent {
   private readonly mobileViewportSync = inject(MobileViewportSyncService);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
   private readonly menuElement = viewChild<ElementRef<HTMLElement>>('menu');
+  private readonly menuConfiguredMaxHeight = signal<number | null>(null);
+  private readonly menuPreferredWidth = signal<number | null>(null);
   private closeAnimationTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly formats = input<readonly FormatSelectOption[]>([]);
@@ -71,6 +73,7 @@ export class FormatSelectComponent {
   readonly dropdownOpen = signal(false);
   readonly menuVisible = signal(false);
   readonly menuClosing = signal(false);
+  readonly menuScrollable = signal(false);
   readonly searchQuery = signal('');
   readonly menuViewportPosition = signal<MenuViewportPosition | null>(null);
   readonly optionItems = computed<readonly FormatSelectOption[]>(() => {
@@ -156,6 +159,9 @@ export class FormatSelectComponent {
       this.menuVisible.set(false);
       this.menuClosing.set(false);
       this.menuViewportPosition.set(null);
+      this.menuScrollable.set(false);
+      this.menuConfiguredMaxHeight.set(null);
+      this.menuPreferredWidth.set(null);
       this.closeAnimationTimeout = null;
     }, FORMAT_SELECT_EXIT_ANIMATION_MS);
   }
@@ -178,6 +184,7 @@ export class FormatSelectComponent {
     const target = event.target;
     if (target instanceof HTMLInputElement) {
       this.searchQuery.set(target.value);
+      this.scheduleMenuViewportPositionUpdate();
     }
   }
 
@@ -186,8 +193,10 @@ export class FormatSelectComponent {
     this.menuVisible.set(true);
     this.menuClosing.set(false);
     this.dropdownOpen.set(true);
+    this.menuConfiguredMaxHeight.set(null);
+    this.menuPreferredWidth.set(null);
     this.startMenuPositionTracking();
-    queueMicrotask(() => this.updateMenuViewportPosition());
+    this.scheduleMenuViewportPositionUpdate();
     if (this.searchable()) {
       queueMicrotask(() => this.searchInput()?.nativeElement.focus());
     }
@@ -200,6 +209,13 @@ export class FormatSelectComponent {
 
     clearTimeout(this.closeAnimationTimeout);
     this.closeAnimationTimeout = null;
+  }
+
+  private scheduleMenuViewportPositionUpdate(): void {
+    queueMicrotask(() => {
+      this.updateMenuViewportPosition();
+      this.document.defaultView?.requestAnimationFrame(this.updateMenuViewportPosition);
+    });
   }
 
   private startMenuPositionTracking(): void {
@@ -222,19 +238,14 @@ export class FormatSelectComponent {
     const triggerRect = trigger.getBoundingClientRect();
     const menu = this.menuElement()?.nativeElement;
     this.elementRef.nativeElement.style.setProperty('--format-select-trigger-width', `${triggerRect.width}px`);
-    menu?.style.removeProperty('width');
-    menu?.style.removeProperty('max-height');
-    const parsedMaxHeight = menu ? Number.parseFloat(getComputedStyle(menu).maxHeight) : Number.NaN;
-    const configuredMaxHeight = Number.isFinite(parsedMaxHeight) && parsedMaxHeight > 0
-      ? parsedMaxHeight
-      : DEFAULT_MENU_MAX_HEIGHT_PX;
+    const configuredMaxHeight = this.resolveConfiguredMenuMaxHeight(menu);
     const desiredHeight = Math.min(menu?.scrollHeight ?? configuredMaxHeight, configuredMaxHeight);
     const availableBelow = viewport.innerHeight - triggerRect.bottom - MENU_GAP_PX - MENU_VIEWPORT_MARGIN_PX;
     const availableAbove = triggerRect.top - MENU_GAP_PX - MENU_VIEWPORT_MARGIN_PX;
     const opensUp = availableBelow < desiredHeight && availableAbove > availableBelow;
     const availableHeight = opensUp ? availableAbove : availableBelow;
     const maxHeight = Math.max(0, Math.min(desiredHeight, availableHeight));
-    const preferredWidth = menu?.getBoundingClientRect().width ?? triggerRect.width;
+    const preferredWidth = this.resolvePreferredMenuWidth(menu, triggerRect.width);
     const width = Math.min(preferredWidth, viewport.innerWidth - (MENU_VIEWPORT_MARGIN_PX * 2));
     const positioningContext = this.menuPositioning() === 'absolute'
       ? this.elementRef.nativeElement.querySelector('.format-select-control') as HTMLElement | null
@@ -267,7 +278,34 @@ export class FormatSelectComponent {
       maxHeight,
       opensUp,
     });
+    this.menuScrollable.set((menu?.scrollHeight ?? 0) > maxHeight + 1);
   };
+
+  private resolveConfiguredMenuMaxHeight(menu: HTMLElement | undefined): number {
+    const rememberedMaxHeight = this.menuConfiguredMaxHeight();
+    if (rememberedMaxHeight !== null) {
+      return rememberedMaxHeight;
+    }
+
+    const parsedMaxHeight = menu ? Number.parseFloat(getComputedStyle(menu).maxHeight) : Number.NaN;
+    const configuredMaxHeight = Number.isFinite(parsedMaxHeight) && parsedMaxHeight > 0
+      ? parsedMaxHeight
+      : DEFAULT_MENU_MAX_HEIGHT_PX;
+
+    this.menuConfiguredMaxHeight.set(configuredMaxHeight);
+    return configuredMaxHeight;
+  }
+
+  private resolvePreferredMenuWidth(menu: HTMLElement | undefined, fallbackWidth: number): number {
+    const rememberedWidth = this.menuPreferredWidth();
+    if (rememberedWidth !== null) {
+      return rememberedWidth;
+    }
+
+    const preferredWidth = menu?.getBoundingClientRect().width ?? fallbackWidth;
+    this.menuPreferredWidth.set(preferredWidth);
+    return preferredWidth;
+  }
 
   private fixedPositioningContext(menu: HTMLElement | undefined): HTMLElement | null {
     let ancestor = menu?.parentElement ?? null;

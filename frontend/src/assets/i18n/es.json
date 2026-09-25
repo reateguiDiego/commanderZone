@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Aún no hay salas. ¡Es hora de barajar el mazo!",
       "searchRoom": "Buscar sala",
       "searchOwner": "Buscar anfitrión",
       "anonymous": "Anónimo",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Detalles de la sala actual",
       "currentRoom": "Sala actual",
+      "inProgress": "En juego",
+      "waiting": "Esperando",
       "yourDeck": "Tu mazo"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Cuenta",
-      "noTimer": "Sin temporizador"
+      "noTimer": "Sin temporizador",
+      "timerComingSoon": "Próximamente"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Ajusta la configuración de la sala antes de empezar.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "Resultado de la tirada D20",
-      "waitingForPlayer": "Esperando al jugador",
+      "waitingForPlayer": "Esperando a un jugador",
       "d20Roll": "Tirada de D20",
-      "openSlot": "Ranura abierta"
+      "openSlot": "Plaza disponible"
     },
     "waitingRoom": {
       "setup": "Configuración",
-      "chooseYourDeckAndGetReadyBefore": "Elige tu mazo y prepárate antes de empezar.",
       "afterRollingYourDeckSelectionWillBe": "Después de tirar, la selección de mazo quedará bloqueada y no se podrá cambiar.",
       "noAcceptedFriendsYet": "Aún no se aceptan amigos.",
       "inRoom": "En la sala",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Tamaño de la mesa",
-        "seats": "Asientos",
+        "seats": "Jugadores",
         "setTableSizeToPlayers": "Establecer el tamaño de mesa en {{ count }} jugadores"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Estado de mulligan",
-      "mulligansTaken": "Has hecho {{ count }} mulligans",
+      "mulligansTakenPrefix": "Has hecho ",
+      "mulligansTakenSuffix": " mulligans",
       "effectiveMulligans": "Efectivo: {{ count }}",
       "scryTitle": "Adivina 1",
       "scryDescription": "Elige qué hacer con la carta superior de tu biblioteca.",
@@ -2207,10 +2211,10 @@
         "title": "Preferencias de juego",
         "defaultBattlefieldLayout": {
           "label": "Diseño de la mesa",
-          "description": "Elige cómo se organiza la mesa al abrir una partida.",
+          "description": "Cuadrado muestra un campo de batalla. Cuadrícula muestra a todos los jugadores a la vez (hasta 4).",
           "grid": "Cuadrícula",
-          "focused": "Enfocada",
-          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente la vista enfocada."
+          "focused": "Cuadrado",
+          "gridWarning": "La cuadrícula solo está disponible en partidas de hasta 4 jugadores. Con 5 jugadores o más, se usará automáticamente la vista cuadrada."
         },
         "showCardAlignmentHelper": {
           "label": "Ayuda de alineación de cartas",

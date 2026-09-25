@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Noch keine Räume. Zeit, die Karten zu mischen!",
       "searchRoom": "Raum suchen",
       "searchOwner": "Besitzer suchen",
       "anonymous": "Anonym",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Aktuelle Raumdetails",
       "currentRoom": "Aktueller Raum",
+      "inProgress": "Aktiv",
+      "waiting": "Wartend",
       "yourDeck": "Dein Deck"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Zählt als Mulligan",
-      "noTimer": "Kein Timer"
+      "noTimer": "Kein Timer",
+      "timerComingSoon": "Demnächst"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Passe die Raumkonfiguration an, bevor du startest.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "D20-Wurfergebnis",
-      "waitingForPlayer": "Warten auf Spieler",
+      "waitingForPlayer": "Warten auf einen Spieler",
       "d20Roll": "D20-Wurf",
       "openSlot": "Freier Platz"
     },
     "waitingRoom": {
       "setup": "Einrichtung",
-      "chooseYourDeckAndGetReadyBefore": "Wähle dein Deck und mach dich bereit, bevor es losgeht.",
       "afterRollingYourDeckSelectionWillBe": "Nach dem Würfeln wird deine Deckauswahl gesperrt und kann nicht mehr geändert werden.",
       "noAcceptedFriendsYet": "Noch keine akzeptierten Freunde.",
       "inRoom": "Im Raum",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Tischgröße",
-        "seats": "Sitze",
+        "seats": "Spieler",
         "setTableSizeToPlayers": "Setze die Tischgröße auf {{ count }} Spieler"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Mulligan-Status",
-      "mulligansTaken": "Du hast {{ count }} Mulligans genommen",
+      "mulligansTakenPrefix": "Du hast ",
+      "mulligansTakenSuffix": " Mulligans genommen",
       "effectiveMulligans": "Effektiv: {{ count }}",
       "scryTitle": "Hellsicht 1",
       "scryDescription": "Wähle, was mit der obersten Karte deiner Bibliothek geschehen soll.",
@@ -2207,10 +2211,10 @@
         "title": "Gameplay-Einstellungen",
         "defaultBattlefieldLayout": {
           "label": "Tischlayout",
-          "description": "Wähle aus, wie der Tisch beim Öffnen einer Partie angeordnet wird.",
+          "description": "Quadrat zeigt ein Schlachtfeld. Raster zeigt alle Spieler gleichzeitig (bis zu 4).",
           "grid": "Raster",
-          "focused": "Fokussiert",
-          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch die fokussierte Ansicht verwendet."
+          "focused": "Quadrat",
+          "gridWarning": "Das Raster ist nur in Partien mit bis zu 4 Spielern verfügbar. Bei 5 oder mehr Spielern wird automatisch die quadratische Ansicht verwendet."
         },
         "showCardAlignmentHelper": {
           "label": "Ausrichtungshilfe für Karten",

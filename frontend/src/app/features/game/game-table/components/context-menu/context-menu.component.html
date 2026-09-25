@@ -14,8 +14,8 @@
   [style.--context-menu-edge-offset.px]="activeMenu.y"
   (click)="stopClick($event)"
 >
-  <div class="context-menu-surface">
-    <span class="context-menu-pointer" aria-hidden="true"></span>
+  <span class="context-menu-pointer" aria-hidden="true"></span>
+  <div appPrettyScroll class="context-menu-surface">
     <div
       class="context-menu-target"
       [attr.title]="contextMenuTargetLabel()"

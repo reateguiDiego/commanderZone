@@ -46,6 +46,22 @@ describe('MulliganOverlayComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Mulligan');
   });
 
+  it('places mulligan metadata beside the rule explanation in the header', () => {
+    setMulligan('LONDON', { bottomSelectionCount: 0 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('.mulligan-header') as HTMLElement;
+    const metadata = header.querySelector(':scope > .mulligan-meta');
+
+    expect(metadata).not.toBeNull();
+    expect(metadata?.querySelectorAll(':scope > span')).toHaveLength(2);
+      expect(metadata?.querySelector('.mulligan-count')?.textContent?.trim()).toBe('You have taken 0 mulligans');
+      expect(metadata?.querySelector('.mulligan-count strong')?.textContent?.trim()).toBe('0');
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-rule-copy"] .mulligan-meta')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.mulligan-hand .mulligan-meta')).toBeNull();
+  });
+
   it('hides the overlay in PLAYING phase', () => {
     setMulligan('LONDON', { bottomSelectionCount: 0 });
     fixture.componentRef.setInput('gamePhase', 'PLAYING');

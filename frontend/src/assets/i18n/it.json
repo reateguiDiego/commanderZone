@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Nessuna stanza ancora. È ora di mescolare le carte!",
       "searchRoom": "Cerca sala",
       "searchOwner": "Cerca host",
       "anonymous": "Anonimo",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Dettagli della sala attuale",
       "currentRoom": "Sala attuale",
+      "inProgress": "In gioco",
+      "waiting": "In attesa",
       "yourDeck": "Il tuo mazzo"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Conta",
-      "noTimer": "Nessun timer"
+      "noTimer": "Nessun timer",
+      "timerComingSoon": "Prossimamente"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Modifica la configurazione della sala prima di iniziare.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "Risultato del lancio D20",
-      "waitingForPlayer": "In attesa del giocatore",
+      "waitingForPlayer": "In attesa di un giocatore",
       "d20Roll": "Lancio D20",
-      "openSlot": "Slot aperto"
+      "openSlot": "Posto disponibile"
     },
     "waitingRoom": {
       "setup": "Configurazione",
-      "chooseYourDeckAndGetReadyBefore": "Scegli il tuo mazzo e preparati prima di iniziare.",
       "afterRollingYourDeckSelectionWillBe": "Dopo il lancio, la selezione del mazzo verrà bloccata e non potrà essere modificata.",
       "noAcceptedFriendsYet": "Nessun amico accettato ancora.",
       "inRoom": "Nella sala",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Dimensione del tavolo",
-        "seats": "Sedili",
+        "seats": "Giocatori",
         "setTableSizeToPlayers": "Imposta il tavolo per {{ count }} giocatori"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Stato del mulligan",
-      "mulligansTaken": "Hai fatto {{ count }} mulligan",
+      "mulligansTakenPrefix": "Hai fatto ",
+      "mulligansTakenSuffix": " mulligan",
       "effectiveMulligans": "Efficace: {{count}}",
       "scryTitle": "Profetizza 1",
       "scryDescription": "Scegli cosa fare con la prima carta del tuo grimorio.",
@@ -2206,10 +2210,10 @@
         "title": "Preferenze di gioco",
         "defaultBattlefieldLayout": {
           "label": "Disposizione del tavolo",
-          "description": "Scegli come organizzare il tavolo quando apri una partita.",
+          "description": "Quadrato mostra un campo di battaglia. Griglia mostra tutti i giocatori insieme (fino a 4).",
           "grid": "Griglia",
-          "focused": "Focalizzata",
-          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la vista focalizzata."
+          "focused": "Quadrato",
+          "gridWarning": "La griglia è disponibile solo nelle partite con un massimo di 4 giocatori. Con 5 o più giocatori verrà usata automaticamente la vista quadrata."
         },
         "showCardAlignmentHelper": {
           "label": "Aiuto per l'allineamento delle carte",

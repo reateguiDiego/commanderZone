@@ -4,7 +4,38 @@
 
 .setup-controls {
   display: grid;
-  gap: 0.8rem;
+}
+
+.setup-control-section {
+  position: relative;
+  min-width: 0;
+  padding-block: 0.8rem;
+}
+
+.setup-control-section:first-child {
+  padding-top: 0;
+}
+
+.setup-control-section:last-child {
+  padding-bottom: 0;
+}
+
+.setup-control-section:not(:last-child)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--cz-secondary-rgb) / 34%) 12%,
+    rgb(var(--cz-primary-rgb) / 46%) 50%,
+    rgb(var(--cz-secondary-rgb) / 34%) 88%,
+    transparent
+  );
+  box-shadow: 0 1px 0 rgb(var(--cz-text-rgb) / 4%);
+  content: '';
 }
 
 .setup-control {
@@ -62,6 +93,31 @@
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
+}
+
+.timer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.timer-coming-soon {
+  padding: 0.12rem 0.34rem;
+  border: 1px solid rgb(var(--cz-warning-rgb) / 36%);
+  border-radius: 999px;
+  background: rgb(var(--cz-warning-rgb) / 10%);
+  color: var(--cz-warning);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+:host ::ng-deep app-game-setup-life-control .life-presets {
+  grid-template-columns: repeat(3, minmax(2.8rem, 3.4rem));
+  justify-content: center;
 }
 
 @media (max-width: 580px) {

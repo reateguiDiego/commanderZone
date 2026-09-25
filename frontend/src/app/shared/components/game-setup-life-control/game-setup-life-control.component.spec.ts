@@ -95,4 +95,42 @@ describe('GameSetupLifeControlComponent', () => {
 
     expect(emittedValues).toEqual([40]);
   });
+
+  it('snaps slider values to hints and aligns each hint with the slider track', () => {
+    const fixture = TestBed.createComponent(GameSetupLifeControlComponent);
+    const emittedValues: number[] = [];
+    fixture.componentRef.setInput('mode', 'slider');
+    fixture.componentRef.setInput('value', 30);
+    fixture.componentRef.setInput('minValue', 1);
+    fixture.componentRef.setInput('maxValue', 99);
+    fixture.componentRef.setInput('sliderHints', [1, 20, 40, 60, 80, 99]);
+    fixture.componentRef.setInput('sliderSnapValues', [20, 40, 60]);
+    fixture.componentInstance.valueChange.subscribe((value) => emittedValues.push(value));
+    fixture.detectChanges();
+
+    const slider = fixture.nativeElement.querySelector('.life-slider') as HTMLInputElement;
+    slider.value = '38';
+    slider.dispatchEvent(new Event('input'));
+    fixture.componentRef.setInput('value', 40);
+    fixture.detectChanges();
+
+    slider.value = '63';
+    slider.dispatchEvent(new Event('input'));
+
+    expect(slider.min).toBe('1');
+    expect(slider.max).toBe('99');
+    expect(slider.value).toBe('63');
+    expect(fixture.nativeElement.querySelector('.life-editor')).toBeNull();
+    const sliderHints = Array.from(fixture.nativeElement.querySelectorAll('.life-slider-hint') as NodeListOf<HTMLElement>);
+    expect(sliderHints.map((hint) => hint.textContent?.trim())).toEqual(['1', '20', '40', '60', '80', '99']);
+    const sliderShell = fixture.nativeElement.querySelector('.life-slider-shell') as HTMLElement;
+    const firstHint = sliderHints[0] as HTMLElement;
+    const fortyHint = sliderHints[2] as HTMLElement;
+    const lastHint = sliderHints[5] as HTMLElement;
+    expect(sliderShell.style.getPropertyValue('--life-slider-current-position')).toBe(fortyHint.style.getPropertyValue('--life-slider-hint-position'));
+    expect(fixture.nativeElement.querySelector('.life-slider-track')?.contains(fortyHint)).toBe(true);
+    expect(firstHint.classList).toContain('is-minimum');
+    expect(lastHint.classList).toContain('is-maximum');
+    expect(emittedValues).toEqual([40, 63]);
+  });
 });

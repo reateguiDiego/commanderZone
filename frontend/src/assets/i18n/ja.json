@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "まだルームはありません。デッキをシャッフルする時間です！",
       "searchRoom": "ルームを検索",
       "searchOwner": "ホストの検索",
       "anonymous": "匿名",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "現在のルーム詳細",
       "currentRoom": "現在のルーム",
+      "inProgress": "進行中",
+      "waiting": "待機中",
       "yourDeck": "あなたのデッキ"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "カウント",
-      "noTimer": "タイマーなし"
+      "noTimer": "タイマーなし",
+      "timerComingSoon": "近日対応"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "開始する前にルームの構成を調整してください。",
@@ -523,11 +527,10 @@
       "d20RollResult": "D20ロール結果",
       "waitingForPlayer": "プレイヤーを待っています",
       "d20Roll": "D20ロール",
-      "openSlot": "オープンスロット"
+      "openSlot": "空き枠"
     },
     "waitingRoom": {
       "setup": "セットアップ",
-      "chooseYourDeckAndGetReadyBefore": "デッキを選択し、開始する前に準備を整えてください。",
       "afterRollingYourDeckSelectionWillBe": "ダイスを振った後、デッキ選択はロックされ変更できなくなります。",
       "noAcceptedFriendsYet": "まだ承認された友達がいません。",
       "inRoom": "ルームの中",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "テーブルサイズ",
-        "seats": "席",
+        "seats": "プレイヤー",
         "setTableSizeToPlayers": "テーブル人数を {{ count }} 人に設定"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "マリガンステータス",
-      "mulligansTaken": "マリガン回数: {{ count }}回",
+      "mulligansTakenPrefix": "マリガン回数: ",
+      "mulligansTakenSuffix": "回",
       "effectiveMulligans": "有効: {{ count }}",
       "scryTitle": "占術1",
       "scryDescription": "ライブラリーの一番上のカードをどうするか選択します。",
@@ -2206,10 +2210,10 @@
         "title": "ゲームプレイの設定",
         "defaultBattlefieldLayout": {
           "label": "テーブルレイアウト",
-          "description": "ゲームを開いたときのテーブルの配置を選択します。",
+          "description": "スクエアは1人の戦場を表示。グリッドは全員を同時に表示（最大4人）。",
           "grid": "グリッド",
-          "focused": "フォーカス",
-          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、フォーカスレイアウトが自動的に使用されます。"
+          "focused": "スクエア",
+          "gridWarning": "グリッドは最大4人のゲームでのみ利用できます。5人以上の場合は、スクエア表示が自動的に使用されます。"
         },
         "showCardAlignmentHelper": {
           "label": "カード配置アシスト",

@@ -103,11 +103,12 @@
   </div>
 } @else {
   <div class="empty-slot-content">
-    <div class="empty-slot-icon waiting-pulse">
+    <div class="empty-slot-icon">
       <lucide-icon name="plus" size="24" />
     </div>
-    <strong>{{ 'rooms.waitingRoomPlayerCard.openSlot' | runtimeTranslate }}</strong>
-    <span class="waiting-dots" [attr.aria-label]="'rooms.waitingRoomPlayerCard.waitingForPlayer' | runtimeTranslate">
+    <strong class="empty-slot-title">{{ 'rooms.waitingRoomPlayerCard.openSlot' | runtimeTranslate }}</strong>
+    <span class="empty-slot-caption">{{ 'rooms.waitingRoomPlayerCard.waitingForPlayer' | runtimeTranslate }}</span>
+    <span class="waiting-dots" aria-hidden="true">
       <i></i><i></i><i></i>
     </span>
   </div>

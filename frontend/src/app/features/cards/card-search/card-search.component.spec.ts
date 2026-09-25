@@ -119,6 +119,7 @@ describe('CardSearchComponent', () => {
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[1]?.tooltip).toBeUndefined();
     expect(fixture.nativeElement.querySelector('app-card-advanced-search-form')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-aside app-card-advanced-search-form')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.cards-advanced-search-modal-title')?.textContent).toContain('Advanced filters');
     expect(fixture.nativeElement.querySelector('.cards-aside app-card-search-help')).toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-main .cards-view-actions')).toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-aside .cards-aside-actions')).not.toBeNull();

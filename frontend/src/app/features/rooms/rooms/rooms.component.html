@@ -35,6 +35,7 @@
       >
         <app-room-create-panel
           [actionsLocked]="currentRoom() !== null"
+          [showJoinWithCode]="rooms().length > 0"
           (codeJoinRequested)="joinRoomByCode($event)"
           (createRequested)="openCreateRoomModal()"
         />

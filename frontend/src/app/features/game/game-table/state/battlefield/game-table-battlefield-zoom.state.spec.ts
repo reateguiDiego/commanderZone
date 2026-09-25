@@ -33,7 +33,7 @@ describe('GameTableBattlefieldZoomState', () => {
     expect(state.manaLaneMinHeightRem()).toBe('14rem');
   });
 
-  it.each(['69', '141', '125.5', 'not-a-number'])('ignores invalid stored zoom value %s', (storedValue) => {
+  it.each(['39', '141', '125.5', 'not-a-number'])('ignores invalid stored zoom value %s', (storedValue) => {
     window.localStorage.setItem('commanderZone.gameTable.battlefieldZoomPercent', storedValue);
 
     const state = createState();
@@ -49,9 +49,9 @@ describe('GameTableBattlefieldZoomState', () => {
     expect(state.zoomPercent()).toBe(140);
     expect(state.canZoomIn()).toBe(false);
 
-    state.setZoomPercent(71);
+    state.setZoomPercent(41);
     state.zoomOut();
-    expect(state.zoomPercent()).toBe(70);
+    expect(state.zoomPercent()).toBe(40);
     expect(state.canZoomOut()).toBe(false);
   });
 
@@ -61,8 +61,8 @@ describe('GameTableBattlefieldZoomState', () => {
     state.setZoomPercent(140.4);
     expect(state.zoomPercent()).toBe(140);
 
-    state.setZoomPercent(69);
-    expect(state.zoomPercent()).toBe(70);
+    state.setZoomPercent(39);
+    expect(state.zoomPercent()).toBe(40);
 
     state.setZoomPercent(111.6);
     expect(state.zoomPercent()).toBe(112);

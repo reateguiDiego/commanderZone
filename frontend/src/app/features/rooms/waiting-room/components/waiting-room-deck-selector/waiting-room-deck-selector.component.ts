@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 export interface WaitingDeckOption {
   id: string;
@@ -16,7 +17,7 @@ export interface WaitingDeckOption {
 
 @Component({
   selector: 'app-waiting-room-deck-selector',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective, TooltipComponent],
   templateUrl: './waiting-room-deck-selector.component.html',
   styleUrl: './waiting-room-deck-selector.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -24,10 +24,11 @@ import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { formatRoomCodeFromId } from '../shared/room-code.util';
-import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
+import { RoomSetupModalComponent, type RoomSetupUpdatePayload } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
 import { WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
 import { WaitingRoomPlayerCardComponent } from './components/waiting-room-player-card/waiting-room-player-card.component';
@@ -58,6 +59,7 @@ const WAITING_ROOM_PRESENCE_INTERVAL_MS = 120_000;
     GlobalLoaderComponent,
     PlayerNameComponent,
     PrettyScrollDirective,
+    TooltipComponent,
     RoomSetupModalComponent,
     WaitingRoomLogPanelComponent,
     WaitingRoomPlayerCardComponent,
@@ -445,6 +447,30 @@ export class WaitingRoomComponent implements OnDestroy {
       this.error.set(this.errorMessage(error, 'Could not update starting life.'));
     } finally {
       this.updatingStartingLife.set(false);
+    }
+  }
+
+  async updateRoomSetup(options: RoomSetupUpdatePayload): Promise<void> {
+    const room = this.currentRoom();
+    if (!room || Object.keys(options).length === 0 || !this.canEditRoom(room)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.updatingCapacity.set(options.maxPlayers !== undefined);
+    this.updatingStartingLife.set(options.startingLife !== undefined);
+    this.updatingTimer.set(options.timerMode !== undefined || options.timerDurationSeconds !== undefined);
+    this.updatingMulligan.set(options.mulliganRule !== undefined || options.firstMulliganFree !== undefined);
+    try {
+      const response = await firstValueFrom(this.roomsApi.update(room.id, options, true));
+      this.setCurrentRoom(response.room);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Could not update room setup.'));
+    } finally {
+      this.updatingCapacity.set(false);
+      this.updatingStartingLife.set(false);
+      this.updatingTimer.set(false);
+      this.updatingMulligan.set(false);
     }
   }
 
@@ -1231,7 +1257,6 @@ export class WaitingRoomComponent implements OnDestroy {
               id: 'invite-friends',
               label: 'shared.text.inviteFriends',
               icon: 'user-plus',
-              tooltip: this.isRoomFull(room) ? 'Room is full' : 'Invite friends',
               disabled: this.isRoomFull(room),
               variant: 'primary' as const,
               execute: () => {
@@ -1247,7 +1272,6 @@ export class WaitingRoomComponent implements OnDestroy {
           id: 'copy-room-code',
           label: this.copiedTarget() === 'code' ? 'Copied' : 'Copy code',
           icon: 'copy',
-          tooltip: this.isRoomFull(room) ? 'Room is full' : 'Copy code',
           disabled: this.isRoomFull(room) || this.copiedTarget() === 'code',
           variant: 'secondary' as const,
           execute: () => {
@@ -1261,7 +1285,6 @@ export class WaitingRoomComponent implements OnDestroy {
           id: 'share-room-link',
           label: this.copiedTarget() === 'link' ? 'Copied' : 'Share link',
           icon: 'send',
-          tooltip: this.isRoomFull(room) ? 'Room is full' : 'Share link',
           disabled: this.isRoomFull(room) || this.copiedTarget() === 'link',
           variant: 'secondary' as const,
           execute: () => {
@@ -1276,6 +1299,7 @@ export class WaitingRoomComponent implements OnDestroy {
 
     this.pageHeader.set({
       title: room?.name ?? 'Waiting room',
+      context: 'waiting-room',
       actions,
       actionFeedback: null,
     }, this);

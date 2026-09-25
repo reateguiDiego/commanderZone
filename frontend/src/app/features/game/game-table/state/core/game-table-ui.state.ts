@@ -3,7 +3,10 @@ import { GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
 
 const CONTEXT_MENU_WIDTH = 264;
+const CONTEXT_MENU_NARROW_VIEWPORT_WIDTH = 768;
+const CONTEXT_MENU_NARROW_WIDTH = 232;
 const CONTEXT_MENU_COMPACT_WIDTH = 172;
+const CONTEXT_MENU_NARROW_COMPACT_WIDTH = 156;
 const CONTEXT_MENU_ESTIMATED_HEIGHT = 360;
 const CONTEXT_MENU_EDGE_GAP = 8;
 const CONTEXT_MENU_CLICK_GAP = 4;
@@ -267,12 +270,13 @@ export class GameTableUiState {
     clientY: number,
     target?: Pick<GameContextMenu, 'kind'>,
   ): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin' | 'horizontalPlacement' | 'width'> {
-    const preferredWidth = target?.kind === 'counter' || target?.kind === 'arrow'
-      ? CONTEXT_MENU_COMPACT_WIDTH
-      : CONTEXT_MENU_WIDTH;
-    const height = CONTEXT_MENU_ESTIMATED_HEIGHT;
     const viewportWidth = window.innerWidth || 0;
     const viewportHeight = window.innerHeight || 0;
+    const isNarrowViewport = viewportWidth > 0 && viewportWidth <= CONTEXT_MENU_NARROW_VIEWPORT_WIDTH;
+    const preferredWidth = target?.kind === 'counter' || target?.kind === 'arrow'
+      ? isNarrowViewport ? CONTEXT_MENU_NARROW_COMPACT_WIDTH : CONTEXT_MENU_COMPACT_WIDTH
+      : isNarrowViewport ? CONTEXT_MENU_NARROW_WIDTH : CONTEXT_MENU_WIDTH;
+    const height = CONTEXT_MENU_ESTIMATED_HEIGHT;
     const edgeGap = CONTEXT_MENU_EDGE_GAP;
     const clickGap = CONTEXT_MENU_CLICK_GAP;
     const openUp = clientY + height + edgeGap > viewportHeight;

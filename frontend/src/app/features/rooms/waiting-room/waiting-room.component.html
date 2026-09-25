@@ -21,32 +21,30 @@
                       <span>{{ 'rooms.waitingRoom.setup' | runtimeTranslate }}</span>
                     </button>
                   }
-                  <button class="secondary-button compact icon-action" type="button" [title]="'shared.text.leaveRoom' | runtimeTranslate" [attr.aria-label]="'shared.text.leaveRoom' | runtimeTranslate" (click)="requestLeaveRoom(room)">
-                    <lucide-icon name="log-out" size="16" />
-                  </button>
-                  @if (canDeleteRoom(room)) {
-                    <button
-                      class="danger-button compact icon-action"
-                      type="button"
-                      [title]="'shared.text.deleteRoom' | runtimeTranslate"
-                      [attr.aria-label]="'shared.text.deleteRoom' | runtimeTranslate"
-                      [disabled]="deletingRoomId() === room.id"
-                      (click)="requestDeleteRoom(room)"
-                    >
-                      <lucide-icon name="trash-2" size="16" />
+                  <app-tooltip [text]="'shared.text.leaveRoom' | runtimeTranslate">
+                    <button class="secondary-button compact icon-action" type="button" [attr.aria-label]="'shared.text.leaveRoom' | runtimeTranslate" (click)="requestLeaveRoom(room)">
+                      <lucide-icon name="log-out" size="16" />
                     </button>
+                  </app-tooltip>
+                  @if (canDeleteRoom(room)) {
+                    <app-tooltip [text]="'shared.text.deleteRoom' | runtimeTranslate">
+                      <button
+                        class="danger-button compact icon-action"
+                        type="button"
+                        [attr.aria-label]="'shared.text.deleteRoom' | runtimeTranslate"
+                        [disabled]="deletingRoomId() === room.id"
+                        (click)="requestDeleteRoom(room)"
+                      >
+                        <lucide-icon name="trash-2" size="16" />
+                      </button>
+                    </app-tooltip>
                   }
                 </div>
               </div>
-              <p>{{ 'rooms.waitingRoom.chooseYourDeckAndGetReadyBefore' | runtimeTranslate }}</p>
             </div>
           </div>
 
           <div class="waiting-board">
-            <div class="room-control-stack">
-              <app-waiting-room-log-panel [entries]="roomLog()" />
-            </div>
-
             <div
               class="players-grid"
               [class.capacity-two]="roomCapacity(room) <= 2"
@@ -117,19 +115,23 @@
                 }
               }
             </div>
-          </div>
 
-          @if (isRoomOwner(room)) {
-            <div class="start-game-row">
-              <span class="start-status-pill" [class.is-ready]="canStartRoom(room)">
-                {{ (canStartRoom(room) ? 'rooms.waitingRoom.allPlayersReady' : 'rooms.waitingRoom.waitingForDecksAndRolls') | runtimeTranslate }}
-              </span>
-              <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
-                <lucide-icon name="play" size="18" />
-                <span>{{ 'shared.text.start' | runtimeTranslate }}</span>
-              </button>
+            <div class="room-control-stack">
+              <app-waiting-room-log-panel [entries]="roomLog()" [fillAvailableHeight]="true" />
+
+              @if (isRoomOwner(room)) {
+                <div class="start-game-row">
+                  <span class="start-status-pill" [class.is-ready]="canStartRoom(room)">
+                    {{ (canStartRoom(room) ? 'rooms.waitingRoom.allPlayersReady' : 'rooms.waitingRoom.waitingForDecksAndRolls') | runtimeTranslate }}
+                  </span>
+                  <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
+                    <lucide-icon name="play" size="18" />
+                    <span>{{ 'shared.text.start' | runtimeTranslate }}</span>
+                  </button>
+                </div>
+              }
             </div>
-          }
+          </div>
         </section>
       </main>
     </div>
@@ -153,12 +155,7 @@
       [maxPlayersOptions]="maxPlayersOptions"
       [startingLifeStep]="startingLifeStep"
       (closed)="closeSetupModal()"
-      (maxPlayersChange)="updateRoomCapacity($event)"
-      (startingLifeChange)="updateRoomStartingLife($event)"
-      (timerModeChange)="updateRoomTimerMode($event)"
-      (timerDurationSecondsChange)="updateRoomTimerDuration($event)"
-      (mulliganRuleChange)="updateRoomMulliganRule($event)"
-      (firstMulliganFreeChange)="updateRoomFirstMulliganFree($event)"
+      (updateRequested)="updateRoomSetup($event)"
     />
 
     @if (rollModalOpen()) {

@@ -177,11 +177,22 @@ describe('GameTableUiState', () => {
     state.openContextMenu(pointerEvent(360, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 84,
+      x: 116,
       y: 124,
       verticalOrigin: 'top',
       horizontalPlacement: 'left',
-      width: 264,
+      width: 232,
+    }));
+  });
+
+  it('uses a narrower readable width on narrow viewports', () => {
+    setViewport(680, 700);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(120, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      width: 232,
     }));
   });
 

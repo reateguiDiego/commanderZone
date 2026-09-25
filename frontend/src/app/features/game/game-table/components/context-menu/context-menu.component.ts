@@ -9,6 +9,7 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard, isSagaCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
@@ -107,7 +108,7 @@ const AGGRESSIVE_COMPACT_MEDIA_QUERY = '(max-width: 1180px) and (max-height: 768
 
 @Component({
   selector: 'app-context-menu',
-  imports: [RuntimeTranslatePipe, ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent],
+  imports: [RuntimeTranslatePipe, ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './context-menu.component.html',
   styleUrl: './context-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

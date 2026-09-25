@@ -27,7 +27,6 @@ import { DeckAnalysisPanelComponent } from './deck-analysis-panel/deck-analysis-
 import { DeckCardMenuComponent } from './deck-card-menu/deck-card-menu.component';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
-import { DeckViewModeSelectComponent } from './deck-view-mode-select/deck-view-mode-select.component';
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
@@ -54,7 +53,6 @@ import { PreloadCardAlternateFaceDirective } from '../../../shared/directives/pr
     DeckCardMenuComponent,
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,
-    DeckViewModeSelectComponent,
     BracketPillComponent,
     CzButtonDirective,
     GlobalLoaderComponent,
@@ -78,6 +76,10 @@ export class DeckEditorComponent implements OnDestroy {
   readonly store = inject(DeckEditorStore);
   readonly actionError = signal<string | null>(null);
   readonly shareCopied = signal(false);
+  readonly viewModeTabItems: readonly TabListItem[] = [
+    { id: 'text', label: 'shared.text.text', icon: 'list' },
+    { id: 'spoiler', label: 'shared.text.spoiler', icon: 'image' },
+  ];
   readonly tabItems = computed<readonly TabListItem[]>(() => {
     const items: TabListItem[] = [
       ...(this.store.canShowAnalysisTab()
@@ -252,6 +254,12 @@ export class DeckEditorComponent implements OnDestroy {
   selectViewMode(value: 'text' | 'spoiler'): void {
     this.store.viewMode.set(value);
     this.store.closeTransientOverlays();
+  }
+
+  selectViewModeTab(value: string): void {
+    if (value === 'text' || value === 'spoiler') {
+      this.selectViewMode(value);
+    }
   }
 
   selectDeckTab(tab: string): void {

@@ -17,7 +17,9 @@ import {
   FileUp,
   Heart,
   History,
+  Image,
   Layers3,
+  List,
   LucideAngularModule,
   Minus,
   Plus,
@@ -108,7 +110,9 @@ describe('DeckEditorComponent', () => {
           FileUp,
           Heart,
           History,
+          Image,
           Layers3,
+          List,
           Minus,
           Plus,
           RotateCcw,
@@ -626,7 +630,7 @@ Deck
     expect(summaryText).toContain('2 sections');
   });
 
-  it('uses a styled dropdown for the deck editor view mode', async () => {
+  it('uses shared compact tabs for the deck editor view mode', async () => {
     await setup({ id: 'deck-1' }, {
       id: 'deck-1',
       name: 'View mode deck',
@@ -639,14 +643,10 @@ Deck
     await fixture.componentInstance.store.load();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.view-mode-select select')).toBeNull();
-
-    const trigger = fixture.nativeElement.querySelector('.view-mode-trigger') as HTMLButtonElement;
-    trigger.click();
-    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-deck-view-mode-select')).toBeNull();
 
     const options = Array.from(
-      fixture.nativeElement.querySelectorAll('.view-mode-option'),
+      fixture.nativeElement.querySelectorAll('.deck-view-mode-tabs [role="tab"]'),
     ) as HTMLButtonElement[];
     const spoilerOption = options.find((option) => option.textContent?.includes('Spoiler'));
 
@@ -657,7 +657,7 @@ Deck
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store.viewMode()).toBe('spoiler');
-    expect(fixture.nativeElement.querySelector('.view-mode-menu')).toBeNull();
+    expect(spoilerOption?.getAttribute('aria-selected')).toBe('true');
   });
 
   it('detects alternate faces from second face image data instead of split names', async () => {

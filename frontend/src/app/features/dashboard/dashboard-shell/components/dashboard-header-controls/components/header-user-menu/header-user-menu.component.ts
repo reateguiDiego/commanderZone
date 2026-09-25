@@ -5,11 +5,10 @@ import { SupportedLanguageCode } from '../../../../../../../core/localization/la
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
 import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
 import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
-import { TooltipComponent } from '../../../../../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-header-user-menu',
-  imports: [LucideAngularModule, CzButtonDirective, TooltipComponent],
+  imports: [LucideAngularModule, CzButtonDirective],
   templateUrl: './header-user-menu.component.html',
   styleUrl: './header-user-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,7 +27,6 @@ export class HeaderUserMenuComponent {
   readonly languagePickerOpen = signal(false);
   readonly selectedLanguage = this.runtimeLanguageSelector.selectedLanguage;
   readonly languages = this.runtimeLanguageSelector.languageOptions;
-  readonly menuLabel = computed(() => this.i18n.text('menu'));
   readonly headerMenuLabel = computed(() => this.i18n.text('headerMenu'));
   readonly userMenuLabel = computed(() => this.i18n.text('userMenu'));
   readonly settingsLabel = computed(() => this.i18n.text('settings'));

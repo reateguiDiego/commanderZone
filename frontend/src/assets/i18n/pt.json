@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "Ainda não há salas. É hora de embaralhar as cartas!",
       "searchRoom": "Buscar sala",
       "searchOwner": "Buscar anfitrião",
       "anonymous": "Anônimo",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "Detalhes da sala atual",
       "currentRoom": "Sala atual",
+      "inProgress": "Em jogo",
+      "waiting": "A aguardar",
       "yourDeck": "Seu deck"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "Conta",
-      "noTimer": "Sem cronômetro"
+      "noTimer": "Sem cronômetro",
+      "timerComingSoon": "Em breve"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "Ajuste a configuração da sala antes de começar.",
@@ -521,13 +525,12 @@
     },
     "waitingRoomPlayerCard": {
       "d20RollResult": "Resultado da rolagem de D20",
-      "waitingForPlayer": "Esperando pelo jogador",
+      "waitingForPlayer": "À espera de um jogador",
       "d20Roll": "Rolagem de D20",
-      "openSlot": "Slot aberto"
+      "openSlot": "Vaga disponível"
     },
     "waitingRoom": {
       "setup": "Configuração",
-      "chooseYourDeckAndGetReadyBefore": "Escolha seu deck e prepare-se antes de começar.",
       "afterRollingYourDeckSelectionWillBe": "Depois da rolagem, sua seleção de deck ficará bloqueada e não poderá ser alterada.",
       "noAcceptedFriendsYet": "Nenhum amigo aceito ainda.",
       "inRoom": "Na sala",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "Tamanho da mesa",
-        "seats": "Assentos",
+        "seats": "Jogadores",
         "setTableSizeToPlayers": "Definir tamanho da mesa para {{ count }} jogadores"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "Status de Mulligan",
-      "mulligansTaken": "Você fez {{ count }} mulligans",
+      "mulligansTakenPrefix": "Você fez ",
+      "mulligansTakenSuffix": " mulligans",
       "effectiveMulligans": "Efetivo: {{ count }}",
       "scryTitle": "Vidência 1",
       "scryDescription": "Escolha o que fazer com a carta do topo do seu grimório.",
@@ -2206,10 +2210,10 @@
         "title": "Preferências de partida",
         "defaultBattlefieldLayout": {
           "label": "Layout da mesa",
-          "description": "Escolha como a mesa é organizada ao abrir uma partida.",
+          "description": "Quadrado mostra um campo de batalha. Grade mostra todos os jogadores ao mesmo tempo (até 4).",
           "grid": "Grade",
-          "focused": "Em foco",
-          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, a visualização em foco será usada automaticamente."
+          "focused": "Quadrado",
+          "gridWarning": "A grade está disponível apenas em partidas com até 4 jogadores. Com 5 ou mais jogadores, a visualização quadrada será usada automaticamente."
         },
         "showCardAlignmentHelper": {
           "label": "Ajuda de alinhamento de cartas",

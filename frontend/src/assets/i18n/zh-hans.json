@@ -474,6 +474,7 @@
   },
   "rooms": {
     "roomBrowser": {
+      "noRoomsAvailable": "还没有房间。该洗牌了！",
       "searchRoom": "搜索房间",
       "searchOwner": "搜索房主",
       "anonymous": "匿名",
@@ -490,6 +491,8 @@
     "roomCurrentBanner": {
       "currentRoomDetails": "当前房间详细信息",
       "currentRoom": "当前房间",
+      "inProgress": "进行中",
+      "waiting": "等待中",
       "yourDeck": "你的套牌"
     },
     "roomInvitesPanel": {
@@ -503,7 +506,8 @@
     },
     "roomSetupControls": {
       "firstMulliganFreeOff": "计入",
-      "noTimer": "无计时器"
+      "noTimer": "无计时器",
+      "timerComingSoon": "即将推出"
     },
     "roomSetupModal": {
       "editRoomConfigurationBeforeStarting": "开始前调整房间设置。",
@@ -527,7 +531,6 @@
     },
     "waitingRoom": {
       "setup": "设置",
-      "chooseYourDeckAndGetReadyBefore": "开始前选择套牌并准备好。",
       "afterRollingYourDeckSelectionWillBe": "掷骰后，您的套牌选择将被锁定且无法更改。",
       "noAcceptedFriendsYet": "还没有已接受的好友。",
       "inRoom": "房间内",
@@ -555,7 +558,7 @@
       },
       "gameSetupSeatsControl": {
         "tableSize": "桌面人数",
-        "seats": "座位数",
+        "seats": "玩家",
         "setTableSizeToPlayers": "将桌面人数设为 {{ count }} 名玩家"
       }
     },
@@ -1131,7 +1134,8 @@
     },
     "mulliganOverlay": {
       "metaAriaLabel": "调度状态",
-      "mulligansTaken": "You have taken {{ count }} mulligans",
+      "mulligansTakenPrefix": "已调度 ",
+      "mulligansTakenSuffix": " 次",
       "effectiveMulligans": "有效：{{ count }}",
       "scryTitle": "占卜 1",
       "scryDescription": "选择如何处理牌库顶牌。",
@@ -2207,10 +2211,10 @@
         "title": "游戏偏好",
         "defaultBattlefieldLayout": {
           "label": "牌桌布局",
-          "description": "选择打开对局时牌桌的排列方式。",
+          "description": "方形显示一个战场；网格同时显示所有玩家（最多 4 人）。",
           "grid": "网格",
-          "focused": "聚焦",
-          "gridWarning": "网格仅适用于最多 4 名玩家的对局。5 名或更多玩家时，将自动使用聚焦布局。"
+          "focused": "方形",
+          "gridWarning": "网格仅适用于最多 4 名玩家的对局。5 名或更多玩家时，将自动使用方形视图。"
         },
         "showCardAlignmentHelper": {
           "label": "卡牌对齐辅助",

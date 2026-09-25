@@ -69,6 +69,14 @@ describe('RoomCreatePanelComponent', () => {
     expect(fixture.nativeElement.querySelector('input[name="roomCode"]')).toBeNull();
   });
 
+  it('hides joining by code when only room creation is available', () => {
+    fixture.componentRef.setInput('showJoinWithCode', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.room-code-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.rooms-create-panel')?.classList.contains('join-code-hidden')).toBe(true);
+  });
+
   function joinCodeButton(): HTMLButtonElement {
     return fixture.nativeElement.querySelector('.room-code-card button') as HTMLButtonElement;
   }

@@ -1,9 +1,11 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { ChevronLeft, ChevronRight, DoorOpen, LogOut, LucideAngularModule, Trash2 } from 'lucide-angular';
 import { Room } from '../../../../../core/models/room.model';
 import { User } from '../../../../../core/models/user.model';
+import { FormatSelectComponent } from '../../../../../shared/components/format-select/format-select.component';
 import { RoomBrowserComponent } from './room-browser.component';
 
 describe('RoomBrowserComponent', () => {
@@ -64,6 +66,31 @@ describe('RoomBrowserComponent', () => {
     fixture.detectChanges();
 
     expect(roomNamesWithJoinAction(fixture.nativeElement)).toEqual(['Public open']);
+  });
+
+  it('uses viewport positioning for room filter menus', () => {
+    const fixture = TestBed.createComponent(RoomBrowserComponent);
+    fixture.componentRef.setInput('rooms', [room(1)]);
+
+    fixture.detectChanges();
+
+    const filterMenus = fixture.debugElement
+      .queryAll(By.directive(FormatSelectComponent))
+      .map((element) => element.componentInstance as FormatSelectComponent);
+
+    expect(filterMenus).toHaveLength(3);
+    expect(filterMenus.map((menu) => menu.menuPositioning())).toEqual(['fixed', 'fixed', 'fixed']);
+  });
+
+  it('shows only the empty-state notice when no rooms are available', () => {
+    const fixture = TestBed.createComponent(RoomBrowserComponent);
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.rooms-table-toolbar app-format-select')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.rooms-table-head')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.room-list')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.notice')?.textContent).toContain('No rooms yet. Time to shuffle up!');
   });
 });
 

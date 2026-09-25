@@ -35,6 +35,20 @@
           }
         </section>
 
+        @if (status() !== 'SCRYING' && status() !== 'READY') {
+          <div
+            class="mulligan-meta"
+            [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate"
+          >
+            @if (firstMulliganFreeLabelKey(); as firstMulliganFreeKey) {
+              <span class="mulligan-free-rule">
+                {{ firstMulliganFreeKey | runtimeTranslate }}
+              </span>
+            }
+            <span class="mulligan-count">{{ 'game.mulliganOverlay.mulligansTakenPrefix' | runtimeTranslate }}<strong>{{ currentMulligan()?.mulligansTaken ?? 0 }}</strong>{{ 'game.mulliganOverlay.mulligansTakenSuffix' | runtimeTranslate }}</span>
+          </div>
+        }
+
         <button
           type="button"
           czButton="icon"
@@ -127,21 +141,6 @@
               class="mulligan-hand"
               [attr.aria-label]="'game.mulliganOverlay.currentHand' | runtimeTranslate"
             >
-              <div
-                class="mulligan-meta"
-                [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate"
-              >
-                @if (firstMulliganFreeLabelKey(); as firstMulliganFreeKey) {
-                  <p class="mulligan-free-rule">
-                    {{ firstMulliganFreeKey | runtimeTranslate }}
-                  </p>
-                }
-                <span>{{
-                  'game.mulliganOverlay.mulligansTaken'
-                    | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 }
-                }}</span>
-              </div>
-
               <div class="mulligan-card-grid">
                 @for (card of hand(); track card.instanceId) {
                   @let visibleCard = previewCard(card);

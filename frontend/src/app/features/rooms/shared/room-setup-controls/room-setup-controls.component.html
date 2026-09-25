@@ -1,59 +1,76 @@
 <div class="setup-controls">
-  <app-game-setup-life-control
-    label="shared.text.lifeTotal"
-    summary=""
-    [value]="startingLife()"
-    [step]="startingLifeStep()"
-    [disabled]="disabled() || updatingStartingLife()"
-    (valueChange)="startingLifeChange.emit($event)"
-  />
-
-  <div class="setup-control timer-control">
-    <div class="control-copy">
-      <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
-      <strong>{{ timerSummary() | runtimeTranslate }}</strong>
-    </div>
-    <app-table-assistant-timer-settings
-      [compact]="true"
-      [timerMode]="timerMode()"
-      [timerDurationSeconds]="timerDurationSeconds()"
-      [timerModes]="['none', 'turn']"
-      [disabled]="disabled() || updatingTimer()"
-      (timerModeChange)="changeTimerMode($event)"
-      (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
+  <section class="setup-control-section">
+    <app-game-setup-life-control
+      label="shared.text.lifeTotal"
+      summary=""
+      [value]="startingLife()"
+      [step]="startingLifeStep()"
+      [minValue]="1"
+      [maxValue]="99"
+      mode="slider"
+      [presets]="startingLifePresets"
+      [sliderHints]="startingLifeSliderHints"
+      [sliderSnapValues]="startingLifePresets"
+      [disabled]="disabled() || updatingStartingLife()"
+      (valueChange)="startingLifeChange.emit($event)"
     />
-  </div>
+  </section>
 
-  <app-game-setup-seats-control
-    label="rooms.setup.gameSetupSeatsControl.seats"
-    [value]="maxPlayers()"
-    [minimumValue]="minimumPlayers()"
-    [options]="maxPlayersOptions()"
-    [disabled]="disabled() || updatingCapacity()"
-    (valueChange)="maxPlayersChange.emit($event)"
-  />
-
-  <div class="setup-control mulligan-control">
-    <div class="mulligan-select-field">
-      <app-format-select
-        name="mulliganRule"
-        labelKey="shared.text.mulligan"
-        [formats]="mulliganSelectOptions()"
-        [value]="mulliganRule()"
-        [disabled]="disabled() || updatingMulligan()"
-        (valueChange)="changeMulliganRule($event)"
-      />
-      <p class="mulligan-description">{{ mulliganDescriptionKey() | runtimeTranslate }}</p>
-    </div>
-
-    <div class="mulligan-toggle-field">
-      <app-toggle
-        [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
-        [description]="(firstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
-        [checked]="firstMulliganFree()"
-        [disabled]="disabled() || updatingMulligan()"
-        (checkedChange)="firstMulliganFreeChange.emit($event)"
+  <section class="setup-control-section">
+    <div class="setup-control timer-control">
+      <div class="control-copy">
+        <div class="timer-title">
+          <span class="eyebrow">{{ 'shared.text.timer' | runtimeTranslate }}</span>
+          <span class="timer-coming-soon">{{ 'rooms.roomSetupControls.timerComingSoon' | runtimeTranslate }}</span>
+        </div>
+        <strong>{{ timerSummary() | runtimeTranslate }}</strong>
+      </div>
+      <app-table-assistant-timer-settings
+        [compact]="true"
+        [timerMode]="timerMode()"
+        [timerDurationSeconds]="timerDurationSeconds()"
+        [timerModes]="['none', 'turn']"
+        [disabled]="disabled() || updatingTimer()"
+        (timerModeChange)="changeTimerMode($event)"
+        (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
       />
     </div>
-  </div>
+  </section>
+
+  <section class="setup-control-section">
+    <app-game-setup-seats-control
+      label="rooms.setup.gameSetupSeatsControl.seats"
+      [value]="maxPlayers()"
+      [minimumValue]="minimumPlayers()"
+      [options]="maxPlayersOptions()"
+      [disabled]="disabled() || updatingCapacity()"
+      (valueChange)="maxPlayersChange.emit($event)"
+    />
+  </section>
+
+  <section class="setup-control-section">
+    <div class="setup-control mulligan-control">
+      <div class="mulligan-select-field">
+        <app-format-select
+          name="mulliganRule"
+          labelKey="shared.text.mulligan"
+          [formats]="mulliganSelectOptions()"
+          [value]="mulliganRule()"
+          [disabled]="disabled() || updatingMulligan()"
+          (valueChange)="changeMulliganRule($event)"
+        />
+        <p class="mulligan-description">{{ mulliganDescriptionKey() | runtimeTranslate }}</p>
+      </div>
+
+      <div class="mulligan-toggle-field">
+        <app-toggle
+          [label]="'shared.text.firstMulliganIsFree' | runtimeTranslate"
+          [description]="(firstMulliganFree() ? 'shared.text.free' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+          [checked]="firstMulliganFree()"
+          [disabled]="disabled() || updatingMulligan()"
+          (checkedChange)="firstMulliganFreeChange.emit($event)"
+        />
+      </div>
+    </div>
+  </section>
 </div>

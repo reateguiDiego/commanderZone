@@ -24,7 +24,12 @@ export class RoomCurrentBannerComponent {
 
   readonly leaveRequested = output<string>();
 
-  readonly playerDeckName = computed(() => this.currentPlayer()?.deckName ?? 'shared.text.selectADeck');
+  readonly hasSelectedDeck = computed(() => {
+    const deckId = this.currentPlayer()?.deckId;
+
+    return typeof deckId === 'string' && deckId.length > 0;
+  });
+  readonly playerDeckName = computed(() => this.currentPlayer()?.deckName ?? '');
   readonly deckImageUrl = computed(() => this.currentPlayer()?.deckImageUrl ?? null);
   readonly canLeave = computed(() => this.viewerRole() !== 'owner');
   readonly formatName = computed(() => this.formatLabel(this.room().format));
@@ -35,15 +40,15 @@ export class RoomCurrentBannerComponent {
   });
   readonly primaryActionLabel = computed(() => this.room().gameId ? 'shared.text.open' : 'shared.text.join');
   readonly primaryActionIcon = computed(() => this.room().gameId ? 'play' : 'door-open');
-  readonly turnLabelKey = computed(() => {
+  readonly turnNumber = computed(() => {
     const number = this.turn()?.number;
 
-    return typeof number === 'number'
-      ? 'game.playersOrder.currentTurnLabel'
-      : 'rooms.waitingRoom.waitingForDecksAndRolls';
+    return typeof number === 'number' && Number.isFinite(number) ? number : null;
   });
 
-  readonly turnLabelParams = computed(() => ({ turnNumber: this.turn()?.number ?? '' }));
+  readonly turnStateLabelKey = computed(() => this.room().status === 'started'
+    ? 'rooms.roomCurrentBanner.inProgress'
+    : 'rooms.roomCurrentBanner.waiting');
 
   formatLabel(formatId: string): string {
     return this.formats().find((format) => format.id === formatId)?.name ?? formatId;

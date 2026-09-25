@@ -51,13 +51,22 @@ textarea::placeholder {
 }
 
 .deck-summary-controls {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(14rem, 500px) auto;
-  align-items: end;
+  grid-template-columns: minmax(14rem, 500px);
+  align-items: start;
   justify-content: flex-end;
   flex: 1 1 32rem;
   gap: 0.55rem;
   min-width: 0;
+  padding-top: 2rem;
+}
+
+.deck-view-mode-tabs {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  z-index: 1;
 }
 
 .deck-summary-counts {
@@ -599,10 +608,12 @@ textarea::placeholder {
     width: 100%;
   }
 
-  app-deck-view-mode-select {
+  app-tab-list.deck-view-mode-tabs {
+    position: static;
     grid-column: 2;
     grid-row: 1;
-    align-self: center;
+    align-self: start;
+    justify-self: end;
     width: 100%;
   }
 
