@@ -121,6 +121,39 @@ describe('GameTableZonePointerDragService', () => {
     expect(started).toBe(false);
   });
 
+  it('drags an unknown library top when the pile has cards', () => {
+    const zone = zoneElement();
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => rect(10, 10, 500, 320);
+    const restore = mockElementsFromPoint([battlefield]);
+
+    try {
+      const started = service.start(pointerEvent({
+        currentTarget: zone,
+        pointerType: 'mouse',
+        pointerId: 21,
+        clientX: 20,
+        clientY: 20,
+      }), 'player-1', 'library', null, { allowMouse: true, allowUnknownLibraryTop: true });
+      service.move(pointerEvent({ pointerType: 'mouse', pointerId: 21, clientX: 150, clientY: 100 }));
+      const result = service.end(pointerEvent({ pointerType: 'mouse', pointerId: 21, clientX: 150, clientY: 100 }));
+
+      expect(started).toBe(true);
+      expect(result?.request).toMatchObject({
+        playerId: 'player-1',
+        fromZone: 'library',
+        toZone: 'battlefield',
+        instanceId: null,
+      });
+    } finally {
+      restore();
+    }
+  });
+
   it('uses the zone button bounds when its artwork has no layout size', () => {
     const zone = zoneElement();
     const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
@@ -205,10 +238,51 @@ describe('GameTableZonePointerDragService', () => {
       toZone: 'battlefield',
       instanceId: 'graveyard-1',
       rawZone: 'battlefield',
-      position: { x: 120, y: 70 },
+      position: { x: 117, y: 67 },
     });
 
     restore();
+  });
+
+  it('uses battlefield geometry for a normal battlefield drop from reduced zone artwork', () => {
+    const zone = zoneElement();
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => rect(10, 10, 500, 320);
+    const sizeProbe = document.createElement('div');
+    sizeProbe.dataset['battlefieldCardSizeProbe'] = '';
+    sizeProbe.getBoundingClientRect = () => rect(0, 0, 154, 215);
+    battlefield.appendChild(sizeProbe);
+    document.body.appendChild(battlefield);
+    const restore = mockElementsFromPoint([battlefield]);
+
+    try {
+      service.start(pointerEvent({
+        currentTarget: zone,
+        pointerType: 'touch',
+        pointerId: 14,
+        clientX: 50,
+        clientY: 70,
+      }), 'player-1', 'graveyard', card());
+      service.move(pointerEvent({ pointerId: 14, clientX: 260, clientY: 230 }));
+      const result = service.end(pointerEvent({ pointerId: 14, clientX: 260, clientY: 230 }));
+
+      expect(result?.request).toEqual({
+        playerId: 'player-1',
+        targetPlayerId: 'player-1',
+        fromZone: 'graveyard',
+        toZone: 'battlefield',
+        instanceId: 'graveyard-1',
+        rawZone: 'battlefield',
+        position: { x: 173, y: 105 },
+      });
+    } finally {
+      restore();
+      battlefield.remove();
+    }
   });
 
   it('clamps zone pointer drops to the mana row using normal battlefield card size', () => {

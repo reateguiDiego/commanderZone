@@ -117,6 +117,7 @@ export class ContextMenuComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly menu = input.required<GameContextMenu>();
+  readonly gridLayout = input(false);
   readonly currentPlayer = input<PlayerView | null>(null);
   readonly players = input.required<readonly PlayerView[]>();
   readonly counterPresets = input.required<readonly string[]>();

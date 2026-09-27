@@ -608,7 +608,6 @@ class AuthController extends ApiController
      *   chatNotificationSounds?: bool,
      *   combineChatAndGameLog?: bool,
      *   defaultBattlefieldLayout?: 'square'|'grid',
-     *   chosenModeView?: 'square'|'grid',
      *   showCardAlignmentHelper?: bool
      * }|null
      */
@@ -626,7 +625,6 @@ class AuthController extends ApiController
             'chatNotificationSounds',
             'combineChatAndGameLog',
             'defaultBattlefieldLayout',
-            'chosenModeView',
             'showCardAlignmentHelper',
         ];
         $preferences = [];
@@ -636,7 +634,7 @@ class AuthController extends ApiController
                 return null;
             }
 
-            if ($key === 'defaultBattlefieldLayout' || $key === 'chosenModeView') {
+            if ($key === 'defaultBattlefieldLayout') {
                 if (!in_array($value, ['square', 'grid'], true)) {
                     return null;
                 }

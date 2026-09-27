@@ -90,24 +90,24 @@ describe('AuthStore backend auth', () => {
     expect(localStorage.getItem('commanderzone.user')).toContain('"themeId":"mystic-grove"');
   });
 
-  it('updates the cached game preferences from the profile response', async () => {
-    const userWithChosenView: User = {
+  it('updates the cached default battlefield layout from the profile response', async () => {
+    const userWithGamePreferences: User = {
       ...user,
       preferences: {
         cardLanguage: 'en',
         appLanguage: 'en',
         themeId: 'sunrise',
-        game: { defaultBattlefieldLayout: 'square', chosenModeView: 'grid' },
+        game: { defaultBattlefieldLayout: 'grid' },
       },
     };
-    authApi.updateMe.mockReturnValueOnce(of({ user: userWithChosenView }));
+    authApi.updateMe.mockReturnValueOnce(of({ user: userWithGamePreferences }));
     const store = TestBed.inject(AuthStore);
 
-    await store.updateGamePreferences({ chosenModeView: 'grid' });
+    await store.updateGamePreferences({ defaultBattlefieldLayout: 'grid' });
 
-    expect(authApi.updateMe).toHaveBeenCalledWith({ gamePreferences: { chosenModeView: 'grid' } });
-    expect(store.user()?.preferences?.game?.chosenModeView).toBe('grid');
-    expect(localStorage.getItem('commanderzone.user')).toContain('"chosenModeView":"grid"');
+    expect(authApi.updateMe).toHaveBeenCalledWith({ gamePreferences: { defaultBattlefieldLayout: 'grid' } });
+    expect(store.user()?.preferences?.game?.defaultBattlefieldLayout).toBe('grid');
+    expect(localStorage.getItem('commanderzone.user')).toContain('"defaultBattlefieldLayout":"grid"');
   });
 
   it('applies the persisted account theme returned by /me', async () => {

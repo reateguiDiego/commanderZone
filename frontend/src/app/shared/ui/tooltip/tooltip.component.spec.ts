@@ -39,6 +39,7 @@ describe('TooltipComponent', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     document.documentElement.style.removeProperty('--cz-secondary');
     document.documentElement.style.removeProperty('--cz-secondary-rgb');
     document.documentElement.style.removeProperty('--cz-tooltip-z-index');
@@ -109,6 +110,25 @@ describe('TooltipComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.cz-tooltip__bubble')).toBeNull();
   });
+
+  it('waits 150ms before making a tooltip visible and cancels a pending opening on leave', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.detectChanges();
+
+    trigger(fixture).dispatchEvent(pointerEvent('pointerenter', 'mouse'));
+    fixture.detectChanges();
+    expect(bubble(fixture).classList.contains('cz-tooltip__bubble--visible')).toBe(false);
+
+    vi.advanceTimersByTime(149);
+    fixture.detectChanges();
+    expect(bubble(fixture).classList.contains('cz-tooltip__bubble--visible')).toBe(false);
+
+    trigger(fixture).dispatchEvent(pointerEvent('pointerleave', 'mouse'));
+    vi.advanceTimersByTime(1);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cz-tooltip__bubble')).toBeNull();
+  });
 });
 
 async function openTooltip(
@@ -122,7 +142,7 @@ async function openTooltip(
   fixture.detectChanges();
   bubble(fixture).getBoundingClientRect = () => options.bubbleRect;
 
-  await new Promise<void>((resolve) => setTimeout(resolve));
+  await new Promise<void>((resolve) => setTimeout(resolve, 160));
   fixture.detectChanges();
   await new Promise<void>((resolve) => setTimeout(resolve));
   fixture.detectChanges();

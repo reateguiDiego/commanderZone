@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, computed, effect, inject, linkedSignal, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import type { PlayerView } from '../game-table.store';
 import { GameTableSessionPreferencesStore } from '../state/core/game-table-session-preferences.store';
 import {
@@ -9,6 +9,7 @@ import {
 } from './game-table-grid-seat.model';
 
 interface LayoutPlayers {
+  readonly gameId: () => string | null;
   readonly players: () => readonly PlayerView[];
   readonly currentPlayer: () => PlayerView | null;
 }
@@ -26,6 +27,7 @@ const GRID_MINIMUM_VIEWPORT_FOR_MULTIPLAYER: GridViewport = {
   width: 1280,
   height: 800,
 };
+const GAME_LAYOUT_STORAGE_KEY_PREFIX = 'commanderzone.game-table.layout:';
 
 @Injectable()
 export class GameTableLayoutState {
@@ -39,7 +41,7 @@ export class GameTableLayoutState {
   private viewportObserver: ResizeObserver | null = null;
   private observedViewport: HTMLElement | null = null;
   private viewportResizeListener: (() => void) | null = null;
-  private defaultLayoutApplied = false;
+  private activeGameId: string | null = null;
   readonly seats = computed(() => {
     const source = this.source();
     return source ? buildGridSeats(source.players(), source.currentPlayer()) : [];
@@ -57,11 +59,10 @@ export class GameTableLayoutState {
 
     return viewport.width >= minimumViewport.width && viewport.height >= minimumViewport.height;
   });
-  private readonly selectedMode = linkedSignal<boolean, BattlefieldViewLayout>({
-    source: this.gridAvailable,
-    computation: (available, previous) => (available ? (previous?.value ?? 'square') : 'square'),
-  });
-  readonly mode = this.selectedMode.asReadonly();
+  private readonly selectedMode = signal<BattlefieldViewLayout>(this.initialLayout);
+  readonly mode = computed<BattlefieldViewLayout>(() =>
+    this.selectedMode() === 'grid' && this.gridAvailable() ? 'grid' : 'square',
+  );
   private readonly rectangles = signal<ReadonlyMap<string, BattlefieldLayoutRect>>(new Map());
 
   constructor() {
@@ -75,15 +76,7 @@ export class GameTableLayoutState {
       );
     });
 
-    effect(() => {
-      const source = this.source();
-      if (this.defaultLayoutApplied || !source || source.players().length === 0) {
-        return;
-      }
-
-      this.defaultLayoutApplied = true;
-      this.select(this.initialLayout);
-    });
+    effect(() => this.initializeGameLayout(this.source()?.gameId() ?? null));
   }
 
   connect(source: LayoutPlayers): void {
@@ -146,7 +139,8 @@ export class GameTableLayoutState {
   }
 
   select(mode: BattlefieldViewLayout): void {
-    this.selectedMode.set(mode === 'grid' && !this.gridAvailable() ? 'square' : mode);
+    this.selectedMode.set(mode);
+    this.persistSelectedMode();
   }
 
   rectangle(playerId: string): BattlefieldLayoutRect | null {
@@ -169,5 +163,53 @@ export class GameTableLayoutState {
       return;
     }
     this.rectangles.update((rectangles) => new Map(rectangles).set(playerId, rect));
+  }
+
+  private initializeGameLayout(gameId: string | null): void {
+    if (!gameId) {
+      this.activeGameId = null;
+      return;
+    }
+    if (this.activeGameId === gameId) {
+      return;
+    }
+
+    this.activeGameId = gameId;
+    const storedMode = this.storedModeFor(gameId);
+    const mode = storedMode ?? this.initialLayout;
+    this.selectedMode.set(mode);
+    if (storedMode === null) {
+      this.persistSelectedMode();
+    }
+  }
+
+  private persistSelectedMode(): void {
+    const gameId = this.activeGameId;
+    if (!gameId || typeof localStorage === 'undefined') {
+      return;
+    }
+
+    try {
+      localStorage.setItem(this.storageKeyFor(gameId), this.selectedMode());
+    } catch {
+      // Storage can be unavailable in private browsing or restricted embeds.
+    }
+  }
+
+  private storedModeFor(gameId: string): BattlefieldViewLayout | null {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+
+    try {
+      const value = localStorage.getItem(this.storageKeyFor(gameId));
+      return value === 'square' || value === 'grid' ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private storageKeyFor(gameId: string): string {
+    return `${GAME_LAYOUT_STORAGE_KEY_PREFIX}${encodeURIComponent(gameId)}`;
   }
 }

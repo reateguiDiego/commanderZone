@@ -22,6 +22,7 @@ interface ActiveZonePointerDrag {
 
 interface ZonePointerDragStartOptions {
   readonly allowMouse?: boolean;
+  readonly allowUnknownLibraryTop?: boolean;
   readonly knownCommanderInstanceIds?: ReadonlySet<string>;
 }
 
@@ -40,7 +41,8 @@ export class GameTableZonePointerDragService {
     card: GameCardInstance | null,
     options: ZonePointerDragStartOptions = {},
   ): boolean {
-    if (!card || !this.canStartPointerDrag(event, options) || event.button !== 0) {
+    const allowsUnknownLibraryTop = fromZone === 'library' && options.allowUnknownLibraryTop === true;
+    if ((!card && !allowsUnknownLibraryTop) || !this.canStartPointerDrag(event, options) || event.button !== 0) {
       return false;
     }
 
@@ -184,14 +186,15 @@ export class GameTableZonePointerDragService {
           knownCommanderInstanceIds,
         })
       : null;
-    const resolvedTarget = normalizedBattlefieldTarget?.rawZone === 'mana'
-      ? normalizedBattlefieldTarget
-      : target;
+    // Keep the destination geometry consistent with the floating card. Zone
+    // artwork can be smaller than a battlefield card, so a normal battlefield
+    // drop must use the same normalized target as a mana-lane drop.
+    const resolvedTarget = normalizedBattlefieldTarget ?? target;
 
     return resolvedTarget
       ? {
           ...resolvedTarget,
-          draggedInstanceId: source.card.instanceId,
+          ...(source.card ? { draggedInstanceId: source.card.instanceId } : {}),
           pointerClient: { x: event.clientX, y: event.clientY },
         }
       : null;
@@ -213,6 +216,22 @@ export class GameTableZonePointerDragService {
   }
 
   private dropRequest(source: ZonePointerDragSource, target: PointerDropTarget): ZonePointerDropRequest {
+    if (source.fromZone === 'library') {
+      return {
+        playerId: source.playerId,
+        targetPlayerId: target.targetPlayerId,
+        fromZone: 'library',
+        toZone: target.toZone,
+        instanceId: null,
+        ...(target.rawZone ? { rawZone: target.rawZone } : {}),
+        ...(target.position ? { position: target.position } : {}),
+      };
+    }
+
+    if (!source.card) {
+      throw new Error('Non-library zone drag requires a card identity.');
+    }
+
     return {
       playerId: source.playerId,
       targetPlayerId: target.targetPlayerId,

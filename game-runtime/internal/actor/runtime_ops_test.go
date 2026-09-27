@@ -1128,6 +1128,45 @@ func TestLibraryMoveTopToBottomUsesLibraryOps(t *testing.T) {
 	}
 }
 
+func TestLibraryMoveTopToBattlefieldKeepsDropPosition(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	position := map[string]any{"x": 0.42, "y": 0.24, "unit": "ratio"}
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-top-battlefield", "library.move_top", map[string]any{
+		"playerId": "p1",
+		"toZone":   "battlefield",
+		"count":    1,
+		"position": position,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("move top to battlefield failed: %v", result.Err)
+	}
+	if got := gameActor.Snapshot().Instances["l1"].Position; !reflect.DeepEqual(got, position) {
+		t.Fatalf("battlefield position got %#v want %#v", got, position)
+	}
+	publicAdd := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if publicAdd == nil {
+		t.Fatalf("battlefield card must be added through a public patch: %#v", result.Patches)
+	}
+	cards, ok := publicAdd.Data["cards"].([]map[string]any)
+	if !ok || len(cards) != 1 {
+		t.Fatalf("public battlefield patch cards = %#v", publicAdd.Data["cards"])
+	}
+	if got := cards[0]["position"]; !reflect.DeepEqual(got, position) {
+		t.Fatalf("public battlefield patch position got %#v want %#v", got, position)
+	}
+	if cards[0]["viewerVisibility"] != "public" || cards[0]["hidden"] != nil {
+		t.Fatalf("public battlefield patch must expose the card identity: %#v", cards[0])
+	}
+
+	replayed := testState()
+	if err := ReplayEvent(&replayed, result.Event); err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if got := replayed.Instances["l1"].Position; !reflect.DeepEqual(got, position) {
+		t.Fatalf("replayed battlefield position got %#v want %#v", got, position)
+	}
+}
+
 func TestLibraryMoveTopToOpponentHandKeepsPatchPrivate(t *testing.T) {
 	game := testState()
 	game.Zones["p2"] = state.PlayerZones{}
@@ -1307,9 +1346,8 @@ func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.
 		t.Fatalf("missing public shuffle invalidation: %#v", shuffle.Patches)
 	}
 	if encoded := fmt.Sprintf("%#v", shuffle.Patches); contains(encoded, "cardKey") || contains(encoded, "library-") {
-		t.Fatalf("shuffle patch leaked card identity/order: %s", encoded)
+		t.Fatalf("public shuffle invalidation leaked card identity/order: %s", encoded)
 	}
-
 	replayed := testState()
 	if err := ReplayEvent(&replayed, reveal.Event); err != nil {
 		t.Fatalf("replay reveal failed: %v", err)

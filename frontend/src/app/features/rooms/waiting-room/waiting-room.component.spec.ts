@@ -3,8 +3,9 @@ import { Component } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { Flip } from 'gsap/Flip';
 import { Copy, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Minus, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X } from 'lucide-angular';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -720,6 +721,75 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentPlayerRoll()).toBe(17);
   });
 
+  it('reveals a remotely received turn-order result before animating the new order', async () => {
+    const roomEvents = new Subject<{
+      kind: 'event';
+      event: { type: 'room.player.rolled'; roomId: string; room: Room };
+    }>();
+    mercure.waitingRoomEvents.mockReturnValue(roomEvents);
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const beforeRoll = room({
+      players: [readyPlayer('player-1', 'user-1', 'Owner', 8), {
+        ...readyPlayer('player-2', 'user-2', 'Guest', 1),
+        turnRoll: null,
+        turnRolls: [],
+      }],
+    });
+    const afterRoll = room({
+      players: [readyPlayer('player-1', 'user-1', 'Owner', 8), readyPlayer('player-2', 'user-2', 'Guest', 17)],
+      waitingLog: [{
+        id: 'turn-roll-1',
+        label: 'Guest rolled a 17.',
+        tone: 'default',
+        createdAt: '2026-09-26T10:00:00+00:00',
+      }],
+    });
+    fixture.componentInstance.currentRoom.set(beforeRoll);
+    fixture.detectChanges();
+
+    const flipFrom = vi.spyOn(Flip, 'from').mockImplementation(() => null as never);
+    vi.useFakeTimers();
+    try {
+      roomEvents.next({
+        kind: 'event',
+        event: { type: 'room.player.rolled', roomId: 'room-1', room: afterRoll },
+      });
+
+      expect(fixture.componentInstance.displayedRoom()?.players[1]?.turnRoll).toBeNull();
+      expect(fixture.componentInstance.roomLog()).toEqual([]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.roll-badge')).toHaveLength(1);
+      expect(waitingPlayerOrder(fixture)).toEqual(['player-1', 'player-2']);
+      expect(flipFrom).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.displayedRoom()?.players[1]?.turnRoll).toBe(17);
+      expect(fixture.componentInstance.roomLog()).toEqual(afterRoll.waitingLog);
+      expect(fixture.nativeElement.querySelectorAll('.roll-badge')).toHaveLength(2);
+      expect(fixture.nativeElement.querySelector('.room-log')?.textContent).toContain('Guest rolled a 17.');
+      expect(waitingPlayerOrder(fixture)).toEqual(['player-1', 'player-2']);
+      expect(flipFrom).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(600);
+      fixture.detectChanges();
+
+      expect(waitingPlayerOrder(fixture)).toEqual(['player-2', 'player-1']);
+      expect(flipFrom).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(20);
+
+      expect(flipFrom).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      flipFrom.mockRestore();
+    }
+  });
+
   it('closes the deck selector from outside clicks and supports random legal decks', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
@@ -795,6 +865,11 @@ describe('WaitingRoomComponent', () => {
 function renderedPlayerCards(fixture: ComponentFixture<WaitingRoomComponent>): HTMLElement[] {
   return Array.from(fixture.nativeElement.querySelectorAll('app-waiting-room-player-card'))
     .filter((card): card is HTMLElement => card instanceof HTMLElement && !card.classList.contains('empty-slot'));
+}
+
+function waitingPlayerOrder(fixture: ComponentFixture<WaitingRoomComponent>): string[] {
+  return renderedPlayerCards(fixture)
+    .map((card) => card.dataset['waitingPlayerId'] ?? '');
 }
 
 function room(overrides: Partial<Room> = {}): Room {

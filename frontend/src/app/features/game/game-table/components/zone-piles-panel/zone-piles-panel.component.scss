@@ -697,7 +697,7 @@
   }
 
   .zone-stack {
-    height: calc(100% + 2.1rem);
+    height: calc(100% + var(--game-zone-stack-overflow-height, 2.1rem));
   }
 
   .zone-art {
@@ -850,6 +850,15 @@
   }
 }
 
+@media (min-width: 761px) and (max-width: 1440px) {
+  // Every compact Square presentation, including the collapsable opponents
+  // drawer, gives the battlefield a little more breathing room.
+  :host-context(.table-surface.compact-grid-header:not(.layout-grid)) .zone-art {
+    scale: 0.8;
+    transform-origin: top center;
+  }
+}
+
 .zone-dock.compact-cell {
   width: 100%;
   height: 100%;
@@ -886,6 +895,12 @@
     height: 1.12rem;
     font-size: 0.62rem;
   }
+}
+
+// In Grid, compact Zone Piles stack vertically. Center every pile artwork in
+// its artwork row while leaving each zone title in its own row.
+:host-context(.table-surface.layout-grid) .zone-dock.compact-cell .zone-art {
+  align-self: center;
 }
 
 // The upper horizontal dock uses its own, unrotated composition. Rotating the

@@ -23,7 +23,6 @@ export interface UserDisplayNameStyle {
 
 export interface UserGamePreferences {
   defaultBattlefieldLayout: UserGameLayoutPreference;
-  chosenModeView: UserGameLayoutPreference;
   showCardAlignmentHelper: boolean;
   showManaHelperOnStartup: boolean;
   enableManaRow: boolean;
@@ -47,7 +46,6 @@ export type UserGameLayoutPreference = 'square' | 'grid';
 
 export const DEFAULT_USER_GAME_PREFERENCES: Readonly<UserGamePreferences> = {
   defaultBattlefieldLayout: 'grid',
-  chosenModeView: 'grid',
   showCardAlignmentHelper: true,
   showManaHelperOnStartup: false,
   enableManaRow: true,
@@ -68,13 +66,6 @@ export function normalizeUserGamePreferences(
 
   return {
     defaultBattlefieldLayout,
-    // Retained only to safely read legacy account payloads. Game tables always
-    // initialize from defaultBattlefieldLayout; the active view is session-only.
-    chosenModeView: battlefieldLayoutPreference(
-      undefined,
-      preferences?.chosenModeView,
-      defaultBattlefieldLayout,
-    ),
     showCardAlignmentHelper: booleanGamePreference(
       preferences?.lineAlignment,
       booleanGamePreference(

@@ -4,7 +4,11 @@ import { PointerDropTarget } from '../services/game-table-pointer-drag.service';
 export interface ZonePointerDragSource {
   readonly playerId: string;
   readonly fromZone: GameZoneName;
-  readonly card: GameCardInstance;
+  /**
+   * Library drags intentionally have no card identity. The runtime resolves
+   * the current top card when the drop command is applied.
+   */
+  readonly card: GameCardInstance | null;
   readonly pointerId: number;
   readonly pointerType: string;
   readonly cardWidth: number;
@@ -21,15 +25,25 @@ export interface ZonePointerDragMove {
   readonly dragging: boolean;
 }
 
-export interface ZonePointerDropRequest {
+interface ZonePointerDropRequestBase {
   readonly playerId: string;
   readonly targetPlayerId: string;
-  readonly fromZone: GameZoneName;
   readonly toZone: GameZoneName;
-  readonly instanceId: string;
   readonly rawZone?: string;
   readonly position?: { x: number; y: number };
 }
+
+export interface LibraryTopPointerDropRequest extends ZonePointerDropRequestBase {
+  readonly fromZone: 'library';
+  readonly instanceId: null;
+}
+
+export interface KnownZonePointerDropRequest extends ZonePointerDropRequestBase {
+  readonly fromZone: Exclude<GameZoneName, 'library'>;
+  readonly instanceId: string;
+}
+
+export type ZonePointerDropRequest = LibraryTopPointerDropRequest | KnownZonePointerDropRequest;
 
 export interface ZonePointerDropResult {
   readonly source: ZonePointerDragSource;

@@ -64,6 +64,15 @@ describe('ContextMenuComponent', () => {
     expect(leftMenu.classList.contains('opens-up')).toBe(true);
   });
 
+  it('uses the compact presentation only when rendered from the grid layout', () => {
+    const fixture = createContextMenuFixture({ horizontalPlacement: 'left', verticalOrigin: 'bottom' }, { gridLayout: true });
+    const menu = (fixture.nativeElement as HTMLElement).querySelector('.context-menu') as HTMLElement;
+
+    expect(menu.classList).toContain('grid-layout-menu');
+    expect(menu.classList).toContain('opens-left');
+    expect(menu.classList).toContain('opens-up');
+  });
+
   it('keeps card submenus on the same side as a left-opening root menu', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -1932,6 +1941,7 @@ describe('ContextMenuComponent', () => {
 });
 
 interface ContextMenuFixtureOptions {
+  gridLayout?: boolean;
   canControlPlayer?: (playerId: string) => boolean;
   currentPlayer?: ReturnType<typeof player> | null;
   players?: ReturnType<typeof player>[];
@@ -1959,6 +1969,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
     kind: 'card',
     ...menu,
   } satisfies GameContextMenu);
+  fixture.componentRef.setInput('gridLayout', options.gridLayout ?? false);
   fixture.componentRef.setInput('currentPlayer', options.currentPlayer ?? null);
   fixture.componentRef.setInput('players', options.players ?? [
     player('user-1', 'User'),

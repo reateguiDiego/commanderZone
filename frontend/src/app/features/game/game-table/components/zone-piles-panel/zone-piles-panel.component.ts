@@ -40,7 +40,7 @@ interface ZoneActionEvent {
 interface ZonePointerDragStartEvent {
   playerId: string;
   zone: GameZoneName;
-  card: GameCardInstance;
+  card: GameCardInstance | null;
 }
 
 interface ZonePointerDropEvent {
@@ -94,7 +94,7 @@ export class ZonePilesPanelComponent {
   readonly zonePointerDrag = inject(GameTableZonePointerDragService);
   readonly specialEntities = inject(GameTableSpecialEntitiesState);
   readonly themeAssets = inject(AppThemeAssetsService);
-  private pointerDragStartedInstanceId: string | null = null;
+  private pointerDragStarted = false;
   private suppressedClickZone: GameZoneName | null = null;
 
   readonly compact = input(false);
@@ -337,6 +337,7 @@ export class ZonePilesPanelComponent {
 
     const started = this.zonePointerDrag.start(event, this.player().id, zone, topZoneCard, {
       allowMouse,
+      allowUnknownLibraryTop: zone === 'library' && this.zoneCount()(this.player(), zone) > 0,
       knownCommanderInstanceIds: this.knownCommanderIds(),
     });
     if (started) {
@@ -351,8 +352,8 @@ export class ZonePilesPanelComponent {
       return;
     }
 
-    if (this.pointerDragStartedInstanceId !== move.source.card.instanceId) {
-      this.pointerDragStartedInstanceId = move.source.card.instanceId;
+    if (!this.pointerDragStarted) {
+      this.pointerDragStarted = true;
       this.draggingVisualZone.set(move.source.fromZone);
       this.zonePointerDragStarted.emit({
         playerId: move.source.playerId,
@@ -403,21 +404,23 @@ export class ZonePilesPanelComponent {
     }
 
     return drag.source.fromZone === 'command'
-      ? this.cardImage()(drag.source.card)
+      ? (drag.source.card ? this.cardImage()(drag.source.card) : null)
       : this.zonePreviewImage()(this.player(), drag.source.fromZone);
   }
 
   isDraggingCommandZoneCard(card: GameCardInstance): boolean {
     const pointerDrag = this.zonePointerDrag.dragMove();
 
-    return pointerDrag?.source.card.instanceId === card.instanceId && pointerDrag.dragging
+    return pointerDrag?.source.card?.instanceId === card.instanceId && pointerDrag.dragging
       || card.instanceId === this.currentDraggingCardInstanceId();
   }
 
   canUseMousePointerDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {
     return this.canControlCurrentPlayer()
       && (zone === 'library' || zone === 'graveyard' || zone === 'exile')
-      && card !== null;
+      && (zone === 'library'
+        ? this.zoneCount()(this.player(), zone) > 0
+        : card !== null);
   }
 
   canUseNativeZoneDrag(zone: GameZoneName, card: GameCardInstance | null): boolean {
@@ -477,7 +480,7 @@ export class ZonePilesPanelComponent {
   }
 
   private clearZonePointerDragVisuals(): void {
-    this.pointerDragStartedInstanceId = null;
+    this.pointerDragStarted = false;
     this.draggingVisualZone.set(null);
     this.zonePointerDrag.clearDropPreview();
   }

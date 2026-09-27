@@ -429,7 +429,7 @@ export class DashboardSettingsModalComponent {
       displayName?: string;
       cardLanguage?: SupportedCardLanguageCode;
       appLanguage?: SupportedLanguageCode;
-      gamePreferences?: Omit<UserGamePreferences, 'chosenModeView'>;
+      gamePreferences?: UserGamePreferences;
     } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
@@ -643,10 +643,8 @@ export class DashboardSettingsModalComponent {
     }));
   }
 
-  private gameSettingsPayload(): Omit<UserGamePreferences, 'chosenModeView'> {
-    const { chosenModeView: _legacyChosenModeView, ...preferences } = this.gameSettingsToggleState();
-
-    return preferences;
+  private gameSettingsPayload(): UserGamePreferences {
+    return this.gameSettingsToggleState();
   }
 
   private gameSettingsChanged(): boolean {
