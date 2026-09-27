@@ -55,7 +55,7 @@ describe('GameTableZonePointerMoveActionsService', () => {
     });
   });
 
-  it('draws from library when a library pointer drag drops on own hand', async () => {
+  it('draws from library without resolving the hidden top-card identity', async () => {
     const ctx = context({ sourceZone: 'library', sourceCard: card('library-1', 'Top Library Card', 'library') });
 
     await service.moveZoneCardByPointer(ctx, {
@@ -63,12 +63,35 @@ describe('GameTableZonePointerMoveActionsService', () => {
       targetPlayerId: 'player-1',
       fromZone: 'library',
       toZone: 'hand',
-      instanceId: 'library-1',
+      instanceId: null,
       rawZone: 'hand',
     });
 
     expect(ctx.command).toHaveBeenCalledWith('library.draw', { playerId: 'player-1', count: 1 });
-    expect(ctx.markPendingTransfer).toHaveBeenCalledWith('player-1', 'library', ['library-1']);
+    expect(ctx.findCard).not.toHaveBeenCalled();
+  });
+
+  it('moves the runtime-resolved top library card to battlefield without a client instance id', async () => {
+    const ctx = context();
+
+    await service.moveZoneCardByPointer(ctx, {
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      fromZone: 'library',
+      toZone: 'battlefield',
+      instanceId: null,
+      rawZone: 'battlefield',
+      position: { x: 100, y: 120 },
+    });
+
+    expect(ctx.command).toHaveBeenCalledWith('library.move_top', {
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      toZone: 'battlefield',
+      count: 1,
+      position: { x: 100, y: 120, unit: 'ratio' },
+    });
+    expect(ctx.findCard).not.toHaveBeenCalled();
   });
 
   it('preserves the library top-or-bottom confirmation when dropping to library', async () => {

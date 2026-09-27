@@ -612,6 +612,69 @@
   }
 }
 
+@container opponent-sidebar (max-width: 15rem) {
+  .player-thumb {
+    gap: 0.38rem;
+    padding: 0.28rem 0.18rem 0.2rem;
+  }
+
+  .player-thumb::before {
+    width: 3px;
+  }
+
+  .player-thumb-header {
+    gap: 0.38rem;
+  }
+
+  .opponent-deck-title {
+    font-size: 0.8rem;
+  }
+
+  .opponent-user-name {
+    font-size: 0.56rem;
+  }
+
+  .opponent-targeting-pill,
+  .opponent-turn-pill {
+    height: 1.16rem;
+    font-size: 0.56rem;
+  }
+
+  .opponent-targeting-pill {
+    min-width: 3.6rem;
+    padding-inline: 0.38rem;
+  }
+
+  .opponent-life {
+    min-width: 2.35rem;
+    min-height: 1.72rem;
+    padding-inline: 0.38rem;
+    font-size: 0.86rem;
+  }
+
+  .opponent-board-stage,
+  .opponent-defeated-board {
+    min-height: 8.1rem;
+  }
+
+  .opponent-zone-count {
+    gap: 0.28rem;
+    font-size: 0.78rem;
+  }
+
+  .opponent-zone-count lucide-icon,
+  .opponent-zone-icon {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+  }
+
+  .opponent-zone-count strong {
+    min-width: 1rem;
+    font-size: 0.84rem;
+  }
+}
+
 @media (max-width: 430px) and (min-height: 769px),
   (max-height: 768px) and (max-width: 1180px) {
   .player-thumb {

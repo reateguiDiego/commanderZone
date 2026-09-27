@@ -70,6 +70,7 @@
   --game-top-log-column: minmax(10rem, 2fr);
   --game-zone-dock-width: min(36rem, calc(100vw - 1rem));
   --game-zone-dock-overlap: max(0px, calc(var(--game-zone-dock-width) - var(--game-side-column-width)));
+  --game-opponents-zone-clearance: 0px;
   --bottom-gap: 0.7rem;
   --game-table-side-margin: 1px;
   --game-hand-left-extension: 0px;
@@ -366,6 +367,29 @@
   z-index: 260;
 }
 
+.battlefield-compact-controls {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  // The Focus Turn tooltip is fixed but remains inside this stacking context.
+  // Keep the host above the compact header so the bubble can float over it.
+  z-index: 800;
+  display: grid;
+  justify-items: end;
+  gap: 0.28rem;
+}
+
+.battlefield-compact-controls .battlefield-zoom-host {
+  position: static;
+}
+
+.battlefield-focus-turn-toggle {
+  --compact-checkbox-accent-rgb: var(--cz-accent-rgb);
+  --compact-checkbox-justify: center;
+
+  pointer-events: auto;
+}
+
 .battlefield-owner-summary {
   width: min(20rem, 100%);
   min-width: min(16rem, 100%);
@@ -424,6 +448,8 @@
 
 .player-sidebar {
   grid-area: opponents;
+  container-name: opponent-sidebar;
+  container-type: inline-size;
   position: relative;
   z-index: 245;
   display: grid;

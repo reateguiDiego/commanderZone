@@ -31,7 +31,6 @@ class AuthApiTest extends ApiTestCase
             'themeId' => 'sunrise',
             'game' => [
                 'defaultBattlefieldLayout' => 'grid',
-                'chosenModeView' => 'grid',
                 'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,
@@ -73,7 +72,6 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
                 'defaultBattlefieldLayout' => 'grid',
-                'chosenModeView' => 'square',
                 'showCardAlignmentHelper' => false,
                 'showManaHelperOnStartup' => true,
                 'enableManaRow' => false,
@@ -86,7 +84,6 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame([
             'defaultBattlefieldLayout' => 'grid',
-            'chosenModeView' => 'square',
             'showCardAlignmentHelper' => false,
             'showManaHelperOnStartup' => true,
             'enableManaRow' => false,
@@ -113,14 +110,6 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('PATCH', '/me', [
             'gamePreferences' => [
                 'chosenModeView' => 'grid',
-            ],
-        ], $token);
-        self::assertResponseIsSuccessful();
-        self::assertSame('grid', $this->jsonResponse()['user']['preferences']['game']['chosenModeView']);
-
-        $this->jsonRequest('PATCH', '/me', [
-            'gamePreferences' => [
-                'chosenModeView' => 'list',
             ],
         ], $token);
         self::assertResponseStatusCodeSame(400);
@@ -735,7 +724,6 @@ class AuthApiTest extends ApiTestCase
             'themeId' => 'sunrise',
             'game' => [
                 'defaultBattlefieldLayout' => 'grid',
-                'chosenModeView' => 'grid',
                 'showCardAlignmentHelper' => true,
                 'showManaHelperOnStartup' => false,
                 'enableManaRow' => true,

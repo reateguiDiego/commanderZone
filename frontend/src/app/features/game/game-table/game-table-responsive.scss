@@ -49,7 +49,11 @@
   }
 }
 
-@media (max-width: 1180px) and (min-width: 761px) and (min-height: 769px) {
+// The normal Square side column is 340px. Between 1181px and 1359px it would
+// consume more than 25% of the viewport, so preserve battlefield space with
+// the same compact opponents drawer used by the narrow layout.
+@media (max-width: 1180px) and (min-width: 761px) and (min-height: 769px),
+  (min-width: 1181px) and (max-width: 1359px) {
   .game-screen {
     --game-log-overlay-peek-height: 112px;
     --game-zone-row-height: 10.6rem;
@@ -88,7 +92,7 @@
     position: relative;
     z-index: 340;
     justify-self: end;
-    width: min(22rem, calc(100vw - 2rem));
+    width: min(15rem, calc(100vw - 2rem));
     height: 100%;
     max-height: 100%;
     grid-template-columns: 2.65rem minmax(0, 1fr);
@@ -109,8 +113,20 @@
     transform: translateX(0);
   }
 
+  .player-sidebar:is(.opponents-open, :hover) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .player-sidebar:not(.opponents-open):not(:hover):not(:focus-within) .opponents-list {
     pointer-events: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .drawer-handle {
+    display: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .opponents-list {
+    grid-column: 1;
   }
 
   .drawer-handle {
@@ -130,6 +146,17 @@
     min-width: 0;
     overflow: visible;
     padding: 0;
+  }
+}
+
+@media (min-width: 1360px) and (max-width: 1440px) {
+  .game-screen {
+    --game-side-column-width: 240px;
+  }
+
+  .player-sidebar {
+    margin-top: var(--game-table-side-margin);
+    max-height: calc(100% - var(--game-table-side-margin));
   }
 }
 
@@ -222,11 +249,21 @@
     position: fixed;
     top: var(--game-opponents-top);
     right: 0;
-    bottom: calc(var(--game-zone-row-height) + var(--bottom-gap));
+    bottom: calc(
+      var(--game-zone-row-height) +
+      var(--bottom-gap) +
+      var(--game-opponents-zone-clearance)
+    );
     z-index: 850;
     display: grid;
-    width: min(86vw, 21rem);
-    max-height: calc(100dvh - var(--game-opponents-top) - var(--game-zone-row-height) - var(--bottom-gap));
+    width: min(86vw, 15rem);
+    max-height: calc(
+      100dvh -
+      var(--game-opponents-top) -
+      var(--game-zone-row-height) -
+      var(--bottom-gap) -
+      var(--game-opponents-zone-clearance)
+    );
     grid-template-columns: 2.5rem minmax(0, 1fr);
     align-content: stretch;
     gap: 0;
@@ -246,8 +283,20 @@
     transform: translateX(0);
   }
 
+  .player-sidebar:is(.opponents-open, :hover) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .player-sidebar:not(.opponents-open):not(:hover):not(:focus-within) .opponents-list {
     pointer-events: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .drawer-handle {
+    display: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .opponents-list {
+    grid-column: 1;
   }
 
   .drawer-handle {
@@ -284,7 +333,7 @@
   }
 
   .player-sidebar {
-    width: min(90vw, 20rem);
+    width: min(90vw, 15rem);
   }
 }
 
@@ -293,6 +342,8 @@
   .game-screen {
     --game-zone-row-height: 5.45rem;
     --game-hand-panel-extra-height: 2.75rem;
+    // Zone Piles can grow out of their nominal row in this range.
+    --game-zone-stack-overflow-height: 2.1rem;
   }
 
   .table-surface {
@@ -311,6 +362,21 @@
   .floating-panel:has(.floating-expanded-content:focus-within) {
     height: min(58dvh, 26rem);
     max-height: none;
+  }
+}
+
+@media (max-height: 1199px) and (min-height: 769px) and (max-width: 1440px) {
+  .game-screen {
+    // The compact Square side rail shares the lower row with Zone Piles.
+    // Its usable height is the hand-panel extension, so deriving the
+    // clearance from it keeps the rail flush with the visible piles.
+    --game-opponents-zone-clearance: var(--game-hand-panel-extra-height);
+  }
+
+  .player-sidebar {
+    height: auto;
+    max-height: calc(100% - var(--game-opponents-zone-clearance));
+    margin-bottom: var(--game-opponents-zone-clearance);
   }
 }
 
@@ -336,8 +402,18 @@
   }
 
   .player-sidebar {
-    bottom: calc(var(--game-hand-panel-height) + var(--bottom-gap));
-    max-height: calc(100dvh - var(--game-opponents-top) - var(--game-hand-panel-height) - var(--bottom-gap));
+    bottom: calc(
+      var(--game-hand-panel-height) +
+      var(--bottom-gap) +
+      var(--game-opponents-zone-clearance)
+    );
+    max-height: calc(
+      100dvh -
+      var(--game-opponents-top) -
+      var(--game-hand-panel-height) -
+      var(--bottom-gap) -
+      var(--game-opponents-zone-clearance)
+    );
   }
 
   .floating-panel {
@@ -411,7 +487,7 @@
     bottom: 0;
     left: 0;
     z-index: 850;
-    width: min(86vw, 21rem);
+    width: min(86vw, 15rem);
     max-height: calc(100dvh - var(--game-opponents-top));
     grid-template-columns: minmax(0, 1fr) 2.5rem;
     align-content: stretch;
@@ -433,8 +509,20 @@
     transform: translateX(0);
   }
 
+  .player-sidebar:is(.opponents-open, :hover) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .player-sidebar:not(.opponents-open):not(:hover):not(:focus-within) .opponents-list {
     pointer-events: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .drawer-handle {
+    display: none;
+  }
+
+  .player-sidebar:is(.opponents-open, :hover) .opponents-list {
+    grid-column: 1;
   }
 
   .drawer-handle {
@@ -675,5 +763,28 @@
     --compact-grid-header-height: calc(var(--game-log-overlay-peek-height) * 0.5);
 
     grid-template-rows: var(--compact-grid-header-height) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1180px) and (min-height: 769px),
+  (min-width: 1181px) and (max-width: 1440px) {
+  // Preserve Square's bottom Zone Piles row while matching Grid's header
+  // height at every compact Square width.
+  .table-surface.compact-grid-header {
+    --compact-grid-header-height: calc(var(--game-log-overlay-peek-height) * 0.5);
+
+    grid-template-rows:
+      var(--compact-grid-header-height)
+      minmax(0, 1fr)
+      var(--game-zone-row-height);
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 761px),
+  (min-width: 1181px) and (max-width: 1359px) and (min-height: 769px) {
+  // An expanded opponents drawer owns the right edge of the battlefield.
+  // It must cover the compact controls and their fixed tooltip as one layer.
+  .player-sidebar:is(.opponents-open, :hover, :focus-within) {
+    z-index: 900;
   }
 }

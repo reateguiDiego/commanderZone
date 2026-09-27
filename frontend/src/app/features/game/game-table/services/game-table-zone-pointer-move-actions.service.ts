@@ -1,12 +1,17 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance } from '../../../../core/models/game.model';
-import { ZonePointerDropRequest } from '../models/game-table-zone-pointer-drag.model';
+import { KnownZonePointerDropRequest, ZonePointerDropRequest } from '../models/game-table-zone-pointer-drag.model';
 import { canDropCardOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { GameTableDropActionContext } from './game-table-drop-actions.service';
 
 @Injectable()
 export class GameTableZonePointerMoveActionsService {
   async moveZoneCardByPointer(context: GameTableDropActionContext, request: ZonePointerDropRequest): Promise<void> {
+    if (request.fromZone === 'library') {
+      await this.moveTopLibraryCard(context, request);
+      return;
+    }
+
     const sourceCard = context.findCard(request.playerId, request.fromZone, request.instanceId);
     if (!sourceCard || !context.canControlPlayer(request.playerId) || !context.canControlOwnedCard(request.playerId, sourceCard)) {
       this.endBlockedMove(context, 'You can only move your own cards.');
@@ -19,11 +24,6 @@ export class GameTableZonePointerMoveActionsService {
 
     if (request.playerId === request.targetPlayerId && request.fromZone === request.toZone && request.toZone !== 'battlefield') {
       this.endCompletedMove(context);
-      return;
-    }
-
-    if (request.fromZone === 'library' && request.toZone === 'hand') {
-      await this.drawTopLibraryCard(context, request, sourceCard);
       return;
     }
 
@@ -57,24 +57,58 @@ export class GameTableZonePointerMoveActionsService {
     this.endCompletedMove(context);
   }
 
-  private async drawTopLibraryCard(
+  private async moveTopLibraryCard(
     context: GameTableDropActionContext,
     request: ZonePointerDropRequest,
-    sourceCard: GameCardInstance,
   ): Promise<void> {
-    if (request.targetPlayerId !== request.playerId) {
+    if (!context.canControlPlayer(request.playerId)) {
+      this.endBlockedMove(context, 'You can only move your own cards.');
+      return;
+    }
+
+    if (request.toZone === 'command') {
+      this.endBlockedMove(context, COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
+
+    if (request.toZone === 'hand' && request.targetPlayerId !== request.playerId) {
       this.endBlockedMove(context, 'You can only draw from your own library to your own hand.');
       return;
     }
 
-    context.markPendingTransfer(request.playerId, 'library', [sourceCard.instanceId]);
-    await context.command('library.draw', { playerId: request.playerId, count: 1 });
+    if (request.toZone === 'library' && request.targetPlayerId === request.playerId) {
+      this.endCompletedMove(context);
+      return;
+    }
+
+    if (request.toZone === 'hand') {
+      await context.command('library.draw', { playerId: request.playerId, count: 1 });
+      this.endCompletedMove(context);
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      playerId: request.playerId,
+      targetPlayerId: request.targetPlayerId,
+      toZone: request.toZone,
+      count: 1,
+    };
+    if (request.toZone === 'battlefield' && request.position) {
+      payload['position'] = context.snapBattlefieldPosition(
+        request.targetPlayerId,
+        '',
+        request.position,
+        request.rawZone,
+      );
+    }
+
+    await context.command('library.move_top', payload);
     this.endCompletedMove(context);
   }
 
   private prepareLibraryMove(
     context: GameTableDropActionContext,
-    request: ZonePointerDropRequest,
+    request: KnownZonePointerDropRequest,
     sourceCard: GameCardInstance,
   ): void {
     context.markPendingTransfer(request.playerId, request.fromZone, [request.instanceId]);
@@ -94,7 +128,7 @@ export class GameTableZonePointerMoveActionsService {
     context.suppressCardPreview();
   }
 
-  private movePayload(context: GameTableDropActionContext, request: ZonePointerDropRequest): Record<string, unknown> {
+  private movePayload(context: GameTableDropActionContext, request: KnownZonePointerDropRequest): Record<string, unknown> {
     const payload: Record<string, unknown> = {
       playerId: request.playerId,
       fromZone: request.fromZone,

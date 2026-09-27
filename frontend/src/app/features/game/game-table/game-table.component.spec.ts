@@ -114,7 +114,6 @@ class TestRouteStubComponent {}
 describe('GameTableComponent', () => {
   const squareGamePreferences = {
     defaultBattlefieldLayout: 'square' as const,
-    chosenModeView: 'square' as const,
   };
   const gameplayWebsocketCommand = vi.fn();
   const gamesApi = {
@@ -750,6 +749,96 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-grid-button"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-slider"]')).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it('uses aggressive Square compaction when the opponents column would exceed a quarter of the viewport', async () => {
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: squareGamePreferences },
+    });
+    const matchMedia = vi.fn(
+      (query: string): MediaQueryList => ({
+        matches: query === '(min-width: 1181px) and (max-width: 1359px)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    );
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: matchMedia,
+    });
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
+    fixture.detectChanges();
+
+    expect(matchMedia).toHaveBeenCalledWith('(min-width: 1181px) and (max-width: 1359px)');
+    expect(fixture.componentInstance.tableLayout.mode()).toBe('square');
+    expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.table-surface')?.classList).toContain('compact-grid-header');
+    expect(fixture.nativeElement.querySelector('.player-strip > app-player-summary-panel')).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it('uses a reduced Square sidebar with the compact Grid header before opening the opponents drawer', async () => {
+    authStore.user.mockReturnValue({
+      id: 'user-1',
+      email: 'user@test',
+      displayName: 'User',
+      roles: [],
+      preferences: { game: squareGamePreferences },
+    });
+    const matchMedia = vi.fn(
+      (query: string): MediaQueryList => ({
+        matches: query === '(max-width: 1440px)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    );
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: matchMedia,
+    });
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
+    fixture.detectChanges();
+
+    expect(matchMedia).toHaveBeenCalledWith('(max-width: 1440px)');
+    expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(false);
+    expect(fixture.componentInstance.compactSquareHeader()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.table-surface')?.classList).toContain('compact-grid-header');
+    expect(fixture.nativeElement.querySelector('.player-strip > app-player-summary-panel')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="turn-panel"]')?.classList).toContain('is-grid-layout');
+    const focusTurnToggle = fixture.nativeElement.querySelector(
+      '[data-testid="follow-active-turn-player"]',
+    ) as HTMLInputElement;
+    expect(focusTurnToggle).not.toBeNull();
+    focusTurnToggle.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.followActiveTurnPlayer()).toBe(true);
 
     fixture.destroy();
   });
@@ -4147,6 +4236,36 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.rollModalResult()).toBe('17');
   });
 
+  it('delays a remotely received dice result in the game log', async () => {
+    routeParams['id'] = 'game-1';
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const snapshotWithDiceResult = structuredClone(snapshot);
+    snapshotWithDiceResult.eventLog = [
+      gameLogEntry('remote-dice', 'dice.rolled', 'Guest ha tirado un d20, ha salido un 17.'),
+    ];
+
+    vi.useFakeTimers();
+    try {
+      fixture.componentInstance.store.snapshot.set(snapshotWithDiceResult);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.visibleEventLog()).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.visibleEventLog()[0]?.id).toBe('remote-dice');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends roll modal button results to the game log', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({
@@ -6446,6 +6565,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-2'] = {
@@ -6474,6 +6594,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
@@ -9311,6 +9432,7 @@ describe('GameTableComponent', () => {
       email: 'user@test',
       displayName: 'User',
       roles: [],
+      preferences: { game: squareGamePreferences },
     });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-2'] = {

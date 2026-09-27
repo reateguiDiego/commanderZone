@@ -259,7 +259,17 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 			return err
 		}
 		_, err = state.NewLibraryOps().MoveTopToPlayerZone(game, playerID, len(instanceIDs), targetPlayerID, destination)
-		return err
+		if err != nil {
+			return err
+		}
+		if destination == state.ZoneBattlefield && len(instanceIDs) == 1 {
+			if position, ok := event.Payload["position"].(map[string]any); ok {
+				instance := game.Instances[instanceIDs[0]]
+				instance.Position = cloneMap(position)
+				game.Instances[instanceIDs[0]] = instance
+			}
+		}
+		return nil
 	case "library.put_top", "library.put_bottom":
 		playerID, err := stringField(event.Payload, "playerId")
 		if err != nil {

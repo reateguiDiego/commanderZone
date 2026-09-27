@@ -117,7 +117,12 @@ describe('RoomsComponent', () => {
     expect(emptyState?.children[0]?.classList.contains('notice')).toBe(true);
     expect(emptyState?.children[1]?.classList.contains('rooms-table-actions')).toBe(true);
     expect(emptyState?.querySelector('app-room-create-panel')).not.toBeNull();
-    expect(emptyState?.querySelector('.room-code-card')).toBeNull();
+    expect(emptyState?.querySelector('.room-code-card')).not.toBeNull();
+
+    (emptyState?.querySelector('.room-code-card button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(emptyState?.querySelector('input[name="roomCode"]')).not.toBeNull();
   });
 
   it('calculates room header stats in the requested order', async () => {

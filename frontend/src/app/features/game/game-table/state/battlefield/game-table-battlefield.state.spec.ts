@@ -85,7 +85,7 @@ describe('GameTableBattlefieldState', () => {
     });
     const layout = TestBed.inject(GameTableLayoutState);
     const players = [{ id: 'player-1', state: currentSnapshot.players['player-1']! }];
-    layout.connect({ players: () => players, currentPlayer: () => players[0] });
+    layout.connect({ gameId: () => 'game-1', players: () => players, currentPlayer: () => players[0] });
     TestBed.tick();
     state.setLayoutSize({ width: 1200, height: 900 });
     layout.select('grid');

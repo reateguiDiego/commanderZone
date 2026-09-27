@@ -70,14 +70,27 @@
   margin: 0;
 }
 
+.rooms-table-toolbar.is-empty:has(.room-code-card.has-code-input) {
+  gap: 1.35rem;
+}
+
+.rooms-table-toolbar.is-empty:has(.room-code-card.has-code-input) .rooms-table-actions {
+  margin-top: 3.05rem;
+}
+
 .rooms-table-toolbar.is-empty .rooms-table-actions {
   align-self: center;
   justify-self: center;
   justify-content: center;
-  width: min(100%, 10.5rem);
+  width: min(100%, 29rem);
 }
 
 .rooms-table-toolbar.is-empty app-room-create-panel {
+  --room-action-width: clamp(12rem, 25vw, 14rem);
+  --room-action-min-height: 3.8rem;
+  --room-action-white-space: normal;
+  --room-action-line-height: 1.15;
+
   display: block;
   width: 100%;
 }

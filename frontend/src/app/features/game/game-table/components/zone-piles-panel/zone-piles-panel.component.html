@@ -22,7 +22,10 @@
         zone !== 'command' ? (topZoneCard?.instanceId ?? null) : null
       "
       [attr.draggable]="canUseNativeZoneDrag(zone, topZoneCard) ? 'true' : null"
-      [class.draggable-zone]="zone !== 'command' && topZoneCard"
+      [class.draggable-zone]="
+        zone !== 'command'
+          && (topZoneCard || zone === 'library' && zoneCount()(currentPlayer, zone) > 0)
+      "
       [class.drop-target-active]="isDropZoneHighlighted()(currentPlayer.id, zone)"
       [class.drop-settling]="isZoneDropSettling()(currentPlayer.id, zone)"
       [class.transfer-pending]="isZoneTransferPending()(currentPlayer.id, zone)"
@@ -256,7 +259,7 @@
       <div
         class="zone-floating-card"
         aria-hidden="true"
-        [attr.data-motion-origin-card-id]="drag.source.card.instanceId"
+        [attr.data-motion-origin-card-id]="drag.source.card?.instanceId ?? null"
         [style.left.px]="drag.x"
         [style.top.px]="drag.y"
         [style.width.px]="drag.source.cardWidth"
@@ -266,14 +269,14 @@
           <img
             [appGameScheduledImage]="image"
             gameImagePriority="interaction"
-            [alt]="drag.source.card.name"
+            [alt]="drag.source.card?.name ?? zoneTitle()(drag.source.fromZone)"
             loading="eager"
             decoding="async"
             fetchpriority="high"
             draggable="false"
           />
         } @else {
-          <span>{{ drag.source.card.name }}</span>
+          <span>{{ drag.source.card?.name ?? zoneTitle()(drag.source.fromZone) }}</span>
         }
       </div>
     }

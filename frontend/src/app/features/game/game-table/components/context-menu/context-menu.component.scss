@@ -15,6 +15,23 @@
   width: 10.75rem;
 }
 
+.context-menu.grid-layout-menu {
+  transform: scale(0.75);
+  transform-origin: left top;
+}
+
+.context-menu.grid-layout-menu.opens-left {
+  transform-origin: right top;
+}
+
+.context-menu.grid-layout-menu.opens-up {
+  transform-origin: left bottom;
+}
+
+.context-menu.grid-layout-menu.opens-left.opens-up {
+  transform-origin: right bottom;
+}
+
 .context-menu.side-left-menu {
   --context-menu-gradient-angle: 225deg;
 }

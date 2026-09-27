@@ -56,7 +56,6 @@ describe('GameTableSessionPreferencesStore', () => {
 
     expect(store.preferences).toEqual({
       defaultBattlefieldLayout: DEFAULT_USER_GAME_PREFERENCES.defaultBattlefieldLayout,
-      chosenModeView: DEFAULT_USER_GAME_PREFERENCES.chosenModeView,
       showCardAlignmentHelper: true,
       showManaHelperOnStartup: false,
       enableManaRow: true,
@@ -80,7 +79,6 @@ function userWithGamePreferences(game: Partial<UserGamePreferences>): User {
       themeId: 'sunrise',
       game: {
         defaultBattlefieldLayout: 'square',
-        chosenModeView: 'square',
         showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,

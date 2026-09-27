@@ -259,6 +259,10 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 		}
 	}
 	toPlayerID := targetPlayerID(command.Payload, playerID)
+	battlefieldPosition, hasBattlefieldPosition := command.Payload["position"].(map[string]any)
+	if destination != state.ZoneBattlefield {
+		hasBattlefieldPosition = false
+	}
 	ops := state.NewLibraryOps()
 	var moved []string
 	if destination == state.ZoneLibrary {
@@ -278,6 +282,11 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 	for _, instanceID := range moved {
 		resetLibraryRevealState(game, instanceID)
 	}
+	if hasBattlefieldPosition && len(moved) == 1 {
+		instance := game.Instances[moved[0]]
+		instance.Position = cloneMap(battlefieldPosition)
+		game.Instances[moved[0]] = instance
+	}
 	if destination == state.ZoneLibrary && toPlayerID == playerID {
 		emitter.EmitPrivate(playerID, protocol.PatchOp{
 			Op: "library.top.moved",
@@ -293,17 +302,33 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 		emitLibraryTopRevealMarker(emitter, game, playerID)
 		return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "metrics": libraryMetrics(command.Type, start, ops)}, nil
 	}
-	cards := make([]map[string]any, 0, len(moved))
-	for _, instanceID := range moved {
-		cards = append(cards, cardPatchData(game, toPlayerID, instanceID))
-	}
 	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.remove", Data: map[string]any{"playerId": playerID, "zone": state.ZoneLibrary, "instanceIds": moved}})
-	emitter.EmitPrivate(toPlayerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": toPlayerID, "zone": destination, "cards": cards}})
+	if privateZone(destination) {
+		cards := make([]map[string]any, 0, len(moved))
+		for _, instanceID := range moved {
+			cards = append(cards, cardPatchData(game, toPlayerID, instanceID))
+		}
+		emitter.EmitPrivate(toPlayerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": toPlayerID, "zone": destination, "cards": cards}})
+	} else {
+		// The source library remains private, but a card that leaves it for a
+		// public zone must be announced to every player. Keeping this aligned
+		// with CardsMovedApplier makes the runtime event authoritative for both
+		// live opponents and clients that reconnect from persisted patches.
+		cards := make([]map[string]any, 0, len(moved))
+		for _, instanceID := range moved {
+			cards = append(cards, cardPatchData(game, "", instanceID))
+		}
+		emitter.EmitPublic(protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": toPlayerID, "zone": destination, "cards": cards}})
+	}
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	emitZoneCount(emitter, game, toPlayerID, destination)
 	emitCurrentTopWhenPlayTopRevealed(emitter, game, playerID)
 	emitLibraryTopRevealMarker(emitter, game, playerID)
-	return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	result := map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "metrics": libraryMetrics(command.Type, start, ops)}
+	if hasBattlefieldPosition && len(moved) == 1 {
+		result["position"] = cloneMap(battlefieldPosition)
+	}
+	return result, nil
 }
 
 type LibraryPutTopApplier struct{}

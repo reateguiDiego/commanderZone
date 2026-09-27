@@ -505,7 +505,6 @@ describe('DashboardSettingsModalComponent', () => {
       appLanguage: 'en',
       gamePreferences: {
         defaultBattlefieldLayout: 'square',
-        chosenModeView: 'square',
         showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,
@@ -646,7 +645,6 @@ describe('DashboardSettingsModalComponent', () => {
       appLanguage: 'de',
       gamePreferences: {
         defaultBattlefieldLayout: 'square',
-        chosenModeView: 'square',
         showCardAlignmentHelper: true,
         showManaHelperOnStartup: false,
         enableManaRow: true,

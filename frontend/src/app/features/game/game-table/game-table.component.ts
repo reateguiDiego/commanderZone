@@ -34,6 +34,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { RuntimeLanguageSelectorService } from '../../../core/localization/runtime-language-selector.service';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { CompactCheckboxComponent } from '../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import {
@@ -219,6 +220,10 @@ import { buildGameActivityTimeline } from './utils/game-activity-timeline';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 const COLLAPSED_ACTIVITY_PREVIEW_ITEM_COUNT = 2;
+// Square reserves 340px for the opponents column. Below 1360px that reserve
+// exceeds one quarter of the viewport, so it must use the compact drawer.
+const SQUARE_SIDEBAR_COMPACT_QUERY = '(min-width: 1181px) and (max-width: 1359px)';
+const SQUARE_COMPACT_HEADER_QUERY = '(max-width: 1440px)';
 
 type PendingManaPoolColorCounts = Readonly<
   Record<string, Readonly<Partial<Record<ManaPoolColor, number>>>>
@@ -459,7 +464,7 @@ interface ZoneDropEvent {
 interface ZonePointerDragStartedEvent {
   readonly playerId: string;
   readonly zone: GameZoneName;
-  readonly card: GameCardInstance;
+  readonly card: GameCardInstance | null;
 }
 
 interface ZonePointerDroppedEvent {
@@ -544,6 +549,8 @@ interface DeferredDiceLog {
   readonly existingEntryIds: ReadonlySet<string>;
 }
 
+const DICE_RESULT_REVEAL_DELAY_MS = 3_000;
+
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -551,6 +558,7 @@ interface DeferredDiceLog {
     FormsModule,
     LucideAngularModule,
     AppModalComponent,
+    CompactCheckboxComponent,
     PrettyScrollDirective,
     NgTemplateOutlet,
     GameLogPanelComponent,
@@ -698,7 +706,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly gridBattlefieldZoom = inject(GameTableGridBattlefieldZoomState);
   readonly suppressFloatingPanelHoverExpansion = signal(false);
-  readonly aggressiveCompactViewport = signal(false);
+  private readonly historicalAggressiveCompactViewport = signal(false);
+  private readonly squareSidebarNeedsCompactViewport = signal(false);
+  private readonly compactSquareHeaderViewport = signal(false);
+  readonly aggressiveCompactViewport = computed(() =>
+    this.historicalAggressiveCompactViewport()
+    || (this.tableLayout.mode() === 'square' && this.squareSidebarNeedsCompactViewport()),
+  );
+  readonly compactSquareHeader = computed(() =>
+    this.tableLayout.mode() === 'square'
+    && (this.aggressiveCompactViewport() || this.compactSquareHeaderViewport()),
+  );
   readonly effectiveBattlefieldZoomPercent = computed(() =>
     this.aggressiveCompactViewport()
       ? MIN_BATTLEFIELD_ZOOM_PERCENT
@@ -937,17 +955,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly rollModalPending = signal(false);
   readonly rollModalResult = signal<string | null>(null);
   private readonly deferredDiceLog = signal<DeferredDiceLog | null>(null);
+  private readonly delayedDiceLogEntryIds = signal<ReadonlySet<string>>(new Set());
+  private readonly knownEventLogEntryIds = new Set<string>();
+  private readonly diceLogRevealTimers = new Map<string, number>();
+  private eventLogInitialized = false;
   readonly visibleEventLog = computed(() => {
     const entries = this.store.eventLog();
     const deferredDiceLog = this.deferredDiceLog();
-    if (!deferredDiceLog) {
-      return entries;
-    }
+    const delayedDiceLogEntryIds = this.delayedDiceLogEntryIds();
 
     return entries.filter((entry) => (
       entry.type !== 'dice.rolled'
-      || deferredDiceLog.existingEntryIds.has(entry.id)
-      || (deferredDiceLog.actorId !== null && entry.actorId !== deferredDiceLog.actorId)
+      || (!delayedDiceLogEntryIds.has(entry.id)
+        && (!deferredDiceLog
+          || deferredDiceLog.existingEntryIds.has(entry.id)
+          || (deferredDiceLog.actorId !== null && entry.actorId !== deferredDiceLog.actorId)))
     ));
   });
   readonly tableExitTitle = computed(() =>
@@ -1325,6 +1347,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly realtimeAnimationSubscriptions = new Subscription();
   private mobileScrollLockMediaQuery: MediaQueryList | null = null;
   private aggressiveCompactMediaQuery: MediaQueryList | null = null;
+  private squareSidebarCompactMediaQuery: MediaQueryList | null = null;
+  private compactSquareHeaderMediaQuery: MediaQueryList | null = null;
   private mobileScrollLocked = false;
   private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
   private readonly handleAggressiveCompactChange = (): void => this.syncAggressiveCompactViewport();
@@ -1338,7 +1362,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   >;
 
   constructor() {
-    this.tableLayout.connect({ players: this.store.players, currentPlayer: this.store.currentPlayer });
+    this.tableLayout.connect({
+      gameId: this.store.gameId,
+      players: this.store.players,
+      currentPlayer: this.store.currentPlayer,
+    });
     this.e2eStaticCardCacheTools.install();
 
     this.realtimeAnimationSubscriptions.add(
@@ -1409,6 +1437,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           this.syncFollowActiveTurnPlayer(activePlayerId);
         }
       });
+    });
+
+    effect(() => {
+      const snapshot = this.store.snapshot();
+      const entries = this.store.eventLog();
+      if (!snapshot) {
+        return;
+      }
+
+      this.scheduleReceivedDiceLogReveals(entries);
     });
 
     effect(() => {
@@ -1533,6 +1571,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.clearRematchCountdown();
     this.clearChatReactionClock();
     this.clearMessageHighlightTimers();
+    this.clearDiceLogRevealTimers();
     this.e2eStaticCardCacheTools.destroy();
   }
 
@@ -1597,17 +1636,29 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     this.aggressiveCompactMediaQuery = window.matchMedia(this.aggressiveCompactQuery);
+    this.squareSidebarCompactMediaQuery = window.matchMedia(SQUARE_SIDEBAR_COMPACT_QUERY);
+    this.compactSquareHeaderMediaQuery = window.matchMedia(SQUARE_COMPACT_HEADER_QUERY);
     this.aggressiveCompactMediaQuery.addEventListener('change', this.handleAggressiveCompactChange);
+    this.squareSidebarCompactMediaQuery.addEventListener('change', this.handleAggressiveCompactChange);
+    this.compactSquareHeaderMediaQuery.addEventListener('change', this.handleAggressiveCompactChange);
     this.syncAggressiveCompactViewport();
   }
 
   private syncAggressiveCompactViewport(): void {
-    const isAggressiveCompact = this.aggressiveCompactMediaQuery?.matches === true;
-    if (isAggressiveCompact === this.aggressiveCompactViewport()) {
+    const historicalAggressiveCompact = this.aggressiveCompactMediaQuery?.matches === true;
+    const squareSidebarNeedsCompact = this.squareSidebarCompactMediaQuery?.matches === true;
+    const compactSquareHeader = this.compactSquareHeaderMediaQuery?.matches === true;
+    if (
+      historicalAggressiveCompact === this.historicalAggressiveCompactViewport()
+      && squareSidebarNeedsCompact === this.squareSidebarNeedsCompactViewport()
+      && compactSquareHeader === this.compactSquareHeaderViewport()
+    ) {
       return;
     }
 
-    this.aggressiveCompactViewport.set(isAggressiveCompact);
+    this.historicalAggressiveCompactViewport.set(historicalAggressiveCompact);
+    this.squareSidebarNeedsCompactViewport.set(squareSidebarNeedsCompact);
+    this.compactSquareHeaderViewport.set(compactSquareHeader);
     this.queueBattlefieldZoomReflow();
   }
 
@@ -1616,7 +1667,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       'change',
       this.handleAggressiveCompactChange,
     );
+    this.squareSidebarCompactMediaQuery?.removeEventListener(
+      'change',
+      this.handleAggressiveCompactChange,
+    );
+    this.compactSquareHeaderMediaQuery?.removeEventListener(
+      'change',
+      this.handleAggressiveCompactChange,
+    );
     this.aggressiveCompactMediaQuery = null;
+    this.squareSidebarCompactMediaQuery = null;
+    this.compactSquareHeaderMediaQuery = null;
   }
 
   scrollFloatingContentToBottom(): void {
@@ -4025,7 +4086,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   handleZonePointerDragStarted(event: ZonePointerDragStartedEvent): void {
     this.store.closeContextMenu();
-    this.store.beginZonePointerDrag(event.card.instanceId);
+    if (event.card) {
+      this.store.beginZonePointerDrag(event.card.instanceId);
+    }
   }
 
   async handleZonePointerDropped(event: ZonePointerDroppedEvent): Promise<void> {
@@ -4036,6 +4099,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     const sourceElement = this.zonePointerDragPreviewElement();
+    if (!event.request.instanceId) {
+      await this.store.moveZoneCardByPointer(event.request);
+      return;
+    }
     if (event.request.toZone === 'hand') {
       this.animateGhostToHand({
         sourceElement,
@@ -5466,6 +5533,52 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       actorId: this.authStore.user()?.id ?? null,
       existingEntryIds: new Set(this.store.eventLog().map((entry) => entry.id)),
     });
+  }
+
+  private scheduleReceivedDiceLogReveals(entries: readonly { id: string; type: string; actorId?: string | null }[]): void {
+    if (!this.eventLogInitialized) {
+      for (const entry of entries) {
+        this.knownEventLogEntryIds.add(entry.id);
+      }
+      this.eventLogInitialized = true;
+      return;
+    }
+
+    for (const entry of entries) {
+      if (this.knownEventLogEntryIds.has(entry.id)) {
+        continue;
+      }
+
+      this.knownEventLogEntryIds.add(entry.id);
+      if (entry.type !== 'dice.rolled' || this.isDiceLogDeferredByLocalRoll(entry)) {
+        continue;
+      }
+
+      this.delayedDiceLogEntryIds.update((entryIds) => new Set(entryIds).add(entry.id));
+      const revealTimer = window.setTimeout(() => {
+        this.diceLogRevealTimers.delete(entry.id);
+        this.delayedDiceLogEntryIds.update((entryIds) => {
+          const nextEntryIds = new Set(entryIds);
+          nextEntryIds.delete(entry.id);
+          return nextEntryIds;
+        });
+      }, DICE_RESULT_REVEAL_DELAY_MS);
+      this.diceLogRevealTimers.set(entry.id, revealTimer);
+    }
+  }
+
+  private isDiceLogDeferredByLocalRoll(entry: { id: string; type: string; actorId?: string | null }): boolean {
+    const deferredDiceLog = this.deferredDiceLog();
+    return !!deferredDiceLog
+      && !deferredDiceLog.existingEntryIds.has(entry.id)
+      && (deferredDiceLog.actorId === null || entry.actorId === deferredDiceLog.actorId);
+  }
+
+  private clearDiceLogRevealTimers(): void {
+    for (const revealTimer of this.diceLogRevealTimers.values()) {
+      window.clearTimeout(revealTimer);
+    }
+    this.diceLogRevealTimers.clear();
   }
 
   private latestLogKey(): string {

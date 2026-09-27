@@ -1,6 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
@@ -48,6 +48,8 @@ interface WaitingTurnOrderRow {
 }
 
 const WAITING_ROOM_PRESENCE_INTERVAL_MS = 120_000;
+const TURN_ORDER_RESULT_REVEAL_DELAY_MS = 3_000;
+const TURN_ORDER_RESULT_TO_REORDER_DELAY_MS = 600;
 
 @Component({
   selector: 'app-waiting-room',
@@ -70,6 +72,7 @@ const WAITING_ROOM_PRESENCE_INTERVAL_MS = 120_000;
 })
 export class WaitingRoomComponent implements OnDestroy {
   private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly decksApi = inject(DecksApi);
   private readonly friendsApi = inject(FriendsApi);
@@ -90,6 +93,11 @@ export class WaitingRoomComponent implements OnDestroy {
   private seatOrderIds: string[] = [];
   private copiedFeedbackHandle?: number;
   private playerOrderAnimationFrame?: number;
+  private deferredTurnOrderRevealHandle?: number;
+  private deferredTurnOrderReorderHandle?: number;
+  private deferredTurnOrderPlayerOrder = '';
+  private readonly deferredTurnOrderPlayerIds = signal<readonly string[] | null>(null);
+  private roomPresentationInitialized = false;
   private lastAutoTiePromptKey = '';
   private pendingTurnOrderRoom: Room | null = null;
 
@@ -115,6 +123,8 @@ export class WaitingRoomComponent implements OnDestroy {
   })));
   readonly friends = signal<FriendUser[]>([]);
   readonly currentRoom = signal<Room | null>(null);
+  private readonly deferredTurnOrderRoom = signal<Room | null>(null);
+  readonly displayedRoom = computed(() => this.deferredTurnOrderRoom() ?? this.currentRoom());
   readonly sentInvites = signal<RoomInvite[]>([]);
   readonly invitingUserIds = signal<string[]>([]);
   readonly error = signal<string | null>(null);
@@ -123,7 +133,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly playerPendingKick = signal<RoomPlayer | null>(null);
   readonly invalidDeckSelection = signal<WaitingDeckOption | null>(null);
-  readonly roomLog = computed(() => this.currentRoom()?.waitingLog ?? []);
+  readonly roomLog = computed(() => this.displayedRoom()?.waitingLog ?? []);
   readonly deletingRoomId = signal<string | null>(null);
   readonly kickingPlayerId = signal<string | null>(null);
   readonly updatingDeck = signal(false);
@@ -199,6 +209,7 @@ export class WaitingRoomComponent implements OnDestroy {
     if (this.playerOrderAnimationFrame !== undefined) {
       window.cancelAnimationFrame(this.playerOrderAnimationFrame);
     }
+    this.clearDeferredTurnOrderReveal();
     Flip.killFlipsOf(this.playerOrderElements(), true);
     this.inviteRealtimeSubscription?.unsubscribe();
     this.roomRealtimeSubscription?.unsubscribe();
@@ -855,11 +866,16 @@ export class WaitingRoomComponent implements OnDestroy {
       return;
     }
 
-    this.setCurrentRoom(room, { animatePlayerOrder: true });
+    this.setCurrentRoom(room, { animatePlayerOrder: true, revealTurnOrderImmediately: true });
     this.syncSelectedDeckFromRoom(room);
   }
 
   turnOrderPlayers(room: Room): readonly RoomPlayer[] {
+    const deferredPlayerIds = this.deferredTurnOrderPlayerIds();
+    if (deferredPlayerIds !== null) {
+      return this.playersBySeatOrder(room, deferredPlayerIds);
+    }
+
     if (this.hasAnyTurnRoll(room)) {
       return [...room.players].sort((firstPlayer, secondPlayer) => this.comparePlayersByTurnOrder(firstPlayer, secondPlayer));
     }
@@ -1144,17 +1160,39 @@ export class WaitingRoomComponent implements OnDestroy {
 
   private setCurrentRoom(
     room: Room | null,
-    options: { readonly animatePlayerOrder?: boolean } = {},
+    options: {
+      readonly animatePlayerOrder?: boolean;
+      readonly deferTurnOrderPresentation?: boolean;
+      readonly revealTurnOrderImmediately?: boolean;
+    } = {},
   ): void {
     const previousRoom = this.currentRoom();
+    const shouldDeferTurnOrderPresentation = options.deferTurnOrderPresentation === true
+      || this.shouldDeferTurnOrderPresentation(
+        previousRoom,
+        room,
+        options.revealTurnOrderImmediately === true,
+      );
+    if (shouldDeferTurnOrderPresentation && this.deferredTurnOrderPlayerIds() === null) {
+      const displayedRoom = this.displayedRoom();
+      const displayedPlayers = displayedRoom ? this.turnOrderPlayers(displayedRoom) : [];
+      this.deferredTurnOrderPlayerOrder = displayedPlayers.map((player) => player.id).join('|');
+      this.deferredTurnOrderPlayerIds.set(displayedPlayers.map((player) => player.id));
+      this.deferredTurnOrderRoom.set(displayedRoom ? this.snapshotTurnOrderPresentation(displayedRoom) : null);
+      this.scheduleDeferredTurnOrderReveal();
+    }
+
     const previousOrder = previousRoom ? this.turnOrderPlayers(previousRoom).map((player) => player.id).join('|') : '';
     const nextSeatOrderIds = this.nextSeatOrderIds(room);
     const nextOrder = room ? this.playersBySeatOrder(room, nextSeatOrderIds).map((player) => player.id).join('|') : '';
-    const playOrderFlip = options.animatePlayerOrder && this.shouldAnimatePlayerOrder(previousOrder, nextOrder, room)
+    const playOrderFlip = options.animatePlayerOrder
+      && !shouldDeferTurnOrderPresentation
+      && this.shouldAnimatePlayerOrder(previousOrder, nextOrder, room)
       ? this.preparePlayerOrderFlip()
       : () => undefined;
 
     this.applyCurrentRoom(room, nextSeatOrderIds);
+    this.roomPresentationInitialized = room !== null;
     playOrderFlip();
   }
 
@@ -1204,6 +1242,37 @@ export class WaitingRoomComponent implements OnDestroy {
       && this.hasAnyTurnRoll(room)
       && !this.prefersReducedMotion()
       && this.playerOrderElements().length > 0;
+  }
+
+  private shouldDeferTurnOrderPresentation(
+    previousRoom: Room | null,
+    nextRoom: Room | null,
+    revealTurnOrderImmediately: boolean,
+  ): boolean {
+    if (!this.roomPresentationInitialized || revealTurnOrderImmediately || this.rollRevealPending()) {
+      return false;
+    }
+    if (!previousRoom || !nextRoom) {
+      return false;
+    }
+
+    const previousRollCounts = new Map(
+      previousRoom.players.map((player) => [player.id, this.turnRollsFor(player).length]),
+    );
+    return nextRoom.players.some((player) => (
+      this.turnRollsFor(player).length > (previousRollCounts.get(player.id) ?? 0)
+    ));
+  }
+
+  private snapshotTurnOrderPresentation(room: Room): Room {
+    return {
+      ...room,
+      players: room.players.map((player) => ({
+        ...player,
+        turnRolls: player.turnRolls ? [...player.turnRolls] : undefined,
+      })),
+      waitingLog: room.waitingLog?.map((entry) => ({ ...entry })),
+    };
   }
 
   private preparePlayerOrderFlip(): () => void {
@@ -1536,6 +1605,10 @@ export class WaitingRoomComponent implements OnDestroy {
 
     if (event.type === 'room.deleted') {
       this.deletingOnDestroy = true;
+      this.clearDeferredTurnOrderReveal();
+      this.deferredTurnOrderPlayerIds.set(null);
+      this.deferredTurnOrderRoom.set(null);
+      this.deferredTurnOrderPlayerOrder = '';
       this.setCurrentRoom(null);
       await this.router.navigate(['/rooms']);
       return;
@@ -1555,15 +1628,68 @@ export class WaitingRoomComponent implements OnDestroy {
       return;
     }
 
-    this.setCurrentRoom(event.room, { animatePlayerOrder: event.type === 'room.player.rolled' });
-    this.syncSelectedDeckFromRoom(event.room);
-    if (event.room.status === 'waiting' && this.isCurrentUserInRoom(event.room) && this.inviteModalOpen()) {
-      await this.loadSentInvites(event.room.id, true);
+    await this.applyWaitingRoomEventRoom(event.room, event.type);
+  }
+
+  private async applyWaitingRoomEventRoom(room: Room, eventType: WaitingRoomEvent['type']): Promise<void> {
+    this.setCurrentRoom(room, {
+      animatePlayerOrder: eventType === 'room.player.rolled',
+      // A rolled event is the one exact moment at which remote clients must
+      // retain their current presentation. Do not infer it from a state diff:
+      // reconnects and in-flight initialization can already hold the new room.
+      deferTurnOrderPresentation: eventType === 'room.player.rolled',
+    });
+    this.syncSelectedDeckFromRoom(room);
+    if (room.status === 'waiting' && this.isCurrentUserInRoom(room) && this.inviteModalOpen()) {
+      await this.loadSentInvites(room.id, true);
     }
-    if (event.room.gameId) {
+    if (room.gameId) {
       this.navigatingToGame = true;
-      await this.router.navigate(['/games', event.room.gameId]);
+      await this.router.navigate(['/games', room.gameId]);
     }
+  }
+
+  private clearDeferredTurnOrderReveal(): void {
+    if (this.deferredTurnOrderRevealHandle !== undefined) {
+      window.clearTimeout(this.deferredTurnOrderRevealHandle);
+      this.deferredTurnOrderRevealHandle = undefined;
+    }
+    if (this.deferredTurnOrderReorderHandle !== undefined) {
+      window.clearTimeout(this.deferredTurnOrderReorderHandle);
+      this.deferredTurnOrderReorderHandle = undefined;
+    }
+  }
+
+  private scheduleDeferredTurnOrderReveal(): void {
+    this.clearDeferredTurnOrderReveal();
+    this.deferredTurnOrderRevealHandle = window.setTimeout(() => {
+      this.deferredTurnOrderRevealHandle = undefined;
+      this.deferredTurnOrderRoom.set(null);
+      this.changeDetectorRef.detectChanges();
+
+      this.deferredTurnOrderReorderHandle = window.setTimeout(() => {
+        this.deferredTurnOrderReorderHandle = undefined;
+        this.reorderDeferredTurnOrder();
+      }, TURN_ORDER_RESULT_TO_REORDER_DELAY_MS);
+    }, TURN_ORDER_RESULT_REVEAL_DELAY_MS);
+  }
+
+  private reorderDeferredTurnOrder(): void {
+    const revealedRoom = this.currentRoom();
+    const revealedOrder = revealedRoom
+      ? this.nextSeatOrderIds(revealedRoom).join('|')
+      : '';
+    const playOrderFlip = this.shouldAnimatePlayerOrder(
+      this.deferredTurnOrderPlayerOrder,
+      revealedOrder,
+      revealedRoom,
+    )
+      ? this.preparePlayerOrderFlip()
+      : () => undefined;
+    this.deferredTurnOrderPlayerIds.set(null);
+    this.deferredTurnOrderPlayerOrder = '';
+    this.changeDetectorRef.detectChanges();
+    playOrderFlip();
   }
 
   private isCommanderValidDeck(deckId: string): boolean {

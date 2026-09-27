@@ -48,6 +48,7 @@ class GridHost {
 
 describe('GameTable grid layout', () => {
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronDown, Skull }))],
     });
@@ -95,11 +96,11 @@ describe('GameTable grid layout', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="game-table-grid"]')).toBeNull();
   });
 
-  it('falls back to Square and removes departed players’ measurements without restoring Grid automatically', () => {
+  it('temporarily falls back to Square and restores the selected Grid layout when it becomes available again', () => {
     TestBed.configureTestingModule({ providers: [GameTableLayoutState] });
     const layout = TestBed.inject(GameTableLayoutState);
     const players = signal(['local', 'opponent'].map(player));
-    layout.connect({ players, currentPlayer: () => players()[0] });
+    layout.connect({ gameId: () => 'game-1', players, currentPlayer: () => players()[0] });
     TestBed.tick();
     layout.select('grid');
     const rect = { width: 400, height: 200, left: 0, right: 400, top: 0, bottom: 200 };
@@ -109,27 +110,38 @@ describe('GameTable grid layout', () => {
     expect(layout.mode()).toBe('square');
     TestBed.tick();
     players.set(['local', 'opponent'].map(player));
-    expect(layout.mode()).toBe('square');
-    layout.select('grid');
+    expect(layout.mode()).toBe('grid');
     expect(layout.rectangle('opponent')).toBeNull();
   });
 
-  it('uses the configured table layout instead of a legacy saved view and falls back to Square for five players', () => {
+  it('initializes each new game from settings and preserves a layout selected for the current game', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableLayoutState,
         {
           provide: GameTableSessionPreferencesStore,
-          useValue: { preferences: { defaultBattlefieldLayout: 'grid', chosenModeView: 'square' } },
+          useValue: { preferences: { defaultBattlefieldLayout: 'grid' } },
         },
       ],
     });
     const layout = TestBed.inject(GameTableLayoutState);
     const players = signal(['local', 'opponent'].map(player));
+    const gameId = signal('game-1');
 
-    layout.connect({ players, currentPlayer: () => players()[0] });
+    layout.connect({ gameId, players, currentPlayer: () => players()[0] });
     TestBed.tick();
     expect(layout.mode()).toBe('grid');
+    layout.select('square');
+    expect(localStorage.getItem('commanderzone.game-table.layout:game-1')).toBe('square');
+
+    gameId.set('game-2');
+    TestBed.tick();
+    expect(layout.mode()).toBe('grid');
+    expect(localStorage.getItem('commanderzone.game-table.layout:game-2')).toBe('grid');
+
+    gameId.set('game-1');
+    TestBed.tick();
+    expect(layout.mode()).toBe('square');
 
     players.set(['local', 'a', 'b', 'c', 'd'].map(player));
     expect(layout.mode()).toBe('square');

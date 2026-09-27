@@ -11,39 +11,6 @@
   min-height: 0;
 }
 
-:host:has(.is-turn-owner) {
-  position: relative;
-  z-index: 51;
-  overflow: visible;
-}
-
-:host:has(.is-turn-owner)::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-  z-index: 50;
-  padding: 5px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--active-turn-border-angle, 0deg),
-    color-mix(in srgb, var(--game-accent) 28%, transparent),
-    var(--game-accent),
-    #fff8dd,
-    var(--game-accent) 32%,
-    color-mix(in srgb, var(--game-accent) 28%, transparent) 55%,
-    var(--game-accent) 78%,
-    #fff8dd,
-    var(--game-accent)
-  );
-  pointer-events: none;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: active-turn-border-orbit 5.2s linear infinite;
-}
-
 .player-cell {
   // Each Grid cell is a sizing container. The side piles and hand scale with
   // their own available width, instead of using the viewport of the whole table.
@@ -126,6 +93,18 @@
   display: block;
 }
 
+// The horizontal Zone Piles dock spans the cell edge-to-edge. Keeping the
+// single-player blurred gutters underneath it creates a hard seam where the
+// dock meets the reduced foreground playmat, so this composition uses one
+// continuous playmat layer instead.
+.single-player-row.zone-row-presentation .player-cell-playmat {
+  background-size: cover;
+}
+
+.single-player-row.zone-row-presentation .player-cell-playmat-backdrop {
+  display: none;
+}
+
 .player-cell.is-defeated .player-cell-playmat,
 .player-cell.is-defeated .player-cell-playmat-backdrop {
   filter: blur(0.42rem) saturate(0.3) brightness(0.5);
@@ -171,6 +150,35 @@
   min-height: 0;
 }
 
+// The active-turn fuse belongs to the actual player layout, rather than the
+// Angular host. That makes the animated trace follow all four edges of the
+// cell's zones, battlefield and hand rectangle.
+.player-cell.is-turn-owner .player-cell-layout::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--active-turn-border-angle, 0deg),
+    transparent 0deg 258deg,
+    color-mix(in srgb, var(--game-accent) 8%, transparent) 276deg,
+    color-mix(in srgb, var(--game-accent) 18%, transparent) 298deg,
+    var(--game-accent) 316deg,
+    #fff8dd 326deg,
+    var(--game-accent) 336deg,
+    color-mix(in srgb, var(--game-accent) 20%, transparent) 348deg,
+    transparent 360deg
+  );
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: active-turn-border-orbit 5.2s linear infinite;
+}
+
 .player-cell:has(.extra-actions-open) {
   z-index: 100;
   overflow: visible;
@@ -212,18 +220,6 @@
 }
 .is-current {
   border-color: var(--game-accent);
-}
-.is-turn-owner {
-  border-color: color-mix(in srgb, var(--game-accent) 82%, #fff2c9);
-}
-.is-turn-owner::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  box-shadow: inset 0 0 1.45rem rgb(var(--game-accent-rgb) / 48%);
-  pointer-events: none;
-  animation: active-turn-border-aura 5.2s ease-in-out infinite;
 }
 .is-top-row .player-cell-layout {
   grid-template-rows: var(--game-zone-row-height) minmax(0, 1fr);
@@ -668,17 +664,6 @@
   }
 }
 
-@keyframes active-turn-border-aura {
-  0%,
-  100% {
-    box-shadow: inset 0 0 0.72rem rgb(var(--game-accent-rgb) / 28%);
-  }
-
-  50% {
-    box-shadow: inset 0 0 1.7rem rgb(var(--game-accent-rgb) / 58%);
-  }
-}
-
 @keyframes active-turn-life-controls {
   0%,
   100% {
@@ -716,8 +701,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :host:has(.is-turn-owner)::after,
-  .is-turn-owner::before,
+  .player-cell.is-turn-owner .player-cell-layout::after,
   .player-cell-summary ::ng-deep .player-summary-panel-grid.is-turn-active .life-controls,
   .player-cell-turn-status.is-active-turn {
     animation: none;

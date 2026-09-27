@@ -1,6 +1,11 @@
 .rooms-create-panel {
+  --room-action-width: 10.5rem;
+  --room-action-min-height: 2.2rem;
+  --room-action-white-space: nowrap;
+  --room-action-line-height: normal;
+
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 10.5rem));
+  grid-template-columns: repeat(2, minmax(0, var(--room-action-width)));
   align-items: end;
   justify-content: flex-end;
   gap: 0.6rem;
@@ -13,7 +18,7 @@
 }
 
 .rooms-create-panel.join-code-hidden {
-  grid-template-columns: minmax(0, 10.5rem);
+  grid-template-columns: minmax(0, var(--room-action-width));
 }
 
 .room-code-card {
@@ -101,10 +106,13 @@
 }
 
 .action-tooltip-anchor .primary-button {
-  width: 10.5rem;
-  min-height: 2.2rem;
+  width: var(--room-action-width);
+  min-height: var(--room-action-min-height);
   padding: 0 0.75rem;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: var(--room-action-line-height);
+  text-wrap: balance;
+  white-space: var(--room-action-white-space);
 }
 
 .room-action-button {
@@ -169,4 +177,11 @@
   .action-tooltip-anchor .primary-button {
     width: 100%;
   }
+}
+
+:host-context(.rooms-table-toolbar.is-empty) .room-code-card.has-code-input input {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  min-height: 2.6rem;
+  order: initial;
 }

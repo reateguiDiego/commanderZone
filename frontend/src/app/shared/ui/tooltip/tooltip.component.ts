@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, inject, input, signal, viewChild } from '@angular/core';
 import { DeviceProfileService } from '../../services/device-profile.service';
 import { tooltipTextColorForBackground } from './tooltip-contrast';
 
@@ -9,6 +9,8 @@ interface TooltipPosition {
 
 type TooltipPlacement = 'top' | 'bottom';
 type TooltipAlign = 'start' | 'center' | 'end';
+
+const TOOLTIP_OPEN_DELAY_MS = 150;
 
 interface TooltipBounds {
   readonly left: number;
@@ -23,8 +25,11 @@ interface TooltipBounds {
 })
 export class TooltipComponent {
   private readonly device = inject(DeviceProfileService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLElement>>('trigger');
   private readonly bubble = viewChild<ElementRef<HTMLElement>>('bubble');
+  private openDelayTimer: number | null = null;
+  private positionTimer: number | null = null;
 
   readonly text = input<string | null>(null);
   readonly stretch = input(false);
@@ -38,29 +43,37 @@ export class TooltipComponent {
   readonly effectiveAlign = signal<TooltipAlign>('center');
   readonly textColor = signal('var(--cz-text)');
 
+  constructor() {
+    this.destroyRef.onDestroy(() => this.clearPendingTimers());
+  }
+
   show(): void {
     if (!this.text()) {
       return;
     }
 
+    this.clearPendingTimers();
     this.open.set(true);
     this.visible.set(false);
     this.multiline.set(false);
-    setTimeout(() => {
+    this.openDelayTimer = window.setTimeout(() => {
+      this.openDelayTimer = null;
       if (this.open()) {
         this.updateTextColor();
         this.multiline.set(this.shouldUseMultilineClamp());
-        setTimeout(() => {
+        this.positionTimer = window.setTimeout(() => {
+          this.positionTimer = null;
           if (this.open()) {
             this.updatePosition();
             this.visible.set(true);
           }
         });
       }
-    });
+    }, TOOLTIP_OPEN_DELAY_MS);
   }
 
   hide(): void {
+    this.clearPendingTimers();
     this.open.set(false);
     this.visible.set(false);
     this.multiline.set(false);
@@ -215,6 +228,18 @@ export class TooltipComponent {
 
   private cssVariableValue(style: CSSStyleDeclaration, fallbackStyle: CSSStyleDeclaration, propertyName: string): string {
     return style.getPropertyValue(propertyName).trim() || fallbackStyle.getPropertyValue(propertyName).trim();
+  }
+
+  private clearPendingTimers(): void {
+    if (this.openDelayTimer !== null) {
+      window.clearTimeout(this.openDelayTimer);
+      this.openDelayTimer = null;
+    }
+
+    if (this.positionTimer !== null) {
+      window.clearTimeout(this.positionTimer);
+      this.positionTimer = null;
+    }
   }
 
   private viewportWidth(): number {

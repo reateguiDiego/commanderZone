@@ -6,7 +6,7 @@
     <p class="notice realtime-warning" role="status">{{ 'rooms.waitingRoom.realtimeUnavailable' | runtimeTranslate }}</p>
   }
 
-  @if (currentRoom(); as room) {
+  @if (displayedRoom(); as room) {
     <div class="waiting-layout">
       <main class="waiting-main">
         <section class="players-panel">
