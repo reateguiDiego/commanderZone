@@ -15,6 +15,16 @@ use App\Domain\User\User;
 
 final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
 {
+    public function testManagedDeckCardsHashMatchesThePersistedDeckHash(): void
+    {
+        [$deck] = $this->deckFixture('managed-hash');
+
+        self::assertSame(
+            $this->service()->deckHash($deck),
+            (new DeckAnalysisDeckHasher($this->connection()))->hashDeckCards($deck->cards()),
+        );
+    }
+
     public function testSnapshotMissCalculatesAndStoresResult(): void
     {
         [$deck] = $this->deckFixture('miss');

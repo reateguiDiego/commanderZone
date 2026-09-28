@@ -23,6 +23,18 @@
   align-items: start;
 }
 
+.community-ranking-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.community-ranking-links a {
+  color: var(--cz-info);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
 .community-hero-copy,
 .community-section {
   display: grid;

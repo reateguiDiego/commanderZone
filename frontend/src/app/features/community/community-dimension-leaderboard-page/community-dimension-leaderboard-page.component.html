@@ -1,0 +1,33 @@
+<section class="community-dimension-page">
+  <header class="community-hero">
+    <app-back-button link="/community" />
+    <div class="community-hero-copy">
+      <h1>{{ title }}</h1>
+      <p>{{ subtitle }}</p>
+      <app-hero-rule />
+    </div>
+  </header>
+
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (failed()) {
+    <p class="notice error">Unable to load this ranking right now.</p>
+  } @else if (leaderboard(); as data) {
+    <section class="leaderboard" aria-label="Lifetime leaderboard">
+      @for (item of data.items; track item.key) {
+        <article class="leaderboard-row">
+          <span class="leaderboard-row__rank">#{{ item.rank }}</span>
+          <div class="leaderboard-row__subject">
+            @if (item.colors?.length) {
+              <app-mana-symbols [symbols]="item.colors" [fallback]="item.label" size="small" />
+            }
+            <strong>{{ item.label }}</strong>
+          </div>
+          <span class="leaderboard-row__count">{{ item.timesPlayed | number }} games</span>
+        </article>
+      } @empty {
+        <p class="notice">There are no games in this ranking yet.</p>
+      }
+    </section>
+  }
+</section>

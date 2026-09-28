@@ -4,7 +4,6 @@ import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { CommunityPreviewFilters } from '../../../core/api/community.api';
 import { CommunityPreviewCardsResponse } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
 import { CardPreviewItem } from '../../../core/models/card-preview.model';
@@ -14,10 +13,8 @@ import { CardDetailsModalComponent } from '../../../shared/components/card-detai
 import { CardPreviewResultActionEvent, CardPreviewResultsComponent, CardPreviewResultsViewMode } from '../../../shared/components/card-preview-results/card-preview-results.component';
 import { CardPrintingsModalComponent } from '../../../shared/components/card-printings-modal/card-printings-modal.component';
 import { CardsMainLayoutComponent } from '../../../shared/components/cards-main-layout/cards-main-layout.component';
-import { FormatSelectComponent, FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.component';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { TabListComponent, TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
@@ -44,7 +41,6 @@ interface CardPrintingsDialogState {
   selector: 'app-community-card-preview-page',
   imports: [
     RuntimeTranslatePipe,
-    FormatSelectComponent,
     HeroRuleComponent,
     GlobalLoaderComponent,
     CardsMainLayoutComponent,
@@ -53,7 +49,6 @@ interface CardPrintingsDialogState {
     CardDetailsModalComponent,
     CardPrintingsModalComponent,
     BackButtonComponent,
-    CzButtonDirective,
     TabListComponent,
   ],
   templateUrl: './community-card-preview-page.component.html',
@@ -69,11 +64,9 @@ export class CommunityCardPreviewPageComponent {
   readonly auth = inject(AuthStore);
   readonly kind = (this.route.snapshot.data['kind'] as CommunityPreviewKind | undefined) ?? 'commanders';
   private readonly initialViewState = this.cache.previewStateFor(this.kind);
-  readonly selectedType = signal(this.initialViewState.selectedType);
-  readonly selectedColor = signal(this.initialViewState.selectedColor);
   readonly viewMode = signal<CardPreviewResultsViewMode>(this.initialViewState.viewMode);
 
-  readonly preview = signal<CommunityPreviewCardsResponse | null>(this.cache.peekPreview(this.kind, this.previewFilters()));
+  readonly preview = signal<CommunityPreviewCardsResponse | null>(this.cache.peekPreview(this.kind));
   readonly loading = signal(this.preview() === null);
   readonly error = signal<string | null>(null);
   readonly detailsDialog = signal<CardDetailsDialogState | null>(null);
@@ -86,26 +79,6 @@ export class CommunityCardPreviewPageComponent {
     ? 'community.home.cardsTitle'
     : 'community.home.commandersTitle';
   readonly heroSubtitleKey = 'shared.text.basedOnGamesPlayedByTheCommunity';
-  readonly typeOptions: readonly FormatSelectOption[] = [
-    { id: '', labelKey: 'shared.text.allTypes' },
-    { id: 'artifact', labelKey: 'shared.text.artifact' },
-    { id: 'battle', labelKey: 'shared.text.battle' },
-    { id: 'creature', labelKey: 'community.preview.filters.type.creature' },
-    { id: 'enchantment', labelKey: 'community.preview.filters.type.enchantment' },
-    { id: 'instant', labelKey: 'community.preview.filters.type.instant' },
-    { id: 'land', labelKey: 'shared.text.land' },
-    { id: 'planeswalker', labelKey: 'community.preview.filters.type.planeswalker' },
-    { id: 'sorcery', labelKey: 'community.preview.filters.type.sorcery' },
-  ];
-  readonly colorOptions: readonly FormatSelectOption[] = [
-    { id: '', labelKey: 'shared.text.any' },
-    { id: 'W', labelKey: 'shared.text.white', manaSymbols: ['W'] },
-    { id: 'U', labelKey: 'shared.text.blue', manaSymbols: ['U'] },
-    { id: 'B', labelKey: 'shared.text.black', manaSymbols: ['B'] },
-    { id: 'R', labelKey: 'shared.text.red', manaSymbols: ['R'] },
-    { id: 'G', labelKey: 'shared.text.green', manaSymbols: ['G'] },
-    { id: 'C', labelKey: 'shared.text.colorless', manaSymbols: ['C'] },
-  ];
   readonly viewTabs: readonly TabListItem[] = [
     { id: 'list', label: 'shared.text.list', icon: 'list' },
     { id: 'spoiler', label: 'shared.text.spoiler', icon: 'image' },
@@ -124,14 +97,6 @@ export class CommunityCardPreviewPageComponent {
     void this.load();
   }
 
-  selectType(value: string): void {
-    this.selectedType.set(value);
-  }
-
-  selectColor(value: string): void {
-    this.selectedColor.set(value);
-  }
-
   selectViewMode(value: string): void {
     if (this.spoilerOnlyView()) {
       return;
@@ -143,15 +108,6 @@ export class CommunityCardPreviewPageComponent {
 
     this.viewMode.set(value);
     this.cache.patchPreviewState(this.kind, { viewMode: value });
-  }
-
-  async searchPreview(): Promise<void> {
-    this.cache.patchPreviewState(this.kind, {
-      selectedType: this.selectedType(),
-      selectedColor: this.selectedColor(),
-      viewMode: this.effectiveViewMode(),
-    });
-    await this.load(true);
   }
 
   async handlePreviewAction(event: CardPreviewResultActionEvent): Promise<void> {
@@ -187,11 +143,10 @@ export class CommunityCardPreviewPageComponent {
     this.printingsDialog.set(null);
   }
 
-  private async load(force = false): Promise<void> {
-    const filters = this.previewFilters();
-
-    if (!force && this.cache.peekPreview(this.kind, filters) !== null) {
-      this.preview.set(this.cache.peekPreview(this.kind, filters));
+  private async load(): Promise<void> {
+    const cached = this.cache.peekPreview(this.kind);
+    if (cached !== null) {
+      this.preview.set(cached);
       this.loading.set(false);
       return;
     }
@@ -200,7 +155,7 @@ export class CommunityCardPreviewPageComponent {
     this.error.set(null);
 
     try {
-      const response = await this.cache.preview(this.kind, filters);
+      const response = await this.cache.preview(this.kind);
       this.preview.set(response);
     } catch {
       this.error.set('community.preview.error');
@@ -261,12 +216,5 @@ export class CommunityCardPreviewPageComponent {
 
   private openRulings(name: string): void {
     window.open(`https://scryfall.com/search?q=!%22${encodeURIComponent(name)}%22&utm_source=commanderzone`, '_blank', 'noopener,noreferrer');
-  }
-
-  private previewFilters(): CommunityPreviewFilters {
-    return {
-      type: this.selectedType(),
-      colors: this.selectedColor(),
-    };
   }
 }

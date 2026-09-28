@@ -203,6 +203,8 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureGameRuntimeClosingTable($connection);
         $this->ensureGameRuntimeStopQueueTable($connection);
         $this->ensureGameRuntimeLifecycleOutboxTable($connection);
+        $this->ensureCommunityCounterTable($connection);
+        $this->ensureCommunityStatisticsOutboxTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -223,6 +225,8 @@ abstract class ApiTestCase extends WebTestCase
             'game_runtime_closing',
             'game_runtime_stop_queue',
             'game_runtime_lifecycle_outbox',
+            'community_counter',
+            'community_statistics_outbox',
             'game',
             'room_waiting_log_entry',
             'room_player',
@@ -263,6 +267,35 @@ abstract class ApiTestCase extends WebTestCase
 CREATE TABLE IF NOT EXISTS game_runtime_closing (
     game_id VARCHAR(36) NOT NULL PRIMARY KEY,
     claimed_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
+    }
+
+    private function ensureCommunityCounterTable(Connection $connection): void
+    {
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS community_counter (
+    format VARCHAR(40) NOT NULL,
+    metric VARCHAR(20) NOT NULL,
+    period VARCHAR(20) NOT NULL,
+    period_start DATE NOT NULL,
+    subject_key VARCHAR(255) NOT NULL,
+    usages BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (format, metric, period, period_start, subject_key)
+)
+SQL);
+        $connection->executeStatement(
+            'CREATE INDEX IF NOT EXISTS idx_community_counter_leaderboard ON community_counter (format, metric, period, period_start, usages DESC, subject_key ASC)',
+        );
+    }
+
+    private function ensureCommunityStatisticsOutboxTable(Connection $connection): void
+    {
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS community_statistics_outbox (
+    id BIGSERIAL PRIMARY KEY,
+    payload_json JSONB NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 SQL);
     }

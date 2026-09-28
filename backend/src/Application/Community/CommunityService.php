@@ -37,6 +37,7 @@ final class CommunityService
         private readonly CardLocalizationService $localization,
         private readonly DeckBracketLabelProvider $bracketLabels,
         private readonly CommunityCache $cache,
+        private readonly CommunityStatisticsService $statistics,
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
     )
@@ -58,15 +59,15 @@ final class CommunityService
             self::HOME_CACHE_TTL_SECONDS,
             function () use ($requestedLanguage): array {
                 return [
-                    'commanders' => $this->randomCardPreviews(
-                        CommanderCandidateSql::condition('card'),
+                    'commanders' => array_slice(
+                        $this->statistics->topCards('commander', DeckFormatCatalog::COMMANDER, $requestedLanguage)['items'],
+                        0,
                         self::HOME_COMMANDERS_LIMIT,
-                        $requestedLanguage,
                     ),
-                    'cards' => $this->randomCardPreviews(
-                        'card.commander_legal = true',
+                    'cards' => array_slice(
+                        $this->statistics->topCards('card', DeckFormatCatalog::COMMANDER, $requestedLanguage)['items'],
+                        0,
                         self::HOME_CARDS_LIMIT,
-                        $requestedLanguage,
                     ),
                     'decks' => $this->fetchDeckSummariesByIds(
                         $this->topPublicValidDeckIds(self::HOME_DECKS_LIMIT),

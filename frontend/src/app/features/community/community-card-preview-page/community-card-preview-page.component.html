@@ -15,28 +15,6 @@
   } @else if (preview(); as previewData) {
     <app-cards-main-layout>
       <section class="community-preview-toolbar">
-        <div class="community-preview-toolbar__filters">
-          <app-format-select
-            name="communityPreviewType"
-            labelKey="shared.text.types"
-            [options]="typeOptions"
-            [value]="selectedType()"
-            (valueChange)="selectType($event)"
-          />
-
-          <app-format-select
-            name="communityPreviewColor"
-            labelKey="shared.text.color"
-            [options]="colorOptions"
-            [value]="selectedColor()"
-            (valueChange)="selectColor($event)"
-          />
-
-          <button type="button" czButton="primary" czButtonSize="sm" class="community-preview-toolbar__search" (click)="searchPreview()">
-            {{ 'shared.text.search' | runtimeTranslate }}
-          </button>
-        </div>
-
         @if (!spoilerOnlyView()) {
           <app-tab-list
             [items]="viewTabs"

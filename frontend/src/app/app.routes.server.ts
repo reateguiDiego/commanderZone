@@ -30,6 +30,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'community/decks/:id', renderMode: RenderMode.Client },
   { path: 'community/top-commanders', renderMode: RenderMode.Client },
   { path: 'community/top-cards', renderMode: RenderMode.Client },
+  { path: 'community/top-colors', renderMode: RenderMode.Client },
+  { path: 'community/top-archetypes', renderMode: RenderMode.Client },
   { path: 'community/users/:username', renderMode: RenderMode.Client },
   { path: 'community/commanders/:slug', renderMode: RenderMode.Client },
   { path: 'community/cards/:slug', renderMode: RenderMode.Client },

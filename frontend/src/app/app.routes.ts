@@ -84,6 +84,18 @@ export const routes: Routes = [
         },
       },
       {
+        path: 'community/top-colors',
+        loadComponent: () => import('./features/community/community-dimension-leaderboard-page/community-dimension-leaderboard-page.component')
+          .then((component) => component.CommunityDimensionLeaderboardPageComponent),
+        data: { pageKey: 'publicCommunity', kind: 'colors' },
+      },
+      {
+        path: 'community/top-archetypes',
+        loadComponent: () => import('./features/community/community-dimension-leaderboard-page/community-dimension-leaderboard-page.component')
+          .then((component) => component.CommunityDimensionLeaderboardPageComponent),
+        data: { pageKey: 'publicCommunity', kind: 'archetypes' },
+      },
+      {
         path: 'community/users/:username',
         loadComponent: () => import('./features/community/community-user-page/community-user-page.component')
           .then((component) => component.CommunityUserPageComponent),

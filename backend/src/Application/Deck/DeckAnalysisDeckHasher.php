@@ -27,12 +27,30 @@ final class DeckAnalysisDeckHasher
             ];
         }
 
-        usort($items, static function (array $left, array $right): int {
-            return [$left['section'], $left['status'], $left['oracleId'], $left['cardId'], $left['quantity']]
-                <=> [$right['section'], $right['status'], $right['oracleId'], $right['cardId'], $right['quantity']];
-        });
+        return $this->hashItems($items);
+    }
 
-        return hash('sha256', json_encode($items, JSON_THROW_ON_ERROR));
+    /** @param iterable<DeckCard> $deckCards */
+    public function hashDeckCards(iterable $deckCards): string
+    {
+        $items = [];
+        foreach ($deckCards as $deckCard) {
+            if (!in_array($deckCard->section(), [DeckCard::SECTION_MAIN, DeckCard::SECTION_COMMANDER], true)) {
+                continue;
+            }
+
+            $card = $deckCard->card();
+            $oracleId = $this->stringOrNull($card->oracleId());
+            $items[] = [
+                'cardId' => $this->stringOrNull($card->id()) ?? 'missing',
+                'oracleId' => $oracleId,
+                'quantity' => max(1, $deckCard->quantity()),
+                'section' => $deckCard->section(),
+                'status' => $oracleId !== null ? 'matched' : 'unmatched',
+            ];
+        }
+
+        return $this->hashItems($items);
     }
 
     /**
@@ -72,5 +90,16 @@ SQL,
         $string = trim((string) $value);
 
         return $string !== '' ? $string : null;
+    }
+
+    /** @param list<array{cardId:string,oracleId:?string,quantity:int,section:string,status:string}> $items */
+    private function hashItems(array $items): string
+    {
+        usort($items, static function (array $left, array $right): int {
+            return [$left['section'], $left['status'], $left['oracleId'], $left['cardId'], $left['quantity']]
+                <=> [$right['section'], $right['status'], $right['oracleId'], $right['cardId'], $right['quantity']];
+        });
+
+        return hash('sha256', json_encode($items, JSON_THROW_ON_ERROR));
     }
 }

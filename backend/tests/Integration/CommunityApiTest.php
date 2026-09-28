@@ -2,8 +2,34 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Community\CommunityStatisticsOutboxProcessor;
+
 class CommunityApiTest extends ApiTestCase
 {
+    public function testStatisticsOutboxProcessorCoalescesEventsBeforeUpdatingCounters(): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $event = json_encode([
+            'version' => 1,
+            'deltas' => [[
+                'format' => 'commander',
+                'metric' => 'card',
+                'subjectKey' => 'oracle:coalesced-card',
+                'usages' => 1,
+            ]],
+        ], JSON_THROW_ON_ERROR);
+        $connection->executeStatement(
+            'INSERT INTO community_statistics_outbox (payload_json, created_at) VALUES (CAST(:payload AS JSONB), CURRENT_TIMESTAMP), (CAST(:payload AS JSONB), CURRENT_TIMESTAMP)',
+            ['payload' => $event],
+        );
+
+        self::assertSame(2, static::getContainer()->get(CommunityStatisticsOutboxProcessor::class)->drain(100));
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM community_statistics_outbox'));
+        self::assertSame(2, (int) $connection->fetchOne(
+            "SELECT usages FROM community_counter WHERE format = 'commander' AND metric = 'card' AND subject_key = 'oracle:coalesced-card'",
+        ));
+    }
+
     public function testCommunityHomeReturnsOnlyPublicValidDecks(): void
     {
         $token = $this->registerAndLogin('community-home@example.test', 'Community Home');
@@ -38,8 +64,8 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame($publicValidDeckId, $response['decks'][0]['id']);
         self::assertSame('https://cards.scryfall.io/art_crop/front/home-commander.jpg', $response['decks'][0]['cropImage']);
         self::assertNull($response['decks'][0]['bracket'], 'List reads do not calculate missing brackets.');
-        self::assertCount(3, $response['commanders']);
-        self::assertCount(3, $response['cards']);
+        self::assertSame([], $response['commanders']);
+        self::assertSame([], $response['cards']);
     }
 
     public function testCommunityDecksReturnsOnlyPublicValidDecks(): void
@@ -536,7 +562,7 @@ class CommunityApiTest extends ApiTestCase
         ));
     }
 
-    public function testCommunityTopCommandersReturnsOnlyCommanderCandidates(): void
+    public function testCommunityTopCommandersReturnsPersistedLifetimeUsages(): void
     {
         $legendaryCandidate = $this->seedCard('53000000-0000-0000-0000-000000000001', 'Legendary Candidate', [
             'type_line' => 'Legendary Creature - Angel',
@@ -545,23 +571,23 @@ class CommunityApiTest extends ApiTestCase
             'type_line' => 'Creature - Shapeshifter',
             'oracle_text' => 'This card can be your commander.',
         ]);
-        $this->seedCard('53000000-0000-0000-0000-000000000003', 'Not A Commander', [
+        $notACommander = $this->seedCard('53000000-0000-0000-0000-000000000003', 'Not A Commander', [
             'type_line' => 'Artifact',
         ]);
+        $this->seedCommunityCounter('commander', $legendaryCandidate, 12);
+        $this->seedCommunityCounter('commander', $oracleCandidate, 27);
+        $this->seedCommunityCounter('commander', $notACommander, 3);
 
         $this->jsonRequest('GET', '/community/top-commanders');
         self::assertResponseIsSuccessful();
 
         $response = $this->jsonResponse();
-        self::assertTrue($response['isPreview']);
-        self::assertSame(2, $response['total']);
-        self::assertSame(
-            "Pr\u{00F3}ximamente: estad\u{00ED}sticas basadas en partidas reales de CommanderZone.",
-            $response['message'],
-        );
+        self::assertFalse($response['isPreview']);
+        self::assertSame(3, $response['total']);
+        self::assertSame('', $response['message']);
         $names = array_values(array_column($response['items'], 'name'));
         sort($names);
-        self::assertSame(['Legendary Candidate', 'Oracle Candidate'], $names);
+        self::assertSame(['Legendary Candidate', 'Not A Commander', 'Oracle Candidate'], $names);
 
         $itemsByScryfallId = [];
         foreach ($response['items'] as $item) {
@@ -573,9 +599,9 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame('creature', $itemsByScryfallId[$legendaryCandidate->scryfallId()]['cardTypeIcon']);
         self::assertIsArray($itemsByScryfallId[$legendaryCandidate->scryfallId()]['imageUris']);
         self::assertIsArray($itemsByScryfallId[$legendaryCandidate->scryfallId()]['cardFaces']);
-        self::assertGreaterThanOrEqual(500, $itemsByScryfallId[$legendaryCandidate->scryfallId()]['timesPlayed']);
-        self::assertLessThanOrEqual(3000, $itemsByScryfallId[$legendaryCandidate->scryfallId()]['timesPlayed']);
+        self::assertSame(12, $itemsByScryfallId[$legendaryCandidate->scryfallId()]['timesPlayed']);
         self::assertSame($oracleCandidate->id(), $itemsByScryfallId[$oracleCandidate->scryfallId()]['id']);
+        self::assertSame(27, $itemsByScryfallId[$oracleCandidate->scryfallId()]['timesPlayed']);
 
         $playedCounts = array_values(array_column($response['items'], 'timesPlayed'));
         $sortedPlayedCounts = $playedCounts;
@@ -583,29 +609,30 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame($sortedPlayedCounts, $playedCounts);
     }
 
-    public function testCommunityTopCardsReturnsOnlyCommanderLegalCards(): void
+    public function testCommunityTopCardsReturnsPersistedLifetimeUsages(): void
     {
         $legalCard = $this->seedCard('54000000-0000-0000-0000-000000000001', 'Legal Community Card', [
             'type_line' => 'Artifact',
         ]);
-        $this->seedCard('54000000-0000-0000-0000-000000000002', 'Banned Community Card', [
+        $bannedCard = $this->seedCard('54000000-0000-0000-0000-000000000002', 'Banned Community Card', [
             'type_line' => 'Artifact',
             'legalities' => ['commander' => 'banned'],
         ]);
+        $this->seedCommunityCounter('card', $legalCard, 15);
+        $this->seedCommunityCounter('card', $bannedCard, 9);
 
         $this->jsonRequest('GET', '/community/top-cards');
         self::assertResponseIsSuccessful();
 
         $response = $this->jsonResponse();
-        self::assertTrue($response['isPreview']);
-        self::assertSame(1, $response['total']);
-        self::assertSame(['Legal Community Card'], array_values(array_column($response['items'], 'name')));
-        self::assertSame([$legalCard->scryfallId()], array_values(array_column($response['items'], 'scryfallId')));
-        self::assertSame([$legalCard->id()], array_values(array_column($response['items'], 'id')));
-        self::assertSame(['Artifact'], array_values(array_column($response['items'], 'cardType')));
-        self::assertSame(['artifact'], array_values(array_column($response['items'], 'cardTypeIcon')));
-        self::assertGreaterThanOrEqual(500, $response['items'][0]['timesPlayed']);
-        self::assertLessThanOrEqual(3000, $response['items'][0]['timesPlayed']);
+        self::assertFalse($response['isPreview']);
+        self::assertSame(2, $response['total']);
+        self::assertSame(['Legal Community Card', 'Banned Community Card'], array_values(array_column($response['items'], 'name')));
+        self::assertSame([$legalCard->scryfallId(), $bannedCard->scryfallId()], array_values(array_column($response['items'], 'scryfallId')));
+        self::assertSame([$legalCard->id(), $bannedCard->id()], array_values(array_column($response['items'], 'id')));
+        self::assertSame(['Artifact', 'Artifact'], array_values(array_column($response['items'], 'cardType')));
+        self::assertSame(['artifact', 'artifact'], array_values(array_column($response['items'], 'cardTypeIcon')));
+        self::assertSame([15, 9], array_values(array_column($response['items'], 'timesPlayed')));
     }
 
     public function testCommunityTopCardsLocalizesRequestedLanguageWithEnglishFallback(): void
@@ -629,6 +656,8 @@ class CommunityApiTest extends ApiTestCase
             'collector_number' => '8',
             'lang' => 'en',
         ]);
+        $this->seedCommunityCounter('card', $localizedCard, 5);
+        $this->seedCommunityCounter('card', $fallbackEnglishCard, 4);
 
         $this->jsonRequest('GET', '/community/top-cards?lang=es');
         self::assertResponseIsSuccessful();
@@ -647,32 +676,47 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame('instant', $itemsByScryfallId[$fallbackEnglishCard->scryfallId()]['cardTypeIcon']);
     }
 
-    public function testCommunityTopPreviewFiltersByTypeAndColor(): void
+    public function testCommunityTopColorsAndArchetypesReturnPersistedLifetimeUsages(): void
     {
-        $this->seedCard('56000000-0000-0000-0000-000000000001', 'Blue Instant', [
-            'type_line' => 'Instant',
-            'colors' => ['U'],
-        ]);
-        $this->seedCard('56000000-0000-0000-0000-000000000002', 'Red Sorcery', [
-            'type_line' => 'Sorcery',
-            'colors' => ['R'],
-        ]);
-        $this->seedCard('56000000-0000-0000-0000-000000000003', 'Colorless Rock', [
-            'type_line' => 'Artifact',
-            'colors' => [],
-        ]);
+        $this->seedCommunityDimensionCounter('color', 'WUB', 8);
+        $this->seedCommunityDimensionCounter('color', 'C', 3);
+        $this->seedCommunityDimensionCounter('archetype', 'tokens', 11);
+        $this->seedCommunityDimensionCounter('archetype', 'unknown', 4);
 
-        $this->jsonRequest('GET', '/community/top-cards?type=instant&colors=U');
+        $this->jsonRequest('GET', '/community/top-colors');
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
-        self::assertSame(1, $response['total']);
-        self::assertSame(['Blue Instant'], array_values(array_column($response['items'], 'name')));
+        self::assertSame(2, $response['total']);
+        self::assertSame('WUB', $response['items'][0]['key']);
+        self::assertSame(['W', 'U', 'B'], $response['items'][0]['colors']);
+        self::assertSame(8, $response['items'][0]['timesPlayed']);
+        self::assertSame('Colorless', $response['items'][1]['label']);
 
-        $this->jsonRequest('GET', '/community/top-cards?type=artifact&colors=C');
+        $this->jsonRequest('GET', '/community/top-archetypes');
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
-        self::assertSame(1, $response['total']);
-        self::assertSame(['Colorless Rock'], array_values(array_column($response['items'], 'name')));
+        self::assertSame(2, $response['total']);
+        self::assertSame(['Tokens', 'Unknown'], array_values(array_column($response['items'], 'label')));
+        self::assertSame([11, 4], array_values(array_column($response['items'], 'timesPlayed')));
+    }
+
+    private function seedCommunityCounter(string $metric, \App\Domain\Card\Card $card, int $usages): void
+    {
+        $subjectKey = $card->oracleId() !== null
+            ? 'oracle:'.$card->oracleId()
+            : 'print:'.$card->scryfallId();
+        $this->seedCommunityDimensionCounter($metric, $subjectKey, $usages);
+    }
+
+    private function seedCommunityDimensionCounter(string $metric, string $subjectKey, int $usages): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO community_counter (format, metric, period, period_start, subject_key, usages)
+VALUES ('commander', :metric, 'lifetime', '1970-01-01', :subjectKey, :usages)
+SQL,
+            ['metric' => $metric, 'subjectKey' => $subjectKey, 'usages' => $usages],
+        );
     }
 
     private function createCommunityDeck(

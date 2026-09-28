@@ -26,12 +26,11 @@ export interface CommunityDeckListViewState {
 }
 
 export interface CommunityPreviewViewState {
-  readonly selectedType: string;
-  readonly selectedColor: string;
   readonly viewMode: 'list' | 'spoiler';
 }
 
 const COMMUNITY_CACHE_TTL_MS = 3 * 60 * 1000;
+const COMMUNITY_LEADERBOARD_CACHE_TTL_MS = 60 * 1000;
 const COMMUNITY_FILTERS_DEFAULT_STATE: CommunityDeckListViewState = {
   searchQuery: '',
   commanderQuery: '',
@@ -41,8 +40,6 @@ const COMMUNITY_FILTERS_DEFAULT_STATE: CommunityDeckListViewState = {
 };
 
 const COMMUNITY_PREVIEW_DEFAULT_STATE: CommunityPreviewViewState = {
-  selectedType: '',
-  selectedColor: '',
   viewMode: 'spoiler',
 };
 
@@ -98,8 +95,8 @@ export class CommunityCacheService {
     const key = this.previewKey(kind, normalizedFilters);
 
     return kind === 'cards'
-      ? this.load(key, () => this.api.topCards(normalizedFilters))
-      : this.load(key, () => this.api.topCommanders(normalizedFilters));
+      ? this.load(key, () => this.api.topCards(normalizedFilters), COMMUNITY_LEADERBOARD_CACHE_TTL_MS)
+      : this.load(key, () => this.api.topCommanders(normalizedFilters), COMMUNITY_LEADERBOARD_CACHE_TTL_MS);
   }
 
   formats(): Promise<readonly DeckFormat[]> {
@@ -169,7 +166,7 @@ export class CommunityCacheService {
     return null;
   }
 
-  private async load<T>(key: string, request: () => Observable<T> | Promise<T>): Promise<T> {
+  private async load<T>(key: string, request: () => Observable<T> | Promise<T>, ttlMs = COMMUNITY_CACHE_TTL_MS): Promise<T> {
     const cached = this.peek<T>(key);
     if (cached !== null) {
       return cached;
@@ -184,7 +181,7 @@ export class CommunityCacheService {
       const value = await this.resolveValue(request());
       this.cache.set(key, {
         value,
-        expiresAt: Date.now() + COMMUNITY_CACHE_TTL_MS,
+          expiresAt: Date.now() + ttlMs,
       });
 
       return value;
@@ -195,7 +192,7 @@ export class CommunityCacheService {
       });
 
     this.cache.set(key, {
-      expiresAt: Date.now() + COMMUNITY_CACHE_TTL_MS,
+      expiresAt: Date.now() + ttlMs,
       pending,
       value: existing?.value,
     });

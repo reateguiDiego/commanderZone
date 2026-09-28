@@ -115,6 +115,9 @@ describe('CommunityPageComponent', () => {
       '/community/top-commanders',
       '/community/top-cards',
     ]);
+    expect(
+      Array.from(element.querySelectorAll<HTMLAnchorElement>('.community-ranking-links a')).map((link) => link.getAttribute('href')),
+    ).toEqual(['/community/top-colors', '/community/top-archetypes']);
   });
 
   it('searches usernames with the friends search service and opens the user canonical route', async () => {

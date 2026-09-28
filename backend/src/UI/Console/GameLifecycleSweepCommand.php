@@ -2,6 +2,7 @@
 
 namespace App\UI\Console;
 
+use App\Application\Community\CommunityStatisticsOutboxProcessor;
 use App\Application\Game\GameRematchLifecycleSweeper;
 use App\Application\Room\Lifecycle\WaitingRoomLifecycleSweeper;
 use App\Infrastructure\Realtime\GameEventPublisher;
@@ -21,6 +22,7 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
     public function __construct(
         private readonly GameRematchLifecycleSweeper $sweeper,
         private readonly WaitingRoomLifecycleSweeper $waitingRoomSweeper,
+        private readonly CommunityStatisticsOutboxProcessor $communityStatisticsOutbox,
         private readonly GameEventPublisher $gamePublisher,
         private readonly RoomEventPublisher $roomPublisher,
     ) {
@@ -47,7 +49,7 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
             if (!$watch || !$this->running) {
                 break;
             }
-            if ($processed === $batchSize) {
+            if ($processed >= $batchSize) {
                 continue;
             }
 
@@ -99,6 +101,6 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
             $this->roomPublisher->publishDeleted($roomId);
         }
 
-        return count($results) + count($deletedWaitingRoomIds);
+        return count($results) + count($deletedWaitingRoomIds) + $this->communityStatisticsOutbox->drain($batchSize);
     }
 }

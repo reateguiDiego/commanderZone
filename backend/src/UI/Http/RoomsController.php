@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Auth\ImpersonationContext;
 use App\Application\Card\CardLocalizationService;
+use App\Application\Community\CommunityStatisticsService;
 use App\Application\Deck\DeckValidator;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
@@ -689,6 +690,7 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
+        CommunityStatisticsService $communityStatistics,
         ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
@@ -794,6 +796,7 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
             $room->start($game);
             $entityManager->persist($game);
             $eventStoreV2?->initializeStartedGame($entityManager, $game, $user);
+            $communityStatistics->enqueueRoomStart($room);
             $entityManager->flush();
             $entityManager->commit();
         } catch (\Throwable $exception) {

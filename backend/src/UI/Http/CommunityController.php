@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Community\CommunityService;
+use App\Application\Community\CommunityStatisticsService;
 use App\Application\Deck\DeckAnalysisService;
 use App\Application\Deck\DeckAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
@@ -233,31 +234,37 @@ class CommunityController extends ApiController
     }
 
     #[Route('/community/top-commanders', methods: ['GET'])]
-    public function topCommanders(Request $request, CommunityService $community): JsonResponse
+    public function topCommanders(Request $request, CommunityStatisticsService $statistics): JsonResponse
     {
         $requestedLanguage = $this->requestedLanguage($request);
         if ($requestedLanguage === false) {
             return $this->fail('lang filter is invalid.');
         }
 
-        return $this->json($community->topCommanders([
-            'type' => $request->query->get('type'),
-            'colors' => $request->query->get('colors'),
-        ], $requestedLanguage));
+        return $this->json($statistics->topCards('commander', 'commander', $requestedLanguage));
     }
 
     #[Route('/community/top-cards', methods: ['GET'])]
-    public function topCards(Request $request, CommunityService $community): JsonResponse
+    public function topCards(Request $request, CommunityStatisticsService $statistics): JsonResponse
     {
         $requestedLanguage = $this->requestedLanguage($request);
         if ($requestedLanguage === false) {
             return $this->fail('lang filter is invalid.');
         }
 
-        return $this->json($community->topCards([
-            'type' => $request->query->get('type'),
-            'colors' => $request->query->get('colors'),
-        ], $requestedLanguage));
+        return $this->json($statistics->topCards('card', 'commander', $requestedLanguage));
+    }
+
+    #[Route('/community/top-colors', methods: ['GET'])]
+    public function topColors(CommunityStatisticsService $statistics): JsonResponse
+    {
+        return $this->json($statistics->topDimensions('color', 'commander'));
+    }
+
+    #[Route('/community/top-archetypes', methods: ['GET'])]
+    public function topArchetypes(CommunityStatisticsService $statistics): JsonResponse
+    {
+        return $this->json($statistics->topDimensions('archetype', 'commander'));
     }
 
     private function requestedLanguage(Request $request): string|false|null

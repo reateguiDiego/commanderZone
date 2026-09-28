@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Community\CommunityStatisticsOutboxProcessor;
 use App\Application\Game\Lifecycle\GameLifecycleHandoff;
 use App\Application\Game\Lifecycle\GameLifecycleProjector;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
@@ -294,6 +295,7 @@ class RoomsGamesApiTest extends ApiTestCase
     {
         $commanderId = '77777777-2222-7333-8444-555555555555';
         $landId = '88888888-2222-7333-8444-555555555555';
+        $nonBasicId = '99999999-2222-7333-8444-555555555555';
         $this->seedCard($commanderId, 'Rulings Commander', [
             'type_line' => 'Legendary Creature - Human Soldier',
             'has_rulings' => true,
@@ -302,16 +304,21 @@ class RoomsGamesApiTest extends ApiTestCase
             'type_line' => 'Basic Land - Plains',
             'has_rulings' => false,
         ]);
+        $this->seedCard($nonBasicId, 'Rulings Relic', [
+            'type_line' => 'Artifact',
+        ]);
 
         $ownerToken = $this->registerAndLogin('rulings-snapshot-owner@example.test', 'Rulings Owner');
         $guestToken = $this->registerAndLogin('rulings-snapshot-guest@example.test', 'Rulings Guest');
         $deckId = $this->quickBuildDeck($ownerToken, 'Rulings Deck', [
             ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
-            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+            ['scryfallId' => $landId, 'quantity' => 98, 'section' => 'main'],
+            ['scryfallId' => $nonBasicId, 'quantity' => 1, 'section' => 'main'],
         ]);
         $guestDeckId = $this->quickBuildDeck($guestToken, 'Guest Rulings', [
             ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
-            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+            ['scryfallId' => $landId, 'quantity' => 98, 'section' => 'main'],
+            ['scryfallId' => $nonBasicId, 'quantity' => 1, 'section' => 'main'],
         ]);
 
         $this->jsonRequest('POST', '/rooms', [
@@ -334,6 +341,32 @@ class RoomsGamesApiTest extends ApiTestCase
         $ownerPlayerId = array_key_first($snapshot['players']);
         self::assertNotNull($ownerPlayerId);
         self::assertTrue($snapshot['players'][$ownerPlayerId]['zones']['command'][0]['hasRulings']);
+
+        $connection = $this->entityManager->getConnection();
+        self::assertSame(1, (int) $connection->fetchOne('SELECT COUNT(*) FROM community_statistics_outbox'));
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM community_counter'));
+
+        self::assertSame(1, static::getContainer()->get(CommunityStatisticsOutboxProcessor::class)->drain());
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM community_statistics_outbox'));
+
+        self::assertSame(2, (int) $connection->fetchOne(
+            "SELECT usages FROM community_counter WHERE format = 'commander' AND metric = 'commander' AND subject_key = :subjectKey",
+            ['subjectKey' => 'print:'.$commanderId],
+        ));
+        self::assertSame(2, (int) $connection->fetchOne(
+            "SELECT usages FROM community_counter WHERE format = 'commander' AND metric = 'card' AND subject_key = :subjectKey",
+            ['subjectKey' => 'print:'.$nonBasicId],
+        ));
+        self::assertFalse((bool) $connection->fetchOne(
+            "SELECT 1 FROM community_counter WHERE format = 'commander' AND metric = 'card' AND subject_key = :subjectKey",
+            ['subjectKey' => 'print:'.$landId],
+        ));
+        self::assertSame(2, (int) $connection->fetchOne(
+            "SELECT usages FROM community_counter WHERE format = 'commander' AND metric = 'color' AND subject_key = 'C'",
+        ));
+        self::assertSame(2, (int) $connection->fetchOne(
+            "SELECT usages FROM community_counter WHERE format = 'commander' AND metric = 'archetype' AND subject_key = 'unknown'",
+        ));
     }
 
     public function testActiveRoomsListReturnsHydratedPlayersWithoutDuplicatingRooms(): void

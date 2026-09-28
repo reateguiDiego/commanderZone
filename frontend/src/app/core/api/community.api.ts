@@ -9,6 +9,7 @@ import {
   CommunityDeckCopyResponse,
   CommunityDeckLikeResponse,
   CommunityDeckListResponse,
+  CommunityDimensionLeaderboardResponse,
   CommunityDiscoveryDetailResponse,
   CommunityHomeResponse,
   CommunityIndexableResponse,
@@ -124,6 +125,14 @@ export class CommunityApi {
     return this.http.get<CommunityPreviewCardsResponse>(`${API_BASE_URL}/community/top-cards`, {
       params: this.queryParams(filters),
     });
+  }
+
+  topColors(): Observable<CommunityDimensionLeaderboardResponse> {
+    return this.http.get<CommunityDimensionLeaderboardResponse>(`${API_BASE_URL}/community/top-colors`);
+  }
+
+  topArchetypes(): Observable<CommunityDimensionLeaderboardResponse> {
+    return this.http.get<CommunityDimensionLeaderboardResponse>(`${API_BASE_URL}/community/top-archetypes`);
   }
 
   private langParams(lang?: string): HttpParams | undefined {

@@ -1,5 +1,5 @@
 import { Card } from './card.model';
-import { CommunityDeckDetail, CommunityDeckSummary, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityUser } from './community.model';
+import { CommunityDeckDetail, CommunityDeckSummary, CommunityDimensionLeaderboard, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityUser } from './community.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { ChatMessage, Game, GameControlPlaneState, GameDisconnectVoteChoice, GameEvent, GameLogEntry, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
@@ -120,6 +120,7 @@ export interface CommunityDeckCopyResponse {
 }
 
 export type CommunityPreviewCardsResponse = CommunityPreviewCards;
+export type CommunityDimensionLeaderboardResponse = CommunityDimensionLeaderboard;
 
 export type CommunityIndexableResponse = CommunityIndexable;
 

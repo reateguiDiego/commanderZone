@@ -64,6 +64,19 @@ export interface CommunityPreviewCards {
   message: string;
 }
 
+export interface CommunityDimensionLeaderboardItem {
+  key: string;
+  label: string;
+  timesPlayed: number;
+  rank: number;
+  colors?: string[];
+}
+
+export interface CommunityDimensionLeaderboard {
+  items: CommunityDimensionLeaderboardItem[];
+  total: number;
+}
+
 export interface CommunityIndexableEntry {
   canonicalPath: string;
   updatedAt: string;
