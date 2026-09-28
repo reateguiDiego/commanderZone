@@ -10,6 +10,7 @@ use App\Application\Card\CardSearchFilterSet;
 use App\Application\Card\CardSearchOptionsProvider;
 use App\Application\Card\CardsLanguageService;
 use App\Domain\Card\Card;
+use App\Domain\Card\FutureCommunityCommanderLegality;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
@@ -1292,6 +1293,9 @@ SQL,
     {
         $name = $this->nullableString($row['name'] ?? null) ?? '';
         $printedName = $this->nullableString($row['printed_name'] ?? null);
+        $legalities = $this->decodeJsonObject($row['legalities'] ?? []);
+        $commanderLegal = (bool) ($row['commander_legal'] ?? false)
+            || FutureCommunityCommanderLegality::applies($legalities);
 
         return [
             'id' => $this->nullableString($row['id'] ?? null) ?? '',
@@ -1306,7 +1310,7 @@ SQL,
             'faceStats' => $this->decodeJsonValue($row['face_stats'] ?? []),
             'colors' => $this->decodeJsonArray($row['colors'] ?? []),
             'colorIdentity' => $this->decodeJsonArray($row['color_identity'] ?? []),
-            'legalities' => $this->decodeJsonObject($row['legalities'] ?? []),
+            'legalities' => FutureCommunityCommanderLegality::normalize($legalities),
             'imageUris' => $this->decodeJsonObject($row['image_uris'] ?? []),
             'cardFaces' => $this->normalizeCardFaces($this->decodeJsonArray($row['card_faces'] ?? [])),
             'hasRulings' => (bool) ($row['has_rulings'] ?? false),
@@ -1315,7 +1319,7 @@ SQL,
             'producedMana' => $this->decodeJsonArray($row['produced_mana'] ?? []),
             'prices' => $this->decodeJsonObject($row['prices'] ?? []),
             'layout' => $this->nullableString($row['layout'] ?? null) ?? 'normal',
-            'commanderLegal' => (bool) ($row['commander_legal'] ?? false),
+            'commanderLegal' => $commanderLegal,
             'set' => $this->nullableString($row['set_code'] ?? null),
             'setName' => $this->nullableString($row['set_name'] ?? null),
             'rarity' => $this->nullableString($row['rarity'] ?? null),

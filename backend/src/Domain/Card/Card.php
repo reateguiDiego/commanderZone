@@ -362,7 +362,7 @@ class Card
 
     public function isCommanderLegal(): bool
     {
-        return $this->commanderLegal;
+        return $this->commanderLegal || FutureCommunityCommanderLegality::applies($this->legalities);
     }
 
     public function setName(): ?string
@@ -377,6 +377,10 @@ class Card
 
     public function legalityInFormat(string $format): ?string
     {
+        if ($format === 'commander' && FutureCommunityCommanderLegality::applies($this->legalities)) {
+            return 'legal';
+        }
+
         $value = $this->legalities[$format] ?? null;
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
@@ -385,7 +389,7 @@ class Card
     public function isLegalInFormat(string $format): bool
     {
         if ($format === 'commander') {
-            return $this->commanderLegal;
+            return $this->isCommanderLegal();
         }
 
         return $this->legalityInFormat($format) === 'legal';
@@ -412,7 +416,7 @@ class Card
             'faceStats' => $this->faceStats(),
             'colors' => $this->colors,
             'colorIdentity' => $this->colorIdentity,
-            'legalities' => $this->legalities,
+            'legalities' => FutureCommunityCommanderLegality::normalize($this->legalities),
             'imageUris' => $this->imageUris,
             'cardFaces' => $this->cardFaces(),
             'hasRulings' => $this->hasRulings,
@@ -422,7 +426,7 @@ class Card
             'producedMana' => $this->producedMana,
             'prices' => $this->prices,
             'layout' => $this->layout,
-            'commanderLegal' => $this->commanderLegal,
+            'commanderLegal' => $this->isCommanderLegal(),
             'set' => $this->setCode,
             'setName' => $this->setName,
             'rarity' => $this->rarity,

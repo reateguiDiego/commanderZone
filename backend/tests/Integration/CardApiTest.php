@@ -60,6 +60,32 @@ class CardApiTest extends ApiTestCase
         ], array_column($this->jsonResponse()['cards'], 'scryfallId'));
     }
 
+    public function testFutureCommunityCommanderLegalityIsDerivedWithoutChangingTheStoredCard(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-000000000013', 'Ajani, Resolute', [
+            'legalities' => [
+                'commander' => 'not_legal',
+                'future' => 'legal',
+                'tlr' => 'legal',
+            ],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=Ajani%2C%20Resolute&formats=commander&limit=5');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($card->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+        self::assertTrue($this->jsonResponse()['data'][0]['commanderLegal']);
+        self::assertSame('legal', $this->jsonResponse()['data'][0]['legalities']['commander']);
+
+        $storedCard = $this->entityManager->getConnection()->fetchAssociative(
+            'SELECT legalities, CASE WHEN commander_legal THEN 1 ELSE 0 END AS commander_legal FROM card WHERE scryfall_id = :scryfallId',
+            ['scryfallId' => $card->scryfallId()],
+        );
+        self::assertIsArray($storedCard);
+        self::assertSame('not_legal', json_decode((string) $storedCard['legalities'], true, 512, JSON_THROW_ON_ERROR)['commander']);
+        self::assertSame(0, (int) $storedCard['commander_legal']);
+    }
+
     public function testCommanderCandidateSearchUsesCanonicalCardTextBeforeLocalization(): void
     {
         $commander = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Atraxa, Grand Unifier', [

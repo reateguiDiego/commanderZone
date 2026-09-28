@@ -334,12 +334,7 @@ class CommanderDeckValidator
 
     private function commanderLegality(Card $card): ?string
     {
-        $value = $card->legalities()['commander'] ?? null;
-        if (!is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return trim($value);
+        return $card->legalityInFormat('commander');
     }
 
     private function commanderBanlistReason(Card $card): ?string
