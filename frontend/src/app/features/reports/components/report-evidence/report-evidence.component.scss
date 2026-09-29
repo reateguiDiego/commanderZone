@@ -1,0 +1,196 @@
+:host {
+  display: block;
+}
+
+.report-evidence {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.report-evidence__section,
+.report-evidence__stream-section {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.report-evidence h5,
+.report-evidence h6 {
+  margin: 0;
+  color: rgb(var(--cz-text-rgb) / 88%);
+}
+
+.report-evidence h5 {
+  font-size: 0.84rem;
+}
+
+.report-evidence h6 {
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.report-evidence__captured-at,
+.report-evidence__awaiting,
+.report-evidence__empty {
+  margin: 0;
+  color: rgb(var(--cz-text-rgb) / 64%);
+  font-size: 0.78rem;
+}
+
+.report-evidence__profile-snapshot,
+.report-evidence__stream {
+  overflow: auto;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 15%);
+  border-radius: 7px;
+  background: rgb(var(--cz-bg-rgb) / 42%);
+  scrollbar-color: transparent transparent;
+}
+
+.report-evidence__profile-snapshot {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 18rem;
+  padding: 0.7rem;
+}
+
+.report-evidence__profile-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.report-evidence__avatar {
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.report-evidence__profile-identity {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.report-evidence__profile-identity strong,
+.report-evidence__profile-identity span,
+.report-evidence__named-evidence li,
+.report-evidence__stream-entry {
+  overflow-wrap: anywhere;
+}
+
+.report-evidence__profile-identity strong {
+  color: var(--cz-text);
+  font-size: 0.9rem;
+}
+
+.report-evidence__profile-identity span {
+  color: rgb(var(--cz-text-rgb) / 62%);
+  font-size: 0.78rem;
+}
+
+.report-evidence__named-evidence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.report-evidence__named-evidence section {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.report-evidence__named-evidence ul {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0;
+  padding-inline-start: 1.05rem;
+}
+
+.report-evidence__named-evidence li {
+  color: rgb(var(--cz-text-rgb) / 82%);
+  font-size: 0.78rem;
+}
+
+.report-evidence__named-evidence .report-evidence__empty {
+  list-style: none;
+  margin-inline-start: -1.05rem;
+}
+
+.report-evidence__stream {
+  display: grid;
+  align-content: start;
+  gap: 0.28rem;
+  max-height: 14rem;
+  padding: 0.55rem;
+}
+
+.report-evidence__stream-entry {
+  margin: 0;
+  color: rgb(var(--cz-text-rgb) / 84%);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.report-evidence__stream-entry time {
+  color: var(--cz-info);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-evidence__stream-entry strong {
+  color: rgb(var(--cz-text-rgb) / 94%);
+  font-size: 0.78rem;
+}
+
+.report-evidence__entry-text {
+  white-space: pre-wrap;
+}
+
+.report-evidence__profile-snapshot::-webkit-scrollbar,
+.report-evidence__stream::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+.report-evidence__profile-snapshot::-webkit-scrollbar-track,
+.report-evidence__stream::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.report-evidence__profile-snapshot::-webkit-scrollbar-thumb,
+.report-evidence__stream::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.report-evidence__profile-snapshot.is-scrolling,
+.report-evidence__stream.is-scrolling {
+  scrollbar-color: rgb(var(--cz-accent-rgb) / 62%) rgb(var(--cz-bg-rgb) / 42%);
+}
+
+.report-evidence__profile-snapshot.is-scrolling::-webkit-scrollbar-track,
+.report-evidence__stream.is-scrolling::-webkit-scrollbar-track {
+  background: rgb(var(--cz-bg-rgb) / 42%);
+}
+
+.report-evidence__profile-snapshot.is-scrolling::-webkit-scrollbar-thumb,
+.report-evidence__stream.is-scrolling::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--cz-accent-rgb) / 86%),
+    rgb(var(--cz-primary-rgb) / 88%)
+  );
+}
+
+@media (max-width: 620px) {
+  .report-evidence__named-evidence {
+    grid-template-columns: 1fr;
+  }
+}

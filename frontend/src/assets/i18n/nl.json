@@ -1,4 +1,14 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Speler melden", "reportMessage": "Bericht melden" },
+    "modal": { "title": "Melden", "submit": "Melding versturen", "reporting": "Je meldt {{ name }}", "categoryLabel": "Categorie", "commentLabel": "Aanvullende informatie", "commentPlaceholder": "Vertel de moderatoren wat er is gebeurd.", "commentRequiredHint": "Beschrijf het probleem.", "commentRequired": "Voor deze categorie is een beschrijving verplicht.", "success": "Je melding is verzonden.\nBedankt dat je helpt om CommanderZone gastvrij te houden." },
+    "errors": { "duplicate": "Je hebt al een open melding over deze gebruiker.", "submit": "We konden deze melding niet versturen. Probeer het opnieuw." },
+    "categories": { "harassment": "Intimidatie of pesten", "discriminationOrUnwantedSexualContent": "Discriminatie of ongewenste seksuele inhoud", "threatsOrSafety": "Bedreigingen of veiligheidsrisico's", "personalDataExposure": "Openbaarmaking van persoonsgegevens", "spamAdvertisingScamPhishing": "Spam, reclame, fraude of phishing", "impersonation": "Identiteitsmisbruik", "publicOffensiveContent": "Openbare aanstootgevende inhoud", "intentionalGameDisruption": "Opzettelijke verstoring van het spel", "seriousGameplayDeception": "Ernstige misleiding tijdens het spel", "otherProblem": "Ander probleem" },
+    "sources": { "profile": "Profiel", "game_player": "Speler in de partij", "chat_message": "Chatbericht" },
+    "fairPlay": { "title": "Speel eerlijk", "message": "We willen een CommanderZone-community die gebaseerd is op respect. Houd de chat netjes, respecteer je tegenstanders en wees eerlijk. Als een gebruiker deze regels overtreedt, kun je diegene melden door met de rechtermuisknop op diens slagveld of chatbericht te klikken. Heel erg bedankt — en nu: win deze partij, Commander!" },
+    "summary": { "pendingAriaLabel": "{{ count }} meldingen wachten op beoordeling" },
+    "moderation": { "loadingUser": "Moderatieprofiel wordt geladen...", "queue": { "title": "Moderatie-wachtrij", "description": "Openstaande meldingen zijn gerangschikt op het moment van indienen.", "ariaLabel": "Openstaande moderatiemeldingen", "pendingCount": "{{ count }} in afwachting", "loading": "Laden...", "empty": "Er zijn geen meldingen die op beoordeling wachten.", "page": "Pagina {{ page }} van {{ totalPages }}" }, "detail": { "loading": "De details van de melding worden geladen...", "reportedBy": "Gemeld door {{ name }}", "source": "Bron", "gameId": "Spel-ID", "messageId": "Bericht-ID", "comment": "Opmerking van de melder", "selectPrompt": "Kies een openstaande melding om het bewijs te beoordelen." }, "evidence": { "title": "Bewijs", "profileSnapshot": "Profielsnapshot", "avatarAlt": "Avatar van {{ name }}", "folders": "Mappen", "noFolders": "Geen mappen", "noDecks": "Geen decks", "ownedRooms": "Eigen kamers", "noOwnedRooms": "Geen eigen kamers", "gameSnapshot": "Partijsnapshot", "capturedAt": "Vastgelegd op {{ date }}", "noChat": "Er is geen chatbewijs vastgelegd.", "gameLog": "Partijlog", "noGameLog": "Er is geen partijlog vastgelegd.", "awaiting": "Er is nog geen bewijs beschikbaar voor deze melding." }, "resolution": { "resolved": "Afhandeling", "title": "Melding afhandelen", "outcomeLabel": "Uitkomst", "outcomes": { "nothing": "Geen actie", "strike": "Waarschuwing opleggen" } }, "userDrawer": { "title": "Gebruikersmoderatie", "open": "Meer gebruikersinformatie", "reportsMade": "Ingediende meldingen", "reportsReceived": "Ontvangen meldingen", "tabs": { "ariaLabel": "Onderdelen van gebruikersmoderatie" }}, "strikes": { "addLabel": "Waarschuwing toevoegen", "descriptionLabel": "Beschrijving van de waarschuwing", "descriptionPlaceholder": "Leg de waarschuwing uit.", "descriptionRequired": "Een beschrijving voor de waarschuwing is verplicht.", "add": "Waarschuwing toevoegen", "listLabel": "Waarschuwingen van de gebruiker", "listTitle": "Waarschuwingen", "deleteAriaLabel": "Waarschuwing verwijderen", "empty": "Deze gebruiker heeft geen waarschuwingen.", "issuedBy": "Aangemaakt door {{ name }}", "issuedByUnavailable": "Maker niet beschikbaar" }, "messages": { "listLabel": "Berichten die naar deze gebruiker zijn gestuurd", "empty": "Er zijn geen berichten naar deze gebruiker gestuurd.", "sentBy": "Verzonden door {{ name }}" }, "errors": { "loadQueue": "De moderatie-wachtrij kon niet worden geladen.", "loadReport": "Deze melding kon niet worden geladen.", "resolveReport": "Deze melding kon niet worden afgehandeld.", "loadUser": "Het moderatieprofiel van de gebruiker kon niet worden geladen.", "createStrike": "De waarschuwing kon niet worden toegevoegd.", "deleteStrike": "De waarschuwing kon niet worden verwijderd.", "loadMessages": "De berichten van deze gebruiker konden niet worden geladen." } }
+  },
   "admin": {
     "title": "Beheer",
     "navigation": {
@@ -67,13 +77,17 @@
         "mobileToggle": "Filters en sortering"
       },
       "columns": {
-        "auth": "Authenticatie",
+        "basicData": "Basisgegevens",
         "lastConnectedAt": "Laatst verbonden",
         "role": "Rol",
-        "localization": "Locatie"
+        "localization": "Locatie",
+        "moderation": "Moderatie"
       },
       "roles": {
-        "user": "Gebruiker"
+        "user": "Gebruiker",
+        "support": "Ondersteuning",
+        "admin": "Beheerder",
+        "owner": "Eigenaar"
       },
       "premium": {
         "none": "Geen",
@@ -2452,7 +2466,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "Commanderschade toepassen",
-      "reports": "Reports",
+      "reports": "Meldingen",
       "notifications": "Notifications",
       "noUsersFound": "Geen gebruikers gevonden.",
       "subject": "Onderwerp",
@@ -2542,6 +2556,7 @@
       "createRoom": "Kamer maken",
       "turn": "Beurt",
       "deleteRoom": "Kamer verwijderen",
+      "delete": "Verwijderen",
       "timer": "Timer",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

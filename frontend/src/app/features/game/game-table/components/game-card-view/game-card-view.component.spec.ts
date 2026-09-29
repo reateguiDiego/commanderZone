@@ -1,6 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { CircleQuestionMark, Eye, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
+import {
+  CircleQuestionMark,
+  Eye,
+  Layers3,
+  Link,
+  LucideAngularModule,
+  RotateCw,
+} from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -34,7 +41,9 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('faceDown', true);
     fixture.detectChanges();
 
-    const indicator = fixture.nativeElement.querySelector('.reveal-indicator') as HTMLElement | null;
+    const indicator = fixture.nativeElement.querySelector(
+      '.reveal-indicator',
+    ) as HTMLElement | null;
     expect(indicator).not.toBeNull();
     expect(indicator?.textContent).not.toContain('Revealed to');
     expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
@@ -261,7 +270,9 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('landStackDropKind', 'attachment');
     fixture.detectChanges();
 
-    const badge = fixture.nativeElement.querySelector('.land-stack-preview-badge') as HTMLElement | null;
+    const badge = fixture.nativeElement.querySelector(
+      '.land-stack-preview-badge',
+    ) as HTMLElement | null;
 
     expect(cardElement.classList).toContain('land-stack-drop-target');
     expect(cardElement.classList).toContain('attachment-stack-drop-target');
@@ -280,7 +291,9 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('landStackDropSize', 3);
     fixture.detectChanges();
 
-    const badge = fixture.nativeElement.querySelector('.land-stack-preview-badge') as HTMLElement | null;
+    const badge = fixture.nativeElement.querySelector(
+      '.land-stack-preview-badge',
+    ) as HTMLElement | null;
 
     expect(cardElement.classList).toContain('land-stack-drop-target');
     expect(cardElement.classList).not.toContain('attachment-stack-drop-target');
@@ -293,11 +306,13 @@ describe('GameCardViewComponent', () => {
     const pointerDown = vi.fn();
     fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
 
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-    }));
+    cardElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+      }),
+    );
 
     expect(pointerDown).toHaveBeenCalledWith({
       event: expect.any(PointerEvent),
@@ -310,11 +325,13 @@ describe('GameCardViewComponent', () => {
     const pointerDown = vi.fn();
     fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
 
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-    }));
+    cardElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+      }),
+    );
 
     expect(pointerDown).toHaveBeenCalledOnce();
   });
@@ -327,7 +344,9 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'normal' });
     fixture.detectChanges();
 
-    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    const pin = fixture.nativeElement.querySelector(
+      'app-dungeon-location-pin',
+    ) as HTMLElement | null;
     expect(pin).not.toBeNull();
   });
 
@@ -344,7 +363,9 @@ describe('GameCardViewComponent', () => {
     });
     fixture.detectChanges();
 
-    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    const pin = fixture.nativeElement.querySelector(
+      'app-dungeon-location-pin',
+    ) as HTMLElement | null;
     expect(pin).not.toBeNull();
   });
 
@@ -355,7 +376,11 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.2, y: 0.3 } });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      dungeonMarker: { x: 0.2, y: 0.3 },
+    });
     fixture.detectChanges();
 
     const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
@@ -375,9 +400,33 @@ describe('GameCardViewComponent', () => {
     pin.hasPointerCapture = vi.fn(() => true);
     pin.releasePointerCapture = vi.fn();
 
-    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 40, clientY: 80 }));
-    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
-    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
+    pin.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 40,
+        clientY: 80,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 140,
+        clientY: -10,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 140,
+        clientY: -10,
+      }),
+    );
 
     fixture.detectChanges();
 
@@ -387,7 +436,11 @@ describe('GameCardViewComponent', () => {
       marker: { x: 1, y: 0 },
     });
 
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 1, y: 0 } });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      dungeonMarker: { x: 1, y: 0 },
+    });
     fixture.detectChanges();
   });
 
@@ -398,7 +451,11 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      dungeonMarker: { x: 0.5, y: 0.5 },
+    });
     fixture.detectChanges();
 
     const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
@@ -418,9 +475,33 @@ describe('GameCardViewComponent', () => {
     pin.hasPointerCapture = vi.fn(() => true);
     pin.releasePointerCapture = vi.fn();
 
-    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
-    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
-    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+    pin.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 60,
+        clientY: 90,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 70,
+        clientY: 120,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 70,
+        clientY: 120,
+      }),
+    );
 
     expect(changed).toHaveBeenCalledWith({
       event: expect.any(PointerEvent),
@@ -436,7 +517,11 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      dungeonMarker: { x: 0.5, y: 0.5 },
+    });
     fixture.detectChanges();
 
     const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
@@ -467,9 +552,33 @@ describe('GameCardViewComponent', () => {
     pin.hasPointerCapture = vi.fn(() => true);
     pin.releasePointerCapture = vi.fn();
 
-    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 120 }));
-    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
-    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
+    pin.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: 60,
+        clientY: 120,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: -50,
+        clientY: -50,
+      }),
+    );
+    pin.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        button: 0,
+        pointerId: 7,
+        clientX: -50,
+        clientY: -50,
+      }),
+    );
 
     const marker = changed.mock.calls.at(-1)?.[0].marker;
     expect(marker.x).toBeCloseTo(0.126);
@@ -487,11 +596,17 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      dungeonMarker: { x: 0.5, y: 0.5 },
+    });
     fixture.detectChanges();
 
     const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
-    const cardElement = fixture.nativeElement.querySelector('[data-testid="game-card"]') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-testid="game-card"]',
+    ) as HTMLElement;
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
     const rect = {
       left: 10,
@@ -509,31 +624,70 @@ describe('GameCardViewComponent', () => {
     pin.setPointerCapture = vi.fn();
     pin.hasPointerCapture = vi.fn(() => true);
     pin.releasePointerCapture = vi.fn();
+    const queuedAnimationFrames: FrameRequestCallback[] = [];
+    const requestAnimationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback): number => {
+        queuedAnimationFrames.push(callback);
+        return queuedAnimationFrames.length;
+      });
+    try {
+      pin.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          button: 0,
+          pointerId: 7,
+          clientX: 60,
+          clientY: 90,
+        }),
+      );
+      const queuedFrameCountBeforeMove = queuedAnimationFrames.length;
+      cardElement.dispatchEvent(
+        new PointerEvent('pointerleave', {
+          bubbles: true,
+          pointerId: 7,
+          clientX: 70,
+          clientY: 120,
+        }),
+      );
+      pin.dispatchEvent(
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          button: 0,
+          pointerId: 7,
+          clientX: 70,
+          clientY: 120,
+        }),
+      );
+      expect(queuedAnimationFrames).toHaveLength(queuedFrameCountBeforeMove + 1);
+      queuedAnimationFrames.at(-1)?.(0);
 
-    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
-    cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerId: 7, clientX: 70, clientY: 120 }));
-    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
-    await nextAnimationFrame();
-
-    const preview = previewRequested.mock.calls.at(-1)?.[0];
-    const markerPreview = previewMarkerChanged.mock.calls.at(-1)?.[0];
-    expect(previewHidden).not.toHaveBeenCalled();
-    expect(preview).toEqual(expect.objectContaining({
-      card: expect.objectContaining({
-        dungeonMarker: { x: 0.5, y: 0.5 },
-      }),
-      sourceRect: expect.objectContaining({
-        left: 10,
-        top: 20,
-        width: 100,
-        height: 200,
-      }),
-    }));
-    expect(previewRequested).toHaveBeenCalledOnce();
-    expect(markerPreview).toEqual(expect.objectContaining({
-      card: fixture.componentInstance.card(),
-      marker: { x: 0.6, y: 0.65 },
-    }));
+      const preview = previewRequested.mock.calls.at(-1)?.[0];
+      const markerPreview = previewMarkerChanged.mock.calls.at(-1)?.[0];
+      expect(previewHidden).not.toHaveBeenCalled();
+      expect(preview).toEqual(
+        expect.objectContaining({
+          card: expect.objectContaining({
+            dungeonMarker: { x: 0.5, y: 0.5 },
+          }),
+          sourceRect: expect.objectContaining({
+            left: 10,
+            top: 20,
+            width: 100,
+            height: 200,
+          }),
+        }),
+      );
+      expect(previewRequested).toHaveBeenCalledOnce();
+      expect(markerPreview).toEqual(
+        expect.objectContaining({
+          card: fixture.componentInstance.card(),
+          marker: { x: 0.6, y: 0.65 },
+        }),
+      );
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
   });
 
   it('emits double click output from touch double tap', async () => {
@@ -544,7 +698,12 @@ describe('GameCardViewComponent', () => {
 
     tap(cardElement, { pointerType: 'touch', pointerId: 1, clientX: 20, clientY: 30 });
     vi.advanceTimersByTime(140);
-    const secondUp = tap(cardElement, { pointerType: 'touch', pointerId: 2, clientX: 21, clientY: 30 });
+    const secondUp = tap(cardElement, {
+      pointerType: 'touch',
+      pointerId: 2,
+      clientX: 21,
+      clientY: 30,
+    });
 
     expect(doubleClicked).toHaveBeenCalledWith({
       event: secondUp,
@@ -564,7 +723,11 @@ describe('GameCardViewComponent', () => {
 
     cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
 
-    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'dungeon' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      typeLine: 'Dungeon',
+      layout: 'dungeon',
+    });
     fixture.detectChanges();
 
     cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
@@ -578,30 +741,36 @@ describe('GameCardViewComponent', () => {
     const doubleClicked = vi.fn();
     fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
 
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-      pointerType: 'touch',
-      clientX: 20,
-      clientY: 30,
-    }));
-    window.dispatchEvent(new PointerEvent('pointermove', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-      pointerType: 'touch',
-      clientX: 38,
-      clientY: 30,
-    }));
-    window.dispatchEvent(new PointerEvent('pointerup', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-      pointerType: 'touch',
-      clientX: 38,
-      clientY: 30,
-    }));
+    cardElement.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 20,
+        clientY: 30,
+      }),
+    );
+    window.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 38,
+        clientY: 30,
+      }),
+    );
+    window.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 38,
+        clientY: 30,
+      }),
+    );
     vi.advanceTimersByTime(140);
     tap(cardElement, { pointerType: 'touch', pointerId: 2, clientX: 20, clientY: 30 });
 
@@ -657,7 +826,9 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('loyaltyValue', 3);
     fixture.detectChanges();
 
-    const loyaltyCounter = fixture.nativeElement.querySelector('.loyalty-counter') as HTMLElement | null;
+    const loyaltyCounter = fixture.nativeElement.querySelector(
+      '.loyalty-counter',
+    ) as HTMLElement | null;
     expect(loyaltyCounter).not.toBeNull();
     expect(loyaltyCounter?.textContent?.trim()).toBe('3');
     expect(fixture.nativeElement.querySelector('.power-toughness-overlay')).toBeNull();
@@ -881,7 +1052,6 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
     fixture.detectChanges();
     expectFlipThenClear();
-
   });
 
   it('shows a centered face look affordance for double-faced cards and previews the other face', async () => {
@@ -900,10 +1070,7 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('card', {
       ...gameCard(),
       name: 'Birgi, God of Storytelling // Harnfel, Horn of Bounty',
-      cardFaces: [
-        cardFace('Birgi, God of Storytelling'),
-        cardFace('Harnfel, Horn of Bounty'),
-      ],
+      cardFaces: [cardFace('Birgi, God of Storytelling'), cardFace('Harnfel, Horn of Bounty')],
     });
     fixture.detectChanges();
 
@@ -916,15 +1083,19 @@ describe('GameCardViewComponent', () => {
 
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    expect(previewShown).toHaveBeenCalledWith(expect.objectContaining({
-      card: expect.objectContaining({ activeFaceIndex: 1 }),
-    }));
+    expect(previewShown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        card: expect.objectContaining({ activeFaceIndex: 1 }),
+      }),
+    );
 
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    expect(previewShown).toHaveBeenLastCalledWith(expect.objectContaining({
-      card: expect.objectContaining({ activeFaceIndex: 0 }),
-    }));
+    expect(previewShown).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        card: expect.objectContaining({ activeFaceIndex: 0 }),
+      }),
+    );
 
     toggle?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 
@@ -934,9 +1105,11 @@ describe('GameCardViewComponent', () => {
 
     toggle?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
 
-    expect(menuOpened).toHaveBeenCalledWith(expect.objectContaining({
-      card: expect.objectContaining({ instanceId: 'card-1' }),
-    }));
+    expect(menuOpened).toHaveBeenCalledWith(
+      expect.objectContaining({
+        card: expect.objectContaining({ instanceId: 'card-1' }),
+      }),
+    );
 
     cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
     cardElement.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
@@ -949,7 +1122,11 @@ describe('GameCardViewComponent', () => {
   it('shows a smaller face look affordance in mini mode and emits the alternate preview request', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
+      providers: [
+        importProvidersFrom(
+          LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }),
+        ),
+      ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -960,16 +1137,15 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('mode', 'mini');
     fixture.componentRef.setInput('card', {
       ...gameCard(),
-      cardFaces: [
-        cardFace('Birgi, God of Storytelling'),
-        cardFace('Harnfel, Horn of Bounty'),
-      ],
+      cardFaces: [cardFace('Birgi, God of Storytelling'), cardFace('Harnfel, Horn of Bounty')],
     });
     fixture.componentRef.setInput('playerId', 'player-1');
     fixture.componentRef.setInput('zone', 'battlefield');
     fixture.detectChanges();
 
-    const miniCard = fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]') as HTMLElement;
+    const miniCard = fixture.nativeElement.querySelector(
+      '[data-testid="mini-battlefield-card"]',
+    ) as HTMLElement;
     const toggle = miniCard.querySelector('.double-face-toggle') as HTMLElement | null;
 
     expect(toggle).not.toBeNull();
@@ -978,12 +1154,18 @@ describe('GameCardViewComponent', () => {
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    expect(previewRequested).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      card: expect.objectContaining({ activeFaceIndex: 1 }),
-    }));
-    expect(previewRequested).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      card: expect.objectContaining({ activeFaceIndex: 0 }),
-    }));
+    expect(previewRequested).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        card: expect.objectContaining({ activeFaceIndex: 1 }),
+      }),
+    );
+    expect(previewRequested).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        card: expect.objectContaining({ activeFaceIndex: 0 }),
+      }),
+    );
     expect(clicked).not.toHaveBeenCalled();
   });
 
@@ -994,10 +1176,7 @@ describe('GameCardViewComponent', () => {
       ...gameCard(),
       name: 'Birgi, God of Storytelling // Harnfel, Horn of Bounty',
       hidden: true,
-      cardFaces: [
-        cardFace('Birgi, God of Storytelling'),
-        cardFace('Harnfel, Horn of Bounty'),
-      ],
+      cardFaces: [cardFace('Birgi, God of Storytelling'), cardFace('Harnfel, Horn of Bounty')],
     });
     fixture.detectChanges();
 
@@ -1009,10 +1188,7 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('card', {
       ...gameCard(),
-      cardFaces: [
-        cardFace('Visible Face'),
-        emptyCardFace(),
-      ],
+      cardFaces: [cardFace('Visible Face'), emptyCardFace()],
     });
     fixture.detectChanges();
 
@@ -1047,7 +1223,9 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain('level0');
+    expect(fixture.nativeElement.querySelector('.counter-marker')?.textContent?.trim()).toContain(
+      'level0',
+    );
 
     fixture.componentInstance.changeCounter({
       event: new MouseEvent('click'),
@@ -1055,7 +1233,9 @@ describe('GameCardViewComponent', () => {
       delta: 1,
     });
 
-    expect(counterChanged).toHaveBeenCalledWith(expect.objectContaining({ key: 'level', delta: 1 }));
+    expect(counterChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'level', delta: 1 }),
+    );
   });
 
   it('does not request deletion when The Ring level-zero counter is right-clicked', async () => {
@@ -1273,7 +1453,9 @@ describe('GameCardViewComponent', () => {
     });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe('I');
+    expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe(
+      'I',
+    );
     expect(fixture.nativeElement.querySelector('.battle-counter')).toBeNull();
 
     fixture.componentRef.setInput('card', {
@@ -1485,12 +1667,20 @@ describe('GameCardViewComponent', () => {
   it('does not render marker rails in mini mode', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
+      providers: [
+        importProvidersFrom(
+          LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }),
+        ),
+      ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
     fixture.componentRef.setInput('mode', 'mini');
-    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 1 }, isTokenCopy: true });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      counters: { red: 1 },
+      isTokenCopy: true,
+    });
     fixture.componentRef.setInput('playerId', 'player-1');
     fixture.componentRef.setInput('zone', 'battlefield');
     fixture.componentRef.setInput('miniLeftPx', 0);
@@ -1499,10 +1689,11 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('miniHeightPx', 56);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]'),
+    ).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-card-marker-rail')).toBeNull();
   });
-
 });
 
 async function renderHandCard(
@@ -1510,7 +1701,11 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }))],
+    providers: [
+      importProvidersFrom(
+        LucideAngularModule.pick({ CircleQuestionMark, Eye, Link, Layers3, RotateCw }),
+      ),
+    ],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -1539,10 +1734,7 @@ function undercityInitiativeCard(): GameCardInstance {
   return {
     ...gameCard(),
     name: 'Undercity // The Initiative',
-    cardFaces: [
-      cardFace('Undercity'),
-      cardFace('The Initiative'),
-    ],
+    cardFaces: [cardFace('Undercity'), cardFace('The Initiative')],
   };
 }
 
@@ -1551,10 +1743,7 @@ function theRingCard(): GameCardInstance {
     ...gameCard(),
     name: 'The Ring // The Ring Tempts You',
     layout: 'double_faced_token',
-    cardFaces: [
-      cardFace('The Ring'),
-      cardFace('The Ring Tempts You'),
-    ],
+    cardFaces: [cardFace('The Ring'), cardFace('The Ring Tempts You')],
   };
 }
 
@@ -1586,26 +1775,26 @@ function emptyCardFace() {
   };
 }
 
-function statElements(fixture: ComponentFixture<GameCardViewComponent>): [HTMLElement, HTMLElement] {
-  const elements = Array.from(fixture.nativeElement.querySelectorAll('.power-toughness-overlay span')) as HTMLElement[];
+function statElements(
+  fixture: ComponentFixture<GameCardViewComponent>,
+): [HTMLElement, HTMLElement] {
+  const elements = Array.from(
+    fixture.nativeElement.querySelectorAll('.power-toughness-overlay span'),
+  ) as HTMLElement[];
   expect(elements.length).toBe(2);
 
   return [elements[0]!, elements[1]!];
 }
 
-function nextAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-}
-
 function tap(target: EventTarget, init: PointerEventInit): PointerEvent {
-  target.dispatchEvent(new PointerEvent('pointerdown', {
-    bubbles: true,
-    cancelable: true,
-    button: 0,
-    ...init,
-  }));
+  target.dispatchEvent(
+    new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      ...init,
+    }),
+  );
   const up = new PointerEvent('pointerup', {
     bubbles: true,
     cancelable: true,

@@ -51,8 +51,10 @@ export class GameChatMessageComponent {
   readonly hasAnyReaction = input.required<(message: ChatMessage) => boolean>();
   readonly shouldShowReactionUsers =
     input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
+  readonly canReport = input<(message: ChatMessage) => boolean>(() => false);
 
   readonly reactionToggled = output<GameChatReactionToggle>();
+  readonly reportRequested = output<ChatMessage>();
   protected readonly reactionOverlayDismissed = signal(false);
   protected readonly reactionOverlay = signal<ReactionOverlayPosition | null>(null);
   protected readonly reactionUsersTooltip = signal<ReactionUsersTooltip | null>(null);
@@ -72,6 +74,15 @@ export class GameChatMessageComponent {
     this.reactionOverlay.set(null);
     this.reactionUsersTooltip.set(null);
     this.reactionToggled.emit({ event, message: this.message(), reaction });
+  }
+
+  requestReport(event: MouseEvent): void {
+    event.stopPropagation();
+    this.reactionOverlay.set(null);
+    this.reactionUsersTooltip.set(null);
+    if (this.canReport()(this.message())) {
+      this.reportRequested.emit(this.message());
+    }
   }
 
   showReactionUsers(event: MouseEvent, reaction: ChatReactionType): void {
@@ -121,7 +132,8 @@ export class GameChatMessageComponent {
   private positionReactionOverlay(anchor: EventTarget | null): void {
     const entry = anchor instanceof HTMLElement ? anchor.closest<HTMLElement>('.chat-entry') : null;
     const messageBody = entry?.querySelector<HTMLElement>('.chat-message-body');
-    if (!entry || !messageBody || !this.canReact()(this.message())) {
+    const message = this.message();
+    if (!entry || !messageBody || (!this.canReact()(message) && !this.canReport()(message))) {
       this.reactionOverlay.set(null);
       return;
     }

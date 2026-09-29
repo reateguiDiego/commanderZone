@@ -1,4 +1,7 @@
-<div class="app-route-frame" [class.app-route-frame-with-noindex-disclaimer]="showNoindexFooterDisclaimer()">
+<div
+  class="app-route-frame"
+  [class.app-route-frame-with-noindex-disclaimer]="showNoindexFooterDisclaimer()"
+>
   <router-outlet />
 </div>
 
@@ -21,6 +24,8 @@
   title="contentSafety.modal.title"
   titleIcon="triangle-alert"
   ariaLabel="contentSafety.modal.title"
+  headerImageSrc="https://cards.scryfall.io/normal/front/4/9/49354d19-384b-45c8-80f5-afde4f27c8dc.jpg?1677132986"
+  headerImagePlacement="body-centered"
   [message]="contentSafety.prohibitedContentModalMessage()"
   primaryLabel="shared.text.close"
   [showSecondary]="false"

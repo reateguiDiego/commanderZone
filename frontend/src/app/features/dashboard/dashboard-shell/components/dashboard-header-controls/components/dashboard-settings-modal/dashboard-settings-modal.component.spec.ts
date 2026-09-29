@@ -6,6 +6,7 @@ import { AuthApi } from '../../../../../../../core/api/auth.api';
 import { CardLanguageCoverageResponse, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
 import { ThemesService } from '../../../../../../../core/api/themes.service';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../../../../../core/content-safety/content-safety.service';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
 import { AppThemeId } from '../../../../../../../core/theme/app-theme';
@@ -98,6 +99,7 @@ describe('DashboardSettingsModalComponent', () => {
   afterEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+    vi.restoreAllMocks();
   });
 
   it('renders general tab and keeps theme settings out of the game tab', async () => {
@@ -166,6 +168,26 @@ describe('DashboardSettingsModalComponent', () => {
     closeButton.click();
 
     expect(closeRequested).toHaveBeenCalledOnce();
+  });
+
+  it('keeps settings open when content safety rejects the changed display name', async () => {
+    const contentSafety = TestBed.inject(ContentSafetyService);
+    vi.spyOn(contentSafety, 'hasProhibitedContent').mockReturnValue(true);
+    const showProhibitedContentModal = vi.spyOn(contentSafety, 'showProhibitedContentModal');
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    const closeRequested = vi.fn();
+    fixture.componentInstance.closeRequested.subscribe(closeRequested);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.profileForm.controls.displayName.setValue('Rejected player');
+    await fixture.componentInstance.savePreferences();
+
+    expect(showProhibitedContentModal).toHaveBeenCalledOnce();
+    expect(closeRequested).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.open()).toBe(true);
+    expect(authApiMock.updateMe).not.toHaveBeenCalled();
   });
 
   it('saves gameplay preferences from the game tab through /me', async () => {

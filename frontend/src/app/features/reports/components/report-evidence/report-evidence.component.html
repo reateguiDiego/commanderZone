@@ -1,0 +1,136 @@
+@if (hasCapturedEvidence()) {
+  <div class="report-evidence">
+    @if (evidence().reportedUserSnapshot; as snapshot) {
+      @let capturedAt = snapshot.capturedAt | date: dateTimeFormat();
+      <section class="report-evidence__section">
+        <h5>{{ 'reports.moderation.evidence.profileSnapshot' | runtimeTranslate }}</h5>
+        @if (capturedAt) {
+          <p class="report-evidence__captured-at">
+            {{
+              'reports.moderation.evidence.capturedAt'
+                | runtimeTranslate: { date: capturedAt }
+            }}
+          </p>
+        }
+
+        <div appPrettyScroll class="report-evidence__profile-snapshot">
+          <div class="report-evidence__profile-user">
+            @if (snapshot.user.avatar; as avatar) {
+              <img
+                class="report-evidence__avatar"
+                [src]="avatar.imageData"
+                [alt]="
+                  'reports.moderation.evidence.avatarAlt'
+                    | runtimeTranslate: { name: snapshot.user.displayName }
+                "
+              />
+            }
+            <div class="report-evidence__profile-identity">
+              <strong>{{ snapshot.user.displayName }}</strong>
+              @if (snapshot.user.publicHandle; as publicHandle) {
+                <span>@{{ publicHandle }}</span>
+              }
+            </div>
+          </div>
+
+          <div class="report-evidence__named-evidence">
+            <section>
+              <h6>{{ 'reports.moderation.evidence.folders' | runtimeTranslate }}</h6>
+              <ul>
+                @for (folder of snapshot.folders; track folder.name + $index) {
+                  <li>{{ folder.name }}</li>
+                } @empty {
+                  <li class="report-evidence__empty">
+                    {{ 'reports.moderation.evidence.noFolders' | runtimeTranslate }}
+                  </li>
+                }
+              </ul>
+            </section>
+
+            <section>
+              <h6>{{ 'shared.text.decks' | runtimeTranslate }}</h6>
+              <ul>
+                @for (deck of snapshot.decks; track deck.name + $index) {
+                  <li>{{ deck.name }}</li>
+                } @empty {
+                  <li class="report-evidence__empty">
+                    {{ 'reports.moderation.evidence.noDecks' | runtimeTranslate }}
+                  </li>
+                }
+              </ul>
+            </section>
+
+            <section>
+              <h6>{{ 'reports.moderation.evidence.ownedRooms' | runtimeTranslate }}</h6>
+              <ul>
+                @for (room of snapshot.ownedRooms; track room.name + $index) {
+                  <li>{{ room.name }}</li>
+                } @empty {
+                  <li class="report-evidence__empty">
+                    {{ 'reports.moderation.evidence.noOwnedRooms' | runtimeTranslate }}
+                  </li>
+                }
+              </ul>
+            </section>
+          </div>
+        </div>
+      </section>
+    }
+
+    @if (evidence().game; as game) {
+      @let capturedAt = game.capturedAt | date: dateTimeFormat();
+      <section class="report-evidence__section">
+        <h5>{{ 'reports.moderation.evidence.gameSnapshot' | runtimeTranslate }}</h5>
+        @if (capturedAt) {
+          <p class="report-evidence__captured-at">
+            {{
+              'reports.moderation.evidence.capturedAt'
+                | runtimeTranslate: { date: capturedAt }
+            }}
+          </p>
+        }
+
+        <section class="report-evidence__stream-section">
+          <h6>{{ 'game.gameTable.chat' | runtimeTranslate }}</h6>
+          <div appPrettyScroll class="report-evidence__stream">
+            @for (message of game.chat; track message.time + message.actorDisplayName + $index) {
+              <p class="report-evidence__stream-entry">
+                <time>{{ message.time }}</time><span aria-hidden="true"> · </span
+                ><strong>{{ message.actorDisplayName }}</strong><span aria-hidden="true"> · </span
+                ><span class="report-evidence__entry-text">{{ message.body }}</span>
+              </p>
+            } @empty {
+              <p class="report-evidence__empty">
+                {{ 'reports.moderation.evidence.noChat' | runtimeTranslate }}
+              </p>
+            }
+          </div>
+        </section>
+
+        <section class="report-evidence__stream-section">
+          <h6>{{ 'reports.moderation.evidence.gameLog' | runtimeTranslate }}</h6>
+          <div appPrettyScroll class="report-evidence__stream">
+            @for (entry of game.gameLog; track entry.time + entry.action + $index) {
+              <p class="report-evidence__stream-entry">
+                <time>{{ entry.time }}</time>
+                @if (entry.actorDisplayName; as actorDisplayName) {
+                  <span aria-hidden="true"> · </span><strong>{{ actorDisplayName }}</strong>
+                }
+                <span aria-hidden="true"> · </span
+                ><span class="report-evidence__entry-text">{{ entry.action }}</span>
+              </p>
+            } @empty {
+              <p class="report-evidence__empty">
+                {{ 'reports.moderation.evidence.noGameLog' | runtimeTranslate }}
+              </p>
+            }
+          </div>
+        </section>
+      </section>
+    }
+  </div>
+} @else {
+  <p class="report-evidence__awaiting">
+    {{ 'reports.moderation.evidence.awaiting' | runtimeTranslate }}
+  </p>
+}

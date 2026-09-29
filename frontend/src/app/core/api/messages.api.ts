@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import {
+  AdminUserMessagesResponse,
   AdminMessageSendPayload,
   AdminMessageSendResponse,
   MessageResponse,
@@ -32,5 +33,11 @@ export class MessagesApi {
 
   sendAdminMessage(payload: AdminMessageSendPayload): Observable<AdminMessageSendResponse> {
     return this.http.post<AdminMessageSendResponse>(`${API_BASE_URL}/admin/messages`, payload);
+  }
+
+  listAdminUserMessages(userId: string): Observable<AdminUserMessagesResponse> {
+    return this.http.get<AdminUserMessagesResponse>(`${API_BASE_URL}/admin/users/${userId}/moderation/messages`, {
+      context: withoutGlobalLoading(),
+    });
   }
 }

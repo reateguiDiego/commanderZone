@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Security;
 
+use App\Application\Auth\ImpersonationContext;
 use App\Application\Friendship\FriendPresenceService;
 use App\Application\User\UserActivityRecorder;
 use App\Domain\User\User;
@@ -19,6 +20,7 @@ class UserActivitySubscriber implements EventSubscriberInterface
         private readonly UserActivityRecorder $activity,
         private readonly ClockInterface $clock,
         private readonly FriendEventPublisher $friendEventPublisher,
+        private readonly ImpersonationContext $impersonation,
     ) {
     }
 
@@ -32,6 +34,12 @@ class UserActivitySubscriber implements EventSubscriberInterface
     public function markCurrentUserSeen(ControllerEvent $event): void
     {
         if (!$event->isMainRequest()) {
+            return;
+        }
+        // An impersonation token authenticates as its target for read-only
+        // support work, but it must never alter that person's activity,
+        // presence, friend visibility, or admin-facing last connection.
+        if ($this->impersonation->isImpersonated()) {
             return;
         }
         if (in_array($event->getRequest()->attributes->get('_route'), ['rooms.presence'], true)

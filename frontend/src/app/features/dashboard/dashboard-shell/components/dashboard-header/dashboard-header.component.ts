@@ -27,6 +27,10 @@ export class DashboardHeaderComponent {
   readonly messagesCount = input(0);
   readonly unreadMessagesCount = input(0);
   readonly canAccessAdmin = input(false);
+  readonly canModerate = input(false);
+  readonly pendingModerationReportsCount = input(0);
+  readonly pendingModerationReportsBadgeLabel = input('0');
+  readonly showPendingModerationReportsBadge = input(true);
   readonly authenticated = input(false);
   readonly toggleFriends = output<MouseEvent>();
   readonly toggleMessages = output<MouseEvent>();

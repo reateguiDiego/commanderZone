@@ -95,6 +95,9 @@ services:
     App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface:
         alias: App\Application\Game\Runtime\GameRuntimeLifecycleControlClient
 
+    App\Application\Moderation\GameModerationEvidenceQueueInterface:
+        alias: App\Application\Moderation\GameModerationEvidenceQueue
+
     App\Application\Game\Lifecycle\AllDisconnectedGracePolicy:
         arguments:
             $hotGraceSeconds: '%all_disconnected_hot_grace_seconds%'

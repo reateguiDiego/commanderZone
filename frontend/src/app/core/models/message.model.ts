@@ -38,3 +38,8 @@ export interface AdminMessageSendPayload {
 export interface AdminMessageSendResponse {
   readonly sent: number;
 }
+
+/** Internal messages delivered to one user, exposed only to authorized moderators. */
+export interface AdminUserMessagesResponse {
+  readonly messages: readonly UserMessage[];
+}

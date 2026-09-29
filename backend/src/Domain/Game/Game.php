@@ -67,6 +67,14 @@ class Game
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $nextLifecycleAt = null;
 
+    /**
+     * A game report can be filed while the table is still playable. The flag
+     * therefore only asks terminal lifecycle code to retain the source for
+     * moderation evidence; access is closed once its Room is archived.
+     */
+    #[ORM\Column(type: 'boolean')]
+    private bool $requiresModerationReview = false;
+
     #[ORM\Column(type: 'integer')]
     private int $lifecycleGeneration = 0;
 
@@ -327,6 +335,48 @@ class Game
         return $this->nextLifecycleAt;
     }
 
+    public function requiresModerationReview(): bool
+    {
+        return $this->requiresModerationReview;
+    }
+
+    public function requireModerationReview(): void
+    {
+        if ($this->requiresModerationReview) {
+            return;
+        }
+
+        $this->requiresModerationReview = true;
+        $this->touch();
+    }
+
+    /**
+     * Used only when all pending reports for a still-playable game were
+     * cancelled, for example as part of account deletion. Archived sources
+     * keep the flag until their queued disposal has finished.
+     */
+    public function releaseModerationReview(): void
+    {
+        if (!$this->requiresModerationReview) {
+            return;
+        }
+
+        $this->requiresModerationReview = false;
+        $this->touch();
+    }
+
+    /**
+     * Stops the lifecycle sweeper from treating an archived moderation source
+     * as an ordinary rematch or disconnected-game deadline.
+     */
+    public function holdForModerationEvidence(): void
+    {
+        $this->allDisconnectedSince = null;
+        $this->allDisconnectedHibernateRequestedAt = null;
+        $this->nextLifecycleAt = null;
+        $this->touch();
+    }
+
     public function allDisconnectedHibernateRequestedAt(): ?\DateTimeImmutable
     {
         return $this->allDisconnectedHibernateRequestedAt;
@@ -344,6 +394,10 @@ class Game
 
     public function canBeAccessedBy(User $user): bool
     {
+        if ($this->room->status() === Room::STATUS_ARCHIVED) {
+            return false;
+        }
+
         return $this->room->owner()->id() === $user->id() || $this->room->hasPlayer($user);
     }
 
@@ -357,7 +411,7 @@ class Game
 
     public function canBeControlledBy(User $user): bool
     {
-        return $this->room->hasPlayer($user);
+        return $this->canBeAccessedBy($user) && $this->room->hasPlayer($user);
     }
 
     public function replaceSnapshot(array $snapshot): void

@@ -37,6 +37,7 @@ import {
   Globe,
   Ghost,
   History,
+  HeartHandshake,
   KeyRound,
   LayoutGrid,
   Layers3,
@@ -104,6 +105,8 @@ import { GameTableNotificationSoundService } from './services/game-table-notific
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableGameplayV2FlagsService } from './services/game-table-gameplay-v2-flags.service';
+import { GameReportActionsService } from '../../reports/data-access/game-report-actions.service';
+import { ReportStore } from '../../reports/data-access/report.store';
 
 @Component({
   standalone: true,
@@ -145,6 +148,20 @@ describe('GameTableComponent', () => {
   const websocketStatus = signal('connected');
   const gameplayV2Flags = {
     enabled: vi.fn(),
+  };
+  const gameReportActions = {
+    canReportPlayer: vi.fn(),
+    canReportChatMessage: vi.fn(),
+    openGamePlayerReport: vi.fn(),
+    openChatMessageReport: vi.fn(),
+  };
+  const reportStore = {
+    activeDraft: signal(null),
+    submissionSucceeded: signal(false),
+    isSubmitting: signal(false),
+    submissionError: signal(null),
+    close: vi.fn(),
+    submit: vi.fn(),
   };
   const websocketTransport = {
     status: websocketStatus,
@@ -279,6 +296,10 @@ describe('GameTableComponent', () => {
     routeParams['id'] = '';
     gamesApi.snapshot.mockReset();
     gameplayV2Flags.enabled.mockReset().mockReturnValue(false);
+    gameReportActions.canReportPlayer.mockReset().mockReturnValue(false);
+    gameReportActions.canReportChatMessage.mockReset().mockReturnValue(false);
+    gameReportActions.openGamePlayerReport.mockReset();
+    gameReportActions.openChatMessageReport.mockReset();
     gameplayWebsocketCommand.mockReset();
     websocketStatus.set('connected');
     websocketTransport.connect.mockClear();
@@ -340,6 +361,8 @@ describe('GameTableComponent', () => {
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: authStore },
         { provide: MercureService, useValue: mercureService },
+        { provide: GameReportActionsService, useValue: gameReportActions },
+        { provide: ReportStore, useValue: reportStore },
         { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
         importProvidersFrom(
           LucideAngularModule.pick({
@@ -372,6 +395,7 @@ describe('GameTableComponent', () => {
             Globe,
             Ghost,
             History,
+            HeartHandshake,
             KeyRound,
             LayoutGrid,
             Layers3,
@@ -7070,7 +7094,7 @@ describe('GameTableComponent', () => {
 
     const primaryPositionButtons = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
-        'app-modal button.primary-button',
+        '[data-testid="pending-library-move-modal"] button.primary-button',
       ),
     );
     const [bottomButton, topButton] = primaryPositionButtons;

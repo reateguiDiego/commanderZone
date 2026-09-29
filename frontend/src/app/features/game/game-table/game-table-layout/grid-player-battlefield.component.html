@@ -13,6 +13,9 @@
   [class.is-defeated]="isDefeated()"
   [class.zone-row-presentation]="useSquareZonePresentation()"
   [class.single-player-row]="isSinglePlayerRow()"
+  appGameTableLongPress
+  (appGameTableLongPressed)="playerMenuOpened.emit({ event: $event, playerId: playerSeat().player.id })"
+  (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: playerSeat().player.id })"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: playerSeat().player.id })"
 >

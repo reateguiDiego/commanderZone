@@ -94,6 +94,24 @@ describe('GameChatMessageComponent', () => {
     expect(entry.querySelector('.chat-reaction-overlay')).not.toBeNull();
     expect(entry.querySelector('.chat-reaction-users')).toBeNull();
   });
+
+  it('keeps reporting available for a persisted message after its reaction window closes', () => {
+    const message = chatMessage();
+    const reported: ChatMessage[] = [];
+    fixture.componentRef.setInput('message', message);
+    fixture.componentRef.setInput('canReact', () => false);
+    fixture.componentRef.setInput('canReport', (candidate: ChatMessage) => candidate.id === message.id);
+    fixture.componentInstance.reportRequested.subscribe((candidate) => reported.push(candidate));
+    fixture.detectChanges();
+
+    const entry = fixture.nativeElement.querySelector('[data-testid="chat-message"]') as HTMLElement;
+    entry.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    expect(entry.querySelectorAll('[data-testid="chat-reaction"]')).toHaveLength(0);
+    (entry.querySelector('[data-testid="chat-report-message"]') as HTMLButtonElement).click();
+    expect(reported).toEqual([message]);
+  });
 });
 
 function chatMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {

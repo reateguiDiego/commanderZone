@@ -1,4 +1,14 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Report player", "reportMessage": "Report message" },
+    "modal": { "title": "Report", "submit": "Submit report", "reporting": "Reporting {{ name }}", "categoryLabel": "Category", "commentLabel": "Additional details", "commentPlaceholder": "Tell moderators what happened.", "commentRequiredHint": "Please describe the problem.", "commentRequired": "A description is required for this category.", "success": "Your report was submitted.\nThank you for helping keep CommanderZone welcoming." },
+    "errors": { "duplicate": "You already have an open report for this user.", "submit": "We could not submit this report. Please try again." },
+    "categories": { "harassment": "Harassment or bullying", "discriminationOrUnwantedSexualContent": "Discrimination or unwanted sexual content", "threatsOrSafety": "Threats or safety concerns", "personalDataExposure": "Personal data exposure", "spamAdvertisingScamPhishing": "Spam, advertising, scams, or phishing", "impersonation": "Impersonation", "publicOffensiveContent": "Public offensive content", "intentionalGameDisruption": "Intentional game disruption", "seriousGameplayDeception": "Serious gameplay deception", "otherProblem": "Other problem" },
+    "sources": { "profile": "Profile", "game_player": "Game player", "chat_message": "Chat message" },
+    "fairPlay": { "title": "Play fair", "message": "We want a CommanderZone community built on respect. Keep the chat clean, respect your opponents, and be honest. If a user breaks these rules at any point, you can report them by right-clicking their battlefield or chat message. Thank you very much, and now—go win this game, Commander!" },
+    "summary": { "pendingAriaLabel": "{{ count }} reports awaiting review" },
+    "moderation": { "loadingUser": "Loading moderation profile...", "queue": { "title": "Moderation queue", "description": "Pending reports are ordered by submission time.", "ariaLabel": "Pending moderation reports", "pendingCount": "{{ count }} pending", "loading": "Loading...", "empty": "There are no reports waiting for review.", "page": "Page {{ page }} of {{ totalPages }}" }, "detail": { "loading": "Loading report details...", "reportedBy": "Reported by {{ name }}", "source": "Source", "gameId": "Game ID", "messageId": "Message ID", "comment": "Reporter comment", "selectPrompt": "Choose a pending report to review its evidence." }, "evidence": { "title": "Evidence", "profileSnapshot": "Profile snapshot", "avatarAlt": "{{ name }}'s avatar", "folders": "Folders", "noFolders": "No folders", "noDecks": "No decks", "ownedRooms": "Owned rooms", "noOwnedRooms": "No owned rooms", "gameSnapshot": "Game snapshot", "capturedAt": "Captured {{ date }}", "noChat": "No chat evidence was captured.", "gameLog": "Game log", "noGameLog": "No game log evidence was captured.", "awaiting": "Evidence is not available for this report." }, "resolution": { "resolved": "Resolution", "title": "Resolve report", "outcomeLabel": "Outcome", "outcomes": { "nothing": "No action", "strike": "Issue a strike" } }, "userDrawer": { "title": "User moderation", "open": "More user info", "reportsMade": "Reports submitted", "reportsReceived": "Reports received", "tabs": { "ariaLabel": "User moderation sections" }}, "strikes": { "addLabel": "Add a strike", "descriptionLabel": "Strike description", "descriptionPlaceholder": "Explain the strike.", "descriptionRequired": "A strike description is required.", "add": "Add strike", "listLabel": "User strikes", "listTitle": "Strikes", "deleteAriaLabel": "Delete strike", "empty": "This user has no strikes.", "issuedBy": "Created by {{ name }}", "issuedByUnavailable": "Creator unavailable" }, "messages": { "listLabel": "Messages sent to this user", "empty": "No messages have been sent to this user.", "sentBy": "Sent by {{ name }}" }, "errors": { "loadQueue": "Could not load the moderation queue.", "loadReport": "Could not load this report.", "resolveReport": "Could not resolve this report.", "loadUser": "Could not load this user's moderation profile.", "createStrike": "Could not create the strike.", "deleteStrike": "Could not delete the strike.", "loadMessages": "Could not load this user's messages." } }
+  },
   "admin": {
     "title": "Administration",
     "navigation": {
@@ -67,13 +77,17 @@
         "mobileToggle": "Filters and sorting"
       },
       "columns": {
-        "auth": "Authentication",
+        "basicData": "Basic information",
         "lastConnectedAt": "Last connection",
         "role": "Role",
-        "localization": "Location"
+        "localization": "Location",
+        "moderation": "Moderation"
       },
       "roles": {
-        "user": "User"
+        "user": "User",
+        "support": "Support",
+        "admin": "Admin",
+        "owner": "Owner"
       },
       "premium": {
         "none": "None",
@@ -2598,6 +2612,7 @@
       "createRoom": "Create room",
       "turn": "Turn",
       "deleteRoom": "Delete room",
+      "delete": "Delete",
       "timer": "Timer",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

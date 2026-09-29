@@ -176,7 +176,6 @@ export class RoomsComponent implements OnInit, OnDestroy {
     this.error.set(null);
 
     if (this.contentSafety.hasProhibitedContent(payload.name)) {
-      this.createRoomModalOpen.set(false);
       this.contentSafety.showProhibitedContentModal();
       return;
     }

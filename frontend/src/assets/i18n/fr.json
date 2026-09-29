@@ -1,9 +1,19 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Signaler le joueur", "reportMessage": "Signaler le message" },
+    "modal": { "title": "Signaler", "submit": "Envoyer le signalement", "reporting": "Vous signalez {{ name }}", "categoryLabel": "Catégorie", "commentLabel": "Détails supplémentaires", "commentPlaceholder": "Expliquez à la modération ce qui s'est passé.", "commentRequiredHint": "Décrivez le problème.", "commentRequired": "Une description est requise pour cette catégorie.", "success": "Votre signalement a été envoyé.\nMerci de contribuer à faire de CommanderZone un espace accueillant." },
+    "errors": { "duplicate": "Vous avez déjà un signalement ouvert concernant cet utilisateur.", "submit": "Impossible d'envoyer le signalement. Réessayez." },
+    "categories": { "harassment": "Harcèlement ou intimidation", "discriminationOrUnwantedSexualContent": "Discrimination ou contenu sexuel non désiré", "threatsOrSafety": "Menaces ou risque pour la sécurité", "personalDataExposure": "Divulgation de données personnelles", "spamAdvertisingScamPhishing": "Spam, publicité, escroquerie ou hameçonnage", "impersonation": "Usurpation d'identité", "publicOffensiveContent": "Contenu offensant public", "intentionalGameDisruption": "Perturbation intentionnelle de la partie", "seriousGameplayDeception": "Tromperie grave en partie", "otherProblem": "Autre problème" },
+    "sources": { "profile": "Profil", "game_player": "Joueur de la partie", "chat_message": "Message du chat" },
+    "fairPlay": { "title": "Fair-play", "message": "Nous voulons que CommanderZone soit une communauté fondée sur le respect. Gardez le chat cordial, respectez vos adversaires et soyez honnête. Si un utilisateur ne respecte pas ces règles, vous pourrez le signaler en faisant un clic droit sur son champ de bataille ou sur son message de chat. Merci et maintenant, remportez cette partie, commandant !" },
+    "summary": { "pendingAriaLabel": "{{ count }} signalements en attente d'examen" },
+    "moderation": { "loadingUser": "Chargement du profil de modération...", "queue": { "title": "File d'attente de modération", "description": "Les signalements en attente sont triés par date d'envoi.", "ariaLabel": "Signalements de modération en attente", "pendingCount": "{{ count }} en attente", "loading": "Chargement...", "empty": "Aucun signalement n'attend d'examen.", "page": "Page {{ page }} sur {{ totalPages }}" }, "detail": { "loading": "Chargement des détails du signalement...", "reportedBy": "Signalement envoyé par {{ name }}", "source": "Origine", "gameId": "ID de la partie", "messageId": "ID du message", "comment": "Commentaire de la personne qui signale", "selectPrompt": "Choisissez un signalement en attente pour examiner ses éléments de preuve." }, "evidence": { "title": "Éléments de preuve", "profileSnapshot": "Instantané du profil", "avatarAlt": "Avatar de {{ name }}", "folders": "Dossiers", "noFolders": "Aucun dossier", "noDecks": "Aucun deck", "ownedRooms": "Salles possédées", "noOwnedRooms": "Aucune salle possédée", "gameSnapshot": "Instantané de la partie", "capturedAt": "Capturé le {{ date }}", "noChat": "Aucun élément du chat n'a été capturé.", "gameLog": "Journal de la partie", "noGameLog": "Aucun élément du journal de partie n'a été capturé.", "awaiting": "Les éléments de preuve ne sont pas encore disponibles pour ce signalement." }, "resolution": { "resolved": "Résolution", "title": "Résoudre le signalement", "outcomeLabel": "Résultat", "outcomes": { "nothing": "Aucune action", "strike": "Appliquer une sanction" } }, "userDrawer": { "title": "Modération de l'utilisateur", "open": "Plus d'informations sur l'utilisateur", "reportsMade": "Signalements envoyés", "reportsReceived": "Signalements reçus", "tabs": { "ariaLabel": "Sections de modération de l'utilisateur" }}, "strikes": { "addLabel": "Ajouter une sanction", "descriptionLabel": "Description de la sanction", "descriptionPlaceholder": "Expliquez la sanction.", "descriptionRequired": "Une description de la sanction est requise.", "add": "Ajouter une sanction", "listLabel": "Sanctions de l'utilisateur", "listTitle": "Sanctions", "deleteAriaLabel": "Supprimer la sanction", "empty": "Cet utilisateur n'a aucune sanction.", "issuedBy": "Créée par {{ name }}", "issuedByUnavailable": "Impossible d'identifier son auteur." }, "messages": { "listLabel": "Messages envoyés à cet utilisateur", "empty": "Aucun message n'a été envoyé à cet utilisateur.", "sentBy": "Envoyé par {{ name }}" }, "errors": { "loadQueue": "Impossible de charger la file de modération.", "loadReport": "Impossible de charger ce signalement.", "resolveReport": "Impossible de résoudre ce signalement.", "loadUser": "Impossible de charger le profil de modération de l'utilisateur.", "createStrike": "Impossible de créer la sanction.", "deleteStrike": "Impossible de supprimer la sanction.", "loadMessages": "Impossible de charger les messages de cet utilisateur." } }
+  },
   "admin": {
     "title": "Administration",
     "navigation": {
-      "sectionsAriaLabel": "Administration sections",
-      "toolsAriaLabel": "Administration tools"
+      "sectionsAriaLabel": "Sections d'administration",
+      "toolsAriaLabel": "Outils d'administration"
     },
     "notifications": {
       "recipient": "Recipient",
@@ -67,13 +77,17 @@
         "mobileToggle": "Filtres et tri"
       },
       "columns": {
-        "auth": "Authentication",
-        "lastConnectedAt": "Last connection",
-        "role": "Role",
-        "localization": "Localisation"
+        "basicData": "Informations de base",
+        "lastConnectedAt": "Dernière connexion",
+        "role": "Rôle",
+        "localization": "Localisation",
+        "moderation": "Modération"
       },
       "roles": {
-        "user": "User"
+        "user": "Utilisateur",
+        "support": "Assistance",
+        "admin": "Administrateur",
+        "owner": "Propriétaire"
       },
       "premium": {
         "none": "None",
@@ -93,7 +107,7 @@
         "directionAriaLabel": "Changer le sens du tri. Sens actuel : {{ direction }}."
       },
       "local": "Local",
-      "never": "Never",
+      "never": "Jamais",
       "lastConnectedToday": "Aujourd’hui",
       "lastConnectedYesterday": "Hier",
       "lastConnectedAgo": "il y a {{ count }} jours",
@@ -129,10 +143,10 @@
           "languagesActive": "Langues · utilisateurs actifs"
         }
       },
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
+      "authorizationRole": "Rôle d'autorisation",
+      "premiumTier": "Niveau Premium",
+      "onlineNow": "En ligne",
+      "offlineNow": "Hors ligne",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
       "deleteUser": "Delete user",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "Contacter la personne qui a signalé",
+      "messageReportedUser": "Contacter la personne signalée",
+      "sendMessageToReporter": "Envoyer un message à la personne qui a signalé : {{ name }}",
+      "sendMessageToReportedUser": "Envoyer un message à la personne signalée : {{ name }}",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2508,7 +2522,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "Appliquer les dégâts de commandant",
-      "reports": "Reports",
+      "reports": "Signalements",
       "notifications": "Notifications",
       "noUsersFound": "Aucun utilisateur trouvé.",
       "subject": "Objet",
@@ -2516,12 +2530,12 @@
       "title": "Heading",
       "list": "Liste",
       "uploadImage": "Télécharger une image",
-      "refresh": "Refresh",
+      "refresh": "Actualiser",
       "online": "En ligne",
       "usernameOrEmail": "Username or email...",
       "name": "Nom",
       "email": "E-mail",
-      "created": "Created",
+      "created": "Créé",
       "status": "Statut",
       "premium": "Premium",
       "actions": "Actions",
@@ -2547,7 +2561,7 @@
       "black": "Noir",
       "red": "Rouge",
       "green": "Vert",
-      "public": "Publique",
+      "public": "Public",
       "private": "Privé",
       "visibility": "Visibilité",
       "extras": "Suppléments",
@@ -2598,6 +2612,7 @@
       "createRoom": "Créer une salle",
       "turn": "Tour",
       "deleteRoom": "Supprimer la salle",
+      "delete": "Supprimer",
       "timer": "Minuteur",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

@@ -22,17 +22,20 @@
 
         <div class="community-user-actions">
           <div class="community-user-action-buttons" [attr.aria-label]="'common.ui.userActions' | runtimeTranslate">
-            <app-tooltip [text]="'common.ui.reportUser' | runtimeTranslate">
-              <button
-                czButton="secondary"
-                czButtonSize="sm"
-                type="button"
-                class="secondary-button compact icon-only community-user-action-button is-danger"
-                [attr.aria-label]="'common.ui.reportUser' | runtimeTranslate"
-              >
-                <lucide-icon name="flag" size="18" aria-hidden="true" />
-              </button>
-            </app-tooltip>
+            @if (canReportUser()) {
+              <app-tooltip [text]="'common.ui.reportUser' | runtimeTranslate">
+                <button
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  type="button"
+                  class="secondary-button compact icon-only community-user-action-button is-danger"
+                  [attr.aria-label]="'common.ui.reportUser' | runtimeTranslate"
+                  (click)="reportUser(userData)"
+                >
+                  <lucide-icon name="flag" size="18" aria-hidden="true" />
+                </button>
+              </app-tooltip>
+            }
 
             @if (isFriend()) {
               <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
@@ -183,3 +186,5 @@
     <p class="notice">{{ friend.displayName }}</p>
   }
 </app-modal>
+
+<app-report-modal />

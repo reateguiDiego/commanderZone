@@ -106,7 +106,7 @@ describe('GameTableInteractionActionsService', () => {
     expect(setError).not.toHaveBeenCalled();
   });
 
-  it('keeps opponent battlefield context menus silent', () => {
+  it('keeps opponent battlefield card context menus silent', () => {
     const setError = vi.fn();
     const event = contextMenuEvent();
 
@@ -115,15 +115,26 @@ describe('GameTableInteractionActionsService', () => {
       setError,
     }, event, 'player-2', 'battlefield', handCard({ instanceId: 'opponent-card', zone: 'battlefield' }));
 
-    service.openZoneMenu({
-      ...interactionContext(),
-      setError,
-      zoneCardCount: () => 1,
-    }, event, 'player-2', 'battlefield');
-
     expect(uiState.openContextMenu).not.toHaveBeenCalled();
     expect(uiState.openContextMenuAt).not.toHaveBeenCalled();
     expect(setError).not.toHaveBeenCalled();
+  });
+
+  it('opens the player context menu from an opponent battlefield', () => {
+    const event = contextMenuEvent();
+
+    service.openZoneMenu({
+      ...interactionContext(),
+      zoneCardCount: () => 1,
+    }, event, 'player-2', 'battlefield');
+
+    expect(uiState.openContextMenu).toHaveBeenCalledWith(
+      event,
+      { playerId: 'player-2', zone: 'battlefield', kind: 'player' },
+    );
+    expect(uiState.openContextMenuAt).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(event.stopPropagation).toHaveBeenCalledTimes(1);
   });
 
   it('opens card context menus at an explicit anchor when provided', () => {

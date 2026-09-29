@@ -455,7 +455,6 @@ export class DashboardSettingsModalComponent {
     }
 
     if (payload.displayName && this.contentSafety.hasProhibitedContent(payload.displayName)) {
-      this.closeRequested.emit();
       this.contentSafety.showProhibitedContentModal();
       return;
     }

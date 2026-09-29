@@ -1,6 +1,16 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Denunciar al jugador", "reportMessage": "Denunciar el mensaje" },
+    "modal": { "title": "Denunciar", "submit": "Enviar denuncia", "reporting": "Denunciando a {{ name }}", "categoryLabel": "Categoría", "commentLabel": "Detalles adicionales", "commentPlaceholder": "Explica a moderación lo que ocurrió.", "commentRequiredHint": "Describe el problema.", "commentRequired": "Se requiere una descripción para esta categoría.", "success": "Tu denuncia se ha enviado.\nGracias por ayudar a que CommanderZone sea acogedor." },
+    "errors": { "duplicate": "Ya tienes una denuncia abierta contra este usuario.", "submit": "No se pudo enviar la denuncia. Inténtalo de nuevo." },
+    "categories": { "harassment": "Acoso o intimidación", "discriminationOrUnwantedSexualContent": "Discriminación o contenido sexual no deseado", "threatsOrSafety": "Amenazas o riesgo para la seguridad", "personalDataExposure": "Exposición de datos personales", "spamAdvertisingScamPhishing": "Spam, publicidad, estafa o phishing", "impersonation": "Suplantación de identidad", "publicOffensiveContent": "Contenido ofensivo público", "intentionalGameDisruption": "Interrupción intencionada de la partida", "seriousGameplayDeception": "Engaño grave durante la partida", "otherProblem": "Otro problema" },
+    "sources": { "profile": "Perfil", "game_player": "Jugador de la partida", "chat_message": "Mensaje del chat" },
+    "fairPlay": { "title": "Juego limpio", "message": "Queremos una comunidad en CommanderZone basada en el respeto. Mantén el chat limpio, respeta a tus adversarios y sé honesto. Si en algún momento un usuario se salta estas normas, podrás denunciarlo haciendo clic derecho en su battlefield o en su mensaje de chat. Muchas gracias y, ahora sí, ¡gana esta partida, comandante!" },
+    "summary": { "pendingAriaLabel": "{{ count }} denuncias pendientes de revisión" },
+    "moderation": { "loadingUser": "Cargando perfil de moderación...", "queue": { "title": "Cola de moderación", "description": "Las denuncias pendientes se ordenan por fecha de envío.", "ariaLabel": "Denuncias de moderación pendientes", "pendingCount": "{{ count }} pendientes", "loading": "Cargando...", "empty": "No hay denuncias pendientes de revisión.", "page": "Página {{ page }} de {{ totalPages }}" }, "detail": { "loading": "Cargando detalles de la denuncia...", "reportedBy": "Denuncia presentada por {{ name }}", "source": "Origen", "gameId": "ID de partida", "messageId": "ID del mensaje", "comment": "Comentario de quien denuncia", "selectPrompt": "Elige una denuncia pendiente para revisar sus pruebas." }, "evidence": { "title": "Pruebas", "profileSnapshot": "Instantánea del perfil", "avatarAlt": "Avatar de {{ name }}", "folders": "Carpetas", "noFolders": "Sin carpetas", "noDecks": "Sin mazos", "ownedRooms": "Salas propias", "noOwnedRooms": "Sin salas propias", "gameSnapshot": "Instantánea de la partida", "capturedAt": "Capturada el {{ date }}", "noChat": "No se capturaron pruebas del chat.", "gameLog": "Registro de la partida", "noGameLog": "No se capturaron pruebas del registro de la partida.", "awaiting": "La evidencia aún no está disponible para esta denuncia." }, "resolution": { "resolved": "Resolución", "title": "Resolver denuncia", "outcomeLabel": "Resultado", "outcomes": { "nothing": "Sin acción", "strike": "Aplicar una sanción" } }, "userDrawer": { "title": "Moderación de usuario", "open": "Más información del usuario", "reportsMade": "Denuncias enviadas", "reportsReceived": "Denuncias recibidas", "tabs": { "ariaLabel": "Secciones de moderación del usuario" }}, "strikes": { "addLabel": "Añadir una sanción", "descriptionLabel": "Descripción de la sanción", "descriptionPlaceholder": "Explica la sanción.", "descriptionRequired": "Se requiere una descripción de la sanción.", "add": "Añadir una sanción", "listLabel": "Sanciones del usuario", "listTitle": "Sanciones", "deleteAriaLabel": "Eliminar sanción", "empty": "Este usuario no tiene sanciones.", "issuedBy": "Creada por {{ name }}", "issuedByUnavailable": "No se puede identificar a la persona que la creó." }, "messages": { "listLabel": "Mensajes enviados a este usuario", "empty": "No se ha enviado ningún mensaje a este usuario.", "sentBy": "Enviado por {{ name }}" }, "errors": { "loadQueue": "No se pudo cargar la cola de moderación.", "loadReport": "No se pudo cargar esta denuncia.", "resolveReport": "No se pudo resolver esta denuncia.", "loadUser": "No se pudo cargar el perfil de moderación del usuario.", "createStrike": "No se pudo crear la sanción.", "deleteStrike": "No se pudo eliminar la sanción.", "loadMessages": "No se pudieron cargar los mensajes de este usuario." } }
+  },
   "admin": {
-    "title": "Administration",
+    "title": "Administración",
     "navigation": {
       "sectionsAriaLabel": "Secciones de administración",
       "toolsAriaLabel": "Herramientas de administración"
@@ -67,13 +77,17 @@
         "mobileToggle": "Filtros y ordenación"
       },
       "columns": {
-        "auth": "Autenticación",
+        "basicData": "Datos básicos",
         "lastConnectedAt": "Última conexión",
         "role": "Rol",
-        "localization": "Ubicación"
+        "localization": "Ubicación",
+        "moderation": "Moderación"
       },
       "roles": {
-        "user": "User"
+        "user": "Usuario",
+        "support": "Soporte",
+        "admin": "Administrador",
+        "owner": "Propietario"
       },
       "premium": {
         "none": "None",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "Enviar mensaje a quien denuncia",
+      "messageReportedUser": "Enviar mensaje a la persona denunciada",
+      "sendMessageToReporter": "Enviar un mensaje a quien denuncia {{ name }}",
+      "sendMessageToReportedUser": "Enviar un mensaje a la persona denunciada {{ name }}",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2508,7 +2522,7 @@
     "text": {
       "users": "Usuarios",
       "applyCommanderDamage": "Aplicar daño de comandante",
-      "reports": "Reportes",
+      "reports": "Denuncias",
       "notifications": "Notificaciones",
       "noUsersFound": "No se encontraron usuarios.",
       "subject": "Asunto",
@@ -2598,6 +2612,7 @@
       "createRoom": "Crear sala",
       "turn": "Turno",
       "deleteRoom": "Eliminar sala",
+      "delete": "Borrar",
       "timer": "Minutero",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

@@ -83,6 +83,14 @@ final class GameLifecycleSweepCommand extends Command implements SignalableComma
             if (in_array($result['type'], ['runtime_hibernation_scheduled', 'lifecycle_noop'], true)) {
                 continue;
             }
+            if ($result['type'] === 'moderation_evidence_retained') {
+                // The source remains in the database solely for moderation,
+                // but it is no longer visible to clients. Reuse the existing
+                // teardown notifications so table and room UIs leave it.
+                $this->gamePublisher->publishRoomDeleted($result['game']->id(), $result['roomId']);
+                $this->roomPublisher->publishDeleted($result['roomId']);
+                continue;
+            }
             if ($result['type'] === 'room_ready') {
                 // The waiting-room topic carries the authoritative room state;
                 // game topic only instructs table clients to navigate.

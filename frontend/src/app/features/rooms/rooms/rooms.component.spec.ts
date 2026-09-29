@@ -8,6 +8,7 @@ import { of, throwError } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { Card } from '../../../core/models/card.model';
 import { Deck } from '../../../core/models/deck.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, Room, RoomPlayer } from '../../../core/models/room.model';
@@ -61,6 +62,7 @@ describe('RoomsComponent', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   async function flushInitialRoomLoad(): Promise<void> {
@@ -326,6 +328,32 @@ describe('RoomsComponent', () => {
     });
     expect(fixture.componentInstance.createRoomModalOpen()).toBe(false);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/rooms/room-created/waiting');
+  });
+
+  it('keeps room creation open when content safety rejects the room name', async () => {
+    const contentSafety = TestBed.inject(ContentSafetyService);
+    vi.spyOn(contentSafety, 'hasProhibitedContent').mockReturnValue(true);
+    const showProhibitedContentModal = vi.spyOn(contentSafety, 'showProhibitedContentModal');
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await flushInitialRoomLoad();
+
+    fixture.componentInstance.openCreateRoomModal();
+    await fixture.componentInstance.createRoom({
+      name: 'Rejected room',
+      format: 'commander',
+      visibility: 'public',
+      maxPlayers: 4,
+      startingLife: 40,
+      timerMode: 'none',
+      timerDurationSeconds: 300,
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: true,
+    });
+
+    expect(fixture.componentInstance.createRoomModalOpen()).toBe(true);
+    expect(showProhibitedContentModal).toHaveBeenCalledOnce();
+    expect(roomsApi.create).not.toHaveBeenCalled();
   });
 
   it('opens a private listed room when the current user is already a player', async () => {

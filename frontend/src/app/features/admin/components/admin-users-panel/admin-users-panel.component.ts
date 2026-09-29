@@ -22,10 +22,10 @@ import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/co
 import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
+import { ModerationUserDrawerComponent } from '../../../reports/components/moderation-user-drawer/moderation-user-drawer.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
 import {
   AdminUser,
-  AdminUserPresenceStatus,
   AdminUsersLocalizationBreakdown,
   AdminUsersLocalizationDimension,
   AdminUsersLocalizationItem,
@@ -134,7 +134,16 @@ export interface AdminMessageRecipientSelection {
 
 @Component({
   selector: 'app-admin-users-panel',
-  imports: [DatePipe, RuntimeTranslatePipe, FormatSelectComponent, AppModalComponent, CzButtonDirective, LucideAngularModule, TooltipComponent],
+  imports: [
+    DatePipe,
+    RuntimeTranslatePipe,
+    FormatSelectComponent,
+    AppModalComponent,
+    CzButtonDirective,
+    LucideAngularModule,
+    TooltipComponent,
+    ModerationUserDrawerComponent,
+  ],
   templateUrl: './admin-users-panel.component.html',
   styleUrl: './admin-users-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -152,11 +161,17 @@ export class AdminUsersPanelComponent {
 
   readonly allRoleOptions: readonly FormatSelectOption[] = [
     { id: ROLE_USER, labelKey: 'admin.users.roles.user' },
-    { id: ROLE_SUPPORT, labelKey: 'shared.text.support' },
-    { id: ROLE_ADMIN, labelKey: 'shared.text.admin' },
-    { id: ROLE_OWNER, labelKey: 'shared.text.owner' },
+    { id: ROLE_SUPPORT, labelKey: 'admin.users.roles.support' },
+    { id: ROLE_ADMIN, labelKey: 'admin.users.roles.admin' },
+    { id: ROLE_OWNER, labelKey: 'admin.users.roles.owner' },
   ];
   readonly roleOptions: readonly FormatSelectOption[] = this.allRoleOptions.filter((option) => option.id !== ROLE_OWNER);
+  readonly roleDisplayOptionsByAuthorizationRole: Readonly<Record<AuthorizationRole, readonly FormatSelectOption[]>> = {
+    [ROLE_USER]: this.roleOptions,
+    [ROLE_SUPPORT]: this.roleOptions,
+    [ROLE_ADMIN]: this.roleOptions,
+    [ROLE_OWNER]: this.allRoleOptions,
+  };
   readonly roleFilterOptions: readonly FormatSelectOption[] = [
     { id: 'all', labelKey: 'shared.text.all' },
     ...this.allRoleOptions,
@@ -215,11 +230,13 @@ export class AdminUsersPanelComponent {
   readonly currentPage = signal(1);
   readonly pendingConfirmation = signal<PendingConfirmation | null>(null);
   readonly isLocalizationModalOpen = signal(false);
+  readonly moderationUserId = signal<string | null>(null);
   readonly localizationView = signal<LocalizationView>('countries_all');
   readonly isMobileFiltersOpen = signal(false);
   readonly sendMessageRequested = output<AdminMessageRecipientSelection>();
   readonly currentUserId = computed(() => this.auth.user()?.id ?? null);
   readonly currentUserRole = computed(() => authorizationRoleFor(this.auth.user()));
+  readonly canViewModerationCounters = computed(() => this.currentUserRole() === ROLE_ADMIN || this.currentUserRole() === ROLE_OWNER);
   readonly hasPendingSearch = computed(() => this.searchQuery() !== this.appliedSearchQuery()
     || this.roleFilter() !== this.appliedRoleFilter()
     || this.premiumTierFilter() !== this.appliedPremiumTierFilter()
@@ -384,6 +401,16 @@ export class AdminUsersPanelComponent {
 
   requestSendMessage(user: AdminUser): void {
     this.sendMessageRequested.emit({ id: user.id, name: user.displayName });
+  }
+
+  openModerationUser(user: AdminUser): void {
+    if (this.canOpenModerationUser(user)) {
+      this.moderationUserId.set(user.id);
+    }
+  }
+
+  closeModerationUser(): void {
+    this.moderationUserId.set(null);
   }
 
   viewUserProfile(user: AdminUser): void {
@@ -552,16 +579,13 @@ export class AdminUsersPanelComponent {
     return key ? this.translateText(key) : tier;
   }
 
-  presenceLabel(status: AdminUserPresenceStatus): string {
-    const key = this.presenceFilterOptions.find((option) => option.id === status)?.labelKey;
-
-    return key ? this.translateText(key) : status;
-  }
-
   relativeDaysAgoLabel(date: string): string {
     const timestamp = Date.parse(date);
     const elapsedDays = Number.isFinite(timestamp)
-      ? Math.max(0, Math.floor((Date.now() - timestamp) / AdminUsersPanelComponent.DAY_MS))
+      ? Math.max(0, Math.floor(
+        (AdminUsersPanelComponent.calendarDayTimestamp(Date.now()) - AdminUsersPanelComponent.calendarDayTimestamp(timestamp))
+        / AdminUsersPanelComponent.DAY_MS,
+      ))
       : 0;
 
     if (elapsedDays === 0) {
@@ -572,6 +596,12 @@ export class AdminUsersPanelComponent {
     }
 
     return this.translateText('admin.users.lastConnectedAgo', { count: elapsedDays });
+  }
+
+  private static calendarDayTimestamp(timestamp: number): number {
+    const date = new Date(timestamp);
+
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
   isUserBusy(userId: string): boolean {
@@ -618,6 +648,10 @@ export class AdminUsersPanelComponent {
       case ROLE_USER:
         return false;
     }
+  }
+
+  canOpenModerationUser(user: AdminUser): boolean {
+    return this.canUseManagementActions() && this.canManageLowerRole(user);
   }
 
   private canManageLowerRole(user: AdminUser): boolean {

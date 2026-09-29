@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, NgZone, OnChanges, OnDestroy, SimpleChanges, computed, inject, input, output, signal } from '@angular/core';
 import { gsap } from 'gsap';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
+import { GameTableLongPressDirective } from '../directives/game-table-long-press.directive';
 import { PlayerSummaryPanelComponent } from '../components/player-summary-panel/player-summary-panel.component';
 import { BattlefieldConcedeButtonComponent } from '../components/battlefield-concede-button/battlefield-concede-button.component';
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../utils/game-table-visual-assets';
@@ -25,7 +26,7 @@ interface GridTurnStatus {
 
 @Component({
   selector: 'app-grid-player-battlefield',
-  imports: [NgTemplateOutlet, PlayerSummaryPanelComponent, BattlefieldConcedeButtonComponent, RuntimeTranslatePipe],
+  imports: [NgTemplateOutlet, PlayerSummaryPanelComponent, BattlefieldConcedeButtonComponent, RuntimeTranslatePipe, GameTableLongPressDirective],
   templateUrl: './grid-player-battlefield.component.html',
   styleUrl: './grid-player-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

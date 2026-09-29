@@ -13,6 +13,13 @@ export interface AdminUserDeckCounts {
   readonly publicCount: number;
 }
 
+/** Present only to administrators and owners. */
+export interface AdminUserModerationCounters {
+  readonly reportsMadeCount: number;
+  readonly reportsReceivedCount: number;
+  readonly strikesCount: number;
+}
+
 export interface AdminUserLocalization {
   readonly countryCode: string | null;
   readonly countryName: string | null;
@@ -33,6 +40,7 @@ export interface AdminUser {
   readonly isOnline: boolean;
   readonly activeSessionsCount: number;
   readonly deckCounts: AdminUserDeckCounts;
+  readonly moderationCounters?: AdminUserModerationCounters;
   readonly localization: AdminUserLocalization;
   readonly createdAt: string;
 }

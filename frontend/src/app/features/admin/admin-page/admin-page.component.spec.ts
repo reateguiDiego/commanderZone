@@ -1,17 +1,26 @@
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { Bell, ChevronDown, ChevronRight, Eye, Flag, Hammer, LucideAngularModule, MoveDown, MoveUp, RefreshCcw, Send, ShieldCheck, Trash2, Upload, Users } from 'lucide-angular';
 import { MessagesApi } from '../../../core/api/messages.api';
-import { ROLE_USER } from '../../../core/auth/user-roles';
+import { AuthStore } from '../../../core/auth/auth.store';
+import { ROLE_ADMIN, ROLE_USER } from '../../../core/auth/user-roles';
 import { AdminUsersApi } from '../data-access/admin-users.api';
+import { ReportsApi } from '../../reports/data-access/reports.api';
+import { ModerationSummaryStore } from '../../reports/data-access/moderation-summary.store';
+import { AdminReportsPanelComponent } from '../components/admin-reports-panel/admin-reports-panel.component';
 import { AdminPageComponent } from './admin-page.component';
 
 describe('AdminPageComponent', () => {
   let messagesApi: { readonly sendAdminMessage: ReturnType<typeof vi.fn> };
+  let pendingReviewCount: ReturnType<typeof signal<number>>;
+  let pendingReviewBadgeLabel: ReturnType<typeof signal<string>>;
 
   beforeEach(async () => {
     messagesApi = { sendAdminMessage: vi.fn().mockReturnValue(of({ sent: 1 })) };
+    pendingReviewCount = signal(0);
+    pendingReviewBadgeLabel = signal('0');
 
     await TestBed.configureTestingModule({
       imports: [AdminPageComponent],
@@ -64,6 +73,22 @@ describe('AdminPageComponent', () => {
           },
         },
         { provide: MessagesApi, useValue: messagesApi },
+        { provide: AuthStore, useValue: { user: signal({ id: 'admin-user', roles: [ROLE_ADMIN] }) } },
+        {
+          provide: ReportsApi,
+          useValue: {
+            listReports: vi.fn().mockReturnValue(of({ reports: [], page: 1, limit: 30, total: 0, totalPages: 1 })),
+            getSummary: vi.fn().mockReturnValue(of({ pendingReviewCount: 0 })),
+          },
+        },
+        {
+          provide: ModerationSummaryStore,
+          useValue: {
+            pendingReviewCount,
+            badgeLabel: pendingReviewBadgeLabel,
+            refresh: vi.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compileComponents();
   });
@@ -81,7 +106,7 @@ describe('AdminPageComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('No user reports yet.');
+    expect(fixture.nativeElement.querySelector('.admin-report-queue')).not.toBeNull();
     clickMenuButton(fixture.nativeElement, 'Notifications');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Recipient');
@@ -117,6 +142,50 @@ describe('AdminPageComponent', () => {
       body: 'Hello',
       delivery: 'internal',
     });
+  });
+
+  it('opens notifications with the selected report participant when Reports requests a message', async () => {
+    const fixture = TestBed.createComponent(AdminPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.selectSection('reports');
+    fixture.detectChanges();
+
+    const reportsPanel = fixture.debugElement.query(By.directive(AdminReportsPanelComponent));
+    expect(reportsPanel).not.toBeNull();
+    (reportsPanel.componentInstance as AdminReportsPanelComponent).sendMessageRequested.emit({
+      id: 'user-1',
+      name: 'Admin User',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const recipientLabel = fixture.nativeElement.querySelector('.format-select-trigger-label') as HTMLElement | null;
+    expect(fixture.nativeElement.textContent).toContain('Notifications');
+    expect(recipientLabel?.textContent?.trim()).toBe('Admin User');
+  });
+
+  it('keeps the Reports badge synchronized with the shared pending-review summary', () => {
+    pendingReviewCount.set(120);
+    pendingReviewBadgeLabel.set('99+');
+    const fixture = TestBed.createComponent(AdminPageComponent);
+    fixture.detectChanges();
+
+    const reportsButton = menuButton(fixture.nativeElement, 'Reports');
+    const badge = reportsButton?.querySelector('.admin-nav-item__badge') as HTMLElement | null;
+    const description = fixture.nativeElement.querySelector('#admin-reports-pending-count') as HTMLElement | null;
+
+    expect(badge?.textContent?.trim()).toBe('99+');
+    expect(reportsButton?.getAttribute('aria-describedby')).toBe('admin-reports-pending-count');
+    expect(description?.textContent?.trim()).toBe('120 reports awaiting review');
+
+    pendingReviewCount.set(2);
+    pendingReviewBadgeLabel.set('2');
+    fixture.detectChanges();
+
+    expect((reportsButton?.querySelector('.admin-nav-item__badge') as HTMLElement | null)?.textContent?.trim()).toBe('2');
+    expect(description?.textContent?.trim()).toBe('2 reports awaiting review');
   });
 });
 

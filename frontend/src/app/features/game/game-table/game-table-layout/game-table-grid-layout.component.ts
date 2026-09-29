@@ -26,6 +26,7 @@ export class GameTableGridLayoutComponent {
   readonly playerDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<PlayerBattlefieldSize>();
   readonly concedeRequested = output<MouseEvent>();
+  readonly playerMenuOpened = output<{ event: MouseEvent; playerId: string }>();
   readonly seatTurnEntries = computed(() => {
     const activePlayers = this.summaryBindings().players.filter((player) => !playerIsDefeated(player));
     const activePlayerIndex = activePlayers.findIndex((player) => player.id === this.activePlayerId());

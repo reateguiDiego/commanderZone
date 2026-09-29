@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Security;
 
+use App\Application\Auth\ImpersonationContext;
 use App\Application\User\UserDailyVisitRecorder;
 use App\Domain\User\User;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -33,6 +34,7 @@ final class UserDailyVisitSubscriber implements EventSubscriberInterface
     public function __construct(
         private readonly Security $security,
         private readonly UserDailyVisitRecorder $recorder,
+        private readonly ImpersonationContext $impersonation,
     ) {
     }
 
@@ -46,6 +48,12 @@ final class UserDailyVisitSubscriber implements EventSubscriberInterface
     public function recordCurrentUserDailyVisit(ControllerEvent $event): void
     {
         if (!$event->isMainRequest()) {
+            return;
+        }
+        // An impersonated token must not create a visit or refresh the
+        // target's last-seen metadata. It represents moderator activity,
+        // never target-user activity.
+        if ($this->impersonation->isImpersonated()) {
             return;
         }
 

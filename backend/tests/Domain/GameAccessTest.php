@@ -25,4 +25,20 @@ class GameAccessTest extends TestCase
         self::assertTrue($game->canBeAccessedBy($player));
         self::assertFalse($game->canBeAccessedBy($external));
     }
+
+    public function testArchivedModerationSourceCannotBeAccessedByFormerParticipants(): void
+    {
+        $owner = new User('archived-owner@example.test', 'Owner');
+        $player = new User('archived-player@example.test', 'Player');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $player));
+        $game = new Game($room, ['players' => []]);
+        $room->start($game);
+        $room->archiveForModerationEvidence();
+
+        self::assertFalse($game->canBeAccessedBy($owner));
+        self::assertFalse($game->canBeViewedBy($player));
+        self::assertFalse($game->canBeControlledBy($owner));
+    }
 }

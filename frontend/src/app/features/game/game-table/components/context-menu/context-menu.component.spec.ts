@@ -12,6 +12,7 @@ import {
   Dices,
   Eye,
   EyeOff,
+  Flag,
   Gift,
   Ghost,
   Layers3,
@@ -106,6 +107,7 @@ describe('ContextMenuComponent', () => {
           Dices,
           Eye,
           EyeOff,
+          Flag,
           Gift,
           Ghost,
           Layers3,
@@ -433,6 +435,26 @@ describe('ContextMenuComponent', () => {
     expect(menuText(fixture)).toContain('Focus player');
     expect(menuText(fixture)).not.toContain('Life -1');
     expect(menuText(fixture)).not.toContain('Life +1');
+  });
+
+  it('renders reporting as the final player menu action for a reportable opponent', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'player',
+      playerId: 'user-2',
+      zone: 'battlefield',
+    }, {
+      canReportPlayer: (playerId) => playerId === 'user-2',
+    });
+    const buttons = menuButtons(fixture);
+
+    expect(buttonLabels(fixture)).toEqual([
+      'Focus player',
+      'View exile',
+      'View graveyard',
+      'Report player',
+    ]);
+    expect(buttons.at(-1)?.dataset['testid']).toBe('player-menu-report');
+    expect(buttons.at(-1)?.classList).toContain('danger-menu-item');
   });
 
   it('shows shared move-all targets for graveyard and exile zones', () => {
@@ -1943,6 +1965,7 @@ describe('ContextMenuComponent', () => {
 interface ContextMenuFixtureOptions {
   gridLayout?: boolean;
   canControlPlayer?: (playerId: string) => boolean;
+  canReportPlayer?: (playerId: string) => boolean;
   currentPlayer?: ReturnType<typeof player> | null;
   players?: ReturnType<typeof player>[];
   canAttachEquipment?: (playerId: string, card: GameCardInstance) => boolean;
@@ -1979,6 +2002,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('moveZones', ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'] satisfies GameZoneName[]);
   fixture.componentRef.setInput('isCurrentPlayer', (playerId: string) => playerId === 'user-1');
   fixture.componentRef.setInput('canControlPlayer', options.canControlPlayer ?? ((playerId: string) => playerId === 'user-1'));
+  fixture.componentRef.setInput('canReportPlayer', options.canReportPlayer ?? (() => false));
   fixture.componentRef.setInput('zoneCardCount', options.zoneCardCount ?? (() => 1));
   fixture.componentRef.setInput('shouldShowPowerToughness', (target: GameCardInstance) => target.power !== null && target.power !== undefined && target.toughness !== null && target.toughness !== undefined);
   fixture.componentRef.setInput('isLandStacked', options.isLandStacked ?? (() => false));

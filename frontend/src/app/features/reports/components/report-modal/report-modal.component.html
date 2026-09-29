@@ -1,0 +1,66 @@
+@if (reports.activeDraft(); as draft) {
+  <app-modal
+    [open]="true"
+    [ariaLabel]="'reports.modal.title'"
+    [title]="reports.submissionSucceeded() ? '' : 'reports.modal.title'"
+    [titleIcon]="reports.submissionSucceeded() ? '' : 'flag'"
+    [headerImageSrc]="reports.submissionSucceeded() ? themeAssets.czZoneHeaderLogoUrl() : null"
+    [primaryLabel]="reports.submissionSucceeded() ? 'common.actions.done' : 'reports.modal.submit'"
+    secondaryLabel="shared.text.cancel"
+    [showSecondary]="!reports.submissionSucceeded()"
+    [primaryDisabled]="reports.isSubmitting()"
+    [showCloseButton]="true"
+    closeLabel="common.modal.close"
+    size="default"
+    (primary)="submitOrClose()"
+    (secondary)="reports.close()"
+    (close)="reports.close()"
+  >
+    @if (reports.submissionSucceeded()) {
+      <p class="report-modal-feedback report-modal-feedback--success" role="status">
+        {{ 'reports.modal.success' | runtimeTranslate }}
+      </p>
+    } @else {
+      <p class="report-modal-target">
+        {{ 'reports.modal.reporting' | runtimeTranslate: { name: draft.targetDisplayName } }}
+      </p>
+
+      <app-format-select
+        class="report-modal-category"
+        name="reportCategory"
+        labelKey="reports.modal.categoryLabel"
+        [options]="categories"
+        [value]="category()"
+        (valueChange)="updateCategory($event)"
+      />
+
+      <label class="report-modal-field">
+        <span>{{ 'reports.modal.commentLabel' | runtimeTranslate }}</span>
+        <textarea
+          name="reportComment"
+          rows="7"
+          [maxLength]="commentMaxLength"
+          aria-describedby="report-comment-count"
+          [placeholder]="'reports.modal.commentPlaceholder' | runtimeTranslate"
+          [value]="comment()"
+          (input)="updateCommentFromEvent($event)"
+        ></textarea>
+      </label>
+      <small id="report-comment-count" class="report-modal-character-count">
+        {{ commentLength() }}/{{ commentMaxLength }}
+      </small>
+
+      @if (category() === 'other_problem') {
+        <p class="report-modal-hint">
+          {{ 'reports.modal.commentRequiredHint' | runtimeTranslate }}
+        </p>
+      }
+
+      @if (reports.submissionError(); as error) {
+        <p class="report-modal-feedback report-modal-feedback--error" role="alert">
+          {{ error | runtimeTranslate }}
+        </p>
+      }
+    }
+  </app-modal>
+}

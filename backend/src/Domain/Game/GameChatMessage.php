@@ -24,6 +24,10 @@ class GameChatMessage
     #[ORM\JoinColumn(name: 'actor_id', nullable: false, onDelete: 'CASCADE')]
     private User $actor;
 
+    /** Frozen at send time so moderation evidence survives later renames. */
+    #[ORM\Column(name: 'actor_display_name', type: 'string', length: 120)]
+    private string $actorDisplayName;
+
     #[ORM\Column(type: 'string', length: 800)]
     private string $body;
 
@@ -56,6 +60,7 @@ class GameChatMessage
         $this->messageId = Uuid::v7()->toRfc4122();
         $this->game = $game;
         $this->actor = $actor;
+        $this->actorDisplayName = $actor->displayName();
         $this->body = mb_substr(trim($body), 0, 800);
         $this->targetPlayerId = $targetPlayerId;
         $this->targetDisplayName = $targetDisplayName;
@@ -77,6 +82,11 @@ class GameChatMessage
     public function actor(): User
     {
         return $this->actor;
+    }
+
+    public function actorDisplayName(): string
+    {
+        return $this->actorDisplayName;
     }
 
     public function body(): string
@@ -129,7 +139,7 @@ class GameChatMessage
         $data = [
             'id' => $this->messageId,
             'userId' => $this->actor->id(),
-            'displayName' => $this->actor->displayName(),
+            'displayName' => $this->actorDisplayName,
             'message' => $this->body,
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'reactions' => $this->reactions,

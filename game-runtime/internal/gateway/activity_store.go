@@ -89,6 +89,12 @@ func (s *PostgresActivityStore) AppendChatMessage(ctx context.Context, gameID st
 	}
 
 	actorID := playerIDFromClaims(claims)
+	actorDisplayName, actorFound, err := s.playerDisplayName(ctx, gameID, actorID)
+	if err != nil {
+		return nil, err
+	}
+	actorDisplayName = persistedActorDisplayName(actorID, actorDisplayName, actorFound)
+
 	targetID := strings.TrimSpace(fmt.Sprint(command.Payload["targetPlayerId"]))
 	if targetID == "" || targetID == "all" || targetID == "<nil>" {
 		targetID = ""
@@ -111,11 +117,11 @@ func (s *PostgresActivityStore) AppendChatMessage(ctx context.Context, gameID st
 	messageID := stableUUID("chat-message", gameID, command.ClientActionID)
 	now := time.Now().UTC().Truncate(time.Second)
 	reactions, _ := json.Marshal(map[string][]chatReactionEntry{})
-	_, err := s.db.ExecContext(ctx, `
-INSERT INTO game_chat_message (message_id, game_id, actor_id, body, reactions, target_player_id, target_display_name, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5::json, NULLIF($6, ''), NULLIF($7, ''), $8, $8)
+	_, err = s.db.ExecContext(ctx, `
+INSERT INTO game_chat_message (message_id, game_id, actor_id, actor_display_name, body, reactions, target_player_id, target_display_name, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6::json, NULLIF($7, ''), NULLIF($8, ''), $9, $9)
 ON CONFLICT (message_id) DO NOTHING
-`, messageID, gameID, actorID, body, string(reactions), targetID, targetDisplayName, now)
+`, messageID, gameID, actorID, actorDisplayName, body, string(reactions), targetID, targetDisplayName, now)
 	if err != nil {
 		return nil, err
 	}
@@ -257,20 +263,30 @@ WHERE g.id = $1 AND rp.user_id = $2
 	return displayName, true, nil
 }
 
+func persistedActorDisplayName(actorID string, displayName string, found bool) string {
+	if found && strings.TrimSpace(displayName) != "" {
+		return displayName
+	}
+
+	// A valid runtime ticket normally belongs to a current room player. Keep
+	// the stream write robust if that membership has just been removed by a
+	// concurrent lifecycle action: the immutable label still has a useful,
+	// deterministic value and satisfies the moderation evidence contract.
+	return actorID
+}
+
 func (s *PostgresActivityStore) chatRecord(ctx context.Context, gameID string, messageID string) (chatRecord, error) {
 	return scanChatRecord(s.db.QueryRowContext(ctx, `
-SELECT m.message_id, m.actor_id, u.display_name, m.body, COALESCE(m.reactions::text, '{}'), COALESCE(m.target_player_id, ''), COALESCE(m.target_display_name, ''), m.created_at
+SELECT m.message_id, m.actor_id, m.actor_display_name, m.body, COALESCE(m.reactions::text, '{}'), COALESCE(m.target_player_id, ''), COALESCE(m.target_display_name, ''), m.created_at
 FROM game_chat_message m
-JOIN app_user u ON u.id = m.actor_id
 WHERE m.game_id = $1 AND m.message_id = $2
 `, gameID, messageID))
 }
 
 func (s *PostgresActivityStore) chatRecordForUpdate(ctx context.Context, tx *sql.Tx, gameID string, messageID string) (chatRecord, error) {
 	return scanChatRecord(tx.QueryRowContext(ctx, `
-SELECT m.message_id, m.actor_id, u.display_name, m.body, COALESCE(m.reactions::text, '{}'), COALESCE(m.target_player_id, ''), COALESCE(m.target_display_name, ''), m.created_at
+SELECT m.message_id, m.actor_id, m.actor_display_name, m.body, COALESCE(m.reactions::text, '{}'), COALESCE(m.target_player_id, ''), COALESCE(m.target_display_name, ''), m.created_at
 FROM game_chat_message m
-JOIN app_user u ON u.id = m.actor_id
 WHERE m.game_id = $1 AND m.message_id = $2
 FOR UPDATE
 `, gameID, messageID))

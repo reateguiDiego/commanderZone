@@ -1,9 +1,19 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Segnala il giocatore", "reportMessage": "Segnala il messaggio" },
+    "modal": { "title": "Segnala", "submit": "Invia la segnalazione", "reporting": "Stai segnalando {{ name }}", "categoryLabel": "Categoria", "commentLabel": "Dettagli aggiuntivi", "commentPlaceholder": "Spiega alla moderazione cosa è successo.", "commentRequiredHint": "Descrivi il problema.", "commentRequired": "Per questa categoria è richiesta una descrizione.", "success": "La tua segnalazione è stata inviata.\nGrazie per contribuire a rendere CommanderZone accogliente." },
+    "errors": { "duplicate": "Hai già una segnalazione aperta contro questo utente.", "submit": "Non è stato possibile inviare la segnalazione. Riprova." },
+    "categories": { "harassment": "Molestie o bullismo", "discriminationOrUnwantedSexualContent": "Discriminazione o contenuto sessuale indesiderato", "threatsOrSafety": "Minacce o rischio per la sicurezza", "personalDataExposure": "Esposizione di dati personali", "spamAdvertisingScamPhishing": "Spam, pubblicità, truffa o phishing", "impersonation": "Impersonificazione", "publicOffensiveContent": "Contenuto offensivo pubblico", "intentionalGameDisruption": "Interruzione intenzionale della partita", "seriousGameplayDeception": "Inganno grave durante la partita", "otherProblem": "Altro problema" },
+    "sources": { "profile": "Profilo", "game_player": "Giocatore della partita", "chat_message": "Messaggio della chat" },
+    "fairPlay": { "title": "Fair play", "message": "Vogliamo che CommanderZone sia una comunità fondata sul rispetto. Mantieni la chat pulita, rispetta i tuoi avversari e sii onesto. Se un utente non rispetta queste regole, potrai segnalarlo facendo clic con il pulsante destro sul suo campo di battaglia o sul suo messaggio in chat. Grazie e, ora sì, vinci questa partita, comandante!" },
+    "summary": { "pendingAriaLabel": "{{ count }} segnalazioni in attesa di revisione" },
+    "moderation": { "loadingUser": "Caricamento del profilo di moderazione...", "queue": { "title": "Coda di moderazione", "description": "Le segnalazioni in attesa sono ordinate per data di invio.", "ariaLabel": "Segnalazioni di moderazione in attesa", "pendingCount": "{{ count }} in attesa", "loading": "Caricamento...", "empty": "Non ci sono segnalazioni in attesa di revisione.", "page": "Pagina {{ page }} di {{ totalPages }}" }, "detail": { "loading": "Caricamento dei dettagli della segnalazione...", "reportedBy": "Segnalazione inviata da {{ name }}", "source": "Origine", "gameId": "ID della partita", "messageId": "ID del messaggio", "comment": "Commento di chi segnala", "selectPrompt": "Scegli una segnalazione in attesa per esaminarne le prove." }, "evidence": { "title": "Prove", "profileSnapshot": "Istantanea del profilo", "avatarAlt": "Avatar di {{ name }}", "folders": "Cartelle", "noFolders": "Nessuna cartella", "noDecks": "Nessun mazzo", "ownedRooms": "Sale possedute", "noOwnedRooms": "Nessuna sala posseduta", "gameSnapshot": "Istantanea della partita", "capturedAt": "Acquisita il {{ date }}", "noChat": "Non sono state acquisite prove dalla chat.", "gameLog": "Registro della partita", "noGameLog": "Non sono state acquisite prove dal registro della partita.", "awaiting": "Le prove non sono ancora disponibili per questa segnalazione." }, "resolution": { "resolved": "Risoluzione", "title": "Risolvi la segnalazione", "outcomeLabel": "Esito", "outcomes": { "nothing": "Nessuna azione", "strike": "Applica una sanzione" } }, "userDrawer": { "title": "Moderazione utente", "open": "Altre informazioni sull'utente", "reportsMade": "Segnalazioni inviate", "reportsReceived": "Segnalazioni ricevute", "tabs": { "ariaLabel": "Sezioni di moderazione dell'utente" }}, "strikes": { "addLabel": "Aggiungi una sanzione", "descriptionLabel": "Descrizione della sanzione", "descriptionPlaceholder": "Spiega la sanzione.", "descriptionRequired": "È richiesta una descrizione della sanzione.", "add": "Aggiungi una sanzione", "listLabel": "Sanzioni dell'utente", "listTitle": "Sanzioni", "deleteAriaLabel": "Elimina la sanzione", "empty": "Questo utente non ha sanzioni.", "issuedBy": "Creata da {{ name }}", "issuedByUnavailable": "Impossibile identificare chi l'ha creata." }, "messages": { "listLabel": "Messaggi inviati a questo utente", "empty": "Nessun messaggio è stato inviato a questo utente.", "sentBy": "Inviato da {{ name }}" }, "errors": { "loadQueue": "Non è stato possibile caricare la coda di moderazione.", "loadReport": "Non è stato possibile caricare questa segnalazione.", "resolveReport": "Non è stato possibile risolvere questa segnalazione.", "loadUser": "Non è stato possibile caricare il profilo di moderazione dell'utente.", "createStrike": "Non è stato possibile creare la sanzione.", "deleteStrike": "Non è stato possibile eliminare la sanzione.", "loadMessages": "Impossibile caricare i messaggi di questo utente." } }
+  },
   "admin": {
-    "title": "Administration",
+    "title": "Amministrazione",
     "navigation": {
-      "sectionsAriaLabel": "Administration sections",
-      "toolsAriaLabel": "Administration tools"
+      "sectionsAriaLabel": "Sezioni di amministrazione",
+      "toolsAriaLabel": "Strumenti di amministrazione"
     },
     "notifications": {
       "recipient": "Recipient",
@@ -67,13 +77,17 @@
         "mobileToggle": "Filtri e ordinamento"
       },
       "columns": {
-        "auth": "Authentication",
-        "lastConnectedAt": "Last connection",
-        "role": "Role",
-        "localization": "Posizione"
+        "basicData": "Dati di base",
+        "lastConnectedAt": "Ultimo accesso",
+        "role": "Ruolo",
+        "localization": "Localizzazione",
+        "moderation": "Moderazione"
       },
       "roles": {
-        "user": "User"
+        "user": "Utente",
+        "support": "Supporto",
+        "admin": "Amministratore",
+        "owner": "Proprietario"
       },
       "premium": {
         "none": "None",
@@ -93,7 +107,7 @@
         "directionAriaLabel": "Cambia direzione di ordinamento. Direzione attuale: {{ direction }}."
       },
       "local": "Local",
-      "never": "Never",
+      "never": "Mai",
       "lastConnectedToday": "Oggi",
       "lastConnectedYesterday": "Ieri",
       "lastConnectedAgo": "{{ count }} giorni fa",
@@ -129,10 +143,10 @@
           "languagesActive": "Lingue · utenti attivi"
         }
       },
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
+      "authorizationRole": "Ruolo di autorizzazione",
+      "premiumTier": "Livello Premium",
+      "onlineNow": "Online",
+      "offlineNow": "Offline",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
       "deleteUser": "Delete user",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "Invia un messaggio a chi ha segnalato",
+      "messageReportedUser": "Invia un messaggio all'utente segnalato",
+      "sendMessageToReporter": "Invia un messaggio a chi ha segnalato: {{ name }}",
+      "sendMessageToReportedUser": "Invia un messaggio all'utente segnalato: {{ name }}",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2452,7 +2466,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "Applica danno da comandante",
-      "reports": "Reports",
+      "reports": "Segnalazioni",
       "notifications": "Notifications",
       "noUsersFound": "Nessun utente trovato.",
       "subject": "Oggetto",
@@ -2460,15 +2474,15 @@
       "title": "Heading",
       "list": "Elenco",
       "uploadImage": "Carica immagine",
-      "refresh": "Refresh",
+      "refresh": "Aggiorna",
       "online": "In linea",
       "usernameOrEmail": "Username or email...",
       "name": "Nome",
       "email": "E-mail",
-      "created": "Created",
+      "created": "Creato",
       "status": "Stato",
       "premium": "Premio",
-      "actions": "Actions",
+      "actions": "Azioni",
       "support": "Supporto",
       "admin": "Administrator",
       "owner": "Host",
@@ -2542,6 +2556,7 @@
       "createRoom": "Crea sala",
       "turn": "Turno",
       "deleteRoom": "Elimina sala",
+      "delete": "Elimina",
       "timer": "Temporizzatore",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

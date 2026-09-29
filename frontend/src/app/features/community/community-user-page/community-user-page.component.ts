@@ -26,6 +26,8 @@ import { CommunityDeckGridComponent } from '../components/community-deck-grid/co
 import { CommunityCacheService } from '../data-access/community-cache.service';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { communityDeckRoute } from '../utils/community-deck-route';
+import { ReportModalComponent } from '../../reports/components/report-modal/report-modal.component';
+import { ReportStore } from '../../reports/data-access/report.store';
 
 @Component({
   selector: 'app-community-user-page',
@@ -44,6 +46,7 @@ import { communityDeckRoute } from '../utils/community-deck-route';
     PlayerInfoComponent,
     TooltipComponent,
     AppModalComponent,
+    ReportModalComponent,
   ],
   templateUrl: './community-user-page.component.html',
   styleUrl: './community-user-page.component.scss',
@@ -59,6 +62,7 @@ export class CommunityUserPageComponent implements OnDestroy {
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly reports = inject(ReportStore);
   private readonly seo = inject(DynamicPublicSeoService);
   private copiedShareHandle?: number;
   private loadVersion = 0;
@@ -88,6 +92,12 @@ export class CommunityUserPageComponent implements OnDestroy {
     const user = this.user();
 
     return user !== null && this.friends.rows().some((row) => row.kind === 'friend' && row.id === user.id);
+  });
+  readonly canReportUser = computed(() => {
+    const profileUser = this.user();
+    const currentUserId = this.auth.user()?.id;
+
+    return profileUser !== null && currentUserId !== profileUser.id;
   });
   readonly filtersVisible = computed(() => this.total() > 0 || this.hasAppliedDeckFilters());
   readonly formatOptions = computed<readonly FormatSelectOption[]>(() => [
@@ -180,6 +190,25 @@ export class CommunityUserPageComponent implements OnDestroy {
     } finally {
       this.sendingFriendRequest.set(false);
     }
+  }
+
+  async reportUser(user: CommunityUser): Promise<void> {
+    if (!this.auth.isAuthenticated()) {
+      await this.router.navigate(['/auth/login'], {
+        queryParams: { redirect: this.router.url },
+      });
+      return;
+    }
+
+    if (!this.canReportUser()) {
+      return;
+    }
+
+    this.reports.open({
+      source: 'profile',
+      reportedUserId: user.id,
+      targetDisplayName: user.displayName,
+    });
   }
 
   requestFriendRemoval(user: CommunityUser): void {

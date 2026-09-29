@@ -10,6 +10,7 @@
       [class.modal-panel-narrow]="size === 'narrow'"
       [class.modal-panel-wide]="size === 'wide'"
       [class.modal-panel-danger]="danger"
+      [class.modal-panel-success]="success"
       [class.modal-panel-overflow-visible]="panelOverflow === 'visible'"
       [class.modal-panel-has-close-button]="showCloseButton"
       [style.min-height]="panelMinHeight"
@@ -19,8 +20,9 @@
         <button
           czButton="icon"
           czButtonSize="sm"
-          czButtonTone="danger"
+          [czButtonTone]="danger ? 'danger' : success ? 'success' : 'danger'"
           class="modal-close-button"
+          [class.modal-close-button-success]="success && !danger"
           type="button"
           [attr.aria-label]="closeLabel | runtimeTranslate"
           (click)="close.emit()"
@@ -29,47 +31,84 @@
         </button>
       }
 
-      @if (headerImageSrc || title || showBackButton || showHeaderAction || message) {
-      <header>
-        @if (headerImageSrc) {
-          <img class="modal-header-image" [src]="headerImageSrc" [alt]="headerImageAlt | runtimeTranslate" />
-        }
-        @if (title || showBackButton || showHeaderAction) {
-        <div class="modal-title-row" [class.has-title-icon]="titleIcon">
-          @if (showBackButton) {
-            <app-back-button class="modal-back-button" (pressed)="back.emit()" />
+      @if (
+        (headerImageSrc && headerImagePlacement === 'header') ||
+        title ||
+        showBackButton ||
+        showHeaderAction ||
+        message
+      ) {
+        <header>
+          @if (headerImageSrc && headerImagePlacement === 'header') {
+            <img
+              class="modal-header-image"
+              [src]="headerImageSrc"
+              [alt]="headerImageAlt | runtimeTranslate"
+            />
           }
-          @if (titleIcon) {
-            <lucide-icon class="modal-title-icon" [name]="titleIcon" size="30" aria-hidden="true" />
+          @if (title || showBackButton || showHeaderAction) {
+            <div class="modal-title-row" [class.has-title-icon]="titleIcon">
+              @if (showBackButton) {
+                <app-back-button class="modal-back-button" (pressed)="back.emit()" />
+              }
+              @if (titleIcon) {
+                <lucide-icon
+                  class="modal-title-icon"
+                  [name]="titleIcon"
+                  size="30"
+                  aria-hidden="true"
+                />
+              }
+              <h2 czTextFit czTextFitMinScale="0.78">{{ title | runtimeTranslate }}</h2>
+              @if (showHeaderAction) {
+                <button
+                  czButton="primary"
+                  czButtonSize="sm"
+                  class="modal-header-action"
+                  type="button"
+                  (click)="headerAction.emit()"
+                >
+                  {{ headerActionLabel | runtimeTranslate }}
+                </button>
+              }
+            </div>
           }
-          <h2 czTextFit czTextFitMinScale="0.78">{{ title | runtimeTranslate }}</h2>
-          @if (showHeaderAction) {
-            <button czButton="primary" czButtonSize="sm" class="modal-header-action" type="button" (click)="headerAction.emit()">
-              {{ headerActionLabel | runtimeTranslate }}
-            </button>
+          @if (showHeaderRule) {
+            <app-hero-rule class="modal-header-rule" />
           }
-        </div>
-        }
-        @if (showHeaderRule) {
-          <app-hero-rule class="modal-header-rule" />
-        }
-        @if (message) {
-          <p>{{ message | runtimeTranslate: messageParams }}</p>
-        }
-      </header>
+          @if (message) {
+            <p>{{ message | runtimeTranslate: messageParams }}</p>
+          }
+        </header>
       }
 
       <div class="modal-body" appPrettyScroll>
+        @if (headerImageSrc && headerImagePlacement === 'body-centered') {
+          <img
+            class="modal-body-image modal-body-image-centered"
+            [src]="headerImageSrc"
+            [alt]="headerImageAlt | runtimeTranslate"
+          />
+        }
         <ng-content />
       </div>
 
       @if (showTertiary || showSecondary || showPrimary) {
         <footer [class.split-actions]="footerLayout === 'split'">
           @if (showTertiary) {
-            <button czButton="secondary" class="secondary-button" type="button" (click)="tertiary.emit()">{{ tertiaryLabel | runtimeTranslate }}</button>
+            <button
+              czButton="secondary"
+              class="secondary-button"
+              type="button"
+              (click)="tertiary.emit()"
+            >
+              {{ tertiaryLabel | runtimeTranslate }}
+            </button>
           }
           @if (footerNotice) {
-            <span class="modal-footer-notice settings-save-disclaimer">{{ footerNotice | runtimeTranslate }}</span>
+            <span class="modal-footer-notice settings-save-disclaimer">{{
+              footerNotice | runtimeTranslate
+            }}</span>
           }
           @if (showSecondary) {
             <button
@@ -85,7 +124,7 @@
           @if (showPrimary) {
             <button
               czButton="primary"
-              [czButtonTone]="danger ? 'danger' : 'default'"
+              [czButtonTone]="danger ? 'danger' : success ? 'success' : 'default'"
               class="primary-button"
               type="button"
               [disabled]="primaryDisabled"

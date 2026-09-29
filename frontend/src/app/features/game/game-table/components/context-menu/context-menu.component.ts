@@ -27,6 +27,7 @@ export type ContextMenuAction =
   | { type: 'leaveTable' }
   | { type: 'concedeGame' }
   | { type: 'focusPlayer' }
+  | { type: 'reportPlayer' }
   | { type: 'openZone'; zone: GameZoneName }
   | { type: 'changeLife'; delta: number }
   | { type: 'drawCard' }
@@ -124,6 +125,7 @@ export class ContextMenuComponent {
   readonly moveZones = input.required<readonly GameZoneName[]>();
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly canControlPlayer = input.required<(playerId: string) => boolean>();
+  readonly canReportPlayer = input<(playerId: string) => boolean>(() => false);
   readonly zoneCardCount = input.required<(playerId: string, zone: GameZoneName) => number>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
   readonly isLandStacked = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);

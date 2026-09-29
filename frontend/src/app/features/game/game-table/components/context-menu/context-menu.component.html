@@ -118,6 +118,14 @@
         <span>{{ displayLabel('game.contextMenu.labels.viewGraveyard') }}</span>
       </span>
     </button>
+    @if (canReportPlayer()(activeMenu.playerId)) {
+      <button type="button" class="danger-menu-item" data-testid="player-menu-report" (click)="actionSelected.emit({ type: 'reportPlayer' })">
+        <span class="menu-item-label">
+          <lucide-icon name="flag" size="17" aria-hidden="true" />
+          <span>{{ displayLabel('reports.actions.reportPlayer') }}</span>
+        </span>
+      </button>
+    }
   } @else if (isLibraryMenu()) {
     @if (isCurrentPlayer()(activeMenu.playerId)) {
       <button type="button" (click)="actionSelected.emit({ type: 'drawCard' })">

@@ -1,24 +1,47 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  HostListener,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { canAccessAdmin as userCanAccessAdmin } from '../../../core/auth/user-roles';
+import {
+  canAccessAdmin as userCanAccessAdmin,
+  canAccessModeration,
+} from '../../../core/auth/user-roles';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { FriendRemovalRequest } from '../../friends/friends-dropdown/friends-dropdown.component';
 import { MessagesStore } from '../../messages/data-access/messages.store';
-import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
+import {
+  RuntimeTranslatePipe,
+  runtimeTranslationFallback,
+} from '../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { ModerationSummaryStore } from '../../reports/data-access/moderation-summary.store';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, AppModalComponent, CzButtonDirective, RuntimeTranslatePipe],
+  imports: [
+    RouterOutlet,
+    DashboardHeaderComponent,
+    DashboardPageContextComponent,
+    AppModalComponent,
+    CzButtonDirective,
+    RuntimeTranslatePipe,
+  ],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +50,7 @@ export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
   readonly messages = inject(MessagesStore);
+  readonly moderationSummary = inject(ModerationSummaryStore);
   readonly pageHeader = inject(PageHeaderStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
@@ -37,15 +61,23 @@ export class DashboardShellComponent implements OnDestroy {
   readonly pendingFriendRemoval = signal<FriendRemovalRequest | null>(null);
   readonly removingFriend = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
-  readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? runtimeTranslationFallback('shared.text.player'));
+  readonly isAdminRoute = signal(this.isAdminUrl(this.router.url));
+  readonly userLabel = computed(
+    () =>
+      this.auth.displayName() ??
+      this.auth.user()?.email ??
+      runtimeTranslationFallback('shared.text.player'),
+  );
   readonly canAccessAdmin = computed(() => userCanAccessAdmin(this.auth.user()));
+  readonly canModerate = computed(() => canAccessModeration(this.auth.user()));
   private roomInviteSubscription?: Subscription;
   private messageSubscription?: Subscription;
   private friendSubscription?: Subscription;
   private headerUserId: string | null | undefined;
 
   constructor() {
-    const closeFriendsOnOutsidePointer = (event: PointerEvent) => this.closeFriendsOnOutsidePointer(event.target);
+    const closeFriendsOnOutsidePointer = (event: PointerEvent) =>
+      this.closeFriendsOnOutsidePointer(event.target);
     this.document.addEventListener('pointerdown', closeFriendsOnOutsidePointer, true);
     this.destroyRef.onDestroy(() => {
       this.document.removeEventListener('pointerdown', closeFriendsOnOutsidePointer, true);
@@ -59,6 +91,7 @@ export class DashboardShellComponent implements OnDestroy {
       )
       .subscribe((event) => {
         this.roomFocus.set(this.isTableAssistantRoomUrl(event.urlAfterRedirects));
+        this.isAdminRoute.set(this.isAdminUrl(event.urlAfterRedirects));
         this.closeFriends();
         this.closeMessages();
         this.syncAuthenticatedHeaderState();
@@ -66,11 +99,12 @@ export class DashboardShellComponent implements OnDestroy {
   }
 
   private closeFriendsOnOutsidePointer(target: EventTarget | null): void {
-    if (target instanceof Element && (
-      target.closest('.friends-dropdown')
-      || target.closest('.messages-dropdown')
-      || target.closest('.friends-removal-confirmation')
-    )) {
+    if (
+      target instanceof Element &&
+      (target.closest('.friends-dropdown') ||
+        target.closest('.messages-dropdown') ||
+        target.closest('.friends-removal-confirmation'))
+    ) {
       return;
     }
 
@@ -164,6 +198,7 @@ export class DashboardShellComponent implements OnDestroy {
     await this.auth.logout();
     this.friends.setUser(null);
     this.messages.setUser(null);
+    this.moderationSummary.reset();
     await this.router.navigate(['/auth/login']);
   }
 
@@ -175,6 +210,7 @@ export class DashboardShellComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopRoomInviteSync();
     this.stopFriendSync();
+    this.moderationSummary.reset();
   }
 
   private stopRoomInviteSync(): void {
@@ -211,7 +247,7 @@ export class DashboardShellComponent implements OnDestroy {
   }
 
   private syncAuthenticatedHeaderState(): void {
-    const userId = this.auth.isAuthenticated() ? this.auth.user()?.id ?? null : null;
+    const userId = this.auth.isAuthenticated() ? (this.auth.user()?.id ?? null) : null;
     if (this.headerUserId !== userId) {
       this.stopRoomInviteSync();
       this.stopFriendSync();
@@ -219,11 +255,13 @@ export class DashboardShellComponent implements OnDestroy {
     }
     this.friends.setUser(userId);
     this.messages.setUser(userId);
+    this.moderationSummary.syncViewer(this.auth.user());
     if (!this.auth.isAuthenticated()) {
       this.closeFriends();
       this.closeMessages();
       this.stopRoomInviteSync();
       this.stopFriendSync();
+      this.moderationSummary.reset();
       return;
     }
 
@@ -264,7 +302,9 @@ export class DashboardShellComponent implements OnDestroy {
         void this.messages.ensureSummaryLoaded();
         if (this.messagesOpen()) void this.messages.ensureLoaded();
       },
-      error: () => { this.messageSubscription = undefined; },
+      error: () => {
+        this.messageSubscription = undefined;
+      },
     });
   }
 
@@ -273,4 +313,8 @@ export class DashboardShellComponent implements OnDestroy {
     return /^\/table-assistant\/[^/]+$/.test(path);
   }
 
+  private isAdminUrl(url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return path === '/admin' || path.startsWith('/admin/');
+  }
 }

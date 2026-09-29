@@ -279,6 +279,21 @@ class RoomVisibilityTest extends TestCase
         self::assertFalse($room->canBeViewedBy($external));
     }
 
+    public function testArchivedModerationRoomCannotBeViewedByOwnerOrPlayers(): void
+    {
+        $owner = new User('archived-room-owner@example.test', 'Owner');
+        $player = new User('archived-room-player@example.test', 'Player');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $player));
+        $room->start(new \App\Domain\Game\Game($room, ['players' => []]));
+        $room->archiveForModerationEvidence();
+
+        self::assertSame(Room::STATUS_ARCHIVED, $room->status());
+        self::assertFalse($room->canBeViewedBy($owner));
+        self::assertFalse($room->canBeViewedBy($player));
+    }
+
     public function testStartingRoomClearsWaitingExpiry(): void
     {
         $owner = new User('expiry-owner@example.test', 'Owner');

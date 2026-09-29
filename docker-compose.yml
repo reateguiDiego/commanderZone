@@ -112,6 +112,28 @@ services:
       game-runtime:
         condition: service_healthy
 
+  moderation-evidence-worker:
+    image: commanderzone-api
+    command: php bin/console app:moderation-evidence-worker --watch --interval=1 --batch-size=250
+    restart: unless-stopped
+    # This process has no HTTP listener; the API image healthcheck would probe
+    # Caddy and mark a healthy queue worker as unhealthy.
+    healthcheck:
+      disable: true
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      APP_SECRET: ${APP_SECRET:-commanderzone-dev-secret-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://commanderzone:commanderzone@database:5432/commanderzone?serverVersion=16&charset=utf8}
+      MERCURE_URL: ${MERCURE_URL:-http://mercure/.well-known/mercure}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://127.0.0.1:3000/.well-known/mercure}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-change-this-mercure-dev-secret-with-at-least-32-chars}
+    depends_on:
+      database:
+        condition: service_healthy
+      mercure:
+        condition: service_started
+
   websocket:
     build:
       context: ./backend

@@ -545,7 +545,6 @@ export class DeckListStore {
     }
 
     if (this.contentSafety.hasProhibitedContent(name)) {
-      this.folderCreateModalOpen.set(false);
       this.contentSafety.showProhibitedContentModal();
       return;
     }
@@ -581,7 +580,6 @@ export class DeckListStore {
     }
 
     if (this.contentSafety.hasProhibitedContent(name)) {
-      this.folderRenameModalOpen.set(false);
       this.contentSafety.showProhibitedContentModal();
       return;
     }
@@ -635,7 +633,6 @@ export class DeckListStore {
     }
 
     if (this.contentSafety.hasProhibitedContent(name)) {
-      this.createModalOpen.set(false);
       this.contentSafety.showProhibitedContentModal();
       return;
     }
@@ -847,7 +844,6 @@ export class DeckListStore {
     }
 
     if (this.contentSafety.hasProhibitedContent(name)) {
-      this.deckEditModalOpen.set(false);
       this.contentSafety.showProhibitedContentModal();
       return;
     }

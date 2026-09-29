@@ -197,7 +197,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureUserPremiumTierColumn($connection);
         $this->ensureUserDailyVisitSchema($connection);
         $this->ensureUserMessageTable($connection);
-        $this->ensureUserReportTable($connection);
+        $this->ensureModerationSchema($connection);
         $this->ensureAuthIdentityTable($connection);
         $this->ensureAllDisconnectedHibernateColumn($connection);
         $this->ensureGameRuntimeClosingTable($connection);
@@ -214,6 +214,12 @@ abstract class ApiTestCase extends WebTestCase
             'password_reset_token',
             'user_daily_visit',
             'user_message',
+            'report_profile_evidence_queue',
+            'game_moderation_evidence_queue',
+            'game_moderation_evidence_chat_message',
+            'game_moderation_evidence_log_entry',
+            'game_moderation_evidence_snapshot',
+            'user_strike',
             'user_report',
             'table_assistant_room',
             'room_invite',
@@ -722,31 +728,226 @@ SQL,
         $connection->executeStatement('ALTER TABLE user_message ADD CONSTRAINT FK_USER_MESSAGE_RECIPIENT FOREIGN KEY (recipient_id) REFERENCES app_user (id) ON DELETE CASCADE');
     }
 
-    private function ensureUserReportTable(Connection $connection): void
+    private function ensureModerationSchema(Connection $connection): void
     {
         $schemaManager = $connection->createSchemaManager();
-        if ($schemaManager->tablesExist(['user_report']) || !$schemaManager->tablesExist(['app_user'])) {
+        if (!$schemaManager->tablesExist(['app_user', 'game'])) {
             return;
         }
 
-        $connection->executeStatement(
-            <<<'SQL'
+        $this->ensureColumn($connection, 'app_user', 'reports_made_count', 'ALTER TABLE app_user ADD COLUMN reports_made_count INT NOT NULL DEFAULT 0');
+        $this->ensureColumn($connection, 'app_user', 'reports_received_count', 'ALTER TABLE app_user ADD COLUMN reports_received_count INT NOT NULL DEFAULT 0');
+        $this->ensureColumn($connection, 'app_user', 'strikes_count', 'ALTER TABLE app_user ADD COLUMN strikes_count INT NOT NULL DEFAULT 0');
+        $connection->executeStatement('ALTER TABLE game ADD COLUMN IF NOT EXISTS requires_moderation_review BOOLEAN NOT NULL DEFAULT FALSE');
+        $this->ensureGameChatActorDisplayNameColumn($connection);
+
+        if (!$schemaManager->tablesExist(['user_report'])) {
+            $connection->executeStatement(<<<'SQL'
 CREATE TABLE user_report (
     id VARCHAR(36) NOT NULL,
-    reporter_id VARCHAR(36) NOT NULL,
-    reported_user_id VARCHAR(36) NOT NULL,
-    reason VARCHAR(255) NOT NULL,
+    reporter_id VARCHAR(36) DEFAULT NULL,
+    reporter_display_name VARCHAR(120) NOT NULL,
+    reported_user_id VARCHAR(36) DEFAULT NULL,
+    reported_user_display_name VARCHAR(120) NOT NULL,
+    game_id VARCHAR(36) DEFAULT NULL,
+    original_game_id VARCHAR(36) DEFAULT NULL,
+    message_id VARCHAR(36) DEFAULT NULL,
+    source VARCHAR(32) NOT NULL DEFAULT 'legacy',
+    category VARCHAR(72) NOT NULL DEFAULT 'other_problem',
+    comment TEXT DEFAULT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending_review',
+    reported_user_snapshot JSON DEFAULT NULL,
+    game_evidence_snapshot_id VARCHAR(36) DEFAULT NULL,
+    resolution_outcome VARCHAR(32) DEFAULT NULL,
+    resolution_note TEXT DEFAULT NULL,
+    resolved_by_id VARCHAR(36) DEFAULT NULL,
+    resolved_by_display_name VARCHAR(120) DEFAULT NULL,
+    resolved_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
     PRIMARY KEY(id)
 )
-SQL,
-        );
-        $connection->executeStatement('CREATE INDEX idx_user_report_created ON user_report (created_at)');
-        $connection->executeStatement('CREATE INDEX idx_user_report_reported_user ON user_report (reported_user_id)');
-        $connection->executeStatement('CREATE INDEX IDX_USER_REPORT_REPORTER ON user_report (reporter_id)');
-        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTER FOREIGN KEY (reporter_id) REFERENCES app_user (id) ON DELETE CASCADE');
-        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTED_USER FOREIGN KEY (reported_user_id) REFERENCES app_user (id) ON DELETE CASCADE');
-        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT chk_user_report_distinct_users CHECK (reporter_id <> reported_user_id)');
+SQL);
+        } else {
+            $columns = $schemaManager->listTableColumns('user_report');
+            if (isset($columns['reason']) && !isset($columns['comment'])) {
+                $connection->executeStatement('ALTER TABLE user_report RENAME COLUMN reason TO comment');
+            }
+        }
+
+        $this->ensureColumn($connection, 'user_report', 'game_id', 'ALTER TABLE user_report ADD COLUMN game_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'original_game_id', 'ALTER TABLE user_report ADD COLUMN original_game_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'message_id', 'ALTER TABLE user_report ADD COLUMN message_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'source', "ALTER TABLE user_report ADD COLUMN source VARCHAR(32) NOT NULL DEFAULT 'legacy'");
+        $this->ensureColumn($connection, 'user_report', 'category', "ALTER TABLE user_report ADD COLUMN category VARCHAR(72) NOT NULL DEFAULT 'other_problem'");
+        $this->ensureColumn($connection, 'user_report', 'status', "ALTER TABLE user_report ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending_review'");
+        $this->ensureColumn($connection, 'user_report', 'reported_user_snapshot', 'ALTER TABLE user_report ADD COLUMN reported_user_snapshot JSON DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'game_evidence_snapshot_id', 'ALTER TABLE user_report ADD COLUMN game_evidence_snapshot_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'resolution_outcome', 'ALTER TABLE user_report ADD COLUMN resolution_outcome VARCHAR(32) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'resolution_note', 'ALTER TABLE user_report ADD COLUMN resolution_note TEXT DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'resolved_by_id', 'ALTER TABLE user_report ADD COLUMN resolved_by_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'reporter_display_name', 'ALTER TABLE user_report ADD COLUMN reporter_display_name VARCHAR(120) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'reported_user_display_name', 'ALTER TABLE user_report ADD COLUMN reported_user_display_name VARCHAR(120) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'resolved_by_display_name', 'ALTER TABLE user_report ADD COLUMN resolved_by_display_name VARCHAR(120) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'resolved_at', 'ALTER TABLE user_report ADD COLUMN resolved_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_report', 'updated_at', 'ALTER TABLE user_report ADD COLUMN updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP');
+        $connection->executeStatement(<<<'SQL'
+UPDATE user_report report
+SET reporter_display_name = user_row.display_name
+FROM app_user user_row
+WHERE user_row.id = report.reporter_id
+  AND report.reporter_display_name IS NULL
+SQL);
+        $connection->executeStatement(<<<'SQL'
+UPDATE user_report report
+SET reported_user_display_name = user_row.display_name
+FROM app_user user_row
+WHERE user_row.id = report.reported_user_id
+  AND report.reported_user_display_name IS NULL
+SQL);
+        $connection->executeStatement(<<<'SQL'
+UPDATE user_report report
+SET resolved_by_display_name = user_row.display_name
+FROM app_user user_row
+WHERE user_row.id = report.resolved_by_id
+  AND report.resolved_by_display_name IS NULL
+SQL);
+        $connection->executeStatement("UPDATE user_report SET reporter_display_name = 'Unknown reporter' WHERE reporter_display_name IS NULL");
+        $connection->executeStatement("UPDATE user_report SET reported_user_display_name = 'Unknown reported user' WHERE reported_user_display_name IS NULL");
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN reporter_display_name SET NOT NULL');
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN reported_user_display_name SET NOT NULL');
+        // The pre-moderation schema used a required VARCHAR reason. Keep the
+        // test bootstrap faithful to the migrated entity: ordinary categories
+        // may have no free-form comment.
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN comment TYPE TEXT');
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN comment DROP NOT NULL');
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN reporter_id DROP NOT NULL');
+        $connection->executeStatement('ALTER TABLE user_report ALTER COLUMN reported_user_id DROP NOT NULL');
+        $connection->executeStatement('ALTER TABLE user_report DROP CONSTRAINT IF EXISTS fk_user_report_reporter');
+        $connection->executeStatement('ALTER TABLE user_report DROP CONSTRAINT IF EXISTS fk_user_report_reported_user');
+        $connection->executeStatement('ALTER TABLE user_report DROP CONSTRAINT IF EXISTS fk_user_report_game');
+        $connection->executeStatement('ALTER TABLE user_report DROP CONSTRAINT IF EXISTS fk_user_report_resolved_by');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT fk_user_report_reporter FOREIGN KEY (reporter_id) REFERENCES app_user (id) ON DELETE SET NULL');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT fk_user_report_reported_user FOREIGN KEY (reported_user_id) REFERENCES app_user (id) ON DELETE SET NULL');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT fk_user_report_game FOREIGN KEY (game_id) REFERENCES game (id) ON DELETE SET NULL');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT fk_user_report_resolved_by FOREIGN KEY (resolved_by_id) REFERENCES app_user (id) ON DELETE SET NULL');
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_open_user_report_pair ON user_report (reporter_id, reported_user_id) WHERE status IN (\'collecting_evidence\', \'pending_review\') AND reporter_id IS NOT NULL AND reported_user_id IS NOT NULL');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_report_pending_fifo ON user_report (status, created_at, id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_report_reporter_status ON user_report (reporter_id, status)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_report_reported_user_status ON user_report (reported_user_id, status)');
+
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS user_strike (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    issued_by_id VARCHAR(36) DEFAULT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_strike_user_created ON user_strike (user_id, created_at)');
+        $connection->executeStatement('ALTER TABLE user_strike DROP CONSTRAINT IF EXISTS fk_user_strike_user');
+        $connection->executeStatement('ALTER TABLE user_strike DROP CONSTRAINT IF EXISTS fk_user_strike_issued_by');
+        $connection->executeStatement('ALTER TABLE user_strike ADD CONSTRAINT fk_user_strike_user FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_strike ADD CONSTRAINT fk_user_strike_issued_by FOREIGN KEY (issued_by_id) REFERENCES app_user (id) ON DELETE SET NULL');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_moderation_evidence_snapshot (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    game_id VARCHAR(36) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    captured_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_snapshot DROP COLUMN IF EXISTS finished_at');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_snapshot DROP COLUMN IF EXISTS metadata');
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_game_moderation_evidence_game ON game_moderation_evidence_snapshot (game_id)');
+        $connection->executeStatement('ALTER TABLE user_report DROP CONSTRAINT IF EXISTS fk_user_report_game_evidence_snapshot');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT fk_user_report_game_evidence_snapshot FOREIGN KEY (game_evidence_snapshot_id) REFERENCES game_moderation_evidence_snapshot (id) ON DELETE SET NULL');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_moderation_evidence_chat_message (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    snapshot_id VARCHAR(36) NOT NULL,
+    source_message_id VARCHAR(36) NOT NULL,
+    actor_display_name VARCHAR(120) NOT NULL,
+    body VARCHAR(800) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message DROP COLUMN IF EXISTS actor_id');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message DROP COLUMN IF EXISTS reactions');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message DROP COLUMN IF EXISTS target_player_id');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message DROP COLUMN IF EXISTS target_display_name');
+        $connection->executeStatement("UPDATE game_moderation_evidence_chat_message SET actor_display_name = 'Unknown player' WHERE actor_display_name IS NULL");
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message ALTER COLUMN actor_display_name SET NOT NULL');
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_game_moderation_evidence_chat_source ON game_moderation_evidence_chat_message (snapshot_id, source_message_id)');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message DROP CONSTRAINT IF EXISTS fk_game_moderation_evidence_chat_snapshot');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_chat_message ADD CONSTRAINT fk_game_moderation_evidence_chat_snapshot FOREIGN KEY (snapshot_id) REFERENCES game_moderation_evidence_snapshot (id) ON DELETE CASCADE');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_moderation_evidence_log_entry (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    snapshot_id VARCHAR(36) NOT NULL,
+    source_log_entry_id VARCHAR(36) NOT NULL,
+    version INT NOT NULL,
+    actor_display_name VARCHAR(120) DEFAULT NULL,
+    text VARCHAR(1000) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
+)
+SQL);
+        $this->ensureColumn($connection, 'game_moderation_evidence_log_entry', 'actor_display_name', 'ALTER TABLE game_moderation_evidence_log_entry ADD COLUMN actor_display_name VARCHAR(120) DEFAULT NULL');
+        $logColumns = $connection->createSchemaManager()->listTableColumns('game_moderation_evidence_log_entry');
+        if (isset($logColumns['metadata'])) {
+            $connection->executeStatement(<<<'SQL'
+UPDATE game_moderation_evidence_log_entry
+SET actor_display_name = NULLIF(BTRIM(metadata->>'actorDisplayName'), '')
+WHERE actor_display_name IS NULL
+  AND metadata->>'actorDisplayName' IS NOT NULL
+SQL);
+        }
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_log_entry DROP COLUMN IF EXISTS type');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_log_entry DROP COLUMN IF EXISTS metadata');
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_game_moderation_evidence_log_source ON game_moderation_evidence_log_entry (snapshot_id, source_log_entry_id)');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_log_entry DROP CONSTRAINT IF EXISTS fk_game_moderation_evidence_log_snapshot');
+        $connection->executeStatement('ALTER TABLE game_moderation_evidence_log_entry ADD CONSTRAINT fk_game_moderation_evidence_log_snapshot FOREIGN KEY (snapshot_id) REFERENCES game_moderation_evidence_snapshot (id) ON DELETE CASCADE');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS game_moderation_evidence_queue (
+    game_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    queued_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    available_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    attempts INT NOT NULL DEFAULT 0
+)
+SQL);
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_game_moderation_evidence_queue_available ON game_moderation_evidence_queue (available_at, queued_at)');
+        $connection->executeStatement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS report_profile_evidence_queue (
+    report_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    queued_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    available_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    attempts INT NOT NULL DEFAULT 0
+)
+SQL);
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_report_profile_evidence_queue_available ON report_profile_evidence_queue (available_at, queued_at)');
+        $connection->executeStatement('ALTER TABLE report_profile_evidence_queue DROP CONSTRAINT IF EXISTS fk_report_profile_evidence_queue_report');
+        $connection->executeStatement('ALTER TABLE report_profile_evidence_queue ADD CONSTRAINT fk_report_profile_evidence_queue_report FOREIGN KEY (report_id) REFERENCES user_report (id) ON DELETE CASCADE');
+    }
+
+    private function ensureGameChatActorDisplayNameColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['game_chat_message'])) {
+            return;
+        }
+
+        $this->ensureColumn($connection, 'game_chat_message', 'actor_display_name', 'ALTER TABLE game_chat_message ADD COLUMN actor_display_name VARCHAR(120) DEFAULT NULL');
+        $connection->executeStatement(<<<'SQL'
+UPDATE game_chat_message message
+SET actor_display_name = user_row.display_name
+FROM app_user user_row
+WHERE user_row.id = message.actor_id
+  AND message.actor_display_name IS NULL
+SQL);
+        $connection->executeStatement("UPDATE game_chat_message SET actor_display_name = 'Unknown player' WHERE actor_display_name IS NULL");
+        $connection->executeStatement('ALTER TABLE game_chat_message ALTER COLUMN actor_display_name SET NOT NULL');
     }
 
     private function ensureAuthIdentityTable(Connection $connection): void

@@ -2,13 +2,32 @@ import { signal } from '@angular/core';
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { ChevronDown, ChevronRight, Eye, Hammer, LucideAngularModule, MoveDown, MoveUp, RefreshCcw, Send, Trash2, X } from 'lucide-angular';
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Hammer,
+  LucideAngularModule,
+  MoveDown,
+  MoveUp,
+  RefreshCcw,
+  Send,
+  ShieldAlert,
+  Trash2,
+  X,
+} from 'lucide-angular';
 import { of } from 'rxjs';
+import { MessagesApi } from '../../../../core/api/messages.api';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { ROLE_ADMIN, ROLE_OWNER, ROLE_SUPPORT, ROLE_USER } from '../../../../core/auth/user-roles';
 import { User } from '../../../../core/models/user.model';
+import { ReportsApi } from '../../../reports/data-access/reports.api';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
-import { AdminUser, AdminUsersListQuery, AdminUsersResponse } from '../../data-access/admin-users.models';
+import {
+  AdminUser,
+  AdminUsersListQuery,
+  AdminUsersResponse,
+} from '../../data-access/admin-users.models';
 import { AdminUsersPanelComponent } from './admin-users-panel.component';
 
 interface AdminUsersApiMock {
@@ -41,6 +60,7 @@ describe('AdminUsersPanelComponent', () => {
     isOnline: true,
     activeSessionsCount: 1,
     deckCounts: { total: 3, privateCount: 1, publicCount: 2 },
+    moderationCounters: { reportsMadeCount: 4, reportsReceivedCount: 2, strikesCount: 1 },
     localization: { countryCode: 'ES', countryName: 'Spain', appLanguage: 'es' },
     createdAt: new Date().toISOString(),
   };
@@ -58,6 +78,7 @@ describe('AdminUsersPanelComponent', () => {
     isOnline: false,
     activeSessionsCount: 0,
     deckCounts: { total: 0, privateCount: 0, publicCount: 0 },
+    moderationCounters: { reportsMadeCount: 0, reportsReceivedCount: 1, strikesCount: 0 },
     localization: { countryCode: 'DE', countryName: 'Germany', appLanguage: 'en' },
     createdAt: '2026-06-29T11:00:00+00:00',
   };
@@ -75,6 +96,7 @@ describe('AdminUsersPanelComponent', () => {
     isOnline: false,
     activeSessionsCount: 0,
     deckCounts: { total: 0, privateCount: 0, publicCount: 0 },
+    moderationCounters: { reportsMadeCount: 0, reportsReceivedCount: 0, strikesCount: 0 },
     localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: '2026-06-29T10:00:00+00:00',
   };
@@ -92,6 +114,7 @@ describe('AdminUsersPanelComponent', () => {
     isOnline: true,
     activeSessionsCount: 1,
     deckCounts: { total: 1, privateCount: 1, publicCount: 0 },
+    moderationCounters: { reportsMadeCount: 2, reportsReceivedCount: 0, strikesCount: 0 },
     localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: '2026-06-28T11:00:00+00:00',
   };
@@ -109,6 +132,7 @@ describe('AdminUsersPanelComponent', () => {
     isOnline: false,
     activeSessionsCount: 1,
     deckCounts: { total: 1, privateCount: 0, publicCount: 1 },
+    moderationCounters: { reportsMadeCount: 0, reportsReceivedCount: 3, strikesCount: 2 },
     localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: '2026-06-27T11:00:00+00:00',
   };
@@ -117,18 +141,26 @@ describe('AdminUsersPanelComponent', () => {
     currentAuthUser.set(authUser('owner-actor', [ROLE_USER, ROLE_OWNER]));
     api = {
       deleteUser: vi.fn().mockReturnValue(of(void 0)),
-      impersonateUser: vi.fn().mockReturnValue(of({
-        token: 'impersonated-token',
-        user: authUser(user.id, [ROLE_USER]),
-        impersonation: {
-          active: true,
-          impersonatorId: 'owner-actor',
-          targetUserId: user.id,
-        },
-      })),
-      listUsers: vi.fn((query: AdminUsersListQuery) => of(adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], query))),
+      impersonateUser: vi.fn().mockReturnValue(
+        of({
+          token: 'impersonated-token',
+          user: authUser(user.id, [ROLE_USER]),
+          impersonation: {
+            active: true,
+            impersonatorId: 'owner-actor',
+            targetUserId: user.id,
+          },
+        }),
+      ),
+      listUsers: vi.fn((query: AdminUsersListQuery) =>
+        of(adminUsersResponse([user, adminUser, supportUser, ownerSelf, ownerPeer], query)),
+      ),
       revokeSessions: vi.fn().mockReturnValue(of({ user })),
-      updateUser: vi.fn().mockReturnValue(of({ user: { ...user, authorizationRole: ROLE_ADMIN, roles: [ROLE_USER, ROLE_ADMIN] } })),
+      updateUser: vi
+        .fn()
+        .mockReturnValue(
+          of({ user: { ...user, authorizationRole: ROLE_ADMIN, roles: [ROLE_USER, ROLE_ADMIN] } }),
+        ),
     };
     navigate = vi.fn().mockResolvedValue(true);
     navigateByUrl = vi.fn().mockResolvedValue(true);
@@ -137,9 +169,43 @@ describe('AdminUsersPanelComponent', () => {
     await TestBed.configureTestingModule({
       imports: [AdminUsersPanelComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, Eye, Hammer, MoveDown, MoveUp, RefreshCcw, Send, Trash2, X })),
+        importProvidersFrom(
+          LucideAngularModule.pick({
+            ChevronDown,
+            ChevronRight,
+            Eye,
+            Hammer,
+            MoveDown,
+            MoveUp,
+            RefreshCcw,
+            Send,
+            ShieldAlert,
+            Trash2,
+            X,
+          }),
+        ),
         { provide: AdminUsersApi, useValue: api },
-        { provide: AuthStore, useValue: { user: currentAuthUser.asReadonly(), startImpersonation } },
+        {
+          provide: ReportsApi,
+          useValue: {
+            getUserModeration: vi.fn().mockReturnValue(of({
+              user: {
+                id: user.id,
+                displayName: user.displayName,
+                roles: user.roles,
+                reportsMadeCount: 4,
+                reportsReceivedCount: 2,
+                strikesCount: 1,
+              },
+              strikes: [],
+            })),
+          },
+        },
+        { provide: MessagesApi, useValue: { listAdminUserMessages: vi.fn().mockReturnValue(of({ messages: [] })) } },
+        {
+          provide: AuthStore,
+          useValue: { user: currentAuthUser.asReadonly(), startImpersonation },
+        },
         { provide: Router, useValue: { navigate, navigateByUrl } },
       ],
     }).compileComponents();
@@ -160,8 +226,19 @@ describe('AdminUsersPanelComponent', () => {
     expect(element.textContent).toContain('Online');
     expect(element.textContent).toContain('1 active session(s)');
     expect(element.textContent).toContain('Total3');
-    expect(element.textContent).toContain('Private1');
     expect(element.textContent).toContain('Public2');
+    expect(element.textContent).toContain('Private1');
+    const moderationCounters = element.querySelector(
+      '.admin-users-moderation-counters',
+    ) as HTMLElement;
+    expect(moderationCounters.textContent).toContain('Reports submitted');
+    expect(moderationCounters.textContent).toContain('Reports received');
+    expect(moderationCounters.textContent).toContain('Strikes');
+    expect(
+      Array.from(moderationCounters.querySelectorAll('dd')).map((value) =>
+        value.textContent?.trim(),
+      ),
+    ).toEqual(['4', '2', '1']);
     expect(element.textContent).toContain('Spain');
     expect(element.textContent).toContain('Español');
     expect(summaryValue(fixture, 'Total users')).toBe('5');
@@ -176,16 +253,95 @@ describe('AdminUsersPanelComponent', () => {
     expect(summaryValue(fixture, 'Tier 3')).toBe('1');
   });
 
+  it('uses a compact icon-only refresh control', () => {
+    const refreshButton = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-refresh-button',
+    ) as HTMLButtonElement;
+    api.listUsers.mockClear();
+
+    expect(refreshButton.classList).toContain('cz-button--icon');
+    expect(refreshButton.querySelector('lucide-icon[name="refresh-ccw"]')).not.toBeNull();
+
+    refreshButton.click();
+    fixture.detectChanges();
+
+    expect(api.listUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it('groups username, email, and authentication in the basic data column', () => {
+    const table = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-table',
+    ) as HTMLTableElement;
+    const headers = Array.from(table.querySelectorAll('thead th')).map((header) =>
+      header.textContent?.trim(),
+    );
+    const row = rowContaining(fixture, 'CommanderZone');
+    const basicData = row?.querySelector(
+      '.admin-users-table-cell--basic-data',
+    ) as HTMLTableCellElement | null;
+
+    expect(headers).toEqual([
+      'Basic information',
+      'Last connection',
+      'Created',
+      'Role',
+      'Premium',
+      'Decks',
+      'Moderation',
+      'Location',
+      'Actions',
+    ]);
+    expect(row?.querySelectorAll('td')).toHaveLength(9);
+    expect(basicData?.querySelector('.user-name')?.textContent?.trim()).toBe('CommanderZone');
+    expect(basicData?.querySelector('.user-email')?.textContent?.trim()).toBe('cz@test.com');
+    expect(basicData?.querySelector('.admin-users-auth-provider')?.textContent?.trim()).toBe(
+      'Google',
+    );
+    expect(row?.querySelector('.admin-users-table-cell--email')).toBeNull();
+    expect(row?.querySelector('.admin-users-table-cell--auth')).toBeNull();
+  });
+
+  it('keeps the online pill with the last connection and does not render a status column', () => {
+    const row = rowContaining(fixture, 'CommanderZone');
+    const lastConnection = row?.querySelector(
+      '.admin-users-table-cell--last-connection',
+    ) as HTMLTableCellElement | null;
+
+    expect(row?.querySelector('.admin-users-table-cell--status')).toBeNull();
+    expect(lastConnection?.querySelector('.admin-users-status')?.textContent?.trim()).toBe(
+      'Online',
+    );
+    expect(row?.querySelector('.admin-users-table-cell--actions')?.textContent).not.toContain(
+      'Online now',
+    );
+  });
+
+  it('does not render a presence pill for users who have never connected', () => {
+    fixture.componentInstance.changePresenceFilter('never_connected');
+    fixture.componentInstance.searchUsers();
+    fixture.detectChanges();
+
+    const row = rowContaining(fixture, 'Admin Tester');
+    const lastConnection = row?.querySelector(
+      '.admin-users-table-cell--last-connection',
+    ) as HTMLTableCellElement | null;
+
+    expect(lastConnection?.querySelector('.admin-users-never')?.textContent?.trim()).toBe('Never');
+    expect(lastConnection?.querySelector('.admin-users-status')).toBeNull();
+  });
+
   it('shows online and in-game users by default', () => {
     expect(fixture.componentInstance.presenceFilter()).toBe('active');
     expect(tableRowCount(fixture)).toBe(2);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('CommanderZone');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Owner Self');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Support Tester');
-    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'active',
-      fallbackWhenNoOtherActive: true,
-    }));
+    expect(api.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'active',
+        fallbackWhenNoOtherActive: true,
+      }),
+    );
   });
 
   it('uses the effective status returned by the API for the initial user list', () => {
@@ -204,29 +360,56 @@ describe('AdminUsersPanelComponent', () => {
 
     expect(fallbackFixture.componentInstance.presenceFilter()).toBe('recently_created');
     expect(api.listUsers).toHaveBeenCalledTimes(1);
-    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'active',
-      fallbackWhenNoOtherActive: true,
-    }));
+    expect(api.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'active',
+        fallbackWhenNoOtherActive: true,
+      }),
+    );
     expect((fallbackFixture.nativeElement as HTMLElement).textContent).toContain('CommanderZone');
   });
 
   it('shows the elapsed days below a known last connection', () => {
-    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--last-connection .admin-users-date');
+    const lastConnection = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-table-cell--last-connection .admin-users-date',
+    );
 
     expect(lastConnection?.textContent).toContain('Today');
   });
 
   it('shows the elapsed days below the user creation date', () => {
-    const createdAt = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-table-cell--created .admin-users-date');
+    const createdAt = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-table-cell--created .admin-users-date',
+    );
 
     expect(createdAt?.textContent).toContain('Today');
+  });
+
+  it('uses local calendar days for relative connection and creation labels', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 2, 0, 5));
+
+    try {
+      const panel = fixture.componentInstance;
+
+      expect(panel.relativeDaysAgoLabel(new Date(2026, 6, 2, 0, 1).toISOString())).toBe('Today');
+      expect(panel.relativeDaysAgoLabel(new Date(2026, 6, 1, 23, 59).toISOString())).toBe(
+        'Yesterday',
+      );
+      expect(panel.relativeDaysAgoLabel(new Date(2026, 5, 30, 23, 59).toISOString())).toBe(
+        '2 days ago',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows a country name resolved from its code without exposing the country code', () => {
     showAllUsers(fixture);
 
-    const localization = rowContaining(fixture, 'Admin Tester')?.querySelector('.admin-users-localization')?.textContent;
+    const localization = rowContaining(fixture, 'Admin Tester')?.querySelector(
+      '.admin-users-localization',
+    )?.textContent;
 
     expect(localization).toContain('Germany');
     expect(localization).not.toContain('DE');
@@ -235,12 +418,16 @@ describe('AdminUsersPanelComponent', () => {
   it('shows the all-users location summary from the already loaded data and closes it from its icon button', () => {
     clickButton(fixture, 'Location');
 
-    const table = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table') as HTMLTableElement | null;
+    const table = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-localization-table',
+    ) as HTMLTableElement | null;
     const rows = Array.from(table?.querySelectorAll('tbody tr') ?? []) as HTMLTableRowElement[];
 
     expect(api.listUsers).toHaveBeenCalledTimes(1);
     expect(rows).toHaveLength(4);
-    expect(rows.find((row) => row.textContent?.includes('All users'))?.textContent).toContain('100%');
+    expect(rows.find((row) => row.textContent?.includes('All users'))?.textContent).toContain(
+      '100%',
+    );
     expect(rows.find((row) => row.textContent?.includes('Spain'))?.textContent).toContain('20%');
     expect(rows.find((row) => row.textContent?.includes('Germany'))?.textContent).toContain('20%');
     expect(rows.find((row) => row.textContent?.includes('Unknown'))?.textContent).toContain('60%');
@@ -248,7 +435,9 @@ describe('AdminUsersPanelComponent', () => {
     buttonByLabel(fixture, 'Close locations')?.click();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table')).toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table'),
+    ).toBeNull();
   });
 
   it('switches the location summary between active countries, continents, and languages', () => {
@@ -256,7 +445,9 @@ describe('AdminUsersPanelComponent', () => {
 
     selectFormatOption(fixture, 'admin-user-localization-view', 'Countries · active users');
     let rows = localizationRows(fixture);
-    expect(rows.find((row) => row.textContent?.includes('Active users'))?.textContent).toContain('2');
+    expect(rows.find((row) => row.textContent?.includes('Active users'))?.textContent).toContain(
+      '2',
+    );
     expect(rows.find((row) => row.textContent?.includes('Spain'))?.textContent).toContain('50%');
 
     selectFormatOption(fixture, 'admin-user-localization-view', 'Continents · active users');
@@ -266,7 +457,10 @@ describe('AdminUsersPanelComponent', () => {
 
     selectFormatOption(fixture, 'admin-user-localization-view', 'Languages · active users');
     rows = localizationRows(fixture);
-    expect((fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table thead')?.textContent).toContain('Language');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table thead')
+        ?.textContent,
+    ).toContain('Language');
     expect(rows.find((row) => row.textContent?.includes('Spanish'))?.textContent).toContain('50%');
     expect(rows.find((row) => row.textContent?.includes('English'))?.textContent).toContain('50%');
   });
@@ -274,9 +468,30 @@ describe('AdminUsersPanelComponent', () => {
   it('uses Latin labels for every language in the location summary', () => {
     fixture.componentInstance.changeLocalizationView('languages_all');
 
-    expect(fixture.componentInstance.localizationItemLabel({ code: 'ja', name: '日本語', userCount: 1, share: 100 })).toBe('Japanese');
-    expect(fixture.componentInstance.localizationItemLabel({ code: 'ru', name: 'Русский', userCount: 1, share: 100 })).toBe('Russian');
-    expect(fixture.componentInstance.localizationItemLabel({ code: 'zhs', name: '简体中文', userCount: 1, share: 100 })).toBe('Chinese (Simplified)');
+    expect(
+      fixture.componentInstance.localizationItemLabel({
+        code: 'ja',
+        name: '日本語',
+        userCount: 1,
+        share: 100,
+      }),
+    ).toBe('Japanese');
+    expect(
+      fixture.componentInstance.localizationItemLabel({
+        code: 'ru',
+        name: 'Русский',
+        userCount: 1,
+        share: 100,
+      }),
+    ).toBe('Russian');
+    expect(
+      fixture.componentInstance.localizationItemLabel({
+        code: 'zhs',
+        name: '简体中文',
+        userCount: 1,
+        share: 100,
+      }),
+    ).toBe('Chinese (Simplified)');
   });
 
   it('asks for confirmation before updating authorization role from the role select', () => {
@@ -291,7 +506,11 @@ describe('AdminUsersPanelComponent', () => {
   it('does not expose owner as an assignable role in the role select', () => {
     const options = openFormatSelectOptions(fixture, 'authorizationRole');
 
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['User', 'Support', 'Admin']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual([
+      'User',
+      'Support',
+      'Admin',
+    ]);
   });
 
   it('uses the shared all label for every user filter', () => {
@@ -323,7 +542,9 @@ describe('AdminUsersPanelComponent', () => {
 
     expect(element.textContent).toContain('Admin Tester');
     expect(element.textContent).not.toContain('CommanderZone');
-    expect(api.listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'admin@test.com' }));
+    expect(api.listUsers).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: 'admin@test.com' }),
+    );
   });
 
   it('keeps filter and sorting selections pending until search is submitted', () => {
@@ -339,18 +560,21 @@ describe('AdminUsersPanelComponent', () => {
 
     fixture.componentInstance.searchUsers();
 
-    expect(api.listUsers).toHaveBeenCalledWith(expect.objectContaining({
-      role: ROLE_ADMIN,
-      premiumTier: 'tier2',
-      status: 'offline',
-      sort: 'name',
-      direction: 'desc',
-    }));
+    expect(api.listUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: ROLE_ADMIN,
+        premiumTier: 'tier2',
+        status: 'offline',
+        sort: 'name',
+        direction: 'desc',
+      }),
+    );
   });
 
   it('keeps the mobile filters and sorting panel closed until toggled', () => {
-    const mobileToggle = (fixture.nativeElement as HTMLElement)
-      .querySelector('.admin-users-mobile-filter-toggle') as HTMLButtonElement | null;
+    const mobileToggle = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-mobile-filter-toggle',
+    ) as HTMLButtonElement | null;
 
     expect(fixture.componentInstance.isMobileFiltersOpen()).toBe(false);
     expect(mobileToggle?.getAttribute('aria-expanded')).toBe('false');
@@ -365,7 +589,9 @@ describe('AdminUsersPanelComponent', () => {
 
   it('paginates users in pages of thirty rows', () => {
     const pagedUsers = Array.from({ length: 35 }, (_, index) => pagedUser(index + 1));
-    api.listUsers.mockImplementation((query: AdminUsersListQuery) => of(adminUsersResponse(pagedUsers, query)));
+    api.listUsers.mockImplementation((query: AdminUsersListQuery) =>
+      of(adminUsersResponse(pagedUsers, query)),
+    );
     fixture.componentInstance.changePresenceFilter('all');
     fixture.componentInstance.searchUsers();
     fixture.detectChanges();
@@ -433,8 +659,9 @@ describe('AdminUsersPanelComponent', () => {
 
     expect(rowContaining(fixture, 'Admin Tester')).toBe(tableRows(fixture)[0]);
 
-    const directionButton = (fixture.nativeElement as HTMLElement)
-      .querySelector('.admin-users-mobile-sort-direction') as HTMLButtonElement;
+    const directionButton = (fixture.nativeElement as HTMLElement).querySelector(
+      '.admin-users-mobile-sort-direction',
+    ) as HTMLButtonElement;
     expect(directionButton.textContent).toContain('Asc');
 
     directionButton.click();
@@ -457,14 +684,26 @@ describe('AdminUsersPanelComponent', () => {
   });
 
   it('uses the requested theme tones for summary pills', () => {
-    expect(summaryPill(fixture, 'Online')?.classList).toContain('admin-users-summary-pill--success');
-    expect(summaryPill(fixture, 'Online last 7 days')?.classList).toContain('admin-users-summary-pill--success');
-    expect(summaryPill(fixture, 'New users last 7 days')?.classList).toContain('admin-users-summary-pill--success');
-    expect(summaryPill(fixture, 'Never connected')?.classList).toContain('admin-users-summary-pill--danger');
+    expect(summaryPill(fixture, 'Online')?.classList).toContain(
+      'admin-users-summary-pill--success',
+    );
+    expect(summaryPill(fixture, 'Online last 7 days')?.classList).toContain(
+      'admin-users-summary-pill--success',
+    );
+    expect(summaryPill(fixture, 'New users last 7 days')?.classList).toContain(
+      'admin-users-summary-pill--success',
+    );
+    expect(summaryPill(fixture, 'Never connected')?.classList).toContain(
+      'admin-users-summary-pill--danger',
+    );
     expect(summaryPill(fixture, 'Tier 0')?.classList).toContain('admin-users-summary-pill--danger');
-    expect(summaryPill(fixture, 'Tier 1')?.classList).toContain('admin-users-summary-pill--warning');
+    expect(summaryPill(fixture, 'Tier 1')?.classList).toContain(
+      'admin-users-summary-pill--warning',
+    );
     expect(summaryPill(fixture, 'Tier 2')?.classList).toContain('admin-users-summary-pill--info');
-    expect(summaryPill(fixture, 'Tier 3')?.classList).toContain('admin-users-summary-pill--success');
+    expect(summaryPill(fixture, 'Tier 3')?.classList).toContain(
+      'admin-users-summary-pill--success',
+    );
   });
 
   it('shows each premium tier share of the total user count', () => {
@@ -502,11 +741,15 @@ describe('AdminUsersPanelComponent', () => {
     clickModalPrimary(fixture);
 
     expect(api.impersonateUser).toHaveBeenCalledWith('user-1');
-    expect(startImpersonation).toHaveBeenCalledWith('impersonated-token', expect.objectContaining({ id: 'user-1' }), {
-      active: true,
-      impersonatorId: 'owner-actor',
-      targetUserId: 'user-1',
-    });
+    expect(startImpersonation).toHaveBeenCalledWith(
+      'impersonated-token',
+      expect.objectContaining({ id: 'user-1' }),
+      {
+        active: true,
+        impersonatorId: 'owner-actor',
+        targetUserId: 'user-1',
+      },
+    );
     expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
@@ -514,30 +757,78 @@ describe('AdminUsersPanelComponent', () => {
     showAllUsers(fixture);
 
     const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'));
-    const adminRow = rows.find((row) => row.textContent?.includes('Admin Tester')) as HTMLTableRowElement | undefined;
+    const adminRow = rows.find((row) => row.textContent?.includes('Admin Tester')) as
+      | HTMLTableRowElement
+      | undefined;
     const closeSessions = buttonIn(adminRow, 'Close sessions');
 
     expect(closeSessions?.disabled).toBe(true);
   });
 
+  it('opens the reusable moderation drawer from the user action row', () => {
+    const userRow = rowContaining(fixture, 'CommanderZone');
+    const actionButtons = userRow?.querySelector('.admin-users-management-buttons');
+
+    expect(buttonIn(userRow, 'More user info')?.disabled).toBe(false);
+    expect(actionButtons?.textContent).toMatch(/Close sessions[\s\S]*More user info/);
+
+    buttonIn(userRow, 'More user info')?.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.moderationUserId()).toBe('user-1');
+    expect(fixture.nativeElement.querySelector('app-moderation-user-drawer')).not.toBeNull();
+  });
+
+  it('keeps user moderation actions within the existing role hierarchy', () => {
+    showAllUsers(fixture);
+
+    const userRow = rowContaining(fixture, 'CommanderZone');
+    const adminRow = rowContaining(fixture, 'Admin Tester');
+    const ownerSelfRow = rowContaining(fixture, 'Owner Self');
+
+    expect(buttonIn(userRow, 'More user info')?.disabled).toBe(false);
+    expect(buttonIn(adminRow, 'More user info')?.disabled).toBe(false);
+    expect(buttonIn(ownerSelfRow, 'More user info')?.disabled).toBe(true);
+
+    currentAuthUser.set(authUser('admin-actor', [ROLE_USER, ROLE_ADMIN]));
+    fixture.detectChanges();
+
+    expect(buttonIn(userRow, 'More user info')?.disabled).toBe(false);
+    expect(buttonIn(adminRow, 'More user info')?.disabled).toBe(true);
+    expect(buttonIn(ownerSelfRow, 'More user info')?.disabled).toBe(true);
+
+    currentAuthUser.set(authUser('support-actor', [ROLE_USER, ROLE_SUPPORT]));
+    fixture.detectChanges();
+
+    expect(buttonIn(userRow, 'More user info')?.disabled).toBe(true);
+  });
+
   it('groups every icon action into one mobile action row', () => {
-    const iconActions = rowContaining(fixture, 'CommanderZone')?.querySelectorAll('.admin-users-icon-actions .admin-users-icon-action');
+    const iconActions = rowContaining(fixture, 'CommanderZone')?.querySelectorAll(
+      '.admin-users-icon-actions .admin-users-icon-action',
+    );
 
     expect(iconActions).toHaveLength(4);
   });
 
-  it('keeps owner premium and session actions enabled while blocking role and delete', () => {
+  it('renders owner as a visible read-only role while preserving its permitted actions', () => {
     showAllUsers(fixture);
 
     const selfRow = rowContaining(fixture, 'Owner Self');
     const ownerPeerRow = rowContaining(fixture, 'Owner Peer');
 
     expect(formatSelectTriggerIn(selfRow, 'authorizationRole')?.disabled).toBe(true);
+    expect(formatSelectTriggerIn(selfRow, 'authorizationRole')?.textContent?.trim()).toContain(
+      'Owner',
+    );
     expect(formatSelectTriggerIn(selfRow, 'premiumTier')?.disabled).toBe(false);
     expect(buttonIn(selfRow, 'Close sessions')?.disabled).toBe(false);
     expect(buttonByLabelIn(selfRow, 'Delete user')?.disabled).toBe(true);
 
     expect(formatSelectTriggerIn(ownerPeerRow, 'authorizationRole')?.disabled).toBe(true);
+    expect(formatSelectTriggerIn(ownerPeerRow, 'authorizationRole')?.textContent?.trim()).toContain(
+      'Owner',
+    );
     expect(formatSelectTriggerIn(ownerPeerRow, 'premiumTier')?.disabled).toBe(false);
     expect(buttonIn(ownerPeerRow, 'Close sessions')?.disabled).toBe(false);
     expect(buttonByLabelIn(ownerPeerRow, 'Delete user')?.disabled).toBe(true);
@@ -584,70 +875,115 @@ describe('AdminUsersPanelComponent', () => {
 
     expect(buttonByLabelIn(supportRow, 'Impersonate Support Tester')?.disabled).toBe(true);
     expect(buttonByLabelIn(adminRow, 'Impersonate Admin Tester')?.disabled).toBe(true);
+    expect(
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('thead th')).map(
+        (header) => header.textContent?.trim(),
+      ),
+    ).not.toContain('Moderation');
+    expect(userRow?.querySelector('.admin-users-table-cell--moderation')).toBeNull();
   });
 });
 
-function selectFormatOption(fixture: ComponentFixture<AdminUsersPanelComponent>, inputName: string, optionText: string): void {
-  const option = openFormatSelectOptions(fixture, inputName)
-    .find((candidate) => candidate.textContent?.includes(optionText)) as HTMLButtonElement | undefined;
+function selectFormatOption(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  inputName: string,
+  optionText: string,
+): void {
+  const option = openFormatSelectOptions(fixture, inputName).find((candidate) =>
+    candidate.textContent?.includes(optionText),
+  ) as HTMLButtonElement | undefined;
   option?.click();
   fixture.detectChanges();
 }
 
-function openFormatSelectOptions(fixture: ComponentFixture<AdminUsersPanelComponent>, inputName: string): HTMLButtonElement[] {
+function openFormatSelectOptions(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  inputName: string,
+): HTMLButtonElement[] {
   const nativeElement = fixture.nativeElement as HTMLElement;
-  const selectHost = nativeElement.querySelector(`app-format-select input[name="${inputName}"]`)
+  const selectHost = nativeElement
+    .querySelector(`app-format-select input[name="${inputName}"]`)
     ?.closest('app-format-select') as HTMLElement | null;
   const trigger = selectHost?.querySelector('.format-select-trigger') as HTMLButtonElement | null;
   trigger?.click();
   fixture.detectChanges();
 
-  return Array.from(selectHost?.querySelectorAll('.format-select-option') ?? []) as HTMLButtonElement[];
+  return Array.from(
+    selectHost?.querySelectorAll('.format-select-option') ?? [],
+  ) as HTMLButtonElement[];
 }
 
-function buttonByLabelIn(row: HTMLTableRowElement | undefined, label: string): HTMLButtonElement | undefined {
+function buttonByLabelIn(
+  row: HTMLTableRowElement | undefined,
+  label: string,
+): HTMLButtonElement | undefined {
   return row?.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement | undefined;
 }
 
 function clickButton(fixture: ComponentFixture<AdminUsersPanelComponent>, text: string): void {
-  const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-    .find((candidate) => candidate.textContent?.includes(text)) as HTMLButtonElement | undefined;
+  const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+    (candidate) => candidate.textContent?.includes(text),
+  ) as HTMLButtonElement | undefined;
   button?.click();
   fixture.detectChanges();
 }
 
 function clickModalPrimary(fixture: ComponentFixture<AdminUsersPanelComponent>): void {
-  const button = (fixture.nativeElement as HTMLElement).querySelector('app-modal .primary-button') as HTMLButtonElement | null;
+  const button = (fixture.nativeElement as HTMLElement).querySelector(
+    'app-modal .primary-button',
+  ) as HTMLButtonElement | null;
   button?.click();
   fixture.detectChanges();
 }
 
-function buttonIn(row: HTMLTableRowElement | undefined, text: string): HTMLButtonElement | undefined {
-  return Array.from(row?.querySelectorAll('button') ?? [])
-    .find((candidate) => candidate.textContent?.includes(text)) as HTMLButtonElement | undefined;
+function buttonIn(
+  row: HTMLTableRowElement | undefined,
+  text: string,
+): HTMLButtonElement | undefined {
+  return Array.from(row?.querySelectorAll('button') ?? []).find((candidate) =>
+    candidate.textContent?.includes(text),
+  ) as HTMLButtonElement | undefined;
 }
 
-function buttonByLabel(fixture: ComponentFixture<AdminUsersPanelComponent>, label: string): HTMLButtonElement | undefined {
-  return (fixture.nativeElement as HTMLElement).querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement | undefined;
+function buttonByLabel(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  label: string,
+): HTMLButtonElement | undefined {
+  return (fixture.nativeElement as HTMLElement).querySelector(`button[aria-label="${label}"]`) as
+    | HTMLButtonElement
+    | undefined;
 }
 
-function rowContaining(fixture: ComponentFixture<AdminUsersPanelComponent>, text: string): HTMLTableRowElement | undefined {
-  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'))
-    .find((row) => row.textContent?.includes(text)) as HTMLTableRowElement | undefined;
+function rowContaining(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  text: string,
+): HTMLTableRowElement | undefined {
+  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr')).find(
+    (row) => row.textContent?.includes(text),
+  ) as HTMLTableRowElement | undefined;
 }
 
-function formatSelectTriggerIn(row: HTMLTableRowElement | undefined, inputName: string): HTMLButtonElement | undefined {
-  const selectHost = row?.querySelector(`app-format-select input[name="${inputName}"]`)
+function formatSelectTriggerIn(
+  row: HTMLTableRowElement | undefined,
+  inputName: string,
+): HTMLButtonElement | undefined {
+  const selectHost = row
+    ?.querySelector(`app-format-select input[name="${inputName}"]`)
     ?.closest('app-format-select') as HTMLElement | null;
 
   return selectHost?.querySelector('.format-select-trigger') as HTMLButtonElement | undefined;
 }
 
-function summaryValue(fixture: ComponentFixture<AdminUsersPanelComponent>, label: string): string | undefined {
+function summaryValue(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  label: string,
+): string | undefined {
   const pill = summaryPill(fixture, label);
 
-  return pill?.querySelector<HTMLElement>('.admin-users-summary-pill-count')?.textContent?.trim()
-    ?? pill?.querySelector('dd')?.textContent?.trim();
+  return (
+    pill?.querySelector<HTMLElement>('.admin-users-summary-pill-count')?.textContent?.trim() ??
+    pill?.querySelector('dd')?.textContent?.trim()
+  );
 }
 
 function showAllUsers(fixture: ComponentFixture<AdminUsersPanelComponent>): void {
@@ -656,10 +992,17 @@ function showAllUsers(fixture: ComponentFixture<AdminUsersPanelComponent>): void
   fixture.detectChanges();
 }
 
-function summaryPill(fixture: ComponentFixture<AdminUsersPanelComponent>, label: string): HTMLElement | undefined {
-  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.admin-users-summary-pill'))
-    .find((candidate): candidate is HTMLElement => candidate instanceof HTMLElement
-      && candidate.querySelector('dt')?.textContent?.trim() === label);
+function summaryPill(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+  label: string,
+): HTMLElement | undefined {
+  return Array.from(
+    (fixture.nativeElement as HTMLElement).querySelectorAll('.admin-users-summary-pill'),
+  ).find(
+    (candidate): candidate is HTMLElement =>
+      candidate instanceof HTMLElement &&
+      candidate.querySelector('dt')?.textContent?.trim() === label,
+  );
 }
 
 function tableRowCount(fixture: ComponentFixture<AdminUsersPanelComponent>): number {
@@ -667,7 +1010,9 @@ function tableRowCount(fixture: ComponentFixture<AdminUsersPanelComponent>): num
 }
 
 function tableRows(fixture: ComponentFixture<AdminUsersPanelComponent>): HTMLTableRowElement[] {
-  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr')) as HTMLTableRowElement[];
+  return Array.from(
+    (fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'),
+  ) as HTMLTableRowElement[];
 }
 
 function authUser(id: string, roles: readonly string[]): User {
@@ -695,14 +1040,18 @@ function pagedUser(index: number): AdminUser {
     isOnline: false,
     activeSessionsCount: 0,
     deckCounts: { total: 0, privateCount: 0, publicCount: 0 },
+    moderationCounters: { reportsMadeCount: 0, reportsReceivedCount: 0, strikesCount: 0 },
     localization: { countryCode: null, countryName: null, appLanguage: 'en' },
     createdAt: `2026-06-${String(Math.max(1, Math.min(index, 30))).padStart(2, '0')}T10:00:00+00:00`,
   };
 }
 
-function adminUsersResponse(allUsers: readonly AdminUser[], query: AdminUsersListQuery): AdminUsersResponse {
+function adminUsersResponse(
+  allUsers: readonly AdminUser[],
+  query: AdminUsersListQuery,
+): AdminUsersResponse {
   const now = Date.now();
-  const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const normalizedQuery = query.query.trim().toLowerCase();
   const filteredUsers = allUsers.filter((candidate) => {
     if (query.role !== 'all' && candidate.authorizationRole !== query.role) {
@@ -715,11 +1064,15 @@ function adminUsersResponse(allUsers: readonly AdminUser[], query: AdminUsersLis
       return false;
     }
 
-    return normalizedQuery === ''
-      || candidate.displayName.toLowerCase().includes(normalizedQuery)
-      || candidate.email.toLowerCase().includes(normalizedQuery);
+    return (
+      normalizedQuery === '' ||
+      candidate.displayName.toLowerCase().includes(normalizedQuery) ||
+      candidate.email.toLowerCase().includes(normalizedQuery)
+    );
   });
-  const sortedUsers = [...filteredUsers].sort((left, right) => compareAdminUsers(left, right, query));
+  const sortedUsers = [...filteredUsers].sort((left, right) =>
+    compareAdminUsers(left, right, query),
+  );
   const total = sortedUsers.length;
   const totalPages = Math.max(1, Math.ceil(total / query.limit));
   const page = Math.min(query.page, totalPages);
@@ -738,7 +1091,12 @@ function adminUsersResponse(allUsers: readonly AdminUser[], query: AdminUsersLis
   };
 }
 
-function matchesStatus(user: AdminUser, status: AdminUsersListQuery['status'], now: number, sevenDaysAgo: number): boolean {
+function matchesStatus(
+  user: AdminUser,
+  status: AdminUsersListQuery['status'],
+  now: number,
+  sevenDaysAgo: number,
+): boolean {
   switch (status) {
     case 'all':
       return true;
@@ -764,7 +1122,9 @@ function compareAdminUsers(left: AdminUser, right: AdminUser, query: AdminUsersL
     { numeric: true, sensitivity: 'base' },
   );
 
-  return compared === 0 ? left.id.localeCompare(right.id) : compared * (query.direction === 'asc' ? 1 : -1);
+  return compared === 0
+    ? left.id.localeCompare(right.id)
+    : compared * (query.direction === 'asc' ? 1 : -1);
 }
 
 function adminUserSortValue(user: AdminUser, sort: AdminUsersListQuery['sort']): string {
@@ -776,7 +1136,11 @@ function adminUserSortValue(user: AdminUser, sort: AdminUsersListQuery['sort']):
     case 'lastConnectedAt':
       return user.lastConnectedAt ?? '';
     case 'role':
-      return String({ [ROLE_USER]: 1, [ROLE_SUPPORT]: 2, [ROLE_ADMIN]: 3, [ROLE_OWNER]: 4 }[user.authorizationRole]);
+      return String(
+        { [ROLE_USER]: 1, [ROLE_SUPPORT]: 2, [ROLE_ADMIN]: 3, [ROLE_OWNER]: 4 }[
+          user.authorizationRole
+        ],
+      );
     case 'premium':
       return String({ none: 0, tier1: 1, tier2: 2, tier3: 3 }[user.premiumTier]);
     case 'totalDecks':
@@ -786,34 +1150,47 @@ function adminUserSortValue(user: AdminUser, sort: AdminUsersListQuery['sort']):
   }
 }
 
-function adminUsersSummary(users: readonly AdminUser[], now: number, sevenDaysAgo: number): AdminUsersResponse['summary'] {
-  return users.reduce<AdminUsersResponse['summary']>((summary, user) => ({
-    total: summary.total + 1,
-    online: summary.online + (user.isOnline ? 1 : 0),
-    recentlyConnected: summary.recentlyConnected + (isDateWithinRange(user.lastConnectedAt, sevenDaysAgo, now) ? 1 : 0),
-    recentlyCreated: summary.recentlyCreated + (isDateWithinRange(user.createdAt, sevenDaysAgo, now) ? 1 : 0),
-    neverConnected: summary.neverConnected + (user.lastConnectedAt === null ? 1 : 0),
-    totalDecks: summary.totalDecks + user.deckCounts.total,
-    tier0: summary.tier0 + (user.premiumTier === 'none' ? 1 : 0),
-    tier1: summary.tier1 + (user.premiumTier === 'tier1' ? 1 : 0),
-    tier2: summary.tier2 + (user.premiumTier === 'tier2' ? 1 : 0),
-    tier3: summary.tier3 + (user.premiumTier === 'tier3' ? 1 : 0),
-  }), {
-    total: 0,
-    online: 0,
-    recentlyConnected: 0,
-    recentlyCreated: 0,
-    neverConnected: 0,
-    totalDecks: 0,
-    tier0: 0,
-    tier1: 0,
-    tier2: 0,
-    tier3: 0,
-  });
+function adminUsersSummary(
+  users: readonly AdminUser[],
+  now: number,
+  sevenDaysAgo: number,
+): AdminUsersResponse['summary'] {
+  return users.reduce<AdminUsersResponse['summary']>(
+    (summary, user) => ({
+      total: summary.total + 1,
+      online: summary.online + (user.isOnline ? 1 : 0),
+      recentlyConnected:
+        summary.recentlyConnected +
+        (isDateWithinRange(user.lastConnectedAt, sevenDaysAgo, now) ? 1 : 0),
+      recentlyCreated:
+        summary.recentlyCreated + (isDateWithinRange(user.createdAt, sevenDaysAgo, now) ? 1 : 0),
+      neverConnected: summary.neverConnected + (user.lastConnectedAt === null ? 1 : 0),
+      totalDecks: summary.totalDecks + user.deckCounts.total,
+      tier0: summary.tier0 + (user.premiumTier === 'none' ? 1 : 0),
+      tier1: summary.tier1 + (user.premiumTier === 'tier1' ? 1 : 0),
+      tier2: summary.tier2 + (user.premiumTier === 'tier2' ? 1 : 0),
+      tier3: summary.tier3 + (user.premiumTier === 'tier3' ? 1 : 0),
+    }),
+    {
+      total: 0,
+      online: 0,
+      recentlyConnected: 0,
+      recentlyCreated: 0,
+      neverConnected: 0,
+      totalDecks: 0,
+      tier0: 0,
+      tier1: 0,
+      tier2: 0,
+      tier3: 0,
+    },
+  );
 }
 
 function adminUsersCountries(users: readonly AdminUser[]): AdminUsersResponse['countries'] {
-  const countries = new Map<string, { countryCode: string | null; countryName: string | null; userCount: number }>();
+  const countries = new Map<
+    string,
+    { countryCode: string | null; countryName: string | null; userCount: number }
+  >();
 
   for (const user of users) {
     const countryCode = user.localization.countryCode;
@@ -833,21 +1210,32 @@ function adminUsersCountries(users: readonly AdminUser[]): AdminUsersResponse['c
   }));
 }
 
-function adminUsersLocalizationSummary(users: readonly AdminUser[]): AdminUsersResponse['localizationSummary'] {
+function adminUsersLocalizationSummary(
+  users: readonly AdminUser[],
+): AdminUsersResponse['localizationSummary'] {
   const breakdown = (scopedUsers: readonly AdminUser[]) => ({
     totalUsers: scopedUsers.length,
-    countries: localizationItems(scopedUsers.map((user) => ({
-      code: user.localization.countryCode,
-      name: user.localization.countryName,
-    })), scopedUsers.length),
-    continents: localizationItems(scopedUsers.map((user) => ({
-      code: continentForCountry(user.localization.countryCode),
-      name: continentForCountry(user.localization.countryCode) === 'EU' ? 'Europe' : null,
-    })), scopedUsers.length),
-    languages: localizationItems(scopedUsers.map((user) => ({
-      code: user.localization.appLanguage,
-      name: user.localization.appLanguage,
-    })), scopedUsers.length),
+    countries: localizationItems(
+      scopedUsers.map((user) => ({
+        code: user.localization.countryCode,
+        name: user.localization.countryName,
+      })),
+      scopedUsers.length,
+    ),
+    continents: localizationItems(
+      scopedUsers.map((user) => ({
+        code: continentForCountry(user.localization.countryCode),
+        name: continentForCountry(user.localization.countryCode) === 'EU' ? 'Europe' : null,
+      })),
+      scopedUsers.length,
+    ),
+    languages: localizationItems(
+      scopedUsers.map((user) => ({
+        code: user.localization.appLanguage,
+        name: user.localization.appLanguage,
+      })),
+      scopedUsers.length,
+    ),
   });
 
   return {
@@ -877,15 +1265,22 @@ function localizationItems(
       ...group,
       share: totalUsers === 0 ? 0 : Math.round((group.userCount / totalUsers) * 100),
     }))
-    .sort((left, right) => right.userCount - left.userCount || (left.name ?? '').localeCompare(right.name ?? ''));
+    .sort(
+      (left, right) =>
+        right.userCount - left.userCount || (left.name ?? '').localeCompare(right.name ?? ''),
+    );
 }
 
 function continentForCountry(countryCode: string | null): string | null {
   return countryCode === 'ES' || countryCode === 'DE' ? 'EU' : null;
 }
 
-function localizationRows(fixture: ComponentFixture<AdminUsersPanelComponent>): HTMLTableRowElement[] {
-  const table = (fixture.nativeElement as HTMLElement).querySelector('.admin-users-localization-table');
+function localizationRows(
+  fixture: ComponentFixture<AdminUsersPanelComponent>,
+): HTMLTableRowElement[] {
+  const table = (fixture.nativeElement as HTMLElement).querySelector(
+    '.admin-users-localization-table',
+  );
 
   return Array.from(table?.querySelectorAll('tbody tr') ?? []) as HTMLTableRowElement[];
 }
