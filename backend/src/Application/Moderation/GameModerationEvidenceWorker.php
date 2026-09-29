@@ -51,7 +51,9 @@ final readonly class GameModerationEvidenceWorker
                 $job = $connection->fetchAssociative(<<<'SQL'
 SELECT game_id
 FROM game_moderation_evidence_queue
-WHERE available_at <= CURRENT_TIMESTAMP
+-- CURRENT_TIMESTAMP is fixed at the outer transaction's start. Use the wall
+-- clock so a job queued after that transaction began is not missed.
+WHERE available_at <= clock_timestamp()
 ORDER BY available_at ASC, queued_at ASC
 LIMIT 1
 FOR UPDATE SKIP LOCKED

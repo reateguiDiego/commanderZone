@@ -231,7 +231,7 @@ describe('AdminUsersPanelComponent', () => {
     const moderationCounters = element.querySelector(
       '.admin-users-moderation-counters',
     ) as HTMLElement;
-    expect(moderationCounters.textContent).toContain('Reports submitted');
+    expect(moderationCounters.textContent).toContain('Reports made');
     expect(moderationCounters.textContent).toContain('Reports received');
     expect(moderationCounters.textContent).toContain('Strikes');
     expect(
@@ -281,7 +281,7 @@ describe('AdminUsersPanelComponent', () => {
     ) as HTMLTableCellElement | null;
 
     expect(headers).toEqual([
-      'Basic information',
+      'Basic data',
       'Last connection',
       'Created',
       'Role',
@@ -770,7 +770,7 @@ describe('AdminUsersPanelComponent', () => {
     const actionButtons = userRow?.querySelector('.admin-users-management-buttons');
 
     expect(buttonIn(userRow, 'More user info')?.disabled).toBe(false);
-    expect(actionButtons?.textContent).toMatch(/Close sessions[\s\S]*More user info/);
+    expect(actionButtons?.textContent).toMatch(/More user info[\s\S]*Close sessions/);
 
     buttonIn(userRow, 'More user info')?.click();
     fixture.detectChanges();
