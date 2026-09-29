@@ -25,6 +25,8 @@ describe('ContentSafetyService', () => {
 
   it('detects English obfuscations from the supplied corpus', () => {
     expect(service.hasProhibitedContent('f*u*c*k')).toBe(true);
+    expect(service.hasProhibitedContent('f u c k')).toBe(true);
+    expect(service.hasProhibitedContent('f uck')).toBe(true);
     expect(service.hasProhibitedContent('b_a_s_t_a_r_d')).toBe(true);
     expect(service.hasProhibitedContent('m07h3rfuck3r')).toBe(true);
     expect(service.hasProhibitedContent('ａｓｓｈｏｌｅ')).toBe(true);

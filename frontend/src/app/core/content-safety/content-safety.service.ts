@@ -12,6 +12,7 @@ import { SPANISH_PROFANITY_WORDS } from './spanish-profanity-words';
 import { SUPPLEMENTAL_LANGUAGE_PROFANITY_WORDS } from './supplemental-language-profanity-words';
 
 type ContentRestrictionReason = 'external-url' | 'prohibited-language';
+type ObfuscatedProfanityPatternsByInitial = ReadonlyMap<string, readonly RegExp[]>;
 
 const SEPARATED_LETTERS_PATTERN = /(?:^|[^\p{L}\p{N}])((?:[\p{L}\p{N}][._-]){2,}[\p{L}\p{N}])(?=$|[^\p{L}\p{N}])/gu;
 const EXTERNAL_URL_PATTERN = /(?:[a-z][a-z0-9+.-]*:\/\/|\/\/|www\.)[^\s<>"']*[\p{L}\p{N}][^\s<>"']*/iu;
@@ -36,6 +37,8 @@ const NORMALIZED_COMPACT_PROHIBITED_EXPRESSIONS = COMPACT_PROHIBITED_EXPRESSIONS
 const ALLOWED_FALSE_POSITIVE_WORD_PATTERN = /(?<!\p{L})(?:debes|no|reputaci(?:on(?:es)?|onal(?:es)?)|(?:dis|am|em)put(?:a(?:s|r|ba(?:n)?|ndo|d[oa]s?|n|mos|is|re(?:mos)?|ria(?:s|mos)?|ra(?:s|mos)?|se(?:s|mos)?|cion(?:es)?)?|e(?:s|n|mos)?|o))(?!\p{L})/giu;
 const SUPPORTED_LANGUAGE_CODES: readonly string[] = ['en', 'es', 'fr', 'de', 'it', 'ja', 'zh', 'pt', 'ru'];
 const OBFUSCATION_SEPARATOR_PATTERN = '[\\s._*\\-\\u00AD\\u00B7\\u2027\\u2219\\u30FB]*';
+const LETTER_CHARACTER_PATTERN = /\p{L}/u;
+const LETTER_OR_NUMBER_CHARACTER_PATTERN = /[\p{L}\p{N}]/u;
 const CUSTOM_PROFANITY_WORDS: readonly string[] = [
   ...CATALAN_PROFANITY_WORDS,
   ...DUTCH_PROFANITY_WORDS,
@@ -53,10 +56,10 @@ const TYPO_PROFANITY_WORDS_BY_LENGTH = groupWordsByLength(
     .map((word) => compactLettersAndNumbers(word))
     .filter((word) => [...word].length >= 4),
 );
-const OBFUSCATED_PROFANITY_PATTERNS = [
+const OBFUSCATED_PROFANITY_PATTERNS_BY_INITIAL = groupObfuscatedProfanityPatterns([
   ...CUSTOM_PROFANITY_WORDS,
   ...NORMALIZED_CUSTOM_PROFANITY_WORDS,
-].map((word) => createObfuscationPattern(word));
+]);
 const OBFUSCATION_MARKER_PATTERN = /[\s._*\-\u00AD\u00B7\u2027\u2219\u30FB\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]|(.)\1/u;
 
 @Injectable({ providedIn: 'root' })
@@ -136,8 +139,13 @@ export class ContentSafetyService {
   }
 
   private hasObfuscatedProfanity(value: string): boolean {
-    return OBFUSCATION_MARKER_PATTERN.test(value)
-      && OBFUSCATED_PROFANITY_PATTERNS.some((pattern) => pattern.test(value));
+    if (!OBFUSCATION_MARKER_PATTERN.test(value)) {
+      return false;
+    }
+
+    return getObfuscatedProfanityCandidateInitials(value).some((initial) => (
+      OBFUSCATED_PROFANITY_PATTERNS_BY_INITIAL.get(initial) ?? []
+    ).some((pattern) => pattern.test(value)));
   }
 
   private removeAllowedFalsePositiveWords(value: string): string {
@@ -214,6 +222,51 @@ function containsBareExternalDomain(value: string): boolean {
 
 function compactLettersAndNumbers(value: string): string {
   return value.replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+function groupObfuscatedProfanityPatterns(expressions: readonly string[]): ObfuscatedProfanityPatternsByInitial {
+  const patternsByInitial = new Map<string, RegExp[]>();
+
+  for (const expression of new Set(expressions)) {
+    const initial = firstLetterOrNumber(expression);
+    if (initial === null) {
+      continue;
+    }
+
+    const patterns = patternsByInitial.get(initial) ?? [];
+    patterns.push(createObfuscationPattern(expression));
+    patternsByInitial.set(initial, patterns);
+  }
+
+  return patternsByInitial;
+}
+
+function getObfuscatedProfanityCandidateInitials(value: string): readonly string[] {
+  const initials = new Set<string>();
+  let previousCharacter: string | null = null;
+
+  for (const character of value) {
+    if (
+      LETTER_OR_NUMBER_CHARACTER_PATTERN.test(character)
+      && (previousCharacter === null || !LETTER_CHARACTER_PATTERN.test(previousCharacter))
+    ) {
+      initials.add(character.toLowerCase());
+    }
+
+    previousCharacter = character;
+  }
+
+  return [...initials];
+}
+
+function firstLetterOrNumber(value: string): string | null {
+  for (const character of value) {
+    if (LETTER_OR_NUMBER_CHARACTER_PATTERN.test(character)) {
+      return character.toLowerCase();
+    }
+  }
+
+  return null;
 }
 
 function groupWordsByLength(words: readonly string[]): ReadonlyMap<number, readonly string[]> {
