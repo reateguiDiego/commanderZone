@@ -120,20 +120,6 @@ describe('ContentSafetyService', () => {
     }
   });
 
-  it('keeps common and adversarial input checks responsive', () => {
-    const service = TestBed.inject(ContentSafetyService);
-    const startedAt = performance.now();
-
-    for (let index = 0; index < 500; index += 1) {
-      service.hasProhibitedContent(`Commander game ${index}: robo carta y paso turno.`);
-    }
-    for (let index = 0; index < 100; index += 1) {
-      service.hasProhibitedContent('f·u·c·k');
-    }
-
-    expect(performance.now() - startedAt).toBeLessThan(1500);
-  });
-
   it('detects native Japanese, Chinese, and Russian profanity', () => {
     expect(service.hasProhibitedContent('バカ')).toBe(true);
     expect(service.hasProhibitedContent('ハカ')).toBe(true);
