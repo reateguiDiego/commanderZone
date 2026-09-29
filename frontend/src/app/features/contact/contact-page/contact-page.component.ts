@@ -8,6 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { ContactApi } from '../../../core/api/contact.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { TranslationService } from '../../../core/localization/translation.service';
 import { LocaleCode, SUPPORTED_LOCALE_CODES } from '../../../core/localization/locale-config';
@@ -46,6 +47,7 @@ const FIELD_LIMITS = {
 export class ContactPageComponent {
   readonly auth = inject(AuthStore);
   private readonly contactApi = inject(ContactApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly document = inject(DOCUMENT);
   private readonly formBuilder = inject(FormBuilder);
   private readonly meta = inject(Meta);
@@ -92,12 +94,18 @@ export class ContactPageComponent {
       return;
     }
 
+    const payload = this.contactForm.getRawValue();
+    if (this.contentSafety.hasProhibitedContentIn([payload.name, payload.subject, payload.message])) {
+      this.errorMessage.set(null);
+      this.contentSafety.showProhibitedContentModal();
+      return;
+    }
+
     this.submitting.set(true);
     this.submitted.set(false);
     this.errorMessage.set(null);
 
     try {
-      const payload = this.contactForm.getRawValue();
       const response = await firstValueFrom(this.contactApi.send(payload));
       this.submitted.set(response.accepted);
       this.resetForm();

@@ -6,6 +6,7 @@ import { Subscription, firstValueFrom } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { DeckFormat } from '../../../core/models/deck.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../core/models/room.model';
@@ -31,6 +32,7 @@ const ROOM_LIST_POLL_INTERVAL_WITH_CURRENT_ROOM_MS = ROOM_LIST_POLL_INTERVAL_MS 
 })
 export class RoomsComponent implements OnInit, OnDestroy {
   private readonly roomsApi = inject(RoomsApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly deckFormatsApi = inject(DeckFormatsApi);
   private readonly mercure = inject(MercureService);
   protected readonly auth = inject(AuthStore);
@@ -172,6 +174,12 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
   async createRoom(payload: RoomCreatePayload): Promise<void> {
     this.error.set(null);
+
+    if (this.contentSafety.hasProhibitedContent(payload.name)) {
+      this.createRoomModalOpen.set(false);
+      this.contentSafety.showProhibitedContentModal();
+      return;
+    }
 
     try {
       const response = await firstValueFrom(this.roomsApi.create(undefined, payload.visibility, {

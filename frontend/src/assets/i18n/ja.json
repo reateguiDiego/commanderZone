@@ -2397,6 +2397,13 @@
       "submitError": "メッセージを送信できませんでした。{{ email }} へ直接ご連絡いただくか、別の方法でお問い合わせください。"
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "このコンテンツは使用できません",
+      "external-url-message": "外部リンクは使用できません。",
+      "prohibited-language-message": "不快または不適切な表現は使用できません。"
+    }
+  },
   "onboarding": {
     "accountActions": "アカウントのアクション",
     "demoRoom": {

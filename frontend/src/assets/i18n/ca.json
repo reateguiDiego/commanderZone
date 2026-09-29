@@ -2453,6 +2453,13 @@
       "submitError": "No hem pogut enviar el teu missatge. Escriu directament a {{ email }} o contacta amb nosaltres per un altre canal."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Contingut no permès",
+      "external-url-message": "No es permeten enllaços externs.",
+      "prohibited-language-message": "No es permet el llenguatge ofensiu o inadequat."
+    }
+  },
   "onboarding": {
     "accountActions": "Accions del compte",
     "demoRoom": {

@@ -2397,6 +2397,13 @@
       "submitError": "We konden je bericht niet verzenden. Schrijf rechtstreeks naar {{ email }} of neem via een ander kanaal contact met ons op."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Inhoud niet toegestaan",
+      "external-url-message": "Externe links zijn niet toegestaan.",
+      "prohibited-language-message": "Aanstootgevend of ongepast taalgebruik is niet toegestaan."
+    }
+  },
   "onboarding": {
     "accountActions": "Accountacties",
     "demoRoom": {

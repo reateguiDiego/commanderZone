@@ -1,8 +1,10 @@
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, PLATFORM_ID, importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
+import { LucideAngularModule, TriangleAlert, X } from 'lucide-angular';
 import { AuthStore } from '../core/auth/auth.store';
+import { ContentSafetyService } from '../core/content-safety/content-safety.service';
 import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { NotFoundNavigationService } from '../core/routing/not-found-navigation.service';
@@ -31,6 +33,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideHttpClient(),
+        importProvidersFrom(LucideAngularModule.pick({ TriangleAlert, X })),
         { provide: AuthStore, useValue: authStore },
         { provide: RuntimeLanguageSelectorService, useValue: {} },
         provideRouter([
@@ -68,6 +71,16 @@ describe('App', () => {
     TestBed.createComponent(App);
 
     expect(authStore.initialize).toHaveBeenCalledOnce();
+  });
+
+  it('shows only one global prohibited-content modal', () => {
+    const fixture = TestBed.createComponent(App);
+    const contentSafety = TestBed.inject(ContentSafetyService);
+
+    contentSafety.showProhibitedContentModal();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.modal-backdrop')).toHaveLength(1);
   });
 
   it('does not initialize auth during server rendering', async () => {

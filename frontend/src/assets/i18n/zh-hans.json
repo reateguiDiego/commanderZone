@@ -2453,6 +2453,13 @@
       "submitError": "我们无法发送您的消息。直接写信给{{ email }}或通过其他渠道联系我们。"
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "内容不允许",
+      "external-url-message": "不允许使用外部链接。",
+      "prohibited-language-message": "不允许使用冒犯性或不当语言。"
+    }
+  },
   "onboarding": {
     "accountActions": "账户操作",
     "demoRoom": {

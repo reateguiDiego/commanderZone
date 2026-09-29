@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, in
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthStore } from '../core/auth/auth.store';
+import { ContentSafetyService } from '../core/content-safety/content-safety.service';
 import { AdsenseService } from '../core/ads/adsense.service';
 import { GlobalLoadingFeaturePolicy } from '../core/loading/global-loading-feature-policy.service';
 import { LoadingStore } from '../core/loading/loading.store';
@@ -14,6 +15,7 @@ import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { NoindexFooterDisclaimerComponent } from '../shared/components/noindex-footer-disclaimer/noindex-footer-disclaimer.component';
 import { GlobalLoaderComponent } from '../shared/ui/global-loader/global-loader.component';
+import { AppModalComponent } from '../shared/ui/app-modal/app-modal.component';
 import { AppThemeService } from '../core/theme/app-theme.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { RouteStylesService } from '../core/ui/route-styles.service';
@@ -22,6 +24,7 @@ import { RouteStylesService } from '../core/ui/route-styles.service';
   selector: 'app-root',
   imports: [
     CookieConsentBannerComponent,
+    AppModalComponent,
     FooterDisclaimerComponent,
     GlobalLoaderComponent,
     NoindexFooterDisclaimerComponent,
@@ -34,6 +37,7 @@ import { RouteStylesService } from '../core/ui/route-styles.service';
 export class App {
   private readonly adsense = inject(AdsenseService);
   private readonly auth = inject(AuthStore);
+  readonly contentSafety = inject(ContentSafetyService);
   private readonly document = inject(DOCUMENT);
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);

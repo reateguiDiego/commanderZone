@@ -101,6 +101,22 @@
   max-width: calc(100vw - 2rem);
 }
 
+.modal-panel-danger {
+  border-color: rgb(var(--cz-danger-rgb) / 68%);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-danger-rgb) / 18%), transparent 16rem),
+    radial-gradient(circle at 92% 100%, rgb(var(--cz-danger-rgb) / 8%), transparent 18rem),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--cz-surface) 88%, var(--cz-danger) 12%),
+      color-mix(in srgb, var(--cz-bg) 82%, var(--cz-surface) 18%)
+    );
+}
+
+.modal-panel-danger .modal-title-icon {
+  color: var(--cz-danger);
+}
+
 .modal-panel-overflow-visible {
   overflow: visible;
 }

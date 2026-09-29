@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { SUPPORTED_CARD_LANGUAGE_CODES, SupportedCardLanguageCode } from '../../../core/localization/language-preferences';
@@ -79,6 +80,7 @@ interface ToggleCardFaceOptions {
 export class DeckEditorStore implements DeckAnalysisStore {
   private readonly translate = inject(TranslateService, { optional: true });
   private readonly decksApi = inject(DecksApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -304,6 +306,11 @@ export class DeckEditorStore implements DeckAnalysisStore {
   }
 
   async rename(id: string): Promise<void> {
+    if (this.contentSafety.hasProhibitedContent(this.deckName)) {
+      this.contentSafety.showProhibitedContentModal();
+      return;
+    }
+
     try {
       const response = await firstValueFrom(this.decksApi.rename(id, this.deckName.trim()));
       this.deck.set(response.deck);

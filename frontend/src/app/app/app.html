@@ -15,3 +15,19 @@
 @if (showGlobalLoading()) {
   <app-global-loader />
 }
+
+<app-modal
+  [open]="contentSafety.prohibitedContentModalOpen()"
+  title="contentSafety.modal.title"
+  titleIcon="triangle-alert"
+  ariaLabel="contentSafety.modal.title"
+  [message]="contentSafety.prohibitedContentModalMessage()"
+  primaryLabel="shared.text.close"
+  [showSecondary]="false"
+  [showCloseButton]="true"
+  [danger]="true"
+  closeLabel="shared.text.close"
+  size="narrow"
+  (primary)="contentSafety.dismissProhibitedContentModal()"
+  (close)="contentSafety.dismissProhibitedContentModal()"
+/>

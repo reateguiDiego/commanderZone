@@ -3,6 +3,7 @@ import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi, OwnedDeckSummary } from '../../../core/api/decks.api';
 import { ApiError } from '../../../core/models/api-responses.model';
@@ -52,6 +53,7 @@ export class DeckListStore {
   ];
 
   private readonly decksApi = inject(DecksApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly deckFoldersApi = inject(DeckFoldersApi);
   private readonly deckFormatsApi = inject(DeckFormatsApi);
   private readonly router = inject(Router);
@@ -542,6 +544,12 @@ export class DeckListStore {
       return;
     }
 
+    if (this.contentSafety.hasProhibitedContent(name)) {
+      this.folderCreateModalOpen.set(false);
+      this.contentSafety.showProhibitedContentModal();
+      return;
+    }
+
     try {
       const response = await firstValueFrom(this.deckFoldersApi.create(name, this.newFolderVisibility));
       this.folders.set([response.folder, ...this.folders()]);
@@ -569,6 +577,12 @@ export class DeckListStore {
     const folder = this.folderTarget();
     const name = this.renameFolderName.trim();
     if (!folder || !this.canSaveFolderRename()) {
+      return;
+    }
+
+    if (this.contentSafety.hasProhibitedContent(name)) {
+      this.folderRenameModalOpen.set(false);
+      this.contentSafety.showProhibitedContentModal();
       return;
     }
 
@@ -617,6 +631,12 @@ export class DeckListStore {
       ? []
       : this.selectedCommanders().map((card) => card.scryfallId);
     if (!this.isCreateFormReady()) {
+      return;
+    }
+
+    if (this.contentSafety.hasProhibitedContent(name)) {
+      this.createModalOpen.set(false);
+      this.contentSafety.showProhibitedContentModal();
       return;
     }
 
@@ -826,6 +846,12 @@ export class DeckListStore {
       return;
     }
 
+    if (this.contentSafety.hasProhibitedContent(name)) {
+      this.deckEditModalOpen.set(false);
+      this.contentSafety.showProhibitedContentModal();
+      return;
+    }
+
     try {
       const response = await firstValueFrom(this.decksApi.rename(deck.id, name));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
@@ -841,6 +867,11 @@ export class DeckListStore {
     const deck = this.deckEditTarget();
     const name = this.editDeckName.trim();
     if (!deck || !this.canSaveDeckEdit()) {
+      return;
+    }
+
+    if (this.contentSafety.hasProhibitedContent(name)) {
+      this.contentSafety.showProhibitedContentModal();
       return;
     }
 

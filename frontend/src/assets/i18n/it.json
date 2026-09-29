@@ -2397,6 +2397,13 @@
       "submitError": "Non è stato possibile inviare il tuo messaggio. Scrivi direttamente a {{email}} o contattaci attraverso un altro canale."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Contenuto non consentito",
+      "external-url-message": "I link esterni non sono consentiti.",
+      "prohibited-language-message": "Non sono ammessi linguaggio offensivo o inappropriato."
+    }
+  },
   "onboarding": {
     "accountActions": "Azioni dell'account",
     "demoRoom": {

@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ContactApi } from '../../../core/api/contact.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { TranslationService } from '../../../core/localization/translation.service';
 import { User } from '../../../core/models/user.model';
 import { AppThemeService } from '../../../core/theme/app-theme.service';
@@ -164,6 +165,21 @@ describe('ContactPageComponent', () => {
       message: 'Need support',
     });
     expect(fixture.componentInstance.submitted()).toBe(true);
+  });
+
+  it('does not submit content that contains prohibited language', async () => {
+    fixture.componentInstance.contactForm.setValue({
+      name: 'Alice',
+      email: 'alice@example.com',
+      subject: 'Help',
+      message: 'f.u.c.k',
+    });
+    fixture.componentInstance.contactForm.updateValueAndValidity();
+
+    await fixture.componentInstance.submit();
+
+    expect(contactApi.send).not.toHaveBeenCalled();
+    expect(TestBed.inject(ContentSafetyService).prohibitedContentModalOpen()).toBe(true);
   });
 
   it('preserves authenticated readonly fields after a successful submit', async () => {

@@ -2453,6 +2453,13 @@
       "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Content not allowed",
+      "external-url-message": "External links are not allowed.",
+      "prohibited-language-message": "Offensive or inappropriate language is not allowed."
+    }
+  },
   "onboarding": {
     "accountActions": "Account actions",
     "demoRoom": {
