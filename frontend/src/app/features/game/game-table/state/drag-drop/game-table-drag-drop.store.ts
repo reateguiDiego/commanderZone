@@ -610,8 +610,11 @@ export class GameTableDragDropStore {
 
   private updateNativeBattlefieldDropPreview(context: GameTableDragDropContext, event: DragEvent): boolean {
     const payload = this.drag.dragPayload(event, [...context.zones]);
-    const targetPlayerId = this.nativeBattlefieldDropPlayerId(event);
-    const dropGeometry = targetPlayerId ? this.drag.dropGeometry(event, 'battlefield') : null;
+    const battlefield = this.nativeBattlefieldDropTarget(event);
+    const targetPlayerId = battlefield?.dataset['playerId'] ?? null;
+    const dropGeometry = battlefield && targetPlayerId
+      ? this.drag.dropGeometry(event, 'battlefield', battlefield)
+      : null;
     const dropPosition = dropGeometry?.position ?? null;
     if (
       !payload
@@ -786,12 +789,14 @@ export class GameTableDragDropStore {
     return false;
   }
 
-  private nativeBattlefieldDropPlayerId(event: DragEvent): string | null {
-    const target = event.currentTarget instanceof HTMLElement
-      ? event.currentTarget.closest<HTMLElement>('[data-game-drop-zone="battlefield"]')
-      : null;
+  private nativeBattlefieldDropTarget(event: DragEvent): HTMLElement | null {
+    return this.closestNativeBattlefield(event.target) ?? this.closestNativeBattlefield(event.currentTarget);
+  }
 
-    return target?.dataset['playerId'] ?? null;
+  private closestNativeBattlefield(target: EventTarget | null): HTMLElement | null {
+    return target instanceof Element
+      ? target.closest<HTMLElement>('[data-game-drop-zone="battlefield"]')
+      : null;
   }
 
   private scheduleLandStackDropPreview(preview: LandStackDropPreview): void {

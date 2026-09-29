@@ -92,6 +92,21 @@ describe('land stack utilities', () => {
       .toBe('target');
   });
 
+  it('rejects a diagonally distant target when Grid requires deliberate overlap', () => {
+    const target = land('target', 100, 80);
+    const distantCard = land('dragged', 400, 480);
+
+    expect(landStackDropTarget(
+      [distantCard, target],
+      [],
+      'dragged',
+      { x: 400, y: 480 },
+      positionFor,
+      new Set(),
+      0.7,
+    )).toBeNull();
+  });
+
   it('detaches one relation and recompacts the remaining members', () => {
     const cards = [land('top', 100, 200), land('middle', 110, 182), land('bottom', 120, 164)];
     const stacks = [

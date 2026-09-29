@@ -292,6 +292,11 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'library.move_top':
+                $this->applyRuntimeLibraryMoveTop($snapshot, $payload);
+
+                return true;
+
             case 'library.reveal':
                 $this->applyRuntimeLibraryReveal($snapshot, $payload);
 
@@ -459,6 +464,61 @@ final class GameEventReplayService
 
             default:
                 return false;
+        }
+    }
+
+    /**
+     * Replays the compact result emitted by the Go runtime for library.move_top.
+     *
+     * The runtime emits instanceIds plus destination instead of generic moves,
+     * because the source card identity is private while it remains in library.
+     * Reconstructing the moves here keeps a bootstrap after reconnect or reload
+     * aligned with the live public patch.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLibraryMoveTop(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        $destination = is_string($payload['destination'] ?? null)
+            ? trim($payload['destination'])
+            : (is_string($payload['toZone'] ?? null) ? trim($payload['toZone']) : '');
+        $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : $playerId;
+        if ($targetPlayerId === '') {
+            $targetPlayerId = $playerId;
+        }
+        if ($destination === 'library') {
+            // library.move_top only supports returning cards to the acting
+            // player's library, at its bottom.
+            $targetPlayerId = $playerId;
+        }
+
+        if (
+            $playerId === ''
+            || !isset($snapshot['players'][$playerId])
+            || !isset($snapshot['players'][$targetPlayerId])
+            || !in_array($destination, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'], true)
+        ) {
+            return;
+        }
+
+        $position = $destination === 'battlefield' && is_array($payload['position'] ?? null)
+            ? $payload['position']
+            : null;
+        foreach ($this->stringList($payload['instanceIds'] ?? []) as $instanceId) {
+            $move = [
+                'instanceId' => $instanceId,
+                'from' => ['playerId' => $playerId, 'zone' => 'library'],
+                'to' => ['playerId' => $targetPlayerId, 'zone' => $destination],
+                // Match resetLibraryRevealState in the Go applier, including
+                // a move back to the library bottom.
+                'resetLibraryMoveTopState' => true,
+            ];
+            if ($position !== null) {
+                $move['position'] = $position;
+            }
+
+            $this->applyMove($snapshot, $move);
         }
     }
 
@@ -1688,9 +1748,16 @@ final class GameEventReplayService
         $targetPlayerId = (string) ($to['playerId'] ?? '');
         $targetZone = (string) ($to['zone'] ?? '');
         $targetIndex = array_key_exists('index', $to) ? max(0, (int) $to['index']) : null;
-        if ($sourceZone === 'library' && $targetZone !== 'library') {
+        $resetsLibraryMoveTopState = ($move['resetLibraryMoveTopState'] ?? false) === true;
+        if ($sourceZone === 'library' && ($targetZone !== 'library' || $resetsLibraryMoveTopState)) {
             $card['revealedTo'] = [];
             unset($card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY]);
+        }
+        if ($resetsLibraryMoveTopState) {
+            unset($card['position']);
+            if (in_array($targetZone, ['battlefield', 'hand'], true)) {
+                $card['controllerId'] = $targetPlayerId;
+            }
         }
         if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
             $this->resetBattlefieldExitCard($card, $targetPlayerId);

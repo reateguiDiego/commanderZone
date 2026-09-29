@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { GameBattlefieldStack, GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
 import { GameTableDropActionsService } from '../../services/game-table-drop-actions.service';
 import { GameTablePointerDragActionsService } from '../../services/game-table-pointer-drag-actions.service';
+import { PointerDropTarget } from '../../services/game-table-pointer-drag.service';
 import { GameTableBattlefieldDragState } from './game-table-battlefield-drag.state';
 import { PlayerView } from '../../game-table.store';
 import {
@@ -483,6 +484,185 @@ describe('GameTableDragDropStore', () => {
       nextSize: 3,
     });
     underCardElement.remove();
+  });
+
+  it('uses the nested battlefield as the native Grid dragover geometry target', () => {
+    vi.useFakeTimers();
+    const dragged = permanent('dragged', 0, 0);
+    const target = permanent('target', 100, 200);
+    const playerCell = document.createElement('section');
+    playerCell.classList.add('player-cell');
+    const battlefield = battlefieldDropTarget();
+    playerCell.appendChild(battlefield);
+    const ctx = context([playerView([target], [dragged])]);
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'dragged',
+      instanceIds: ['dragged'],
+    });
+    dragService.dropGeometry.mockImplementation((_event: DragEvent, _zone, target) => target === battlefield
+      ? { position: { x: 100, y: 200 }, cardSize: { width: 103, height: 144 } }
+      : null,
+    );
+
+    store.allowDrop(ctx, {
+      currentTarget: playerCell,
+      target: battlefield,
+      clientX: 220,
+      clientY: 220,
+    } as unknown as DragEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragService.dropGeometry).toHaveBeenCalledWith(
+      expect.objectContaining({ currentTarget: playerCell }),
+      'battlefield',
+      battlefield,
+    );
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'target',
+      kind: 'attachment',
+    });
+  });
+
+  it('does not preview a native Grid land stack relation below the 70% overlap threshold', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 0, 0);
+    const target = land('target', 0, 0);
+    const battlefield = battlefieldDropTarget();
+    const ctx: GameTableDragDropContext = {
+      ...context([playerView([target], [dragged])]),
+      stackDropOverlapRatio: () => 0.7,
+    };
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'dragged',
+      instanceIds: ['dragged'],
+    });
+    dragService.dropGeometry.mockReturnValue({
+      position: { x: 40, y: 0 },
+      cardSize: { width: 100, height: 100 },
+    });
+
+    store.allowDrop(ctx, { currentTarget: battlefield, target: battlefield } as unknown as DragEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('does not preview a native Grid attachment relation below the 70% overlap threshold', () => {
+    vi.useFakeTimers();
+    const dragged = permanent('dragged', 0, 0);
+    const target = permanent('target', 0, 0);
+    const battlefield = battlefieldDropTarget();
+    const ctx: GameTableDragDropContext = {
+      ...context([playerView([target], [dragged])]),
+      stackDropOverlapRatio: () => 0.7,
+    };
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'dragged',
+      instanceIds: ['dragged'],
+    });
+    dragService.dropGeometry.mockReturnValue({
+      position: { x: 40, y: 0 },
+      cardSize: { width: 100, height: 100 },
+    });
+
+    store.allowDrop(ctx, { currentTarget: battlefield, target: battlefield } as unknown as DragEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('previews a deliberate Grid land stack but not a land dropped far from the battlefield cards', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 0, 0);
+    const target = land('target', 100, 200);
+    const ctx = gridContext([playerView([target], [dragged])]);
+
+    store.updatePointerDropTarget(ctx, battlefieldPointerTarget('dragged', { x: 100, y: 200 }));
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'target',
+      kind: 'land',
+      nextSize: 2,
+    });
+
+    store.updatePointerDropTarget(ctx, battlefieldPointerTarget('dragged', { x: 480, y: 480 }));
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('previews a deliberate Grid attachment but not an attachment dropped far from the battlefield cards', () => {
+    vi.useFakeTimers();
+    const dragged = permanent('dragged', 0, 0);
+    const target = permanent('target', 100, 200);
+    const ctx = gridContext([playerView([target], [dragged])]);
+
+    store.updatePointerDropTarget(ctx, battlefieldPointerTarget('dragged', { x: 100, y: 200 }));
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'target',
+      kind: 'attachment',
+    });
+
+    store.updatePointerDropTarget(ctx, battlefieldPointerTarget('dragged', { x: 480, y: 480 }));
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('keeps a Grid land detach source while a land being unstacked moves far from its original stack', () => {
+    vi.useFakeTimers();
+    const top = land('top', 100, 200);
+    const under = land('under', 110, 182);
+    const ctx = gridContext([playerView([top, under])], null, [stack('stack-under', 'under', 'top')]);
+    dragService.moveCardPointerDrag.mockReturnValue('under');
+    dragService.pointerDragPreview.mockReturnValue({ x: 480, y: 480, width: 120, height: 168 });
+
+    store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', under);
+    under.position = { x: 480, y: 480 };
+    store.moveCardPointerDrag(ctx, { clientX: 540, clientY: 540 } as PointerEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDetachSource()).toEqual(expect.objectContaining({
+      playerId: 'player-1',
+      detachedInstanceId: 'under',
+    }));
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('keeps a Grid attachment detach source while equipment being detached moves far from its original target', () => {
+    vi.useFakeTimers();
+    const target = permanent('target', 100, 200);
+    const equipment = permanent('equipment', 110, 182);
+    const ctx = gridContext(
+      [playerView([target, equipment])],
+      { attachments: [attachment('attachment-equipment', 'equipment', 'target')] } as GameSnapshot,
+    );
+    dragService.moveCardPointerDrag.mockReturnValue('equipment');
+    dragService.pointerDragPreview.mockReturnValue({ x: 480, y: 480, width: 120, height: 168 });
+
+    store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', equipment);
+    equipment.position = { x: 480, y: 480 };
+    store.moveCardPointerDrag(ctx, { clientX: 540, clientY: 540 } as PointerEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.attachmentStackDetachSource()).toEqual(expect.objectContaining({
+      playerId: 'player-1',
+      detachedInstanceId: 'equipment',
+      attachmentId: 'attachment-equipment',
+    }));
+    expect(dragState.landStackDropPreview()).toBeNull();
   });
 
   it('suppresses mana row relation previews while the active pointer target is hand', () => {
@@ -965,6 +1145,17 @@ describe('GameTableDragDropStore', () => {
       applyDeferredRemoteSnapshot: () => undefined,
     };
   }
+
+  function gridContext(
+    players: PlayerView[] = [],
+    snapshot: GameSnapshot | null = null,
+    battlefieldStacks: readonly GameBattlefieldStack[] = [],
+  ): GameTableDragDropContext {
+    return {
+      ...context(players, snapshot, battlefieldStacks),
+      stackDropOverlapRatio: () => 0.7,
+    };
+  }
 });
 
 function selected(playerId: string, zone: GameZoneName, instanceId: string): SelectedCard {
@@ -997,6 +1188,15 @@ function stack(id: string, stackedInstanceId: string, stackTopInstanceId: string
     stackedInstanceId,
     stackTopInstanceId,
     createdAt: '2026-09-08T10:00:00+00:00',
+  };
+}
+
+function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {
+  return {
+    id,
+    equipmentInstanceId,
+    attachedToInstanceId,
+    createdAt: '2026-09-29T10:00:00+00:00',
   };
 }
 
@@ -1038,5 +1238,28 @@ function playerView(
       commanderDamage: {},
       counters: {},
     },
+  };
+}
+
+function battlefieldDropTarget(playerId = 'player-1'): HTMLDivElement {
+  const battlefield = document.createElement('div');
+  battlefield.classList.add('battlefield');
+  battlefield.dataset['gameDropZone'] = 'battlefield';
+  battlefield.dataset['playerId'] = playerId;
+
+  return battlefield;
+}
+
+function battlefieldPointerTarget(
+  draggedInstanceId: string,
+  position: { x: number; y: number },
+): PointerDropTarget {
+  return {
+    kind: 'zone',
+    targetPlayerId: 'player-1',
+    toZone: 'battlefield',
+    rawZone: 'battlefield',
+    draggedInstanceId,
+    position,
   };
 }

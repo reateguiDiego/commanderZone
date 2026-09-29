@@ -1,5 +1,8 @@
 import type { BattlefieldLayoutRect, BattlefieldViewLayout } from './game-table-layout/game-table-grid-seat.model';
-import { measuredBattlefieldCardSize } from './utils/battlefield-position';
+import {
+  measuredBattlefieldCardSize,
+  renderedBattlefieldPositionForElement,
+} from './utils/battlefield-position';
 import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
 import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
@@ -3082,10 +3085,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const targetCardSize = battlefieldPosition
       ? measuredBattlefieldCardSize(battlefieldTarget)
       : null;
-    const targetPoint = battlefieldPosition && targetCardSize
+    const renderedBattlefieldPosition = battlefieldPosition && targetCardSize
+      ? renderedBattlefieldPositionForElement(
+          battlefieldTarget,
+          battlefieldPosition,
+          targetCardSize.height,
+        )
+      : null;
+    const targetPoint = renderedBattlefieldPosition && targetCardSize
       ? {
-          x: rect.left + battlefieldPosition.x + targetCardSize.width / 2,
-          y: rect.top + battlefieldPosition.y + targetCardSize.height / 2,
+          x: rect.left + renderedBattlefieldPosition.x + targetCardSize.width / 2,
+          y: rect.top + renderedBattlefieldPosition.y + targetCardSize.height / 2,
         }
       : dropEvent
         ? { x: dropEvent.clientX, y: dropEvent.clientY }

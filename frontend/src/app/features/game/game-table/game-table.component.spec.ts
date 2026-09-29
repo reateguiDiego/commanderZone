@@ -2283,6 +2283,47 @@ describe('GameTableComponent', () => {
     );
   });
 
+  it('targets the rendered position when a hand card drops onto an inverted Grid battlefield', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi
+      .spyOn(motion, 'throwElementGhost')
+      .mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    vi.spyOn(fixture.componentInstance.store, 'moveHandCardByPointer').mockResolvedValue(undefined);
+    const target = appendDropZone(fixture.nativeElement, 'user-2', 'battlefield');
+    target.dataset['battlefieldVerticallyInverted'] = '';
+    target.getBoundingClientRect = () =>
+      ({
+        x: 320,
+        y: 40,
+        width: 700,
+        height: 500,
+        top: 40,
+        left: 320,
+        bottom: 540,
+        right: 1020,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const floatingCard = document.createElement('div');
+    floatingCard.className = 'hand-floating-card';
+    fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(floatingCard);
+
+    await fixture.componentInstance.handleHandCardPointerMoved({
+      playerId: 'user-1',
+      targetPlayerId: 'user-2',
+      movedInstanceId: 'hand-1',
+      toZone: 'battlefield',
+      sourceRect: { left: 32, top: 416, width: 92, height: 128 },
+      position: { x: 12, y: 34 },
+    });
+
+    const [, ghostTarget] = throwElementGhost.mock.calls[0] ?? [];
+    expect((ghostTarget as HTMLElement).style.left).toBe('390px');
+    expect((ghostTarget as HTMLElement).style.top).toBe('425px');
+  });
+
   it('does not animate hand pointer moves that stay in hand', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     const motion = fixture.debugElement.injector.get(GameTableMotionService);

@@ -779,6 +779,118 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
+    public function testReplayRebuildsRuntimeGoLibraryMoveTopEventsForReconnect(): void
+    {
+        $actor = new User('runtime-library-move-top@example.test', 'Runtime Library Move Top');
+        $observer = new User('runtime-library-observer@example.test', 'Runtime Library Observer');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.move_top');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 6, 'library'),
+            'battlefield' => [],
+            'graveyard' => [],
+            'exile' => [],
+        ]);
+        $rawSnapshot['players'][$observer->id()] = [
+            'user' => [
+                'id' => $observer->id(),
+                'email' => $observer->email(),
+                'displayName' => $observer->displayName(),
+                'roles' => [],
+            ],
+            'life' => 40,
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0]['revealedTo'] = [$observer->id()];
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][0][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][3]['revealedTo'] = [$observer->id()];
+        $baseSnapshot['players'][$actor->id()]['zones']['library'][3][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
+        $game = new Game(new Room($actor), $baseSnapshot);
+
+        $toGraveyard = new GameEvent($game, 'library.move_top', [
+            'playerId' => $actor->id(),
+            'targetPlayerId' => $actor->id(),
+            'count' => 1,
+            'destination' => 'graveyard',
+            'instanceIds' => ['library-1'],
+        ], $actor, 'runtime-library-graveyard', 2);
+        $toExile = new GameEvent($game, 'library.move_top', [
+            'playerId' => $actor->id(),
+            'targetPlayerId' => $actor->id(),
+            'count' => 1,
+            'destination' => 'exile',
+            'instanceIds' => ['library-2'],
+        ], $actor, 'runtime-library-exile', 3);
+        $battlefieldPosition = ['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'];
+        $toBattlefield = new GameEvent($game, 'library.move_top', [
+            'playerId' => $actor->id(),
+            'targetPlayerId' => $observer->id(),
+            'count' => 1,
+            'destination' => 'battlefield',
+            'instanceIds' => ['library-3'],
+            'position' => $battlefieldPosition,
+        ], $actor, 'runtime-library-battlefield', 4);
+        $toLibraryBottom = new GameEvent($game, 'library.move_top', [
+            'playerId' => $actor->id(),
+            'targetPlayerId' => $actor->id(),
+            'count' => 2,
+            'destination' => 'library',
+            'instanceIds' => ['library-4', 'library-5'],
+        ], $actor, 'runtime-library-bottom', 5);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(
+            new Game(new Room($actor), $baseSnapshot),
+            null,
+            [$toGraveyard, $toExile, $toBattlefield, $toLibraryBottom],
+        );
+
+        self::assertSame(5, $rebuilt['version']);
+        self::assertSame(['library-6', 'library-4', 'library-5'], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-1'], $this->zoneIds($rebuilt, $actor->id(), 'graveyard'));
+        self::assertSame(['library-2'], $this->zoneIds($rebuilt, $actor->id(), 'exile'));
+        self::assertSame(['library-3'], $this->zoneIds($rebuilt, $observer->id(), 'battlefield'));
+        self::assertSame($battlefieldPosition, $this->cardById($rebuilt, $observer->id(), 'battlefield', 'library-3')['position'] ?? null);
+        self::assertSame($observer->id(), $this->cardById($rebuilt, $observer->id(), 'battlefield', 'library-3')['controllerId'] ?? null);
+        self::assertSame([], $this->cardById($rebuilt, $actor->id(), 'graveyard', 'library-1')['revealedTo'] ?? null);
+        self::assertArrayNotHasKey(
+            GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY,
+            $this->cardById($rebuilt, $actor->id(), 'graveyard', 'library-1'),
+        );
+        self::assertSame([], $this->cardById($rebuilt, $actor->id(), 'library', 'library-4')['revealedTo'] ?? null);
+        self::assertArrayNotHasKey(
+            GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY,
+            $this->cardById($rebuilt, $actor->id(), 'library', 'library-4'),
+        );
+        self::assertSame('graveyard', $rebuilt['loc']['library-1']['zone'] ?? null);
+        self::assertSame($actor->id(), $rebuilt['loc']['library-1']['playerId'] ?? null);
+        self::assertSame(0, $rebuilt['loc']['library-1']['index'] ?? null);
+        self::assertSame($observer->id(), $rebuilt['loc']['library-3']['playerId'] ?? null);
+        self::assertSame($observer->id(), $rebuilt['loc']['library-3']['controllerId'] ?? null);
+        self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+
+        $observerBootstrap = (new GameplayV2ContractFactory())->bootstrap(
+            new Game(new Room($actor), $rebuilt),
+            $observer,
+            $rebuilt,
+        )->toArray();
+        $graveyardZoneId = sprintf('%s:graveyard', $actor->id());
+        $exileZoneId = sprintf('%s:exile', $actor->id());
+        self::assertSame(['library-1'], $observerBootstrap['zones'][$graveyardZoneId]['instanceIds'] ?? null);
+        self::assertSame(['library-2'], $observerBootstrap['zones'][$exileZoneId]['instanceIds'] ?? null);
+        self::assertSame(1, $observerBootstrap['zoneCounts'][$graveyardZoneId] ?? null);
+        self::assertSame(1, $observerBootstrap['zoneCounts'][$exileZoneId] ?? null);
+    }
+
     public function testReplayKeepsCompactRuntimeBottomedCardsAtTheLibraryTail(): void
     {
         $actor = new User('runtime-bottom-order@example.test', 'Runtime Bottom Order');

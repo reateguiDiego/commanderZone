@@ -84,8 +84,54 @@ export function measuredBattlefieldCardSize(
   return DEFAULT_BATTLEFIELD_CARD_SIZE;
 }
 
+/**
+ * Converts a position measured in the rendered battlefield into the stored
+ * coordinate system. Upper Grid seats render their battlefield upside down.
+ */
+export function logicalBattlefieldPositionForElement(
+  battlefield: HTMLElement,
+  renderedPosition: BattlefieldPixelPosition,
+  cardHeight: number,
+): BattlefieldPixelPosition {
+  return verticallyReflectedBattlefieldPosition(battlefield, renderedPosition, cardHeight);
+}
+
+/**
+ * Converts a stored position back into the rendered coordinate system.
+ * Vertical reflection is its own inverse, so this shares the same transform
+ * as the rendered-to-logical conversion above.
+ */
+export function renderedBattlefieldPositionForElement(
+  battlefield: HTMLElement,
+  logicalPosition: BattlefieldPixelPosition,
+  cardHeight: number,
+): BattlefieldPixelPosition {
+  return verticallyReflectedBattlefieldPosition(battlefield, logicalPosition, cardHeight);
+}
+
 function availableAxis(containerSize: number, cardSize: number): number {
   return Math.max(1, Math.round(containerSize - cardSize));
+}
+
+function verticallyReflectedBattlefieldPosition(
+  battlefield: HTMLElement,
+  position: BattlefieldPixelPosition,
+  cardHeight: number,
+): BattlefieldPixelPosition {
+  if (battlefield.dataset['battlefieldVerticallyInverted'] === undefined) {
+    return position;
+  }
+
+  const bounds = battlefield.getBoundingClientRect();
+  const battlefieldHeight = battlefield.clientHeight || bounds.height;
+  if (battlefieldHeight <= 0) {
+    return position;
+  }
+
+  return {
+    ...position,
+    y: Math.max(0, Math.round(battlefieldHeight - cardHeight - position.y)),
+  };
 }
 
 function clampRatio(value: number): number {
