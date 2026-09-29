@@ -1,7 +1,13 @@
-<div class="app-frame" [class.room-focus]="roomFocus()" [class.has-impersonation-banner]="auth.isImpersonating()">
+<div
+  class="app-frame"
+  [class.room-focus]="roomFocus()"
+  [class.has-impersonation-banner]="auth.isImpersonating()"
+>
   @if (auth.impersonation(); as impersonation) {
     <div class="impersonation-banner" role="status">
-      <span>{{ 'common.ui.impersonating' | runtimeTranslate: { name: impersonation.targetDisplayName } }}</span>
+      <span>{{
+        'common.ui.impersonating' | runtimeTranslate: { name: impersonation.targetDisplayName }
+      }}</span>
       <button type="button" czButton="secondary" czButtonSize="sm" (click)="stopImpersonation()">
         {{ 'common.ui.stop' | runtimeTranslate }}
       </button>
@@ -20,6 +26,10 @@
       [messagesCount]="messages.totalCount()"
       [unreadMessagesCount]="messages.unreadCount()"
       [canAccessAdmin]="canAccessAdmin()"
+      [canModerate]="canModerate()"
+      [pendingModerationReportsCount]="moderationSummary.pendingReviewCount()"
+      [pendingModerationReportsBadgeLabel]="moderationSummary.badgeLabel()"
+      [showPendingModerationReportsBadge]="!isAdminRoute()"
       [authenticated]="auth.isAuthenticated()"
       (toggleFriends)="toggleFriends($event)"
       (toggleMessages)="toggleMessages($event)"

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './support/commander-game';
-import { readTableZoneCounts } from './support/game-table';
+import { focusPlayer, readTableZoneCounts } from './support/game-table';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
@@ -234,6 +234,93 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       expect(webSocketErrors(framesA, framesB)).toEqual([]);
       await commandPage.close();
       await debug.page?.close();
+    } finally {
+      await contextA.close();
+      await contextB.close();
+    }
+  });
+
+  test('library move_top to battlefield stays visible to the observer after reload', async ({ browser, request, baseURL }) => {
+    test.setTimeout(180_000);
+    if (!baseURL) {
+      throw new Error('Playwright baseURL is required.');
+    }
+
+    const { gameId, playerA, playerB } = setup;
+    let nextBaseVersion = await gameVersion(request, gameId, playerA.token);
+    const contextA = await browser.newContext({
+      baseURL,
+      storageState: authStorageState(baseURL, playerA.user, playerA.refreshToken),
+    });
+    const contextB = await browser.newContext({
+      baseURL,
+      storageState: authStorageState(baseURL, playerB.user, playerB.refreshToken),
+    });
+    await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
+
+    try {
+      const pageA = await contextA.newPage();
+      const pageB = await contextB.newPage();
+      const commandPage = await contextA.newPage();
+      const diagnosticsA = collectPageDiagnostics(pageA, gameId);
+      const diagnosticsB = collectPageDiagnostics(pageB, gameId);
+      const framesA = await collectWebSocketFrames(pageA);
+      const framesB = await collectWebSocketFrames(pageB);
+
+      await Promise.all([
+        commandPage.goto('about:blank'),
+        gotoGameOrOpenCurrentRoom(pageA, gameId),
+        gotoGameOrOpenCurrentRoom(pageB, gameId),
+      ]);
+      await Promise.all([
+        waitForGameplayConnection(pageA, framesA, diagnosticsA, 'player A'),
+        waitForGameplayConnection(pageB, framesB, diagnosticsB, 'player B'),
+      ]);
+      await focusPlayer(pageB, playerA.user.displayName);
+      const initialLibraryCount = (await readTableZoneCounts(pageB, playerA.user.displayName)).library;
+      const versionBeforeMove = nextBaseVersion;
+      const publicBattlefieldPatch = waitForPatchV2(framesB, (patch) =>
+        Number(patch['version'] ?? 0) > versionBeforeMove
+        && hasPublicBattlefieldAdd(patch, playerA.user.id),
+      );
+      const ticket = await websocketTicket(request, gameId, playerA.token);
+
+      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+        gameId,
+        baseVersion: nextBaseVersion,
+        type: 'library.move_top',
+        payload: {
+          playerId: playerA.user.id,
+          targetPlayerId: playerA.user.id,
+          toZone: 'battlefield',
+          count: 1,
+          position: { x: 0.42, y: 0.58, unit: 'ratio' },
+        },
+        ownerPatch: (patch) => hasPublicBattlefieldAdd(patch, playerA.user.id),
+      });
+      const observerPatch = await publicBattlefieldPatch;
+      const movedCard = publicBattlefieldCard(observerPatch, playerA.user.id);
+      const movedInstanceId = String(movedCard?.['instanceId'] ?? '');
+      expect(movedInstanceId).not.toBe('');
+      expect(movedCard?.['cardKey']).toBeTruthy();
+      expect(movedCard?.['viewerVisibility']).toBe('public');
+
+      await expect(battlefieldCard(pageB, playerA.user.id, movedInstanceId)).toBeVisible({ timeout: 15_000 });
+      await expect.poll(async () => (await readTableZoneCounts(pageB, playerA.user.displayName)).library, { timeout: 15_000 })
+        .toBe(initialLibraryCount - 1);
+
+      await pageB.reload();
+      await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
+      await focusPlayer(pageB, playerA.user.displayName);
+      await expect(battlefieldCard(pageB, playerA.user.id, movedInstanceId)).toBeVisible({ timeout: 15_000 });
+      await expect.poll(async () => (await readTableZoneCounts(pageB, playerA.user.displayName)).library, { timeout: 15_000 })
+        .toBe(initialLibraryCount - 1);
+
+      expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
+      expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
+      expect(errorDiagnostics(diagnosticsA, diagnosticsB)).toEqual([]);
+      expect(webSocketErrors(framesA, framesB)).toEqual([]);
+      await commandPage.close();
     } finally {
       await contextA.close();
       await contextB.close();
@@ -782,6 +869,26 @@ function latestPatchWithOp(frames: JsonObject[], op: string): JsonObject {
 function hasOp(message: JsonObject, op: string): boolean {
   const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
   return ops.some((item) => item['op'] === op);
+}
+
+function hasPublicBattlefieldAdd(message: JsonObject, playerId: string): boolean {
+  return publicBattlefieldCard(message, playerId) !== null;
+}
+
+function publicBattlefieldCard(message: JsonObject, playerId: string): JsonObject | null {
+  const add = operation(message, 'zone.cards.add');
+  if (add?.['playerId'] !== playerId || add['zone'] !== 'battlefield') {
+    return null;
+  }
+
+  const cards = Array.isArray(add['cards']) ? add['cards'] as JsonObject[] : [];
+  return cards[0] ?? null;
+}
+
+function battlefieldCard(page: Page, ownerPlayerId: string, instanceId: string) {
+  return page.locator(
+    `[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id="${instanceId}"]`,
+  );
 }
 
 function operation(message: JsonObject, op: string): JsonObject | null {

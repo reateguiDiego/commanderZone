@@ -41,6 +41,19 @@ describe('AppModalComponent', () => {
     expect(getComputedStyle(header).paddingInlineEnd).toBe('3.35rem');
   });
 
+  it('can render a header image after the message and centered in the modal body', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('title', 'Content not allowed');
+    fixture.componentRef.setInput('message', 'Please keep the conversation respectful.');
+    fixture.componentRef.setInput('headerImageSrc', 'https://example.test/counterspell.jpg');
+    fixture.componentRef.setInput('headerImagePlacement', 'body-centered');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal-header-image')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-body-image-centered')).not.toBeNull();
+  });
+
   it('locks body scroll while open and restores it when closed', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);

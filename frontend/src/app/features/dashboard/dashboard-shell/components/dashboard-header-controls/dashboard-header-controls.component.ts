@@ -1,13 +1,27 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
-import { FriendRemovalRequest, FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
+import {
+  FriendRemovalRequest,
+  FriendsDropdownComponent,
+} from '../../../../friends/friends-dropdown/friends-dropdown.component';
 import { MessagesDropdownComponent } from '../../../../messages/messages-dropdown/messages-dropdown.component';
-import { DashboardSettingsModalComponent, SettingsLaunchTarget } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
+import {
+  DashboardSettingsModalComponent,
+  SettingsLaunchTarget,
+} from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
@@ -44,6 +58,10 @@ export class DashboardHeaderControlsComponent {
   readonly messagesCount = input(0);
   readonly unreadMessagesCount = input(0);
   readonly canAccessAdmin = input(false);
+  readonly canModerate = input(false);
+  readonly pendingModerationReportsCount = input(0);
+  readonly pendingModerationReportsBadgeLabel = input('0');
+  readonly showPendingModerationReportsBadge = input(true);
   readonly toggleFriends = output<MouseEvent>();
   readonly toggleMessages = output<MouseEvent>();
   readonly closeFriends = output<void>();

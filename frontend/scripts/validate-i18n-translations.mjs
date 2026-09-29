@@ -27,8 +27,233 @@ const staticCopyDirectories = [
 
 const errors = [];
 
+// These fragments are intentionally empty in the listed locales because the
+// surrounding template composes a recipient or a mulligan count around them.
+// Keep the exception scoped to the exact locale/key pairs: empty values remain
+// invalid everywhere else.
+const allowedEmptyTranslations = new Map([
+  ['common.ui.messageTargetPrefix', new Set(['ja'])],
+  [
+    'common.ui.messageTargetSuffix',
+    new Set(['ca', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pt', 'ru', 'zh-hans']),
+  ],
+  ['game.mulliganOverlay.mulligansTakenSuffix', new Set(['ru'])],
+]);
+
+// The reference catalog deliberately uses the same English word in these
+// distinct UI contexts. Translation keys cannot always be shared: some
+// locales require a contextual or grammatical variant. Exact groups are
+// allowlisted so any new duplicate still fails validation and needs review.
+const allowedReferenceValueDuplicates = new Map([
+  ['Top', ['common.ui.top', 'game.gameTable.libraryPlacementTop']],
+  ['Bottom', ['common.ui.bottom', 'game.gameTable.libraryPlacementBottom']],
+  ['Delete', ['common.actions.delete', 'shared.text.delete']],
+  ['Support', ['admin.users.roles.support', 'shared.text.support']],
+  ['Admin', ['admin.users.roles.admin', 'shared.text.admin']],
+  ['Owner', ['admin.users.roles.owner', 'shared.text.owner']],
+  ['Players', ['rooms.setup.gameSetupSeatsControl.seats', 'shared.text.players']],
+  ['Leave room', ['rooms.roomRow.leave', 'shared.text.leaveRoom']],
+  ['Colors', ['community.user.filterColors', 'shared.text.colors']],
+  ['Monarch', ['game.specialHelpers.labels.monarch', 'shared.text.monarch']],
+  ['Text', ['deckBuilder.cards.cardSearch.details.oracleText', 'shared.text.text']],
+  [
+    'No commander assigned yet.',
+    ['deckBuilder.deckEditor.noCommanderAssignedYet', 'shared.text.noCommanderAssignedYet'],
+  ],
+  ['No', ['deckBuilder.advancedAnalysis.common.no', 'shared.text.noLabel']],
+  ['Yes', ['deckBuilder.advancedAnalysis.common.yes', 'shared.text.yesLabel']],
+  [
+    'Good',
+    [
+      'deckBuilder.advancedAnalysis.status.good',
+      'deckBuilder.advancedAnalysis.quality.good',
+      'shared.text.good',
+    ],
+  ],
+  ['Warning', ['deckBuilder.advancedAnalysis.status.warning', 'shared.text.warning']],
+  ['Draw', ['deckBuilder.advancedAnalysis.health.cards.draw', 'shared.text.draw']],
+  [
+    'Ramp',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.ramp',
+      'deckBuilder.advancedAnalysis.roles.cards.ramp',
+      'shared.text.ramp',
+    ],
+  ],
+  [
+    'Sacrifice',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.sacrifice',
+      'deckBuilder.advancedAnalysis.roles.cards.sacrifice',
+      'shared.text.sacrifice',
+    ],
+  ],
+  [
+    'Stax',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.stax',
+      'deckBuilder.advancedAnalysis.metrics.stax',
+      'deckBuilder.advancedAnalysis.roles.cards.stax',
+      'shared.text.stax',
+    ],
+  ],
+  [
+    'Tutors',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.tutors',
+      'deckBuilder.advancedAnalysis.roles.cards.tutors',
+      'shared.text.tutors',
+    ],
+  ],
+  [
+    'Wincons',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.wincons',
+      'deckBuilder.advancedAnalysis.metrics.wincons',
+      'shared.text.wincons',
+    ],
+  ],
+  [
+    'Wipes',
+    [
+      'deckBuilder.advancedAnalysis.health.cards.wipes',
+      'deckBuilder.advancedAnalysis.roles.cards.wipes',
+      'shared.text.wipes',
+    ],
+  ],
+  ['Burst mana', ['deckBuilder.advancedAnalysis.metrics.burstMana', 'shared.text.burstMana']],
+  [
+    'Complete combos',
+    [
+      'deckBuilder.advancedAnalysis.metrics.completeCombos',
+      'deckBuilder.advancedAnalysis.combos.summary.complete',
+      'shared.text.completeCombos',
+    ],
+  ],
+  [
+    'Conditional wipes',
+    [
+      'deckBuilder.advancedAnalysis.metrics.conditionalWipes',
+      'deckBuilder.advancedAnalysis.boardWipes.stats.conditionalWipes',
+      'shared.text.conditionalWipes',
+    ],
+  ],
+  [
+    'Fast mana',
+    [
+      'deckBuilder.advancedAnalysis.metrics.fastMana',
+      'deckBuilder.advancedAnalysis.mana.fastMana',
+      'shared.text.fastMana',
+    ],
+  ],
+  [
+    'Keepable hands',
+    [
+      'deckBuilder.advancedAnalysis.metrics.keepableHands',
+      'deckBuilder.advancedAnalysis.consistency.metrics.keepableHands',
+      'shared.text.keepableHands',
+    ],
+  ],
+  [
+    'Mass bounce',
+    [
+      'deckBuilder.advancedAnalysis.metrics.massBounce',
+      'deckBuilder.advancedAnalysis.boardWipes.stats.massBounce',
+      'shared.text.massBounce',
+    ],
+  ],
+  [
+    'One-shot mana',
+    ['deckBuilder.advancedAnalysis.metrics.oneShotMana', 'shared.text.oneShotMana'],
+  ],
+  [
+    'Permanent ramp',
+    ['deckBuilder.advancedAnalysis.metrics.permanentRamp', 'shared.text.permanentRamp'],
+  ],
+  [
+    'Pseudo wipes',
+    [
+      'deckBuilder.advancedAnalysis.metrics.pseudoWipes',
+      'deckBuilder.advancedAnalysis.boardWipes.stats.pseudoTotal',
+      'shared.text.pseudoWipes',
+    ],
+  ],
+  ['Rituals', ['deckBuilder.advancedAnalysis.metrics.rituals', 'shared.text.rituals']],
+  ['Cards', ['deckBuilder.advancedAnalysis.cardResolution.cards', 'shared.text.cards']],
+  [
+    'Infinite mana',
+    [
+      'deckBuilder.advancedAnalysis.combos.summary.infiniteMana',
+      'deckBuilder.advancedAnalysis.combos.badges.infiniteMana',
+      'shared.text.infiniteMana',
+    ],
+  ],
+  [
+    'Medium',
+    [
+      'deckBuilder.advancedAnalysis.quality.medium',
+      'shared.text.medium',
+      'bracket.confidence.medium',
+    ],
+  ],
+  ['Premium', ['deckBuilder.advancedAnalysis.quality.premium', 'shared.text.premium']],
+  [
+    'Average mana value',
+    [
+      'deckBuilder.advancedAnalysis.mana.averageManaValue',
+      'deckBuilder.advancedAnalysis.boardWipes.stats.averageManaValue',
+      'shared.text.averageManaValue',
+    ],
+  ],
+  [
+    'Colorless utility lands',
+    [
+      'deckBuilder.advancedAnalysis.mana.colorlessUtilityLands',
+      'shared.text.colorlessUtilityLands',
+    ],
+  ],
+  ['Black', ['deckBuilder.advancedAnalysis.mana.colors.black', 'shared.text.black']],
+  ['Blue', ['deckBuilder.advancedAnalysis.mana.colors.blue', 'shared.text.blue']],
+  ['Colorless', ['deckBuilder.advancedAnalysis.mana.colors.colorless', 'shared.text.colorless']],
+  ['Green', ['deckBuilder.advancedAnalysis.mana.colors.green', 'shared.text.green']],
+  ['Red', ['deckBuilder.advancedAnalysis.mana.colors.red', 'shared.text.red']],
+  ['White', ['deckBuilder.advancedAnalysis.mana.colors.white', 'shared.text.white']],
+  ['Fetchlands', ['deckBuilder.advancedAnalysis.mana.fetchlands', 'shared.text.fetchlands']],
+  [
+    'Answers indestructible',
+    [
+      'deckBuilder.advancedAnalysis.boardWipes.stats.answersIndestructible',
+      'deckBuilder.advancedAnalysis.boardWipes.badges.answersIndestructible',
+    ],
+  ],
+  [
+    'Opponent compensation',
+    [
+      'deckBuilder.advancedAnalysis.boardWipes.stats.opponentCompensationWipes',
+      'shared.text.opponentCompensation',
+    ],
+  ],
+  ['Exile', ['deckBuilder.advancedAnalysis.boardWipes.badges.exile', 'shared.text.exile']],
+  ['High', ['shared.text.high', 'bracket.confidence.high']],
+  ['Low', ['shared.text.low', 'bracket.confidence.low']],
+]);
+
 function fail(message) {
   errors.push(message);
+}
+
+function isAllowedEmptyTranslation(locale, key) {
+  return allowedEmptyTranslations.get(key)?.has(locale) ?? false;
+}
+
+function isAllowedReferenceValueDuplicate(value, keys) {
+  const allowedKeys = allowedReferenceValueDuplicates.get(value);
+
+  return (
+    allowedKeys !== undefined &&
+    allowedKeys.length === keys.length &&
+    allowedKeys.every((key) => keys.includes(key))
+  );
 }
 
 function normalizePath(path) {
@@ -290,7 +515,7 @@ function validateTranslationValue(locale, key, value) {
     return;
   }
 
-  if (value.trim() === '') {
+  if (value.trim() === '' && !isAllowedEmptyTranslation(locale, key)) {
     fail(`${location} is empty.`);
   }
 
@@ -353,7 +578,7 @@ function validateCatalogUsageAndSharedCopy(translationsByLocale) {
   }
 
   for (const [value, keys] of valuesToKeys) {
-    if (keys.length > 1) {
+    if (keys.length > 1 && !isAllowedReferenceValueDuplicate(value, keys)) {
       fail(
         `${catalogReferenceLocale}.json repeats the value ${JSON.stringify(value)} in ${keys.length} keys. ` +
           `Move it to shared.text and reuse that key: ${keys.join(', ')}`,

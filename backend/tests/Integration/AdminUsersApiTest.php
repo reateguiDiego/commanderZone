@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Domain\User\Role;
 use App\Domain\User\User;
+use Symfony\Contracts\Cache\CacheInterface;
 
 final class AdminUsersApiTest extends ApiTestCase
 {
@@ -44,6 +45,7 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertArrayHasKey('isOnline', $users[0]);
         self::assertArrayHasKey('activeSessionsCount', $users[0]);
         self::assertArrayHasKey('deckCounts', $users[0]);
+        self::assertArrayHasKey('moderationCounters', $users[0]);
         self::assertArrayHasKey('createdAt', $users[0]);
         self::assertSame(1, $this->jsonResponse()['page']);
         self::assertSame($this->jsonResponse()['total'], $this->jsonResponse()['limit']);
@@ -67,6 +69,11 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame(['Google'], $targetUser['authProviders']);
         self::assertArrayNotHasKey('authIdentities', $targetUser);
         self::assertSame(['total' => 3, 'privateCount' => 1, 'publicCount' => 2], $targetUser['deckCounts']);
+        self::assertSame([
+            'reportsMadeCount' => 0,
+            'reportsReceivedCount' => 0,
+            'strikesCount' => 0,
+        ], $targetUser['moderationCounters']);
         self::assertSame(['countryCode' => 'ES', 'countryName' => 'Spain', 'appLanguage' => 'es'], $targetUser['localization']);
 
         $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
@@ -91,6 +98,45 @@ final class AdminUsersApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertIsArray($this->jsonResponse()['users']);
+        self::assertArrayNotHasKey('moderationCounters', $this->jsonResponse()['users'][0]);
+    }
+
+    public function testAdminUsersListIncludesPersistedModerationCountersForAdminsAndOwners(): void
+    {
+        $ownerToken = $this->ownerToken('moderation-counters-owner@example.test', 'Counters Owner');
+        $reporterToken = $this->registerAndLogin('moderation-counters-reporter@example.test', 'Counters Reporter');
+        $reporterId = $this->currentUserId($reporterToken);
+        $targetToken = $this->registerAndLogin('moderation-counters-target@example.test', 'Counters Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('POST', '/reports', [
+            'source' => 'profile',
+            'category' => 'harassment',
+            'reportedUserId' => $targetId,
+        ], $reporterToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/strikes', [
+            'description' => 'Moderation counter coverage.',
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/admin/users', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $users = $this->jsonResponse()['users'];
+        $reporter = $this->adminUserById($users, $reporterId);
+        $target = $this->adminUserById($users, $targetId);
+
+        self::assertSame([
+            'reportsMadeCount' => 1,
+            'reportsReceivedCount' => 0,
+            'strikesCount' => 0,
+        ], $reporter['moderationCounters']);
+        self::assertSame([
+            'reportsMadeCount' => 0,
+            'reportsReceivedCount' => 1,
+            'strikesCount' => 1,
+        ], $target['moderationCounters']);
     }
 
     public function testAdminUsersListReturnsProvidersForEveryUser(): void
@@ -333,6 +379,55 @@ final class AdminUsersApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame($targetId, $this->jsonResponse()['user']['id']);
+    }
+
+    public function testImpersonatedRequestsDoNotRefreshTheTargetActivityOrFriendPresence(): void
+    {
+        $ownerToken = $this->ownerToken('impersonation-activity-owner@example.test', 'Activity Owner');
+        $observerToken = $this->registerAndLogin('impersonation-activity-observer@example.test', 'Activity Observer');
+        $targetToken = $this->registerAndLogin('impersonation-activity-target@example.test', 'Activity Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $targetId], $observerToken);
+        self::assertResponseStatusCodeSame(201);
+        $requestId = (string) $this->jsonResponse()['friendship']['id'];
+        $this->jsonRequest('POST', '/friends/requests/'.$requestId.'/accept', token: $targetToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/me/offline', token: $targetToken);
+        self::assertResponseIsSuccessful();
+
+        // Remove the normal user's current-day visit/cache entry so this
+        // request exercises the first-visit path, which also updates
+        // last_seen_at in UserDailyVisitRecorder.
+        $this->entityManager->getConnection()->executeStatement(
+            'DELETE FROM user_daily_visit WHERE user_id = :userId',
+            ['userId' => $targetId],
+        );
+        $cache = static::getContainer()->get('cache.app');
+        self::assertInstanceOf(CacheInterface::class, $cache);
+        $cache->delete(sprintf('user_daily_visit.%s.%s', $targetId, gmdate('Y-m-d')));
+        $this->entityManager->clear();
+
+        $impersonatedToken = $this->impersonatedToken($ownerToken, $targetId);
+        $this->jsonRequest('GET', '/me', token: $impersonatedToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($targetId, $this->jsonResponse()['user']['id']);
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM user_daily_visit WHERE user_id = :userId',
+            ['userId' => $targetId],
+        ));
+
+        $this->jsonRequest('GET', '/friends', token: $observerToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->jsonResponse()['data']);
+        self::assertSame('offline', $this->jsonResponse()['data'][0]['friend']['presence']);
+
+        $this->jsonRequest('GET', '/admin/users', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $target = $this->adminUserById($this->jsonResponse()['users'], $targetId);
+        self::assertNull($target['lastConnectedAt']);
+        self::assertFalse($target['isOnline']);
     }
 
     public function testOwnerCanImpersonateAdminUser(): void

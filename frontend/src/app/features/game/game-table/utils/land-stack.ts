@@ -360,7 +360,11 @@ function bestDropTarget(
         if (dx > maxHorizontalDistance || dy > maxVerticalDistance) {
           return null;
         }
-      } else if (overlap < minimumOverlapRatio) {
+      } else if (
+        dx >= cardWidth
+        || dy >= cardHeight
+        || overlap < minimumOverlapRatio
+      ) {
         return null;
       }
 

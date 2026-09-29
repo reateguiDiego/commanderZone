@@ -10,6 +10,7 @@ security:
   - bearerAuth: []
 tags:
   - name: Admin
+  - name: Reports
   - name: Auth
   - name: Friends
   - name: Messages
@@ -79,7 +80,7 @@ paths:
   /admin/users:
     get:
       tags: [Admin]
-      summary: List users for the admin panel.
+      summary: List users for the admin panel. Moderation counters are included only for admin and owner callers.
       parameters:
         - name: q
           in: query
@@ -224,6 +225,88 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /admin/users/{id}/moderation:
+    get:
+      tags: [Admin]
+      summary: Load the moderation profile and strikes for one user.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Moderation profile and strikes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserModerationResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}/moderation/messages:
+    get:
+      tags: [Admin]
+      summary: Load all persisted internal messages sent to one moderation-reviewable user.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Messages sent to the user, ordered from newest to oldest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserModerationMessagesResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}/strikes:
+    post:
+      tags: [Admin]
+      summary: Issue a manual strike to a user.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserStrikeCreateRequest'
+      responses:
+        '201':
+          description: Strike created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserStrikeMutationResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}/strikes/{strikeId}:
+    delete:
+      tags: [Admin]
+      summary: Physically delete a strike and decrement the current strike count.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: strikeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Strike deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserStrikeMutationResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /admin/messages:
     post:
       tags: [Admin]
@@ -250,7 +333,21 @@ paths:
   /admin/reports:
     get:
       tags: [Admin]
-      summary: List user reports for the admin panel.
+      summary: List pending moderation reports in FIFO order.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
       responses:
         '200':
           description: Admin reports list.
@@ -259,6 +356,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminReportsResponse'
         '403':
+          $ref: '#/components/responses/Error'
+  /admin/reports/summary:
+    get:
+      tags: [Admin]
+      summary: Count pending moderation reports visible to the current moderator.
+      responses:
+        '200':
+          description: Lightweight moderation queue summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportsSummaryResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+  /admin/reports/{id}:
+    get:
+      tags: [Admin]
+      summary: Load one moderation report with restricted evidence.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Moderation report detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportDetailResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Admin]
+      summary: Physically purge a resolved moderation report.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Report purged. Historical counters and issued strikes are unchanged.
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/reports/{id}/resolution:
+    patch:
+      tags: [Admin]
+      summary: Resolve one pending moderation report.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReportResolutionRequest'
+      responses:
+        '200':
+          description: Resolved report and any automatically issued strike.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportResolutionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /reports:
+    post:
+      tags: [Reports]
+      summary: Submit an authenticated conduct or content report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserReportRequest'
+      responses:
+        '201':
+          description: Report accepted and awaiting evidence capture or review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserReportSubmissionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
   /messages:
     get:
@@ -4455,6 +4650,20 @@ components:
             publicCount:
               type: integer
               minimum: 0
+        moderationCounters:
+          type: object
+          description: Historical report and strike counters. Omitted for SUPPORT callers because they cannot access moderation data.
+          required: [reportsMadeCount, reportsReceivedCount, strikesCount]
+          properties:
+            reportsMadeCount:
+              type: integer
+              minimum: 0
+            reportsReceivedCount:
+              type: integer
+              minimum: 0
+            strikesCount:
+              type: integer
+              minimum: 0
         localization:
           type: object
           required: [countryCode, countryName, appLanguage]
@@ -4721,21 +4930,88 @@ components:
         unreadCount:
           type: integer
           minimum: 0
-    AdminReportUser:
+    ReportCategory:
+      type: string
+      enum:
+        - harassment
+        - discrimination_or_unwanted_sexual_content
+        - threats_or_safety
+        - personal_data_exposure
+        - spam_advertising_scam_phishing
+        - impersonation
+        - public_offensive_content
+        - intentional_game_disruption
+        - serious_gameplay_deception
+        - other_problem
+    ReportSource:
+      type: string
+      enum: [profile, game_player, chat_message, legacy]
+    ReportSubmissionSource:
+      type: string
+      description: Sources accepted by `POST /reports`. `legacy` is migration-only and is never accepted from a client.
+      enum: [profile, game_player, chat_message]
+    ReportStatus:
+      type: string
+      enum: [collecting_evidence, pending_review, resolved]
+    CreateUserReportRequest:
       type: object
-      required: [id, displayName, email]
+      required: [source, category]
+      properties:
+        source:
+          $ref: '#/components/schemas/ReportSubmissionSource'
+        category:
+          $ref: '#/components/schemas/ReportCategory'
+        reportedUserId:
+          type: string
+          format: uuid
+          description: Required for `profile` and `game_player`; it must be omitted for `chat_message`, whose target is derived by the server.
+        gameId:
+          type: string
+          format: uuid
+          description: Required for game sources.
+        messageId:
+          type: string
+          format: uuid
+          description: Required for `chat_message`; the server derives the reported user.
+        comment:
+          type: string
+          maxLength: 2000
+          description: Required when category is `other_problem`.
+    UserReportSubmission:
+      type: object
+      required: [id, source, category, status, createdAt]
       properties:
         id:
           type: string
           format: uuid
+        source:
+          $ref: '#/components/schemas/ReportSubmissionSource'
+        category:
+          $ref: '#/components/schemas/ReportCategory'
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        createdAt:
+          type: string
+          format: date-time
+    UserReportSubmissionResponse:
+      type: object
+      required: [report]
+      properties:
+        report:
+          $ref: '#/components/schemas/UserReportSubmission'
+    AdminReportUser:
+      type: object
+      description: Historical name plus an opaque user action handle when the account still exists. Email is never exposed in report evidence.
+      required: [id, displayName]
+      properties:
+        id:
+          type: [string, 'null']
+          format: uuid
         displayName:
           type: string
-        email:
-          type: string
-          format: email
     AdminUserReport:
       type: object
-      required: [id, reporter, reportedUser, reason, createdAt]
+      required: [id, reporter, reportedUser, source, category, status, comment, createdAt]
       properties:
         id:
           type: string
@@ -4744,20 +5020,289 @@ components:
           $ref: '#/components/schemas/AdminReportUser'
         reportedUser:
           $ref: '#/components/schemas/AdminReportUser'
-        reason:
-          type: string
-          maxLength: 255
+        source:
+          $ref: '#/components/schemas/ReportSource'
+        category:
+          $ref: '#/components/schemas/ReportCategory'
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        comment:
+          type: [string, 'null']
+          maxLength: 2000
         createdAt:
           type: string
           format: date-time
+    AdminReportResolution:
+      type: object
+      required: [outcome, note, reviewedAt, reviewer]
+      properties:
+        outcome:
+          type: string
+          enum: [strike, nothing]
+        note:
+          type: [string, 'null']
+          maxLength: 2000
+        reviewedAt:
+          type: string
+          format: date-time
+        reviewer:
+          $ref: '#/components/schemas/AdminReportUser'
+    ModerationEvidence:
+      type: object
+      additionalProperties: false
+      required: [reportedUserSnapshot, game]
+      properties:
+        reportedUserSnapshot:
+          oneOf:
+            - $ref: '#/components/schemas/ModerationProfileEvidenceSnapshot'
+            - type: 'null'
+        game:
+          oneOf:
+            - $ref: '#/components/schemas/ModerationGameEvidenceSnapshot'
+            - type: 'null'
+    ModerationProfileEvidenceSnapshot:
+      type: object
+      description: Immutable profile evidence. It contains only user-editable names and a custom uploaded avatar when one was present.
+      additionalProperties: false
+      required: [capturedAt, user, folders, decks, ownedRooms]
+      properties:
+        capturedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/ModerationProfileEvidenceUser'
+        folders:
+          type: array
+          description: Every folder name owned at capture time, including private folders; no IDs or contents.
+          items:
+            $ref: '#/components/schemas/ModerationEvidenceNamedItem'
+        decks:
+          type: array
+          description: Every deck name owned at capture time, including private decks; no IDs, cards, or deck metadata.
+          items:
+            $ref: '#/components/schemas/ModerationEvidenceNamedItem'
+        ownedRooms:
+          type: array
+          description: Every room name owned at capture time; no room configuration, membership, or identifiers.
+          items:
+            $ref: '#/components/schemas/ModerationEvidenceNamedItem'
+    ModerationProfileEvidenceUser:
+      type: object
+      additionalProperties: false
+      required: [displayName, publicHandle]
+      properties:
+        displayName:
+          type: string
+        publicHandle:
+          type: [string, 'null']
+        avatar:
+          $ref: '#/components/schemas/ModerationEvidenceCustomAvatar'
+    ModerationEvidenceCustomAvatar:
+      type: object
+      description: Immutable data for a custom uploaded avatar. Preset avatars are omitted.
+      additionalProperties: false
+      required: [type, imageData]
+      properties:
+        type:
+          type: string
+          enum: [upload]
+        imageData:
+          type: string
+    ModerationEvidenceNamedItem:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+    ModerationGameEvidenceSnapshot:
+      type: object
+      description: Immutable, reviewer-facing game evidence without game, message, player, or runtime identifiers.
+      additionalProperties: false
+      required: [capturedAt, chat, gameLog]
+      properties:
+        capturedAt:
+          type: string
+          format: date-time
+        chat:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModerationEvidenceChatMessage'
+        gameLog:
+          type: array
+          description: Present only when a shared game-player report requires conduct or deception review; each row is condensed to a readable action.
+          items:
+            $ref: '#/components/schemas/ModerationEvidenceGameLogEntry'
+    ModerationEvidenceChatMessage:
+      type: object
+      additionalProperties: false
+      required: [time, actorDisplayName, body]
+      properties:
+        time:
+          type: string
+          pattern: '^\\d{2}:\\d{2}$'
+          description: 24-hour capture time in `HH:mm` format.
+        actorDisplayName:
+          type: string
+        body:
+          type: string
+    ModerationEvidenceGameLogEntry:
+      type: object
+      additionalProperties: false
+      required: [time, actorDisplayName, action]
+      properties:
+        time:
+          type: string
+          pattern: '^\\d{2}:\\d{2}:\\d{2}$'
+          description: 24-hour capture time in `HH:mm:ss` format.
+        actorDisplayName:
+          type: [string, 'null']
+        action:
+          type: string
+    AdminReportDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminUserReport'
+        - type: object
+          properties:
+            resolution:
+              oneOf:
+                - $ref: '#/components/schemas/AdminReportResolution'
+                - type: 'null'
+            evidence:
+              $ref: '#/components/schemas/ModerationEvidence'
     AdminReportsResponse:
       type: object
-      required: [reports]
+      required: [reports, page, limit, total, totalPages]
       properties:
         reports:
           type: array
           items:
             $ref: '#/components/schemas/AdminUserReport'
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 1
+    AdminReportsSummaryResponse:
+      type: object
+      required: [pendingReviewCount]
+      properties:
+        pendingReviewCount:
+          type: integer
+          minimum: 0
+    AdminReportDetailResponse:
+      type: object
+      required: [report]
+      properties:
+        report:
+          $ref: '#/components/schemas/AdminReportDetail'
+    AdminReportResolutionRequest:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [strike, nothing]
+        resolutionNote:
+          type: string
+          maxLength: 2000
+        strikeDescription:
+          type: string
+          maxLength: 2000
+          description: Required when outcome is `strike`.
+    UserStrike:
+      type: object
+      required: [id, description, issuedAt, issuedBy]
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+          maxLength: 2000
+        issuedAt:
+          type: string
+          format: date-time
+        issuedBy:
+          oneOf:
+            - $ref: '#/components/schemas/AdminReportUser'
+            - type: 'null'
+    AdminReportResolutionResponse:
+      type: object
+      required: [report, strike]
+      properties:
+        report:
+          $ref: '#/components/schemas/AdminReportDetail'
+        strike:
+          oneOf:
+            - $ref: '#/components/schemas/UserStrike'
+            - type: 'null'
+    AdminUserModerationProfile:
+      type: object
+      required: [id, displayName, roles, reportsMadeCount, reportsReceivedCount, strikesCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        reportsMadeCount:
+          type: integer
+          minimum: 0
+        reportsReceivedCount:
+          type: integer
+          minimum: 0
+        strikesCount:
+          type: integer
+          minimum: 0
+    AdminUserModerationResponse:
+      type: object
+      required: [user, strikes]
+      properties:
+        user:
+          $ref: '#/components/schemas/AdminUserModerationProfile'
+        strikes:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserStrike'
+    AdminUserModerationMessagesResponse:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserMessage'
+    AdminUserStrikeCreateRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    AdminUserStrikeMutationResponse:
+      type: object
+      required: [strike, strikesCount]
+      properties:
+        strike:
+          oneOf:
+            - $ref: '#/components/schemas/UserStrike'
+            - type: 'null'
+        strikesCount:
+          type: integer
+          minimum: 0
     UserPreferences:
       type: object
       required: [cardLanguage, appLanguage, themeId, game]

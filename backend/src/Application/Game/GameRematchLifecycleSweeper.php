@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Application\Moderation\GameModerationRetentionService;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeStopQueue;
 use App\Application\Game\Lifecycle\AllDisconnectedGracePolicy;
@@ -23,6 +24,7 @@ final readonly class GameRematchLifecycleSweeper
         private GameRematchService $rematch,
         private GameRuntimeClosingFence $closingFence,
         private GameRuntimeStopQueue $runtimeStopQueue,
+        private GameModerationRetentionService $moderationRetention,
         private AllDisconnectedGracePolicy $allDisconnectedGrace,
         private WaitingRoomInactivityPolicy $waitingRoomInactivity,
     ) {
@@ -100,9 +102,23 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
                 // both lease and persistence SQL, so no runtime can append
                 // while the subsequent post-commit stop is routed.
                 $roomId = $room->id();
+                if ($game->requiresModerationReview()) {
+                    // An all-disconnected table never emits a normal runtime
+                    // game.finished handoff. Make its terminal lifecycle fact
+                    // explicit before archiving, otherwise the evidence worker
+                    // correctly refuses to capture a still-active game.
+                    $game->projectFinished(null, $now, 'all_disconnected_expired');
+                }
                 $this->closingFence->claim($gameId);
                 $this->runtimeStopQueue->enqueueStop($gameId);
                 $this->deleteRuntimeArtifacts($gameId);
+                if ($this->moderationRetention->retainForEvidenceIfRequired($game)) {
+                    $this->entityManager->flush();
+                    $this->entityManager->commit();
+                    $this->entityManager->clear();
+
+                    return ['type' => 'moderation_evidence_retained', 'game' => $game, 'roomId' => $roomId];
+                }
                 $room->detachGame();
                 // Room owns the nullable game FK. Persist the detach before
                 // scheduling the game removal, otherwise Doctrine may issue
@@ -115,6 +131,22 @@ SQL, ['now' => $now->format('Y-m-d H:i:s')]);
                 $this->entityManager->clear();
 
                 return ['type' => 'room_deleted', 'game' => $game, 'roomId' => $roomId];
+            }
+
+            if ($game->requiresModerationReview()) {
+                // A reported game is not eligible for a rematch. Keep its
+                // original Room/Game relationship private until the worker
+                // commits a shared immutable evidence snapshot.
+                $roomId = $room->id();
+                $this->closingFence->claim($gameId);
+                $this->runtimeStopQueue->enqueueStop($gameId);
+                $this->deleteRuntimeArtifacts($gameId);
+                $this->moderationRetention->retainForEvidenceIfRequired($game);
+                $this->entityManager->flush();
+                $this->entityManager->commit();
+                $this->entityManager->clear();
+
+                return ['type' => 'moderation_evidence_retained', 'game' => $game, 'roomId' => $roomId];
             }
 
             foreach ($room->players()->toArray() as $player) {

@@ -148,6 +148,21 @@ describe('attachment stack layout', () => {
       .toBe('target');
   });
 
+  it('does not attach to a diagonally distant target when Grid requires deliberate overlap', () => {
+    const target = card('target', 100, 80);
+    const distantEquipment = card('equipment', 400, 480);
+
+    expect(attachmentDropTarget(
+      [distantEquipment, target],
+      [],
+      [],
+      'equipment',
+      { x: 400, y: 480 },
+      positionFor,
+      0.7,
+    )).toBeNull();
+  });
+
   it('uses the attachment stack target when dropping over attached equipment', () => {
     const target = attachmentDropTarget(
       [card('equipment-new', 90, 50), card('target', 100, 80), card('equipment-a', 100, 62)],

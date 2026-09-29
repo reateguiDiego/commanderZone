@@ -13,15 +13,17 @@ test('public room is listed, second user joins, owner starts, both can open game
 
   const playerA = await createRealUserSession(request, 'owner-public-room');
   const playerB = await createRealUserSession(request, 'guest-public-room');
-  const roomName = `Plaza del Relampago ${Date.now()}`;
+  const roomName = `Plaza ${Date.now().toString(36)}`;
+  const deckAName = `Public Room A ${Date.now()}`;
+  const deckBName = `Public Room B ${Date.now()}`;
   const deckA = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: playerA.token,
-    name: `Public Room A ${Date.now()}`,
+    name: deckAName,
     seed: 'e2e-public-room-a-seed',
   });
   const deckB = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: playerB.token,
-    name: `Public Room B ${Date.now()}`,
+    name: deckBName,
     seed: 'e2e-public-room-b-seed',
   });
   expect(deckA.validation.valid).toBeTruthy();
@@ -41,18 +43,20 @@ test('public room is listed, second user joins, owner starts, both can open game
     const pageB = await contextB.newPage();
 
     await pageA.goto('/rooms');
-    const createPanel = pageA.locator('.rooms-create-panel');
-    await createPanel.getByPlaceholder('Ej. La taberna del comandante').fill(roomName);
-    await createPanel.getByRole('button', { name: '2 players' }).click();
-    await createPanel.getByRole('button', { name: /Public/i }).click();
+    const createPanel = pageA.locator('app-room-create-panel');
     await createPanel.getByRole('button', { name: 'Create room' }).click();
+    const createModal = pageA.locator('app-room-setup-modal .modal-panel');
+    await expect(createModal).toBeVisible();
+    await createModal.locator('input[formcontrolname="roomName"]').fill(roomName);
+    await createModal.locator('app-game-setup-seats-control').getByRole('tab', { name: '2' }).click();
+    await createModal.locator('.visibility-choice__button--public').click();
+    await createModal.locator('footer .primary-button').click();
 
     await expect(pageA).toHaveURL(/\/rooms\/.+\/waiting$/);
-    await pageA.locator('select[name="waitingDeckId"]').selectOption(deckA.deckId);
-    await pageA.getByRole('button', { name: 'Update deck for this room' }).click();
+    await selectWaitingRoomDeck(pageA, deckA.deckId);
     await rollD20(pageA);
 
-    const currentRoomLabel = pageA.locator('.waiting-hero h2');
+    const currentRoomLabel = pageA.getByRole('heading', { name: roomName });
     await expect(currentRoomLabel).toHaveText(roomName);
     const roomId = await getRoomIdByName(request, playerA.token, roomName);
     expect(roomId.length).toBeGreaterThan(0);
@@ -64,18 +68,20 @@ test('public room is listed, second user joins, owner starts, both can open game
       .click();
 
     await expect(pageB).toHaveURL(/\/rooms\/.+\/waiting$/);
-    await pageB.locator('select[name="waitingDeckId"]').selectOption(deckB.deckId);
-    await pageB.getByRole('button', { name: 'Update deck for this room' }).click();
+    await selectWaitingRoomDeck(pageB, deckB.deckId);
     await rollD20(pageB);
 
-    await expect(pageB.locator('.waiting-hero h2')).toHaveText(roomName);
+    await expect(pageB.getByRole('heading', { name: roomName })).toBeVisible();
 
     await expect.poll(async () => {
       const room = await getRoom(request, playerA.token, roomId);
       return room.players.length >= 2 && room.players.every((player) => player.deckId !== null && player.turnRoll !== null);
     }).toBeTruthy();
 
-    await pageA.getByRole('button', { name: 'Start game' }).click();
+    await pageA.reload();
+    const startButton = pageA.locator('.start-button');
+    await expect(startButton).toBeEnabled();
+    await startButton.click();
     await expect(pageA).toHaveURL(/\/games\/.+$/);
 
     await expect.poll(async () => {
@@ -116,11 +122,26 @@ async function getRoom(
 }
 
 async function rollD20(page: Page): Promise<void> {
-  await expect(page.getByRole('button', { name: 'Roll d20' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Roll d20' }).click();
-  const modal = page.locator('app-modal').filter({ hasText: 'This roll sets your turn order' });
-  await modal.getByRole('button', { name: 'Roll d20' }).click();
-  await expect(page.locator('.roll-badge').first()).toContainText(/D20 roll\s*\d+/);
+  const rollButton = page.getByRole('button', { name: 'Roll dice' });
+  await expect(rollButton).toBeEnabled();
+  await rollButton.click();
+  const modal = page.locator('app-roll-modal');
+  await expect(modal).toBeVisible();
+  await modal.locator('.primary-action').click();
+  await expect(page.locator('.roll-badge .roll-value strong').first()).toHaveText(/\d+/);
+}
+
+async function selectWaitingRoomDeck(page: Page, deckId: string): Promise<void> {
+  const selector = page.locator('app-waiting-room-deck-selector');
+  const nativeOption = selector.locator(`select[name="waitingDeckId"] option[value="${deckId}"]`);
+  const deckName = (await nativeOption.textContent())?.trim();
+  if (!deckName) {
+    throw new Error(`Deck ${deckId} is not available in the waiting-room selector.`);
+  }
+
+  await selector.locator('.deck-select-trigger').click();
+  await selector.getByRole('option').filter({ hasText: deckName }).click();
+  await expect(selector.locator('.deck-select-trigger')).toContainText(deckName);
 }
 
 async function getRoomIdByName(

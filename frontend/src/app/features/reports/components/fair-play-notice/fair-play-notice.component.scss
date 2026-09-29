@@ -1,0 +1,13 @@
+:host {
+  display: contents;
+}
+
+.fair-play-notice__balance-card {
+  display: block;
+  justify-self: center;
+  width: auto;
+  height: min(19.2rem, 64vh);
+  max-width: 100%;
+  border-radius: 15px;
+  object-fit: contain;
+}

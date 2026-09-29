@@ -3,6 +3,7 @@ import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
+import { ContentSafetyService } from '../content-safety/content-safety.service';
 import { User, UserGamePreferences } from '../models/user.model';
 import { AppThemeId } from '../theme/app-theme';
 import { AppThemeService } from '../theme/app-theme.service';
@@ -26,6 +27,7 @@ export interface StartImpersonationMetadata {
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
   private readonly authApi = inject(AuthApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly injector = inject(Injector);
   private readonly tokenState = signal<string | null>(null);
   private readonly userState = signal<User | null>(readStoredUser());
@@ -114,6 +116,12 @@ export class AuthStore {
   }
 
   async register(email: string, displayName: string, password: string): Promise<void> {
+    if (this.contentSafety.hasProhibitedContent(displayName)) {
+      this.errorState.set(null);
+      this.contentSafety.showProhibitedContentModal();
+      throw new Error('Prohibited content.');
+    }
+
     this.loadingState.set(true);
     this.errorState.set(null);
 

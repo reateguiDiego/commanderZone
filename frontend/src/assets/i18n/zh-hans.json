@@ -1,6 +1,16 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "举报玩家", "reportMessage": "举报消息" },
+    "modal": { "title": "举报", "submit": "提交举报", "reporting": "正在举报 {{ name }}", "categoryLabel": "类别", "commentLabel": "补充说明", "commentPlaceholder": "请告诉审核人员发生了什么。", "commentRequiredHint": "请描述问题。", "commentRequired": "该类别必须填写说明。", "success": "您的举报已提交。\n感谢您帮助 CommanderZone 保持友好。" },
+    "errors": { "duplicate": "您已对该用户提交了一条待处理的举报。", "submit": "无法提交举报，请重试。" },
+    "categories": { "harassment": "骚扰或霸凌", "discriminationOrUnwantedSexualContent": "歧视或不受欢迎的性相关内容", "threatsOrSafety": "威胁或安全风险", "personalDataExposure": "泄露个人信息", "spamAdvertisingScamPhishing": "垃圾信息、广告、诈骗或钓鱼", "impersonation": "冒充他人", "publicOffensiveContent": "公开的冒犯性内容", "intentionalGameDisruption": "故意扰乱对局", "seriousGameplayDeception": "严重的对局欺骗行为", "otherProblem": "其他问题" },
+    "sources": { "profile": "个人资料", "game_player": "对局玩家", "chat_message": "聊天消息" },
+    "fairPlay": { "title": "公平对局", "message": "我们希望 CommanderZone 成为一个以尊重为基础的社区。请保持聊天内容文明，尊重对手并诚实地进行对局。如果有用户在任何时候违反这些规则，你可以右键点击其战场或聊天消息进行举报。感谢你的帮助。现在，去赢下这局吧，指挥官！" },
+    "summary": { "pendingAriaLabel": "{{ count }} 条举报待审核" },
+    "moderation": { "loadingUser": "正在加载用户审核资料…", "queue": { "title": "审核队列", "description": "待处理举报会按提交时间排序。", "ariaLabel": "待审核的举报", "pendingCount": "待审核：{{ count }}", "loading": "正在加载…", "empty": "没有等待审核的举报。", "page": "第 {{ page }} 页，共 {{ totalPages }} 页" }, "detail": { "loading": "正在加载举报详情…", "reportedBy": "举报人：{{ name }}", "source": "来源", "gameId": "对局 ID", "messageId": "消息 ID", "comment": "举报人说明", "selectPrompt": "请选择一条待审核的举报以查看证据。" }, "evidence": { "title": "证据", "profileSnapshot": "个人资料快照", "gameSnapshot": "对局快照", "capturedAt": "采集于 {{ date }}", "noChat": "未采集到聊天证据。", "gameLog": "对局日志", "noGameLog": "未采集到对局日志证据。", "awaiting": "该举报的证据暂不可用。", "folders": "文件夹", "ownedRooms": "拥有的房间", "noFolders": "没有文件夹。", "noDecks": "没有套牌。", "noOwnedRooms": "未拥有任何房间。", "avatarAlt": "{{ name }} 的头像" }, "resolution": { "resolved": "处理决定", "title": "处理举报", "outcomeLabel": "处理方式", "outcomes": { "nothing": "不采取措施", "strike": "记一次警告" } }, "userDrawer": { "title": "用户审核记录", "open": "更多用户信息", "reportsMade": "提交的举报", "reportsReceived": "收到的举报", "tabs": { "ariaLabel": "用户审核分区" } }, "strikes": { "addLabel": "添加警告", "descriptionLabel": "警告说明", "descriptionPlaceholder": "请说明警告的原因。", "descriptionRequired": "警告必须填写说明。", "add": "添加警告", "listLabel": "用户警告", "listTitle": "警告", "deleteAriaLabel": "删除警告", "empty": "该用户没有警告。", "issuedBy": "创建者：{{ name }}", "issuedByUnavailable": "创建者不可用" }, "messages": { "listLabel": "发送给该用户的消息", "empty": "尚未向该用户发送消息。", "sentBy": "发送者：{{ name }}" }, "errors": { "loadQueue": "无法加载审核队列。", "loadReport": "无法加载该举报。", "resolveReport": "无法处理该举报。", "loadUser": "无法加载用户审核资料。", "createStrike": "无法创建警告。", "deleteStrike": "无法删除警告。", "loadMessages": "无法加载该用户的消息。" } }
+  },
   "admin": {
-    "title": "Administration",
+    "title": "管理",
     "navigation": {
       "sectionsAriaLabel": "Administration sections",
       "toolsAriaLabel": "Administration tools"
@@ -67,13 +77,17 @@
         "mobileToggle": "筛选和排序"
       },
       "columns": {
-        "auth": "Authentication",
-        "lastConnectedAt": "Last connection",
-        "role": "Role",
-        "localization": "位置"
+        "basicData": "基本信息",
+        "lastConnectedAt": "最后连接时间",
+        "role": "角色",
+        "localization": "地区",
+        "moderation": "审核"
       },
       "roles": {
-        "user": "User"
+        "user": "用户",
+        "support": "支持",
+        "admin": "管理员",
+        "owner": "所有者"
       },
       "premium": {
         "none": "None",
@@ -93,7 +107,7 @@
         "directionAriaLabel": "更改排序方向。当前方向：{{ direction }}。"
       },
       "local": "Local",
-      "never": "Never",
+      "never": "从未",
       "lastConnectedToday": "今天",
       "lastConnectedYesterday": "昨天",
       "lastConnectedAgo": "{{ count }} 天前",
@@ -129,10 +143,10 @@
           "languagesActive": "语言 · 活跃用户"
         }
       },
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
+      "authorizationRole": "权限角色",
+      "premiumTier": "高级会员等级",
+      "onlineNow": "当前在线",
+      "offlineNow": "当前离线",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
       "deleteUser": "Delete user",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "向举报人发送消息",
+      "messageReportedUser": "向被举报用户发送消息",
+      "sendMessageToReporter": "向举报人 {{ name }} 发送消息",
+      "sendMessageToReportedUser": "向被举报用户 {{ name }} 发送消息",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2453,6 +2467,13 @@
       "submitError": "我们无法发送您的消息。直接写信给{{ email }}或通过其他渠道联系我们。"
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "内容不允许",
+      "external-url-message": "不允许使用外部链接。",
+      "prohibited-language-message": "不允许使用冒犯性或不当语言。"
+    }
+  },
   "onboarding": {
     "accountActions": "账户操作",
     "demoRoom": {
@@ -2501,7 +2522,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "应用指挥官伤害",
-      "reports": "Reports",
+      "reports": "举报",
       "notifications": "Notifications",
       "noUsersFound": "没有找到用户。",
       "subject": "主题",
@@ -2509,15 +2530,15 @@
       "title": "Heading",
       "list": "列表",
       "uploadImage": "上传图片",
-      "refresh": "Refresh",
+      "refresh": "刷新",
       "online": "在线的",
       "usernameOrEmail": "Username or email...",
       "name": "名称",
       "email": "电子邮件",
-      "created": "Created",
+      "created": "创建时间",
       "status": "状态",
       "premium": "优质的",
-      "actions": "Actions",
+      "actions": "操作",
       "support": "支持",
       "admin": "Administrator",
       "owner": "房主",
@@ -2591,6 +2612,7 @@
       "createRoom": "创建房间",
       "turn": "回合",
       "deleteRoom": "删除房间",
+      "delete": "删除",
       "timer": "定时器",
       "mulligan": "再调度",
       "mulliganDescriptions": {

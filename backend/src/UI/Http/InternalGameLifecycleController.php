@@ -5,6 +5,9 @@ namespace App\UI\Http;
 use App\Application\Game\Lifecycle\GameLifecycleHandoff;
 use App\Application\Game\Lifecycle\GameLifecycleProjector;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\Runtime\GameRuntimeClosingFence;
+use App\Application\Game\Runtime\GameRuntimeStopQueue;
+use App\Application\Moderation\GameModerationRetentionService;
 use App\Application\Room\RoomLifecycleMembershipService;
 use App\Domain\Game\Game;
 use App\Infrastructure\Realtime\GameEventPublisher;
@@ -27,6 +30,9 @@ final class InternalGameLifecycleController extends ApiController
         RoomEventPublisher $roomPublisher,
         GameRematchService $rematch,
         RoomLifecycleMembershipService $roomLifecycle,
+        GameRuntimeClosingFence $closingFence,
+        GameRuntimeStopQueue $runtimeStopQueue,
+        GameModerationRetentionService $moderationRetention,
         #[Autowire('%game_runtime_ticket_secret%')]
         string $secret,
     ): JsonResponse {
@@ -43,6 +49,8 @@ final class InternalGameLifecycleController extends ApiController
         }
 
         $roomChanged = false;
+        $moderationRetained = false;
+        $retainedRoomId = null;
         $entityManager->beginTransaction();
         try {
             $game = $entityManager->find(Game::class, $handoff->gameId, LockMode::PESSIMISTIC_WRITE);
@@ -81,6 +89,21 @@ final class InternalGameLifecycleController extends ApiController
                 // returning from the command that produced it. The indexed
                 // sweeper owns stop-confirmed deletion ordering.
             }
+            if (
+                $result === GameLifecycleProjector::APPLIED
+                && $handoff->type === GameLifecycleHandoff::GAME_FINISHED
+                && $game->requiresModerationReview()
+            ) {
+                // A report made while the table was active turns this terminal
+                // handoff into immediate private retention. Waiting for the
+                // ordinary rematch deadline would leave the source playable
+                // and could permit a rematch before evidence is captured.
+                $retainedRoomId = $game->room()->id();
+                $closingFence->claim($game->id());
+                $runtimeStopQueue->enqueueStop($game->id());
+                $this->deleteRuntimeArtifacts($entityManager, $game->id());
+                $moderationRetained = $moderationRetention->retainForEvidenceIfRequired($game);
+            }
             $entityManager->flush();
             $entityManager->commit();
         } catch (\Throwable $exception) {
@@ -107,7 +130,13 @@ final class InternalGameLifecycleController extends ApiController
                 'createdAt' => $handoff->occurredAt->format(DATE_ATOM),
             ]);
         }
-        if ($roomChanged) {
+        if ($moderationRetained && $retainedRoomId !== null) {
+            // The source remains private in the database only until the
+            // worker commits immutable evidence. Clients still leave both
+            // live topics as if the room were deleted.
+            $publisher->publishRoomDeleted($game->id(), $retainedRoomId);
+            $roomPublisher->publishDeleted($retainedRoomId);
+        } elseif ($roomChanged) {
             $roomPublisher->publish($game->room(), 'room.player.left');
         }
 
@@ -129,5 +158,12 @@ final class InternalGameLifecycleController extends ApiController
     {
         return $handoff->type === GameLifecycleHandoff::PLAYER_EXPELLED
             || ($handoff->type === GameLifecycleHandoff::GAME_FINISHED && $handoff->playerReason === 'expelled' && $handoff->playerId !== null);
+    }
+
+    private function deleteRuntimeArtifacts(EntityManagerInterface $entityManager, string $gameId): void
+    {
+        $connection = $entityManager->getConnection();
+        $connection->executeStatement('DELETE FROM game_snapshot_compact WHERE game_id = :gameId', ['gameId' => $gameId]);
+        $connection->executeStatement('DELETE FROM game_runtime_lifecycle_outbox WHERE game_id = :gameId', ['gameId' => $gameId]);
     }
 }

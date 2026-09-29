@@ -1,6 +1,16 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Пожаловаться на игрока", "reportMessage": "Пожаловаться на сообщение" },
+    "modal": { "title": "Пожаловаться", "submit": "Отправить жалобу", "reporting": "Жалоба на {{ name }}", "categoryLabel": "Категория", "commentLabel": "Дополнительная информация", "commentPlaceholder": "Расскажите модераторам, что произошло.", "commentRequiredHint": "Опишите проблему.", "commentRequired": "Для этой категории требуется описание.", "success": "Ваша жалоба отправлена.\nСпасибо, что помогаете сохранять CommanderZone дружелюбным." },
+    "errors": { "duplicate": "У вас уже есть нерассмотренная жалоба на этого пользователя.", "submit": "Не удалось отправить жалобу. Попробуйте ещё раз." },
+    "categories": { "harassment": "Травля или преследование", "discriminationOrUnwantedSexualContent": "Дискриминация или нежелательный контент сексуального характера", "threatsOrSafety": "Угрозы или риск для безопасности", "personalDataExposure": "Раскрытие персональных данных", "spamAdvertisingScamPhishing": "Спам, реклама, мошенничество или фишинг", "impersonation": "Выдача себя за другого", "publicOffensiveContent": "Оскорбительный публичный контент", "intentionalGameDisruption": "Намеренный срыв игры", "seriousGameplayDeception": "Серьёзный обман в игре", "otherProblem": "Другая проблема" },
+    "sources": { "profile": "Профиль", "game_player": "Игрок в игре", "chat_message": "Сообщение в чате" },
+    "fairPlay": { "title": "Честная игра", "message": "Мы хотим, чтобы сообщество CommanderZone строилось на уважении. Поддерживайте порядок в чате, уважайте соперников и играйте честно. Если пользователь в какой-то момент нарушит эти правила, вы сможете пожаловаться на него, щёлкнув правой кнопкой мыши по его полю боя или сообщению в чате. Спасибо! А теперь — выиграйте эту партию, Командир!" },
+    "summary": { "pendingAriaLabel": "Жалоб, ожидающих проверки: {{ count }}" },
+    "moderation": { "loadingUser": "Загрузка профиля модерации…", "queue": { "title": "Очередь модерации", "description": "Ожидающие жалобы расположены по времени отправки.", "ariaLabel": "Жалобы, ожидающие рассмотрения", "pendingCount": "В ожидании: {{ count }}", "loading": "Загрузка…", "empty": "Нет жалоб, ожидающих рассмотрения.", "page": "Страница {{ page }} из {{ totalPages }}" }, "detail": { "loading": "Загрузка данных жалобы…", "reportedBy": "Отправитель жалобы: {{ name }}", "source": "Источник", "gameId": "ID игры", "messageId": "ID сообщения", "comment": "Комментарий заявителя", "selectPrompt": "Выберите ожидающую жалобу, чтобы просмотреть её доказательства." }, "evidence": { "title": "Доказательства", "profileSnapshot": "Снимок профиля", "gameSnapshot": "Снимок игры", "capturedAt": "Получено: {{ date }}", "noChat": "Доказательства из чата не были получены.", "gameLog": "Журнал игры", "noGameLog": "Доказательства из журнала игры не были получены.", "awaiting": "Доказательства для этой жалобы пока недоступны.", "folders": "Папки", "ownedRooms": "Собственные комнаты", "noFolders": "Папок нет.", "noDecks": "Колод нет.", "noOwnedRooms": "Собственных комнат нет.", "avatarAlt": "Аватар {{ name }}" }, "resolution": { "resolved": "Решение", "title": "Рассмотреть жалобу", "outcomeLabel": "Результат", "outcomes": { "nothing": "Без действий", "strike": "Выдать предупреждение" } }, "userDrawer": { "title": "Модерация пользователя", "open": "Подробнее о пользователе", "reportsMade": "Отправленные жалобы", "reportsReceived": "Полученные жалобы", "tabs": { "ariaLabel": "Разделы модерации пользователя" } }, "strikes": { "addLabel": "Добавить предупреждение", "descriptionLabel": "Описание предупреждения", "descriptionPlaceholder": "Объясните причину предупреждения.", "descriptionRequired": "Для предупреждения требуется описание.", "add": "Добавить предупреждение", "listLabel": "Предупреждения пользователя", "listTitle": "Предупреждения", "deleteAriaLabel": "Удалить предупреждение", "empty": "У этого пользователя нет предупреждений.", "issuedBy": "Создано: {{ name }}", "issuedByUnavailable": "Автор недоступен" }, "messages": { "listLabel": "Сообщения, отправленные этому пользователю", "empty": "Этому пользователю не было отправлено сообщений.", "sentBy": "Отправитель: {{ name }}" }, "errors": { "loadQueue": "Не удалось загрузить очередь модерации.", "loadReport": "Не удалось загрузить эту жалобу.", "resolveReport": "Не удалось рассмотреть эту жалобу.", "loadUser": "Не удалось загрузить профиль модерации пользователя.", "createStrike": "Не удалось создать предупреждение.", "deleteStrike": "Не удалось удалить предупреждение.", "loadMessages": "Не удалось загрузить сообщения этого пользователя." } }
+  },
   "admin": {
-    "title": "Administration",
+    "title": "Администрирование",
     "navigation": {
       "sectionsAriaLabel": "Administration sections",
       "toolsAriaLabel": "Administration tools"
@@ -67,13 +77,17 @@
         "mobileToggle": "Фильтры и сортировка"
       },
       "columns": {
-        "auth": "Authentication",
-        "lastConnectedAt": "Last connection",
-        "role": "Role",
-        "localization": "Местоположение"
+        "basicData": "Основные данные",
+        "lastConnectedAt": "Последнее подключение",
+        "role": "Роль",
+        "localization": "Местоположение",
+        "moderation": "Модерация"
       },
       "roles": {
-        "user": "User"
+        "user": "Пользователь",
+        "support": "Поддержка",
+        "admin": "Администратор",
+        "owner": "Владелец"
       },
       "premium": {
         "none": "None",
@@ -93,7 +107,7 @@
         "directionAriaLabel": "Изменить направление сортировки. Текущее направление: {{ direction }}."
       },
       "local": "Local",
-      "never": "Never",
+      "never": "Никогда",
       "lastConnectedToday": "Сегодня",
       "lastConnectedYesterday": "Вчера",
       "lastConnectedAgo": "{{ count }} дн. назад",
@@ -129,10 +143,10 @@
           "languagesActive": "Языки · активные пользователи"
         }
       },
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
+      "authorizationRole": "Роль доступа",
+      "premiumTier": "Уровень премиум",
+      "onlineNow": "Сейчас онлайн",
+      "offlineNow": "Сейчас офлайн",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
       "deleteUser": "Delete user",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "Написать заявителю",
+      "messageReportedUser": "Написать пользователю, на которого пожаловались",
+      "sendMessageToReporter": "Отправить сообщение заявителю: {{ name }}",
+      "sendMessageToReportedUser": "Отправить сообщение пользователю, на которого пожаловались: {{ name }}",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2453,6 +2467,13 @@
       "submitError": "Мы не смогли отправить ваше сообщение. Напишите {{ email }} напрямую или свяжитесь с нами по другому каналу."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Контент запрещён",
+      "external-url-message": "Внешние ссылки запрещены.",
+      "prohibited-language-message": "Оскорбительные или недопустимые выражения запрещены."
+    }
+  },
   "onboarding": {
     "accountActions": "Действия с аккаунтом",
     "demoRoom": {
@@ -2501,7 +2522,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "Применять урон командира",
-      "reports": "Reports",
+      "reports": "Жалобы",
       "notifications": "Notifications",
       "noUsersFound": "Пользователи не найдены.",
       "subject": "Предмет",
@@ -2509,15 +2530,15 @@
       "title": "Heading",
       "list": "Список",
       "uploadImage": "Загрузить изображение",
-      "refresh": "Refresh",
+      "refresh": "Обновить",
       "online": "Онлайн",
       "usernameOrEmail": "Username or email...",
       "name": "Имя",
       "email": "Электронная почта",
-      "created": "Created",
+      "created": "Дата создания",
       "status": "Статус",
       "premium": "Премиум",
-      "actions": "Actions",
+      "actions": "Действия",
       "support": "Поддержка",
       "admin": "Administrator",
       "owner": "Хост",
@@ -2591,6 +2612,7 @@
       "createRoom": "Создать комнату",
       "turn": "Ход",
       "deleteRoom": "Удалить комнату",
+      "delete": "Удалить",
       "timer": "Таймер",
       "mulligan": "Маллиган",
       "mulliganDescriptions": {

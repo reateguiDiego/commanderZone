@@ -366,6 +366,12 @@ class Room
 
     public function canBeViewedBy(User $user): bool
     {
+        // Archived rooms are retained only as private moderation sources. No
+        // former participant, including the owner, may reopen them.
+        if ($this->status === self::STATUS_ARCHIVED) {
+            return false;
+        }
+
         if ($this->owner->id() === $user->id() || $this->hasPlayer($user)) {
             return true;
         }
@@ -462,6 +468,22 @@ class Room
     public function detachGame(): void
     {
         $this->game = null;
+        $this->touch();
+    }
+
+    /**
+     * Keep the one-to-one Game relation and player memberships intact while a
+     * worker copies immutable moderation evidence. Existing active-room and
+     * room-list queries already exclude this status.
+     */
+    public function archiveForModerationEvidence(): void
+    {
+        if ($this->status === self::STATUS_ARCHIVED) {
+            return;
+        }
+
+        $this->status = self::STATUS_ARCHIVED;
+        $this->waitingExpiresAt = null;
         $this->touch();
     }
 

@@ -10,6 +10,7 @@ import { LanguagePreferencesService } from '../../../core/localization/language-
 import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { CommunityCacheService } from '../data-access/community-cache.service';
 import { FriendsStore } from '../../friends/data-access/friends.store';
+import { ReportStore } from '../../reports/data-access/report.store';
 import { CommunityUserPageComponent } from './community-user-page.component';
 
 describe('CommunityUserPageComponent', () => {
@@ -116,6 +117,7 @@ describe('CommunityUserPageComponent', () => {
         { provide: CommunityCacheService, useValue: cache },
         { provide: DynamicPublicSeoService, useValue: seo },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        { provide: ReportStore, useValue: reportStoreStub() },
       ],
     }).compileComponents();
 
@@ -216,6 +218,7 @@ describe('CommunityUserPageComponent', () => {
         { provide: CommunityCacheService, useValue: { peekFormats: vi.fn().mockReturnValue([]), formats: vi.fn().mockResolvedValue([]) } },
         { provide: DynamicPublicSeoService, useValue: { apply: vi.fn() } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        { provide: ReportStore, useValue: reportStoreStub() },
       ],
     }).compileComponents();
 
@@ -233,3 +236,15 @@ describe('CommunityUserPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Finetti');
   });
 });
+
+function reportStoreStub() {
+  return {
+    activeDraft: signal(null),
+    submissionSucceeded: signal(false),
+    isSubmitting: signal(false),
+    submissionError: signal(null),
+    open: vi.fn(),
+    close: vi.fn(),
+    submit: vi.fn(),
+  };
+}

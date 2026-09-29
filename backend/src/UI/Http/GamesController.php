@@ -26,6 +26,7 @@ use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketConfigurationException;
 use App\Application\Game\WebSocket\GameRuntimeWebsocketUrlFactory;
+use App\Application\Moderation\GameModerationRetentionService;
 use App\Application\Room\Lifecycle\WaitingRoomInactivityPolicy;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -52,8 +53,10 @@ class GamesController extends ApiController
         'mulligan.scry_confirm',
     ];
 
-    public function __construct(private readonly ?ImpersonationContext $impersonation = null)
-    {
+    public function __construct(
+        private readonly ?ImpersonationContext $impersonation = null,
+        private readonly ?GameModerationRetentionService $moderationRetention = null,
+    ) {
     }
 
     #[Route('/games/{id}/snapshot', methods: ['GET'])]
@@ -955,6 +958,10 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
+        if ($game->room()->status() === Room::STATUS_ARCHIVED) {
+            // A replayed vote must not bypass the evidence-retention fence.
+            return $this->fail('Game evidence is being collected.', 409, ['code' => 'GAME_EVIDENCE_PENDING']);
+        }
         if ($closingFence?->isClaimed($id)) {
             return $this->fail('Game lifecycle is closing.', 409, ['code' => 'GAME_CLOSING']);
         }
@@ -1013,6 +1020,7 @@ class GamesController extends ApiController
         $event = null;
         $room = $game->room();
         $roomDeleted = false;
+        $roomRetainedForEvidence = false;
         $roomReady = false;
         $deduplicated = false;
         $runtimeStopRequired = false;
@@ -1046,19 +1054,27 @@ class GamesController extends ApiController
                     $roomDeleted = true;
                     $closingFence?->claim($id);
                     $runtimeStopRequired = true;
-                    $this->removeRoomWithGame($room, $entityManager);
+                    $roomRetainedForEvidence = $this->removeRoomWithGame($room, $entityManager);
                 }
             }
 
             if (!$deduplicated && !$roomDeleted && $game->status() === Game::STATUS_FINISHED) {
-                $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $rematch, $entityManager, $waitingRoomInactivity);
-                if (!$roomReady && $rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
-                    // Fewer than two players chose play_again. This terminal
-                    // path removes the remaining memberships with the room.
-                    $roomDeleted = true;
+                if ($game->requiresModerationReview()) {
+                    // The report wins over a rematch. The archived source is
+                    // hidden from every player while the evidence worker runs.
                     $closingFence?->claim($id);
                     $runtimeStopRequired = true;
-                    $this->removeRoomWithGame($room, $entityManager);
+                    $roomRetainedForEvidence = $this->moderationRetention?->retainForEvidenceIfRequired($game) ?? false;
+                } else {
+                    $roomReady = $this->returnRoomToWaitingIfRematchReady($room, $game, $rematch, $entityManager, $waitingRoomInactivity);
+                    if (!$roomReady && $rematch->allRemainingRoomPlayersHaveVoted($room, $game)) {
+                        // Fewer than two players chose play_again. This terminal
+                        // path removes the remaining memberships with the room.
+                        $roomDeleted = true;
+                        $closingFence?->claim($id);
+                        $runtimeStopRequired = true;
+                        $roomRetainedForEvidence = $this->removeRoomWithGame($room, $entityManager);
+                    }
                 }
             }
 
@@ -1101,13 +1117,13 @@ class GamesController extends ApiController
         }
 
         $state = $controlPlane->project($game);
-        if (is_array($event) && !$roomDeleted && !$roomReady) {
+        if (is_array($event) && !$roomDeleted && !$roomReady && !$roomRetainedForEvidence) {
             $gamePublisher->publishControlPlane($game, $event);
         }
-        if (!$deduplicated && $vote === GameRematchService::VOTE_LEAVE && !$roomDeleted) {
+        if (!$deduplicated && $vote === GameRematchService::VOTE_LEAVE && !$roomDeleted && !$roomRetainedForEvidence) {
             $roomPublisher->publish($room, 'room.player.left');
         }
-        if ($roomDeleted) {
+        if ($roomDeleted || $roomRetainedForEvidence) {
             $gamePublisher->publishRoomDeleted($id, $room->id());
             $roomPublisher->publishDeleted($room->id());
 
@@ -1644,10 +1660,18 @@ class GamesController extends ApiController
         ]);
     }
 
-    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): void
+    /**
+     * @return bool true when the Game/Room were archived for moderation
+     *              rather than physically deleted
+     */
+    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): bool
     {
         $game = $room->game();
         if ($game instanceof Game) {
+            if ($this->moderationRetention?->retainForEvidenceIfRequired($game) === true) {
+                return true;
+            }
+
             $room->detachGame();
             $entityManager->flush();
             $entityManager->remove($game);
@@ -1655,6 +1679,8 @@ class GamesController extends ApiController
         }
 
         $entityManager->remove($room);
+
+        return false;
     }
 
     private function returnRoomToWaitingIfRematchReady(

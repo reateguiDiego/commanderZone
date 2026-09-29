@@ -480,6 +480,28 @@ class CommanderDeckValidatorTest extends TestCase
         }
     }
 
+    public function testFutureCommunityCardsAreAllowedInTheMainDeck(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(98);
+        $deck->addCard(new DeckCard($deck, $this->card(
+            '00000000-0000-0000-0000-000000000283',
+            'Ajani, Resolute',
+            [
+                'type_line' => 'Legendary Planeswalker - Ajani',
+                'legalities' => [
+                    'commander' => 'not_legal',
+                    'future' => 'legal',
+                    'tlr' => 'legal',
+                ],
+            ],
+        ), 1));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertNotContains('card.commander_not_legal', array_column($result['errors'], 'code'));
+    }
+
     public function testSingletonViolationForNonBasicCards(): void
     {
         $deck = $this->baseMonoWhiteDeck(97);

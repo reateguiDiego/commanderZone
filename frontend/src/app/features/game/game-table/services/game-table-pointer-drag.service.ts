@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { canDropCardOnZone } from '../utils/command-zone-drop';
+import { logicalBattlefieldPositionForElement } from '../utils/battlefield-position';
 
 export interface PointerDropTarget {
   targetPlayerId: string;
@@ -174,10 +175,12 @@ export class GameTablePointerDragService {
       ? Math.round(manaLaneBounds.bottom - bounds.top - battlefieldCardSize.height)
       : Math.round(event.clientY - bounds.top - offsetY);
 
-    return {
+    const visualPosition = {
       x: Math.max(0, Math.min(Math.round(bounds.width - battlefieldCardSize.width), rawX)),
       y: Math.max(0, Math.min(Math.round(bounds.height - battlefieldCardSize.height), rawY)),
     };
+
+    return logicalBattlefieldPositionForElement(battlefield, visualPosition, battlefieldCardSize.height);
   }
 
   private manaLaneForCardTop(

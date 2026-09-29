@@ -7,6 +7,9 @@ use App\Application\Game\Runtime\GameRuntimeGatewayException;
 use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
+use App\Application\Moderation\GameModerationRetentionService;
+use App\Application\Moderation\ModerationReportCancellationService;
+use App\Application\Moderation\ModerationSummaryPublisher;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Game\Game;
@@ -25,6 +28,9 @@ class UserAccountDeletionService
         private readonly GameRuntimeLifecycleCommandService $runtimeLifecycle,
         private readonly ?GameRuntimeLifecycleControlInterface $runtimeControl = null,
         private readonly ?GameRuntimeClosingFence $closingFence = null,
+        private readonly ?ModerationReportCancellationService $moderationCancellation = null,
+        private readonly ?GameModerationRetentionService $moderationRetention = null,
+        private readonly ?ModerationSummaryPublisher $moderationSummaryPublisher = null,
     ) {
     }
 
@@ -36,6 +42,10 @@ class UserAccountDeletionService
         try {
             $entityManager->beginTransaction();
 
+            // Account deletion intentionally cancels incomplete moderation
+            // cases before memberships and user references disappear.
+            // Resolved reports remain and use nullable user relations.
+            $this->moderationCancellation?->cancelUnresolvedForAccount($user, $entityManager);
             $roomRemovalResult = $this->removeFromRoomsInOpenTransaction($rooms, $user, $entityManager);
             $entityManager->flush();
 
@@ -54,6 +64,11 @@ class UserAccountDeletionService
 
             throw $exception;
         }
+
+        // The cancellation and nullable-user cleanup are committed before
+        // notifying admin badges. The publisher handles realtime delivery as
+        // best effort, so a hub outage cannot change this result.
+        $this->moderationSummaryPublisher?->invalidate();
 
         return $roomRemovalResult;
     }
@@ -163,13 +178,21 @@ class UserAccountDeletionService
         $hasOtherRoomPlayers = $this->roomHasOtherPlayers($room, $user, $entityManager);
 
         if ($isRoomOwner && !$startedRoom) {
-            $deletedRoomIds[] = $room->id();
-            $this->removeRoomWithGame($room, $entityManager);
+            if ($this->removeRoomWithGame($room, $entityManager)) {
+                $deletedRoomIds[] = $room->id();
+            }
 
             return new UserAccountDeletionResult([], [], [], $deletedRoomIds);
         }
 
-        if ($isRoomPlayer && $startedRoom && $game instanceof Game && $hasOtherRoomPlayers && $this->gameHasSnapshotPlayer($game, $user)) {
+        if (
+            $isRoomPlayer
+            && $room->status() !== Room::STATUS_ARCHIVED
+            && $startedRoom
+            && $game instanceof Game
+            && $hasOtherRoomPlayers
+            && $this->gameHasSnapshotPlayer($game, $user)
+        ) {
             if ($this->gameCanRecordLeaveVote($game, $user)) {
                 $recorded = $this->gameRematch->recordVote($game, $user, GameRematchService::VOTE_LEAVE);
                 $controlPlaneEvents[] = ['game' => $game, 'event' => $recorded['event']];
@@ -181,8 +204,9 @@ class UserAccountDeletionService
         }
 
         if (!$hasOtherRoomPlayers) {
-            $deletedRoomIds[] = $room->id();
-            $this->removeRoomWithGame($room, $entityManager);
+            if ($this->removeRoomWithGame($room, $entityManager)) {
+                $deletedRoomIds[] = $room->id();
+            }
 
             return new UserAccountDeletionResult($gameEvents, $controlPlaneEvents, [], $deletedRoomIds);
         }
@@ -194,8 +218,10 @@ class UserAccountDeletionService
             }
         }
 
-        $room->appendWaitingLog(sprintf('%s left the room.', $this->userDisplayName($user)));
-        $changedRooms[] = $room;
+        if ($room->status() !== Room::STATUS_ARCHIVED) {
+            $room->appendWaitingLog(sprintf('%s left the room.', $this->userDisplayName($user)));
+            $changedRooms[] = $room;
+        }
 
         return new UserAccountDeletionResult($gameEvents, $controlPlaneEvents, $changedRooms, $deletedRoomIds);
     }
@@ -232,15 +258,27 @@ class UserAccountDeletionService
             ->execute();
     }
 
-    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): void
+    /**
+     * @return bool whether the room was physically scheduled for deletion
+     */
+    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): bool
     {
+        $game = $room->game();
+        if ($game instanceof Game && $game->requiresModerationReview()) {
+            if (!$this->moderationRetention instanceof GameModerationRetentionService) {
+                throw new \LogicException('Moderation retention is required before deleting a reported game source.');
+            }
+            if ($this->moderationRetention->retainForEvidenceIfRequired($game)) {
+                return false;
+            }
+        }
+
         foreach ($entityManager->getRepository(RoomInvite::class)->findBy(['room' => $room]) as $invite) {
             if ($invite instanceof RoomInvite) {
                 $entityManager->remove($invite);
             }
         }
 
-        $game = $room->game();
         if ($game instanceof Game) {
             $room->detachGame();
             $entityManager->flush();
@@ -249,6 +287,8 @@ class UserAccountDeletionService
         }
 
         $entityManager->remove($room);
+
+        return true;
     }
 
     private function gameCanConcedeLeavingPlayer(Game $game, User $user): bool

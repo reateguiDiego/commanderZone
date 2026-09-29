@@ -68,6 +68,10 @@
   border-color: rgb(var(--cz-danger-rgb) / 72%);
 }
 
+.modal-close-button-success:hover {
+  border-color: rgb(var(--cz-success-rgb) / 72%);
+}
+
 .modal-close-button lucide-icon {
   display: block;
 }
@@ -101,6 +105,38 @@
   max-width: calc(100vw - 2rem);
 }
 
+.modal-panel-danger {
+  border-color: rgb(var(--cz-danger-rgb) / 68%);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-danger-rgb) / 18%), transparent 16rem),
+    radial-gradient(circle at 92% 100%, rgb(var(--cz-danger-rgb) / 8%), transparent 18rem),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--cz-surface) 88%, var(--cz-danger) 12%),
+      color-mix(in srgb, var(--cz-bg) 82%, var(--cz-surface) 18%)
+    );
+}
+
+.modal-panel-success {
+  border-color: rgb(var(--cz-success-rgb) / 68%);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-success-rgb) / 18%), transparent 16rem),
+    radial-gradient(circle at 92% 100%, rgb(var(--cz-success-rgb) / 8%), transparent 18rem),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--cz-surface) 88%, var(--cz-success) 12%),
+      color-mix(in srgb, var(--cz-bg) 82%, var(--cz-surface) 18%)
+    );
+}
+
+.modal-panel-danger .modal-title-icon {
+  color: var(--cz-danger);
+}
+
+.modal-panel-success .modal-title-icon {
+  color: var(--cz-success);
+}
+
 .modal-panel-overflow-visible {
   overflow: visible;
 }
@@ -118,6 +154,20 @@
   width: min(10rem, 52vw);
   max-height: 3.2rem;
   object-fit: contain;
+}
+
+.modal-body-image {
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.modal-body-image-centered {
+  justify-self: center;
+  width: auto;
+  height: min(19.2rem, 64vh);
+  max-width: 60vw;
+  border-radius: 15px;
 }
 
 .modal-title-row {
@@ -228,4 +278,3 @@
     max-width: none;
   }
 }
-

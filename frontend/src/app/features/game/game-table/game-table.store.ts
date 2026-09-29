@@ -58,6 +58,7 @@ import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
 import { GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { pruneTransientCardUiState } from './utils/transient-card-ui';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
@@ -93,6 +94,7 @@ export class GameTableStore implements OnDestroy {
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
   private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
   private readonly auth = inject(AuthStore);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
   private readonly attachmentsState = inject(GameTableAttachmentsState);
@@ -829,6 +831,11 @@ export class GameTableStore implements OnDestroy {
   async sendChat(): Promise<void> {
     const message = this.chatStore.normalizedMessage();
     if (!message) {
+      return;
+    }
+
+    if (this.contentSafety.hasProhibitedContent(message)) {
+      this.contentSafety.showProhibitedContentModal();
       return;
     }
 

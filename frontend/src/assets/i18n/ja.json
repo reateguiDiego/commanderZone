@@ -1,4 +1,14 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "プレイヤーを通報", "reportMessage": "メッセージを通報" },
+    "modal": { "title": "通報", "submit": "通報を送信", "reporting": "{{ name }}を通報", "categoryLabel": "カテゴリ", "commentLabel": "追加の詳細", "commentPlaceholder": "何が起きたのかをモデレーターにお知らせください。", "commentRequiredHint": "問題を説明してください。", "commentRequired": "このカテゴリでは説明が必要です。", "success": "通報を送信しました。\nCommanderZoneを居心地のよい場所に保つご協力に感謝します。" },
+    "errors": { "duplicate": "このユーザーへの未解決の通報がすでにあります。", "submit": "通報を送信できませんでした。もう一度お試しください。" },
+    "categories": { "harassment": "嫌がらせ・いじめ", "discriminationOrUnwantedSexualContent": "差別または望まない性的コンテンツ", "threatsOrSafety": "脅迫または安全上のリスク", "personalDataExposure": "個人情報の公開", "spamAdvertisingScamPhishing": "スパム、広告、詐欺またはフィッシング", "impersonation": "なりすまし", "publicOffensiveContent": "公開された不快なコンテンツ", "intentionalGameDisruption": "意図的なゲーム妨害", "seriousGameplayDeception": "重大なゲームプレイ上の欺瞞", "otherProblem": "その他の問題" },
+    "sources": { "profile": "プロフィール", "game_player": "ゲーム内のプレイヤー", "chat_message": "チャットメッセージ" },
+    "fairPlay": { "title": "フェアプレイ", "message": "CommanderZoneでは、互いを尊重するコミュニティを目指しています。チャットを健全に保ち、対戦相手を尊重し、誠実にプレイしてください。誰かがこれらのルールを破った場合は、その人の戦場またはチャットメッセージを右クリックして通報できます。ご協力ありがとうございます。さあ、統率者、この対戦に勝ちましょう！" },
+    "summary": { "pendingAriaLabel": "確認待ちの通報: {{ count }} 件" },
+    "moderation": { "loadingUser": "モデレーションプロフィールを読み込んでいます…", "queue": { "title": "モデレーションキュー", "description": "保留中の通報は送信日時順に表示されます。", "ariaLabel": "保留中のモデレーション通報", "pendingCount": "保留中 {{ count }} 件", "loading": "読み込み中…", "empty": "審査待ちの通報はありません。", "page": "{{ page }} / {{ totalPages }} ページ" }, "detail": { "loading": "通報の詳細を読み込んでいます…", "reportedBy": "通報者: {{ name }}", "source": "発生元", "gameId": "ゲームID", "messageId": "メッセージID", "comment": "通報者のコメント", "selectPrompt": "証拠を確認するには、保留中の通報を選択してください。" }, "evidence": { "title": "証拠", "profileSnapshot": "プロフィールのスナップショット", "gameSnapshot": "ゲームのスナップショット", "capturedAt": "{{ date }} に取得", "noChat": "チャットの証拠は取得されていません。", "gameLog": "ゲームログ", "noGameLog": "ゲームログの証拠は取得されていません。", "awaiting": "この通報の証拠はまだ利用できません。", "folders": "フォルダー", "ownedRooms": "所有しているルーム", "noFolders": "フォルダーはありません。", "noDecks": "デッキはありません。", "noOwnedRooms": "所有しているルームはありません。", "avatarAlt": "{{ name }}のアバター" }, "resolution": { "resolved": "解決", "title": "通報を解決", "outcomeLabel": "処理結果", "outcomes": { "nothing": "対応なし", "strike": "警告を付与" } }, "userDrawer": { "title": "ユーザーのモデレーション", "open": "ユーザー情報をもっと見る", "reportsMade": "送信した通報", "reportsReceived": "受けた通報", "tabs": { "ariaLabel": "ユーザーのモデレーション項目" } }, "strikes": { "addLabel": "警告を追加", "descriptionLabel": "警告の説明", "descriptionPlaceholder": "警告の理由を説明してください。", "descriptionRequired": "警告には説明が必要です。", "add": "警告を追加", "listLabel": "ユーザーの警告", "listTitle": "警告", "deleteAriaLabel": "警告を削除", "empty": "このユーザーに警告はありません。", "issuedBy": "作成者: {{ name }}", "issuedByUnavailable": "作成者は利用できません" }, "messages": { "listLabel": "このユーザーに送信されたメッセージ", "empty": "このユーザーに送信されたメッセージはありません。", "sentBy": "送信者: {{ name }}" }, "errors": { "loadQueue": "モデレーションキューを読み込めませんでした。", "loadReport": "この通報を読み込めませんでした。", "resolveReport": "この通報を解決できませんでした。", "loadUser": "ユーザーのモデレーションプロフィールを読み込めませんでした。", "createStrike": "警告を作成できませんでした。", "deleteStrike": "警告を削除できませんでした。", "loadMessages": "このユーザーのメッセージを読み込めませんでした。" } }
+  },
   "admin": {
     "title": "管理",
     "navigation": {
@@ -67,13 +77,17 @@
         "mobileToggle": "フィルターと並べ替え"
       },
       "columns": {
-        "auth": "認証",
+        "basicData": "基本情報",
         "lastConnectedAt": "最終接続",
         "role": "ロール",
-        "localization": "地域"
+        "localization": "地域",
+        "moderation": "モデレーション"
       },
       "roles": {
-        "user": "ユーザー"
+        "user": "ユーザー",
+        "support": "サポート",
+        "admin": "管理者",
+        "owner": "所有者"
       },
       "premium": {
         "none": "なし",
@@ -2397,6 +2411,13 @@
       "submitError": "メッセージを送信できませんでした。{{ email }} へ直接ご連絡いただくか、別の方法でお問い合わせください。"
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "このコンテンツは使用できません",
+      "external-url-message": "外部リンクは使用できません。",
+      "prohibited-language-message": "不快または不適切な表現は使用できません。"
+    }
+  },
   "onboarding": {
     "accountActions": "アカウントのアクション",
     "demoRoom": {
@@ -2535,6 +2556,7 @@
       "createRoom": "ルームを作成する",
       "turn": "ターン",
       "deleteRoom": "ルームを削除する",
+      "delete": "削除",
       "timer": "タイマー",
       "mulligan": "マリガン",
       "mulliganDescriptions": {

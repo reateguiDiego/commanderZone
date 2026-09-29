@@ -1,7 +1,11 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { canDropCardOnZone } from '../utils/command-zone-drop';
-import { BattlefieldCardSize, measuredBattlefieldCardSize } from '../utils/battlefield-position';
+import {
+  BattlefieldCardSize,
+  logicalBattlefieldPositionForElement,
+  measuredBattlefieldCardSize,
+} from '../utils/battlefield-position';
 
 interface PointerCardDrag {
   playerId: string;
@@ -347,14 +351,22 @@ export class GameTableDragService {
     return this.dropGeometry(event, zone)?.position ?? null;
   }
 
-  dropGeometry(event: DragEvent, zone: GameZoneName): BattlefieldDropGeometry | null {
-    if (zone !== 'battlefield' || !(event.currentTarget instanceof HTMLElement)) {
+  dropGeometry(
+    event: DragEvent,
+    zone: GameZoneName,
+    battlefieldTarget?: HTMLElement,
+  ): BattlefieldDropGeometry | null {
+    if (zone !== 'battlefield') {
       return null;
     }
 
-    const battlefield = event.currentTarget.classList.contains('battlefield')
-      ? event.currentTarget
-      : event.currentTarget.closest<HTMLElement>('.battlefield');
+    const battlefield = battlefieldTarget ?? (
+      event.currentTarget instanceof HTMLElement
+        ? event.currentTarget.classList.contains('battlefield')
+          ? event.currentTarget
+          : event.currentTarget.closest<HTMLElement>('.battlefield')
+        : null
+    );
 
     if (!battlefield) {
       return null;
@@ -365,7 +377,7 @@ export class GameTableDragService {
 
     return {
       cardSize,
-      position: this.logicalBattlefieldPosition(
+      position: logicalBattlefieldPositionForElement(
         battlefield,
         this.positionInBattlefield(
           battlefield,
@@ -382,7 +394,7 @@ export class GameTableDragService {
   }
 
   pointerPosition(event: PointerEvent, battlefield: HTMLElement): { x: number; y: number } {
-    return this.logicalBattlefieldPosition(
+    return logicalBattlefieldPositionForElement(
       battlefield,
       this.positionInBattlefield(battlefield, event.clientX, event.clientY),
       162,
@@ -524,7 +536,7 @@ export class GameTableDragService {
     visualOffsetFromLogicalY: number,
   ): { x: number; y: number } {
     if (this.hasSameGeometry(visualWidth, visualHeight, logicalWidth, logicalHeight, visualOffsetFromLogicalX, visualOffsetFromLogicalY)) {
-      return this.logicalBattlefieldPosition(
+      return logicalBattlefieldPositionForElement(
         battlefield,
         this.pointerDragPosition(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, logicalWidth, logicalHeight),
         logicalHeight,
@@ -550,37 +562,10 @@ export class GameTableDragService {
     const logicalLeftViewport = clampedVisualLeft - visualOffsetFromLogicalX;
     const logicalTopViewport = clampedVisualTop - visualOffsetFromLogicalY;
 
-    return this.logicalBattlefieldPosition(battlefield, {
+    return logicalBattlefieldPositionForElement(battlefield, {
       x: Math.round(logicalLeftViewport - bounds.left),
       y: Math.round(logicalTopViewport - bounds.top),
     }, logicalHeight);
-  }
-
-  /**
-   * Upper Grid seats render stored battlefield coordinates upside down so
-   * every player still sees their own board nearest to their hand. Drag
-   * geometry originates in the rendered coordinate system; convert it back
-   * before alignment, snapping, and persistence use it.
-   */
-  private logicalBattlefieldPosition(
-    battlefield: HTMLElement,
-    visualPosition: { x: number; y: number },
-    cardHeight: number,
-  ): { x: number; y: number } {
-    if (battlefield.dataset['battlefieldVerticallyInverted'] === undefined) {
-      return visualPosition;
-    }
-
-    const bounds = battlefield.getBoundingClientRect();
-    const battlefieldHeight = battlefield.clientHeight || bounds.height;
-    if (battlefieldHeight <= 0) {
-      return visualPosition;
-    }
-
-    return {
-      ...visualPosition,
-      y: Math.max(0, Math.round(battlefieldHeight - cardHeight - visualPosition.y)),
-    };
   }
 
   private visualOffsetFromLogical(
@@ -961,12 +946,18 @@ export class GameTableDragService {
 
     const bounds = drag.battlefield.getBoundingClientRect();
 
-    return this.clampPosition(
+    const visualPosition = this.clampPosition(
       Math.round(preview.x - bounds.left - drag.visualOffsetFromLogicalX),
       Math.round(preview.y - bounds.top - drag.visualOffsetFromLogicalY),
       bounds.width,
       bounds.height,
       drag.logicalWidth,
+      drag.logicalHeight,
+    );
+
+    return logicalBattlefieldPositionForElement(
+      drag.battlefield,
+      visualPosition,
       drag.logicalHeight,
     );
   }

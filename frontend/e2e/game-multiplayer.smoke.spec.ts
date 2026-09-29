@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks, resolveGameToPlaying } from './support/commander-game';
 
 test('player A and player B can open the same game in isolated contexts', async ({ browser, request, baseURL }) => {
   if (!baseURL) {
@@ -12,6 +12,7 @@ test('player A and player B can open the same game in isolated contexts', async 
     playerBPrefix: 'multi-b',
   });
   const { gameId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
 
   const contextA = await browser.newContext({
     baseURL,
@@ -34,10 +35,10 @@ test('player A and player B can open the same game in isolated contexts', async 
     await expect(pageA.locator('.game-screen')).toBeVisible();
     await expect(pageB.locator('.game-screen')).toBeVisible();
 
-    await expect(pageA.locator('[data-testid="player-panel"] h1')).toHaveText(playerA.user.displayName);
-    await expect(pageA.getByTestId('opponent-mini-board').filter({ hasText: playerB.user.displayName })).toBeVisible();
-    await expect(pageB.locator('[data-testid="player-panel"] h1')).toHaveText(playerB.user.displayName);
-    await expect(pageB.getByTestId('opponent-mini-board').filter({ hasText: playerA.user.displayName })).toBeVisible();
+    await expect(pageA.getByTestId('grid-player-panel').filter({ hasText: playerA.user.displayName })).toBeVisible();
+    await expect(pageA.getByTestId('grid-player-panel').filter({ hasText: playerB.user.displayName })).toBeVisible();
+    await expect(pageB.getByTestId('grid-player-panel').filter({ hasText: playerB.user.displayName })).toBeVisible();
+    await expect(pageB.getByTestId('grid-player-panel').filter({ hasText: playerA.user.displayName })).toBeVisible();
   } finally {
     await contextA.close();
     await contextB.close();

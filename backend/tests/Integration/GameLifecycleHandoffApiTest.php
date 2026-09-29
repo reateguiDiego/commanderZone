@@ -90,6 +90,76 @@ final class GameLifecycleHandoffApiTest extends ApiTestCase
         self::assertCount(0, $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $persisted]));
     }
 
+    public function testReportedGameFinishIsImmediatelyArchivedAndQueuedForEvidence(): void
+    {
+        $owner = new User('reported-finish-owner@example.test', 'Finish Owner');
+        $participant = new User('reported-finish-player@example.test', 'Finish Player');
+        $owner->setPassword('test-password-hash');
+        $participant->setPassword('test-password-hash');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $participant));
+        $game = new Game($room, [
+            'version' => 1,
+            'players' => [
+                $owner->id() => ['status' => 'active'],
+                $participant->id() => ['status' => 'active'],
+            ],
+        ]);
+        $room->start($game);
+        $game->requireModerationReview();
+        $this->entityManager->persist($owner);
+        $this->entityManager->persist($participant);
+        $this->entityManager->persist($room);
+        $this->entityManager->persist($game);
+        $this->entityManager->flush();
+
+        RecordingMercureHub::reset();
+        $this->signedLifecycleRequest([
+            'eventId' => $game->id().':reported-finished',
+            'gameId' => $game->id(),
+            'type' => 'game.finished',
+            'winnerPlayerId' => $owner->id(),
+            'finishReason' => 'last_player_standing',
+            'version' => 2,
+            'generation' => 1,
+            'fencing' => 10,
+            'occurredAt' => '2026-08-10T12:00:00+00:00',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->jsonResponse()['game']['nextLifecycleAt']);
+
+        $this->entityManager->clear();
+        $persistedGame = $this->entityManager->find(Game::class, $game->id());
+        $persistedRoom = $this->entityManager->find(Room::class, $room->id());
+        self::assertInstanceOf(Game::class, $persistedGame);
+        self::assertInstanceOf(Room::class, $persistedRoom);
+        self::assertSame(Game::STATUS_FINISHED, $persistedGame->status());
+        self::assertSame(Room::STATUS_ARCHIVED, $persistedRoom->status());
+        self::assertNull($persistedGame->nextLifecycleAt());
+        self::assertFalse($persistedGame->canBeControlledBy($owner));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_moderation_evidence_queue WHERE game_id = :gameId',
+            ['gameId' => $game->id()],
+        ));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM game_runtime_stop_queue WHERE game_id = :gameId',
+            ['gameId' => $game->id()],
+        ));
+
+        self::assertNotEmpty(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$game->id()]
+                && (json_decode($update['data'], true)['event']['type'] ?? null) === 'room.deleted',
+        ));
+        self::assertNotEmpty(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['rooms/'.$room->id().'/waiting']
+                && (json_decode($update['data'], true)['type'] ?? null) === 'room.deleted',
+        ));
+    }
+
     public function testExpelHandoffLeavesRoomTransfersOwnershipAndIsIdempotent(): void
     {
         $owner = new User('expelled-owner@example.test', 'Expelled Owner');

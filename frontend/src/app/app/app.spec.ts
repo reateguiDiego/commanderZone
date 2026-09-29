@@ -1,17 +1,28 @@
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, PLATFORM_ID, importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
+import { LucideAngularModule, TriangleAlert, X } from 'lucide-angular';
 import { AuthStore } from '../core/auth/auth.store';
+import { ContentSafetyService } from '../core/content-safety/content-safety.service';
 import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { NotFoundNavigationService } from '../core/routing/not-found-navigation.service';
+import { AppModalComponent } from '../shared/ui/app-modal/app-modal.component';
 import { App } from './app';
 
 @Component({
   template: '',
 })
 class EmptyRouteComponent {}
+
+@Component({
+  imports: [AppModalComponent],
+  template: '<app-modal [open]="open()" title="Draft modal" />',
+})
+class ModalRouteComponent {
+  readonly open = signal(true);
+}
 
 describe('App', () => {
   const authStore = {
@@ -31,6 +42,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideHttpClient(),
+        importProvidersFrom(LucideAngularModule.pick({ TriangleAlert, X })),
         { provide: AuthStore, useValue: authStore },
         { provide: RuntimeLanguageSelectorService, useValue: {} },
         provideRouter([
@@ -48,15 +60,26 @@ describe('App', () => {
           {
             path: 'slow-route',
             component: EmptyRouteComponent,
-            canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
+            canActivate: [
+              () =>
+                new Promise<boolean>((resolve) => {
+                  resolveSlowNavigation = resolve;
+                }),
+            ],
           },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
+          { path: 'modal-route', component: ModalRouteComponent },
           {
             path: 'games/:id/slow',
             component: EmptyRouteComponent,
-            canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
+            canActivate: [
+              () =>
+                new Promise<boolean>((resolve) => {
+                  resolveSlowNavigation = resolve;
+                }),
+            ],
           },
           { path: '**', component: EmptyRouteComponent },
         ]),
@@ -68,6 +91,40 @@ describe('App', () => {
     TestBed.createComponent(App);
 
     expect(authStore.initialize).toHaveBeenCalledOnce();
+  });
+
+  it('shows only one global prohibited-content modal', () => {
+    const fixture = TestBed.createComponent(App);
+    const contentSafety = TestBed.inject(ContentSafetyService);
+
+    contentSafety.showProhibitedContentModal();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.modal-backdrop')).toHaveLength(1);
+    const image = fixture.nativeElement.querySelector(
+      '.modal-body-image-centered',
+    ) as HTMLImageElement | null;
+
+    expect(image?.src).toContain('49354d19-384b-45c8-80f5-afde4f27c8dc');
+  });
+
+  it('keeps an existing modal open after the prohibited-content modal is dismissed', async () => {
+    const router = TestBed.inject(Router);
+    const contentSafety = TestBed.inject(ContentSafetyService);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/modal-route');
+    fixture.detectChanges();
+    contentSafety.showProhibitedContentModal();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.modal-backdrop')).toHaveLength(2);
+
+    contentSafety.dismissProhibitedContentModal();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.modal-backdrop')).toHaveLength(1);
+    expect(fixture.nativeElement.textContent).toContain('Draft modal');
   });
 
   it('does not initialize auth during server rendering', async () => {
@@ -98,7 +155,9 @@ describe('App', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain(
+      'CommanderZone is unofficial Fan Content',
+    );
 
     await router.navigateByUrl('/admin');
     fixture.detectChanges();
@@ -146,7 +205,9 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
 
     await router.navigateByUrl('/auth/register');
     fixture.detectChanges();
@@ -154,7 +215,9 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
   });
 
   it('records the previous route before wildcard not-found navigation', async () => {
@@ -181,14 +244,18 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
 
     await router.navigateByUrl('/en/play-commander-online');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
 
     await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
@@ -196,7 +263,9 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
 
     await router.navigateByUrl('/games/game-1');
     fixture.detectChanges();
@@ -227,7 +296,9 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
   });
 
   it('shows the global loader while an app route navigation is pending', async () => {
@@ -243,7 +314,9 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer'),
+    ).toBeNull();
 
     resolveSlowNavigation?.(true);
     await navigation;
@@ -275,8 +348,9 @@ describe('App', () => {
 
     await router.navigateByUrl('/dashboard');
     expect(document.body.classList.contains('dashboard-background')).toBe(true);
-    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
-      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toMatch(
+      /^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/,
+    );
 
     await router.navigateByUrl('/contact');
     expect(document.body.classList.contains('dashboard-background')).toBe(false);
@@ -284,8 +358,9 @@ describe('App', () => {
 
     await router.navigateByUrl('/dashboard');
     expect(document.body.classList.contains('dashboard-background')).toBe(true);
-    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
-      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toMatch(
+      /^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/,
+    );
 
     await router.navigateByUrl('/en/play-commander-online');
     expect(document.body.classList.contains('dashboard-background')).toBe(false);

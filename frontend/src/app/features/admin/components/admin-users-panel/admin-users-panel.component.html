@@ -1,228 +1,281 @@
 <section class="admin-users-panel" aria-labelledby="admin-users-title">
   <div class="admin-users-overview">
-  <header class="admin-users-header">
-    <div>
-      <h2 id="admin-users-title">{{ 'shared.text.users' | runtimeTranslate }}</h2>
-    </div>
-    <div class="admin-users-header-actions">
-      <button
-        type="button"
-        class="admin-users-localization-button"
-        czButton="secondary"
-        czButtonSize="sm"
-        (click)="openLocalizationModal()"
-        [disabled]="isLoading() || usersSummary().total === 0"
-      >
-        {{ 'admin.users.columns.localization' | runtimeTranslate }}
-      </button>
-      <button type="button" class="admin-users-refresh-button--desktop" czButton="secondary" czButtonSize="sm" (click)="loadUsers()" [disabled]="isLoading()">
-        {{ 'shared.text.refresh' | runtimeTranslate }}
-      </button>
-      <button
-        type="button"
-        class="admin-users-refresh-button--mobile"
-        czButton="icon"
-        czButtonSize="sm"
-        [disabled]="isLoading()"
-        [attr.aria-label]="'shared.text.refresh' | runtimeTranslate"
-        (click)="loadUsers()"
-      >
-        <lucide-icon name="refresh-ccw" size="16" aria-hidden="true" />
-      </button>
-    </div>
-  </header>
+    <header class="admin-users-header">
+      <div>
+        <h2 id="admin-users-title">{{ 'shared.text.users' | runtimeTranslate }}</h2>
+      </div>
+      <div class="admin-users-header-actions">
+        <button
+          type="button"
+          class="admin-users-localization-button"
+          czButton="secondary"
+          czButtonSize="sm"
+          (click)="openLocalizationModal()"
+          [disabled]="isLoading() || usersSummary().total === 0"
+        >
+          {{ 'admin.users.columns.localization' | runtimeTranslate }}
+        </button>
+        <button
+          type="button"
+          class="admin-users-refresh-button"
+          czButton="icon"
+          czButtonSize="sm"
+          [disabled]="isLoading()"
+          [attr.aria-label]="'shared.text.refresh' | runtimeTranslate"
+          (click)="loadUsers()"
+        >
+          <lucide-icon name="refresh-ccw" size="16" aria-hidden="true" />
+        </button>
+      </div>
+    </header>
 
-  @if (errorMessage(); as error) {
-    <p class="admin-users-alert" role="alert">{{ error }}</p>
-  }
+    @if (errorMessage(); as error) {
+      <p class="admin-users-alert" role="alert">{{ error }}</p>
+    }
 
-  @if (usersSummary(); as summary) {
-    <dl class="admin-users-summary" [attr.aria-label]="'admin.users.summaryAriaLabel' | runtimeTranslate">
-      <div class="admin-users-summary-pill admin-users-summary-pill--text">
-        <dt>{{ 'admin.users.summary.total' | runtimeTranslate }}</dt>
-        <dd>{{ summary.total }}</dd>
-      </div>
-      <div class="admin-users-summary-pill admin-users-summary-pill--text">
-        <dt>{{ 'admin.users.summary.totalDecks' | runtimeTranslate }}</dt>
-        <dd>{{ summary.totalDecks }}</dd>
-      </div>
-      <div
-        class="admin-users-summary-pill"
-        [class.admin-users-summary-pill--success]="summary.recentlyCreated > 0"
-        [class.admin-users-summary-pill--warning]="summary.recentlyCreated === 0"
+    @if (usersSummary(); as summary) {
+      <dl
+        class="admin-users-summary"
+        [attr.aria-label]="'admin.users.summaryAriaLabel' | runtimeTranslate"
       >
-        <dt>{{ 'admin.users.status.recentlyCreated' | runtimeTranslate }}</dt>
-        <dd>{{ summary.recentlyCreated }}</dd>
-      </div>
-      <div
-        class="admin-users-summary-pill"
-        [class.admin-users-summary-pill--success]="summary.online > 0"
-        [class.admin-users-summary-pill--warning]="summary.online === 0"
-      >
-        <dt>{{ 'shared.text.online' | runtimeTranslate }}</dt>
-        <dd>{{ summary.online }}</dd>
-      </div>
-      <div
-        class="admin-users-summary-pill"
-        [class.admin-users-summary-pill--success]="summary.recentlyConnected > 0"
-        [class.admin-users-summary-pill--warning]="summary.recentlyConnected === 0"
-      >
-        <dt>{{ 'admin.users.status.recentlyConnected' | runtimeTranslate }}</dt>
-        <dd>{{ summary.recentlyConnected }}</dd>
-      </div>
-      <div
-        class="admin-users-summary-pill"
-        [class.admin-users-summary-pill--success]="summary.neverConnected === 0"
-        [class.admin-users-summary-pill--danger]="summary.neverConnected > 0"
-      >
-        <dt>{{ 'admin.users.status.neverConnected' | runtimeTranslate }}</dt>
-        <dd>{{ summary.neverConnected }}</dd>
-      </div>
-      <div class="admin-users-summary-pill admin-users-summary-pill--danger">
-        <dt>{{ 'admin.users.summary.tier0' | runtimeTranslate }}</dt>
-        <dd class="admin-users-summary-pill-value">
-                <span class="admin-users-summary-pill-count">{{ summary.tier0 }}</span>
-          <span class="admin-users-summary-pill-share">{{ tierShares().tier0 }}%</span>
-        </dd>
-      </div>
-      <div class="admin-users-summary-pill admin-users-summary-pill--warning">
-        <dt>{{ 'admin.users.premium.tier1' | runtimeTranslate }}</dt>
-        <dd class="admin-users-summary-pill-value">
-                <span class="admin-users-summary-pill-count">{{ summary.tier1 }}</span>
-          <span class="admin-users-summary-pill-share">{{ tierShares().tier1 }}%</span>
-        </dd>
-      </div>
-      <div class="admin-users-summary-pill admin-users-summary-pill--info">
-        <dt>{{ 'admin.users.premium.tier2' | runtimeTranslate }}</dt>
-        <dd class="admin-users-summary-pill-value">
-                <span class="admin-users-summary-pill-count">{{ summary.tier2 }}</span>
-          <span class="admin-users-summary-pill-share">{{ tierShares().tier2 }}%</span>
-        </dd>
-      </div>
-      <div class="admin-users-summary-pill admin-users-summary-pill--success">
-        <dt>{{ 'admin.users.premium.tier3' | runtimeTranslate }}</dt>
-        <dd class="admin-users-summary-pill-value">
-                <span class="admin-users-summary-pill-count">{{ summary.tier3 }}</span>
-          <span class="admin-users-summary-pill-share">{{ tierShares().tier3 }}%</span>
-        </dd>
-      </div>
-    </dl>
-  }
+        <div class="admin-users-summary-pill admin-users-summary-pill--text">
+          <dt>{{ 'admin.users.summary.total' | runtimeTranslate }}</dt>
+          <dd>{{ summary.total }}</dd>
+        </div>
+        <div class="admin-users-summary-pill admin-users-summary-pill--text">
+          <dt>{{ 'admin.users.summary.totalDecks' | runtimeTranslate }}</dt>
+          <dd>{{ summary.totalDecks }}</dd>
+        </div>
+        <div
+          class="admin-users-summary-pill"
+          [class.admin-users-summary-pill--success]="summary.recentlyCreated > 0"
+          [class.admin-users-summary-pill--warning]="summary.recentlyCreated === 0"
+        >
+          <dt>{{ 'admin.users.status.recentlyCreated' | runtimeTranslate }}</dt>
+          <dd>{{ summary.recentlyCreated }}</dd>
+        </div>
+        <div
+          class="admin-users-summary-pill"
+          [class.admin-users-summary-pill--success]="summary.online > 0"
+          [class.admin-users-summary-pill--warning]="summary.online === 0"
+        >
+          <dt>{{ 'shared.text.online' | runtimeTranslate }}</dt>
+          <dd>{{ summary.online }}</dd>
+        </div>
+        <div
+          class="admin-users-summary-pill"
+          [class.admin-users-summary-pill--success]="summary.recentlyConnected > 0"
+          [class.admin-users-summary-pill--warning]="summary.recentlyConnected === 0"
+        >
+          <dt>{{ 'admin.users.status.recentlyConnected' | runtimeTranslate }}</dt>
+          <dd>{{ summary.recentlyConnected }}</dd>
+        </div>
+        <div
+          class="admin-users-summary-pill"
+          [class.admin-users-summary-pill--success]="summary.neverConnected === 0"
+          [class.admin-users-summary-pill--danger]="summary.neverConnected > 0"
+        >
+          <dt>{{ 'admin.users.status.neverConnected' | runtimeTranslate }}</dt>
+          <dd>{{ summary.neverConnected }}</dd>
+        </div>
+        <div class="admin-users-summary-pill admin-users-summary-pill--danger">
+          <dt>{{ 'admin.users.summary.tier0' | runtimeTranslate }}</dt>
+          <dd class="admin-users-summary-pill-value">
+            <span class="admin-users-summary-pill-count">{{ summary.tier0 }}</span>
+            <span class="admin-users-summary-pill-share">{{ tierShares().tier0 }}%</span>
+          </dd>
+        </div>
+        <div class="admin-users-summary-pill admin-users-summary-pill--warning">
+          <dt>{{ 'admin.users.premium.tier1' | runtimeTranslate }}</dt>
+          <dd class="admin-users-summary-pill-value">
+            <span class="admin-users-summary-pill-count">{{ summary.tier1 }}</span>
+            <span class="admin-users-summary-pill-share">{{ tierShares().tier1 }}%</span>
+          </dd>
+        </div>
+        <div class="admin-users-summary-pill admin-users-summary-pill--info">
+          <dt>{{ 'admin.users.premium.tier2' | runtimeTranslate }}</dt>
+          <dd class="admin-users-summary-pill-value">
+            <span class="admin-users-summary-pill-count">{{ summary.tier2 }}</span>
+            <span class="admin-users-summary-pill-share">{{ tierShares().tier2 }}%</span>
+          </dd>
+        </div>
+        <div class="admin-users-summary-pill admin-users-summary-pill--success">
+          <dt>{{ 'admin.users.premium.tier3' | runtimeTranslate }}</dt>
+          <dd class="admin-users-summary-pill-value">
+            <span class="admin-users-summary-pill-count">{{ summary.tier3 }}</span>
+            <span class="admin-users-summary-pill-share">{{ tierShares().tier3 }}%</span>
+          </dd>
+        </div>
+      </dl>
+    }
 
-  @if (isLoading() && users().length === 0) {
-    <p class="admin-users-empty">{{ 'admin.users.loading' | runtimeTranslate }}</p>
-  } @else if (usersSummary().total === 0) {
-    <p class="admin-users-empty">{{ 'shared.text.noUsersFound' | runtimeTranslate }}</p>
-  } @else {
-    <section class="admin-users-mobile-filter-panel">
-      <button
-        type="button"
-        class="admin-users-mobile-filter-toggle"
-        [attr.aria-expanded]="isMobileFiltersOpen()"
-        aria-controls="admin-users-mobile-filter-content"
-        (click)="toggleMobileFilters()"
-      >
-        <lucide-icon [name]="isMobileFiltersOpen() ? 'chevron-down' : 'chevron-right'" size="16" aria-hidden="true" />
-        <span>{{ 'admin.users.filters.mobileToggle' | runtimeTranslate }}</span>
-      </button>
+    @if (isLoading() && users().length === 0) {
+      <p class="admin-users-empty">{{ 'admin.users.loading' | runtimeTranslate }}</p>
+    } @else if (usersSummary().total === 0) {
+      <p class="admin-users-empty">{{ 'shared.text.noUsersFound' | runtimeTranslate }}</p>
+    } @else {
+      <section class="admin-users-mobile-filter-panel">
+        <button
+          type="button"
+          class="admin-users-mobile-filter-toggle"
+          [attr.aria-expanded]="isMobileFiltersOpen()"
+          aria-controls="admin-users-mobile-filter-content"
+          (click)="toggleMobileFilters()"
+        >
+          <lucide-icon
+            [name]="isMobileFiltersOpen() ? 'chevron-down' : 'chevron-right'"
+            size="16"
+            aria-hidden="true"
+          />
+          <span>{{ 'admin.users.filters.mobileToggle' | runtimeTranslate }}</span>
+        </button>
 
-      <div id="admin-users-mobile-filter-content" class="admin-users-mobile-filter-body" [class.collapsed]="!isMobileFiltersOpen()">
-        <div class="admin-users-mobile-filter-body-inner">
-          <form id="admin-users-filters" class="admin-users-filters" [attr.aria-label]="'admin.users.filters.ariaLabel' | runtimeTranslate" (submit)="searchUsers($event)">
-            <label class="admin-users-search">
-              <span>{{ 'admin.users.filters.search' | runtimeTranslate }}</span>
-              <input
-                type="search"
-                name="adminUserSearch"
-                [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
-                [value]="searchQuery()"
-                (input)="updateSearchQuery($event)"
+        <div
+          id="admin-users-mobile-filter-content"
+          class="admin-users-mobile-filter-body"
+          [class.collapsed]="!isMobileFiltersOpen()"
+        >
+          <div class="admin-users-mobile-filter-body-inner">
+            <form
+              id="admin-users-filters"
+              class="admin-users-filters"
+              [attr.aria-label]="'admin.users.filters.ariaLabel' | runtimeTranslate"
+              (submit)="searchUsers($event)"
+            >
+              <label class="admin-users-search">
+                <span>{{ 'admin.users.filters.search' | runtimeTranslate }}</span>
+                <input
+                  type="search"
+                  name="adminUserSearch"
+                  [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
+                  [value]="searchQuery()"
+                  (input)="updateSearchQuery($event)"
+                />
+              </label>
+
+              <app-format-select
+                class="admin-users-filter-select admin-users-filter-select--right-aligned"
+                labelKey="admin.users.filters.role"
+                name="roleFilter"
+                [options]="roleFilterOptions"
+                [value]="roleFilter()"
+                (valueChange)="changeRoleFilter($event)"
               />
-            </label>
 
-            <app-format-select
-              class="admin-users-filter-select admin-users-filter-select--right-aligned"
-              labelKey="admin.users.filters.role"
-              name="roleFilter"
-              [options]="roleFilterOptions"
-              [value]="roleFilter()"
-              (valueChange)="changeRoleFilter($event)"
-            />
+              <app-format-select
+                class="admin-users-filter-select admin-users-filter-select--premium"
+                labelKey="admin.users.filters.premium"
+                name="premiumTierFilter"
+                [options]="premiumTierFilterOptions"
+                [value]="premiumTierFilter()"
+                (valueChange)="changePremiumTierFilter($event)"
+              />
 
-            <app-format-select
-              class="admin-users-filter-select admin-users-filter-select--premium"
-              labelKey="admin.users.filters.premium"
-              name="premiumTierFilter"
-              [options]="premiumTierFilterOptions"
-              [value]="premiumTierFilter()"
-              (valueChange)="changePremiumTierFilter($event)"
-            />
+              <app-format-select
+                class="admin-users-filter-select admin-users-filter-select--status admin-users-filter-select--right-aligned"
+                labelKey="admin.users.filters.status"
+                name="presenceFilter"
+                [options]="presenceFilterOptions"
+                [value]="presenceFilter()"
+                (valueChange)="changePresenceFilter($event)"
+              />
 
-            <app-format-select
-              class="admin-users-filter-select admin-users-filter-select--status admin-users-filter-select--right-aligned"
-              labelKey="admin.users.filters.status"
-              name="presenceFilter"
-              [options]="presenceFilterOptions"
-              [value]="presenceFilter()"
-              (valueChange)="changePresenceFilter($event)"
-            />
+              <div class="admin-users-filter-actions admin-users-filter-actions--desktop">
+                <button
+                  type="button"
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  [disabled]="isLoading() || !canResetFilters()"
+                  (click)="resetFilters()"
+                >
+                  {{ 'admin.users.filters.reset' | runtimeTranslate }}
+                </button>
+                <button
+                  type="submit"
+                  czButton="primary"
+                  czButtonSize="sm"
+                  [disabled]="isLoading() || !hasPendingSearch()"
+                >
+                  {{ 'shared.text.search' | runtimeTranslate }}
+                </button>
+              </div>
+            </form>
 
-            <div class="admin-users-filter-actions admin-users-filter-actions--desktop">
-              <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="isLoading() || !canResetFilters()" (click)="resetFilters()">
+            @if (users().length > 0) {
+              <div
+                class="admin-users-mobile-sort"
+                role="group"
+                [attr.aria-label]="'admin.users.sort.mobileAriaLabel' | runtimeTranslate"
+              >
+                <app-format-select
+                  class="admin-users-mobile-sort-select"
+                  labelKey="admin.users.sort.sortBy"
+                  name="mobileUserSort"
+                  [options]="sortFieldOptions"
+                  [value]="sortField()"
+                  (valueChange)="changeMobileSort($event)"
+                />
+                <button
+                  type="button"
+                  class="admin-users-mobile-sort-direction"
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  [attr.aria-label]="
+                    'admin.users.sort.directionAriaLabel'
+                      | runtimeTranslate: { direction: sortLabel(sortField()) }
+                  "
+                  (click)="toggleSortDirection()"
+                >
+                  <lucide-icon
+                    [name]="sortDirection() === 'asc' ? 'move-up' : 'move-down'"
+                    size="16"
+                    aria-hidden="true"
+                  />
+                  <span>{{ mobileSortDirectionLabel() }}</span>
+                </button>
+              </div>
+            }
+
+            <div class="admin-users-filter-actions admin-users-filter-actions--mobile">
+              <button
+                type="button"
+                czButton="secondary"
+                czButtonSize="sm"
+                [disabled]="isLoading() || !canResetFilters()"
+                (click)="resetFilters()"
+              >
                 {{ 'admin.users.filters.reset' | runtimeTranslate }}
               </button>
-              <button type="submit" czButton="primary" czButtonSize="sm" [disabled]="isLoading() || !hasPendingSearch()">
+              <button
+                type="submit"
+                form="admin-users-filters"
+                czButton="primary"
+                czButtonSize="sm"
+                [disabled]="isLoading() || !hasPendingSearch()"
+              >
                 {{ 'shared.text.search' | runtimeTranslate }}
               </button>
             </div>
-          </form>
-
-          @if (users().length > 0) {
-            <div class="admin-users-mobile-sort" role="group" [attr.aria-label]="'admin.users.sort.mobileAriaLabel' | runtimeTranslate">
-              <app-format-select
-                class="admin-users-mobile-sort-select"
-                labelKey="admin.users.sort.sortBy"
-                name="mobileUserSort"
-                [options]="sortFieldOptions"
-                [value]="sortField()"
-                (valueChange)="changeMobileSort($event)"
-              />
-              <button
-                type="button"
-                class="admin-users-mobile-sort-direction"
-                czButton="secondary"
-                czButtonSize="sm"
-                [attr.aria-label]="'admin.users.sort.directionAriaLabel' | runtimeTranslate: { direction: sortLabel(sortField()) }"
-                (click)="toggleSortDirection()"
-              >
-                <lucide-icon [name]="sortDirection() === 'asc' ? 'move-up' : 'move-down'" size="16" aria-hidden="true" />
-                <span>{{ mobileSortDirectionLabel() }}</span>
-              </button>
-            </div>
-          }
-
-          <div class="admin-users-filter-actions admin-users-filter-actions--mobile">
-            <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="isLoading() || !canResetFilters()" (click)="resetFilters()">
-              {{ 'admin.users.filters.reset' | runtimeTranslate }}
-            </button>
-            <button type="submit" form="admin-users-filters" czButton="primary" czButtonSize="sm" [disabled]="isLoading() || !hasPendingSearch()">
-              {{ 'shared.text.search' | runtimeTranslate }}
-            </button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    @if (users().length > 0) {
-      <p class="admin-users-results-summary">
-        @if (appliedPresenceFilter() === 'active') {
-          {{ 'admin.users.results.activeOfTotal' | runtimeTranslate: { active: totalMatchingUsers(), total: usersSummary().total } }}
-        } @else {
-          {{ 'admin.users.results.filteredOfTotal' | runtimeTranslate: { count: totalMatchingUsers(), total: usersSummary().total } }}
-        }
-      </p>
+      @if (users().length > 0) {
+        <p class="admin-users-results-summary">
+          @if (appliedPresenceFilter() === 'active') {
+            {{
+              'admin.users.results.activeOfTotal'
+                | runtimeTranslate: { active: totalMatchingUsers(), total: usersSummary().total }
+            }}
+          } @else {
+            {{
+              'admin.users.results.filteredOfTotal'
+                | runtimeTranslate: { count: totalMatchingUsers(), total: usersSummary().total }
+            }}
+          }
+        </p>
+      }
     }
-  }
   </div>
 
   <div class="admin-users-wide-separator" aria-hidden="true"></div>
@@ -234,263 +287,447 @@
   } @else if (users().length > 0 && usersSummary().total > 0) {
     <div class="admin-users-results">
       <div class="admin-users-table-wrap">
-      <table class="admin-users-table">
-        <thead>
-          <tr>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('name')" [attr.aria-label]="sortAriaLabel('name')">
-                {{ 'shared.text.name' | runtimeTranslate }}
-                @if (sortIcon('name'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('email')" [attr.aria-label]="sortAriaLabel('email')">
-                {{ 'shared.text.email' | runtimeTranslate }}
-                @if (sortIcon('email'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">{{ 'admin.users.columns.auth' | runtimeTranslate }}</th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('lastConnectedAt')" [attr.aria-label]="sortAriaLabel('lastConnectedAt')">
-                {{ 'admin.users.columns.lastConnectedAt' | runtimeTranslate }}
-                @if (sortIcon('lastConnectedAt'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('createdAt')" [attr.aria-label]="sortAriaLabel('createdAt')">
-                {{ 'shared.text.created' | runtimeTranslate }}
-                @if (sortIcon('createdAt'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">{{ 'shared.text.status' | runtimeTranslate }}</th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('role')" [attr.aria-label]="sortAriaLabel('role')">
-                {{ 'admin.users.columns.role' | runtimeTranslate }}
-                @if (sortIcon('role'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('premium')" [attr.aria-label]="sortAriaLabel('premium')">
-                {{ 'shared.text.premium' | runtimeTranslate }}
-                @if (sortIcon('premium'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">
-              <button type="button" class="admin-users-sort" (click)="changeSort('totalDecks')" [attr.aria-label]="sortAriaLabel('totalDecks')">
-                {{ 'shared.text.decks' | runtimeTranslate }}
-                @if (sortIcon('totalDecks'); as icon) {
-                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
-                }
-              </button>
-            </th>
-            <th scope="col">{{ 'admin.users.columns.localization' | runtimeTranslate }}</th>
-            <th scope="col">{{ 'shared.text.actions' | runtimeTranslate }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (user of users(); track trackUser($index, user)) {
-            <tr [class.is-disabled]="isUserRowDisabled(user)">
-              <td class="admin-users-table-cell--wide admin-users-table-cell--name" [attr.data-label]="'shared.text.name' | runtimeTranslate">
-                <span class="user-name">{{ user.displayName }}</span>
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--email" [attr.data-label]="'shared.text.email' | runtimeTranslate">
-                <span class="user-email">{{ user.email }}</span>
-              </td>
-              <td class="admin-users-table-cell--compact admin-users-table-cell--auth" [attr.data-label]="'admin.users.columns.auth' | runtimeTranslate">
-                @if (user.authProviders.length > 0) {
-                  <div class="admin-users-auth-providers">
-                    @for (provider of user.authProviders; track provider) {
-                      <span class="admin-users-auth-provider">{{ provider }}</span>
+        <table class="admin-users-table">
+          <thead>
+            <tr>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('name')"
+                  [attr.aria-label]="sortAriaLabel('name')"
+                >
+                  {{ 'admin.users.columns.basicData' | runtimeTranslate }}
+                  @if (sortIcon('name'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('lastConnectedAt')"
+                  [attr.aria-label]="sortAriaLabel('lastConnectedAt')"
+                >
+                  {{ 'admin.users.columns.lastConnectedAt' | runtimeTranslate }}
+                  @if (sortIcon('lastConnectedAt'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('createdAt')"
+                  [attr.aria-label]="sortAriaLabel('createdAt')"
+                >
+                  {{ 'shared.text.created' | runtimeTranslate }}
+                  @if (sortIcon('createdAt'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('role')"
+                  [attr.aria-label]="sortAriaLabel('role')"
+                >
+                  {{ 'admin.users.columns.role' | runtimeTranslate }}
+                  @if (sortIcon('role'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('premium')"
+                  [attr.aria-label]="sortAriaLabel('premium')"
+                >
+                  {{ 'shared.text.premium' | runtimeTranslate }}
+                  @if (sortIcon('premium'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              <th scope="col">
+                <button
+                  type="button"
+                  class="admin-users-sort"
+                  (click)="changeSort('totalDecks')"
+                  [attr.aria-label]="sortAriaLabel('totalDecks')"
+                >
+                  {{ 'shared.text.decks' | runtimeTranslate }}
+                  @if (sortIcon('totalDecks'); as icon) {
+                    <lucide-icon
+                      class="admin-users-sort-icon"
+                      [name]="icon"
+                      size="14"
+                      aria-hidden="true"
+                    />
+                  }
+                </button>
+              </th>
+              @if (canViewModerationCounters()) {
+                <th scope="col">{{ 'admin.users.columns.moderation' | runtimeTranslate }}</th>
+              }
+              <th scope="col">{{ 'admin.users.columns.localization' | runtimeTranslate }}</th>
+              <th scope="col">{{ 'shared.text.actions' | runtimeTranslate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track trackUser($index, user)) {
+              <tr [class.is-disabled]="isUserRowDisabled(user)">
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--basic-data"
+                  [attr.data-label]="'admin.users.columns.basicData' | runtimeTranslate"
+                >
+                  <div class="admin-users-basic-data">
+                    <span class="user-name">{{ user.displayName }}</span>
+                    <span class="user-email">{{ user.email }}</span>
+                    @if (user.authProviders.length > 0) {
+                      <div class="admin-users-auth-providers">
+                        @for (provider of user.authProviders; track provider) {
+                          <span class="admin-users-auth-provider">{{ provider }}</span>
+                        }
+                      </div>
+                    } @else {
+                      <span class="admin-users-auth-empty">{{
+                        'admin.users.local' | runtimeTranslate
+                      }}</span>
                     }
                   </div>
-                } @else {
-                  <span class="admin-users-auth-empty">{{ 'admin.users.local' | runtimeTranslate }}</span>
-                }
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--last-connection" [attr.data-label]="'admin.users.columns.lastConnectedAt' | runtimeTranslate">
-                @if (user.lastConnectedAt) {
-                  <div class="admin-users-date">
-                    <span>{{ user.lastConnectedAt | date: dateTimeFormat }}</span>
-                    <span class="admin-users-date-ago">{{ relativeDaysAgoLabel(user.lastConnectedAt) }}</span>
+                </td>
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--last-connection"
+                  [attr.data-label]="'admin.users.columns.lastConnectedAt' | runtimeTranslate"
+                >
+                  <div class="admin-users-last-connection">
+                    @if (user.lastConnectedAt) {
+                      <div class="admin-users-date">
+                        <span>{{ user.lastConnectedAt | date: dateTimeFormat }}</span>
+                        <span class="admin-users-date-ago">{{
+                          relativeDaysAgoLabel(user.lastConnectedAt)
+                        }}</span>
+                      </div>
+                      <span
+                        class="admin-users-status"
+                        [class.is-online]="user.isOnline"
+                        [class.is-offline]="!user.isOnline"
+                      >
+                        {{
+                          (user.isOnline ? 'shared.text.online' : 'shared.text.offline')
+                            | runtimeTranslate
+                        }}
+                      </span>
+                    } @else {
+                      <span class="admin-users-never">{{
+                        'admin.users.never' | runtimeTranslate
+                      }}</span>
+                    }
                   </div>
-                } @else {
-                  <span class="admin-users-never">{{ 'admin.users.never' | runtimeTranslate }}</span>
-                }
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--created" [attr.data-label]="'shared.text.created' | runtimeTranslate">
-                <div class="admin-users-date">
-                  <span>{{ user.createdAt | date: dateTimeFormat }}</span>
-                  <span class="admin-users-date-ago">{{ relativeDaysAgoLabel(user.createdAt) }}</span>
-                </div>
-              </td>
-              <td class="admin-users-table-cell--compact admin-users-table-cell--status" [attr.data-label]="'shared.text.status' | runtimeTranslate">
-                <span class="admin-users-status" [class.is-online]="user.isOnline" [class.is-offline]="!user.isOnline">
-                  {{ presenceLabel(user.presenceStatus) }}
-                </span>
-              </td>
-              <td class="admin-users-table-cell--compact admin-users-table-cell--role" [attr.data-label]="'admin.users.columns.role' | runtimeTranslate">
-                <app-format-select
-                  class="admin-users-select"
-                  labelKey="admin.users.authorizationRole"
-                  name="authorizationRole"
-                  [labelHidden]="true"
-                  [options]="roleOptions"
-                  [value]="user.authorizationRole"
-                  [disabled]="isUserBusy(user.id) || !canChangeRole(user)"
-                  (valueChange)="changeAuthorizationRole(user, $event)"
-                />
-              </td>
-              <td class="admin-users-table-cell--compact admin-users-table-cell--premium" [attr.data-label]="'shared.text.premium' | runtimeTranslate">
-                <app-format-select
-                  class="admin-users-select"
-                  labelKey="admin.users.premiumTier"
-                  name="premiumTier"
-                  [labelHidden]="true"
-                  [options]="premiumTierOptions"
-                  [value]="user.premiumTier"
-                  [disabled]="isUserBusy(user.id) || !canChangePremium(user)"
-                  (valueChange)="changePremiumTier(user, $event)"
-                />
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--decks" [attr.data-label]="'shared.text.decks' | runtimeTranslate">
-                <dl class="admin-users-deck-counts">
-                  <div>
+                </td>
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--created"
+                  [attr.data-label]="'shared.text.created' | runtimeTranslate"
+                >
+                  <div class="admin-users-date">
+                    <span>{{ user.createdAt | date: dateTimeFormat }}</span>
+                    <span class="admin-users-date-ago">{{
+                      relativeDaysAgoLabel(user.createdAt)
+                    }}</span>
+                  </div>
+                </td>
+                <td
+                  class="admin-users-table-cell--compact admin-users-table-cell--role"
+                  [attr.data-label]="'admin.users.columns.role' | runtimeTranslate"
+                >
+                  <app-format-select
+                    class="admin-users-select"
+                    labelKey="admin.users.authorizationRole"
+                    name="authorizationRole"
+                    [labelHidden]="true"
+                    [options]="roleDisplayOptionsByAuthorizationRole[user.authorizationRole]"
+                    [value]="user.authorizationRole"
+                    [disabled]="isUserBusy(user.id) || !canChangeRole(user)"
+                    (valueChange)="changeAuthorizationRole(user, $event)"
+                  />
+                </td>
+                <td
+                  class="admin-users-table-cell--compact admin-users-table-cell--premium"
+                  [attr.data-label]="'shared.text.premium' | runtimeTranslate"
+                >
+                  <app-format-select
+                    class="admin-users-select"
+                    labelKey="admin.users.premiumTier"
+                    name="premiumTier"
+                    [labelHidden]="true"
+                    [options]="premiumTierOptions"
+                    [value]="user.premiumTier"
+                    [disabled]="isUserBusy(user.id) || !canChangePremium(user)"
+                    (valueChange)="changePremiumTier(user, $event)"
+                  />
+                </td>
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--decks"
+                  [attr.data-label]="'shared.text.decks' | runtimeTranslate"
+                >
+                  <dl class="admin-users-deck-counts">
                     <dt>{{ 'deckBuilder.deckList.stats.total' | runtimeTranslate }}</dt>
                     <dd>{{ user.deckCounts.total }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'shared.text.private' | runtimeTranslate }}</dt>
-                    <dd>{{ user.deckCounts.privateCount }}</dd>
-                  </div>
-                  <div>
                     <dt>{{ 'shared.text.public' | runtimeTranslate }}</dt>
                     <dd>{{ user.deckCounts.publicCount }}</dd>
-                  </div>
-                </dl>
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--localization" [attr.data-label]="'admin.users.columns.localization' | runtimeTranslate">
-                <dl class="admin-users-localization">
-                  <div>
-                    <dt>{{ 'admin.users.localization.country' | runtimeTranslate }}</dt>
-                    <dd>{{ user.localization.countryName ?? ('deckBuilder.advancedAnalysis.status.unknown' | runtimeTranslate) }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.users.localization.language' | runtimeTranslate }}</dt>
-                    <dd>{{ languageLabels[user.localization.appLanguage] ?? user.localization.appLanguage }}</dd>
-                  </div>
-                </dl>
-              </td>
-              <td class="admin-users-table-cell--wide admin-users-table-cell--actions" [attr.data-label]="'shared.text.actions' | runtimeTranslate">
-                <div class="admin-users-actions">
-                  <div class="admin-users-action">
-                    <span class="admin-users-action-meta">{{ (user.isOnline ? 'admin.users.onlineNow' : 'admin.users.offlineNow') | runtimeTranslate }}</span>
-                    <span class="admin-users-action-meta">{{ 'admin.users.activeSessions' | runtimeTranslate: { count: user.activeSessionsCount } }}</span>
-                    <button
-                      type="button"
-                      czButton="secondary"
-                      czButtonSize="sm"
-                      [disabled]="isUserBusy(user.id) || user.activeSessionsCount <= 0 || !canRevokeSessions(user)"
-                      (click)="revokeSessions(user)"
-                    >
-                      {{ 'admin.users.closeSessions' | runtimeTranslate }}
-                    </button>
-                  </div>
-                  <div class="admin-users-icon-actions">
-                    <div class="admin-users-action admin-users-message-action">
-                      <app-tooltip [text]="'admin.users.deleteUser' | runtimeTranslate" align="end">
+                    <dt>{{ 'shared.text.private' | runtimeTranslate }}</dt>
+                    <dd>{{ user.deckCounts.privateCount }}</dd>
+                  </dl>
+                </td>
+                @if (canViewModerationCounters()) {
+                  <td
+                    class="admin-users-table-cell--wide admin-users-table-cell--moderation"
+                    [attr.data-label]="'admin.users.columns.moderation' | runtimeTranslate"
+                  >
+                    @if (user.moderationCounters; as moderationCounters) {
+                      <dl class="admin-users-moderation-counters">
+                        <dt>
+                          {{ 'reports.moderation.userDrawer.reportsMade' | runtimeTranslate }}
+                        </dt>
+                        <dd>{{ moderationCounters.reportsMadeCount }}</dd>
+                        <dt>
+                          {{ 'reports.moderation.userDrawer.reportsReceived' | runtimeTranslate }}
+                        </dt>
+                        <dd>{{ moderationCounters.reportsReceivedCount }}</dd>
+                        <dt>{{ 'reports.moderation.strikes.listTitle' | runtimeTranslate }}</dt>
+                        <dd>{{ moderationCounters.strikesCount }}</dd>
+                      </dl>
+                    } @else {
+                      <span class="admin-users-moderation-unavailable">{{
+                        'deckBuilder.advancedAnalysis.common.notAvailable' | runtimeTranslate
+                      }}</span>
+                    }
+                  </td>
+                }
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--localization"
+                  [attr.data-label]="'admin.users.columns.localization' | runtimeTranslate"
+                >
+                  <dl class="admin-users-localization">
+                    <div>
+                      <dt>{{ 'admin.users.localization.country' | runtimeTranslate }}</dt>
+                      <dd>
+                        {{
+                          user.localization.countryName ??
+                            ('deckBuilder.advancedAnalysis.status.unknown' | runtimeTranslate)
+                        }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'admin.users.localization.language' | runtimeTranslate }}</dt>
+                      <dd>
+                        {{
+                          languageLabels[user.localization.appLanguage] ??
+                            user.localization.appLanguage
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+                </td>
+                <td
+                  class="admin-users-table-cell--wide admin-users-table-cell--actions"
+                  [attr.data-label]="'shared.text.actions' | runtimeTranslate"
+                >
+                  <div class="admin-users-actions">
+                    <div class="admin-users-action">
+                      <span class="admin-users-action-meta">{{
+                        'admin.users.activeSessions'
+                          | runtimeTranslate: { count: user.activeSessionsCount }
+                      }}</span>
+                      <div class="admin-users-management-buttons">
                         <button
                           type="button"
-                          class="admin-users-icon-action"
-                          czButton="icon"
+                          czButton="secondary"
                           czButtonSize="sm"
-                          czButtonTone="danger"
-                          [disabled]="isUserBusy(user.id) || !canDeleteUser(user)"
-                          [attr.aria-label]="'admin.users.deleteUser' | runtimeTranslate"
-                          (click)="deleteUser(user)"
+                          [disabled]="
+                            isUserBusy(user.id) ||
+                            user.activeSessionsCount <= 0 ||
+                            !canRevokeSessions(user)
+                          "
+                          (click)="revokeSessions(user)"
                         >
-                          <lucide-icon name="trash-2" size="16" aria-hidden="true" />
+                          {{ 'admin.users.closeSessions' | runtimeTranslate }}
                         </button>
-                      </app-tooltip>
-                    </div>
-                    <div class="admin-users-action admin-users-message-action">
-                      <app-tooltip [text]="'admin.users.viewProfile' | runtimeTranslate" align="end">
                         <button
                           type="button"
-                          class="admin-users-icon-action"
-                          czButton="icon"
+                          class="admin-users-moderation-button"
+                          czButton="secondary"
                           czButtonSize="sm"
-                          [disabled]="!user.publicProfilePath"
-                          [attr.aria-label]="'admin.users.viewProfileFor' | runtimeTranslate: { name: user.displayName }"
-                          (click)="viewUserProfile(user)"
+                          [disabled]="!canOpenModerationUser(user)"
+                          (click)="openModerationUser(user)"
                         >
-                          <lucide-icon name="eye" size="16" aria-hidden="true" />
+                          {{ 'reports.moderation.userDrawer.open' | runtimeTranslate }}
                         </button>
-                      </app-tooltip>
+                      </div>
                     </div>
-                    <div class="admin-users-action admin-users-message-action">
-                      <app-tooltip [text]="'shared.text.sendMessage' | runtimeTranslate" align="end">
-                        <button
-                          type="button"
-                          class="admin-users-icon-action"
-                          czButton="icon"
-                          czButtonSize="sm"
-                          [attr.aria-label]="'admin.users.sendMessageTo' | runtimeTranslate: { name: user.displayName }"
-                          (click)="requestSendMessage(user)"
+                    <div class="admin-users-icon-actions">
+                      <div class="admin-users-action admin-users-message-action">
+                        <app-tooltip
+                          [text]="'admin.users.deleteUser' | runtimeTranslate"
+                          align="end"
                         >
-                          <lucide-icon name="send" size="16" aria-hidden="true" />
-                        </button>
-                      </app-tooltip>
-                    </div>
-                    <div class="admin-users-action admin-users-message-action">
-                      <app-tooltip [text]="'admin.users.impersonate' | runtimeTranslate" align="end">
-                        <button
-                          type="button"
-                          class="admin-users-icon-action"
-                          czButton="icon"
-                          czButtonSize="sm"
-                          [disabled]="isUserBusy(user.id) || !canImpersonate(user)"
-                          [attr.aria-label]="'admin.users.impersonateUser' | runtimeTranslate: { name: user.displayName }"
-                          (click)="impersonateUser(user)"
+                          <button
+                            type="button"
+                            class="admin-users-icon-action"
+                            czButton="icon"
+                            czButtonSize="sm"
+                            czButtonTone="danger"
+                            [disabled]="isUserBusy(user.id) || !canDeleteUser(user)"
+                            [attr.aria-label]="'admin.users.deleteUser' | runtimeTranslate"
+                            (click)="deleteUser(user)"
+                          >
+                            <lucide-icon name="trash-2" size="16" aria-hidden="true" />
+                          </button>
+                        </app-tooltip>
+                      </div>
+                      <div class="admin-users-action admin-users-message-action">
+                        <app-tooltip
+                          [text]="'admin.users.viewProfile' | runtimeTranslate"
+                          align="end"
                         >
-                          <lucide-icon name="hammer" size="16" aria-hidden="true" />
-                        </button>
-                      </app-tooltip>
+                          <button
+                            type="button"
+                            class="admin-users-icon-action"
+                            czButton="icon"
+                            czButtonSize="sm"
+                            [disabled]="!user.publicProfilePath"
+                            [attr.aria-label]="
+                              'admin.users.viewProfileFor'
+                                | runtimeTranslate: { name: user.displayName }
+                            "
+                            (click)="viewUserProfile(user)"
+                          >
+                            <lucide-icon name="eye" size="16" aria-hidden="true" />
+                          </button>
+                        </app-tooltip>
+                      </div>
+                      <div class="admin-users-action admin-users-message-action">
+                        <app-tooltip
+                          [text]="'shared.text.sendMessage' | runtimeTranslate"
+                          align="end"
+                        >
+                          <button
+                            type="button"
+                            class="admin-users-icon-action"
+                            czButton="icon"
+                            czButtonSize="sm"
+                            [attr.aria-label]="
+                              'admin.users.sendMessageTo'
+                                | runtimeTranslate: { name: user.displayName }
+                            "
+                            (click)="requestSendMessage(user)"
+                          >
+                            <lucide-icon name="send" size="16" aria-hidden="true" />
+                          </button>
+                        </app-tooltip>
+                      </div>
+                      <div class="admin-users-action admin-users-message-action">
+                        <app-tooltip
+                          [text]="'admin.users.impersonate' | runtimeTranslate"
+                          align="end"
+                        >
+                          <button
+                            type="button"
+                            class="admin-users-icon-action"
+                            czButton="icon"
+                            czButtonSize="sm"
+                            [disabled]="isUserBusy(user.id) || !canImpersonate(user)"
+                            [attr.aria-label]="
+                              'admin.users.impersonateUser'
+                                | runtimeTranslate: { name: user.displayName }
+                            "
+                            (click)="impersonateUser(user)"
+                          >
+                            <lucide-icon name="hammer" size="16" aria-hidden="true" />
+                          </button>
+                        </app-tooltip>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-      <div class="admin-users-pagination" [attr.aria-label]="'admin.users.paginationAriaLabel' | runtimeTranslate">
-      <p>
-        {{ 'admin.users.pagination.showing' | runtimeTranslate: { first: firstVisibleUserIndex(), last: lastVisibleUserIndex(), total: totalMatchingUsers() } }}
-      </p>
-      <div class="admin-users-pagination-actions">
-        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="currentPage() <= 1" (click)="previousPage()">
-          {{ 'common.actions.previous' | runtimeTranslate }}
-        </button>
-        <span>{{ 'admin.users.pagination.page' | runtimeTranslate: { current: currentPage(), total: totalPages() } }}</span>
-        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="currentPage() >= totalPages()" (click)="nextPage()">
-          {{ 'shared.text.next' | runtimeTranslate }}
-        </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-    </div>
+
+      <div
+        class="admin-users-pagination"
+        [attr.aria-label]="'admin.users.paginationAriaLabel' | runtimeTranslate"
+      >
+        <p>
+          {{
+            'admin.users.pagination.showing'
+              | runtimeTranslate
+                : {
+                    first: firstVisibleUserIndex(),
+                    last: lastVisibleUserIndex(),
+                    total: totalMatchingUsers(),
+                  }
+          }}
+        </p>
+        <div class="admin-users-pagination-actions">
+          <button
+            type="button"
+            czButton="secondary"
+            czButtonSize="sm"
+            [disabled]="currentPage() <= 1"
+            (click)="previousPage()"
+          >
+            {{ 'common.actions.previous' | runtimeTranslate }}
+          </button>
+          <span>{{
+            'admin.users.pagination.page'
+              | runtimeTranslate: { current: currentPage(), total: totalPages() }
+          }}</span>
+          <button
+            type="button"
+            czButton="secondary"
+            czButtonSize="sm"
+            [disabled]="currentPage() >= totalPages()"
+            (click)="nextPage()"
+          >
+            {{ 'shared.text.next' | runtimeTranslate }}
+          </button>
+        </div>
+      </div>
     </div>
   }
 
@@ -534,7 +771,10 @@
       />
 
       <div class="admin-users-localization-table-wrap">
-        <table class="admin-users-localization-table" [attr.aria-label]="'admin.users.localization.tableAriaLabel' | runtimeTranslate">
+        <table
+          class="admin-users-localization-table"
+          [attr.aria-label]="'admin.users.localization.tableAriaLabel' | runtimeTranslate"
+        >
           <thead>
             <tr>
               <th scope="col">{{ selectedLocalizationDimensionLabelKey() | runtimeTranslate }}</th>
@@ -560,4 +800,13 @@
       </div>
     </div>
   </app-modal>
+
+  @if (moderationUserId(); as selectedModerationUserId) {
+    <app-moderation-user-drawer
+      [open]="true"
+      [userId]="selectedModerationUserId"
+      (closed)="closeModerationUser()"
+      (updated)="loadUsers()"
+    />
+  }
 </section>

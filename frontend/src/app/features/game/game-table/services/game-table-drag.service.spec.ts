@@ -603,6 +603,51 @@ describe('GameTableDragService', () => {
     expect(result?.previewPosition).toEqual({ x: 400, y: 180 });
   });
 
+  it('keeps a detached Grid card preview in stored coordinates on an inverted battlefield', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['battlefieldVerticallyInverted'] = '';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+    const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 140 });
+    cardElement.getBoundingClientRect = () => ({
+      ...rect(30, 100),
+      y: 40,
+      top: 40,
+      right: 130,
+      bottom: 180,
+      height: 140,
+    });
+    battlefield.appendChild(cardElement);
+
+    service.startBattlefieldPointerDrag({
+      button: 0,
+      currentTarget: cardElement,
+      clientX: 37,
+      clientY: 49,
+    } as unknown as PointerEvent, 'player-1', {
+      instanceId: 'card-1',
+      name: 'Arcane Signet',
+      tapped: false,
+      position: { x: 20, y: 30 },
+    });
+    service.moveCardPointerDrag({
+      clientX: 940,
+      clientY: 730,
+      preventDefault: vi.fn(),
+    } as unknown as PointerEvent, () => undefined);
+    const result = service.endCardPointerDrag(undefined, () => 'battlefield', () => undefined);
+
+    expect(result?.previewPosition).toEqual({ x: 400, y: 0 });
+  });
+
   it('allows dragover only for app drag payloads and blocks native text drags', () => {
     const unsupportedPreventDefault = vi.fn();
     const unsupportedEvent = {

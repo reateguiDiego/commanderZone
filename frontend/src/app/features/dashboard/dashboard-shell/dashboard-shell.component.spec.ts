@@ -29,13 +29,18 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { AppThemeService } from '../../../core/theme/app-theme.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
+import { ModerationSummaryStore } from '../../reports/data-access/moderation-summary.store';
 import { DashboardShellComponent } from './dashboard-shell.component';
 
 describe('DashboardShellComponent', () => {
   let isDesktop: ReturnType<typeof signal<boolean>>;
   let isDesktopLayout: ReturnType<typeof signal<boolean>>;
-  let user: ReturnType<typeof signal<{ id: string; email: string; displayName: string; roles: string[] } | null>>;
+  let user: ReturnType<
+    typeof signal<{ id: string; email: string; displayName: string; roles: string[] } | null>
+  >;
   let isAuthenticated: ReturnType<typeof signal<boolean>>;
+  let pendingModerationReportsCount: ReturnType<typeof signal<number>>;
+  let pendingModerationReportsBadgeLabel: ReturnType<typeof signal<string>>;
 
   beforeEach(async () => {
     localStorage.clear();
@@ -43,31 +48,44 @@ describe('DashboardShellComponent', () => {
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
     isAuthenticated = signal(true);
-    user = signal({ id: 'user-1', email: 'player@example.com', displayName: 'Player', roles: ['ROLE_USER'] });
+    user = signal({
+      id: 'user-1',
+      email: 'player@example.com',
+      displayName: 'Player',
+      roles: ['ROLE_USER'],
+    });
+    pendingModerationReportsCount = signal(0);
+    pendingModerationReportsBadgeLabel = signal('0');
 
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
       providers: [
-        provideRouter([{ path: 'community/users/:username', component: TestRouteStubComponent }]),
-        importProvidersFrom(LucideAngularModule.pick({
-          Bell,
-          Check,
-          ChevronRight,
-          CircleUserRound,
-          DoorOpen,
-          Layers3,
-          LogOut,
-          Maximize2,
-          Menu,
-          MessageSquare,
-          Search,
-          Settings,
-          ShieldCheck,
-          TabletSmartphone,
-          Trash2,
-          Users,
-          X,
-        })),
+        provideRouter([
+          { path: 'admin', component: TestRouteStubComponent },
+          { path: 'admin/reports', component: TestRouteStubComponent },
+          { path: 'community/users/:username', component: TestRouteStubComponent },
+        ]),
+        importProvidersFrom(
+          LucideAngularModule.pick({
+            Bell,
+            Check,
+            ChevronRight,
+            CircleUserRound,
+            DoorOpen,
+            Layers3,
+            LogOut,
+            Maximize2,
+            Menu,
+            MessageSquare,
+            Search,
+            Settings,
+            ShieldCheck,
+            TabletSmartphone,
+            Trash2,
+            Users,
+            X,
+          }),
+        ),
         {
           provide: AuthStore,
           useValue: {
@@ -84,7 +102,11 @@ describe('DashboardShellComponent', () => {
         {
           provide: FriendsApi,
           useValue: {
-            summary: vi.fn().mockReturnValue(of({ onlineFriendsCount: 0, incomingRequestsCount: 0, roomInvitesCount: 0 })),
+            summary: vi
+              .fn()
+              .mockReturnValue(
+                of({ onlineFriendsCount: 0, incomingRequestsCount: 0, roomInvitesCount: 0 }),
+              ),
             list: vi.fn().mockReturnValue(of({ data: [] })),
             incoming: vi.fn().mockReturnValue(of({ data: [] })),
             outgoing: vi.fn().mockReturnValue(of({ data: [] })),
@@ -119,6 +141,15 @@ describe('DashboardShellComponent', () => {
             isDesktopLayout,
           },
         },
+        {
+          provide: ModerationSummaryStore,
+          useValue: {
+            pendingReviewCount: pendingModerationReportsCount,
+            badgeLabel: pendingModerationReportsBadgeLabel,
+            syncViewer: vi.fn(),
+            reset: vi.fn(),
+          },
+        },
       ],
     }).compileComponents();
   });
@@ -128,7 +159,8 @@ describe('DashboardShellComponent', () => {
     const friends = TestBed.inject(FriendsApi);
     const messages = TestBed.inject(MessagesApi);
     const router = TestBed.inject(Router);
-    for (const name of ['one', 'two', 'three']) await router.navigateByUrl('/community/users/' + name);
+    for (const name of ['one', 'two', 'three'])
+      await router.navigateByUrl('/community/users/' + name);
     await fixture.whenStable();
     expect(friends.summary).toHaveBeenCalledTimes(1);
     expect(messages.summary).toHaveBeenCalledTimes(1);
@@ -171,7 +203,12 @@ describe('DashboardShellComponent', () => {
     expect(TestBed.inject(FriendsApi).summary).toHaveBeenCalledTimes(1);
     expect(TestBed.inject(MessagesApi).summary).toHaveBeenCalledTimes(1);
     second.destroy();
-    user.set({ id: 'user-2', email: 'other@example.com', displayName: 'Other', roles: ['ROLE_USER'] });
+    user.set({
+      id: 'user-2',
+      email: 'other@example.com',
+      displayName: 'Other',
+      roles: ['ROLE_USER'],
+    });
     const third = TestBed.createComponent(DashboardShellComponent);
     await third.componentInstance.friends.ensureSummaryLoaded();
     await third.componentInstance.messages.ensureSummaryLoaded();
@@ -184,10 +221,13 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('aside')).toBeNull();
-    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    const brandLogo = fixture.nativeElement.querySelector(
+      '.brand-mark img',
+    ) as HTMLImageElement | null;
     expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
-    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon'))
-      .map((icon) => (icon as HTMLImageElement).getAttribute('src'));
+    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon')).map((icon) =>
+      (icon as HTMLImageElement).getAttribute('src'),
+    );
     expect(navIcons).toEqual([
       '/assets/icons/CZ/CZ_decks_menu.webp',
       '/assets/icons/CZ/CZ_rooms_menu.webp',
@@ -217,8 +257,9 @@ describe('DashboardShellComponent', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
-    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon'))
-      .map((icon) => (icon as HTMLImageElement).getAttribute('src'));
+    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon')).map((icon) =>
+      (icon as HTMLImageElement).getAttribute('src'),
+    );
     expect(navIcons).toEqual([
       '/assets/icons/CZ/CZ_decks_menu.webp',
       '/assets/icons/CZ/CZ_cards_menu.webp',
@@ -230,11 +271,18 @@ describe('DashboardShellComponent', () => {
   });
 
   it('shows the admin topbar option for owner users', () => {
-    user.set({ id: 'owner-1', email: 'owner@example.com', displayName: 'Owner', roles: ['ROLE_USER', 'ROLE_OWNER'] });
+    user.set({
+      id: 'owner-1',
+      email: 'owner@example.com',
+      displayName: 'Owner',
+      roles: ['ROLE_USER', 'ROLE_OWNER'],
+    });
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
-    const adminLink = fixture.nativeElement.querySelector('a[href="/admin"]') as HTMLAnchorElement | null;
+    const adminLink = fixture.nativeElement.querySelector(
+      'a[href="/admin"]',
+    ) as HTMLAnchorElement | null;
 
     expect(adminLink).not.toBeNull();
     expect(adminLink?.textContent?.trim()).toBe('');
@@ -245,13 +293,63 @@ describe('DashboardShellComponent', () => {
     expect(fixture.nativeElement.querySelector('.nav-list a[href="/admin"]')).toBeNull();
   });
 
+  it('renders the distinct pending moderation badge in the admin shield', () => {
+    user.set({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      displayName: 'Admin',
+      roles: ['ROLE_USER', 'ROLE_ADMIN'],
+    });
+    pendingModerationReportsCount.set(125);
+    pendingModerationReportsBadgeLabel.set('99+');
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.admin-report-badge') as HTMLElement | null;
+
+    expect(badge?.textContent?.trim()).toBe('99+');
+    expect(badge?.getAttribute('aria-label')).toBe('125 reports awaiting review');
+  });
+
+  it('hides the shield badge inside Admin and restores it after leaving Admin', async () => {
+    user.set({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      displayName: 'Admin',
+      roles: ['ROLE_USER', 'ROLE_ADMIN'],
+    });
+    pendingModerationReportsCount.set(2);
+    pendingModerationReportsBadgeLabel.set('2');
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    const router = TestBed.inject(Router);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.admin-report-badge')).not.toBeNull();
+
+    await router.navigateByUrl('/admin/reports');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.admin-report-badge')).toBeNull();
+
+    await router.navigateByUrl('/community/users/CommanderZone');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.admin-report-badge')?.textContent?.trim()).toBe(
+      '2',
+    );
+  });
+
   it('hides Friends controls outside desktop devices', () => {
     isDesktop.set(false);
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.friends-dropdown')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.user-strip')?.classList).toContain('friends-hidden');
+    expect(fixture.nativeElement.querySelector('.user-strip')?.classList).toContain(
+      'friends-hidden',
+    );
   });
 
   it('hides navigation and user chrome in table assistant rooms', () => {
@@ -259,7 +357,9 @@ describe('DashboardShellComponent', () => {
     fixture.componentInstance.roomFocus.set(true);
     fixture.detectChanges();
 
-    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    const brandLogo = fixture.nativeElement.querySelector(
+      '.brand-mark img',
+    ) as HTMLImageElement | null;
     expect(brandLogo).toBeNull();
     expect(fixture.nativeElement.querySelector('app-dashboard-page-context')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Decks');
@@ -272,7 +372,9 @@ describe('DashboardShellComponent', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
-    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    const brandLogo = fixture.nativeElement.querySelector(
+      '.brand-mark img',
+    ) as HTMLImageElement | null;
     expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
   });
 
@@ -281,7 +383,9 @@ describe('DashboardShellComponent', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
-    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    const brandLogo = fixture.nativeElement.querySelector(
+      '.brand-mark img',
+    ) as HTMLImageElement | null;
     expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
   });
 
@@ -312,7 +416,9 @@ describe('DashboardShellComponent', () => {
     fixture.componentInstance.requestFriendRemoval({ id: 'friend-1', displayName: 'Friend' });
     fixture.detectChanges();
 
-    const modal = fixture.nativeElement.querySelector('.friends-removal-confirmation .modal-backdrop') as HTMLElement | null;
+    const modal = fixture.nativeElement.querySelector(
+      '.friends-removal-confirmation .modal-backdrop',
+    ) as HTMLElement | null;
     expect(modal).not.toBeNull();
     expect(modal?.closest('.friends-removal-confirmation')).not.toBeNull();
 
@@ -321,7 +427,9 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.friendsOpen()).toBe(true);
-    expect(fixture.nativeElement.querySelector('.friends-removal-confirmation .modal-backdrop')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.friends-removal-confirmation .modal-backdrop'),
+    ).toBeNull();
   });
 
   it('closes header overlays after route navigation', async () => {

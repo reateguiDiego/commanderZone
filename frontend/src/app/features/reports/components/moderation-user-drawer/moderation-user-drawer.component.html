@@ -1,0 +1,185 @@
+<app-modal
+  [open]="open()"
+  title="reports.moderation.userDrawer.title"
+  titleIcon="shield-alert"
+  primaryLabel="shared.text.close"
+  [showSecondary]="false"
+  [showCloseButton]="true"
+  closeLabel="common.modal.close"
+  size="narrow"
+  (primary)="close()"
+  (close)="close()"
+>
+  @if (loading()) {
+    <p class="moderation-user-drawer-empty">
+      {{ 'reports.moderation.loadingUser' | runtimeTranslate }}
+    </p>
+  } @else if (user(); as moderatedUser) {
+    <app-tab-list
+      [items]="tabs"
+      [activeId]="activeTab()"
+      [ariaLabel]="'reports.moderation.userDrawer.tabs.ariaLabel'"
+      (tabSelected)="selectTab($event)"
+    />
+
+    @if (activeTab() === 'strikes') {
+      <section class="moderation-user-summary">
+        <strong>{{ moderatedUser.displayName }}</strong>
+        <dl>
+          <div>
+            <dt>{{ 'reports.moderation.userDrawer.reportsMade' | runtimeTranslate }}</dt>
+            <dd>{{ moderatedUser.reportsMadeCount }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'reports.moderation.userDrawer.reportsReceived' | runtimeTranslate }}</dt>
+            <dd>{{ moderatedUser.reportsReceivedCount }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'reports.moderation.strikes.listTitle' | runtimeTranslate }}</dt>
+            <dd>{{ moderatedUser.strikesCount }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section
+        class="moderation-user-strike-form"
+        [attr.aria-label]="'reports.moderation.strikes.addLabel' | runtimeTranslate"
+      >
+        <label>
+          <span>{{ 'reports.moderation.strikes.descriptionLabel' | runtimeTranslate }}</span>
+          <textarea
+            name="manualStrikeDescription"
+            rows="3"
+            [value]="strikeDescription()"
+            [placeholder]="'reports.moderation.strikes.descriptionPlaceholder' | runtimeTranslate"
+            (input)="updateStrikeDescriptionFromEvent($event)"
+          ></textarea>
+        </label>
+        <button
+          type="button"
+          czButton="primary"
+          [disabled]="creatingStrike()"
+          (click)="createStrike()"
+        >
+          {{ 'reports.moderation.strikes.add' | runtimeTranslate }}
+        </button>
+      </section>
+
+      @if (error(); as errorMessage) {
+        <p class="moderation-user-drawer-error" role="alert">{{ errorMessage | runtimeTranslate }}</p>
+      }
+
+      <section
+        class="moderation-user-strikes"
+        [attr.aria-label]="'reports.moderation.strikes.listLabel' | runtimeTranslate"
+      >
+        <h3>{{ 'reports.moderation.strikes.listTitle' | runtimeTranslate }}</h3>
+        @for (strike of strikes(); track strike.id) {
+          <article class="moderation-user-strike">
+            <p>{{ strike.description }}</p>
+            <small class="moderation-user-strike-meta">
+              @if (strike.issuedBy; as issuer) {
+                <span>{{ 'reports.moderation.strikes.issuedBy' | runtimeTranslate: { name: issuer.displayName } }}</span>
+              } @else {
+                <span>{{ 'reports.moderation.strikes.issuedByUnavailable' | runtimeTranslate }}</span>
+              }
+              <time [attr.datetime]="strike.issuedAt">{{ strike.issuedAt | date: dateTimeFormat }}</time>
+            </small>
+            <app-tooltip
+              class="moderation-user-strike-delete"
+              [text]="'reports.moderation.strikes.deleteAriaLabel' | runtimeTranslate"
+              align="end"
+            >
+              <button
+                type="button"
+                czButton="icon"
+                czButtonSize="sm"
+                czButtonTone="danger"
+                [disabled]="deletingStrikeId() === strike.id"
+                [attr.aria-label]="'reports.moderation.strikes.deleteAriaLabel' | runtimeTranslate"
+                (click)="deleteStrike(strike)"
+              >
+                <lucide-icon name="trash-2" size="16" aria-hidden="true" />
+              </button>
+            </app-tooltip>
+          </article>
+        } @empty {
+          <p class="moderation-user-drawer-empty">
+            {{ 'reports.moderation.strikes.empty' | runtimeTranslate }}
+          </p>
+        }
+      </section>
+    } @else {
+      <section
+        class="moderation-user-messages"
+        [attr.aria-label]="'reports.moderation.messages.listLabel' | runtimeTranslate"
+      >
+        @if (messagesLoading()) {
+          <p class="moderation-user-drawer-empty">
+            {{ 'navigation.messages.messagesDropdown.loadingMessages' | runtimeTranslate }}
+          </p>
+        } @else if (messagesError(); as messageError) {
+          <p class="moderation-user-drawer-error" role="alert">{{ messageError | runtimeTranslate }}</p>
+        } @else {
+          @if (messages().length > 0) {
+            <table
+              class="moderation-user-message-table"
+              [attr.aria-label]="'reports.moderation.messages.listLabel' | runtimeTranslate"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">{{ 'shared.text.subject' | runtimeTranslate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (message of messages(); track message.id) {
+                  <tr
+                    class="moderation-user-message"
+                    [class.is-expanded]="expandedMessageId() === message.id"
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        class="moderation-user-message-row"
+                        [attr.aria-expanded]="expandedMessageId() === message.id"
+                        [attr.aria-controls]="'moderation-user-message-' + message.id"
+                        (click)="toggleMessage(message.id)"
+                      >
+                        <span class="moderation-user-message-subject">{{ message.subject }}</span>
+                        <lucide-icon name="chevron-down" size="17" aria-hidden="true" />
+                      </button>
+                    </td>
+                  </tr>
+                  @if (expandedMessageId() === message.id) {
+                    <tr class="moderation-user-message-details-row">
+                      <td>
+                        <div
+                          class="moderation-user-message-details"
+                          [id]="'moderation-user-message-' + message.id"
+                          role="region"
+                          [attr.aria-label]="message.subject"
+                        >
+                          <small>
+                            <span>{{ 'reports.moderation.messages.sentBy' | runtimeTranslate: { name: message.sender.displayName } }}</span>
+                            <time [attr.datetime]="message.createdAt">{{ message.createdAt | date: dateTimeFormat }}</time>
+                          </small>
+                          <app-message-body [body]="message.body" />
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="moderation-user-drawer-empty">
+              {{ 'reports.moderation.messages.empty' | runtimeTranslate }}
+            </p>
+          }
+        }
+      </section>
+    }
+  } @else if (error(); as errorMessage) {
+    <p class="moderation-user-drawer-error" role="alert">{{ errorMessage | runtimeTranslate }}</p>
+  }
+</app-modal>

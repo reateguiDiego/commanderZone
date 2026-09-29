@@ -2,6 +2,8 @@
 
 namespace App\UI\Http;
 
+use App\Application\Moderation\ModerationSummaryPublisher;
+use App\Domain\User\Role;
 use App\Domain\User\User;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,12 +17,17 @@ class MercureController extends ApiController
     #[Route('/realtime/mercure-cookie', methods: ['POST'])]
     public function authorize(Request $request, Authorization $authorization, #[CurrentUser] User $user): JsonResponse
     {
+        $topics = [
+            'friends/users/'.$user->id(),
+            'rooms/invites/users/'.$user->id(),
+            'messages/users/'.$user->id(),
+        ];
+        if ($user->hasRole(Role::ADMIN) || $user->hasRole(Role::OWNER)) {
+            $topics[] = ModerationSummaryPublisher::TOPIC;
+        }
+
         try {
-            $authorization->setCookie($request, [
-                'friends/users/'.$user->id(),
-                'rooms/invites/users/'.$user->id(),
-                'messages/users/'.$user->id(),
-            ]);
+            $authorization->setCookie($request, $topics);
         } catch (MercureRuntimeException $exception) {
             if (str_contains($exception->getMessage(), 'different second-level domain')) {
                 // In local setups, localhost and 127.0.0.1 are treated as different domains.

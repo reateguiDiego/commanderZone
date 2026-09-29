@@ -1,6 +1,106 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Denuncia el jugador", "reportMessage": "Denuncia el missatge" },
+    "modal": {
+      "title": "Denuncia",
+      "submit": "Envia la denúncia",
+      "reporting": "Estàs denunciant {{ name }}",
+      "categoryLabel": "Categoria",
+      "commentLabel": "Detalls addicionals",
+      "commentPlaceholder": "Explica a moderació què ha passat.",
+      "commentRequiredHint": "Descriu el problema.",
+      "commentRequired": "Cal una descripció per a aquesta categoria.",
+      "success": "La teva denúncia s'ha enviat.\nGràcies per ajudar a fer que CommanderZone sigui acollidor."
+    },
+    "errors": { "duplicate": "Ja tens una denúncia oberta contra aquest usuari.", "submit": "No s'ha pogut enviar la denúncia. Torna-ho a provar." },
+    "categories": {
+      "harassment": "Assetjament o intimidació",
+      "discriminationOrUnwantedSexualContent": "Discriminació o contingut sexual no desitjat",
+      "threatsOrSafety": "Amenaces o risc per a la seguretat",
+      "personalDataExposure": "Exposició de dades personals",
+      "spamAdvertisingScamPhishing": "Correu brossa, publicitat, estafa o phishing",
+      "impersonation": "Suplantació d'identitat",
+      "publicOffensiveContent": "Contingut ofensiu públic",
+      "intentionalGameDisruption": "Interrupció intencionada de la partida",
+      "seriousGameplayDeception": "Engany greu durant la partida",
+      "otherProblem": "Un altre problema"
+    },
+    "sources": { "profile": "Perfil", "game_player": "Jugador de la partida", "chat_message": "Missatge del xat" },
+    "fairPlay": {
+      "title": "Joc net",
+      "message": "Volem que CommanderZone sigui una comunitat basada en el respecte. Mantén el xat net, respecta els teus adversaris i sigues honest. Si en algun moment un usuari incompleix aquestes normes, el podràs denunciar fent clic amb el botó dret al seu camp de batalla o al seu missatge de xat. Moltes gràcies i, ara sí, guanya aquesta partida, comandant!"
+    },
+    "summary": { "pendingAriaLabel": "{{ count }} denúncies pendents de revisió" },
+    "moderation": {
+      "loadingUser": "S'està carregant el perfil de moderació...",
+      "queue": {
+        "title": "Cua de moderació",
+        "description": "Les denúncies pendents s'ordenen per data d'enviament.",
+        "ariaLabel": "Denúncies de moderació pendents",
+        "pendingCount": "{{ count }} pendents",
+        "loading": "S'està carregant...",
+        "empty": "No hi ha denúncies pendents de revisió.",
+        "page": "Pàgina {{ page }} de {{ totalPages }}"
+      },
+      "detail": {
+        "loading": "S'estan carregant els detalls de la denúncia...",
+        "reportedBy": "Denúncia presentada per {{ name }}",
+        "source": "Origen",
+        "gameId": "ID de la partida",
+        "messageId": "ID del missatge",
+        "comment": "Comentari de la persona denunciant",
+        "selectPrompt": "Tria una denúncia pendent per revisar-ne les proves."
+      },
+      "evidence": {
+        "title": "Proves",
+        "profileSnapshot": "Instantània del perfil",
+        "avatarAlt": "Avatar de {{ name }}",
+        "folders": "Carpetes",
+        "noFolders": "Sense carpetes",
+        "noDecks": "Sense baralles",
+        "ownedRooms": "Sales pròpies",
+        "noOwnedRooms": "Sense sales pròpies",
+        "gameSnapshot": "Instantània de la partida",
+        "capturedAt": "Capturada el {{ date }}",
+        "noChat": "No s'han capturat proves del xat.",
+        "gameLog": "Registre de la partida",
+        "noGameLog": "No s'han capturat proves del registre de la partida.",
+        "awaiting": "Les proves encara no estan disponibles per a aquesta denúncia."
+      },
+      "resolution": {
+        "resolved": "Resolució",
+        "title": "Resoldre la denúncia",
+        "outcomeLabel": "Resultat",
+        "outcomes": { "nothing": "Sense acció", "strike": "Aplicar una sanció" }
+      },
+      "userDrawer": {
+        "title": "Moderació de l'usuari",
+        "open": "Més informació de l'usuari",
+        "reportsMade": "Denúncies enviades",
+        "reportsReceived": "Denúncies rebudes", "tabs": { "ariaLabel": "Seccions de moderació de l'usuari" }},
+      "strikes": {
+        "addLabel": "Afegeix una sanció",
+        "descriptionLabel": "Descripció de la sanció",
+        "descriptionPlaceholder": "Explica la sanció.",
+        "descriptionRequired": "Cal una descripció de la sanció.",
+        "add": "Afegeix una sanció",
+        "listLabel": "Sancions de l'usuari",
+        "listTitle": "Sancions",
+        "deleteAriaLabel": "Elimina la sanció",
+        "empty": "Aquest usuari no té cap sanció.", "issuedBy": "Creada per {{ name }}", "issuedByUnavailable": "No es pot identificar qui l'ha creada."
+      },
+      "messages": { "listLabel": "Missatges enviats a aquest usuari", "empty": "No s'ha enviat cap missatge a aquest usuari.", "sentBy": "Enviat per {{ name }}" }, "errors": {
+        "loadQueue": "No s'ha pogut carregar la cua de moderació.",
+        "loadReport": "No s'ha pogut carregar aquesta denúncia.",
+        "resolveReport": "No s'ha pogut resoldre aquesta denúncia.",
+        "loadUser": "No s'ha pogut carregar el perfil de moderació de l'usuari.",
+        "createStrike": "No s'ha pogut crear la sanció.",
+        "deleteStrike": "No s'ha pogut eliminar la sanció.", "loadMessages": "No s'han pogut carregar els missatges d'aquest usuari."
+      }
+    }
+  },
   "admin": {
-    "title": "Administration",
+    "title": "Administració",
     "navigation": {
       "sectionsAriaLabel": "Seccions d'administració",
       "toolsAriaLabel": "Eines d'administració"
@@ -67,13 +167,17 @@
         "mobileToggle": "Filtres i ordenació"
       },
       "columns": {
-        "auth": "Autenticació",
+        "basicData": "Dades bàsiques",
         "lastConnectedAt": "Última connexió",
         "role": "Rol",
-        "localization": "Ubicació"
+        "localization": "Ubicació",
+        "moderation": "Moderació"
       },
       "roles": {
-        "user": "Usuari"
+        "user": "Usuari",
+        "support": "Suport",
+        "admin": "Administrador",
+        "owner": "Propietari"
       },
       "premium": {
         "none": "Cap",
@@ -2453,6 +2557,13 @@
       "submitError": "No hem pogut enviar el teu missatge. Escriu directament a {{ email }} o contacta amb nosaltres per un altre canal."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Contingut no permès",
+      "external-url-message": "No es permeten enllaços externs.",
+      "prohibited-language-message": "No es permet el llenguatge ofensiu o inadequat."
+    }
+  },
   "onboarding": {
     "accountActions": "Accions del compte",
     "demoRoom": {
@@ -2591,6 +2702,7 @@
       "createRoom": "Crea una sala",
       "turn": "Torn",
       "deleteRoom": "Suprimeix la sala",
+      "delete": "Suprimeix",
       "timer": "Temporitzador",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

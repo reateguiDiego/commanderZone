@@ -113,6 +113,127 @@ final class MessagesApiTest extends ApiTestCase
         $this->assertMessageEventFor($recipientId);
     }
 
+    public function testAdminCanListPersistedMessagesForAModerationReviewableUser(): void
+    {
+        $adminToken = $this->adminToken('moderation-messages-admin@example.test', 'Mod Msg Admin');
+        $recipientToken = $this->registerAndLogin('moderation-messages-recipient@example.test', 'Mod Msg Recipient');
+        $recipientId = $this->currentUserId($recipientToken);
+        $otherRecipientToken = $this->registerAndLogin('moderation-messages-other@example.test', 'Mod Msg Other');
+        $otherRecipientId = $this->currentUserId($otherRecipientToken);
+
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $recipientId,
+            'subject' => 'Moderation follow-up first',
+            'body' => 'Please review the CommanderZone conduct guidelines first.',
+            'delivery' => 'internal',
+        ], $adminToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $recipientId,
+            'subject' => 'Moderation follow-up latest',
+            'body' => 'Please review the CommanderZone conduct guidelines latest.',
+            'delivery' => 'internal',
+        ], $adminToken);
+        self::assertResponseStatusCodeSame(201);
+        $this->jsonRequest('POST', '/admin/messages', [
+            'recipientId' => $otherRecipientId,
+            'subject' => 'Other recipient message',
+            'body' => 'This message must stay private to its recipient.',
+            'delivery' => 'internal',
+        ], $adminToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
+            'UPDATE user_message SET created_at = :createdAt WHERE recipient_id = :recipientId AND subject = :subject',
+            [
+                'createdAt' => '2026-01-01 09:00:00',
+                'recipientId' => $recipientId,
+                'subject' => 'Moderation follow-up first',
+            ],
+        );
+        $connection->executeStatement(
+            'UPDATE user_message SET created_at = :createdAt WHERE recipient_id = :recipientId AND subject = :subject',
+            [
+                'createdAt' => '2026-01-01 10:00:00',
+                'recipientId' => $recipientId,
+                'subject' => 'Moderation follow-up latest',
+            ],
+        );
+        $this->entityManager->clear();
+
+        $this->jsonRequest('GET', '/admin/users/'.$recipientId.'/moderation/messages', token: $adminToken);
+
+        self::assertResponseIsSuccessful();
+        $messages = $this->jsonResponse()['messages'];
+        self::assertIsArray($messages);
+        $matchingMessages = array_values(array_filter(
+            $messages,
+            static fn (mixed $message): bool => is_array($message)
+                && in_array($message['subject'] ?? null, ['Moderation follow-up first', 'Moderation follow-up latest'], true),
+        ));
+        self::assertSame(['Moderation follow-up latest', 'Moderation follow-up first'], array_column($matchingMessages, 'subject'));
+
+        $message = $matchingMessages[0];
+        self::assertSame('Please review the CommanderZone conduct guidelines latest.', $message['body']);
+        self::assertSame($this->currentUserId($adminToken), $message['sender']['id']);
+        self::assertSame('Mod Msg Admin', $message['sender']['displayName']);
+        self::assertArrayHasKey('createdAt', $message);
+        self::assertNull($message['readAt']);
+        self::assertSame([], array_values(array_filter(
+            $messages,
+            static fn (mixed $message): bool => is_array($message) && ($message['subject'] ?? null) === 'Other recipient message',
+        )));
+    }
+
+    public function testRegularUserCannotListModerationMessages(): void
+    {
+        $regularToken = $this->registerAndLogin('moderation-messages-regular@example.test', 'Mod Msg Regular');
+        $targetToken = $this->registerAndLogin('moderation-messages-target@example.test', 'Mod Msg Target');
+
+        $this->jsonRequest(
+            'GET',
+            '/admin/users/'.$this->currentUserId($targetToken).'/moderation/messages',
+            token: $regularToken,
+        );
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testAdminCannotListModerationMessagesForAdminOrOwnerTargets(): void
+    {
+        $adminToken = $this->adminToken('moderation-messages-reviewer@example.test', 'Mod Msg Reviewer');
+        $adminTargetToken = $this->adminToken('moderation-messages-admin-target@example.test', 'Mod Msg Admin Target');
+        $ownerTargetToken = $this->registerAndLogin('moderation-messages-owner-target@example.test', 'Mod Msg Owner Target');
+        $ownerTargetId = $this->currentUserId($ownerTargetToken);
+        $this->entityManager->getConnection()->executeStatement(
+            'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode) ON CONFLICT DO NOTHING',
+            ['userId' => $ownerTargetId, 'roleCode' => Role::OWNER],
+        );
+        $this->entityManager->clear();
+
+        foreach ([$this->currentUserId($adminTargetToken), $ownerTargetId] as $targetId) {
+            $this->jsonRequest('GET', '/admin/users/'.$targetId.'/moderation/messages', token: $adminToken);
+
+            self::assertResponseStatusCodeSame(403);
+        }
+    }
+
+    public function testOwnerCanListModerationMessagesForAnAdminTarget(): void
+    {
+        $ownerToken = $this->ownerToken('moderation-messages-owner@example.test', 'Mod Msg Owner');
+        $adminTargetToken = $this->adminToken('moderation-messages-owner-admin-target@example.test', 'Mod Msg Owner Admin');
+
+        $this->jsonRequest(
+            'GET',
+            '/admin/users/'.$this->currentUserId($adminTargetToken).'/moderation/messages',
+            token: $ownerToken,
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('messages', $this->jsonResponse());
+    }
+
     private function assertMessageEventFor(string $recipientId): void
     {
         $updates = RecordingMercureHub::updates();
@@ -314,6 +435,18 @@ final class MessagesApiTest extends ApiTestCase
         $this->entityManager->getConnection()->executeStatement(
             'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode) ON CONFLICT DO NOTHING',
             ['userId' => $this->currentUserId($token), 'roleCode' => Role::ADMIN],
+        );
+        $this->entityManager->clear();
+
+        return $token;
+    }
+
+    private function ownerToken(string $email, string $displayName): string
+    {
+        $token = $this->registerAndLogin($email, $displayName);
+        $this->entityManager->getConnection()->executeStatement(
+            'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode) ON CONFLICT DO NOTHING',
+            ['userId' => $this->currentUserId($token), 'roleCode' => Role::OWNER],
         );
         $this->entityManager->clear();
 

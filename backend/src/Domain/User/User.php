@@ -129,6 +129,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean')]
     private bool $showCardAlignmentHelper = true;
 
+    /** Historical counters are intentionally not decremented when reports are purged. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $reportsMadeCount = 0;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $reportsReceivedCount = 0;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $strikesCount = 0;
+
     public function __construct(string $email, string $displayName)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -294,6 +304,59 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function hasRole(string $roleCode): bool
     {
         return in_array($roleCode, $this->getRoles(), true);
+    }
+
+    public function reportsMadeCount(): int
+    {
+        return $this->reportsMadeCount;
+    }
+
+    public function reportsReceivedCount(): int
+    {
+        return $this->reportsReceivedCount;
+    }
+
+    public function strikesCount(): int
+    {
+        return $this->strikesCount;
+    }
+
+    /** @return array{reportsMadeCount:int,reportsReceivedCount:int,strikesCount:int} */
+    public function moderationCounters(): array
+    {
+        return [
+            'reportsMadeCount' => $this->reportsMadeCount,
+            'reportsReceivedCount' => $this->reportsReceivedCount,
+            'strikesCount' => $this->strikesCount,
+        ];
+    }
+
+    public function recordReportMade(): void
+    {
+        ++$this->reportsMadeCount;
+        $this->touch();
+    }
+
+    public function recordReportReceived(): void
+    {
+        ++$this->reportsReceivedCount;
+        $this->touch();
+    }
+
+    public function addStrike(): void
+    {
+        ++$this->strikesCount;
+        $this->touch();
+    }
+
+    public function removeStrike(): void
+    {
+        if ($this->strikesCount === 0) {
+            return;
+        }
+
+        --$this->strikesCount;
+        $this->touch();
     }
 
     public function eraseCredentials(): void

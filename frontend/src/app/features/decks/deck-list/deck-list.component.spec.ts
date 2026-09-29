@@ -29,6 +29,7 @@ import { CardsApi } from '../../../core/api/cards.api';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { ContentSafetyService } from '../../../core/content-safety/content-safety.service';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckFolder } from '../../../core/models/deck.model';
 import { DeckListComponent } from './deck-list.component';
@@ -105,6 +106,7 @@ describe('DeckListComponent', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('loads only the requested next page and preserves the cursor on failure', async () => {
@@ -161,6 +163,37 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store.newDeckVisibility).toBe('public');
+  });
+
+  it('keeps create and edit dialogs open when content safety rejects a name', async () => {
+    const contentSafety = TestBed.inject(ContentSafetyService);
+    vi.spyOn(contentSafety, 'hasProhibitedContent').mockReturnValue(true);
+    const showProhibitedContentModal = vi.spyOn(contentSafety, 'showProhibitedContentModal');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const store = fixture.componentInstance.store;
+
+    store.openFolderCreateModal();
+    store.newFolderName = 'Rejected folder';
+    await store.createFolder();
+    expect(store.folderCreateModalOpen()).toBe(true);
+
+    store.openRenameFolderModal(savedFolder({ name: 'Original folder' }));
+    store.renameFolderName = 'Rejected rename';
+    await store.renameFolder();
+    expect(store.folderRenameModalOpen()).toBe(true);
+
+    store.openCreateModal();
+    store.newDeckName = 'Rejected deck';
+    store.newDeckCreateEmpty = true;
+    await store.create();
+    expect(store.createModalOpen()).toBe(true);
+
+    store.openDeckEditModal(savedDeck({ name: 'Original deck' }));
+    store.editDeckName = 'Rejected deck rename';
+    await store.saveDeckEdit();
+    expect(store.deckEditModalOpen()).toBe(true);
+
+    expect(showProhibitedContentModal).toHaveBeenCalledTimes(4);
   });
 
   it('sorts root folders and unfiled decks together by name', async () => {

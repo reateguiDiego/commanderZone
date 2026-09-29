@@ -8,6 +8,7 @@ export const ROLE_OWNER = 'ROLE_OWNER';
 export type AuthorizationRole = typeof ROLE_USER | typeof ROLE_SUPPORT | typeof ROLE_ADMIN | typeof ROLE_OWNER;
 
 const ADMIN_ACCESS_ROLES = [ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER] as const satisfies readonly AuthorizationRole[];
+const MODERATION_ACCESS_ROLES = [ROLE_ADMIN, ROLE_OWNER] as const satisfies readonly AuthorizationRole[];
 const ROLE_RANK: Readonly<Record<AuthorizationRole, number>> = {
   [ROLE_USER]: 1,
   [ROLE_SUPPORT]: 2,
@@ -17,6 +18,10 @@ const ROLE_RANK: Readonly<Record<AuthorizationRole, number>> = {
 
 export function canAccessAdmin(user: User | null | undefined): boolean {
   return hasAnyRole(user, ADMIN_ACCESS_ROLES);
+}
+
+export function canAccessModeration(user: User | null | undefined): boolean {
+  return hasAnyRole(user, MODERATION_ACCESS_ROLES);
 }
 
 export function hasAnyRole(user: User | null | undefined, allowedRoles: readonly AuthorizationRole[]): boolean {

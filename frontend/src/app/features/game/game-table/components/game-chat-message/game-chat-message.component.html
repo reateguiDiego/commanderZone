@@ -38,17 +38,29 @@
         [style.right.px]="overlay.right"
         [style.top.px]="overlay.top"
       >
-        @for (reaction of reactionOptions(); track reaction.type) {
+        @if (canReact()(message())) {
+          @for (reaction of reactionOptions(); track reaction.type) {
+            <button
+              type="button"
+              class="chat-reaction"
+              data-testid="chat-reaction"
+              [class.active]="hasOwnReaction()(message(), reaction.type)"
+              [attr.aria-label]="reaction.label | runtimeTranslate"
+              (click)="toggleReaction($event, reaction.type)"
+            >
+              <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+            </button>
+          }
+        }
+        @if (canReport()(message())) {
           <button
             type="button"
-            class="chat-reaction"
-            data-testid="chat-reaction"
-            [class.active]="hasOwnReaction()(message(), reaction.type)"
-            [disabled]="!message().id"
-            [attr.aria-label]="reaction.label | runtimeTranslate"
-            (click)="toggleReaction($event, reaction.type)"
+            class="chat-reaction chat-report-action"
+            data-testid="chat-report-message"
+            [attr.aria-label]="'reports.actions.reportMessage' | runtimeTranslate"
+            (click)="requestReport($event)"
           >
-            <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+            <span aria-hidden="true">⚑</span>
           </button>
         }
       </span>

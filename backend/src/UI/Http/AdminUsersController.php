@@ -71,6 +71,10 @@ class AdminUsersController extends ApiController
         $pageUsers = array_slice($filteredUsers, ($page - 1) * $limit, $limit);
         $authProvidersByUserId = $this->authProvidersByUserId($pageUsers, $entityManager);
         $activeSessionsByUserId = $this->activeSessionCountsByUserId($pageUsers, $entityManager);
+        // Support can use the operational user list, but moderation counters
+        // remain limited to the same admin/owner roles that can access the
+        // moderation feature itself.
+        $includeModerationCounters = $this->canManageAdminActions($actor);
 
         return $this->json([
             'users' => array_map(
@@ -81,6 +85,7 @@ class AdminUsersController extends ApiController
                     $localizationByUserId[$user->id()] ?? $this->emptyLocalization($user),
                     $presenceStatusesByUserId[$user->id()] ?? FriendPresenceService::STATUS_OFFLINE,
                     $activeSessionsByUserId[$user->id()] ?? 0,
+                    $includeModerationCounters,
                 ),
                 $pageUsers,
             ),
@@ -435,6 +440,7 @@ class AdminUsersController extends ApiController
      *   isOnline: bool,
      *   activeSessionsCount: int,
      *   deckCounts: array{total:int, privateCount:int, publicCount:int},
+     *   moderationCounters?: array{reportsMadeCount:int,reportsReceivedCount:int,strikesCount:int},
      *   localization: array{countryCode:string|null, countryName:string|null, appLanguage:string},
      *   createdAt: string
      * }
@@ -446,9 +452,10 @@ class AdminUsersController extends ApiController
         array $localization,
         string $presenceStatus,
         int $activeSessionsCount,
+        bool $includeModerationCounters = true,
     ): array
     {
-        return [
+        $data = [
             'id' => $user->id(),
             'displayName' => $user->displayName(),
             'publicProfilePath' => $user->publicPath(),
@@ -465,6 +472,12 @@ class AdminUsersController extends ApiController
             'localization' => $localization,
             'createdAt' => $user->createdAt()->format(DATE_ATOM),
         ];
+
+        if ($includeModerationCounters) {
+            $data['moderationCounters'] = $user->moderationCounters();
+        }
+
+        return $data;
     }
 
     /**

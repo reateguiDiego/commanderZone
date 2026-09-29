@@ -1,4 +1,14 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Denunciar o jogador", "reportMessage": "Denunciar a mensagem" },
+    "modal": { "title": "Denunciar", "submit": "Enviar denúncia", "reporting": "Denunciando {{ name }}", "categoryLabel": "Categoria", "commentLabel": "Detalhes adicionais", "commentPlaceholder": "Explique à moderação o que aconteceu.", "commentRequiredHint": "Descreva o problema.", "commentRequired": "É necessária uma descrição para esta categoria.", "success": "A sua denúncia foi enviada.\nAgradecemos por ajudar a tornar CommanderZone acolhedor." },
+    "errors": { "duplicate": "Você já tem uma denúncia aberta contra este usuário.", "submit": "Não foi possível enviar a denúncia. Tente novamente." },
+    "categories": { "harassment": "Assédio ou intimidação", "discriminationOrUnwantedSexualContent": "Discriminação ou conteúdo sexual indesejado", "threatsOrSafety": "Ameaças ou risco à segurança", "personalDataExposure": "Exposição de dados pessoais", "spamAdvertisingScamPhishing": "Spam, publicidade, golpe ou phishing", "impersonation": "Suplantação de identidade", "publicOffensiveContent": "Conteúdo ofensivo público", "intentionalGameDisruption": "Interrupção intencional da partida", "seriousGameplayDeception": "Engano grave durante a partida", "otherProblem": "Outro problema" },
+    "sources": { "profile": "Perfil", "game_player": "Jogador da partida", "chat_message": "Mensagem do chat" },
+    "fairPlay": { "title": "Jogo limpo", "message": "Queremos que CommanderZone seja uma comunidade baseada no respeito. Mantenha o chat limpo, respeite seus adversários e seja honesto. Se um usuário desrespeitar essas regras, você poderá denunciá-lo clicando com o botão direito em seu campo de batalha ou em sua mensagem de chat. Agradecemos e, agora sim, vença esta partida, comandante!" },
+    "summary": { "pendingAriaLabel": "{{ count }} denúncias pendentes de revisão" },
+    "moderation": { "loadingUser": "Carregando perfil de moderação...", "queue": { "title": "Fila de moderação", "description": "As denúncias pendentes são ordenadas pela data de envio.", "ariaLabel": "Denúncias de moderação pendentes", "pendingCount": "{{ count }} pendentes", "loading": "Carregando...", "empty": "Não há denúncias aguardando revisão.", "page": "Página {{ page }} de {{ totalPages }}" }, "detail": { "loading": "Carregando detalhes da denúncia...", "reportedBy": "Denúncia enviada por {{ name }}", "source": "Origem", "gameId": "ID da partida", "messageId": "ID da mensagem", "comment": "Comentário de quem fez a denúncia", "selectPrompt": "Escolha uma denúncia pendente para analisar as evidências." }, "evidence": { "title": "Evidências", "profileSnapshot": "Instantâneo do perfil", "avatarAlt": "Avatar de {{ name }}", "folders": "Pastas", "noFolders": "Sem pastas", "noDecks": "Sem decks", "ownedRooms": "Salas próprias", "noOwnedRooms": "Sem salas próprias", "gameSnapshot": "Instantâneo da partida", "capturedAt": "Capturado em {{ date }}", "noChat": "Nenhuma evidência do chat foi capturada.", "gameLog": "Registro da partida", "noGameLog": "Nenhuma evidência do registro da partida foi capturada.", "awaiting": "As evidências ainda não estão disponíveis para esta denúncia." }, "resolution": { "resolved": "Resolução", "title": "Resolver denúncia", "outcomeLabel": "Resultado", "outcomes": { "nothing": "Sem ação", "strike": "Aplicar advertência" } }, "userDrawer": { "title": "Moderação do usuário", "open": "Mais informações do usuário", "reportsMade": "Denúncias enviadas", "reportsReceived": "Denúncias recebidas", "tabs": { "ariaLabel": "Seções de moderação do usuário" }}, "strikes": { "addLabel": "Adicionar advertência", "descriptionLabel": "Descrição da advertência", "descriptionPlaceholder": "Explique a advertência.", "descriptionRequired": "É necessária uma descrição da advertência.", "add": "Adicionar advertência", "listLabel": "Advertências do usuário", "listTitle": "Advertências", "deleteAriaLabel": "Excluir advertência", "empty": "Este usuário não tem advertências.", "issuedBy": "Criada por {{ name }}", "issuedByUnavailable": "Não é possível identificar quem a criou." }, "messages": { "listLabel": "Mensagens enviadas a este usuário", "empty": "Nenhuma mensagem foi enviada a este usuário.", "sentBy": "Enviado por {{ name }}" }, "errors": { "loadQueue": "Não foi possível carregar a fila de moderação.", "loadReport": "Não foi possível carregar esta denúncia.", "resolveReport": "Não foi possível resolver esta denúncia.", "loadUser": "Não foi possível carregar o perfil de moderação do usuário.", "createStrike": "Não foi possível criar a advertência.", "deleteStrike": "Não foi possível excluir a advertência.", "loadMessages": "Não foi possível carregar as mensagens deste usuário." } }
+  },
   "admin": {
     "title": "Administração",
     "navigation": {
@@ -67,13 +77,17 @@
         "mobileToggle": "Filtros e ordenação"
       },
       "columns": {
-        "auth": "Authentication",
-        "lastConnectedAt": "Last connection",
-        "role": "Role",
-        "localization": "Localização"
+        "basicData": "Dados básicos",
+        "lastConnectedAt": "Última ligação",
+        "role": "Função",
+        "localization": "Localização",
+        "moderation": "Moderação"
       },
       "roles": {
-        "user": "User"
+        "user": "Utilizador",
+        "support": "Suporte",
+        "admin": "Administrador",
+        "owner": "Proprietário"
       },
       "premium": {
         "none": "None",
@@ -93,7 +107,7 @@
         "directionAriaLabel": "Alterar direção de ordenação. Direção atual: {{ direction }}."
       },
       "local": "Local",
-      "never": "Never",
+      "never": "Nunca",
       "lastConnectedToday": "Hoje",
       "lastConnectedYesterday": "Ontem",
       "lastConnectedAgo": "há {{ count }} dias",
@@ -129,10 +143,10 @@
           "languagesActive": "Idiomas · utilizadores ativos"
         }
       },
-      "authorizationRole": "Authorization role",
-      "premiumTier": "Premium tier",
-      "onlineNow": "Online now",
-      "offlineNow": "Offline now",
+      "authorizationRole": "Função de autorização",
+      "premiumTier": "Nível Premium",
+      "onlineNow": "Online",
+      "offlineNow": "Offline",
       "activeSessions": "{{ count }} active session(s)",
       "closeSessions": "Close sessions",
       "deleteUser": "Delete user",
@@ -189,10 +203,10 @@
       "loading": "Loading reports...",
       "empty": "No user reports yet.",
       "noMatch": "No reports match the current filters.",
-      "messageReporter": "Message reporter",
-      "messageReportedUser": "Message reported user",
-      "sendMessageToReporter": "Send a message to reporter {{ name }}",
-      "sendMessageToReportedUser": "Send a message to reported user {{ name }}",
+      "messageReporter": "Enviar mensagem a quem denunciou",
+      "messageReportedUser": "Enviar mensagem ao utilizador denunciado",
+      "sendMessageToReporter": "Enviar uma mensagem a quem denunciou: {{ name }}",
+      "sendMessageToReportedUser": "Enviar uma mensagem ao utilizador denunciado: {{ name }}",
       "errors": {
         "loadReports": "Could not load reports."
       }
@@ -2397,6 +2411,13 @@
       "submitError": "Não foi possível enviar sua mensagem. Escreva diretamente para {{ email }} ou entre em contato conosco através de outro canal."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Conteúdo não permitido",
+      "external-url-message": "Não são permitidos links externos.",
+      "prohibited-language-message": "Não é permitida linguagem ofensiva ou imprópria."
+    }
+  },
   "onboarding": {
     "accountActions": "Ações da conta",
     "demoRoom": {
@@ -2445,7 +2466,7 @@
     "text": {
       "users": "Users",
       "applyCommanderDamage": "Aplicar dano de comandante",
-      "reports": "Reports",
+      "reports": "Denúncias",
       "notifications": "Notifications",
       "noUsersFound": "Nenhum usuário encontrado.",
       "subject": "Assunto",
@@ -2453,15 +2474,15 @@
       "title": "Heading",
       "list": "Lista",
       "uploadImage": "Carregar imagem",
-      "refresh": "Refresh",
+      "refresh": "Atualizar",
       "online": "On-line",
       "usernameOrEmail": "Username or email...",
       "name": "Nome",
       "email": "E-mail",
-      "created": "Created",
+      "created": "Criado",
       "status": "Estado",
       "premium": "Prêmio",
-      "actions": "Actions",
+      "actions": "Ações",
       "support": "Suporte",
       "admin": "Administrator",
       "owner": "Anfitrião",
@@ -2535,6 +2556,7 @@
       "createRoom": "Criar sala",
       "turn": "Turno",
       "deleteRoom": "Excluir sala",
+      "delete": "Excluir",
       "timer": "Temporizador",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

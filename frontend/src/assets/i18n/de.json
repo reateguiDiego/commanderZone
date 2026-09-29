@@ -1,4 +1,14 @@
 {
+  "reports": {
+    "actions": { "reportPlayer": "Spieler melden", "reportMessage": "Nachricht melden" },
+    "modal": { "title": "Melden", "submit": "Meldung senden", "reporting": "Meldung über {{ name }}", "categoryLabel": "Kategorie", "commentLabel": "Zusätzliche Angaben", "commentPlaceholder": "Beschreibe, was passiert ist.", "commentRequiredHint": "Bitte beschreibe das Problem.", "commentRequired": "Für diese Kategorie ist eine Beschreibung erforderlich.", "success": "Deine Meldung wurde gesendet.\nDanke, dass du hilfst, CommanderZone einladend zu halten." },
+    "errors": { "duplicate": "Du hast bereits eine offene Meldung für diesen Benutzer.", "submit": "Diese Meldung konnte nicht gesendet werden. Bitte versuche es erneut." },
+    "categories": { "harassment": "Belästigung oder Mobbing", "discriminationOrUnwantedSexualContent": "Diskriminierung oder unerwünschte sexuelle Inhalte", "threatsOrSafety": "Drohungen oder Sicherheitsbedenken", "personalDataExposure": "Offenlegung personenbezogener Daten", "spamAdvertisingScamPhishing": "Spam, Werbung, Betrug oder Phishing", "impersonation": "Identitätsmissbrauch", "publicOffensiveContent": "Öffentlich sichtbare beleidigende Inhalte", "intentionalGameDisruption": "Absichtliche Störung der Partie", "seriousGameplayDeception": "Schwerwiegende Täuschung im Spiel", "otherProblem": "Anderes Problem" },
+    "sources": { "profile": "Profil", "game_player": "Spieler in der Partie", "chat_message": "Chatnachricht" },
+    "fairPlay": { "title": "Fair spielen", "message": "Wir möchten in CommanderZone eine Community aufbauen, die auf Respekt basiert. Halte den Chat sauber, respektiere deine Gegner und sei ehrlich. Wenn jemand gegen diese Regeln verstößt, kannst du diese Person mit einem Rechtsklick auf ihr Schlachtfeld oder ihre Chatnachricht melden. Vielen Dank – und jetzt: Gewinne diese Partie, Kommandant!" },
+    "summary": { "pendingAriaLabel": "{{ count }} Meldungen warten auf Prüfung" },
+    "moderation": { "loadingUser": "Moderationsprofil wird geladen...", "queue": { "title": "Moderationswarteschlange", "description": "Ausstehende Meldungen sind nach ihrem Eingangszeitpunkt sortiert.", "ariaLabel": "Ausstehende Moderationsmeldungen", "pendingCount": "{{ count }} ausstehend", "loading": "Wird geladen...", "empty": "Keine Meldungen warten auf Prüfung.", "page": "Seite {{ page }} von {{ totalPages }}" }, "detail": { "loading": "Meldungsdetails werden geladen...", "reportedBy": "Gemeldet von {{ name }}", "source": "Quelle", "gameId": "Partie-ID", "messageId": "Nachrichten-ID", "comment": "Kommentar der meldenden Person", "selectPrompt": "Wähle eine ausstehende Meldung aus, um ihre Beweise zu prüfen." }, "evidence": { "title": "Beweise", "profileSnapshot": "Profil-Snapshot", "avatarAlt": "Avatar von {{ name }}", "folders": "Ordner", "noFolders": "Keine Ordner", "noDecks": "Keine Decks", "ownedRooms": "Eigene Räume", "noOwnedRooms": "Keine eigenen Räume", "gameSnapshot": "Partie-Snapshot", "capturedAt": "Erfasst am {{ date }}", "noChat": "Keine Chatbeweise wurden erfasst.", "gameLog": "Spielprotokoll", "noGameLog": "Keine Spielprotokoll-Einträge wurden erfasst.", "awaiting": "Für diese Meldung liegen noch keine Beweise vor." }, "resolution": { "resolved": "Entscheidung", "title": "Meldung abschließen", "outcomeLabel": "Maßnahme", "outcomes": { "nothing": "Keine Maßnahme", "strike": "Verwarnung aussprechen" } }, "userDrawer": { "title": "Nutzermoderation", "open": "Weitere Nutzerinformationen", "reportsMade": "Eingereichte Meldungen", "reportsReceived": "Erhaltene Meldungen", "tabs": { "ariaLabel": "Bereiche der Nutzermoderation" }}, "strikes": { "addLabel": "Verwarnung hinzufügen", "descriptionLabel": "Begründung der Verwarnung", "descriptionPlaceholder": "Begründe die Verwarnung.", "descriptionRequired": "Für eine Verwarnung ist eine Begründung erforderlich.", "add": "Verwarnung hinzufügen", "listLabel": "Verwarnungen des Benutzers", "listTitle": "Verwarnungen", "deleteAriaLabel": "Verwarnung löschen", "empty": "Dieser Benutzer hat keine Verwarnungen.", "issuedBy": "Erstellt von {{ name }}", "issuedByUnavailable": "Ersteller nicht verfügbar" }, "messages": { "listLabel": "An diesen Benutzer gesendete Nachrichten", "empty": "An diesen Benutzer wurden keine Nachrichten gesendet.", "sentBy": "Gesendet von {{ name }}" }, "errors": { "loadQueue": "Die Moderationswarteschlange konnte nicht geladen werden.", "loadReport": "Diese Meldung konnte nicht geladen werden.", "resolveReport": "Diese Meldung konnte nicht abgeschlossen werden.", "loadUser": "Das Moderationsprofil des Benutzers konnte nicht geladen werden.", "createStrike": "Die Verwarnung konnte nicht erstellt werden.", "deleteStrike": "Die Verwarnung konnte nicht gelöscht werden.", "loadMessages": "Die Nachrichten dieses Benutzers konnten nicht geladen werden." } }
+  },
   "admin": {
     "title": "Administration",
     "navigation": {
@@ -67,13 +77,17 @@
         "mobileToggle": "Filter und Sortierung"
       },
       "columns": {
-        "auth": "Anmeldung",
+        "basicData": "Grunddaten",
         "lastConnectedAt": "Letzte Verbindung",
         "role": "Rolle",
-        "localization": "Standort"
+        "localization": "Standort",
+        "moderation": "Moderation"
       },
       "roles": {
-        "user": "Benutzer"
+        "user": "Benutzer",
+        "support": "Support",
+        "admin": "Administrator",
+        "owner": "Eigentümer"
       },
       "premium": {
         "none": "Keine",
@@ -2453,6 +2467,13 @@
       "submitError": "Wir konnten deine Nachricht nicht senden. Schreib direkt an {{ email }} oder kontaktiere uns über einen anderen Kanal."
     }
   },
+  "contentSafety": {
+    "modal": {
+      "title": "Inhalt nicht erlaubt",
+      "external-url-message": "Externe Links sind nicht erlaubt.",
+      "prohibited-language-message": "Anstößige oder unangemessene Sprache ist nicht erlaubt."
+    }
+  },
   "onboarding": {
     "accountActions": "Kontoaktionen",
     "demoRoom": {
@@ -2591,6 +2612,7 @@
       "createRoom": "Raum erstellen",
       "turn": "Zug",
       "deleteRoom": "Raum löschen",
+      "delete": "Löschen",
       "timer": "Timer",
       "mulligan": "Mulligan",
       "mulliganDescriptions": {

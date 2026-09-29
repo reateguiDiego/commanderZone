@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { AuthApi } from '../api/auth.api';
+import { ContentSafetyService } from '../content-safety/content-safety.service';
 import { User } from '../models/user.model';
 import { AppThemeService } from '../theme/app-theme.service';
 import { AuthStore } from './auth.store';
@@ -139,6 +140,28 @@ describe('AuthStore backend auth', () => {
     expect(authApi.login).not.toHaveBeenCalled();
     expect(store.token()).toBeNull();
     expect(store.user()).toBeNull();
+  });
+
+  it('never applies content moderation to login or registration credentials', async () => {
+    const store = TestBed.inject(AuthStore);
+    const email = 'hxxps://example.com@example.test';
+    const password = 'f.u.c.k-https://example.com';
+
+    await store.login(email, password);
+    await store.register(email, 'Player', password);
+
+    expect(authApi.login).toHaveBeenCalledWith({ identifier: email, password });
+    expect(authApi.register).toHaveBeenCalledWith({ email, displayName: 'Player', password });
+    expect(TestBed.inject(ContentSafetyService).prohibitedContentModalOpen()).toBe(false);
+  });
+
+  it('does not submit a registration name that contains prohibited language', async () => {
+    const store = TestBed.inject(AuthStore);
+
+    await expect(store.register('player@example.test', 'f.u.c.k', 'password123')).rejects.toThrow();
+
+    expect(authApi.register).not.toHaveBeenCalled();
+    expect(TestBed.inject(ContentSafetyService).prohibitedContentModalOpen()).toBe(true);
   });
 
   it('can establish a session directly from a token', async () => {

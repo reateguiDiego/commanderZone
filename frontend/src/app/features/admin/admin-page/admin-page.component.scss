@@ -87,6 +87,49 @@ h1 {
   color: var(--cz-primary);
 }
 
+.admin-nav-item__badge {
+  position: relative;
+  display: inline-grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  margin-inline-start: auto;
+  padding-inline: 0.28rem;
+  border: 1px solid rgb(var(--cz-danger-rgb) / 82%);
+  border-radius: 999px;
+  background: var(--cz-danger);
+  color: var(--cz-on-danger);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow:
+    0 0 0 2px rgb(var(--cz-bg-rgb) / 62%),
+    0 0 0.65rem rgb(var(--cz-danger-rgb) / 42%);
+  animation: admin-nav-report-badge-pulse 2.15s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.admin-nav-item__badge::after {
+  position: absolute;
+  inset: -0.2rem;
+  border: 1px solid rgb(var(--cz-danger-rgb) / 68%);
+  border-radius: inherit;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  animation: admin-nav-report-badge-ring 2.15s ease-out infinite;
+}
+
+.admin-nav-item__pending-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .admin-nav-item.cz-button--active {
   position: relative;
   border-color: rgb(var(--cz-accent-rgb) / 82%);
@@ -128,6 +171,52 @@ h1 {
 .admin-content--top {
   align-content: start;
   align-items: start;
+}
+
+@keyframes admin-nav-report-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 2px rgb(var(--cz-bg-rgb) / 62%),
+      0 0 0.65rem rgb(var(--cz-danger-rgb) / 42%);
+  }
+
+  16% {
+    transform: scale(1.1) rotate(-3deg);
+  }
+
+  28% {
+    transform: scale(1.04) rotate(2deg);
+    box-shadow:
+      0 0 0 2px rgb(var(--cz-bg-rgb) / 62%),
+      0 0 1rem rgb(var(--cz-danger-rgb) / 72%);
+  }
+}
+
+@keyframes admin-nav-report-badge-ring {
+  0%,
+  14% {
+    opacity: 0;
+    transform: scale(0.74);
+  }
+
+  30% {
+    opacity: 0.72;
+  }
+
+  52%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-item__badge,
+  .admin-nav-item__badge::after {
+    animation: none;
+  }
 }
 
 @media (min-width: 1121px) {
@@ -195,5 +284,12 @@ h1 {
   .admin-nav-item lucide-icon {
     width: 0.82rem;
     height: 0.82rem;
+  }
+
+  .admin-nav-item__badge {
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding-inline: 0.16rem;
+    font-size: 0.55rem;
   }
 }

@@ -60,6 +60,7 @@ export class GameActivityPanelComponent implements AfterViewChecked {
   readonly hasAnyChatReaction = input.required<(message: ChatMessage) => boolean>();
   readonly shouldShowChatReactionUsers =
     input.required<(message: ChatMessage, reaction: ChatReactionType) => boolean>();
+  readonly canReportChatMessage = input<(message: ChatMessage) => boolean>(() => false);
   readonly loadingOlder = input(false);
   readonly loadingNewer = input(false);
   readonly canLoadOlder = input(false);
@@ -74,6 +75,7 @@ export class GameActivityPanelComponent implements AfterViewChecked {
     message: ChatMessage;
     reaction: ChatReactionType;
   }>();
+  readonly chatMessageReportRequested = output<ChatMessage>();
   readonly activeCardListPopover = signal<CardListPopover | null>(null);
 
   @ViewChild('feed') private readonly feed?: ElementRef<HTMLElement>;

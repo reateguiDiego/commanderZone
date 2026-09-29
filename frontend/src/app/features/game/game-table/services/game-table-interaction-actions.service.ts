@@ -170,6 +170,7 @@ export class GameTableInteractionActionsService {
       return;
     }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
+      this.uiState.openContextMenu(event, { playerId, zone, kind: 'player' });
       return;
     }
 

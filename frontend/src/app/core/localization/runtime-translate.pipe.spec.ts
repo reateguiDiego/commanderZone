@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslateService as NgxTranslateService } from '@ngx-translate/core';
 import { EMPTY } from 'rxjs';
-import { RuntimeTranslatePipe } from './runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from './runtime-translate.pipe';
 
 const GAME_SETTING_LABEL_KEY = 'settings.dashboardSettingsModal.gameSettings.gameAnimations.label';
 
@@ -48,5 +48,11 @@ describe('RuntimeTranslatePipe', () => {
 
     expect(fixture.nativeElement.textContent).toBe('');
     expect(translateMock.instant).not.toHaveBeenCalled();
+  });
+
+  it('includes report labels in the runtime fallback', () => {
+    expect(runtimeTranslationFallback('reports.categories.otherProblem')).toBe('Other problem');
+    expect(runtimeTranslationFallback('reports.summary.pendingAriaLabel', { count: 3 }))
+      .toBe('3 reports awaiting review');
   });
 });

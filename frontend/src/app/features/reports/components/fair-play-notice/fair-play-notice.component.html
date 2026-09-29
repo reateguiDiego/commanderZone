@@ -1,0 +1,25 @@
+@if (open() !== null) {
+  <app-modal
+    data-testid="fair-play-notice"
+    [open]="true"
+    ariaLabel="reports.fairPlay.title"
+    [headerImageSrc]="themeAssets.czZoneHeaderLogoUrl()"
+    headerImageAlt="shared.text.commanderzone"
+    message="reports.fairPlay.message"
+    primaryLabel="common.actions.understood"
+    [showSecondary]="false"
+    [showCloseButton]="true"
+    closeLabel="common.modal.close"
+    [success]="true"
+    size="narrow"
+    (primary)="acknowledge()"
+    (close)="acknowledge()"
+  >
+    <img
+      class="fair-play-notice__balance-card"
+      [src]="balanceCardImageUrl"
+      alt=""
+      aria-hidden="true"
+    />
+  </app-modal>
+}

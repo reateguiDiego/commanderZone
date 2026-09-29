@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks, resolveGameToPlaying } from './support/commander-game';
 import { openChat } from './support/game-table';
 
 test('chat messages are synchronized between two isolated player sessions', async ({ browser, request, baseURL }) => {
@@ -13,6 +13,7 @@ test('chat messages are synchronized between two isolated player sessions', asyn
     playerBPrefix: 'chat-b',
   });
   const { gameId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
 
   const contextA = await browser.newContext({
     baseURL,

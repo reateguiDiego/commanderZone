@@ -7,6 +7,7 @@ import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of
 import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
 import { CardLanguageCoverage, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { ContentSafetyService } from '../../../../../../../core/content-safety/content-safety.service';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
 import { AppThemeId } from '../../../../../../../core/theme/app-theme';
 import {
@@ -144,6 +145,7 @@ export class DashboardSettingsModalComponent {
 
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
+  private readonly contentSafety = inject(ContentSafetyService);
   private readonly cardsLanguage = inject(CardsLanguageService);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
@@ -450,6 +452,11 @@ export class DashboardSettingsModalComponent {
     }
     if (this.gameSettingsChanged()) {
       payload.gamePreferences = this.gameSettingsPayload();
+    }
+
+    if (payload.displayName && this.contentSafety.hasProhibitedContent(payload.displayName)) {
+      this.contentSafety.showProhibitedContentModal();
+      return;
     }
 
     this.saveInProgress.set(true);

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+} from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
@@ -10,7 +20,15 @@ import { TextFitDirective } from '../text-fit/text-fit.directive';
 
 @Component({
   selector: 'app-modal',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective, PrettyScrollDirective, HeroRuleComponent, BackButtonComponent, TextFitDirective],
+  imports: [
+    LucideAngularModule,
+    RuntimeTranslatePipe,
+    CzButtonDirective,
+    PrettyScrollDirective,
+    HeroRuleComponent,
+    BackButtonComponent,
+    TextFitDirective,
+  ],
   templateUrl: './app-modal.component.html',
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,9 +44,11 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() messageParams: Record<string, unknown> | undefined;
   @Input() headerImageSrc: string | null = null;
   @Input() headerImageAlt = '';
+  @Input() headerImagePlacement: 'header' | 'body-centered' = 'header';
   @Input() primaryLabel = 'OK';
   @Input() secondaryLabel = 'Cancel';
   @Input() danger = false;
+  @Input() success = false;
   @Input() showPrimary = true;
   @Input() showSecondary = true;
   @Input() primaryDisabled = false;

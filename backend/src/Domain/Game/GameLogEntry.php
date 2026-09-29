@@ -58,6 +58,17 @@ class GameLogEntry
         return $this->version;
     }
 
+    public function message(): string
+    {
+        return $this->text;
+    }
+
+    /** @return array<string,mixed> */
+    public function metadata(): array
+    {
+        return $this->metadata;
+    }
+
     public function createdAt(): \DateTimeImmutable
     {
         return $this->createdAt;

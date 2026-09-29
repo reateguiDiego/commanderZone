@@ -18,6 +18,7 @@ use App\Application\Game\Runtime\GameRuntimeClosingFence;
 use App\Application\Game\Runtime\GameRuntimeLifecycleControlInterface;
 use App\Application\Game\Runtime\GameRuntimeLifecycleCommandService;
 use App\Application\Game\Runtime\GameRuntimeVersionConflictException;
+use App\Application\Moderation\GameModerationRetentionService;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Application\Room\Lifecycle\WaitingRoomLifecycleScheduler;
 use App\Application\Room\RoomDeckBracketPayloadEnricher;
@@ -47,8 +48,8 @@ class RoomsController extends ApiController
     public function __construct(
         private readonly ?ImpersonationContext $impersonation = null,
         private readonly ?RoomDeckBracketPayloadEnricher $roomDeckBracketPayloadEnricher = null,
-    )
-    {
+        private readonly ?GameModerationRetentionService $moderationRetention = null,
+    ) {
     }
 
     #[Route('/rooms', methods: ['GET'])]
@@ -476,6 +477,9 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
+        }
+        if ($room->status() === Room::STATUS_ARCHIVED) {
+            return $this->fail('Game evidence is being collected.', 409, ['code' => 'GAME_EVIDENCE_PENDING']);
         }
         if (!$room->hasPlayer($user)) {
             return $this->fail('Only room players can leave the room.', 403);
@@ -1149,10 +1153,17 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         };
     }
 
-    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): void
+    /**
+     * @return bool true when an archived moderation source replaces deletion
+     */
+    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): bool
     {
         $game = $room->game();
         if ($game instanceof Game) {
+            if ($this->moderationRetention?->retainForEvidenceIfRequired($game) === true) {
+                return true;
+            }
+
             // Room and game reference each other in the database; break room.game_id first.
             $room->detachGame();
             $entityManager->flush();
@@ -1161,6 +1172,8 @@ SQL, ['roomId' => $id, 'userId' => $user->id()]);
         }
 
         $entityManager->remove($room);
+
+        return false;
     }
 
     private function deckArtImageUrl(Deck $deck, User $viewer, CardLocalizationService $localization): ?string

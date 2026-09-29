@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Application\Deck\DeckAnalysisExecution;
 use Doctrine\DBAL\DriverManager;
+use PDO;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 final class DeckAnalysisExecutionTest extends ApiTestCase
@@ -11,7 +12,9 @@ final class DeckAnalysisExecutionTest extends ApiTestCase
     public function testIndependentConnectionCannotComputeSameDeckAndFailureReleasesLock(): void
     {
         $connection = $this->entityManager->getConnection();
-        $other = DriverManager::getConnection($connection->getParams());
+        $otherParameters = $connection->getParams();
+        $otherParameters['driverOptions'][PDO::ATTR_PERSISTENT] = false;
+        $other = DriverManager::getConnection($otherParameters);
         $first = new DeckAnalysisExecution($connection);
         $second = new DeckAnalysisExecution($other);
         try {

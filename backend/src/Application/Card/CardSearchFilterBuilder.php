@@ -2,6 +2,7 @@
 
 namespace App\Application\Card;
 
+use App\Domain\Card\FutureCommunityCommanderLegality;
 use Doctrine\DBAL\ArrayParameterType;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -93,8 +94,8 @@ final class CardSearchFilterBuilder
     {
         $commanderLegal = $request->query->get('commanderLegal');
         if ($commanderLegal !== null && $commanderLegal !== '') {
-            $filters[] = 'c.commander_legal = :commanderLegal';
-            $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
+            $condition = $this->commanderLegalCondition();
+            $filters[] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN) ? $condition : 'NOT '.$condition;
         }
 
         $commanderCandidate = $request->query->get('commanderCandidate');
@@ -440,8 +441,40 @@ SQL;
         }
 
         foreach ($formats as $format) {
-            $filters[] = sprintf("(c.legalities::jsonb ->> '%s') = 'legal'", $format);
+            $filters[] = $format === 'commander'
+                ? $this->commanderLegalCondition()
+                : sprintf("(c.legalities::jsonb ->> '%s') = 'legal'", $format);
         }
+    }
+
+    private function commanderLegalCondition(): string
+    {
+        $communityFormats = implode(', ', array_map(
+            static fn (string $format): string => sprintf("'%s'", $format),
+            FutureCommunityCommanderLegality::communityFormats(),
+        ));
+
+        return <<<SQL
+(
+    c.commander_legal = true
+    OR (
+        (c.legalities::jsonb ->> 'future') = 'legal'
+        AND EXISTS (
+            SELECT 1
+            FROM jsonb_each_text(COALESCE(c.legalities::jsonb, '{}'::jsonb)) AS community_legality(format, status)
+            WHERE community_legality.format IN ({$communityFormats})
+              AND community_legality.status = 'legal'
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_each_text(COALESCE(c.legalities::jsonb, '{}'::jsonb)) AS non_community_legality(format, status)
+            WHERE non_community_legality.format <> 'future'
+              AND non_community_legality.format NOT IN ({$communityFormats})
+              AND non_community_legality.status = 'legal'
+        )
+    )
+)
+SQL;
     }
 
     /**

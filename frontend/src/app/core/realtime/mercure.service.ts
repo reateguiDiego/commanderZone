@@ -15,6 +15,10 @@ export type MercureWaitingRoomStreamMessage =
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'event'; readonly event: WaitingRoomEvent };
 
+export interface ModerationSummaryRealtimeEvent {
+  readonly type: 'moderation.reports.invalidated';
+}
+
 @Injectable({ providedIn: 'root' })
 export class MercureService {
   constructor(private readonly http: HttpClient) {}
@@ -245,6 +249,42 @@ export class MercureService {
 
           source.onerror = () => {
             // EventSource reconnects; navigation/open refreshes expired message data.
+          };
+        })
+        .catch((error) => subscriber.error(error));
+
+      return () => {
+        closed = true;
+        source?.close();
+      };
+    });
+  }
+
+  moderationSummaryEvents(): Observable<ModerationSummaryRealtimeEvent> {
+    return new Observable<ModerationSummaryRealtimeEvent>((subscriber) => {
+      let source: EventSource | null = null;
+      let closed = false;
+      const url = `${MERCURE_URL}?topic=${encodeURIComponent('admin/reports/summary')}`;
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
+          if (closed) {
+            return;
+          }
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
+
+          source.onmessage = (message) => {
+            try {
+              const event = JSON.parse(message.data) as { type?: unknown };
+              if (event.type === 'moderation.reports.invalidated') {
+                subscriber.next({ type: event.type });
+              }
+            } catch (error) {
+              subscriber.error(error);
+            }
+          };
+
+          source.onerror = () => {
+            // EventSource reconnects. The initial summary stays usable while it reconnects.
           };
         })
         .catch((error) => subscriber.error(error));

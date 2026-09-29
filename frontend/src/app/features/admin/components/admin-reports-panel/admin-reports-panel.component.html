@@ -1,120 +1,251 @@
 <section class="admin-reports-panel" aria-labelledby="admin-reports-title">
   <header class="admin-reports-header">
-    <h2 id="admin-reports-title">{{ 'shared.text.reports' | runtimeTranslate }}</h2>
-    <button type="button" czButton="secondary" czButtonSize="sm" (click)="loadReports()" [disabled]="isLoading()">
-      {{ 'shared.text.refresh' | runtimeTranslate }}
+    <div>
+      <h2 id="admin-reports-title">{{ 'shared.text.reports' | runtimeTranslate }}</h2>
+      <p>{{ 'reports.moderation.queue.description' | runtimeTranslate }}</p>
+    </div>
+    <button
+      type="button"
+      class="admin-reports-refresh-button"
+      czButton="icon"
+      czButtonSize="sm"
+      [disabled]="isLoading()"
+      [attr.aria-label]="'shared.text.refresh' | runtimeTranslate"
+      (click)="loadReports()"
+    >
+      <lucide-icon name="refresh-ccw" size="16" aria-hidden="true" />
     </button>
   </header>
 
-  @if (errorMessage(); as error) {
+  @if (listError(); as error) {
     <p class="admin-reports-alert" role="alert">{{ error | runtimeTranslate }}</p>
   }
 
-  <div class="admin-reports-filters" [attr.aria-label]="'admin.reports.filtersAriaLabel' | runtimeTranslate">
-    <label class="admin-reports-search">
-      <span>{{ 'admin.reports.columns.reporter' | runtimeTranslate }}</span>
-      <input
-        type="search"
-        name="reporterSearch"
-        [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
-        [value]="reporterQuery()"
-        (input)="updateReporterQuery($event)"
-      />
-    </label>
-
-    <label class="admin-reports-search">
-      <span>{{ 'admin.reports.columns.reportedUser' | runtimeTranslate }}</span>
-      <input
-        type="search"
-        name="reportedUserSearch"
-        [placeholder]="'shared.text.usernameOrEmail' | runtimeTranslate"
-        [value]="reportedUserQuery()"
-        (input)="updateReportedUserQuery($event)"
-      />
-    </label>
-  </div>
-
-  <div class="admin-reports-table-wrap">
-    <table class="admin-reports-table">
-      <thead>
-        <tr>
-          <th scope="col">{{ 'admin.reports.columns.reporter' | runtimeTranslate }}</th>
-          <th scope="col">{{ 'admin.reports.columns.reporterEmail' | runtimeTranslate }}</th>
-          <th scope="col">{{ 'admin.reports.columns.reportedUser' | runtimeTranslate }}</th>
-          <th scope="col">{{ 'admin.reports.columns.reportedUserEmail' | runtimeTranslate }}</th>
-          <th scope="col">{{ 'shared.text.reason' | runtimeTranslate }}</th>
-          <th scope="col">{{ 'shared.text.actions' | runtimeTranslate }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        @if (isLoading() && reports().length === 0) {
-          <tr>
-            <td colspan="6">
-              <p class="admin-reports-empty">{{ 'admin.reports.loading' | runtimeTranslate }}</p>
-            </td>
-          </tr>
-        } @else if (reports().length === 0) {
-          <tr>
-            <td colspan="6">
-              <p class="admin-reports-empty">{{ 'admin.reports.empty' | runtimeTranslate }}</p>
-            </td>
-          </tr>
-        } @else if (filteredReports().length === 0) {
-          <tr>
-            <td colspan="6">
-              <p class="admin-reports-empty">{{ 'admin.reports.noMatch' | runtimeTranslate }}</p>
-            </td>
-          </tr>
-        } @else {
-          @for (report of filteredReports(); track report.id) {
-            <tr>
-              <td [attr.data-label]="'admin.reports.columns.reporter' | runtimeTranslate">
-                <span class="report-username">{{ report.reporter.displayName }}</span>
-              </td>
-              <td [attr.data-label]="'admin.reports.columns.reporterEmail' | runtimeTranslate">
-                <span class="report-mail">{{ report.reporter.email }}</span>
-              </td>
-              <td [attr.data-label]="'admin.reports.columns.reportedUser' | runtimeTranslate">
-                <span class="report-username">{{ report.reportedUser.displayName }}</span>
-              </td>
-              <td [attr.data-label]="'admin.reports.columns.reportedUserEmail' | runtimeTranslate">
-                <span class="report-mail">{{ report.reportedUser.email }}</span>
-              </td>
-              <td [attr.data-label]="'shared.text.reason' | runtimeTranslate">
-                <span class="report-reason">{{ report.reason }}</span>
-              </td>
-              <td [attr.data-label]="'shared.text.actions' | runtimeTranslate">
-                <div class="admin-reports-actions">
-                  <app-tooltip [text]="'admin.reports.messageReporter' | runtimeTranslate" align="end">
-                    <button
-                      type="button"
-                      class="admin-reports-icon-action"
-                      czButton="icon"
-                      czButtonSize="sm"
-                      [attr.aria-label]="'admin.reports.sendMessageToReporter' | runtimeTranslate: { name: report.reporter.displayName }"
-                      (click)="requestSendMessageToReporter(report)"
-                    >
-                      <lucide-icon name="send" size="16" aria-hidden="true" />
-                    </button>
-                  </app-tooltip>
-                  <app-tooltip [text]="'admin.reports.messageReportedUser' | runtimeTranslate" align="end">
-                    <button
-                      type="button"
-                      class="admin-reports-icon-action"
-                      czButton="icon"
-                      czButtonSize="sm"
-                      [attr.aria-label]="'admin.reports.sendMessageToReportedUser' | runtimeTranslate: { name: report.reportedUser.displayName }"
-                      (click)="requestSendMessage(report)"
-                    >
-                      <lucide-icon name="send" size="16" aria-hidden="true" />
-                    </button>
-                  </app-tooltip>
-                </div>
-              </td>
-            </tr>
-          }
+  <div class="admin-reports-layout">
+    <aside
+      class="admin-report-queue"
+      [attr.aria-label]="'reports.moderation.queue.ariaLabel' | runtimeTranslate"
+    >
+      <div class="admin-report-queue__heading">
+        <span>{{
+          'reports.moderation.queue.pendingCount' | runtimeTranslate: { count: total() }
+        }}</span>
+        @if (isLoading()) {
+          <small>{{ 'reports.moderation.queue.loading' | runtimeTranslate }}</small>
         }
-      </tbody>
-    </table>
+      </div>
+
+      @for (report of reports(); track report.id) {
+        <button
+          type="button"
+          class="admin-report-queue__item"
+          [class.admin-report-queue__item--pending]="report.status === 'pending_review'"
+          [class.admin-report-queue__item--selected]="selectedReport()?.id === report.id"
+          (click)="selectReport(report)"
+        >
+          <span class="admin-report-queue__category">{{
+            categoryLabelKeys[report.category] | runtimeTranslate
+          }}</span>
+          <strong>{{ report.reportedUser.displayName }}</strong>
+          <small>{{ report.createdAt | date: dateTimeFormat }}</small>
+        </button>
+      } @empty {
+        @if (!isLoading()) {
+          <p class="admin-reports-empty">
+            {{ 'reports.moderation.queue.empty' | runtimeTranslate }}
+          </p>
+        }
+      }
+
+      @if (totalPages() > 1) {
+        <div class="admin-report-queue__pagination">
+          <button
+            type="button"
+            czButton="secondary"
+            czButtonSize="sm"
+            [disabled]="!hasPreviousPage() || isLoading()"
+            (click)="goToPreviousPage()"
+          >
+            {{ 'common.actions.previous' | runtimeTranslate }}
+          </button>
+          <span>{{
+            'reports.moderation.queue.page'
+              | runtimeTranslate: { page: currentPage(), totalPages: totalPages() }
+          }}</span>
+          <button
+            type="button"
+            czButton="secondary"
+            czButtonSize="sm"
+            [disabled]="!hasNextPage() || isLoading()"
+            (click)="goToNextPage()"
+          >
+            {{ 'shared.text.next' | runtimeTranslate }}
+          </button>
+        </div>
+      }
+    </aside>
+
+    <section class="admin-report-detail" [attr.aria-live]="isLoadingDetail() ? 'polite' : null">
+      @if (isLoadingDetail()) {
+        <p class="admin-reports-empty">
+          {{ 'reports.moderation.detail.loading' | runtimeTranslate }}
+        </p>
+      } @else if (detailError(); as error) {
+        <p class="admin-reports-alert" role="alert">{{ error | runtimeTranslate }}</p>
+      } @else if (selectedReport(); as report) {
+        <header class="admin-report-detail__header">
+          <div>
+            <span class="admin-report-detail__eyebrow">{{
+              categoryLabelKeys[report.category] | runtimeTranslate
+            }}</span>
+            <h3 class="admin-report-detail__reported-user">
+              <span>{{ report.reportedUser.displayName }}</span>
+              @if (report.reportedUser.id) {
+                <app-tooltip
+                  [text]="'admin.reports.messageReportedUser' | runtimeTranslate"
+                  align="end"
+                >
+                  <button
+                    type="button"
+                    class="admin-reports-icon-action"
+                    czButton="icon"
+                    czButtonSize="sm"
+                    [attr.aria-label]="
+                      'admin.reports.sendMessageToReportedUser'
+                        | runtimeTranslate: { name: report.reportedUser.displayName }
+                    "
+                    (click)="requestMessageToReportedUser(report)"
+                  >
+                    <lucide-icon name="send" size="16" aria-hidden="true" />
+                  </button>
+                </app-tooltip>
+              }
+            </h3>
+            <p class="admin-report-detail__reported-by">
+              <span>{{
+                'reports.moderation.detail.reportedBy' | runtimeTranslate: { name: '' }
+              }}</span>
+              <strong class="admin-report-detail__reporter">
+                <span>{{ report.reporter.displayName }}</span>
+                @if (report.reporter.id) {
+                  <app-tooltip
+                    [text]="'admin.reports.messageReporter' | runtimeTranslate"
+                    align="end"
+                  >
+                    <button
+                      type="button"
+                      class="admin-reports-icon-action"
+                      czButton="icon"
+                      czButtonSize="sm"
+                      [attr.aria-label]="
+                        'admin.reports.sendMessageToReporter'
+                          | runtimeTranslate: { name: report.reporter.displayName }
+                      "
+                      (click)="requestMessageToReporter(report)"
+                    >
+                      <lucide-icon name="send" size="16" aria-hidden="true" />
+                    </button>
+                  </app-tooltip>
+                }
+              </strong>
+            </p>
+          </div>
+          @if (report.reportedUser.id) {
+            <button
+              type="button"
+              czButton="secondary"
+              czButtonSize="sm"
+              (click)="openModerationUser(report.reportedUser.id)"
+            >
+              {{ 'reports.moderation.userDrawer.open' | runtimeTranslate }}
+            </button>
+          }
+        </header>
+
+        <dl class="admin-report-detail__metadata">
+          <div>
+            <dt>{{ 'reports.moderation.detail.source' | runtimeTranslate }}</dt>
+            <dd>{{ sourceLabelKeys[report.source] | runtimeTranslate }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'shared.text.created' | runtimeTranslate }}</dt>
+            <dd>{{ report.createdAt | date: dateTimeFormat }}</dd>
+          </div>
+        </dl>
+
+        @if (report.comment) {
+          <section class="admin-report-detail__section">
+            <h4>{{ 'reports.moderation.detail.comment' | runtimeTranslate }}</h4>
+            <p class="admin-report-detail__comment">{{ report.comment }}</p>
+          </section>
+        }
+
+        <section class="admin-report-detail__section">
+          <h4>{{ 'reports.moderation.evidence.title' | runtimeTranslate }}</h4>
+          @if (report.evidence; as evidence) {
+            <app-report-evidence [evidence]="evidence" [dateTimeFormat]="dateTimeFormat" />
+          } @else {
+            <p>{{ 'reports.moderation.evidence.awaiting' | runtimeTranslate }}</p>
+          }
+        </section>
+
+        @if (report.resolution; as resolution) {
+          <section class="admin-report-detail__section">
+            <h4>{{ 'reports.moderation.resolution.resolved' | runtimeTranslate }}</h4>
+            <p>
+              {{
+                'reports.moderation.resolution.outcomes.' + resolution.outcome | runtimeTranslate
+              }}
+            </p>
+            @if (resolution.note) {
+              <p>{{ resolution.note }}</p>
+            }
+          </section>
+        } @else {
+          <section class="admin-report-resolution">
+            <h4>{{ 'reports.moderation.resolution.title' | runtimeTranslate }}</h4>
+            <app-format-select
+              name="resolutionOutcome"
+              labelKey="reports.moderation.resolution.outcomeLabel"
+              [options]="resolutionOutcomeOptions"
+              [value]="resolutionOutcome()"
+              (valueChange)="setResolutionOutcome($event)"
+            />
+            @if (resolutionOutcome() === 'strike') {
+              <label>
+                <span>{{ 'reports.moderation.strikes.descriptionLabel' | runtimeTranslate }}</span>
+                <textarea
+                  name="strikeDescription"
+                  rows="3"
+                  [value]="strikeDescription()"
+                  (input)="setStrikeDescription($event)"
+                ></textarea>
+              </label>
+            }
+            @if (resolutionError(); as error) {
+              <p class="admin-reports-alert" role="alert">{{ error | runtimeTranslate }}</p>
+            }
+            <button
+              type="button"
+              czButton="primary"
+              [disabled]="!canResolve()"
+              (click)="resolveSelectedReport()"
+            >
+              {{ 'reports.moderation.resolution.title' | runtimeTranslate }}
+            </button>
+          </section>
+        }
+      } @else if (reports().length > 0) {
+        <p class="admin-reports-empty">
+          {{ 'reports.moderation.detail.selectPrompt' | runtimeTranslate }}
+        </p>
+      }
+    </section>
   </div>
 </section>
+
+<app-moderation-user-drawer
+  [open]="moderationUserId() !== null"
+  [userId]="moderationUserId()"
+  (closed)="closeModerationUser()"
+/>

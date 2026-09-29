@@ -1,5 +1,8 @@
 import type { BattlefieldLayoutRect, BattlefieldViewLayout } from './game-table-layout/game-table-grid-seat.model';
-import { measuredBattlefieldCardSize } from './utils/battlefield-position';
+import {
+  measuredBattlefieldCardSize,
+  renderedBattlefieldPositionForElement,
+} from './utils/battlefield-position';
 import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
 import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
@@ -191,6 +194,9 @@ import { ChatRecipientSelectComponent } from './components/chat-recipient-select
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollKind } from '../../../core/ui/roll-modal/roll';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
+import { ReportModalComponent } from '../../reports/components/report-modal/report-modal.component';
+import { FairPlayNoticeComponent } from '../../reports/components/fair-play-notice/fair-play-notice.component';
+import { GameReportActionsService } from '../../reports/data-access/game-report-actions.service';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
@@ -597,6 +603,8 @@ const DICE_RESULT_REVEAL_DELAY_MS = 3_000;
     RollModalComponent,
     TabListComponent,
     GameScheduledImageDirective,
+    ReportModalComponent,
+    FairPlayNoticeComponent,
   ],
   providers: [
     GameTableLayoutState,
@@ -689,6 +697,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly rematchVotes = inject(GameTableRematchVoteService);
   private readonly router = inject(Router);
   private readonly authStore = inject(AuthStore);
+  readonly fairPlayUserId = computed(() => this.authStore.user()?.id ?? null);
+  private readonly gameReportActions = inject(GameReportActionsService);
   private readonly motion = inject(GameTableMotionService);
   private readonly chatReadState = inject(GameTableChatReadStateService);
   readonly manaComets = inject(GameTableManaCometService);
@@ -785,6 +795,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     void this.store.setCommanderDamage(targetPlayerId, sourcePlayerId, commanderInstanceId, delta);
   readonly gridPlayerCounterChanged = (playerId: string, key: string, delta: number): void =>
     void this.store.changePlayerCounter(playerId, key, delta);
+  readonly canReportPlayer = (playerId: string): boolean =>
+    this.gameReportActions.canReportPlayer(
+      this.store.players().find((player) => player.id === playerId),
+    );
   readonly hideGridHelperPreview = (): void => this.store.hideCardPreview();
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string =>
@@ -1180,6 +1194,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.isChatMessageEvaporating(message, index);
   readonly activityCanReactToChatMessage = (message: ChatMessage): boolean =>
     this.canReactToChatMessage(message);
+  readonly activityCanReportChatMessage = (message: ChatMessage): boolean =>
+    this.gameReportActions.canReportChatMessage(message, this.store.players());
   readonly activityHasOwnChatReaction = (
     message: ChatMessage,
     reaction: ChatReactionType,
@@ -1789,6 +1805,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     void this.store.toggleChatReaction(message.id, reaction);
+  }
+
+  openChatMessageReport(message: ChatMessage): void {
+    this.gameReportActions.openChatMessageReport(this.store.gameId(), message, this.store.players());
+  }
+
+  openPlayerReport(playerId: string): void {
+    this.gameReportActions.openGamePlayerReport(
+      this.store.gameId(),
+      this.store.players().find((player) => player.id === playerId),
+    );
   }
 
   queueFloatingContentScrollToBottom(): void {
@@ -3058,10 +3085,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const targetCardSize = battlefieldPosition
       ? measuredBattlefieldCardSize(battlefieldTarget)
       : null;
-    const targetPoint = battlefieldPosition && targetCardSize
+    const renderedBattlefieldPosition = battlefieldPosition && targetCardSize
+      ? renderedBattlefieldPositionForElement(
+          battlefieldTarget,
+          battlefieldPosition,
+          targetCardSize.height,
+        )
+      : null;
+    const targetPoint = renderedBattlefieldPosition && targetCardSize
       ? {
-          x: rect.left + battlefieldPosition.x + targetCardSize.width / 2,
-          y: rect.top + battlefieldPosition.y + targetCardSize.height / 2,
+          x: rect.left + renderedBattlefieldPosition.x + targetCardSize.width / 2,
+          y: rect.top + renderedBattlefieldPosition.y + targetCardSize.height / 2,
         }
       : dropEvent
         ? { x: dropEvent.clientX, y: dropEvent.clientY }
@@ -3365,6 +3399,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'focusPlayer':
         this.focusPlayerBattlefield(menu.playerId);
+        return;
+      case 'reportPlayer':
+        this.store.closeContextMenu();
+        this.openPlayerReport(menu.playerId);
         return;
       case 'openZone':
         this.store.closeContextMenu();

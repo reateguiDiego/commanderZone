@@ -6,14 +6,14 @@ test('can create authenticated browser context from real backend auth', async ({
     throw new Error('Playwright baseURL is required.');
   }
 
-  const { context } = await createAuthenticatedContext(browser, request, baseURL, 'auth-smoke');
+  const { context, user } = await createAuthenticatedContext(browser, request, baseURL, 'auth-smoke');
 
   try {
     const page = await context.newPage();
     await page.goto('/dashboard');
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('heading', { name: 'Game Control' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: `Welcome ${user.displayName}` })).toBeVisible();
   } finally {
     await context.close();
   }
