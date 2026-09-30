@@ -7,7 +7,10 @@ services:
         num_threads 4
         max_threads 4
     cpus: 1.5
+    # Compose requires both resource-limit forms to agree after merging.
+    mem_limit: 1200m
     deploy:
       resources:
         limits:
           cpus: "1.5"
+          memory: 1200m
