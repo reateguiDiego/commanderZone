@@ -246,6 +246,10 @@
         [hasActiveCardDrag]="
           store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null
         "
+        [hasActiveBattlefieldPointerDrag]="
+          (store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null) &&
+          store.hasActivePointerDrag()
+        "
         [externalRevealAllowed]="store.handExternalRevealAllowed()"
         [motionActive]="!grid && handMotionActive()"
         [motionLayoutMode]="grid ? null : handMotionLayoutMode()"

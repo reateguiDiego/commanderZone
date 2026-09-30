@@ -19,12 +19,17 @@ import {
 import { AlignmentGuide } from '../drag-drop/game-table-battlefield-drag.state';
 import { updateGameSnapshotCards } from '../core/game-snapshot-mutation';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
+import type { GameTableSnapshotOptions } from '../core/game-table-snapshot-coordinator.state';
 import { buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { buildLandStackGroups } from '../../utils/land-stack';
 
+export interface GameTableLocalCardPositionOptions {
+  readonly transientPointerDrag?: boolean;
+}
+
 export interface GameTableBattlefieldContext {
   readonly snapshot: () => GameSnapshot | null;
-  readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setSnapshot: (snapshot: GameSnapshot | null, options?: GameTableSnapshotOptions) => void;
   readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly setError: (message: string) => void;
   readonly errorMessage: (error: unknown) => string;
@@ -246,7 +251,13 @@ export class GameTableBattlefieldState {
     );
   }
 
-  updateLocalCardPosition(context: GameTableBattlefieldContext, playerId: string, instanceId: string, position: { x: number; y: number }): void {
+  updateLocalCardPosition(
+    context: GameTableBattlefieldContext,
+    playerId: string,
+    instanceId: string,
+    position: { x: number; y: number },
+    options?: GameTableLocalCardPositionOptions,
+  ): void {
     const snapshot = context.snapshot();
     if (!snapshot) {
       return;
@@ -264,6 +275,11 @@ export class GameTableBattlefieldState {
       },
     }]);
     if (next !== snapshot) {
+      if (options?.transientPointerDrag) {
+        context.setSnapshot(next, { trackDropFeedback: false });
+        return;
+      }
+
       context.setSnapshot(next);
     }
   }

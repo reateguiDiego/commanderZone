@@ -5,7 +5,17 @@ import { GameAttachment, GameBattlefieldStack, GameCardInstance, GameZoneName } 
 import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
 
+const FOCUSED_GEOMETRY_CACHE_STORAGE_KEY = 'cz_perf_focused_geometry_cache';
+
 describe('FocusedBattlefieldComponent', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY);
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY);
+  });
+
   it('exposes the player battlefield as a motion zone', async () => {
     const { fixture } = await renderFocusedBattlefield();
 
@@ -437,6 +447,326 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElements(fixture, 'normal-card')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]')).not.toBeNull();
   });
+
+  it('keeps measuring every requested card size when focused geometry caching is disabled', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    prepareBattlefieldForMeasurement(fixture);
+    const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+    try {
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 24 });
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 24 });
+
+      expect(measured).toHaveBeenCalledTimes(2);
+    } finally {
+      measured.mockRestore();
+    }
+  });
+
+  it('measures an equivalent card only once within a frame when focused geometry caching is enabled', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    prepareBattlefieldForMeasurement(fixture);
+    const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+    try {
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 24 });
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 24 });
+
+      expect(measured).toHaveBeenCalledTimes(1);
+    } finally {
+      measured.mockRestore();
+    }
+  });
+
+  it('caches fallback card measurements within the same frame', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    const battlefield = prepareBattlefieldForMeasurement(fixture);
+    const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 0, height: 0 });
+    const cardLookups = vi.spyOn(battlefield, 'querySelectorAll');
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+    try {
+      fixture.componentInstance.displayedCardPosition(card);
+      fixture.componentInstance.displayedCardPosition(card);
+
+      expect(measured).toHaveBeenCalledTimes(1);
+      expect(cardLookups).toHaveBeenCalledTimes(1);
+    } finally {
+      cardLookups.mockRestore();
+      measured.mockRestore();
+    }
+  });
+
+  it('keeps focused geometry entries scoped to the measured instance id', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'card-1', name: 'Llanowar Elves', typeLine: 'Creature - Elf Druid', tapped: false },
+        { instanceId: 'card-2', name: 'Sol Ring', typeLine: 'Artifact', tapped: false },
+      ],
+    });
+    const firstCard = battlefieldCard(fixture, 'card-1');
+    const secondCard = battlefieldCard(fixture, 'card-2');
+    prepareBattlefieldForMeasurement(fixture);
+    const firstMeasurement = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+    const secondMeasurement = measureCardElement(cardMeasurementElement(fixture, 'card-2'), { width: 120, height: 168 });
+    fixture.componentRef.setInput('cardPosition', (card: GameCardInstance) => card.instanceId === 'card-1'
+      ? { x: 16, y: 24 }
+      : { x: 40, y: 48 });
+
+    try {
+      fixture.componentInstance.displayedCardPosition(firstCard);
+      fixture.componentInstance.displayedCardPosition(firstCard);
+      fixture.componentInstance.displayedCardPosition(secondCard);
+      fixture.componentInstance.displayedCardPosition(secondCard);
+
+      expect(firstMeasurement).toHaveBeenCalledTimes(1);
+      expect(secondMeasurement).toHaveBeenCalledTimes(1);
+    } finally {
+      secondMeasurement.mockRestore();
+      firstMeasurement.mockRestore();
+    }
+  });
+
+  it('remeasures focused geometry after the next animation frame', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      nextFrame += 1;
+      queuedFrames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frame) => {
+      queuedFrames.delete(frame);
+    });
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+      flushAnimationFrames(queuedFrames);
+      const card = battlefieldCard(fixture, 'card-1');
+      prepareBattlefieldForMeasurement(fixture);
+      const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+      fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+      try {
+        fixture.componentInstance.displayedCardPosition(card);
+        fixture.componentInstance.displayedCardPosition(card);
+        expect(measured).toHaveBeenCalledTimes(1);
+
+        flushAnimationFrames(queuedFrames);
+
+        fixture.componentInstance.displayedCardPosition(card);
+        expect(measured).toHaveBeenCalledTimes(2);
+      } finally {
+        measured.mockRestore();
+        fixture.destroy();
+      }
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('invalidates a focused geometry entry when its layout key changes', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    prepareBattlefieldForMeasurement(fixture);
+    const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+    fixture.componentRef.setInput('layoutKey', 'layout-a');
+
+    try {
+      fixture.componentInstance.displayedCardPosition(card);
+      fixture.componentRef.setInput('layoutKey', 'layout-b');
+      fixture.componentInstance.displayedCardPosition(card);
+
+      expect(measured).toHaveBeenCalledTimes(2);
+    } finally {
+      measured.mockRestore();
+    }
+  });
+
+  it('invalidates a focused geometry entry when its measured layout version changes', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const originalResizeObserver = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver');
+    const resizeCallbacks: ResizeObserverCallback[] = [];
+    class ResizeObserverMock implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallbacks.push(callback);
+      }
+
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: ResizeObserverMock,
+    });
+
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      nextFrame += 1;
+      queuedFrames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frame) => {
+      queuedFrames.delete(frame);
+    });
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+      flushAnimationFrames(queuedFrames);
+      const card = battlefieldCard(fixture, 'card-1');
+      prepareBattlefieldForMeasurement(fixture);
+      const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+      fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+      try {
+        fixture.componentInstance.displayedCardPosition(card);
+        expect(measured).toHaveBeenCalledTimes(1);
+
+        const resizeCallback = resizeCallbacks.at(-1);
+        expect(resizeCallback).toBeDefined();
+        resizeCallback!([{ } as ResizeObserverEntry], {} as ResizeObserver);
+        const layoutRefreshFrame = [...queuedFrames.keys()].at(-1);
+        const layoutRefresh = layoutRefreshFrame === undefined
+          ? null
+          : queuedFrames.get(layoutRefreshFrame);
+        expect(layoutRefresh).not.toBeNull();
+        queuedFrames.delete(layoutRefreshFrame!);
+        layoutRefresh!(0);
+
+        fixture.componentInstance.displayedCardPosition(card);
+        expect(measured).toHaveBeenCalledTimes(2);
+      } finally {
+        measured.mockRestore();
+        fixture.destroy();
+      }
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+      if (originalResizeObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', originalResizeObserver);
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
+  });
+
+  it('does not reuse a disconnected measured card element', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    const battlefield = prepareBattlefieldForMeasurement(fixture, 200);
+    const original = cardMeasurementElement(fixture, 'card-1');
+    const originalMeasurement = measureCardElement(original, { width: 100, height: 100 });
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 100 }));
+
+    try {
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 100 });
+
+      original.remove();
+      const replacement = document.createElement('button');
+      replacement.dataset['testid'] = 'game-card';
+      replacement.dataset['cardInstanceId'] = 'card-1';
+      battlefield.append(replacement);
+      const replacementMeasurement = measureCardElement(replacement, { width: 100, height: 150 });
+
+      try {
+        expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 50 });
+        expect(originalMeasurement).toHaveBeenCalledTimes(1);
+        expect(replacementMeasurement).toHaveBeenCalledTimes(1);
+      } finally {
+        replacementMeasurement.mockRestore();
+      }
+    } finally {
+      originalMeasurement.mockRestore();
+    }
+  });
+
+  it('preserves stack and inverted display positions with focused geometry caching enabled', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const positions = new Map([
+      ['target', { x: 100, y: 200 }],
+      ['equipment', { x: 110, y: 182 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      verticallyInverted: true,
+      battlefieldCards: [
+        { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact - Equipment', tapped: false },
+      ],
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+    });
+    prepareBattlefieldForMeasurement(fixture, 600);
+    const targetMeasurement = measureCardElement(cardMeasurementElement(fixture, 'target'), { width: 100, height: 140 });
+    const equipmentMeasurement = measureCardElement(cardMeasurementElement(fixture, 'equipment'), { width: 100, height: 140 });
+    fixture.componentRef.setInput('cardPosition', (card: GameCardInstance) => positions.get(card.instanceId) ?? null);
+
+    try {
+      const target = battlefieldCard(fixture, 'target');
+      const equipment = battlefieldCard(fixture, 'equipment');
+
+      expect(fixture.componentInstance.permanentStackDisplayPositions().get('target')).toEqual({ x: 100, y: 200 });
+      expect(fixture.componentInstance.permanentStackDisplayPositions().get('equipment')).toEqual({ x: 110, y: 218 });
+      expect(fixture.componentInstance.displayedCardPosition(target)).toEqual({ x: 100, y: 260 });
+      expect(fixture.componentInstance.displayedCardPosition(equipment)).toEqual({ x: 110, y: 242 });
+    } finally {
+      equipmentMeasurement.mockRestore();
+      targetMeasurement.mockRestore();
+    }
+  });
+
+  it('cancels the focused geometry cache cleanup frame when destroyed', async () => {
+    window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
+    const queuedFrames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      nextFrame += 1;
+      queuedFrames.set(nextFrame, callback);
+      return nextFrame;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frame) => {
+      queuedFrames.delete(frame);
+    });
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+      flushAnimationFrames(queuedFrames);
+      const card = battlefieldCard(fixture, 'card-1');
+      prepareBattlefieldForMeasurement(fixture);
+      const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+      fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 24 }));
+
+      try {
+        fixture.componentInstance.displayedCardPosition(card);
+        const cacheClearFrame = [...queuedFrames.keys()].at(-1);
+
+        fixture.destroy();
+
+        expect(cacheClearFrame).toBeDefined();
+        expect(cancelAnimationFrame).toHaveBeenCalledWith(cacheClearFrame);
+        expect(queuedFrames.has(cacheClearFrame!)).toBe(false);
+      } finally {
+        measured.mockRestore();
+      }
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
@@ -508,6 +838,57 @@ function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, ins
 
 function cardElements(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement[] {
   return Array.from(fixture.nativeElement.querySelectorAll(`[data-card-instance-id="${instanceId}"]`));
+}
+
+function battlefieldCard(
+  fixture: ComponentFixture<FocusedBattlefieldComponent>,
+  instanceId: string,
+): GameCardInstance {
+  const card = fixture.componentInstance.player().state.zones.battlefield
+    .find((candidate) => candidate.instanceId === instanceId);
+  if (!card) {
+    throw new Error(`Missing battlefield card ${instanceId}.`);
+  }
+
+  return card;
+}
+
+function prepareBattlefieldForMeasurement(
+  fixture: ComponentFixture<FocusedBattlefieldComponent>,
+  height = 600,
+): HTMLElement {
+  const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+  Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: height });
+
+  return battlefield;
+}
+
+function cardMeasurementElement(
+  fixture: ComponentFixture<FocusedBattlefieldComponent>,
+  instanceId: string,
+): HTMLElement {
+  return fixture.nativeElement.querySelector(
+    `[data-testid="game-card"][data-card-instance-id="${instanceId}"]`,
+  ) as HTMLElement;
+}
+
+function measureCardElement(
+  element: HTMLElement,
+  size: { readonly width: number; readonly height: number },
+) {
+  Object.defineProperty(element, 'offsetWidth', { configurable: true, value: size.width });
+  Object.defineProperty(element, 'offsetHeight', { configurable: true, value: size.height });
+
+  return vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+    width: size.width,
+    height: size.height,
+  } as DOMRect);
+}
+
+function flushAnimationFrames(queuedFrames: Map<number, FrameRequestCallback>): void {
+  const callbacks = [...queuedFrames.values()];
+  queuedFrames.clear();
+  callbacks.forEach((callback) => callback(0));
 }
 
 function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {

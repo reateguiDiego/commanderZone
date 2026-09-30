@@ -60,6 +60,45 @@ describe('GameTableBattlefieldState', () => {
     expect(currentSnapshot?.players['player-1']?.zoneCounts?.battlefield).toBe(1);
   });
 
+  it('uses the existing feedback-tracked snapshot path for regular local battlefield updates', () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [card('card-1', 'Card', { x: 0.1, y: 0.2, unit: 'ratio' })],
+    });
+    const setSnapshot = vi.fn((next: GameSnapshot | null) => {
+      currentSnapshot = next;
+    });
+
+    state.updateLocalCardPosition({ ...context(), setSnapshot }, 'player-1', 'card-1', { x: 180, y: 220 });
+
+    expect(setSnapshot).toHaveBeenCalledOnce();
+    expect(setSnapshot.mock.calls[0]).toHaveLength(1);
+    expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toMatchObject({ unit: 'ratio' });
+  });
+
+  it('skips drop feedback only for an explicitly transient pointer update while publishing the snapshot', () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [card('card-1', 'Card', { x: 0.1, y: 0.2, unit: 'ratio' })],
+    });
+    const previousSnapshot = currentSnapshot;
+    const setSnapshot = vi.fn((next: GameSnapshot | null) => {
+      currentSnapshot = next;
+    });
+
+    state.updateLocalCardPosition(
+      { ...context(), setSnapshot },
+      'player-1',
+      'card-1',
+      { x: 180, y: 220 },
+      { transientPointerDrag: true },
+    );
+
+    expect(setSnapshot).toHaveBeenCalledWith(expect.any(Object), { trackDropFeedback: false });
+    expect(currentSnapshot).not.toBe(previousSnapshot);
+    expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toMatchObject({ unit: 'ratio' });
+  });
+
   it('clamps legacy pixel positions to the visible battlefield viewport during reflow', () => {
     currentSnapshot = snapshot({
       hand: [],

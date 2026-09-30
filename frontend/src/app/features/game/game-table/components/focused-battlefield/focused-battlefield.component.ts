@@ -28,6 +28,7 @@ import {
   DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
   MAX_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
+import { BattlefieldCardSize } from '../../utils/battlefield-position';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
 interface CardCounterView {
@@ -124,6 +125,14 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
+interface MeasuredCardSizeFrameCacheEntry {
+  readonly layoutKey: unknown;
+  readonly layoutVersion: number;
+  readonly battlefield: HTMLElement | undefined;
+  readonly element: HTMLElement | null;
+  readonly size: BattlefieldCardSize;
+}
+
 const MIN_STACK_VISUAL_OFFSET_Y = 12;
 const MAX_STACK_VISUAL_OFFSET_Y = 25;
 const MIN_RENDERED_BATTLEFIELD_ZOOM_PERCENT = 60;
@@ -141,6 +150,11 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
   private lastLayoutKey: unknown = null;
   private layoutRefreshFrame: number | null = null;
+  private readonly focusedGeometryCacheEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_focused_geometry_cache') === '1';
+  private readonly measuredCardSizeFrameCache = new Map<string, MeasuredCardSizeFrameCacheEntry>();
+  private measuredCardSizeClearFrame: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
@@ -284,6 +298,11 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       window.cancelAnimationFrame(this.layoutRefreshFrame);
       this.layoutRefreshFrame = null;
     }
+    if (this.measuredCardSizeClearFrame !== null) {
+      window.cancelAnimationFrame(this.measuredCardSizeClearFrame);
+      this.measuredCardSizeClearFrame = null;
+    }
+    this.measuredCardSizeFrameCache.clear();
   }
 
   handleManaLaneDragOver(event: DragEvent): void {
@@ -695,16 +714,61 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       : 0;
   }
 
-  private measuredCardSize(instanceId: string): { width: number; height: number } {
+  private measuredCardSize(instanceId: string): BattlefieldCardSize {
     const battlefield = this.battlefieldRoot?.nativeElement;
+    if (!this.focusedGeometryCacheEnabled) {
+      return this.measureCardSize(instanceId, battlefield).size;
+    }
+
+    const layoutKey = this.layoutKey();
+    const layoutVersion = this.measuredLayoutVersion();
+    const cached = this.measuredCardSizeFrameCache.get(instanceId);
+    if (
+      cached
+      && cached.layoutKey === layoutKey
+      && cached.layoutVersion === layoutVersion
+      && cached.battlefield === battlefield
+      && cached.battlefield?.isConnected
+      && (
+        cached.element === null
+        || (
+          cached.element.isConnected
+          && battlefield?.contains(cached.element)
+          && cached.element.dataset['cardInstanceId'] === instanceId
+        )
+      )
+    ) {
+      return cached.size;
+    }
+
+    const measurement = this.measureCardSize(instanceId, battlefield);
+    this.measuredCardSizeFrameCache.set(instanceId, {
+      layoutKey,
+      layoutVersion,
+      battlefield,
+      element: measurement.element,
+      size: measurement.size,
+    });
+    this.scheduleMeasuredCardSizeCacheClear();
+
+    return measurement.size;
+  }
+
+  private measureCardSize(
+    instanceId: string,
+    battlefield: HTMLElement | undefined,
+  ): { readonly element: HTMLElement | null; readonly size: BattlefieldCardSize } {
     const element = Array.from(battlefield?.querySelectorAll<HTMLElement>(
       '[data-testid="game-card"][data-card-instance-id]',
     ) ?? []).find((candidate) => candidate.dataset['cardInstanceId'] === instanceId);
     const bounds = element?.getBoundingClientRect();
     if (element && bounds && bounds.width > 0 && bounds.height > 0) {
       return {
-        width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
-        height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
+        element,
+        size: {
+          width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
+          height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
+        },
       };
     }
 
@@ -714,9 +778,26 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     const width = configuredWidth ?? 116;
 
     return {
-      width,
-      height: Math.max(1, Math.round(width / 0.716)),
+      element: null,
+      size: {
+        width,
+        height: Math.max(1, Math.round(width / 0.716)),
+      },
     };
+  }
+
+  private scheduleMeasuredCardSizeCacheClear(): void {
+    if (!this.focusedGeometryCacheEnabled || this.measuredCardSizeClearFrame !== null) {
+      return;
+    }
+
+    let callbackRanSynchronously = false;
+    const frame = window.requestAnimationFrame(() => {
+      callbackRanSynchronously = true;
+      this.measuredCardSizeFrameCache.clear();
+      this.measuredCardSizeClearFrame = null;
+    });
+    this.measuredCardSizeClearFrame = callbackRanSynchronously ? null : frame;
   }
 
   private cssLengthInPixels(value: string): number | null {

@@ -11,6 +11,10 @@ export interface GameTableSnapshotCoordinatorContext {
   readonly openRevealedLibraryFromSnapshot: (snapshot: GameSnapshot | null) => void;
 }
 
+export interface GameTableSnapshotOptions {
+  readonly trackDropFeedback?: boolean;
+}
+
 @Injectable()
 export class GameTableSnapshotCoordinatorState {
   constructor(
@@ -25,7 +29,7 @@ export class GameTableSnapshotCoordinatorState {
   setSnapshot(
     context: GameTableSnapshotCoordinatorContext,
     snapshot: GameSnapshot | null,
-    options: { trackDropFeedback?: boolean } = {},
+    options: GameTableSnapshotOptions = {},
   ): void {
     // Entry feedback must only react to authoritative game changes. The
     // viewport and optimistic transforms below can recalculate battlefield

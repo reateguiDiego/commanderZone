@@ -49,6 +49,37 @@ describe('GameTableStore snapshot UI consistency', () => {
     expect(storeLike.clearCardPreview).not.toHaveBeenCalled();
     expect(storeLike.closeContextMenu).not.toHaveBeenCalled();
   });
+
+  it('forwards explicit snapshot options to the coordinator unchanged', () => {
+    const snapshotCoordinatorState = { setSnapshot: vi.fn() };
+    const storeLike = {
+      mulliganState: { syncSnapshot: vi.fn() },
+      locallyConcededPlayerId: null,
+      lastSeenActiveTurnPlayerId: null,
+      manaPoolState: { resetAll: vi.fn() },
+      snapshotCoordinatorState,
+      openRevealedLibraryFromSnapshot: vi.fn(),
+      selectedCards: signal([]),
+      uiState: { activeHoveredSelection: vi.fn(() => null) },
+      contextMenu: signal(null),
+      clearCardPreview: vi.fn(),
+      closeContextMenu: vi.fn(),
+      pruneTransientCardUiState: GameTableStore.prototype['pruneTransientCardUiState'],
+    };
+    const nextSnapshot = snapshotWithZones({ hand: [], battlefield: [gameCard('card-1')] });
+
+    GameTableStore.prototype['setSnapshot'].call(
+      storeLike as never,
+      nextSnapshot,
+      { trackDropFeedback: false },
+    );
+
+    expect(snapshotCoordinatorState.setSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ openRevealedLibraryFromSnapshot: expect.any(Function) }),
+      nextSnapshot,
+      { trackDropFeedback: false },
+    );
+  });
 });
 
 describe('GameTableStore card selection previews', () => {

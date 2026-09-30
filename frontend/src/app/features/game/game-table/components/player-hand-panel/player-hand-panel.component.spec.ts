@@ -9,6 +9,7 @@ import { PlayerHandPanelComponent } from './player-hand-panel.component';
 
 describe('PlayerHandPanelComponent', () => {
   afterEach(() => {
+    window.localStorage.removeItem('cz_perf_disable_hand_flip_during_battlefield_drag');
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -1077,6 +1078,99 @@ describe('PlayerHandPanelComponent', () => {
     expect(playFlip).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps external battlefield receiver layout FLIPs enabled when the experiment is off', async () => {
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      hasActiveBattlefieldPointerDrag: true,
+      prepareHandLayoutFlip,
+    });
+
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+    expect(prepareHandLayoutFlip).toHaveBeenCalledOnce();
+    expect(playFlip).toHaveBeenCalledOnce();
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+    expect(prepareHandLayoutFlip).toHaveBeenCalledTimes(2);
+    expect(playFlip).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips receiver FLIPs during an active battlefield pointer drag when the experiment is enabled', async () => {
+    window.localStorage.setItem('cz_perf_disable_hand_flip_during_battlefield_drag', '1');
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      hasActiveBattlefieldPointerDrag: true,
+      prepareHandLayoutFlip,
+    });
+
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+    expect(prepareHandLayoutFlip).not.toHaveBeenCalled();
+    expect(playFlip).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+    expect(prepareHandLayoutFlip).not.toHaveBeenCalled();
+    expect(playFlip).not.toHaveBeenCalled();
+
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
+    fixture.detectChanges();
+    fixture.componentRef.setInput('motionActive', true);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('hasActiveBattlefieldPointerDrag', false);
+    fixture.componentRef.setInput('hasActiveCardDrag', false);
+    fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('motionActive', false);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+    expect(prepareHandLayoutFlip).toHaveBeenCalledOnce();
+    expect(playFlip).toHaveBeenCalledOnce();
+  });
+
+  it('does not skip FLIP for an external drag that is not a battlefield pointer drag', async () => {
+    window.localStorage.setItem('cz_perf_disable_hand_flip_during_battlefield_drag', '1');
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      prepareHandLayoutFlip,
+    });
+
+    fixture.componentRef.setInput(
+      'isDropZoneHighlighted',
+      (_playerId: string, zone: GameZoneName) => zone === 'hand',
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.handLayoutMode()).toBe('row');
+    expect(prepareHandLayoutFlip).toHaveBeenCalledOnce();
+    expect(playFlip).toHaveBeenCalledOnce();
+  });
+
   it('reveals an external hand target before capturing its fan to row layout', async () => {
     let component: PlayerHandPanelComponent | null = null;
     let revealedAtLayoutCapture: boolean | null = null;
@@ -1103,6 +1197,7 @@ describe('PlayerHandPanelComponent', () => {
   it('animates the owning player hand when mouse hover changes between fan and row', async () => {
     vi.useFakeTimers();
     try {
+      window.localStorage.setItem('cz_perf_disable_hand_flip_during_battlefield_drag', '1');
       const playFlip = vi.fn();
       const prepareHandLayoutFlip = vi.fn(() => playFlip);
       const { fixture, handArea } = await renderHandPanel({ prepareHandLayoutFlip });
@@ -1124,6 +1219,73 @@ describe('PlayerHandPanelComponent', () => {
       expect(prepareHandLayoutFlip).toHaveBeenCalledTimes(2);
       expect(playFlip).toHaveBeenCalledTimes(2);
     } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps own-hand reorder FLIP enabled when the experiment is enabled', async () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem('cz_perf_disable_hand_flip_during_battlefield_drag', '1');
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture } = await renderHandPanel({ prepareHandLayoutFlip });
+    const cardElement = fixture.nativeElement.querySelector(
+      '[data-card-instance-id="card-1"]',
+    ) as HTMLElement;
+    const visualElement = cardElement.querySelector<HTMLElement>('.card-visual') ?? cardElement;
+    const bounds = {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 140,
+      top: 0,
+      right: 100,
+      bottom: 140,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => []),
+    });
+    visualElement.getBoundingClientRect = () => bounds;
+    cardElement.getBoundingClientRect = () => bounds;
+
+    try {
+      fixture.componentInstance.startHandPointerDrag(
+        pointerEvent({
+          currentTarget: cardElement,
+          target: visualElement,
+          pointerId: 1,
+          clientX: 20,
+          clientY: 20,
+        }),
+        'player-1',
+        fixture.componentInstance.player().state.zones.hand[0]!,
+      );
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 50, clientY: 20 }),
+      );
+      fixture.detectChanges();
+      fixture.componentInstance.endHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 50, clientY: 20 }),
+      );
+      fixture.detectChanges();
+      fixture.componentInstance.leaveHand(new MouseEvent('mouseleave', { clientX: 50, clientY: 20 }));
+      vi.advanceTimersByTime(260);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.pointerDrag()).toBeNull();
+      expect(fixture.componentInstance.handLayoutMode()).toBe('fan');
+      expect(prepareHandLayoutFlip).toHaveBeenCalled();
+      expect(playFlip).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
       vi.clearAllTimers();
       vi.useRealTimers();
     }
@@ -2176,6 +2338,7 @@ describe('PlayerHandPanelComponent', () => {
 interface RenderHandPanelOptions {
   hand?: GameCardInstance[];
   hasActiveCardDrag?: boolean;
+  hasActiveBattlefieldPointerDrag?: boolean;
   externalRevealAllowed?: boolean;
   readOnly?: boolean;
   showCardsFaceDown?: boolean;
@@ -2248,6 +2411,10 @@ async function renderHandPanel(
       ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false),
   );
   fixture.componentRef.setInput('hasActiveCardDrag', options.hasActiveCardDrag ?? false);
+  fixture.componentRef.setInput(
+    'hasActiveBattlefieldPointerDrag',
+    options.hasActiveBattlefieldPointerDrag ?? false,
+  );
   fixture.componentRef.setInput('externalRevealAllowed', options.externalRevealAllowed ?? true);
   fixture.componentRef.setInput('readOnly', options.readOnly ?? false);
   fixture.componentRef.setInput('showCardsFaceDown', options.showCardsFaceDown ?? false);

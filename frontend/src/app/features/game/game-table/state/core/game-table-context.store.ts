@@ -18,7 +18,12 @@ import { GameTableGameplayV2FlagsService } from '../../services/game-table-gamep
 import { GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableArrowInteractionContext } from '../arrows/game-table-arrows.state';
 import { GameTableAttachmentInteractionContext } from '../attachments/game-table-attachments.state';
-import { GameTableBattlefieldContext, GameTableBattlefieldState } from '../battlefield/game-table-battlefield.state';
+import {
+  GameTableBattlefieldContext,
+  GameTableBattlefieldState,
+  type GameTableLocalCardPositionOptions,
+} from '../battlefield/game-table-battlefield.state';
+import type { GameTableSnapshotOptions } from './game-table-snapshot-coordinator.state';
 import { GameTableCardCounterContext } from '../cards/game-table-cards.state';
 import { GameTableDragDropContext, GameTableDragDropStore, GameTablePendingMoveContext } from '../drag-drop/game-table-drag-drop.store';
 import { GameTableHandContext, GameTableHandState } from '../hand/game-table-hand.state';
@@ -43,7 +48,7 @@ import { DiceRollResult } from '../../models/game-table-dice.model';
 const GRID_STACK_DROP_OVERLAP_RATIO = 0.7;
 
 export interface GameTableContextSource {
-  readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
+  readonly setSnapshot: (snapshot: GameSnapshot | null, options?: GameTableSnapshotOptions) => void;
   readonly setViewportReflowSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly refetch: (force?: boolean) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
@@ -240,7 +245,7 @@ export class GameTableContextStore {
 
     return {
       snapshot: () => this.core.snapshot(),
-      setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      setSnapshot: (snapshot, options) => source.setSnapshot(snapshot, options),
       setViewportReflowSnapshot: (snapshot) => source.setViewportReflowSnapshot(snapshot),
       setError: (message) => this.setGameActionError(message),
       errorMessage: (error) => this.errorMessage(error),
@@ -335,8 +340,18 @@ export class GameTableContextStore {
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
       battlefieldCardSize: (playerId) => this.battlefieldState.battlefieldCardSizeFor(playerId),
       stackDropOverlapRatio: () => this.stackDropOverlapRatio(),
-      updateLocalCardPosition: (playerId, instanceId, position) =>
-        this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
+      updateLocalCardPosition: (
+        playerId,
+        instanceId,
+        position,
+        options?: GameTableLocalCardPositionOptions,
+      ) => this.battlefieldState.updateLocalCardPosition(
+        this.battlefield(),
+        playerId,
+        instanceId,
+        position,
+        options,
+      ),
       hideCardPreview: () => this.uiState.hideCardPreview(),
       clearCardPreview: () => this.uiState.clearCardPreview(),
       closeContextMenuForCardDrag: (instanceId) => this.uiState.closeContextMenuForCardDrag(instanceId),
