@@ -128,6 +128,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private readonly transferVerticalThreshold = 12;
   private readonly ownHandHorizontalRetentionOverlap = 0.4;
   private readonly ownHandTopExitRatio = 0.35;
+  private readonly disableHandFlipDuringBattlefieldDrag =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem('cz_perf_disable_hand_flip_during_battlefield_drag') === '1';
   private revealTimer: number | null = null;
   private handHoverTimer: number | null = null;
   private handHoverClearTimer: number | null = null;
@@ -138,6 +141,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private previousHandLayoutMode: 'fan' | 'row' | null = null;
   private renderedHandLayoutMode: 'fan' | 'row' | null = null;
   private pendingHandLayoutFlip: (() => void) | null = null;
+  private pendingExternalBattlefieldReceiverLayoutMode: 'fan' | 'row' | null = null;
   private previousMotionActive = false;
   private pendingRowScrollAnchor: { scrollProgress: number } | null = null;
   private lastPointerPosition: { clientX: number; clientY: number } | null = null;
@@ -174,6 +178,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   readonly showCardsFaceDown = input(false);
   readonly hasOpenHandContextMenu = input(false);
   readonly hasActiveCardDrag = input(false);
+  readonly hasActiveBattlefieldPointerDrag = input(false);
   readonly externalRevealAllowed = input(true);
   readonly motionActive = input(false);
   readonly motionLayoutMode = input<'fan' | 'row' | null>(null);
@@ -285,18 +290,39 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   });
 
   ngDoCheck(): void {
+    if (!this.disableHandFlipDuringBattlefieldDrag) {
+      this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
+
+      const nextLayoutMode = this.handLayoutMode();
+      if (
+        this.renderedHandLayoutMode === null ||
+        this.pendingHandLayoutFlip !== null ||
+        nextLayoutMode === this.renderedHandLayoutMode
+      ) {
+        return;
+      }
+
+      this.pendingHandLayoutFlip = this.prepareHandLayoutFlip();
+      return;
+    }
+
+    if (!this.isExternalBattlefieldPointerDrag()) {
+      this.pendingExternalBattlefieldReceiverLayoutMode = null;
+    }
     this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
 
     const nextLayoutMode = this.handLayoutMode();
-    if (
-      this.renderedHandLayoutMode === null ||
-      this.pendingHandLayoutFlip !== null ||
-      nextLayoutMode === this.renderedHandLayoutMode
-    ) {
+    if (this.renderedHandLayoutMode === null || nextLayoutMode === this.renderedHandLayoutMode) {
+      this.clearPendingExternalBattlefieldReceiverLayoutMode(nextLayoutMode);
+      return;
+    }
+
+    if (this.pendingHandLayoutFlip !== null) {
       return;
     }
 
     this.pendingHandLayoutFlip = this.prepareHandLayoutFlip();
+    this.clearPendingExternalBattlefieldReceiverLayoutMode(nextLayoutMode);
   }
 
   ngAfterViewChecked(): void {
@@ -1212,6 +1238,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
   }
 
+  private isExternalBattlefieldPointerDrag(): boolean {
+    return this.isExternalCardDrag() && this.hasActiveBattlefieldPointerDrag();
+  }
+
   private hasOwnPointerDrag(): boolean {
     return this.pointerDrag() !== null;
   }
@@ -1419,6 +1449,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.handDropReceiverRevealed.set(shouldReveal);
+    if (this.disableHandFlipDuringBattlefieldDrag && this.isExternalBattlefieldPointerDrag()) {
+      this.pendingExternalBattlefieldReceiverLayoutMode = this.handLayoutMode();
+    }
     if (wasRevealed) {
       if (externalDragActive) {
         this.collapseHandAfterDragTransfer({ animateLayout: false });
@@ -1501,11 +1534,25 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   private prepareHandLayoutFlip(): () => void {
+    if (
+      this.disableHandFlipDuringBattlefieldDrag &&
+      this.isExternalBattlefieldPointerDrag() &&
+      this.pendingExternalBattlefieldReceiverLayoutMode === this.handLayoutMode()
+    ) {
+      return () => undefined;
+    }
+
     if (this.readOnly() || this.showCardsFaceDown() || this.displayHandCards().length === 0) {
       return () => undefined;
     }
 
     return this.motion?.prepareHandLayoutFlip(this.host.nativeElement) ?? (() => undefined);
+  }
+
+  private clearPendingExternalBattlefieldReceiverLayoutMode(layoutMode: 'fan' | 'row'): void {
+    if (this.pendingExternalBattlefieldReceiverLayoutMode === layoutMode) {
+      this.pendingExternalBattlefieldReceiverLayoutMode = null;
+    }
   }
 
   private playPendingHandLayoutFlip(renderedLayoutMode: 'fan' | 'row'): void {

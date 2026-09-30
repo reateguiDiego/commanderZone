@@ -18,6 +18,7 @@ import { AlignmentGuide, GameTableBattlefieldDragState, LandStackDropPreview } f
 import { GameTableDropFeedbackState } from './game-table-drop-feedback.state';
 import { GameTablePendingTransferState } from '../core/game-table-pending-transfer.state';
 import { PlayerView } from '../core/game-table-snapshot-selectors';
+import type { GameTableLocalCardPositionOptions } from '../battlefield/game-table-battlefield.state';
 import {
   buildLandStackGroups,
   fullLandStackDropTarget,
@@ -51,7 +52,12 @@ export interface GameTableDragDropContext {
   readonly cardPosition: (card: GameCardInstance) => { x: number; y: number } | null;
   readonly battlefieldCardSize: (playerId: string) => BattlefieldCardSize;
   readonly stackDropOverlapRatio?: () => number | null;
-  readonly updateLocalCardPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void;
+  readonly updateLocalCardPosition: (
+    playerId: string,
+    instanceId: string,
+    position: { x: number; y: number },
+    options?: GameTableLocalCardPositionOptions,
+  ) => void;
   readonly hideCardPreview: () => void;
   readonly clearCardPreview: () => void;
   readonly closeContextMenuForCardDrag: (instanceId: string) => void;
@@ -76,6 +82,10 @@ export class GameTableDragDropStore {
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
   private readonly pendingTransferState = inject(GameTablePendingTransferState);
   private readonly pointerDragActions = inject(GameTablePointerDragActionsService);
+  private readonly skipDragDropFeedbackEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_skip_drag_drop_feedback') === '1';
+  private hasSkippedPointerDragDropFeedback = false;
   private landStackDropPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingLandStackDropPreview: LandStackDropPreview | null = null;
   private pendingTopLandStackSelection: SelectedCard[] | null = null;
@@ -214,11 +224,25 @@ export class GameTableDragDropStore {
     }
 
     this.prepareStackDrag(context, playerId, card);
-    this.drag.startBattlefieldPointerDrag(event, playerId, card);
+    if (!this.skipDragDropFeedbackEnabled) {
+      this.drag.startBattlefieldPointerDrag(event, playerId, card);
+      return;
+    }
+
+    if (this.drag.startBattlefieldPointerDrag(event, playerId, card)) {
+      this.hasSkippedPointerDragDropFeedback = false;
+    }
   }
 
   moveCardPointerDrag(context: GameTableDragDropContext, event: PointerEvent): void {
     const draggingInstanceId = this.drag.moveCardPointerDrag(event, (playerId, instanceId, position) => {
+      if (this.skipDragDropFeedbackEnabled) {
+        const previousSnapshot = context.snapshot();
+        context.updateLocalCardPosition(playerId, instanceId, position, { transientPointerDrag: true });
+        this.hasSkippedPointerDragDropFeedback ||= context.snapshot() !== previousSnapshot;
+        return;
+      }
+
       context.updateLocalCardPosition(playerId, instanceId, position);
     });
     if (draggingInstanceId && this.draggingCardInstanceId() !== draggingInstanceId) {
@@ -263,11 +287,28 @@ export class GameTableDragDropStore {
     if (draggingInstanceId) {
       this.ensureDraggingBattlefieldSelection(context, draggingInstanceId);
     }
-    await this.pointerDragActions.endCardPointerDrag(context.pointerDragActionContext(), event);
+    const snapshotBeforeFinalization = this.skipDragDropFeedbackEnabled
+      ? context.snapshot()
+      : undefined;
+
+    try {
+      const completion = this.pointerDragActions.endCardPointerDrag(context.pointerDragActionContext(), event);
+      if (this.skipDragDropFeedbackEnabled) {
+        this.reconcileSkippedPointerDragDropFeedback(context, snapshotBeforeFinalization);
+      }
+      await completion;
+    } finally {
+      if (this.skipDragDropFeedbackEnabled) {
+        this.hasSkippedPointerDragDropFeedback = false;
+      }
+    }
   }
 
   cancelCardPointerDrag(context: GameTableDragDropContext, event?: PointerEvent): void {
     this.drag.cancelCardPointerDrag(event);
+    if (this.skipDragDropFeedbackEnabled) {
+      this.reconcileSkippedPointerDragDropFeedback(context);
+    }
     this.endCardDrag(context);
     context.setSelectedCards([]);
     context.applyDeferredRemoteSnapshot();
@@ -293,6 +334,9 @@ export class GameTableDragDropStore {
   }
 
   dragEnd(context: GameTableDragDropContext): void {
+    if (this.skipDragDropFeedbackEnabled) {
+      this.reconcileSkippedPointerDragDropFeedback(context);
+    }
     this.endCardDrag(context);
     context.clearHandDropPreview();
     context.setSelectedCards([]);
@@ -403,6 +447,26 @@ export class GameTableDragDropStore {
     this.pendingTopLandStackSelection = null;
     this.pendingTopAttachmentStackSelection = null;
     this.battlefieldDragState.endCardDrag();
+  }
+
+  private reconcileSkippedPointerDragDropFeedback(
+    context: Pick<GameTableDragDropContext, 'snapshot'>,
+    expectedSnapshot?: GameSnapshot | null,
+  ): void {
+    if (!this.hasSkippedPointerDragDropFeedback) {
+      return;
+    }
+
+    const snapshot = context.snapshot();
+    // A final regular snapshot has already updated the feedback baseline.
+    // Otherwise reconcile the locally moved card once before ending the drag.
+    if (expectedSnapshot !== undefined && snapshot !== expectedSnapshot) {
+      this.hasSkippedPointerDragDropFeedback = false;
+      return;
+    }
+
+    this.dropFeedbackState.trackSnapshot(snapshot);
+    this.hasSkippedPointerDragDropFeedback = false;
   }
 
   selectedDragInstanceIds(context: Pick<GameTableDragDropContext, 'selectedCards'>, playerId: string, zone: GameZoneName, instanceId: string): string[] {

@@ -45,7 +45,7 @@ import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponen
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
-import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
+import { GameTableSnapshotCoordinatorState, type GameTableSnapshotOptions } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
@@ -246,7 +246,7 @@ export class GameTableStore implements OnDestroy {
 
   constructor() {
     this.contexts.bind({
-      setSnapshot: (snapshot) => this.setSnapshot(snapshot),
+      setSnapshot: (snapshot, options) => this.setSnapshot(snapshot, options),
       setViewportReflowSnapshot: (snapshot) => this.setSnapshot(snapshot, { trackDropFeedback: false }),
       refetch: (force) => this.refetch(force),
       command: (type, payload, force) => this.command(type, payload, force),
@@ -1918,7 +1918,7 @@ export class GameTableStore implements OnDestroy {
     };
   }
 
-  private setSnapshot(snapshot: GameSnapshot | null, options: { trackDropFeedback?: boolean } = {}): void {
+  private setSnapshot(snapshot: GameSnapshot | null, options: GameTableSnapshotOptions = {}): void {
     this.mulliganState.syncSnapshot(snapshot);
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;

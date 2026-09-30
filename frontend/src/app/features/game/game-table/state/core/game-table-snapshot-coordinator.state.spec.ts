@@ -9,6 +9,8 @@ import { GameTablePendingTransferState } from './game-table-pending-transfer.sta
 import { GameTableCoreState } from './game-table-core.state';
 import { GameTableSnapshotCoordinatorState } from './game-table-snapshot-coordinator.state';
 
+const SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY = 'cz_perf_skip_drag_drop_feedback';
+
 describe('GameTableSnapshotCoordinatorState', () => {
   let state: GameTableSnapshotCoordinatorState;
   const snapshotSignal = signal<GameSnapshot | null>(null);
@@ -62,6 +64,10 @@ describe('GameTableSnapshotCoordinatorState', () => {
     state = TestBed.inject(GameTableSnapshotCoordinatorState);
   });
 
+  afterEach(() => {
+    window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
+  });
+
   it('applies snapshot overlays before publishing and reconciling dependants', () => {
     const authoritativeSnapshot = snapshot(1);
     state.setSnapshot({ openRevealedLibraryFromSnapshot }, authoritativeSnapshot);
@@ -80,6 +86,16 @@ describe('GameTableSnapshotCoordinatorState', () => {
     expect(trackSnapshot).toHaveBeenCalledOnce();
     expect(trackSnapshot).toHaveBeenCalledWith(authoritativeSnapshot);
     expect(trackSnapshot).not.toHaveBeenCalledWith(snapshotSignal());
+  });
+
+  it('continues to track an authoritative snapshot while drag feedback skipping is enabled', () => {
+    window.localStorage.setItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY, '1');
+    const remoteSnapshot = snapshot(7);
+
+    state.setSnapshot({ openRevealedLibraryFromSnapshot }, remoteSnapshot);
+
+    expect(trackSnapshot).toHaveBeenCalledOnce();
+    expect(trackSnapshot).toHaveBeenCalledWith(remoteSnapshot);
   });
 
   it('does not feed viewport-only reflows into drop feedback', () => {
