@@ -3,8 +3,11 @@
 The deployment workflow applies `docker-compose.api-capacity.yml` after the base
 Compose file and the server's `docker-compose.prod.yml`. It fixes the API at
 1.5 CPUs and four FrankenPHP threads (`num_threads` and `max_threads`). Both
-Compose CPU limit fields agree. Memory limits remain defined by the production
-configuration (currently 1258291200 bytes); the capacity file does not set them.
+Compose CPU limit fields agree. The capacity file also sets both `mem_limit` and
+`deploy.resources.limits.memory` to `1200m` (1258291200 bytes), preserving the
+production memory budget. Keep both fields equal: adding a `deploy` CPU limit
+alongside a host-level `mem_limit` without an explicit matching `deploy` memory
+limit can fail Compose validation before deployment starts.
 
 This reproduces the configuration of the previous external 100-user navigation
 tests. It is a benchmark baseline, not a claim that the latency budgets pass or
