@@ -348,9 +348,11 @@ SQL);
     {
         // Make another batch immediately eligible, but place it behind other
         // ready games so a large transcript cannot monopolise the worker.
+        // available_at has second precision, so a bare CURRENT_TIMESTAMP can
+        // round into the next second and make the next batch briefly ineligible.
         $connection->executeStatement(<<<'SQL'
 UPDATE game_moderation_evidence_queue
-SET available_at = CURRENT_TIMESTAMP,
+SET available_at = date_trunc('second', CURRENT_TIMESTAMP),
     queued_at = CURRENT_TIMESTAMP
 WHERE game_id = :gameId
 SQL, ['gameId' => $gameId]);

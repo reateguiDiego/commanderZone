@@ -15,7 +15,7 @@
   border-radius: 0;
   background:
     linear-gradient(180deg, rgb(var(--cz-text-rgb) / 5%), transparent 44%),
-    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 76%) 0%, rgb(var(--cz-surface-rgb) / 70%) 46%, rgb(var(--cz-bg-rgb) / 80%) 100%),
+    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 96%) 0%, rgb(var(--cz-surface-rgb) / 94%) 46%, rgb(var(--cz-bg-rgb) / 98%) 100%),
     radial-gradient(circle at 8% 50%, rgb(var(--cz-primary-rgb) / 48%), transparent 22rem),
     radial-gradient(circle at 54% -40%, rgb(var(--cz-secondary-rgb) / 34%), transparent 19rem),
     radial-gradient(circle at 94% 105%, rgb(var(--cz-accent-rgb) / 28%), transparent 18rem),
@@ -25,7 +25,6 @@
     inset 0 -1px 0 rgb(var(--cz-primary-rgb) / 32%),
     0 0.9rem 1.9rem rgb(var(--cz-bg-rgb) / 24%);
   color: var(--text);
-  backdrop-filter: blur(14px);
 }
 
 .topbar app-dashboard-header-controls {

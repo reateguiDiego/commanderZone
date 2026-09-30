@@ -44,6 +44,13 @@ export class GameTableBattlefieldState {
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
+  private readonly geometryFrameCacheEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_geometry_cache') === '1';
+  private readonly battlefieldElementCache = new Map<string, HTMLElement>();
+  private readonly battlefieldSizeFrameCache = new Map<string, BattlefieldSize>();
+  private readonly battlefieldCardSizeFrameCache = new Map<string, BattlefieldCardSize>();
+  private geometryCacheClearFrame: number | null = null;
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
   private readonly selectors = inject(GameTableSnapshotSelectors);
 
@@ -571,12 +578,31 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldElementSize(playerId: string): BattlefieldSize {
+    if (!this.geometryFrameCacheEnabled) {
+      const battlefield = this.battlefieldElement(playerId);
+      const bounds = battlefield ? this.battlefieldLayoutBounds(battlefield) : null;
+
+      return bounds && bounds.width > 0 && bounds.height > 0
+        ? { width: bounds.width, height: bounds.height }
+        : this.layoutSize();
+    }
+
+    const cached = this.battlefieldSizeFrameCache.get(playerId);
+    if (cached) {
+      return cached;
+    }
+
     const battlefield = this.battlefieldElement(playerId);
     const bounds = battlefield ? this.battlefieldLayoutBounds(battlefield) : null;
 
-    return bounds && bounds.width > 0 && bounds.height > 0
+    const size = bounds && bounds.width > 0 && bounds.height > 0
       ? { width: bounds.width, height: bounds.height }
       : this.layoutSize();
+
+    this.battlefieldSizeFrameCache.set(playerId, size);
+    this.scheduleGeometryCacheClear();
+
+    return size;
   }
 
   private battlefieldLayoutBounds(battlefield: HTMLElement): BattlefieldSize {
@@ -589,7 +615,20 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldCardSize(playerId: string, instanceId?: string): BattlefieldCardSize {
-    return measuredBattlefieldCardSize(this.battlefieldElement(playerId), instanceId);
+    if (!this.geometryFrameCacheEnabled) {
+      return measuredBattlefieldCardSize(this.battlefieldElement(playerId), instanceId);
+    }
+
+    const cached = this.battlefieldCardSizeFrameCache.get(playerId);
+    if (cached) {
+      return cached;
+    }
+
+    const size = measuredBattlefieldCardSize(this.battlefieldElement(playerId), instanceId);
+    this.battlefieldCardSizeFrameCache.set(playerId, size);
+    this.scheduleGeometryCacheClear();
+
+    return size;
   }
 
   battlefieldCardSizeFor(playerId: string): BattlefieldCardSize {
@@ -597,8 +636,45 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldElement(playerId: string): HTMLElement | null {
-    return Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
-      .find((element) => element.dataset['playerId'] === playerId) ?? null;
+    if (!this.geometryFrameCacheEnabled) {
+      return Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
+        .find((element) => element.dataset['playerId'] === playerId) ?? null;
+    }
+
+    const cached = this.battlefieldElementCache.get(playerId);
+    if (cached?.isConnected && cached.dataset['playerId'] === playerId) {
+      return cached;
+    }
+
+    const element = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
+      .find((candidate) => candidate.dataset['playerId'] === playerId) ?? null;
+
+    if (element) {
+      this.battlefieldElementCache.set(playerId, element);
+    } else {
+      this.battlefieldElementCache.delete(playerId);
+    }
+
+    return element;
+  }
+
+  private scheduleGeometryCacheClear(): void {
+    if (!this.geometryFrameCacheEnabled || this.geometryCacheClearFrame !== null) {
+      return;
+    }
+
+    let callbackRanSynchronously = false;
+    const frame = window.requestAnimationFrame(() => {
+      callbackRanSynchronously = true;
+      this.clearGeometryFrameCaches();
+      this.geometryCacheClearFrame = null;
+    });
+    this.geometryCacheClearFrame = callbackRanSynchronously ? null : frame;
+  }
+
+  private clearGeometryFrameCaches(): void {
+    this.battlefieldSizeFrameCache.clear();
+    this.battlefieldCardSizeFrameCache.clear();
   }
 
 }

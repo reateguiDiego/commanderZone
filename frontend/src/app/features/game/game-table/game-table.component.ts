@@ -690,6 +690,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly mobileScrollLockQuery =
     '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
+  private readonly dragRafEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_drag_raf') === '1';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
@@ -1344,6 +1347,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
   private battlefieldZoomReflowFrame: number | null = null;
+  private pendingDragPointerEvent: PointerEvent | null = null;
+  private dragPointerFrame: number | null = null;
   private destroyed = false;
   private rematchToastTimer: number | null = null;
   private rematchCountdownTimer: number | null = null;
@@ -1576,6 +1581,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.cancelPendingDragPointerMove();
     this.realtimeAnimationSubscriptions.unsubscribe();
     this.destroyMobileScrollLock();
     this.destroyAggressiveCompactViewport();
@@ -2000,7 +2006,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointermove', ['$event'])
   handlePointerMove(event: PointerEvent): void {
     this.store.moveFloatingPanel(event);
-    this.store.moveCardPointerDrag(event);
+
+    if (!this.dragRafEnabled) {
+      this.store.moveCardPointerDrag(event);
+      return;
+    }
+
+    if (!this.store.hasActivePointerDrag()) {
+      return;
+    }
+
+    event.preventDefault();
+    this.queueCardPointerMove(event);
   }
 
   startBattlefieldPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
@@ -2018,6 +2035,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointerup', ['$event'])
   handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    this.flushPendingDragPointerMove();
 
     if (!this.store.hasActivePointerDrag()) {
       return;
@@ -2076,8 +2094,49 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointercancel', ['$event'])
   handlePointerCancel(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    this.cancelPendingDragPointerMove();
     this.clearBattlefieldDragStartRect(this.store.draggingCardInstanceId());
     void this.store.cancelCardPointerDrag(event);
+  }
+
+  private queueCardPointerMove(event: PointerEvent): void {
+    this.pendingDragPointerEvent = event;
+
+    if (this.dragPointerFrame !== null) {
+      return;
+    }
+
+    let callbackRanSynchronously = false;
+    const frame = window.requestAnimationFrame(() => {
+      callbackRanSynchronously = true;
+      this.dragPointerFrame = null;
+
+      const latestEvent = this.pendingDragPointerEvent;
+      this.pendingDragPointerEvent = null;
+
+      if (latestEvent) {
+        this.store.moveCardPointerDrag(latestEvent);
+      }
+    });
+    this.dragPointerFrame = callbackRanSynchronously ? null : frame;
+  }
+
+  private flushPendingDragPointerMove(): void {
+    const latestEvent = this.pendingDragPointerEvent;
+    this.cancelPendingDragPointerMove();
+
+    if (latestEvent) {
+      this.store.moveCardPointerDrag(latestEvent);
+    }
+  }
+
+  private cancelPendingDragPointerMove(): void {
+    if (this.dragPointerFrame !== null) {
+      window.cancelAnimationFrame(this.dragPointerFrame);
+      this.dragPointerFrame = null;
+    }
+
+    this.pendingDragPointerEvent = null;
   }
 
   isLibraryMenu(menu: GameContextMenu): boolean {
