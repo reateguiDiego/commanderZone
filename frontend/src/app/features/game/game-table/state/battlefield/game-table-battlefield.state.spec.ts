@@ -7,11 +7,14 @@ import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selector
 import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
 import { GameTableBattlefieldContext, GameTableBattlefieldState } from './game-table-battlefield.state';
 
+const GEOMETRY_FRAME_CACHE_STORAGE_KEY = 'cz_perf_geometry_cache';
+
 describe('GameTableBattlefieldState', () => {
   let state: GameTableBattlefieldState;
   let currentSnapshot: GameSnapshot | null;
 
   beforeEach(() => {
+    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
     TestBed.configureTestingModule({
       providers: [
         GameTableBattlefieldState,
@@ -34,6 +37,7 @@ describe('GameTableBattlefieldState', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
+    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
   });
 
   it('moves local hand cards to battlefield and keeps zone counts in sync', () => {
@@ -176,6 +180,248 @@ describe('GameTableBattlefieldState', () => {
     expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 184, y: 38 });
   });
 
+  it('keeps the original geometry measurements when the local flag is disabled', () => {
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    const battlefieldBounds = vi.spyOn(battlefield, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 800,
+    } as DOMRect);
+    const cardBounds = vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 200,
+    } as DOMRect);
+    const battlefieldElements = vi.spyOn(document, 'querySelectorAll');
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+
+    try {
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      window.localStorage.setItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY, '1');
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+
+      expect(battlefieldBounds).toHaveBeenCalledTimes(2);
+      expect(cardBounds).toHaveBeenCalledTimes(2);
+      expect(battlefieldElements).toHaveBeenCalledTimes(4);
+      expect(animationFrame).not.toHaveBeenCalled();
+    } finally {
+      animationFrame.mockRestore();
+      battlefieldElements.mockRestore();
+      cardBounds.mockRestore();
+      battlefieldBounds.mockRestore();
+    }
+  });
+
+  it('reuses measured geometry in one animation frame and keeps the connected battlefield element cached', () => {
+    state = createStateWithGeometryFrameCache(true);
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    const battlefieldBounds = vi.spyOn(battlefield, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 800,
+    } as DOMRect);
+    const cardBounds = vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 200,
+    } as DOMRect);
+    const battlefieldElements = vi.spyOn(document, 'querySelectorAll');
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+
+    try {
+      const first = state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      const second = state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+
+      expect(first).toEqual({ x: 0.5, y: 0.5, unit: 'ratio' });
+      expect(second).toEqual(first);
+      expect(battlefieldBounds).toHaveBeenCalledTimes(1);
+      expect(cardBounds).toHaveBeenCalledTimes(1);
+      expect(battlefieldElements).toHaveBeenCalledTimes(1);
+      expect(animationFrames).toHaveLength(1);
+
+      animationFrames[0]?.(0);
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+
+      expect(battlefieldBounds).toHaveBeenCalledTimes(2);
+      expect(cardBounds).toHaveBeenCalledTimes(2);
+      expect(battlefieldElements).toHaveBeenCalledTimes(1);
+    } finally {
+      animationFrame.mockRestore();
+      battlefieldElements.mockRestore();
+      cardBounds.mockRestore();
+      battlefieldBounds.mockRestore();
+    }
+  });
+
+  it('replaces a disconnected cached battlefield element', () => {
+    state = createStateWithGeometryFrameCache(true);
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const firstBattlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const firstCard = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    const firstBounds = vi.spyOn(firstBattlefield, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 800,
+    } as DOMRect);
+    const firstCardBounds = vi.spyOn(firstCard, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 200,
+    } as DOMRect);
+    const battlefieldElements = vi.spyOn(document, 'querySelectorAll');
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+
+    try {
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      firstBattlefield.remove();
+      document.body.insertAdjacentHTML('beforeend', `
+        <section class="battlefield" data-player-id="player-1">
+          <div data-testid="game-card" data-card-instance-id="card-1"></div>
+        </section>
+      `);
+      const replacementBattlefield = document.querySelector<HTMLElement>('.battlefield')!;
+      const replacementCard = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+      const replacementBounds = vi.spyOn(replacementBattlefield, 'getBoundingClientRect').mockReturnValue({
+        width: 900,
+        height: 700,
+      } as DOMRect);
+      const replacementCardBounds = vi.spyOn(replacementCard, 'getBoundingClientRect').mockReturnValue({
+        width: 90,
+        height: 180,
+      } as DOMRect);
+
+      try {
+        animationFrames[0]?.(0);
+        state.ratioPositionForBattlefield('player-1', 'card-1', { x: 405, y: 260 });
+
+        expect(firstBounds).toHaveBeenCalledTimes(1);
+        expect(firstCardBounds).toHaveBeenCalledTimes(1);
+        expect(replacementBounds).toHaveBeenCalledTimes(1);
+        expect(replacementCardBounds).toHaveBeenCalledTimes(1);
+        expect(battlefieldElements).toHaveBeenCalledTimes(2);
+      } finally {
+        replacementCardBounds.mockRestore();
+        replacementBounds.mockRestore();
+      }
+    } finally {
+      animationFrame.mockRestore();
+      battlefieldElements.mockRestore();
+      firstCardBounds.mockRestore();
+      firstBounds.mockRestore();
+    }
+  });
+
+  it('keeps frame geometry caches independent for each player', () => {
+    state = createStateWithGeometryFrameCache(true);
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+      <section class="battlefield" data-player-id="player-2">
+        <div data-testid="game-card" data-card-instance-id="card-2"></div>
+      </section>
+    `;
+    const battlefields = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'));
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-card-instance-id]'));
+    const firstBattlefieldBounds = vi.spyOn(battlefields[0]!, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 800,
+    } as DOMRect);
+    const secondBattlefieldBounds = vi.spyOn(battlefields[1]!, 'getBoundingClientRect').mockReturnValue({
+      width: 800,
+      height: 600,
+    } as DOMRect);
+    const firstCardBounds = vi.spyOn(cards[0]!, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 200,
+    } as DOMRect);
+    const secondCardBounds = vi.spyOn(cards[1]!, 'getBoundingClientRect').mockReturnValue({
+      width: 160,
+      height: 240,
+    } as DOMRect);
+    const battlefieldElements = vi.spyOn(document, 'querySelectorAll');
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+
+    try {
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      state.ratioPositionForBattlefield('player-2', 'card-2', { x: 320, y: 180 });
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      state.ratioPositionForBattlefield('player-2', 'card-2', { x: 320, y: 180 });
+
+      expect(firstBattlefieldBounds).toHaveBeenCalledTimes(1);
+      expect(secondBattlefieldBounds).toHaveBeenCalledTimes(1);
+      expect(firstCardBounds).toHaveBeenCalledTimes(1);
+      expect(secondCardBounds).toHaveBeenCalledTimes(1);
+      expect(battlefieldElements).toHaveBeenCalledTimes(2);
+      expect(animationFrames).toHaveLength(1);
+    } finally {
+      animationFrame.mockRestore();
+      battlefieldElements.mockRestore();
+      secondCardBounds.mockRestore();
+      firstCardBounds.mockRestore();
+      secondBattlefieldBounds.mockRestore();
+      firstBattlefieldBounds.mockRestore();
+    }
+  });
+
+  it('rearms the geometry cache after a synchronous animation-frame callback', () => {
+    state = createStateWithGeometryFrameCache(true);
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    const battlefieldBounds = vi.spyOn(battlefield, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 800,
+    } as DOMRect);
+    const cardBounds = vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 200,
+    } as DOMRect);
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+
+      expect(animationFrame).toHaveBeenCalledTimes(4);
+      expect(battlefieldBounds).toHaveBeenCalledTimes(2);
+      expect(cardBounds).toHaveBeenCalledTimes(2);
+    } finally {
+      animationFrame.mockRestore();
+      cardBounds.mockRestore();
+      battlefieldBounds.mockRestore();
+    }
+  });
+
   it('queues the final battlefield position persist callback and keeps the optimistic ratio position local', async () => {
     currentSnapshot = snapshot({
       hand: [],
@@ -279,6 +525,16 @@ describe('GameTableBattlefieldState', () => {
     };
   }
 });
+
+function createStateWithGeometryFrameCache(enabled: boolean): GameTableBattlefieldState {
+  if (enabled) {
+    window.localStorage.setItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY, '1');
+  } else {
+    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
+  }
+
+  return TestBed.runInInjectionContext(() => new GameTableBattlefieldState());
+}
 
 function snapshot(options: {
   hand: GameCardInstance[];

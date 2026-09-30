@@ -114,6 +114,8 @@ import { ReportStore } from '../../reports/data-access/report.store';
 })
 class TestRouteStubComponent {}
 
+const DRAG_RAF_STORAGE_KEY = 'cz_perf_drag_raf';
+
 describe('GameTableComponent', () => {
   const squareGamePreferences = {
     defaultBattlefieldLayout: 'square' as const,
@@ -2449,6 +2451,236 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.handleHandDropped({ event, playerId: 'user-1' });
 
     expect(dropOnHand).toHaveBeenCalledWith(event, 'user-1');
+  });
+
+  it('processes card pointer moves immediately when the drag rAF experiment is disabled', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const moveFloatingPanel = vi.spyOn(fixture.componentInstance.store, 'moveFloatingPanel');
+    const moveCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'moveCardPointerDrag');
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+    const firstEvent = new PointerEvent('pointermove', { clientX: 120, clientY: 180, cancelable: true });
+    const secondEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
+
+    try {
+      fixture.componentInstance.handlePointerMove(firstEvent);
+      window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+      fixture.componentInstance.handlePointerMove(secondEvent);
+
+      expect(moveFloatingPanel).toHaveBeenNthCalledWith(1, firstEvent);
+      expect(moveFloatingPanel).toHaveBeenNthCalledWith(2, secondEvent);
+      expect(moveCardPointerDrag).toHaveBeenNthCalledWith(1, firstEvent);
+      expect(moveCardPointerDrag).toHaveBeenNthCalledWith(2, secondEvent);
+      expect(animationFrame).not.toHaveBeenCalled();
+    } finally {
+      animationFrame.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      moveFloatingPanel.mockRestore();
+    }
+  });
+
+  it('coalesces active card pointer moves to the latest event in one frame', () => {
+    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const hasActivePointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
+      .mockReturnValue(true);
+    const moveFloatingPanel = vi.spyOn(fixture.componentInstance.store, 'moveFloatingPanel');
+    const moveCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'moveCardPointerDrag')
+      .mockImplementation(() => undefined);
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    const firstEvent = new PointerEvent('pointermove', { clientX: 120, clientY: 180, cancelable: true });
+    const secondEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
+    const latestEvent = new PointerEvent('pointermove', { clientX: 480, clientY: 720, cancelable: true });
+    const firstPreventDefault = vi.spyOn(firstEvent, 'preventDefault');
+    const secondPreventDefault = vi.spyOn(secondEvent, 'preventDefault');
+    const latestPreventDefault = vi.spyOn(latestEvent, 'preventDefault');
+
+    try {
+      fixture.componentInstance.handlePointerMove(firstEvent);
+      fixture.componentInstance.handlePointerMove(secondEvent);
+      fixture.componentInstance.handlePointerMove(latestEvent);
+
+      expect(moveFloatingPanel).toHaveBeenNthCalledWith(1, firstEvent);
+      expect(moveFloatingPanel).toHaveBeenNthCalledWith(2, secondEvent);
+      expect(moveFloatingPanel).toHaveBeenNthCalledWith(3, latestEvent);
+      expect(firstPreventDefault).toHaveBeenCalledOnce();
+      expect(secondPreventDefault).toHaveBeenCalledOnce();
+      expect(latestPreventDefault).toHaveBeenCalledOnce();
+      expect(moveCardPointerDrag).not.toHaveBeenCalled();
+      expect(animationFrames).toHaveLength(1);
+
+      animationFrames[0]?.(0);
+
+      expect(moveCardPointerDrag).toHaveBeenCalledOnce();
+      expect(moveCardPointerDrag).toHaveBeenCalledWith(latestEvent);
+    } finally {
+      latestPreventDefault.mockRestore();
+      secondPreventDefault.mockRestore();
+      firstPreventDefault.mockRestore();
+      animationFrame.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      moveFloatingPanel.mockRestore();
+      hasActivePointerDrag.mockRestore();
+    }
+  });
+
+  it('processes a new active card pointer move in the next animation frame', () => {
+    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const hasActivePointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
+      .mockReturnValue(true);
+    const moveCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'moveCardPointerDrag')
+      .mockImplementation(() => undefined);
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    const firstEvent = new PointerEvent('pointermove', { clientX: 120, clientY: 180, cancelable: true });
+    const secondEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
+
+    try {
+      fixture.componentInstance.handlePointerMove(firstEvent);
+      animationFrames[0]?.(0);
+      fixture.componentInstance.handlePointerMove(secondEvent);
+
+      expect(animationFrames).toHaveLength(2);
+      expect(moveCardPointerDrag).toHaveBeenCalledOnce();
+      expect(moveCardPointerDrag).toHaveBeenCalledWith(firstEvent);
+
+      animationFrames[1]?.(0);
+
+      expect(moveCardPointerDrag).toHaveBeenCalledTimes(2);
+      expect(moveCardPointerDrag).toHaveBeenLastCalledWith(secondEvent);
+    } finally {
+      animationFrame.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      hasActivePointerDrag.mockRestore();
+    }
+  });
+
+  it('keeps floating panel movement synchronous without queuing card work when no pointer drag is active', () => {
+    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const hasActivePointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
+      .mockReturnValue(false);
+    const moveFloatingPanel = vi.spyOn(fixture.componentInstance.store, 'moveFloatingPanel');
+    const moveCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'moveCardPointerDrag');
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+    const event = new PointerEvent('pointermove', { clientX: 120, clientY: 180, cancelable: true });
+    const preventDefault = vi.spyOn(event, 'preventDefault');
+
+    try {
+      fixture.componentInstance.handlePointerMove(event);
+
+      expect(moveFloatingPanel).toHaveBeenCalledWith(event);
+      expect(moveCardPointerDrag).not.toHaveBeenCalled();
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(animationFrame).not.toHaveBeenCalled();
+    } finally {
+      preventDefault.mockRestore();
+      animationFrame.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      moveFloatingPanel.mockRestore();
+      hasActivePointerDrag.mockRestore();
+    }
+  });
+
+  it('flushes and cancels a pending card pointer move before ending the drag on pointerup', () => {
+    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const calls: string[] = [];
+    const hasActivePointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
+      .mockReturnValue(true);
+    const moveCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'moveCardPointerDrag')
+      .mockImplementation((event) => calls.push(`move:${event.clientX}`));
+    const endCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'endCardPointerDrag')
+      .mockImplementation(async () => {
+        calls.push('end');
+      });
+    const pointerDragPreview = vi
+      .spyOn(fixture.componentInstance.store, 'pointerDragPreview')
+      .mockReturnValue(null);
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const pendingEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
+    const pointerUpEvent = new PointerEvent('pointerup', { clientX: 480, clientY: 720 });
+
+    try {
+      fixture.componentInstance.handlePointerMove(pendingEvent);
+      fixture.componentInstance.handlePointerUp(pointerUpEvent);
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(calls).toEqual(['move:240', 'end']);
+      expect(endCardPointerDrag).toHaveBeenCalledWith(pointerUpEvent);
+
+      animationFrames[0]?.(0);
+
+      expect(calls).toEqual(['move:240', 'end']);
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+      pointerDragPreview.mockRestore();
+      endCardPointerDrag.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      hasActivePointerDrag.mockRestore();
+    }
+  });
+
+  it('discards a pending card pointer move when the pointer drag is cancelled', () => {
+    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const hasActivePointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
+      .mockReturnValue(true);
+    const moveCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'moveCardPointerDrag')
+      .mockImplementation(() => undefined);
+    const cancelCardPointerDrag = vi
+      .spyOn(fixture.componentInstance.store, 'cancelCardPointerDrag')
+      .mockImplementation(() => undefined);
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const pendingEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
+    const pointerCancelEvent = new PointerEvent('pointercancel', { clientX: 480, clientY: 720 });
+
+    try {
+      fixture.componentInstance.handlePointerMove(pendingEvent);
+      fixture.componentInstance.handlePointerCancel(pointerCancelEvent);
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(cancelCardPointerDrag).toHaveBeenCalledWith(pointerCancelEvent);
+      expect(moveCardPointerDrag).not.toHaveBeenCalled();
+
+      animationFrames[0]?.(0);
+
+      expect(moveCardPointerDrag).not.toHaveBeenCalled();
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+      cancelCardPointerDrag.mockRestore();
+      moveCardPointerDrag.mockRestore();
+      hasActivePointerDrag.mockRestore();
+    }
   });
 
   it('does not run hand FLIP on pointerup without battlefield pointer drag', () => {
