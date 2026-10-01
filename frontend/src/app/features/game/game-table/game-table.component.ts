@@ -5,6 +5,7 @@ import {
 } from './utils/battlefield-position';
 import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
+import { GRID_RENDER_MEMO_STORAGE_KEY } from './game-table-layout/game-table-grid-render-memo';
 import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -72,6 +73,7 @@ import {
 } from './services/game-table-drop-actions.service';
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
+import { GameTableLibraryImagePreloadService } from './services/game-table-library-image-preload.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
 import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
 import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
@@ -646,6 +648,7 @@ const DICE_RESULT_REVEAL_DELAY_MS = 3_000;
     GameTableSelectionService,
     GameTableSessionService,
     ImagePreloadQueueService,
+    GameTableLibraryImagePreloadService,
     GameTableDragService,
     GameTableDropActionsService,
     GameTableInteractionActionsService,
@@ -693,6 +696,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly dragRafEnabled =
     typeof window !== 'undefined'
     && window.localStorage.getItem('cz_perf_drag_raf') === '1';
+  readonly deferSummaryCollisionDuringPointerDragEnabled =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem('cz_perf_defer_summary_collision') === '1';
+  readonly gridRenderMemoEnabled =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(GRID_RENDER_MEMO_STORAGE_KEY) === '1';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);

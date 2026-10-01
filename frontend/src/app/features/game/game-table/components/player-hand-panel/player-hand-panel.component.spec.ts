@@ -7,9 +7,14 @@ import { GameTableMotionService } from '../../services/game-table-motion.service
 import { GameTablePointerDragService } from '../../services/game-table-pointer-drag.service';
 import { PlayerHandPanelComponent } from './player-hand-panel.component';
 
+const HAND_REORDER_RAF_STORAGE_KEY = 'cz_perf_hand_reorder_raf';
+const HAND_REORDER_GEOMETRY_STORAGE_KEY = 'cz_perf_hand_reorder_geometry';
+
 describe('PlayerHandPanelComponent', () => {
   afterEach(() => {
     window.localStorage.removeItem('cz_perf_disable_hand_flip_during_battlefield_drag');
+    window.localStorage.removeItem(HAND_REORDER_RAF_STORAGE_KEY);
+    window.localStorage.removeItem(HAND_REORDER_GEOMETRY_STORAGE_KEY);
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -2333,6 +2338,349 @@ describe('PlayerHandPanelComponent', () => {
       value: originalElementsFromPoint,
     });
   });
+
+  it('coalesces hand reorder pointer moves to the latest event in one animation frame', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement, handFan } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const pointerDragService = fixture.debugElement.injector.get(GameTablePointerDragService);
+    const handDropPreviewAt = vi.spyOn(pointerDragService, 'handDropPreviewAt');
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const elementsFromPoint = vi.fn(() => [handFan]);
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: elementsFromPoint,
+    });
+    const firstEvent = pointerEvent({ pointerId: 1, clientX: 50, clientY: 20 });
+    const secondEvent = pointerEvent({ pointerId: 1, clientX: 80, clientY: 20 });
+    const latestEvent = pointerEvent({ pointerId: 1, clientX: 130, clientY: 20 });
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(firstEvent);
+      fixture.componentInstance.moveHandPointerDrag(secondEvent);
+      fixture.componentInstance.moveHandPointerDrag(latestEvent);
+
+      expect(firstEvent.preventDefault).toHaveBeenCalledOnce();
+      expect(secondEvent.preventDefault).toHaveBeenCalledOnce();
+      expect(latestEvent.preventDefault).toHaveBeenCalledOnce();
+      expect(handDropPreviewAt).not.toHaveBeenCalled();
+      expect(animationFrames).toHaveLength(1);
+
+      animationFrames[0]?.(0);
+
+      expect(handDropPreviewAt).toHaveBeenCalledOnce();
+      expect(handDropPreviewAt.mock.calls[0]?.[2]).toBe(latestEvent.clientX);
+      expect(elementsFromPoint).toHaveBeenCalledOnce();
+      expect(fixture.componentInstance.pointerDrag()?.mode).toBe('reorder');
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      animationFrame.mockRestore();
+      handDropPreviewAt.mockRestore();
+    }
+  });
+
+  it('keeps hand transfers synchronous when the reorder rAF experiment is enabled', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const graveyard = document.createElement('button');
+    graveyard.dataset['gameDropZone'] = 'graveyard';
+    graveyard.dataset['zone'] = 'graveyard';
+    graveyard.dataset['playerId'] = 'player-1';
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 50, clientY: 120 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [graveyard]),
+    });
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 50, clientY: 70 }),
+      );
+
+      expect(animationFrame).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('discards a queued reorder before resolving a later transfer synchronously', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const graveyard = document.createElement('button');
+    graveyard.dataset['gameDropZone'] = 'graveyard';
+    graveyard.dataset['zone'] = 'graveyard';
+    graveyard.dataset['playerId'] = 'player-1';
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [graveyard]),
+    });
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+      );
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 20, clientY: -40 }),
+      );
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
+
+      animationFrames[0]?.(0);
+
+      expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('flushes the latest queued hand reorder before pointerup completes the drop', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement, handFan } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const reordered = vi.fn();
+    fixture.componentInstance.handCardPointerReordered.subscribe(reordered);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [handFan]),
+    });
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+      );
+      fixture.componentInstance.endHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 20, clientY: 20 }),
+      );
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(reordered).toHaveBeenCalledWith({
+        playerId: 'player-1',
+        movedInstanceId: 'card-1',
+        targetInstanceId: 'card-2',
+        placement: 'before',
+      });
+      expect(fixture.componentInstance.pointerDrag()).toBeNull();
+
+      animationFrames[0]?.(0);
+
+      expect(reordered).toHaveBeenCalledOnce();
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('discards a queued hand reorder when pointercancel occurs', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const started = vi.fn();
+    fixture.componentInstance.handCardPointerDragStarted.subscribe(started);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+      );
+      fixture.componentInstance.cancelHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+      );
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(fixture.componentInstance.pointerDrag()).toBeNull();
+      expect(started).not.toHaveBeenCalled();
+
+      animationFrames[0]?.(0);
+
+      expect(started).not.toHaveBeenCalled();
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('cancels a queued hand reorder when the panel is destroyed', async () => {
+    window.localStorage.setItem(HAND_REORDER_RAF_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const started = vi.fn();
+    fixture.componentInstance.handCardPointerDragStarted.subscribe(started);
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const cancelAnimationFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 110, clientY: 20 }),
+      );
+      fixture.destroy();
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(started).not.toHaveBeenCalled();
+
+      animationFrames[0]?.(0);
+
+      expect(started).not.toHaveBeenCalled();
+    } finally {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    }
+  });
+
+  it('reuses hand card geometry until the next animation frame', async () => {
+    window.localStorage.setItem(HAND_REORDER_GEOMETRY_STORAGE_KEY, '1');
+    const { fixture } = await renderHandPanel();
+    const { sourceElement, handFan, targetElement } = prepareHandReorderDom(fixture);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const targetBounds = vi.fn(() => handRect(100, 0, 100, 140));
+    targetElement.getBoundingClientRect = targetBounds;
+    const queryHandCards = vi.spyOn(fixture.nativeElement, 'querySelectorAll');
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    const animationFrames: FrameRequestCallback[] = [];
+    const animationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [handFan]),
+    });
+
+    try {
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 50, clientY: 20 }),
+      );
+      targetBounds.mockClear();
+      queryHandCards.mockClear();
+
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 80, clientY: 20 }),
+      );
+      fixture.componentInstance.moveHandPointerDrag(
+        pointerEvent({ pointerId: 1, clientX: 120, clientY: 20 }),
+      );
+
+      expect(queryHandCards).not.toHaveBeenCalled();
+      expect(targetBounds).not.toHaveBeenCalled();
+      expect(animationFrames.length).toBeGreaterThan(0);
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+      animationFrame.mockRestore();
+      queryHandCards.mockRestore();
+    }
+  });
 });
 
 interface RenderHandPanelOptions {
@@ -2427,6 +2775,40 @@ async function renderHandPanel(
     fixture,
     handArea: fixture.nativeElement.querySelector('[data-testid="hand-area"]'),
   };
+}
+
+function prepareHandReorderDom(fixture: ComponentFixture<PlayerHandPanelComponent>): {
+  sourceElement: HTMLElement;
+  targetElement: HTMLElement;
+  handFan: HTMLElement;
+} {
+  const sourceElement = fixture.nativeElement.querySelector(
+    '[data-card-instance-id="card-1"]',
+  ) as HTMLElement;
+  const targetElement = fixture.nativeElement.querySelector(
+    '[data-card-instance-id="card-2"]',
+  ) as HTMLElement;
+  const handZone = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+  const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
+  sourceElement.getBoundingClientRect = () => handRect(0, 0, 100, 140);
+  targetElement.getBoundingClientRect = () => handRect(100, 0, 100, 140);
+  handZone.getBoundingClientRect = () => handRect(0, 0, 420, 190);
+
+  return { sourceElement, targetElement, handFan };
+}
+
+function handRect(left: number, top: number, width: number, height: number): DOMRect {
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 function pointerEvent(

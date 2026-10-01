@@ -41,13 +41,17 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   private summaryProtectedArea: DOMRect | null = null;
   private handDragPreviewVisible = false;
   private turnStatusAnimationFrame: number | null = null;
+  private summaryCollisionDeferredDuringPointerDrag = false;
 
   readonly playerSeat = input.required<GridSeat>();
+  readonly summaryPlayer = input.required<GridSeat['player']>();
   readonly playerCount = input.required<GridPlayerCount>();
   readonly regions = input.required<PlayerRegionTemplates>();
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
   readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
   readonly canConcede = input<(playerId: string) => boolean>(() => false);
+  readonly deferSummaryCollisionDuringPointerDrag = input(false);
+  readonly hasActiveBattlefieldPointerDrag = input(false);
   readonly summaryCompact = signal(false);
   readonly useSquareZonePresentation = signal(false);
   // Keep this input while the development server replaces the old header template.
@@ -154,6 +158,12 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   }
 
   ngDoCheck(): void {
+    if (this.shouldDeferSummaryCollisionCheck()) {
+      this.deferSummaryCollisionCheckUntilPointerDragEnds();
+      return;
+    }
+    this.reconcileDeferredSummaryCollisionCheck();
+
     const fingerprint = this.currentBattlefieldLayoutFingerprint();
     const hasHandDragPreview = this.hasHandDragPreview();
     const handDragPreviewVisibilityChanged = hasHandDragPreview !== this.handDragPreviewVisible;
@@ -189,6 +199,10 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
 
   @HostListener('window:pointermove')
   syncSummaryWithHandDragPreview(): void {
+    if (this.shouldDeferSummaryCollisionCheck()) {
+      this.deferSummaryCollisionCheckUntilPointerDragEnds();
+      return;
+    }
     if (this.hasHandDragPreview()) {
       this.scheduleSummaryCollisionCheck();
     }
@@ -267,6 +281,10 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   }
 
   private scheduleSummaryCollisionCheck(): void {
+    if (this.shouldDeferSummaryCollisionCheck()) {
+      this.deferSummaryCollisionCheckUntilPointerDragEnds();
+      return;
+    }
     if (this.collisionCheckFrame !== null) {
       return;
     }
@@ -280,6 +298,10 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   }
 
   private syncSummaryModeWithBattlefieldOccupation(): void {
+    if (this.shouldDeferSummaryCollisionCheck()) {
+      this.deferSummaryCollisionCheckUntilPointerDragEnds();
+      return;
+    }
     if (this.isDefeated()) {
       this.summaryProtectedArea = null;
       this.summaryCompact.set(false);
@@ -311,6 +333,27 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
 
     this.summaryProtectedArea = null;
     this.summaryCompact.set(false);
+  }
+
+  private shouldDeferSummaryCollisionCheck(): boolean {
+    return this.deferSummaryCollisionDuringPointerDrag() && this.hasActiveBattlefieldPointerDrag();
+  }
+
+  private deferSummaryCollisionCheckUntilPointerDragEnds(): void {
+    this.summaryCollisionDeferredDuringPointerDrag = true;
+    if (this.collisionCheckFrame !== null) {
+      window.cancelAnimationFrame(this.collisionCheckFrame);
+      this.collisionCheckFrame = null;
+    }
+  }
+
+  private reconcileDeferredSummaryCollisionCheck(): void {
+    if (!this.summaryCollisionDeferredDuringPointerDrag) {
+      return;
+    }
+
+    this.summaryCollisionDeferredDuringPointerDrag = false;
+    this.scheduleSummaryCollisionCheck();
   }
 
   private hasHandDragPreview(): boolean {

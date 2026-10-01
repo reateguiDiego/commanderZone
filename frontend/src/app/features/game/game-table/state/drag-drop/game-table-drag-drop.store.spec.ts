@@ -18,6 +18,7 @@ import { GameTablePendingTransferState } from '../core/game-table-pending-transf
 
 const SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY = 'cz_perf_skip_drag_drop_feedback';
 const DRAG_RAF_STORAGE_KEY = 'cz_perf_drag_raf';
+const SHARED_HIT_TEST_STORAGE_KEY = 'cz_perf_shared_hit_test';
 
 describe('GameTableDragDropStore', () => {
   let store: GameTableDragDropStore;
@@ -46,6 +47,7 @@ describe('GameTableDragDropStore', () => {
   beforeEach(() => {
     window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
     window.localStorage.removeItem(DRAG_RAF_STORAGE_KEY);
+    window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
     dropOnZone = vi.fn().mockResolvedValue(undefined);
     updateActiveDropTarget = vi.fn();
     updateBattlefieldDragAid = vi.fn();
@@ -129,6 +131,7 @@ describe('GameTableDragDropStore', () => {
     vi.restoreAllMocks();
     window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
     window.localStorage.removeItem(DRAG_RAF_STORAGE_KEY);
+    window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
   });
 
   it('uses the selected group when the dragged card is part of a same-zone selection', () => {
@@ -437,6 +440,93 @@ describe('GameTableDragDropStore', () => {
       { x: 180, y: 220 },
       { transientPointerDrag: true },
     );
+  });
+
+  it('shares one ordered hit test across pointer drop target and battlefield aid when enabled', () => {
+    const enabledStore = createStoreWithSharedHitTest(true);
+    const dragged = permanent('dragged', 100, 200);
+    const ctx = context([playerView([dragged])]);
+    const event = { clientX: 180, clientY: 220 } as PointerEvent;
+    const hitTestElements = [document.createElement('div')];
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const elementsFromPoint = vi.fn(() => hitTestElements);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: elementsFromPoint,
+    });
+
+    try {
+      enabledStore.moveCardPointerDrag(ctx, event);
+
+      expect(elementsFromPoint).toHaveBeenCalledOnce();
+      expect(elementsFromPoint).toHaveBeenCalledWith(180, 220);
+      expect(updatePointerDropTarget.mock.calls[0]?.[2]).toBe(hitTestElements);
+      expect(updateBattlefieldDragAid.mock.calls[0]?.[3]).toBe(hitTestElements);
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
+  });
+
+  it('refreshes the shared hit test for each processed pointer move', () => {
+    const enabledStore = createStoreWithSharedHitTest(true);
+    const dragged = permanent('dragged', 100, 200);
+    const ctx = context([playerView([dragged])]);
+    const firstHitTestElements = [document.createElement('div')];
+    const secondHitTestElements = [document.createElement('div')];
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const elementsFromPoint = vi
+      .fn()
+      .mockReturnValueOnce(firstHitTestElements)
+      .mockReturnValueOnce(secondHitTestElements);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: elementsFromPoint,
+    });
+
+    try {
+      enabledStore.moveCardPointerDrag(ctx, { clientX: 180, clientY: 220 } as PointerEvent);
+      enabledStore.moveCardPointerDrag(ctx, { clientX: 240, clientY: 280 } as PointerEvent);
+
+      expect(elementsFromPoint).toHaveBeenCalledTimes(2);
+      expect(updatePointerDropTarget.mock.calls[0]?.[2]).toBe(firstHitTestElements);
+      expect(updatePointerDropTarget.mock.calls[1]?.[2]).toBe(secondHitTestElements);
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
+  });
+
+  it('keeps the existing coordinator calls without a shared hit test when disabled', () => {
+    const dragged = permanent('dragged', 100, 200);
+    const ctx = context([playerView([dragged])]);
+    const event = { clientX: 180, clientY: 220 } as PointerEvent;
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const elementsFromPoint = vi.fn(() => []);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: elementsFromPoint,
+    });
+
+    try {
+      store.moveCardPointerDrag(ctx, event);
+
+      expect(elementsFromPoint).not.toHaveBeenCalled();
+      expect(updatePointerDropTarget.mock.calls[0]).toHaveLength(2);
+      expect(updateBattlefieldDragAid.mock.calls[0]).toHaveLength(3);
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
   });
 
   it('does not read a snapshot for feedback reconciliation while the flag is disabled', async () => {
@@ -1381,6 +1471,16 @@ describe('GameTableDragDropStore', () => {
       window.localStorage.setItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY, '1');
     } else {
       window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
+    }
+
+    return TestBed.runInInjectionContext(() => new GameTableDragDropStore());
+  }
+
+  function createStoreWithSharedHitTest(enabled: boolean): GameTableDragDropStore {
+    if (enabled) {
+      window.localStorage.setItem(SHARED_HIT_TEST_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
     }
 
     return TestBed.runInInjectionContext(() => new GameTableDragDropStore());

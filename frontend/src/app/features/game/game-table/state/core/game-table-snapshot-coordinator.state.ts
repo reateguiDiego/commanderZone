@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from '../../services/game-table-debounced-value-commands.service';
+import { GameTableLibraryImagePreloadService } from '../../services/game-table-library-image-preload.service';
 import { GameTableBattlefieldState } from '../battlefield/game-table-battlefield.state';
 import { GameTableCardsState } from '../cards/game-table-cards.state';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
@@ -24,6 +25,7 @@ export class GameTableSnapshotCoordinatorState {
     private readonly debouncedValueCommands: GameTableDebouncedValueCommandsService,
     private readonly dropFeedbackState: GameTableDropFeedbackState,
     private readonly pendingTransferState: GameTablePendingTransferState,
+    private readonly libraryImagePreloads: GameTableLibraryImagePreloadService,
   ) {}
 
   setSnapshot(
@@ -45,6 +47,7 @@ export class GameTableSnapshotCoordinatorState {
     const nextSnapshot = this.cardsState.applyOptimisticCardCounters(counterSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.core.snapshot.set(nextSnapshot);
+    this.libraryImagePreloads.sync(nextSnapshot);
     context.openRevealedLibraryFromSnapshot(nextSnapshot);
   }
 }

@@ -4,14 +4,17 @@
     @for (entry of seatTurnEntries(); track entry.seat.player.id) {
       <app-grid-player-battlefield
         [playerSeat]="entry.seat"
+        [summaryPlayer]="entry.summaryPlayer"
         [playerCount]="count"
         [regions]="regions()"
-        [summaryBindings]="summaryBindings()"
+        [summaryBindings]="renderedSummaryBindings()"
         [playmatImage]="playmatImage()"
         [isTurnOwner]="entry.turnDistance === 0"
         [turnDistance]="entry.turnDistance"
         [isOffline]="entry.seat.player.state.isOnline === false"
         [canConcede]="canConcede()"
+        [deferSummaryCollisionDuringPointerDrag]="deferSummaryCollisionDuringPointerDrag()"
+        [hasActiveBattlefieldPointerDrag]="hasActiveBattlefieldPointerDrag()"
         [style.grid-area]="entry.seat.seat"
         (dropAllowed)="dropAllowed.emit($event)"
         (playerDropped)="playerDropped.emit($event)"

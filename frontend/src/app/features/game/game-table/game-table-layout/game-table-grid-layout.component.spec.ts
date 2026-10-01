@@ -1,7 +1,8 @@
 import { Component, importProvidersFrom, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ChevronDown, LucideAngularModule, Skull } from 'lucide-angular';
+import type { GameCardInstance } from '../../../../core/models/game.model';
 import type { PlayerView } from '../game-table.store';
 import { GameTableGridLayoutComponent } from './game-table-grid-layout.component';
 import { GridPlayerBattlefieldComponent } from './grid-player-battlefield.component';
@@ -17,7 +18,8 @@ import { GameTableSessionPreferencesStore } from '../state/core/game-table-sessi
       [seats]="seats()"
       [activePlayerId]="'local'"
       [regions]="{ battlefield: region, hand: region, zones: region }"
-      [summaryBindings]="summaryBindings"
+      [summaryBindings]="summaryBindings()"
+      [renderMemoEnabled]="renderMemoEnabled()"
       [playmatImage]="playmatImage"
       [canConcede]="canConcede"
     />
@@ -26,8 +28,9 @@ import { GameTableSessionPreferencesStore } from '../state/core/game-table-sessi
 class GridHost {
   readonly seats = signal(buildGridSeats([player('local')], player('local')));
   readonly concedePlayerId = signal<string | null>(null);
+  readonly renderMemoEnabled = signal(false);
   readonly canConcede = (playerId: string): boolean => this.concedePlayerId() === playerId;
-  readonly summaryBindings: GridPlayerSummaryBindings = {
+  readonly summaryBindings = signal<GridPlayerSummaryBindings>({
     players: [],
     colorAccent: () => '',
     deckLabel: () => '',
@@ -42,8 +45,9 @@ class GridHost {
     changeLife: () => undefined,
     changeCommanderDamage: () => undefined,
     changePlayerCounter: () => undefined,
-  };
-  readonly playmatImage = (player: PlayerView): string => `/assets/images/playmat/${player.id}.webp`;
+  });
+  readonly playmatImage = (player: PlayerView): string =>
+    `/assets/images/playmat/${player.id}.webp`;
 }
 
 describe('GameTable grid layout', () => {
@@ -154,7 +158,11 @@ describe('GameTable grid layout', () => {
     fixture.componentInstance.seats.set(buildGridSeats(players, players[0]));
     fixture.detectChanges();
 
-    const panels = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="grid-player-panel"]')];
+    const panels = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        '[data-testid="grid-player-panel"]',
+      ),
+    ];
     expect(panels.map((panel) => panel.style.getPropertyValue('--grid-player-playmat'))).toEqual([
       'url("/assets/images/playmat/opponent.webp")',
       'url("/assets/images/playmat/local.webp")',
@@ -169,9 +177,60 @@ describe('GameTable grid layout', () => {
     fixture.componentInstance.concedePlayerId.set('local');
     fixture.detectChanges();
 
-    const localPanel = (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLElement>('[data-testid="grid-player-panel"][data-player-id="local"]');
+    const localPanel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      '[data-testid="grid-player-panel"][data-player-id="local"]',
+    );
     expect(localPanel?.querySelector('[data-testid="battlefield-concede"]')).not.toBeNull();
+  });
+
+  it('forwards fresh summary bindings unchanged while the render memo experiment is off', async () => {
+    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+    const fixture = TestBed.createComponent(GridHost);
+    fixture.detectChanges();
+    const grid = fixture.debugElement.query(By.directive(GameTableGridLayoutComponent))
+      .componentInstance as GameTableGridLayoutComponent;
+    const initialBindings = fixture.componentInstance.summaryBindings();
+
+    expect(grid.renderedSummaryBindings()).toBe(initialBindings);
+
+    const nextBindings: GridPlayerSummaryBindings = {
+      ...initialBindings,
+      autoApplyCommanderDamageToLife: false,
+    };
+    fixture.componentInstance.summaryBindings.set(nextBindings);
+    fixture.detectChanges();
+
+    expect(grid.renderedSummaryBindings()).toBe(nextBindings);
+  });
+
+  it('keeps the prior summary PlayerView only for position-only updates when the experiment is enabled', async () => {
+    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+
+    for (const renderMemoEnabled of [false, true]) {
+      const fixture = TestBed.createComponent(GridHost);
+      const local = player('local', 0.2);
+      const opponent = player('opponent', 0.4);
+      fixture.componentInstance.renderMemoEnabled.set(renderMemoEnabled);
+      fixture.componentInstance.seats.set(buildGridSeats([local, opponent], local));
+      fixture.componentInstance.summaryBindings.update((bindings) => ({
+        ...bindings,
+        players: [local, opponent],
+      }));
+      fixture.detectChanges();
+
+      const localBattlefield = gridBattlefieldFor(fixture, 'local');
+      const movedLocal = withBattlefieldPosition(local, 0.6);
+      fixture.componentInstance.seats.set(buildGridSeats([movedLocal, opponent], movedLocal));
+      fixture.componentInstance.summaryBindings.update((bindings) => ({
+        ...bindings,
+        players: [movedLocal, opponent],
+      }));
+      fixture.detectChanges();
+
+      expect(localBattlefield.playerSeat().player).toBe(movedLocal);
+      expect(localBattlefield.summaryPlayer()).toBe(renderMemoEnabled ? local : movedLocal);
+      fixture.destroy();
+    }
   });
 
   it('shows the defeated overlay while keeping the player summary mounted', async () => {
@@ -182,11 +241,14 @@ describe('GameTable grid layout', () => {
     fixture.componentInstance.seats.set(buildGridSeats(players, players[0]));
     fixture.detectChanges();
 
-    const defeatedPanel = (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLElement>('[data-testid="grid-player-panel"][data-player-id="opponent"]');
+    const defeatedPanel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      '[data-testid="grid-player-panel"][data-player-id="opponent"]',
+    );
 
     expect(defeatedPanel?.classList.contains('is-defeated')).toBe(true);
-    expect(defeatedPanel?.querySelector('[data-testid="grid-player-battlefield-skull"]')).not.toBeNull();
+    expect(
+      defeatedPanel?.querySelector('[data-testid="grid-player-battlefield-skull"]'),
+    ).not.toBeNull();
     expect(defeatedPanel?.querySelector('[data-testid="player-summary-panel"]')).not.toBeNull();
 
     const defeatedBattlefield = fixture.debugElement
@@ -200,7 +262,22 @@ describe('GameTable grid layout', () => {
   });
 });
 
-function player(id: string): PlayerView {
+function gridBattlefieldFor(
+  fixture: ComponentFixture<GridHost>,
+  playerId: string,
+): GridPlayerBattlefieldComponent {
+  const component = fixture.debugElement
+    .queryAll(By.directive(GridPlayerBattlefieldComponent))
+    .map((debugElement) => debugElement.componentInstance as GridPlayerBattlefieldComponent)
+    .find((candidate) => candidate.playerSeat().player.id === playerId);
+  if (!component) {
+    throw new Error(`Expected Grid battlefield for ${playerId}.`);
+  }
+
+  return component;
+}
+
+function player(id: string, positionX?: number): PlayerView {
   return {
     id,
     state: {
@@ -209,7 +286,37 @@ function player(id: string): PlayerView {
       life: 40,
       commanderDamage: {},
       counters: {},
-      zones: { library: [], hand: [], battlefield: [], command: [], exile: [], graveyard: [] },
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: positionX === undefined ? [] : [battlefieldCard(positionX)],
+        command: [],
+        exile: [],
+        graveyard: [],
+      },
     },
+  };
+}
+
+function withBattlefieldPosition(source: PlayerView, x: number): PlayerView {
+  return {
+    ...source,
+    state: {
+      ...source.state,
+      zones: {
+        ...source.state.zones,
+        battlefield: [{ ...source.state.zones.battlefield[0]!, position: { x, y: 0.3, unit: 'ratio' } }],
+      },
+    },
+  };
+}
+
+function battlefieldCard(x: number): GameCardInstance {
+  return {
+    instanceId: 'battlefield-card',
+    name: 'Battlefield card',
+    tapped: false,
+    zone: 'battlefield',
+    position: { x, y: 0.3, unit: 'ratio' },
   };
 }

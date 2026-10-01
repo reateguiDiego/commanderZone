@@ -18,6 +18,7 @@
     @for (slot of renderedSlots(); track slotTrackBy($index, slot)) {
       @if (slot.card; as card) {
         @let visibleCard = previewCard(card);
+        @let eagerImage = isInitialImageEager(slot.index);
         <button
           type="button"
           class="card-spoiler"
@@ -48,11 +49,12 @@
             @if (cardImage()(visibleCard); as image) {
               <img
                 [appGameScheduledImage]="image"
-                gameImagePriority="visible"
+                [gameImagePriority]="eagerImage ? 'interaction' : 'visible'"
                 [alt]="visibleCard.name"
                 [appPreloadCardAlternateFace]="visibleCard"
                 [cardVisibleFaceIndex]="visibleCard.activeFaceIndex ?? 0"
-                loading="lazy"
+                [attr.loading]="eagerImage ? 'eager' : 'lazy'"
+                [attr.fetchpriority]="eagerImage ? 'high' : 'auto'"
                 decoding="async"
               />
             } @else {

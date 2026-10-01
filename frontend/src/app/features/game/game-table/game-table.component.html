@@ -695,8 +695,15 @@
                 changeCommanderDamage: gridCommanderDamageChanged,
                 changePlayerCounter: gridPlayerCounterChanged,
               }"
+              [renderMemoEnabled]="gridRenderMemoEnabled"
               [activePlayerId]="snapshot.turn.activePlayerId"
               [canConcede]="canConcedeForPlayer"
+              [deferSummaryCollisionDuringPointerDrag]="
+                deferSummaryCollisionDuringPointerDragEnabled
+              "
+              [hasActiveBattlefieldPointerDrag]="
+                deferSummaryCollisionDuringPointerDragEnabled && store.hasActivePointerDrag()
+              "
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
               (battlefieldSizeChanged)="tableLayout.recordSize($event)"

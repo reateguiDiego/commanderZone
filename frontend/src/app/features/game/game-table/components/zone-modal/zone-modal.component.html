@@ -1,6 +1,6 @@
 @let currentModal = modal();
 
-<section class="zone-modal-backdrop">
+<section class="zone-modal-backdrop" [class.zone-modal-backdrop--no-blur]="noBackdropBlurEnabled">
   <div class="zone-modal" data-testid="zone-modal" [class.has-zone-filters]="currentModal.showFilters" (click)="stopClick($event)">
     <header class="zone-modal-header">
       <div class="zone-title-block">
@@ -35,6 +35,7 @@
         [allowReorder]="currentModal.allowReorder"
         [allowSelection]="!currentModal.allowReorder"
         [orderLabels]="currentModal.drawOrderLabels"
+        [prioritizeInitialImages]="currentModal.libraryImageOrderAuthorized === true"
         [cardImage]="cardImage()"
         emptyLabel="common.ui.emptyZone"
         (cardSelected)="cardSelected.emit($event)"

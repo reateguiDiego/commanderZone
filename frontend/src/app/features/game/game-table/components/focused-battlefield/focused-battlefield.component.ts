@@ -28,7 +28,7 @@ import {
   DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
   MAX_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
-import { BattlefieldCardSize } from '../../utils/battlefield-position';
+import { BattlefieldCardSize, DEFAULT_BATTLEFIELD_CARD_SIZE } from '../../utils/battlefield-position';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
 interface CardCounterView {
@@ -149,11 +149,18 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   private resizeObserver: ResizeObserver | null = null;
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
   private lastLayoutKey: unknown = null;
+  private lastPremeasuredBattlefieldCards: readonly GameCardInstance[] | null = null;
+  private lastPremeasuredBattlefieldCardSizeKey: string | null = null;
   private layoutRefreshFrame: number | null = null;
   private readonly focusedGeometryCacheEnabled =
     typeof window !== 'undefined'
     && window.localStorage.getItem('cz_perf_focused_geometry_cache') === '1';
+  private readonly battlefieldBoundsCacheEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_battlefield_bounds') === '1';
   private readonly measuredCardSizeFrameCache = new Map<string, MeasuredCardSizeFrameCacheEntry>();
+  private readonly premeasuredBattlefieldCardSizes = new Map<string, BattlefieldCardSize>();
+  private premeasuredBattlefieldFallbackCardSize: BattlefieldCardSize | null = null;
   private measuredCardSizeClearFrame: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
@@ -303,6 +310,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       this.measuredCardSizeClearFrame = null;
     }
     this.measuredCardSizeFrameCache.clear();
+    this.premeasuredBattlefieldCardSizes.clear();
+    this.premeasuredBattlefieldFallbackCardSize = null;
+    this.lastPremeasuredBattlefieldCards = null;
+    this.lastPremeasuredBattlefieldCardSizeKey = null;
   }
 
   handleManaLaneDragOver(event: DragEvent): void {
@@ -325,6 +336,18 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     if (layoutChanged) {
       this.queueMeasuredLayoutRefresh();
+    }
+
+    if (this.battlefieldBoundsCacheEnabled) {
+      const cards = this.battlefieldCards();
+      if (this.lastPremeasuredBattlefieldCards !== cards) {
+        this.lastPremeasuredBattlefieldCards = cards;
+        const cardSizeKey = this.battlefieldCardSizeKey(cards);
+        if (this.lastPremeasuredBattlefieldCardSizeKey !== cardSizeKey) {
+          this.lastPremeasuredBattlefieldCardSizeKey = cardSizeKey;
+          this.queueMeasuredLayoutRefresh();
+        }
+      }
     }
 
   }
@@ -573,6 +596,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     this.layoutRefreshFrame = window.requestAnimationFrame(() => {
       this.layoutRefreshFrame = null;
+      if (this.battlefieldBoundsCacheEnabled) {
+        this.refreshPremeasuredBattlefieldCardSizes();
+      }
       this.measuredLayoutVersion.update((value) => value + 1);
     });
   }
@@ -708,6 +734,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   private battlefieldHeight(): number {
+    if (this.battlefieldBoundsCacheEnabled) {
+      return this.lastBattlefieldSize?.height ?? 0;
+    }
+
     const battlefield = this.battlefieldRoot?.nativeElement;
     return battlefield
       ? Math.round(battlefield.clientHeight || battlefield.getBoundingClientRect().height)
@@ -715,6 +745,12 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   private measuredCardSize(instanceId: string): BattlefieldCardSize {
+    if (this.battlefieldBoundsCacheEnabled) {
+      return this.premeasuredBattlefieldCardSizes.get(instanceId)
+        ?? this.premeasuredBattlefieldFallbackCardSize
+        ?? DEFAULT_BATTLEFIELD_CARD_SIZE;
+    }
+
     const battlefield = this.battlefieldRoot?.nativeElement;
     if (!this.focusedGeometryCacheEnabled) {
       return this.measureCardSize(instanceId, battlefield).size;
@@ -761,14 +797,11 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     const element = Array.from(battlefield?.querySelectorAll<HTMLElement>(
       '[data-testid="game-card"][data-card-instance-id]',
     ) ?? []).find((candidate) => candidate.dataset['cardInstanceId'] === instanceId);
-    const bounds = element?.getBoundingClientRect();
-    if (element && bounds && bounds.width > 0 && bounds.height > 0) {
+    const size = element ? this.cardSizeFromElement(element) : null;
+    if (element && size) {
       return {
         element,
-        size: {
-          width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
-          height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
-        },
+        size,
       };
     }
 
@@ -783,6 +816,47 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
         width,
         height: Math.max(1, Math.round(width / 0.716)),
       },
+    };
+  }
+
+  private battlefieldCardSizeKey(cards: readonly GameCardInstance[]): string {
+    return cards.map((card) => card.instanceId).join('|');
+  }
+
+  private refreshPremeasuredBattlefieldCardSizes(): void {
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    const nextSizes = new Map<string, BattlefieldCardSize>();
+    for (const element of battlefield?.querySelectorAll<HTMLElement>(
+      '[data-testid="game-card"][data-card-instance-id]',
+    ) ?? []) {
+      const instanceId = element.dataset['cardInstanceId'];
+      const size = this.cardSizeFromElement(element);
+      if (instanceId && size) {
+        nextSizes.set(instanceId, size);
+      }
+    }
+
+    this.premeasuredBattlefieldCardSizes.clear();
+    for (const [instanceId, size] of nextSizes) {
+      this.premeasuredBattlefieldCardSizes.set(instanceId, size);
+    }
+
+    const fallbackElement = battlefield?.querySelector<HTMLElement>('[data-battlefield-card-size-probe]') ?? null;
+    const fallbackSize = fallbackElement ? this.cardSizeFromElement(fallbackElement) : null;
+    if (fallbackSize) {
+      this.premeasuredBattlefieldFallbackCardSize = fallbackSize;
+    }
+  }
+
+  private cardSizeFromElement(element: HTMLElement): BattlefieldCardSize | null {
+    const bounds = element.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return null;
+    }
+
+    return {
+      width: Math.max(1, Math.round(element.offsetWidth || bounds.width)),
+      height: Math.max(1, Math.round(element.offsetHeight || bounds.height)),
     };
   }
 

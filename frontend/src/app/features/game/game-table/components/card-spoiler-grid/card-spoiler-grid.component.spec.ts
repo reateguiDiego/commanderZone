@@ -4,7 +4,13 @@ import { LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardSpoilerGridComponent } from './card-spoiler-grid.component';
 
+const LIBRARY_VISIBLE_EAGER_STORAGE_KEY = 'cz_perf_library_visible_eager';
+
 describe('CardSpoilerGridComponent', () => {
+  afterEach(() => {
+    window.localStorage.removeItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY);
+  });
+
   it('renders card spoilers and emits card interactions', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
@@ -53,6 +59,44 @@ describe('CardSpoilerGridComponent', () => {
 
     expect(grid.querySelector('[data-card-instance-id="card-1"]')).toBeNull();
     expect(grid.querySelectorAll('[data-card-instance-id]').length).toBeLessThan(80);
+  });
+
+  it('eagerly loads only the authorized initial library window when the experiment is enabled', async () => {
+    window.localStorage.setItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY, '1');
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture(
+      Array.from({ length: 10 }, (_unused, index) => card(`card-${index + 1}`, `Card ${index + 1}`)),
+    );
+    fixture.componentRef.setInput('prioritizeInitialImages', true);
+    fixture.detectChanges();
+
+    const images = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('img')) as HTMLImageElement[];
+
+    expect(images.slice(0, 3).every((image) =>
+      image.getAttribute('loading') === 'eager' && image.getAttribute('fetchpriority') === 'high',
+    )).toBe(true);
+    expect(images[3]?.getAttribute('loading')).toBe('lazy');
+    expect(images[3]?.getAttribute('fetchpriority')).toBe('auto');
+  });
+
+  it('keeps lazy image loading when the displayed library order is not authorized', async () => {
+    window.localStorage.setItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY, '1');
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture(
+      Array.from({ length: 10 }, (_unused, index) => card(`card-${index + 1}`, `Card ${index + 1}`)),
+    );
+    fixture.detectChanges();
+
+    const firstImage = (fixture.nativeElement as HTMLElement).querySelector('img') as HTMLImageElement | null;
+
+    expect(firstImage?.getAttribute('loading')).toBe('lazy');
+    expect(firstImage?.getAttribute('fetchpriority')).toBe('auto');
   });
 
   it('renders draw labels, shows drag feedback and emits a swapped card list', async () => {

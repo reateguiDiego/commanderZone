@@ -1726,7 +1726,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean } = {},
+    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean; libraryImageOrderAuthorized?: boolean } = {},
   ): void {
     this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
@@ -1783,6 +1783,7 @@ export class GameTableStore implements OnDestroy {
       this.openFixedZone(playerId, 'library', `${this.playerName(playerId)} ${this.zoneTitle('library')}`, cards, null, false, {
         readOnly: true,
         showFilters: true,
+        libraryImageOrderAuthorized: true,
       });
       this.shuffleLibraryOnModalClosePlayerId.set(playerId);
       this.shuffleLibraryOnModalCloseReason.set('revealed-library-closed');

@@ -23,6 +23,7 @@ import { GameScheduledImageDirective } from '../../directives/game-scheduled-ima
 import {
   GameTablePointerDragService,
   HandPointerDropPreview,
+  HandReorderGeometry,
   PointerDropTarget,
 } from '../../services/game-table-pointer-drag.service';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
@@ -131,6 +132,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private readonly disableHandFlipDuringBattlefieldDrag =
     typeof window !== 'undefined' &&
     window.localStorage.getItem('cz_perf_disable_hand_flip_during_battlefield_drag') === '1';
+  private readonly handReorderRafEnabled =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem('cz_perf_hand_reorder_raf') === '1';
+  private readonly handReorderGeometryEnabled =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem('cz_perf_hand_reorder_geometry') === '1';
   private revealTimer: number | null = null;
   private handHoverTimer: number | null = null;
   private handHoverClearTimer: number | null = null;
@@ -145,6 +152,13 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private previousMotionActive = false;
   private pendingRowScrollAnchor: { scrollProgress: number } | null = null;
   private lastPointerPosition: { clientX: number; clientY: number } | null = null;
+  private pendingHandPointerMove: PointerEvent | null = null;
+  private handPointerMoveFrame: number | null = null;
+  private handReorderGeometry: {
+    readonly layoutKey: string;
+    readonly value: HandReorderGeometry;
+  } | null = null;
+  private handReorderGeometryClearFrame: number | null = null;
   private stableHandInstanceIds: ReadonlySet<string> = new Set();
   private retainedHandDropPreview: {
     targetInstanceId: string;
@@ -422,6 +436,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   }
 
   ngOnDestroy(): void {
+    this.cancelQueuedHandPointerMove();
+    this.clearHandReorderGeometry();
     this.clearRevealTimer();
     this.clearHandHoverTimers();
     this.clearReorderPreviewTimer();
@@ -441,6 +457,20 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
+    if (this.handReorderRafEnabled && this.shouldQueueHandReorderMove(event, drag)) {
+      this.queueHandPointerMove(event);
+      return;
+    }
+
+    this.cancelQueuedHandPointerMove();
+    this.resolveHandPointerMove(event, drag);
+  }
+
+  private resolveHandPointerMove(
+    event: PointerEvent,
+    drag: HandPointerDrag,
+    eventAlreadyPrevented = false,
+  ): void {
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
     const intendedMode =
@@ -449,21 +479,87 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    event.preventDefault();
+    if (!eventAlreadyPrevented) {
+      event.preventDefault();
+    }
     if (drag.mode === 'pending') {
       this.handCardPointerDragStarted.emit({ playerId: drag.playerId, card: drag.card });
     }
     const resolved = this.resolvePointerDrag(event, drag, intendedMode);
     const visiblePreview = this.visibleReorderPreview(drag, resolved);
     this.handPointerDropTargetChanged.emit(resolved.target);
-    this.pointerDrag.set({
+    const nextDrag: HandPointerDrag = {
       ...drag,
       mode: resolved.mode,
       x: event.clientX - drag.offsetX,
       y: event.clientY - drag.offsetY,
       preview: visiblePreview,
       overOwnHand: resolved.overOwnHand,
+    };
+    this.pointerDrag.set(nextDrag);
+  }
+
+  private shouldQueueHandReorderMove(event: PointerEvent, drag: HandPointerDrag): boolean {
+    if (drag.mode === 'reorder') {
+      return true;
+    }
+
+    if (drag.mode !== 'pending') {
+      return false;
+    }
+
+    return (
+      this.nextPointerDragMode(event.clientX - drag.startX, event.clientY - drag.startY) ===
+      'reorder'
+    );
+  }
+
+  private queueHandPointerMove(event: PointerEvent): void {
+    event.preventDefault();
+    this.pendingHandPointerMove = event;
+    if (this.handPointerMoveFrame !== null) {
+      return;
+    }
+
+    let callbackRanSynchronously = false;
+    const frame = window.requestAnimationFrame(() => {
+      callbackRanSynchronously = true;
+      this.handPointerMoveFrame = null;
+
+      const latestEvent = this.pendingHandPointerMove;
+      this.pendingHandPointerMove = null;
+      const activeDrag = this.pointerDrag();
+      if (!latestEvent || !activeDrag || latestEvent.pointerId !== activeDrag.pointerId) {
+        return;
+      }
+
+      this.resolveHandPointerMove(latestEvent, activeDrag, true);
     });
+    this.handPointerMoveFrame = callbackRanSynchronously ? null : frame;
+  }
+
+  private flushQueuedHandPointerMove(): void {
+    const latestEvent = this.pendingHandPointerMove;
+    this.cancelQueuedHandPointerMove();
+    if (!latestEvent) {
+      return;
+    }
+
+    const drag = this.pointerDrag();
+    if (!drag || latestEvent.pointerId !== drag.pointerId) {
+      return;
+    }
+
+    this.resolveHandPointerMove(latestEvent, drag, true);
+  }
+
+  private cancelQueuedHandPointerMove(): void {
+    if (this.handPointerMoveFrame !== null) {
+      window.cancelAnimationFrame(this.handPointerMoveFrame);
+      this.handPointerMoveFrame = null;
+    }
+
+    this.pendingHandPointerMove = null;
   }
 
   @HostListener('window:mousemove', ['$event'])
@@ -490,6 +586,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     this.focusInside = false;
     this.lastPointerPosition = null;
     this.previousHandLayoutMode = 'fan';
+    this.cancelQueuedHandPointerMove();
+    this.clearHandReorderGeometry();
     this.clearRevealTimer();
     this.clearHandHoverTimers();
     this.clearPostMotionHoldTimer();
@@ -503,8 +601,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   @HostListener('window:pointerup', ['$event'])
   endHandPointerDrag(event: PointerEvent): void {
     this.rememberPointerPosition(event.clientX, event.clientY);
+    const activeDrag = this.pointerDrag();
+    if (!activeDrag || event.pointerId !== activeDrag.pointerId) {
+      return;
+    }
+
+    this.flushQueuedHandPointerMove();
     const drag = this.pointerDrag();
-    if (!drag || event.pointerId !== drag.pointerId) {
+    if (!drag) {
       return;
     }
 
@@ -513,6 +617,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     this.handPointerDropTargetChanged.emit(null);
     if (drag.mode === 'pending') {
       this.pointerDrag.set(null);
+      this.clearHandReorderGeometry();
       this.syncHandHoverFromCoordinates(event.clientX, event.clientY);
       return;
     }
@@ -532,6 +637,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     if (reorderPreview) {
       this.keepHandOpenAfterReorder(event, drag.playerId);
       this.pointerDrag.set(null);
+      this.clearHandReorderGeometry();
       this.changeDetectorRef.detectChanges();
       this.handCardPointerReordered.emit({
         playerId: drag.playerId,
@@ -556,6 +662,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       }
     }
     this.pointerDrag.set(null);
+    this.clearHandReorderGeometry();
     this.collapseHandAfterDragTransfer();
   }
 
@@ -567,7 +674,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
+    this.cancelQueuedHandPointerMove();
     this.pointerDrag.set(null);
+    this.clearHandReorderGeometry();
     this.clearReorderPreviewTimer();
     this.handPointerDropTargetChanged.emit(null);
     this.syncHandHoverFromCoordinates(event.clientX, event.clientY);
@@ -745,6 +854,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
             Math.min(cardHeight, ((event.clientY - bounds.top) / bounds.height) * cardHeight),
           )
         : cardHeight / 2;
+    this.cancelQueuedHandPointerMove();
+    this.clearHandReorderGeometry();
     this.clearReorderPreviewTimer();
     this.keepHandRevealedDuringOwnPointerDrag();
     this.cardPreviewHidden.emit();
@@ -1864,6 +1975,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       clientX,
       this.player().state.zones.hand,
       drag.card.instanceId,
+      this.handReorderGeometryFor(drag),
     );
   }
 
@@ -1872,7 +1984,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     drag: HandPointerDrag,
     intendedMode: Exclude<HandPointerDragMode, 'pending'>,
   ): ResolvedHandPointerDrag {
-    const insideOwnHand = this.isPointerDragInsideRevealedHand(event, drag);
+    const elementsAtPointer = this.shouldReuseHandPointerHitTest()
+      ? this.pointerDragService.elementsFromPoint(event.clientX, event.clientY)
+      : undefined;
+    const insideOwnHand = this.isPointerDragInsideRevealedHand(event, drag, elementsAtPointer);
     const target = this.pointerDragService.zoneTargetAt(
       event,
       {
@@ -1887,6 +2002,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
         knownCommanderInstanceIds: this.knownCommanderIds(),
         useBattlefieldCardSize: this.compact(),
       },
+      elementsAtPointer,
     );
     if (target && !insideOwnHand) {
       return {
@@ -1902,7 +2018,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     const overOwnHand =
-      insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);
+      insideOwnHand ||
+      this.pointerDragService.isHandTargetAt(event, drag.playerId, elementsAtPointer);
     const ownHandReorderGesture =
       drag.mode === 'reorder' || (drag.mode === 'pending' && intendedMode === 'reorder');
     if (insideOwnHand || ownHandReorderGesture) {
@@ -1917,6 +2034,61 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return { mode: 'transfer', target: null, preview: null, overOwnHand: false };
   }
 
+  private shouldReuseHandPointerHitTest(): boolean {
+    return this.handReorderRafEnabled || this.handReorderGeometryEnabled;
+  }
+
+  private handReorderGeometryFor(drag: HandPointerDrag): HandReorderGeometry | undefined {
+    if (!this.handReorderGeometryEnabled) {
+      return undefined;
+    }
+
+    const layoutKey = this.handReorderGeometryLayoutKey(drag.playerId);
+    if (this.handReorderGeometry?.layoutKey === layoutKey) {
+      return this.handReorderGeometry.value;
+    }
+
+    const geometry = this.pointerDragService.handReorderGeometry(
+      this.host.nativeElement,
+      drag.playerId,
+    );
+    this.handReorderGeometry = { layoutKey, value: geometry };
+    this.scheduleHandReorderGeometryClear();
+
+    return geometry;
+  }
+
+  private handReorderGeometryLayoutKey(playerId: string): string {
+    const handInstanceIds = this.player()
+      .state.zones.hand.map((card) => card.instanceId)
+      .join('|');
+
+    return `${playerId}:${this.handLayoutMode()}:${handInstanceIds}`;
+  }
+
+  private scheduleHandReorderGeometryClear(): void {
+    if (this.handReorderGeometryClearFrame !== null) {
+      return;
+    }
+
+    let callbackRanSynchronously = false;
+    const frame = window.requestAnimationFrame(() => {
+      callbackRanSynchronously = true;
+      this.handReorderGeometryClearFrame = null;
+      this.handReorderGeometry = null;
+    });
+    this.handReorderGeometryClearFrame = callbackRanSynchronously ? null : frame;
+  }
+
+  private clearHandReorderGeometry(): void {
+    if (this.handReorderGeometryClearFrame !== null) {
+      window.cancelAnimationFrame(this.handReorderGeometryClearFrame);
+      this.handReorderGeometryClearFrame = null;
+    }
+
+    this.handReorderGeometry = null;
+  }
+
   private knownCommanderIds(): ReadonlySet<string> {
     const player = this.player();
 
@@ -1925,7 +2097,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     );
   }
 
-  private isPointerDragInsideRevealedHand(event: PointerEvent, drag: HandPointerDrag): boolean {
+  private isPointerDragInsideRevealedHand(
+    event: PointerEvent,
+    drag: HandPointerDrag,
+    elementsAtPointer?: readonly Element[],
+  ): boolean {
     const hand = this.host.nativeElement.querySelector<HTMLElement>(
       `[data-game-drop-zone][data-zone="hand"][data-player-id="${drag.playerId}"]`,
     );
@@ -1935,7 +2111,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
     const bounds = this.handVisualBounds(hand);
     if (bounds.width <= 0 || bounds.height <= 0) {
-      return this.pointerDragService.isHandTargetAt(event, drag.playerId);
+      return this.pointerDragService.isHandTargetAt(event, drag.playerId, elementsAtPointer);
     }
 
     const previewLeft = event.clientX - drag.offsetX;

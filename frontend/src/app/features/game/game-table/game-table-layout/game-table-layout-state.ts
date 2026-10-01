@@ -5,8 +5,13 @@ import {
   buildGridSeats,
   type BattlefieldLayoutRect,
   type BattlefieldViewLayout,
+  type GridSeat,
   type PlayerBattlefieldSize,
 } from './game-table-grid-seat.model';
+import {
+  GRID_RENDER_MEMO_STORAGE_KEY,
+  reuseGridSeatReferences,
+} from './game-table-grid-render-memo';
 
 interface LayoutPlayers {
   readonly gameId: () => string | null;
@@ -29,6 +34,19 @@ const GRID_MINIMUM_VIEWPORT_FOR_MULTIPLAYER: GridViewport = {
 };
 const GAME_LAYOUT_STORAGE_KEY_PREFIX = 'commanderzone.game-table.layout:';
 
+export function pruneInactiveBattlefieldLayoutRectangles(
+  rectangles: ReadonlyMap<string, BattlefieldLayoutRect>,
+  playerIds: ReadonlySet<string>,
+): ReadonlyMap<string, BattlefieldLayoutRect> {
+  for (const playerId of rectangles.keys()) {
+    if (!playerIds.has(playerId)) {
+      return new Map([...rectangles].filter(([id]) => playerIds.has(id)));
+    }
+  }
+
+  return rectangles;
+}
+
 @Injectable()
 export class GameTableLayoutState {
   private readonly destroyRef = inject(DestroyRef);
@@ -42,9 +60,19 @@ export class GameTableLayoutState {
   private observedViewport: HTMLElement | null = null;
   private viewportResizeListener: (() => void) | null = null;
   private activeGameId: string | null = null;
+  private readonly gridRenderMemoEnabled =
+    typeof window !== 'undefined' &&
+    window.localStorage.getItem(GRID_RENDER_MEMO_STORAGE_KEY) === '1';
+  private previousGridSeats: readonly GridSeat[] = [];
   readonly seats = computed(() => {
     const source = this.source();
-    return source ? buildGridSeats(source.players(), source.currentPlayer()) : [];
+    const nextSeats = source ? buildGridSeats(source.players(), source.currentPlayer()) : [];
+    if (!this.gridRenderMemoEnabled) {
+      return nextSeats;
+    }
+
+    this.previousGridSeats = reuseGridSeatReferences(this.previousGridSeats, nextSeats);
+    return this.previousGridSeats;
   });
   readonly gridAvailable = computed(() => {
     const seats = this.seats();
@@ -71,8 +99,8 @@ export class GameTableLayoutState {
     // Measurements belong to mounted players and must not survive a room change.
     effect(() => {
       const ids = new Set(this.seats().map((seat) => seat.player.id));
-      this.rectangles.update(
-        (rectangles) => new Map([...rectangles].filter(([id]) => ids.has(id))),
+      this.rectangles.update((rectangles) =>
+        pruneInactiveBattlefieldLayoutRectangles(rectangles, ids),
       );
     });
 
