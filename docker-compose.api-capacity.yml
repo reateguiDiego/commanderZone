@@ -1,0 +1,16 @@
+# Apply after docker-compose.prod.yml so host-specific limits do not override
+# the API capacity used by the external 100-user navigation benchmark.
+services:
+  api:
+    environment:
+      FRANKENPHP_CONFIG: |
+        num_threads 4
+        max_threads 4
+    cpus: 1.5
+    # Compose requires both resource-limit forms to agree after merging.
+    mem_limit: 1200m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1200m

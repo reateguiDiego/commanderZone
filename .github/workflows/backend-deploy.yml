@@ -91,6 +91,8 @@ jobs:
           if [ -f "$REPO_DIR/docker-compose.prod.yml" ]; then
             COMPOSE_ARGS+=(-f "$REPO_DIR/docker-compose.prod.yml")
           fi
+          # Keep benchmarked API capacity versioned and apply it after host overrides.
+          COMPOSE_ARGS+=(-f "$REPO_DIR/docker-compose.api-capacity.yml")
 
           # Validate merged compose with production env interpolation before applying changes.
           docker compose "${COMPOSE_ARGS[@]}" config >/dev/null
