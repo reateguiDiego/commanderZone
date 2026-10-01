@@ -85,6 +85,7 @@ describe('GameTableLibraryTopState', () => {
         allowReorder: true,
         drawOrderLabels: ['Draw 1', 'Draw 2'],
         viewTopCount: 2,
+        libraryImageOrderAuthorized: true,
       },
     );
   });
@@ -140,6 +141,7 @@ describe('GameTableLibraryTopState', () => {
         readOnly: true,
         drawOrderLabels: ['Draw 1', 'Draw 2'],
         viewTopCount: 2,
+        libraryImageOrderAuthorized: true,
       },
     );
   });

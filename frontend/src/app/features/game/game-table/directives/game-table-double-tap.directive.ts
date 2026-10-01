@@ -1,4 +1,6 @@
-import { Directive, ElementRef, HostListener, OnDestroy, OnInit, inject, input, output } from '@angular/core';
+import { Directive, ElementRef, HostListener, NgZone, OnDestroy, OnInit, inject, input, output } from '@angular/core';
+
+const LAZY_GESTURE_LISTENERS_STORAGE_KEY = 'cz_perf_lazy_gesture_listeners';
 
 interface ActiveTap {
   readonly pointerId: number;
@@ -20,14 +22,19 @@ interface LastTap {
 })
 export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly ngZone = inject(NgZone);
   private readonly maxIntervalMs = 320;
   private readonly maxTapDurationMs = 280;
   private readonly movementThresholdPx = 12;
   private readonly suppressionClearMs = 600;
+  private readonly lazyGestureListenersEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY) === '1';
   private activeTap: ActiveTap | null = null;
   private lastTap: LastTap | null = null;
   private suppressionTimer: number | null = null;
   private suppressNextNativeDoubleClick = false;
+  private windowPointerListenersAttached = false;
 
   readonly disabled = input(false, { alias: 'appGameTableDoubleTapDisabled' });
   readonly selfOnly = input(false, { alias: 'appGameTableDoubleTapSelfOnly' });
@@ -43,12 +50,20 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
     this.suppressNextNativeDoubleClick = false;
   };
 
+  private readonly windowPointerMoveHandler = (event: PointerEvent): void => this.move(event);
+  private readonly windowPointerUpHandler = (event: PointerEvent): void => this.end(event);
+  private readonly windowPointerCancelHandler = (event: PointerEvent): void => this.cancel(event);
+
   ngOnInit(): void {
     this.host.nativeElement.addEventListener('dblclick', this.captureNativeDoubleClick, true);
+    if (!this.lazyGestureListenersEnabled) {
+      this.attachWindowPointerListeners();
+    }
   }
 
   ngOnDestroy(): void {
     this.host.nativeElement.removeEventListener('dblclick', this.captureNativeDoubleClick, true);
+    this.detachWindowPointerListeners();
     this.clearSuppressionTimer();
   }
 
@@ -56,6 +71,9 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
   start(event: PointerEvent): void {
     if (this.disabled() || this.shouldIgnoreNestedTarget(event) || !this.isTouchLikePointer(event) || event.button !== 0) {
       this.activeTap = null;
+      if (this.lazyGestureListenersEnabled) {
+        this.detachWindowPointerListeners();
+      }
       return;
     }
 
@@ -66,10 +84,12 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
       startY: event.clientY,
       startTime: Date.now(),
     };
+    if (this.lazyGestureListenersEnabled) {
+      this.attachWindowPointerListeners();
+    }
   }
 
-  @HostListener('window:pointermove', ['$event'])
-  move(event: PointerEvent): void {
+  private move(event: PointerEvent): void {
     const activeTap = this.activeTap;
     if (!activeTap || event.pointerId !== activeTap.pointerId) {
       return;
@@ -77,17 +97,22 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
 
     if (this.distance(event.clientX, event.clientY, activeTap.startX, activeTap.startY) > this.movementThresholdPx) {
       this.activeTap = null;
+      if (this.lazyGestureListenersEnabled) {
+        this.detachWindowPointerListeners();
+      }
     }
   }
 
-  @HostListener('window:pointerup', ['$event'])
-  end(event: PointerEvent): void {
+  private end(event: PointerEvent): void {
     const activeTap = this.activeTap;
     if (!activeTap || event.pointerId !== activeTap.pointerId) {
       return;
     }
 
     this.activeTap = null;
+    if (this.lazyGestureListenersEnabled) {
+      this.detachWindowPointerListeners();
+    }
     if (!this.isValidTap(event, activeTap)) {
       this.lastTap = null;
       return;
@@ -100,7 +125,11 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
       this.suppressNativeDoubleClick();
       event.preventDefault();
       event.stopPropagation();
-      this.doubleTapped.emit(event);
+      if (this.lazyGestureListenersEnabled) {
+        this.ngZone.run(() => this.doubleTapped.emit(event));
+      } else {
+        this.doubleTapped.emit(event);
+      }
       return;
     }
 
@@ -112,11 +141,44 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
     };
   }
 
-  @HostListener('window:pointercancel', ['$event'])
-  cancel(event: PointerEvent): void {
+  private cancel(event: PointerEvent): void {
     if (this.activeTap?.pointerId === event.pointerId) {
       this.activeTap = null;
+      if (this.lazyGestureListenersEnabled) {
+        this.detachWindowPointerListeners();
+      }
     }
+  }
+
+  private attachWindowPointerListeners(): void {
+    if (this.windowPointerListenersAttached || typeof window === 'undefined') {
+      return;
+    }
+
+    const attach = (): void => {
+      window.addEventListener('pointermove', this.windowPointerMoveHandler);
+      window.addEventListener('pointerup', this.windowPointerUpHandler);
+      window.addEventListener('pointercancel', this.windowPointerCancelHandler);
+      this.windowPointerListenersAttached = true;
+    };
+
+    if (this.lazyGestureListenersEnabled) {
+      this.ngZone.runOutsideAngular(attach);
+      return;
+    }
+
+    attach();
+  }
+
+  private detachWindowPointerListeners(): void {
+    if (!this.windowPointerListenersAttached || typeof window === 'undefined') {
+      return;
+    }
+
+    window.removeEventListener('pointermove', this.windowPointerMoveHandler);
+    window.removeEventListener('pointerup', this.windowPointerUpHandler);
+    window.removeEventListener('pointercancel', this.windowPointerCancelHandler);
+    this.windowPointerListenersAttached = false;
   }
 
   private isValidTap(event: PointerEvent, activeTap: ActiveTap): boolean {

@@ -7,6 +7,9 @@ import { BattlefieldCardSize, BattlefieldSize, renderedBattlefieldPosition } fro
 import { isKnownCommanderCard, knownCommanderInstanceIds, knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
 import { isBattleCard } from '../../utils/gameplay-card-kind';
 
+const EVENT_LOG_MEMO_STORAGE_KEY = 'cz_perf_event_log_memo';
+const LOG_TIME_FORMAT_OPTIONS = { hour: '2-digit', minute: '2-digit' } as const;
+
 export interface PlayerView {
   id: string;
   state: GameSnapshot['players'][string];
@@ -15,6 +18,12 @@ export interface PlayerView {
 
 @Injectable()
 export class GameTableSnapshotSelectors {
+  private readonly eventLogMemoEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem(EVENT_LOG_MEMO_STORAGE_KEY) === '1';
+  private readonly eventLogTimeFormatter = this.eventLogMemoEnabled
+    ? new Intl.DateTimeFormat('en-GB', LOG_TIME_FORMAT_OPTIONS)
+    : null;
   private readonly playerViewsByState = new WeakMap<GameSnapshot['players'][string], {
     readonly knownCommanderInstanceIds: ReadonlySet<string>;
     readonly view: PlayerView;
@@ -477,7 +486,9 @@ export class GameTableSnapshotSelectors {
       return '';
     }
 
-    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(date);
+    return (this.eventLogTimeFormatter
+      ?? new Intl.DateTimeFormat('en-GB', LOG_TIME_FORMAT_OPTIONS))
+      .format(date);
   }
 
   isPhasePast(phases: string[], snapshot: GameSnapshot | null, phase: string): boolean {

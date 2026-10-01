@@ -330,8 +330,9 @@ export class GameTableDragService {
     zones: GameZoneName[],
     draggedCard: GameCardInstance | null = null,
     knownCommanderInstanceIds?: ReadonlySet<string>,
+    hitTestElements?: readonly Element[],
   ): GameZoneName | null {
-    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+    for (const element of hitTestElements ?? document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-game-drop-zone]');
       const zone = target?.dataset['zone'] as GameZoneName | undefined;
       if (

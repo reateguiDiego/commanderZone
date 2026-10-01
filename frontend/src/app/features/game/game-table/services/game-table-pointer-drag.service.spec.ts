@@ -25,6 +25,49 @@ describe('GameTablePointerDragService', () => {
     expect(preview).toEqual({ targetInstanceId: 'card-2', placement: 'before' });
   });
 
+  it('reuses measured hand geometry across reorder previews', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <div data-player-id="player-1">
+        <button data-testid="game-card" data-zone="hand" data-card-instance-id="card-1"></button>
+        <button data-testid="game-card" data-zone="hand" data-card-instance-id="card-2"></button>
+      </div>
+    `;
+    const [firstCard, secondCard] = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-testid="game-card"]'),
+    );
+    const firstBounds = vi.fn(() => rect(0, 100));
+    const secondBounds = vi.fn(() => rect(100, 100));
+    firstCard!.getBoundingClientRect = firstBounds;
+    secondCard!.getBoundingClientRect = secondBounds;
+    const queryHandCards = vi.spyOn(root, 'querySelectorAll');
+
+    const geometry = service.handReorderGeometry(root, 'player-1');
+    const firstPreview = service.handDropPreviewAt(
+      root,
+      'player-1',
+      120,
+      handCards(),
+      'card-1',
+      geometry,
+    );
+    const secondPreview = service.handDropPreviewAt(
+      root,
+      'player-1',
+      180,
+      handCards(),
+      'card-1',
+      geometry,
+    );
+
+    expect(geometry.elementsByInstanceId.get('card-2')).toBe(secondCard);
+    expect(firstPreview).toEqual({ targetInstanceId: 'card-2', placement: 'before' });
+    expect(secondPreview).toEqual({ targetInstanceId: 'card-2', placement: 'after' });
+    expect(queryHandCards).toHaveBeenCalledOnce();
+    expect(firstBounds).toHaveBeenCalledOnce();
+    expect(secondBounds).toHaveBeenCalledOnce();
+  });
+
   it('resolves a pointer drop target with battlefield position', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';

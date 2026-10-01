@@ -85,6 +85,9 @@ export class GameTableDragDropStore {
   private readonly skipDragDropFeedbackEnabled =
     typeof window !== 'undefined'
     && window.localStorage.getItem('cz_perf_skip_drag_drop_feedback') === '1';
+  private readonly sharedHitTestEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_shared_hit_test') === '1';
   private hasSkippedPointerDragDropFeedback = false;
   private landStackDropPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingLandStackDropPreview: LandStackDropPreview | null = null;
@@ -251,12 +254,25 @@ export class GameTableDragDropStore {
     if (draggingInstanceId) {
       this.ensureDraggingBattlefieldSelection(context, draggingInstanceId);
       this.updatePointerDragPreview(context, draggingInstanceId);
-      if (this.isDraggingWholeLandStack(context, draggingInstanceId)) {
-        this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId);
+      const draggingWholeLandStack = this.isDraggingWholeLandStack(context, draggingInstanceId);
+      // Keep the top-to-bottom DOM result local to this processed pointer move.
+      const hitTestElements = this.sharedHitTestEnabled
+        ? document.elementsFromPoint(event.clientX, event.clientY)
+        : null;
+      if (draggingWholeLandStack) {
+        if (hitTestElements) {
+          this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId, hitTestElements);
+        } else {
+          this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId);
+        }
         return;
       }
 
-      this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
+      if (hitTestElements) {
+        this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext(), hitTestElements);
+      } else {
+        this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
+      }
       if (this.isHandDropTargetActiveForInstance(context, draggingInstanceId)) {
         this.clearLandStackDropPreview();
         this.battlefieldDragState.clearManaLaneAndAlignment();
@@ -278,7 +294,11 @@ export class GameTableDragDropStore {
       }
 
       this.clearLandStackDropPreview();
-      this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext());
+      if (hitTestElements) {
+        this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext(), hitTestElements);
+      } else {
+        this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext());
+      }
     }
   }
 
@@ -924,9 +944,19 @@ export class GameTableDragDropStore {
     }
   }
 
-  private updateWholeLandStackPointerDropTarget(event: PointerEvent, context: GameTableDragDropContext, instanceId: string): void {
-    this.battlefieldDrag.updateBattlefieldDragAid(event, instanceId, context.battlefieldDragContext());
-    this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
+  private updateWholeLandStackPointerDropTarget(
+    event: PointerEvent,
+    context: GameTableDragDropContext,
+    instanceId: string,
+    hitTestElements?: readonly Element[],
+  ): void {
+    if (hitTestElements) {
+      this.battlefieldDrag.updateBattlefieldDragAid(event, instanceId, context.battlefieldDragContext(), hitTestElements);
+      this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext(), hitTestElements);
+    } else {
+      this.battlefieldDrag.updateBattlefieldDragAid(event, instanceId, context.battlefieldDragContext());
+      this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
+    }
     this.clearLandStackDropPreview();
     this.battlefieldDragState.setActivePlayerDropTarget(null);
     this.battlefieldDragState.setAlignmentGuide(null);

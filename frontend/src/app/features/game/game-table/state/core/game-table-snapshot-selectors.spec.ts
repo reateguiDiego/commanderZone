@@ -1,11 +1,18 @@
 import { GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableSnapshotSelectors, PlayerView } from './game-table-snapshot-selectors';
 
+const EVENT_LOG_MEMO_STORAGE_KEY = 'cz_perf_event_log_memo';
+
 describe('GameTableSnapshotSelectors', () => {
   let selectors: GameTableSnapshotSelectors;
 
   beforeEach(() => {
+    window.localStorage.removeItem(EVENT_LOG_MEMO_STORAGE_KEY);
     selectors = new GameTableSnapshotSelectors();
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem(EVENT_LOG_MEMO_STORAGE_KEY);
   });
 
   it('uses the player deck name as the deck label', () => {

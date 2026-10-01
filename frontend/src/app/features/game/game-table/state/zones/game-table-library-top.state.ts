@@ -57,6 +57,7 @@ export class GameTableLibraryTopState {
         allowReorder: true,
         drawOrderLabels: this.drawOrderLabels(cards.length),
         viewTopCount: count,
+        libraryImageOrderAuthorized: true,
       },
     );
   }
@@ -82,6 +83,7 @@ export class GameTableLibraryTopState {
         readOnly: true,
         drawOrderLabels: this.drawOrderLabels(cards.length),
         viewTopCount: count,
+        libraryImageOrderAuthorized: true,
       },
     );
   }

@@ -33,6 +33,15 @@ export interface HandPointerDropPreview {
   placement: 'before' | 'after';
 }
 
+/**
+ * DOM measurements shared by a hand reorder resolution. The owner decides how
+ * long this geometry remains valid; the service never retains DOM references.
+ */
+export interface HandReorderGeometry {
+  readonly elementsByInstanceId: ReadonlyMap<string, HTMLElement>;
+  readonly boundsByInstanceId: ReadonlyMap<string, DOMRect>;
+}
+
 interface HandCardPosition {
   card: GameCardInstance;
   index: number;
@@ -47,8 +56,9 @@ export class GameTablePointerDragService {
     clientX: number,
     cards: readonly GameCardInstance[],
     draggedInstanceId: string,
+    geometry?: HandReorderGeometry,
   ): HandPointerDropPreview | null {
-    const positions = this.handCardPositions(root, playerId, cards, draggedInstanceId);
+    const positions = this.handCardPositions(root, playerId, cards, draggedInstanceId, geometry);
     if (positions.length === 0) {
       return null;
     }
@@ -63,8 +73,34 @@ export class GameTablePointerDragService {
     return afterTarget ? { targetInstanceId: afterTarget.card.instanceId, placement: 'after' } : null;
   }
 
-  zoneTargetAt(event: PointerEvent, cardSize: PointerCardSize, options: PointerDropTargetOptions = {}): PointerDropTarget | null {
-    for (const element of this.elementsFromPoint(event.clientX, event.clientY)) {
+  handReorderGeometry(root: ParentNode, playerId: string): HandReorderGeometry {
+    const elementsByInstanceId = new Map<string, HTMLElement>();
+    const boundsByInstanceId = new Map<string, DOMRect>();
+    const elements = root.querySelectorAll<HTMLElement>(
+      `[data-player-id="${playerId}"] [data-testid="game-card"][data-zone="hand"]`,
+    );
+
+    for (const element of elements) {
+      const instanceId = element.dataset['cardInstanceId'];
+      if (!instanceId) {
+        continue;
+      }
+
+      elementsByInstanceId.set(instanceId, element);
+      boundsByInstanceId.set(instanceId, element.getBoundingClientRect());
+    }
+
+    return { elementsByInstanceId, boundsByInstanceId };
+  }
+
+  zoneTargetAt(
+    event: PointerEvent,
+    cardSize: PointerCardSize,
+    options: PointerDropTargetOptions = {},
+    elementsAtPointer?: readonly Element[],
+  ): PointerDropTarget | null {
+    const elements = elementsAtPointer ?? this.elementsFromPoint(event.clientX, event.clientY);
+    for (const element of elements) {
       const playerTarget = element.closest<HTMLElement>('[data-player-drop-target]');
       const playerTargetId = playerTarget?.dataset['playerDropTarget'];
       if (playerTargetId && playerTargetId !== options.sourcePlayerId) {
@@ -109,8 +145,14 @@ export class GameTablePointerDragService {
     return null;
   }
 
-  isHandTargetAt(event: PointerEvent, playerId: string): boolean {
-    return this.elementsFromPoint(event.clientX, event.clientY).some((element) => {
+  isHandTargetAt(
+    event: PointerEvent,
+    playerId: string,
+    elementsAtPointer?: readonly Element[],
+  ): boolean {
+    const elements = elementsAtPointer ?? this.elementsFromPoint(event.clientX, event.clientY);
+
+    return elements.some((element) => {
       const target = element.closest<HTMLElement>('[data-game-drop-zone]');
 
       return target?.dataset['playerId'] === playerId && target.dataset['zone'] === 'hand';
@@ -132,16 +174,24 @@ export class GameTablePointerDragService {
     playerId: string,
     cards: readonly GameCardInstance[],
     draggedInstanceId: string,
+    geometry?: HandReorderGeometry,
   ): HandCardPosition[] {
     const visibleCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
-    const elements = Array.from(root.querySelectorAll<HTMLElement>(
-      `[data-player-id="${playerId}"] [data-testid="game-card"][data-zone="hand"]`,
-    ));
+    const elements = geometry
+      ? []
+      : Array.from(
+          root.querySelectorAll<HTMLElement>(
+            `[data-player-id="${playerId}"] [data-testid="game-card"][data-zone="hand"]`,
+          ),
+        );
 
     return visibleCards
       .map((card, index) => {
-        const element = elements.find((candidate) => candidate.dataset['cardInstanceId'] === card.instanceId);
-        const bounds = element?.getBoundingClientRect();
+        const bounds = geometry
+          ? geometry.boundsByInstanceId.get(card.instanceId)
+          : elements
+              .find((candidate) => candidate.dataset['cardInstanceId'] === card.instanceId)
+              ?.getBoundingClientRect();
 
         return {
           card,

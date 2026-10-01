@@ -46,14 +46,19 @@ export class GameTableBattlefieldDragCoordinatorService {
   private readonly activeHandTopExitRatio = 0.35;
   private readonly handActivationOverlapFromManaLane = 0.5;
 
-  updateBattlefieldDragAid(event: PointerEvent, instanceId: string, context: GameTableBattlefieldDragContext): void {
+  updateBattlefieldDragAid(
+    event: PointerEvent,
+    instanceId: string,
+    context: GameTableBattlefieldDragContext,
+    hitTestElements?: readonly Element[],
+  ): void {
     const selected = context.selectedCards()[0];
     if (!selected || selected.zone !== 'battlefield' || selected.card.instanceId !== instanceId) {
       this.state.clearManaLaneAndAlignment();
       return;
     }
 
-    if (!this.isPointerInsidePlayerBattlefield(event, selected.playerId)) {
+    if (!this.isPointerInsidePlayerBattlefield(event, selected.playerId, hitTestElements)) {
       this.state.clearManaLaneAndAlignment();
       return;
     }
@@ -161,7 +166,11 @@ export class GameTableBattlefieldDragCoordinatorService {
     return { ...position, y: guide.y };
   }
 
-  updatePointerDropTarget(event: PointerEvent, context: GameTableBattlefieldDragContext): void {
+  updatePointerDropTarget(
+    event: PointerEvent,
+    context: GameTableBattlefieldDragContext,
+    hitTestElements?: readonly Element[],
+  ): void {
     const selected = context.selectedCards()[0];
     if (!selected) {
       this.state.setActiveDropTarget(null);
@@ -171,7 +180,7 @@ export class GameTableBattlefieldDragCoordinatorService {
       return;
     }
 
-    const targetPlayerId = this.playerDropTargetAt(event, selected.playerId);
+    const targetPlayerId = this.playerDropTargetAt(event, selected.playerId, hitTestElements);
     if (targetPlayerId) {
       this.state.setActivePlayerDropTarget(targetPlayerId);
       this.state.setActiveDropTarget(null);
@@ -181,7 +190,7 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
 
     this.state.setActivePlayerDropTarget(null);
-    const pointerZone = this.pointerDropZoneAt(event, selected.playerId, context, selected.card);
+    const pointerZone = this.pointerDropZoneAt(event, selected.playerId, context, selected.card, hitTestElements);
     const zone = this.pointerDropZoneWithHandActivation(pointerZone, selected.playerId);
     if (pointerZone === 'hand' && zone !== 'hand') {
       this.state.setHandExternalRevealAllowed(false);
@@ -200,9 +209,14 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
   }
 
-  pointerDropZone(event: PointerEvent, playerId: string, context: GameTableBattlefieldDragContext): GameZoneName | null {
+  pointerDropZone(
+    event: PointerEvent,
+    playerId: string,
+    context: GameTableBattlefieldDragContext,
+    hitTestElements?: readonly Element[],
+  ): GameZoneName | null {
     const selected = context.selectedCards().find((item) => item.playerId === playerId) ?? null;
-    const pointerZone = this.pointerDropZoneAt(event, playerId, context, selected?.card ?? null);
+    const pointerZone = this.pointerDropZoneAt(event, playerId, context, selected?.card ?? null, hitTestElements);
 
     return this.pointerDropZoneWithHandActivation(pointerZone, playerId);
   }
@@ -265,16 +279,24 @@ export class GameTableBattlefieldDragCoordinatorService {
     this.state.clearDropTargets();
   }
 
-  isPointerInsidePlayerBattlefield(event: PointerEvent, playerId: string): boolean {
-    return this.elementsAtPoint(event).some((element) => {
+  isPointerInsidePlayerBattlefield(
+    event: PointerEvent,
+    playerId: string,
+    hitTestElements?: readonly Element[],
+  ): boolean {
+    return this.elementsAtPoint(event, hitTestElements).some((element) => {
       const battlefield = element.closest<HTMLElement>('.battlefield');
 
       return battlefield?.dataset['playerId'] === playerId;
     });
   }
 
-  playerDropTargetAt(event: PointerEvent, sourcePlayerId: string): string | null {
-    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+  playerDropTargetAt(
+    event: PointerEvent,
+    sourcePlayerId: string,
+    hitTestElements?: readonly Element[],
+  ): string | null {
+    for (const element of hitTestElements ?? document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-player-drop-target]');
       const targetPlayerId = target?.dataset['playerDropTarget'];
       if (targetPlayerId && targetPlayerId !== sourcePlayerId) {
@@ -489,6 +511,7 @@ export class GameTableBattlefieldDragCoordinatorService {
     playerId: string,
     context: GameTableBattlefieldDragContext,
     draggedCard: GameCardInstance | null,
+    hitTestElements?: readonly Element[],
   ): GameZoneName | null {
     const pointerZone = this.drag.pointerDropZone(
       event,
@@ -496,6 +519,7 @@ export class GameTableBattlefieldDragCoordinatorService {
       [...context.zones],
       draggedCard,
       knownCommanderInstanceIds(context.snapshot()),
+      hitTestElements,
     );
 
     return this.handTargetOverlappedByBattlefield(event, playerId, pointerZone, context.zones) ? 'battlefield' : pointerZone;
@@ -651,8 +675,8 @@ export class GameTableBattlefieldDragCoordinatorService {
     return document.querySelector<HTMLElement>(`[data-game-drop-zone][data-zone="hand"][data-player-id="${playerId}"]`);
   }
 
-  private elementsAtPoint(event: PointerEvent): Element[] {
-    return document.elementsFromPoint(event.clientX, event.clientY);
+  private elementsAtPoint(event: PointerEvent, hitTestElements?: readonly Element[]): readonly Element[] {
+    return hitTestElements ?? document.elementsFromPoint(event.clientX, event.clientY);
   }
 
   private setHandDropPreviewAt(

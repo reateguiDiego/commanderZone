@@ -2,6 +2,9 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GameTableDoubleTapDirective } from './game-table-double-tap.directive';
 
+const LAZY_GESTURE_LISTENERS_STORAGE_KEY = 'cz_perf_lazy_gesture_listeners';
+const WINDOW_POINTER_LISTENER_TYPES = ['pointermove', 'pointerup', 'pointercancel'];
+
 @Component({
   imports: [GameTableDoubleTapDirective],
   template: `
@@ -59,6 +62,7 @@ describe('GameTableDoubleTapDirective', () => {
   let button: HTMLButtonElement;
 
   beforeEach(async () => {
+    window.localStorage.removeItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY);
     await TestBed.configureTestingModule({
       imports: [HostComponent],
     }).compileComponents();
@@ -70,6 +74,7 @@ describe('GameTableDoubleTapDirective', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY);
     vi.useRealTimers();
   });
 
@@ -95,6 +100,102 @@ describe('GameTableDoubleTapDirective', () => {
     tap(button, { pointerType: 'mouse', pointerId: 2, clientX: 10, clientY: 20 });
 
     expect(fixture.componentInstance.doubleTapped).not.toHaveBeenCalled();
+  });
+
+  it('registers global listeners only for an active touch gesture when lazy listeners are enabled', () => {
+    const addEventListener = vi.spyOn(window, 'addEventListener');
+    const removeEventListener = vi.spyOn(window, 'removeEventListener');
+    let lazyFixture: ComponentFixture<HostComponent> | null = null;
+
+    try {
+      window.localStorage.setItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY, '1');
+      lazyFixture = TestBed.createComponent(HostComponent);
+      lazyFixture.detectChanges();
+      const lazyButton = lazyFixture.nativeElement.querySelector('button') as HTMLButtonElement;
+
+      expect(pointerListenerTypes(addEventListener.mock.calls)).toEqual([]);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'mouse',
+        pointerId: 1,
+        clientX: 10,
+        clientY: 20,
+      }));
+      expect(pointerListenerTypes(addEventListener.mock.calls)).toEqual([]);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'touch',
+        pointerId: 2,
+        clientX: 10,
+        clientY: 20,
+      }));
+      expect(pointerListenerTypes(addEventListener.mock.calls)).toEqual(WINDOW_POINTER_LISTENER_TYPES);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'mouse',
+        pointerId: 3,
+        clientX: 10,
+        clientY: 20,
+      }));
+      expect(pointerListenerTypes(removeEventListener.mock.calls)).toEqual(WINDOW_POINTER_LISTENER_TYPES);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'touch',
+        pointerId: 4,
+        clientX: 10,
+        clientY: 20,
+      }));
+      window.dispatchEvent(pointerEvent('pointercancel', {
+        pointerType: 'touch',
+        pointerId: 4,
+        clientX: 10,
+        clientY: 20,
+      }));
+      expect(pointerListenerTypes(removeEventListener.mock.calls)).toHaveLength(6);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'pen',
+        pointerId: 5,
+        clientX: 10,
+        clientY: 20,
+      }));
+      window.dispatchEvent(pointerEvent('pointerup', {
+        pointerType: 'pen',
+        pointerId: 5,
+        clientX: 10,
+        clientY: 20,
+      }));
+      expect(pointerListenerTypes(removeEventListener.mock.calls)).toHaveLength(9);
+
+      lazyButton.dispatchEvent(pointerEvent('pointerdown', {
+        pointerType: 'pen',
+        pointerId: 6,
+        clientX: 10,
+        clientY: 20,
+      }));
+      lazyFixture.destroy();
+      lazyFixture = null;
+
+      expect(pointerListenerTypes(removeEventListener.mock.calls)).toHaveLength(12);
+    } finally {
+      lazyFixture?.destroy();
+      addEventListener.mockRestore();
+      removeEventListener.mockRestore();
+    }
+  });
+
+  it('preserves double tap output when lazy listeners are enabled', () => {
+    window.localStorage.setItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY, '1');
+    const lazyFixture = TestBed.createComponent(HostComponent);
+    lazyFixture.detectChanges();
+    const lazyButton = lazyFixture.nativeElement.querySelector('button') as HTMLButtonElement;
+
+    tap(lazyButton, { pointerType: 'touch', pointerId: 1, clientX: 10, clientY: 20 });
+    vi.advanceTimersByTime(160);
+    const secondUp = tap(lazyButton, { pointerType: 'touch', pointerId: 2, clientX: 12, clientY: 21 });
+
+    expect(lazyFixture.componentInstance.doubleTapped).toHaveBeenCalledWith(secondUp);
+    lazyFixture.destroy();
   });
 
   it('does not emit after the double tap interval expires', () => {
@@ -174,4 +275,10 @@ function pointerEvent(type: string, init: PointerEventInit): PointerEvent {
     button: 0,
     ...init,
   });
+}
+
+function pointerListenerTypes(calls: ReadonlyArray<ReadonlyArray<unknown>>): string[] {
+  return calls
+    .map(([type]) => type)
+    .filter((type): type is string => type === 'pointermove' || type === 'pointerup' || type === 'pointercancel');
 }

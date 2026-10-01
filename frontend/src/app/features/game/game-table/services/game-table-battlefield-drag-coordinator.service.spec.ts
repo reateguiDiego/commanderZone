@@ -322,6 +322,43 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     }
   });
 
+  it('uses supplied hit-test elements in topmost order without querying the document again', () => {
+    const selectedCard = card('dragged', { x: 20, y: 248 });
+    const topmostZone = document.createElement('div');
+    topmostZone.dataset['gameDropZone'] = 'graveyard';
+    topmostZone.dataset['zone'] = 'graveyard';
+    topmostZone.dataset['playerId'] = 'player-1';
+    const lowerZone = document.createElement('div');
+    lowerZone.dataset['gameDropZone'] = 'battlefield';
+    lowerZone.dataset['zone'] = 'battlefield';
+    lowerZone.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    const elementsFromPoint = vi.fn(() => [lowerZone, topmostZone]);
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: elementsFromPoint,
+    });
+
+    try {
+      service.updatePointerDropTarget(
+        pointerEvent(150, 300),
+        {
+          ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
+          selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
+        },
+        [topmostZone, lowerZone],
+      );
+
+      expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'graveyard' });
+      expect(elementsFromPoint).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
+  });
+
   it('does not reveal hand from mana row until more than half of the card is inside the collapsed hand', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });

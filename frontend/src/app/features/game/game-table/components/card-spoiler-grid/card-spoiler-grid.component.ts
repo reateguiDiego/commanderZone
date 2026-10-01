@@ -7,6 +7,7 @@ import { GameTableLongPressDirective } from '../../directives/game-table-long-pr
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { LIBRARY_INITIAL_VISIBLE_CARD_COUNT } from '../../utils/library-image-preload-plan';
 
 type CardSpoilerSlot = {
   index: number;
@@ -53,6 +54,8 @@ export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
   readonly allowReorder = input(false);
   readonly allowSelection = input(true);
   readonly orderLabels = input<readonly string[]>([]);
+  /** Enables eager loading only when this displayed library order is authorized. */
+  readonly prioritizeInitialImages = input(false);
   readonly emptyLabel = input('No cards found');
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
 
@@ -112,6 +115,9 @@ export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
   private readonly faceFlipTimers = new Map<string, number>();
   private readonly faceFlipAnimationMs = 620;
   private resizeObserver: ResizeObserver | null = null;
+  private readonly visibleEagerEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('cz_perf_library_visible_eager') === '1';
 
   ngAfterViewInit(): void {
     const grid = this.gridElement();
@@ -169,6 +175,24 @@ export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
 
   orderLabel(index: number): string {
     return this.orderLabels()[index] ?? '';
+  }
+
+  isInitialImageEager(index: number): boolean {
+    return this.prioritizeInitialImages()
+      && this.visibleEagerEnabled
+      && index < this.initialVisibleCardCount();
+  }
+
+  private initialVisibleCardCount(): number {
+    const metrics = this.gridMetrics();
+    if (metrics.viewportHeight <= 1) {
+      return LIBRARY_INITIAL_VISIBLE_CARD_COUNT;
+    }
+
+    const rowHeight = metrics.cardHeight + metrics.rowGap;
+    const visibleRows = Math.max(1, Math.ceil(metrics.viewportHeight / rowHeight));
+
+    return visibleRows * metrics.columns;
   }
 
   slotTrackBy(_index: number, slot: CardSpoilerSlot): string {

@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from '../../services/game-table-debounced-value-commands.service';
+import { GameTableLibraryImagePreloadService } from '../../services/game-table-library-image-preload.service';
 import { GameTableBattlefieldState } from '../battlefield/game-table-battlefield.state';
 import { GameTableCardsState } from '../cards/game-table-cards.state';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
@@ -16,12 +17,14 @@ describe('GameTableSnapshotCoordinatorState', () => {
   const snapshotSignal = signal<GameSnapshot | null>(null);
   const trackSnapshot = vi.fn();
   const reconcileSnapshot = vi.fn();
+  const syncLibraryImages = vi.fn();
   const openRevealedLibraryFromSnapshot = vi.fn();
 
   beforeEach(() => {
     snapshotSignal.set(null);
     trackSnapshot.mockClear();
     reconcileSnapshot.mockClear();
+    syncLibraryImages.mockClear();
     openRevealedLibraryFromSnapshot.mockClear();
 
     TestBed.configureTestingModule({
@@ -58,6 +61,10 @@ describe('GameTableSnapshotCoordinatorState', () => {
           provide: GameTablePendingTransferState,
           useValue: { reconcileSnapshot } satisfies Pick<GameTablePendingTransferState, 'reconcileSnapshot'>,
         },
+        {
+          provide: GameTableLibraryImagePreloadService,
+          useValue: { sync: syncLibraryImages } satisfies Pick<GameTableLibraryImagePreloadService, 'sync'>,
+        },
       ],
     });
 
@@ -75,6 +82,7 @@ describe('GameTableSnapshotCoordinatorState', () => {
     expect(snapshotSignal()?.version).toBe(5);
     expect(trackSnapshot).toHaveBeenCalledWith(authoritativeSnapshot);
     expect(reconcileSnapshot).toHaveBeenCalledWith(snapshotSignal());
+    expect(syncLibraryImages).toHaveBeenCalledWith(snapshotSignal());
     expect(openRevealedLibraryFromSnapshot).toHaveBeenCalledWith(snapshotSignal());
   });
 

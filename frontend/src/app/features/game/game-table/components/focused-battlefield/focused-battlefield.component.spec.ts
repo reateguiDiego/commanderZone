@@ -6,14 +6,17 @@ import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
 
 const FOCUSED_GEOMETRY_CACHE_STORAGE_KEY = 'cz_perf_focused_geometry_cache';
+const BATTLEFIELD_BOUNDS_STORAGE_KEY = 'cz_perf_battlefield_bounds';
 
 describe('FocusedBattlefieldComponent', () => {
   beforeEach(() => {
     window.localStorage.removeItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY);
+    window.localStorage.removeItem(BATTLEFIELD_BOUNDS_STORAGE_KEY);
   });
 
   afterEach(() => {
     window.localStorage.removeItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY);
+    window.localStorage.removeItem(BATTLEFIELD_BOUNDS_STORAGE_KEY);
   });
 
   it('exposes the player battlefield as a motion zone', async () => {
@@ -729,6 +732,268 @@ describe('FocusedBattlefieldComponent', () => {
     }
   });
 
+  it('keeps measuring battlefield bounds during displayed positions when the bounds flag is disabled', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+    const card = battlefieldCard(fixture, 'card-1');
+    const battlefield = prepareBattlefieldForMeasurement(fixture, 0);
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 0 });
+    const bounds = vi.spyOn(battlefield, 'getBoundingClientRect').mockReturnValue(
+      battlefieldBounds(500, 400),
+    );
+    const measured = measureCardElement(cardMeasurementElement(fixture, 'card-1'), { width: 100, height: 140 });
+    fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 300 }));
+
+    try {
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 260 });
+      expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 260 });
+
+      expect(bounds).toHaveBeenCalledTimes(2);
+    } finally {
+      measured.mockRestore();
+      bounds.mockRestore();
+    }
+  });
+
+  it('uses premeasured bounds and card geometry without DOM metric reads during displayed positions', async () => {
+    window.localStorage.setItem(BATTLEFIELD_BOUNDS_STORAGE_KEY, '1');
+    const resizeObserver = mockResizeObserver();
+    const animationFrames = mockAnimationFrames();
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+      const card = battlefieldCard(fixture, 'card-1');
+      const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+      const battlefieldMeasurement = measureBattlefieldBoundsWithAccessSpies(
+        battlefield,
+        battlefieldBounds(500, 400),
+      );
+      const cardMeasurement = measureCardElementWithAccessSpies(
+        cardMeasurementElement(fixture, 'card-1'),
+        { width: 100, height: 140 },
+      );
+      const probeMeasurement = measureCardElementWithAccessSpies(
+        battlefieldCardSizeProbe(fixture),
+        { width: 110, height: 154 },
+      );
+      fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 300 }));
+
+      try {
+        emitLatestResize(resizeObserver.callbacks);
+        flushAnimationFrames(animationFrames.queuedFrames);
+
+        expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 260 });
+        expect(battlefieldMeasurement.rect).toHaveBeenCalled();
+        expect(cardMeasurement.bounds).toHaveBeenCalled();
+        expect(probeMeasurement.bounds).toHaveBeenCalled();
+
+        battlefieldMeasurement.rect.mockClear();
+        battlefieldMeasurement.clientWidth.mockClear();
+        battlefieldMeasurement.clientHeight.mockClear();
+        cardMeasurement.bounds.mockClear();
+        cardMeasurement.offsetWidth.mockClear();
+        cardMeasurement.offsetHeight.mockClear();
+        probeMeasurement.bounds.mockClear();
+        probeMeasurement.offsetWidth.mockClear();
+        probeMeasurement.offsetHeight.mockClear();
+
+        expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 260 });
+        expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 260 });
+        expect(battlefieldMeasurement.rect).not.toHaveBeenCalled();
+        expect(battlefieldMeasurement.clientWidth).not.toHaveBeenCalled();
+        expect(battlefieldMeasurement.clientHeight).not.toHaveBeenCalled();
+        expect(cardMeasurement.bounds).not.toHaveBeenCalled();
+        expect(cardMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(cardMeasurement.offsetHeight).not.toHaveBeenCalled();
+        expect(probeMeasurement.bounds).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetHeight).not.toHaveBeenCalled();
+      } finally {
+        probeMeasurement.bounds.mockRestore();
+        cardMeasurement.bounds.mockRestore();
+        battlefieldMeasurement.rect.mockRestore();
+        fixture.destroy();
+      }
+    } finally {
+      animationFrames.restore();
+      resizeObserver.restore();
+    }
+  });
+
+  it('uses the premeasured probe size when a card is not mounted', async () => {
+    window.localStorage.setItem(BATTLEFIELD_BOUNDS_STORAGE_KEY, '1');
+    const resizeObserver = mockResizeObserver();
+    const animationFrames = mockAnimationFrames();
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+      const card = battlefieldCard(fixture, 'card-1');
+      const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+      const battlefieldMeasurement = measureBattlefieldBoundsWithAccessSpies(
+        battlefield,
+        battlefieldBounds(500, 400),
+      );
+      cardMeasurementElement(fixture, 'card-1').remove();
+      const probeMeasurement = measureCardElementWithAccessSpies(
+        battlefieldCardSizeProbe(fixture),
+        { width: 120, height: 168 },
+      );
+      fixture.componentRef.setInput('cardPosition', () => ({ x: 16, y: 300 }));
+
+      try {
+        emitLatestResize(resizeObserver.callbacks);
+        flushAnimationFrames(animationFrames.queuedFrames);
+        expect(probeMeasurement.bounds).toHaveBeenCalled();
+
+        battlefieldMeasurement.rect.mockClear();
+        battlefieldMeasurement.clientWidth.mockClear();
+        battlefieldMeasurement.clientHeight.mockClear();
+        probeMeasurement.bounds.mockClear();
+        probeMeasurement.offsetWidth.mockClear();
+        probeMeasurement.offsetHeight.mockClear();
+
+        expect(fixture.componentInstance.displayedCardPosition(card)).toEqual({ x: 16, y: 232 });
+        expect(battlefieldMeasurement.rect).not.toHaveBeenCalled();
+        expect(battlefieldMeasurement.clientWidth).not.toHaveBeenCalled();
+        expect(battlefieldMeasurement.clientHeight).not.toHaveBeenCalled();
+        expect(probeMeasurement.bounds).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetHeight).not.toHaveBeenCalled();
+      } finally {
+        probeMeasurement.bounds.mockRestore();
+        battlefieldMeasurement.rect.mockRestore();
+        fixture.destroy();
+      }
+    } finally {
+      animationFrames.restore();
+      resizeObserver.restore();
+    }
+  });
+
+  it('does not queue a bounds refresh for a position-only update', async () => {
+    window.localStorage.setItem(BATTLEFIELD_BOUNDS_STORAGE_KEY, '1');
+    const animationFrames = mockAnimationFrames();
+
+    try {
+      const { fixture } = await renderFocusedBattlefield();
+
+      try {
+        flushAnimationFrames(animationFrames.queuedFrames);
+        fixture.componentRef.setInput('cardPosition', () => ({ x: 32, y: 48 }));
+        fixture.detectChanges();
+
+        expect(animationFrames.queuedFrames.size).toBe(0);
+      } finally {
+        fixture.destroy();
+      }
+    } finally {
+      animationFrames.restore();
+    }
+  });
+
+  it('updates inverted stack positions from resized observed battlefield bounds', async () => {
+    window.localStorage.setItem(BATTLEFIELD_BOUNDS_STORAGE_KEY, '1');
+    const resizeObserver = mockResizeObserver();
+    const animationFrames = mockAnimationFrames();
+
+    try {
+      const { fixture } = await renderFocusedBattlefield({
+        verticallyInverted: true,
+        battlefieldCards: [
+          { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+          { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact - Equipment', tapped: false },
+        ],
+        attachments: [attachment('attachment-1', 'equipment', 'target')],
+      });
+      const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+      const battlefieldMeasurement = measureBattlefieldBoundsWithAccessSpies(
+        battlefield,
+        battlefieldBounds(500, 600),
+      );
+      const targetMeasurement = measureCardElementWithAccessSpies(
+        cardMeasurementElement(fixture, 'target'),
+        { width: 100, height: 140 },
+      );
+      const equipmentMeasurement = measureCardElementWithAccessSpies(
+        cardMeasurementElement(fixture, 'equipment'),
+        { width: 100, height: 140 },
+      );
+      const probeMeasurement = measureCardElementWithAccessSpies(
+        battlefieldCardSizeProbe(fixture),
+        { width: 100, height: 140 },
+      );
+      const positions = new Map([
+        ['target', { x: 100, y: 450 }],
+        ['equipment', { x: 110, y: 432 }],
+      ]);
+      fixture.componentRef.setInput('cardPosition', (card: GameCardInstance) => positions.get(card.instanceId) ?? null);
+
+      try {
+        emitLatestResize(resizeObserver.callbacks);
+        flushAnimationFrames(animationFrames.queuedFrames);
+
+        battlefieldMeasurement.rect.mockClear();
+        targetMeasurement.bounds.mockClear();
+        targetMeasurement.offsetWidth.mockClear();
+        targetMeasurement.offsetHeight.mockClear();
+        equipmentMeasurement.bounds.mockClear();
+        equipmentMeasurement.offsetWidth.mockClear();
+        equipmentMeasurement.offsetHeight.mockClear();
+        probeMeasurement.bounds.mockClear();
+        probeMeasurement.offsetWidth.mockClear();
+        probeMeasurement.offsetHeight.mockClear();
+
+        expect(fixture.componentInstance.displayedCardPosition(battlefieldCard(fixture, 'target'))).toEqual({ x: 100, y: 18 });
+        expect(fixture.componentInstance.displayedCardPosition(battlefieldCard(fixture, 'equipment'))).toEqual({ x: 110, y: 0 });
+        expect(battlefieldMeasurement.rect).not.toHaveBeenCalled();
+        expect(targetMeasurement.bounds).not.toHaveBeenCalled();
+        expect(targetMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(targetMeasurement.offsetHeight).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.bounds).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.offsetHeight).not.toHaveBeenCalled();
+        expect(probeMeasurement.bounds).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetHeight).not.toHaveBeenCalled();
+
+        battlefieldMeasurement.rect.mockReturnValue(battlefieldBounds(500, 700));
+        emitLatestResize(resizeObserver.callbacks);
+        flushAnimationFrames(animationFrames.queuedFrames);
+        battlefieldMeasurement.rect.mockClear();
+        targetMeasurement.bounds.mockClear();
+        targetMeasurement.offsetWidth.mockClear();
+        targetMeasurement.offsetHeight.mockClear();
+        equipmentMeasurement.bounds.mockClear();
+        equipmentMeasurement.offsetWidth.mockClear();
+        equipmentMeasurement.offsetHeight.mockClear();
+        probeMeasurement.bounds.mockClear();
+        probeMeasurement.offsetWidth.mockClear();
+        probeMeasurement.offsetHeight.mockClear();
+
+        expect(fixture.componentInstance.displayedCardPosition(battlefieldCard(fixture, 'target'))).toEqual({ x: 100, y: 110 });
+        expect(fixture.componentInstance.displayedCardPosition(battlefieldCard(fixture, 'equipment'))).toEqual({ x: 110, y: 92 });
+        expect(battlefieldMeasurement.rect).not.toHaveBeenCalled();
+        expect(targetMeasurement.bounds).not.toHaveBeenCalled();
+        expect(targetMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(targetMeasurement.offsetHeight).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.bounds).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(equipmentMeasurement.offsetHeight).not.toHaveBeenCalled();
+        expect(probeMeasurement.bounds).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetWidth).not.toHaveBeenCalled();
+        expect(probeMeasurement.offsetHeight).not.toHaveBeenCalled();
+      } finally {
+        probeMeasurement.bounds.mockRestore();
+        equipmentMeasurement.bounds.mockRestore();
+        targetMeasurement.bounds.mockRestore();
+        battlefieldMeasurement.rect.mockRestore();
+        fixture.destroy();
+      }
+    } finally {
+      animationFrames.restore();
+      resizeObserver.restore();
+    }
+  });
+
   it('cancels the focused geometry cache cleanup frame when destroyed', async () => {
     window.localStorage.setItem(FOCUSED_GEOMETRY_CACHE_STORAGE_KEY, '1');
     const queuedFrames = new Map<number, FrameRequestCallback>();
@@ -872,6 +1137,10 @@ function cardMeasurementElement(
   ) as HTMLElement;
 }
 
+function battlefieldCardSizeProbe(fixture: ComponentFixture<FocusedBattlefieldComponent>): HTMLElement {
+  return fixture.nativeElement.querySelector('[data-battlefield-card-size-probe]') as HTMLElement;
+}
+
 function measureCardElement(
   element: HTMLElement,
   size: { readonly width: number; readonly height: number },
@@ -885,10 +1154,115 @@ function measureCardElement(
   } as DOMRect);
 }
 
+function measureCardElementWithAccessSpies(
+  element: HTMLElement,
+  size: { readonly width: number; readonly height: number },
+) {
+  const offsetWidth = vi.fn(() => size.width);
+  const offsetHeight = vi.fn(() => size.height);
+  Object.defineProperty(element, 'offsetWidth', { configurable: true, get: offsetWidth });
+  Object.defineProperty(element, 'offsetHeight', { configurable: true, get: offsetHeight });
+
+  const bounds = vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+    width: size.width,
+    height: size.height,
+  } as DOMRect);
+
+  return { bounds, offsetWidth, offsetHeight };
+}
+
+function measureBattlefieldBoundsWithAccessSpies(
+  element: HTMLElement,
+  bounds: DOMRect,
+) {
+  const clientWidth = vi.fn(() => 0);
+  const clientHeight = vi.fn(() => 0);
+  Object.defineProperty(element, 'clientWidth', { configurable: true, get: clientWidth });
+  Object.defineProperty(element, 'clientHeight', { configurable: true, get: clientHeight });
+
+  const rect = vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(bounds);
+
+  return { rect, clientWidth, clientHeight };
+}
+
 function flushAnimationFrames(queuedFrames: Map<number, FrameRequestCallback>): void {
   const callbacks = [...queuedFrames.values()];
   queuedFrames.clear();
   callbacks.forEach((callback) => callback(0));
+}
+
+function mockAnimationFrames(): {
+  readonly queuedFrames: Map<number, FrameRequestCallback>;
+  readonly restore: () => void;
+} {
+  const queuedFrames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    nextFrame += 1;
+    queuedFrames.set(nextFrame, callback);
+    return nextFrame;
+  });
+  const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frame) => {
+    queuedFrames.delete(frame);
+  });
+
+  return {
+    queuedFrames,
+    restore: () => {
+      cancelAnimationFrame.mockRestore();
+      animationFrame.mockRestore();
+    },
+  };
+}
+
+function battlefieldBounds(width: number, height: number): DOMRect {
+  return {
+    width,
+    height,
+    left: 0,
+    top: 0,
+    right: width,
+    bottom: height,
+  } as DOMRect;
+}
+
+function mockResizeObserver(): { readonly callbacks: ResizeObserverCallback[]; readonly restore: () => void } {
+  const originalResizeObserver = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver');
+  const callbacks: ResizeObserverCallback[] = [];
+  class ResizeObserverMock implements ResizeObserver {
+    constructor(callback: ResizeObserverCallback) {
+      callbacks.push(callback);
+    }
+
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    writable: true,
+    value: ResizeObserverMock,
+  });
+
+  return {
+    callbacks,
+    restore: () => {
+      if (originalResizeObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', originalResizeObserver);
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    },
+  };
+}
+
+function emitLatestResize(callbacks: readonly ResizeObserverCallback[]): void {
+  const callback = callbacks.at(-1);
+  if (!callback) {
+    throw new Error('Expected FocusedBattlefieldComponent to register a ResizeObserver.');
+  }
+
+  callback([{ } as ResizeObserverEntry], {} as ResizeObserver);
 }
 
 function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {

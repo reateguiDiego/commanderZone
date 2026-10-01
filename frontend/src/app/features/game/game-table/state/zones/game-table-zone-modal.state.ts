@@ -18,6 +18,8 @@ export interface ZoneModalState {
   allowReorder: boolean;
   drawOrderLabels: readonly string[];
   viewTopCount: number | null;
+  /** The viewer is authorized to use the cards' current library order. */
+  libraryImageOrderAuthorized?: boolean;
   selectedCard: GameCardInstance | null;
   loading: boolean;
 }
@@ -51,6 +53,7 @@ export class GameTableZoneModalState {
       allowReorder: false,
       drawOrderLabels: [],
       viewTopCount: null,
+      libraryImageOrderAuthorized: false,
       selectedCard: null,
       loading: true,
     });
@@ -63,7 +66,7 @@ export class GameTableZoneModalState {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean } = {},
+    options: { readOnly?: boolean; allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; showFilters?: boolean; libraryImageOrderAuthorized?: boolean } = {},
   ): void {
     this.zoneModal.set({
       playerId,
@@ -82,6 +85,7 @@ export class GameTableZoneModalState {
       allowReorder: options.allowReorder === true,
       drawOrderLabels: options.drawOrderLabels ?? [],
       viewTopCount: options.viewTopCount ?? null,
+      libraryImageOrderAuthorized: options.libraryImageOrderAuthorized === true,
       selectedCard: cards.find((card) => card.instanceId === selectedCardId) ?? cards[0] ?? null,
       loading: false,
     });

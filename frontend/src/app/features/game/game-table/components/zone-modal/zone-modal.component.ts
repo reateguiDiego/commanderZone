@@ -19,6 +19,8 @@ const CARD_TYPE_OPTIONS: readonly FormatSelectOption[] = [
   { id: 'land', labelKey: 'shared.text.lands' },
 ];
 
+const ZONE_MODAL_NO_BACKDROP_STORAGE_KEY = 'cz_perf_zone_modal_no_backdrop';
+
 @Component({
   selector: 'app-zone-modal',
   imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent, CzButtonDirective, FormatSelectComponent],
@@ -29,6 +31,10 @@ const CARD_TYPE_OPTIONS: readonly FormatSelectOption[] = [
 export class ZoneModalComponent implements OnDestroy {
   private searchDebounceHandle?: number;
   private readonly searchDebounceMs = 250;
+
+  readonly noBackdropBlurEnabled =
+    typeof window !== 'undefined'
+    && window.localStorage.getItem(ZONE_MODAL_NO_BACKDROP_STORAGE_KEY) === '1';
 
   readonly modal = input.required<ZoneModalState>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
