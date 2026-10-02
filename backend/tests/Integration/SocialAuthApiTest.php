@@ -5,10 +5,14 @@ namespace App\Tests\Integration;
 use App\Application\Auth\GoogleIdTokenClaims;
 use App\Application\Auth\GoogleIdTokenVerifierInterface;
 use App\Application\Auth\InvalidGoogleIdToken;
+use App\Application\Auth\RegistrationWelcomeEmailSender;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Application\Auth\SocialAuthService;
+use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Domain\Auth\AuthIdentity;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\MessageEventPublisher;
+use App\Tests\Support\RecordingMercureHub;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -28,12 +32,20 @@ class SocialAuthApiTest extends ApiTestCase
             true,
             'Google Player',
         ));
+        $emailCountBeforeExchange = count(self::getMailerMessages());
 
         $this->jsonRequest('POST', '/auth/google/exchange', ['credential' => 'valid-google-credential']);
 
         self::assertResponseIsSuccessful();
-        self::assertArrayHasKey('token', $this->jsonResponse());
+        $response = $this->jsonResponse();
+        self::assertArrayHasKey('token', $response);
         self::assertNotNull($this->refreshCookieFromResponse());
+        self::assertCount($emailCountBeforeExchange + 1, self::getMailerMessages());
+        $welcomeEmail = self::getMailerMessage($emailCountBeforeExchange);
+        self::assertNotNull($welcomeEmail);
+        self::assertEmailAddressContains($welcomeEmail, 'To', 'google-player@example.test');
+        self::assertEmailSubjectContains($welcomeEmail, 'Welcome');
+        self::assertEmailTextBodyContains($welcomeEmail, 'Welcome to CommanderZone!');
 
         $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'google-player@example.test']);
         self::assertInstanceOf(User::class, $user);
@@ -47,10 +59,29 @@ class SocialAuthApiTest extends ApiTestCase
         ]);
         self::assertInstanceOf(AuthIdentity::class, $identity);
         self::assertSame($user->id(), $identity->user()->id());
+
+        $updates = RecordingMercureHub::updates();
+        self::assertCount(1, $updates);
+        self::assertSame(['messages/users/'.$user->id()], $updates[0]['topics']);
+        self::assertTrue($updates[0]['private']);
+        self::assertSame(['type' => 'message.list.changed'], json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR));
+
+        $this->jsonRequest('GET', '/messages', token: (string) $response['token']);
+        self::assertResponseIsSuccessful();
+        $messages = $this->jsonResponse();
+        self::assertSame(1, $messages['unreadCount']);
+        self::assertCount(1, $messages['data']);
+        self::assertSame('Welcome', $messages['data'][0]['subject']);
     }
 
     public function testGoogleExchangeReusesExistingProviderIdentity(): void
     {
+        $welcomeEmailSender = $this->createMock(RegistrationWelcomeEmailSender::class);
+        $welcomeEmailSender
+            ->expects(self::once())
+            ->method('sendFailOpen');
+        static::getContainer()->set(RegistrationWelcomeEmailSender::class, $welcomeEmailSender);
+
         $this->replaceGoogleVerifier(new GoogleIdTokenClaims(
             'google-subject-1',
             'google-player@example.test',
@@ -74,6 +105,8 @@ class SocialAuthApiTest extends ApiTestCase
         self::assertSame($firstUserId, (string) $this->jsonResponse()['user']['id']);
         self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM app_user'));
         self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM auth_identity'));
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM user_message'));
+        self::assertCount(1, RecordingMercureHub::updates());
     }
 
     public function testGoogleExchangeBlocksExistingLocalEmailWithoutLinking(): void
@@ -138,6 +171,9 @@ class SocialAuthApiTest extends ApiTestCase
             $verifier,
             static::getContainer()->get(UserPasswordHasherInterface::class),
             static::getContainer()->get(SecurityAuditLogger::class),
+            static::getContainer()->get(RegistrationWelcomeMessageService::class),
+            static::getContainer()->get(RegistrationWelcomeEmailSender::class),
+            static::getContainer()->get(MessageEventPublisher::class),
         ));
     }
 

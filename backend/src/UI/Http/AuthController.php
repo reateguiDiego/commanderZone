@@ -12,6 +12,7 @@ use App\Application\Auth\PasswordResetService;
 use App\Application\Auth\RefreshSessionCookieManager;
 use App\Application\Auth\RefreshSessionReplayDetected;
 use App\Application\Auth\RefreshSessionService;
+use App\Application\Auth\RegistrationWelcomeEmailSender;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Application\User\UserAccountDeletionService;
@@ -143,6 +144,7 @@ class AuthController extends ApiController
         private readonly AuthThrottleService $authThrottleService,
         private readonly SecurityAuditLogger $securityAuditLogger,
         private readonly RegistrationWelcomeMessageService $registrationWelcomeMessageService,
+        private readonly RegistrationWelcomeEmailSender $registrationWelcomeEmailSender,
         #[Autowire('%kernel.environment%')]
         private readonly string $kernelEnvironment,
     ) {
@@ -205,7 +207,7 @@ class AuthController extends ApiController
             $request->headers->get('User-Agent'),
         );
         $this->securityAuditLogger->log('auth.registered', $user->email(), $user->id(), $request->getClientIp());
-        $this->sendRegistrationWelcomeEmailFailOpen($user, $request->getClientIp());
+        $this->registrationWelcomeEmailSender->sendFailOpen($user, $request->getClientIp());
         $this->sendVerificationEmailFailOpen($user, $verificationToken, $request->getClientIp(), 'register');
 
         return $this->json([
@@ -768,20 +770,6 @@ class AuthController extends ApiController
             $this->securityAuditLogger->log('auth.mail.password_reset.sent', $user->email(), $user->id(), $clientIp);
         } catch (\Throwable $exception) {
             $this->securityAuditLogger->log('auth.mail.password_reset.failed', $user->email(), $user->id(), $clientIp, [
-                'reason' => 'mailer_transport_error',
-                'exception' => $exception::class,
-                'message' => $exception->getMessage(),
-            ]);
-        }
-    }
-
-    private function sendRegistrationWelcomeEmailFailOpen(User $user, ?string $clientIp): void
-    {
-        try {
-            $this->registrationWelcomeMessageService->sendEmailTo($user);
-            $this->securityAuditLogger->log('auth.mail.registration_welcome.sent', $user->email(), $user->id(), $clientIp);
-        } catch (\Throwable $exception) {
-            $this->securityAuditLogger->log('auth.mail.registration_welcome.failed', $user->email(), $user->id(), $clientIp, [
                 'reason' => 'mailer_transport_error',
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),

@@ -2,9 +2,11 @@
 
 namespace App\Application\Auth;
 
+use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Domain\Auth\AuthIdentity;
 use App\Domain\User\Role;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\MessageEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -18,6 +20,9 @@ class SocialAuthService
         private readonly GoogleIdTokenVerifierInterface $googleIdTokenVerifier,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly SecurityAuditLogger $securityAuditLogger,
+        private readonly RegistrationWelcomeMessageService $registrationWelcomeMessageService,
+        private readonly RegistrationWelcomeEmailSender $registrationWelcomeEmailSender,
+        private readonly MessageEventPublisher $messageEventPublisher,
     ) {
     }
 
@@ -63,9 +68,12 @@ class SocialAuthService
 
         $this->entityManager->persist($user);
         $this->entityManager->persist($identity);
+        $this->entityManager->persist($this->registrationWelcomeMessageService->createFor($user));
         $this->entityManager->flush();
 
+        $this->messageEventPublisher->publishListChanged($user);
         $this->securityAuditLogger->log('auth.google_login.provisioned', $user->email(), $user->id(), $clientIp);
+        $this->registrationWelcomeEmailSender->sendFailOpen($user, $clientIp);
 
         return $user;
     }

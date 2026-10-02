@@ -4,6 +4,8 @@ namespace App\Tests\Integration;
 
 use App\Application\Auth\AuthMailer;
 use App\Application\Auth\AuthTokenService;
+use App\Application\Auth\RegistrationWelcomeEmailSender;
+use App\Application\Auth\SecurityAuditLogger;
 use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Domain\User\Role;
 use App\Domain\User\User;
@@ -639,7 +641,10 @@ class AuthApiTest extends ApiTestCase
             ->method('sendEmailTo')
             ->willThrowException(new \RuntimeException('smtp offline'));
 
-        static::getContainer()->set(RegistrationWelcomeMessageService::class, $failingWelcomeMessage);
+        static::getContainer()->set(RegistrationWelcomeEmailSender::class, new RegistrationWelcomeEmailSender(
+            $failingWelcomeMessage,
+            static::getContainer()->get(SecurityAuditLogger::class),
+        ));
 
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'mail-fail-register@example.test',
