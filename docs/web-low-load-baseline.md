@@ -64,3 +64,31 @@ After deployment, repeat the same one-user profile and compare both endpoint
 percentiles and fingerprint query calls/time. Do not treat unit-test query
 elimination as a measured production speedup. Deck sections and search remain
 separate investigations.
+
+## Deck detail and sections: repeated card reads
+
+The next one-user run (`czlt-external-2026-10-06T11-11-43Z`, commit
+`3ac3e180`) recorded a sections median of 645 ms and p95 of 798 ms. The HTTP
+performance logs for its time window averaged 124 queries per sections request
+and 107 per deck detail request. These server averages include the whole window;
+they are not directly comparable to stable-phase client percentiles.
+
+Deck cards reference lazily loaded card entities. Serializing every line caused
+one SELECT per distinct card. The local correction preloads those entities with
+one query after the existing ownership check, for detail by ID, detail by slug
+and sections only. It leaves the deck collection and its ordering intact, and
+does not change listing cursors, rooms, localization or token selection.
+
+The integration regression uses 30 distinct cards across all four sections.
+Before the correction it recorded 42 queries for either detail route and 62 for
+sections. After the correction, sections uses 33 total queries and two queries
+in the card loading/serialization stage; both detail routes stay below 20.
+Coverage also checks line IDs, quantities, sections, card identities, empty
+decks and rejection of another user's requests.
+
+Existing HTTP logs now expose `deck.sections.load`, `deck.sections.cards`,
+`deck.sections.tokens`, `deck.sections.localization` and
+`deck.sections.response` stages. Each includes time, query count and row count.
+After deployment, repeat the one-user web profile and inspect these stages to
+identify remaining costs. Query-count reduction alone is not proof that the
+production latency budgets pass.
