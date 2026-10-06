@@ -27,6 +27,7 @@ use App\Domain\Deck\DeckCard;
 use App\Domain\Deck\DeckFolder;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
+use App\Infrastructure\Observability\RequestPerformanceContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -181,6 +182,8 @@ class DecksController extends ApiController
             return $this->fail('Deck not found.', 404);
         }
 
+        $this->preloadDeckCards($deck, $entityManager);
+
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
@@ -191,6 +194,8 @@ class DecksController extends ApiController
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
+
+        $this->preloadDeckCards($deck, $entityManager);
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
@@ -251,9 +256,9 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]
-    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckDerivedTokenResolver $derivedTokenResolver): JsonResponse
+    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckDerivedTokenResolver $derivedTokenResolver, RequestPerformanceContext $performance): JsonResponse
     {
-        $deck = $this->ownedDeck($id, $user, $entityManager);
+        $deck = $performance->measure('deck.sections.load', fn () => $this->ownedDeck($id, $user, $entityManager));
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
@@ -274,28 +279,31 @@ class DecksController extends ApiController
             'playableTotal' => 0,
         ];
 
-        foreach ($deck->cards() as $deckCard) {
-            if (!$deckCard instanceof DeckCard) {
-                continue;
-            }
+        $performance->measure('deck.sections.cards', function () use ($deck, $entityManager, &$sections, &$counts): void {
+            $this->preloadDeckCards($deck, $entityManager);
+            foreach ($deck->cards() as $deckCard) {
+                if (!$deckCard instanceof DeckCard) {
+                    continue;
+                }
 
-            $sections[$deckCard->section()][] = $deckCard->toArray();
-            $counts[$deckCard->section()] += $deckCard->quantity();
-            if ($deckCard->isPlayable()) {
-                $counts['playableTotal'] += $deckCard->quantity();
+                $sections[$deckCard->section()][] = $deckCard->toArray();
+                $counts[$deckCard->section()] += $deckCard->quantity();
+                if ($deckCard->isPlayable()) {
+                    $counts['playableTotal'] += $deckCard->quantity();
+                }
             }
-        }
+        });
 
-        $tokenPayload = $derivedTokenResolver->resolve($deck);
+        $tokenPayload = $performance->measure('deck.sections.tokens', fn () => $derivedTokenResolver->resolve($deck));
         $sections['tokens'] = $tokenPayload['data'];
         $counts['tokens'] = count($tokenPayload['data']);
-        $sections = $this->localizeSectionsPayload($sections, $user, $localization);
+        $sections = $performance->measure('deck.sections.localization', fn () => $this->localizeSectionsPayload($sections, $user, $localization));
 
-        return $this->json([
+        return $performance->measure('deck.sections.response', fn () => $this->json([
             'deckId' => $deck->id(),
             'sections' => $sections,
             'counts' => $counts,
-        ]);
+        ]));
     }
 
     #[Route('/decks/{id}/tokens', methods: ['GET'])]
@@ -816,6 +824,20 @@ class DecksController extends ApiController
         $entityManager->flush();
 
         return $this->json($validation);
+    }
+
+    private function preloadDeckCards(Deck $deck, EntityManagerInterface $entityManager): void
+    {
+        // Populate the identity map without replacing/reordering the deck collection.
+        // Serializing a full deck would otherwise lazily SELECT every distinct card.
+        $entityManager->createQueryBuilder()
+            ->select('card')
+            ->from(Card::class, 'card')
+            ->innerJoin(DeckCard::class, 'line', 'WITH', 'line.card = card')
+            ->where('line.deck = :deck')
+            ->setParameter('deck', $deck)
+            ->getQuery()
+            ->getResult();
     }
 
     private function ownedDeck(string $id, User $user, EntityManagerInterface $entityManager): ?Deck
