@@ -127,7 +127,7 @@ require_command() {
 }
 
 is_allowed_users() {
-  [[ "$1" == "50" || "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
+  [[ "$1" == "1" || "$1" == "10" || "$1" == "50" || "$1" == "100" || "$1" == "280" || "$1" == "500" ]]
 }
 
 json_number() {
@@ -343,11 +343,14 @@ assert_safety() {
   require_command node
 
   if ! is_allowed_users "$USERS"; then
-    echo "--users must be one of 50, 100, 280, or 500. Received: $USERS" >&2
+    echo "--users must be one of 1, 10, 50, 100, 280, or 500. Received: $USERS" >&2
     exit 2
   fi
   if [[ "$SCENARIO" != "navigation" && "$SCENARIO" != "gameplay" ]]; then
     echo "--scenario must be navigation or gameplay." >&2; exit 2
+  fi
+  if [[ "$SCENARIO" == "gameplay" && ( "$USERS" == "1" || "$USERS" == "10" ) ]]; then
+    echo "1 and 10 users are navigation-only phases." >&2; exit 2
   fi
   if [[ -z "$USER_PASSWORD" ]]; then
     echo "Set LOAD_TEST_USER_PASSWORD or pass --user-password. Do not commit seeded user credentials." >&2

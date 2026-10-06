@@ -12,6 +12,7 @@ use Symfony\Contracts\Cache\ItemInterface;
 final readonly class CardsLanguageService
 {
     private const COVERAGE_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+    private const SIGNATURE_CACHE_TTL_SECONDS = 60;
     private const LANGUAGE_LABELS = [
         'en' => 'Ingles',
         'fr' => 'Frances',
@@ -85,6 +86,17 @@ SQL,
     }
 
     private function coverageCacheSignature(): string
+    {
+        // Checking for catalog changes scans the locale table too. Share that work
+        // across requests while keeping coverage freshness bounded to one minute.
+        return $this->cache->get('cards.languages.signature.v1', function (ItemInterface $item): string {
+            $item->expiresAfter(self::SIGNATURE_CACHE_TTL_SECONDS);
+
+            return $this->resolveCoverageCacheSignature();
+        });
+    }
+
+    private function resolveCoverageCacheSignature(): string
     {
         $row = $this->connection->executeQuery(
             <<<'SQL'
