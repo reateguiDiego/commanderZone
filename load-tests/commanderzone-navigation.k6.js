@@ -25,8 +25,18 @@ const navigation = [
   ['/community', 'community'], ['/community/decks', 'community_decks'],
 ];
 const analyses = { basic: 'deck_analysis', advanced: 'deck_advanced_analysis', bracket: 'deck_bracket' };
-if (!['navigation', 'panels', 'basic', 'advanced', 'bracket', 'mixed'].includes(MIX)) throw new Error('Invalid NAVIGATION_MIX');
-const endpoints = MIX === 'mixed' ? [...navigation.map(p => p[1]), analyses.basic, analyses.advanced]
+const webReads = [
+  ['/decks?limit=25', 'decks'], ['/decks/summary', 'decks_summary'], ['/deck-folders', 'deck_folders'],
+  ['/cards/search/options', 'cards_search_options'], ['/cards/languages', 'cards_languages'],
+  ['/cards/search?q=sol&lang=en&limit=25', 'cards_search_prefix'],
+  ['/cards/search?q=Sol%20Ring&lang=en&limit=25', 'cards_search_name'],
+  ['/cards/search?q=anillo&lang=es&limit=25', 'cards_search_localized'],
+  ['/cards/search?q=dragon&commanderLegal=true&lang=en&limit=25&page=2', 'cards_search_filtered_page'],
+  ['/cards/search?q=zznomatchzz&lang=en&limit=25', 'cards_search_empty'],
+];
+if (!['navigation', 'panels', 'basic', 'advanced', 'bracket', 'mixed', 'web'].includes(MIX)) throw new Error('Invalid NAVIGATION_MIX');
+const endpoints = MIX === 'web' ? [...webReads.map(p => p[1]), 'deck_detail', 'deck_sections']
+  : MIX === 'mixed' ? [...navigation.map(p => p[1]), analyses.basic, analyses.advanced]
   : MIX in analyses ? [analyses[MIX]]
   : [...navigation.map(p => p[1]), ...(MIX === 'panels' ? ['friends', 'messages', 'friends_search'] : [])];
 const thresholds = { cz_navigation_incomplete: ['rate==0'] };
@@ -71,7 +81,8 @@ function observe(response, endpoint, stage, analysis = false) {
   const data = body(response);
   const failed = response.status !== 200 || data === null;
   const snapshot = analysis ? (data?.snapshot?.hit === true ? 'fresh' : 'cold') : 'none';
-  const tags = { endpoint, phase: stage, snapshot, traffic_type: analysis ? 'deck_analysis' : 'light_read' };
+  const tags = { endpoint, phase: stage, snapshot, traffic_type: analysis ? 'deck_analysis' : 'light_read',
+    visit: execution.vu.iterationInScenario === 0 ? 'first' : 'repeat' };
   duration.add(response.timings.duration, tags); errors.add(failed, tags); requests.add(1, tags);
   bytes.add(unescape(encodeURIComponent(response.body || '')).length, tags);
   check(response, { [`${endpoint} succeeds`]: () => !failed }, tags);
@@ -94,6 +105,11 @@ export function setup() {
     const token = body(login)?.token;
     if (login.status !== 200 || !token) throw new Error(`Test-account login failed (${i}, HTTP ${login.status})`);
     const user = { token };
+    if (MIX === 'web') {
+      const response = http.get(`${API}/decks?limit=1`, params(token, 'web_fixture', 'setup'));
+      user.deckId = body(response)?.data?.[0]?.id;
+      if (response.status !== 200 || !user.deckId) throw new Error(`Web fixture missing for account ${i}`);
+    }
     const kind = MIX === 'mixed' ? (i % 10 === 0 ? 'advanced' : i % 10 === 9 ? 'basic' : null) : MIX in analyses ? MIX : null;
     if (kind) {
       const decks = body(http.get(`${API}/decks?limit=1`, params(token, 'analysis_fixture', 'setup')));
@@ -115,7 +131,19 @@ export function setup() {
 }
 export default function (data) {
   const user = data.users[(__VU - 1) % data.users.length];
-  if (user.kind) {
+  if (MIX === 'web') {
+    const paths = [...webReads.slice(0, 3),
+      [`/decks/${user.deckId}`, 'deck_detail'], [`/decks/${user.deckId}/sections`, 'deck_sections'],
+      ...webReads.slice(3)];
+    for (const [path, endpoint] of paths) {
+      const result = read(path, endpoint, user);
+      if (endpoint.startsWith('cards_search_') && endpoint !== 'cards_search_options') {
+        incomplete.add(!Array.isArray(result?.data));
+      }
+      // Pace individual actions instead of firing the whole browsing journey at once.
+      sleep(1);
+    }
+  } else if (user.kind) {
     if (COLD) user.deckId = user.deckIds[execution.vu.iterationInScenario];
     const result = read(analysisPath(user), analyses[user.kind], user, true);
     if (COLD) incomplete.add(result?.snapshot?.hit !== false);

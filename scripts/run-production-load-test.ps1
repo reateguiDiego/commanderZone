@@ -1,5 +1,5 @@
 param(
-    [ValidateScript({ $_ -in @(50, 100, 280, 500) })]
+    [ValidateScript({ $_ -in @(1, 10, 50, 100, 280, 500) })]
     [int] $Users = 50,
 
     [switch] $AllPhases,
@@ -12,6 +12,8 @@ param(
     [string] $ProductionHost = "",
 
     [string] $SshUser = "",
+
+    [string] $SshIdentityFile = "",
 
     [string] $ProductionPath = "/opt/commanderZone",
 
@@ -57,7 +59,7 @@ Required for production:
     -ConfirmProduction
 
 Modes:
-  -Users 50|100|280|500     Run one phase.
+  -Users 1|10|50|100|280|500 Run one phase (1 and 10 for navigation).
   -AllPhases             Run 50, 100, 280, then 500.
   -LocalDryRun           Use 4 users for a short local validation while keeping the selected phase metadata.
   -SkipServerMetrics     Do not collect server-side metrics.
@@ -90,7 +92,14 @@ function Invoke-RemoteCommand([string] $Command) {
         $target = "$SshUser@$ProductionHost"
     }
 
-    $output = & ssh $target $Command 2>&1
+    $sshArgs = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=10")
+    if (-not [string]::IsNullOrWhiteSpace($SshIdentityFile)) {
+        $sshArgs += @("-i", $SshIdentityFile)
+    }
+    # Windows PowerShell 5.1 strips embedded quotes in native argv. Transport
+    # the script as UTF-8 base64 so nested SQL/shell quoting reaches bash intact.
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Command))
+    $output = & ssh @sshArgs $target "echo $encodedCommand | base64 -d | bash" 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "ssh command failed with exit code $LASTEXITCODE. Command: $Command`n$output"
     }
@@ -139,6 +148,7 @@ function Collect-ServerSnapshot([string] $PhaseDir, [string] $Label) {
     if (-not [string]::IsNullOrWhiteSpace($ProductionHost)) {
         $quotedPath = ShellQuote $ProductionPath
         $compose = 'docker compose --env-file .env.prod -f docker-compose.yml $(if test -f docker-compose.prod.yml; then printf "%s" "-f docker-compose.prod.yml"; fi)'
+        $compose += ' $(if test -f docker-compose.api-capacity.yml; then printf "%s" "-f docker-compose.api-capacity.yml"; fi)'
         $services = "api websocket game-runtime database"
 
         try {
@@ -389,6 +399,9 @@ function Assert-Safety {
 }
 
 function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) {
+    if ($Scenario -eq "gameplay" -and $PhaseUsers -in @(1, 10)) {
+        throw "1 and 10 users are navigation-only phases."
+    }
     $repoRoot = Split-Path -Parent $PSScriptRoot
     $loadTestsDir = Join-Path $repoRoot "load-tests"
     $phaseDir = Join-Path $ReportRoot "users-$PhaseUsers"
@@ -440,6 +453,7 @@ function Invoke-Phase([int] $PhaseUsers, [string] $RunId, [string] $ReportRoot) 
             command = @("docker") + $dockerArgs
             snapshotCommand = @($shellExe, "-NoProfile", "-File", $PSCommandPath, "-SnapshotDir", $phaseDir,
                 "-ProductionHost", $ProductionHost, "-ProductionPath", $ProductionPath, "-SshUser", $SshUser,
+                "-SshIdentityFile", $SshIdentityFile,
                 "-RuntimeMetricsUrl", $RuntimeMetricsUrl)
         } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
         & node (Join-Path $PSScriptRoot "supervise-load.mjs") $configPath
