@@ -87,9 +87,9 @@ SQL,
 
     private function coverageCacheSignature(): string
     {
-        // Checking for catalog changes scans the locale table too. Share that work
-        // across requests while keeping coverage freshness bounded to one minute.
-        return $this->cache->get('cards.languages.signature.v1', function (ItemInterface $item): string {
+        // A transactional statement trigger tracks all catalog writers. Checking
+        // freshness reads one row, including when this minute-long cache expires.
+        return $this->cache->get('cards.languages.signature.v2', function (ItemInterface $item): string {
             $item->expiresAfter(self::SIGNATURE_CACHE_TTL_SECONDS);
 
             return $this->resolveCoverageCacheSignature();
@@ -99,24 +99,14 @@ SQL,
     private function resolveCoverageCacheSignature(): string
     {
         $row = $this->connection->executeQuery(
-            <<<'SQL'
-SELECT
-    COUNT(*) AS total_rows,
-    COALESCE(MAX(updated_at), TIMESTAMP '1970-01-01 00:00:00') AS last_updated_at
-FROM card_print_locale
-WHERE lang IS NOT NULL
-  AND lang NOT IN (:commonPrintLanguages)
-SQL,
-            ['commonPrintLanguages' => LanguageCatalog::commonPrintLanguages()],
-            ['commonPrintLanguages' => ArrayParameterType::STRING],
+            'SELECT revision FROM card_locale_revision WHERE id = 1',
         )->fetchAssociative();
 
-        $signaturePayload = [
-            'rows' => (int) ($row['total_rows'] ?? 0),
-            'updatedAt' => (string) ($row['last_updated_at'] ?? '1970-01-01 00:00:00'),
-        ];
+        if ($row === false) {
+            throw new \RuntimeException('Locale catalog revision is missing.');
+        }
 
-        return hash('xxh128', json_encode($signaturePayload, JSON_THROW_ON_ERROR));
+        return 'revision-v2-'.$row['revision'];
     }
 
     /**

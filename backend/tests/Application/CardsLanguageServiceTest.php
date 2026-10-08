@@ -15,7 +15,7 @@ final class CardsLanguageServiceTest extends TestCase
     public function testWarmRequestsAcrossServiceInstancesDoNotQueryTheCatalog(): void
     {
         $connection = $this->connectionReturning([
-            $this->signature(100, '2026-10-01'),
+            $this->signature(1),
             $this->coverage(50),
         ]);
         $cache = new ArrayAdapter();
@@ -30,9 +30,9 @@ final class CardsLanguageServiceTest extends TestCase
     public function testUnchangedCatalogReusesCoverageAfterSignatureExpires(): void
     {
         $connection = $this->connectionReturning([
-            $this->signature(100, '2026-10-01'),
+            $this->signature(1),
             $this->coverage(50),
-            $this->signature(100, '2026-10-01'),
+            $this->signature(1),
         ]);
         $clock = new MockClock();
         $service = new CardsLanguageService($connection, new ArrayAdapter(clock: $clock), 'prod');
@@ -43,12 +43,12 @@ final class CardsLanguageServiceTest extends TestCase
     }
 
     #[DataProvider('catalogChanges')]
-    public function testCatalogChangesRefreshCoverageAfterOneMinute(int $rows, string $updatedAt): void
+    public function testCatalogChangesRefreshCoverageAfterOneMinute(int $revision): void
     {
         $connection = $this->connectionReturning([
-            $this->signature(100, '2026-10-01'),
+            $this->signature(1),
             $this->coverage(50),
-            $this->signature($rows, $updatedAt),
+            $this->signature($revision),
             $this->coverage(60),
         ]);
         $clock = new MockClock();
@@ -63,9 +63,9 @@ final class CardsLanguageServiceTest extends TestCase
 
     public static function catalogChanges(): iterable
     {
-        yield 'insert' => [101, '2026-10-01'];
-        yield 'delete' => [99, '2026-10-01'];
-        yield 'update without row count change' => [100, '2026-10-02'];
+        yield 'insert' => [2];
+        yield 'delete' => [3];
+        yield 'update without row count change' => [4];
     }
 
     /** @param list<Result> $results */
@@ -78,11 +78,11 @@ final class CardsLanguageServiceTest extends TestCase
         return $connection;
     }
 
-    private function signature(int $rows, string $updatedAt): Result
+    private function signature(int $revision): Result
     {
         $result = $this->createMock(Result::class);
         $result->expects(self::once())->method('fetchAssociative')
-            ->willReturn(['total_rows' => $rows, 'last_updated_at' => $updatedAt]);
+            ->willReturn(['revision' => $revision]);
 
         return $result;
     }
