@@ -92,3 +92,43 @@ Existing HTTP logs now expose `deck.sections.load`, `deck.sections.cards`,
 After deployment, repeat the one-user web profile and inspect these stages to
 identify remaining costs. Query-count reduction alone is not proof that the
 production latency budgets pass.
+
+## Token print loading and language revision (October 8)
+
+Run `czlt-external-2026-10-08T06-42-32Z` still failed the one-user web
+latency budgets. In the supplied HTTP samples, card serialization used two
+queries and 8–13 ms, while token resolution took 198–424 ms and localization
+51–145 ms. One language request spent 1329 ms in SQL. These are individual
+requests, not aggregate stage percentiles.
+
+Token print selection now reads scalar identity/image data for the pool and
+hydrates complete Card entities only for selected prints. It also serializes
+only the selected token relation per source. The regression fixture with 30
+prints permits at most two hydrated token entities (the relation target and
+the chosen print), instead of 30. This adds a bounded batch query in exchange
+for avoiding full payload loading for unused prints. Random selection, image
+eligibility including face images, source deduplication, unresolved fallbacks
+and the full table token payload remain unchanged.
+
+Language freshness now reads `card_locale_revision`, a single-row revision
+maintained transactionally by a statement-level PostgreSQL trigger on locale
+INSERT/UPDATE/DELETE/TRUNCATE. This removes the recurring COUNT/MAX scan. The
+60-second signature cache and coverage calculation are retained: a cold cache
+or a catalog change still requires the coverage GROUP BY. Concurrent catalog
+writers serialize their revision updates until transaction commit; the change
+does not write a revision on HTTP reads.
+
+Migration `Version20261008120000` must run before serving the new language
+service. It creates the revision table, function and trigger; rollback removes
+them. Existing import/backfill/reset paths need no separate invalidation hook.
+The coverage cache namespace changes, so the first request after deployment
+rebuilds coverage. After deployment, repeat the same one-user profile and
+compare `deck.sections.tokens`, query time and language cold/warm requests.
+These changes do not establish a measured production latency improvement yet.
+
+Local validation: full backend suite passed (1376 tests, 15550 assertions,
+exit 0; existing 13 PHPUnit deprecations and 80 notices). The isolated,
+disposable PostgreSQL 16 test container used `fsync=off` for the latter part
+of the run to reduce table-reset IO; this does not test crash durability.
+Migration down/up and restricted-search-path trigger execution passed, followed
+by all six language cache/revision tests. No production changes were applied.

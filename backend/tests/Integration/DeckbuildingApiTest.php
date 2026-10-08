@@ -8,6 +8,63 @@ use App\Domain\Deck\DeckCard;
 
 class DeckbuildingApiTest extends ApiTestCase
 {
+    public function testTokenPrintPoolDoesNotHydrateEveryCandidate(): void
+    {
+        $token = $this->registerAndLogin();
+        $allowed = [];
+        for ($i = 0; $i < 30; ++$i) {
+            $card = $this->seedCard('pool-token-'.$i, 'Pool Token', [
+                'oracle_id' => 'shared-token-oracle',
+                'type_line' => 'Token Creature — Plant',
+                'oracle_text' => 'Full token text must remain available.',
+            ]);
+            $allowed[] = $card->scryfallId();
+        }
+        $producer = $this->seedCard('pool-producer', 'Pool Producer', [
+            'all_parts' => [['id' => $allowed[0], 'component' => 'token', 'name' => 'Pool Token']],
+        ]);
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Token pool', 'cards' => [['scryfallId' => $producer->scryfallId()]],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = $this->jsonResponse()['deck']['id'];
+        $this->entityManager->clear();
+        $deck = $this->entityManager->find(Deck::class, $deckId);
+        $payload = (new \App\Application\Deck\DeckDerivedTokenResolver($this->entityManager))->resolve($deck);
+        self::assertCount(1, $payload['data']);
+        self::assertContains($payload['data'][0]['token']['scryfallId'], $allowed);
+        self::assertSame('Full token text must remain available.', $payload['data'][0]['token']['oracleText']);
+        self::assertLessThanOrEqual(2, count($this->entityManager->getUnitOfWork()->getIdentityMap()[Card::class] ?? []));
+    }
+
+    public function testTokenPrintPoolAcceptsFaceImagesAndRejectsMissingImages(): void
+    {
+        $token = $this->registerAndLogin();
+        $sourceToken = $this->seedCard('no-image-token', 'Token', [
+            'oracle_id' => 'face-token-oracle', 'image_uris' => [],
+        ]);
+        $this->seedCard('invalid-image-token', 'Token', [
+            'oracle_id' => 'face-token-oracle', 'image_uris' => ['normal' => '', 'small' => 123],
+        ]);
+        $faceToken = $this->seedCard('face-image-token', 'Token', [
+            'oracle_id' => 'face-token-oracle', 'image_uris' => [],
+            'card_faces' => [['name' => 'Token front', 'image_uris' => ['normal' => 'https://example.test/token.png']]],
+        ]);
+        $producer = $this->seedCard('face-producer', 'Face Producer', [
+            'all_parts' => [['id' => $sourceToken->scryfallId(), 'component' => 'token', 'name' => 'Token']],
+        ]);
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Face token pool', 'cards' => [['scryfallId' => $producer->scryfallId()]],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = $this->jsonResponse()['deck']['id'];
+        $this->entityManager->clear();
+        $payload = (new \App\Application\Deck\DeckDerivedTokenResolver($this->entityManager))
+            ->resolve($this->entityManager->find(Deck::class, $deckId));
+        self::assertSame($faceToken->scryfallId(), $payload['data'][0]['token']['scryfallId']);
+        self::assertSame([], $payload['unresolved']);
+    }
+
     public function testDeckCreationGeneratesStableSlugAndResolvesByOwner(): void
     {
         $token = $this->registerAndLogin('deck-slug-owner@example.test', 'Deck Slug Owner');

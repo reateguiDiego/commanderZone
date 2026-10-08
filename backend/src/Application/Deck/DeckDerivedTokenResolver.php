@@ -93,7 +93,7 @@ final readonly class DeckDerivedTokenResolver
 
                     $resolvedCandidates[] = [
                         'sourceCard' => $sourcePayload,
-                        'token' => $compactTokenPayload ? $this->editorTokenPayload($token) : $token->toArray(),
+                        'token' => $token,
                         'resolved' => true,
                     ];
                     continue;
@@ -117,7 +117,11 @@ final readonly class DeckDerivedTokenResolver
             }
 
             if ($resolvedCandidates !== []) {
-                $data[] = $resolvedCandidates[random_int(0, count($resolvedCandidates) - 1)];
+                $selected = $resolvedCandidates[random_int(0, count($resolvedCandidates) - 1)];
+                $selected['token'] = $compactTokenPayload
+                    ? $this->editorTokenPayload($selected['token'])
+                    : $selected['token']->toArray();
+                $data[] = $selected;
                 $emittedSourceCards[$sourceScryfallId] = true;
                 continue;
             }
@@ -398,30 +402,41 @@ SQL,
             return [];
         }
 
-        $tokens = $this->entityManager->getRepository(Card::class)
+        // Read only identity and image eligibility for the candidate pool.
+        // Hydrate complete entities only for the selected prints.
+        $candidates = $this->entityManager->getRepository(Card::class)
             ->createQueryBuilder('card')
+            ->select('card.id, card.oracleId, card.imageUris, card.cardFaces')
             ->andWhere('card.oracleId IN (:oracleIds)')
             ->setParameter('oracleIds', $tokenOracleIds)
             ->orderBy('card.oracleId', 'ASC')
             ->addOrderBy('card.scryfallId', 'ASC')
             ->getQuery()
-            ->getResult();
+            ->getArrayResult();
 
         $candidatesByOracleId = [];
-        foreach ($tokens as $token) {
-            if (!$token instanceof Card || !$this->hasUsableTokenImage($token)) {
-                continue;
-            }
-
-            $oracleId = $token->oracleId();
-            if ($oracleId !== null) {
-                $candidatesByOracleId[$oracleId][] = $token;
+        foreach ($candidates as $candidate) {
+            if ($this->hasUsableImages($candidate['imageUris'], $candidate['cardFaces'], 'image_uris')) {
+                $candidatesByOracleId[$candidate['oracleId']][] = $candidate['id'];
             }
         }
+        if ($candidatesByOracleId === []) {
+            return [];
+        }
 
+        $selectedIds = [];
+        foreach ($candidatesByOracleId as $ids) {
+            $selectedIds[] = $ids[random_int(0, count($ids) - 1)];
+        }
+        $tokens = $this->entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->where('card.id IN (:ids)')
+            ->setParameter('ids', $selectedIds)
+            ->getQuery()
+            ->getResult();
         $selectedByOracleId = [];
-        foreach ($candidatesByOracleId as $oracleId => $candidates) {
-            $selectedByOracleId[$oracleId] = $candidates[random_int(0, count($candidates) - 1)];
+        foreach ($tokens as $token) {
+            $selectedByOracleId[$token->oracleId()] = $token;
         }
 
         return $selectedByOracleId;
@@ -439,15 +454,20 @@ SQL,
 
     private function hasUsableTokenImage(Card $token): bool
     {
+        return $this->hasUsableImages($token->imageUris(), $token->cardFaces(), 'imageUris');
+    }
+
+    private function hasUsableImages(array $imageUris, array $faces, string $faceImageKey): bool
+    {
         foreach (['normal', 'large', 'png', 'small'] as $format) {
-            if ($token->imageUri($format) !== null) {
+            if (is_string($imageUris[$format] ?? null) && $imageUris[$format] !== '') {
                 return true;
             }
         }
 
-        foreach ($token->cardFaces() as $face) {
-            $imageUris = $face['imageUris'] ?? null;
-            if (is_array($imageUris) && $imageUris !== []) {
+        foreach ($faces as $face) {
+            $faceImages = $face[$faceImageKey] ?? null;
+            if (is_array($faceImages) && $faceImages !== []) {
                 return true;
             }
         }
