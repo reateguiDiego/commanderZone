@@ -1705,9 +1705,10 @@ TXT,
 
         $this->jsonRequest('POST', '/decks/quick-build', [
             'name' => 'Canonical Types',
-            'cards' => [
-                ['scryfallId' => $arcaneSignet->scryfallId(), 'quantity' => 1, 'section' => 'main'],
-            ],
+            'cards' => array_map(
+                static fn (string $section): array => ['scryfallId' => $arcaneSignet->scryfallId(), 'quantity' => 1, 'section' => $section],
+                ['commander', 'main', 'sideboard', 'maybeboard'],
+            ),
         ], $token);
         self::assertResponseStatusCodeSame(201);
 
@@ -1719,8 +1720,13 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
         self::assertResponseIsSuccessful();
         $sections = $this->jsonResponse()['sections'];
-        self::assertSame('Sello arcano', $sections['main'][0]['card']['printedName']);
-        self::assertSame('Artifact', $sections['main'][0]['card']['typeLine']);
+        foreach (['commander', 'main', 'sideboard', 'maybeboard'] as $section) {
+            self::assertCount(1, $sections[$section]);
+            self::assertSame('Sello arcano', $sections[$section][0]['card']['printedName']);
+            self::assertSame('Artifact', $sections[$section][0]['card']['typeLine']);
+            self::assertSame($arcaneSignet->scryfallId(), $sections[$section][0]['card']['scryfallId']);
+            self::assertSame($section, $sections[$section][0]['section']);
+        }
     }
 
     public function testDecklistImportSelectsPersistedPrintsByUserLanguage(): void
