@@ -175,3 +175,34 @@ Validation: full backend suite passed with exit 0 (1377 tests, 15640 assertions;
 PostgreSQL 16 database with `fsync=off` for test setup speed, not crash-durability
 validation. Log: `reports/backend-search-localization-tests.log` (local artifact).
 Production was not modified.
+
+## Scoped search JIT setting (October 13)
+
+Production diagnostic `reports/jit-ab-20261013-133815` alternated JIT on/off
+after warm-up, with four samples per setting. For the filtered English search,
+count medians were 293.9 ms on / 226.4 ms off, and page medians were
+345.7 ms on / 223.6 ms off. Compilation medians were about 83.5 ms per
+statement with JIT on. The sum of those query medians improved by about
+190 ms; this is not an HTTP request median. Prefix queries did not compile
+with JIT and remained around 44 ms for count and 54 ms for page.
+
+`CardSearchSelection` now runs uncached search selection inside a transaction
+with `SET LOCAL jit = off`. Commit or rollback restores the previous setting
+before payload loading and localization. With an existing transaction, DBAL
+uses a savepoint: success explicitly restores the prior value before release,
+and failure rolls back to the savepoint, including after an SQL error. This
+prevents the setting leaking into later work on persistent connections.
+Cache hits bypass this scope. A cache miss adds transaction boundaries and
+one setting statement; no global PostgreSQL configuration or migration changes.
+
+Regression coverage exercises initial JIT on/off, standalone/nested scopes,
+success/PHP errors/SQL errors, same-connection reuse and a cached controller
+response that executes no SQL. Repeat the one-user production web profile
+after deployment. This change does not explain the prefix spikes or resolve
+the remaining deck latency; production endpoint improvement remains unverified.
+
+Validation: full backend suite passed with exit 0 (1390 tests, 15751 assertions;
+13 existing PHPUnit deprecations and 80 notices). The isolated PostgreSQL 16
+test database used `fsync=off` for fixture setup speed. Log:
+`reports/backend-search-jit-tests.log`. The 13 new tests include same-connection
+setting restoration and cache-hit coverage. No production changes were applied.
