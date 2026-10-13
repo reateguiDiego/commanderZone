@@ -8,6 +8,7 @@ use App\Application\Card\CardResolver;
 use App\Application\Card\CardSearchFilterBuilder;
 use App\Application\Card\CardSearchFilterSet;
 use App\Application\Card\CardSearchOptionsProvider;
+use App\Application\Card\CardSearchSelection;
 use App\Application\Card\CardsLanguageService;
 use App\Domain\Card\Card;
 use App\Domain\Card\FutureCommunityCommanderLegality;
@@ -50,6 +51,7 @@ class CardsController extends ApiController
         CardSearchFilterBuilder $filterBuilder,
         CacheInterface $cache,
         RequestPerformanceContext $performance,
+        CardSearchSelection $selection,
         #[Autowire('%kernel.environment%')]
         string $environment,
     ): JsonResponse
@@ -79,7 +81,7 @@ class CardsController extends ApiController
             return $this->fail($exception->getMessage());
         }
 
-        $resolveSearchPage = fn (): array => $this->resolveSearchPage(
+        $resolveSearchPage = fn (): array => $selection->run(fn (): array => $this->resolveSearchPage(
             $entityManager,
             $requestedLanguage,
             $query,
@@ -90,7 +92,7 @@ class CardsController extends ApiController
             $filterSet,
             $searchEntryFilterSet,
             $request,
-        );
+        ));
         $pageResult = $performance->measure('cards.search.selection', fn (): array => $environment === 'test'
             ? $resolveSearchPage()
             : $cache->get(
