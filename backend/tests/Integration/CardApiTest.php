@@ -9,6 +9,32 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class CardApiTest extends ApiTestCase
 {
+    public function testFilteredSearchCountsGroupsAcrossPagesWithoutRepeatingSchemaDiscovery(): void
+    {
+        foreach ([['a', 'Sol Dragon', '{1}'], ['b', 'Sol Dragon', '{1}'], ['c', 'Sol Dragon', '{2}'], ['d', 'Solar Dragon', '{1}']] as [$suffix, $name, $cost]) {
+            $this->seedCard('search-budget-'.$suffix, $name, ['mana_cost' => $cost, 'lang' => 'en']);
+        }
+        $this->seedCard('search-budget-illegal', 'Sol Forbidden Dragon', ['lang' => 'en', 'legalities' => ['commander' => 'banned']]);
+
+        foreach (['sol', 'dragon'] as $query) {
+            $seen = [];
+            for ($page = 1; $page <= 4; ++$page) {
+                $this->jsonRequest('GET', '/cards/search?q='.$query.'&commanderLegal=true&lang=en&limit=1&page='.$page);
+                self::assertResponseIsSuccessful();
+                $payload = $this->jsonResponse();
+                self::assertSame(3, $payload['total']);
+                self::assertSame($page < 3, $payload['hasMore']);
+                self::assertCount($page <= 3 ? 1 : 0, $payload['data']);
+                foreach ($payload['data'] as $card) {
+                    $seen[] = [$card['name'], $card['manaCost']];
+                }
+                $metrics = static::getContainer()->get(\App\Infrastructure\Observability\RequestPerformanceContext::class)->metrics();
+                self::assertLessThanOrEqual(12, $metrics['query_count'], 'Schema discovery must be bounded once per search, not once per SQL fragment.');
+            }
+            self::assertSame([['Sol Dragon', '{1}'], ['Sol Dragon', '{2}'], ['Solar Dragon', '{1}']], $seen);
+        }
+    }
+
     public function testSearchShowImageAndResolveCards(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-000000000001', 'Sol Ring', [

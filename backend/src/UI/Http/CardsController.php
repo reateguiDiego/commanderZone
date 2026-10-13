@@ -13,6 +13,7 @@ use App\Domain\Card\Card;
 use App\Domain\Card\FutureCommunityCommanderLegality;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
+use App\Infrastructure\Observability\RequestPerformanceContext;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -28,6 +29,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class CardsController extends ApiController
 {
+    private ?bool $searchPrintTablesAvailable = null;
     private const IMAGE_FORMATS = ['small', 'normal', 'large', 'png', 'art_crop', 'border_crop'];
     private const IMAGE_MODES = ['uri', 'redirect', 'binary'];
     private const SEARCH_PAGE_CACHE_TTL_SECONDS = 300;
@@ -47,10 +49,13 @@ class CardsController extends ApiController
         CardLocalizationService $localization,
         CardSearchFilterBuilder $filterBuilder,
         CacheInterface $cache,
+        RequestPerformanceContext $performance,
         #[Autowire('%kernel.environment%')]
         string $environment,
     ): JsonResponse
     {
+        // Limit schema discovery to this request, including in long-lived workers.
+        $this->searchPrintTablesAvailable = null;
         $requestedLanguage = $this->requestedLanguage($request);
         if ($requestedLanguage === false) {
             return $this->fail('lang filter is invalid.');
@@ -86,7 +91,7 @@ class CardsController extends ApiController
             $searchEntryFilterSet,
             $request,
         );
-        $pageResult = $environment === 'test'
+        $pageResult = $performance->measure('cards.search.selection', fn (): array => $environment === 'test'
             ? $resolveSearchPage()
             : $cache->get(
                 $this->searchPageCacheKey($request),
@@ -95,7 +100,7 @@ class CardsController extends ApiController
 
                     return $resolveSearchPage();
                 },
-            );
+            ));
         $ids = $pageResult['ids'];
         $total = $pageResult['total'];
 
@@ -106,8 +111,8 @@ class CardsController extends ApiController
         $hasMore = count($ids) > $limit;
         $ids = array_slice($ids, 0, $limit);
 
-        $cards = $this->fetchSearchPayloadsByIds($entityManager, $ids);
-        $cards = $localization->localizeCardPayloads($cards, $requestedLanguage, true);
+        $cards = $performance->measure('cards.search.payloads', fn (): array => $this->fetchSearchPayloadsByIds($entityManager, $ids));
+        $cards = $performance->measure('cards.search.localization', fn (): array => $localization->localizeCardPayloads($cards, $requestedLanguage, true));
 
         return $this->json(['data' => $cards, 'page' => $page, 'limit' => $limit, 'hasMore' => $hasMore, 'total' => $total]);
     }
@@ -351,10 +356,6 @@ SQL;
             );
             $searchRankSql = $this->indexedSearchRankSql(
                 $entityManager,
-                'all',
-                $requestedLanguage,
-                $params,
-                $types,
             );
         }
 
@@ -656,17 +657,20 @@ SQL;
 
     private function printLocaleTablesAvailable(EntityManagerInterface $entityManager): bool
     {
+        if ($this->searchPrintTablesAvailable !== null) {
+            return $this->searchPrintTablesAvailable;
+        }
         try {
             $connection = $entityManager->getConnection();
             $cardPrint = $connection->fetchOne("SELECT to_regclass('public.card_print')");
             $cardPrintLocale = $connection->fetchOne("SELECT to_regclass('public.card_print_locale')");
 
-            return is_string($cardPrint)
+            return $this->searchPrintTablesAvailable = is_string($cardPrint)
                 && $cardPrint !== ''
                 && is_string($cardPrintLocale)
                 && $cardPrintLocale !== '';
         } catch (\Throwable) {
-            return false;
+            return $this->searchPrintTablesAvailable = false;
         }
     }
 
@@ -735,7 +739,7 @@ SQL;
         }
 
         $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
-        $searchRankSql = $this->indexedSearchRankSql($entityManager, $bucket, $requestedLanguage, $params, $types);
+        $searchRankSql = $this->indexedSearchRankSql($entityManager);
         $languageRankSql = $this->searchBucketRankSql($bucket, $requestedLanguage, $params, $types);
 
         $sql = <<<'SQL'
@@ -801,31 +805,22 @@ SQL;
         }
 
         $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
-        $searchRankSql = $this->indexedSearchRankSql($entityManager, $bucket, $requestedLanguage, $params, $types);
-        $languageRankSql = $this->searchBucketRankSql($bucket, $requestedLanguage, $params, $types);
 
+        // Counting groups does not require choosing or ranking their representative print.
+        // Keep the same grouping keys as the page query, including NULL semantics.
         $sql = <<<'SQL'
 SELECT COUNT(*)
 FROM (
-    SELECT DISTINCT ON (
+    SELECT DISTINCT
         c.normalized_name,
         COALESCE(LOWER(c.type_line), ''),
         COALESCE(LOWER(c.mana_cost), '')
-    ) c.id,
+    FROM card c
 SQL;
-        $sql .= " {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank FROM card c";
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
         }
         $sql .= <<<'SQL'
-    ORDER BY
-        c.normalized_name ASC,
-        COALESCE(LOWER(c.type_line), '') ASC,
-        COALESCE(LOWER(c.mana_cost), '') ASC,
-        search_rank ASC,
-        language_rank ASC,
-        c.scryfall_id ASC,
-        c.name ASC
 ) AS distinct_cards
 SQL;
 
@@ -906,18 +901,8 @@ SQL, $alias),
             $patternParam,
         );
 
-        $localeScope = $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale');
-        if ($localeScope !== null) {
-            $candidateQueries[] = sprintf(
-                'SELECT c_search.id FROM card c_search INNER JOIN card_print_locale locale ON locale.print_scryfall_id = c_search.scryfall_id WHERE %s%s AND (%s LIKE %s OR %s LIKE %s)',
-                $scopePrefix,
-                $localeScope,
-                $this->foldedSearchSql("COALESCE(locale.name, '')"),
-                $patternParam,
-                $this->foldedSearchSql("COALESCE(locale.printed_name, '')"),
-                $patternParam,
-            );
-        }
+        // All-language matches already include the requested-language subset.
+        // The candidate card itself is still constrained by its language bucket.
         if ($this->printLocaleTablesAvailable($entityManager)) {
             $candidateQueries[] = sprintf(
                 'SELECT c_search.id FROM card c_search INNER JOIN card_print_locale locale_any ON locale_any.print_scryfall_id = c_search.scryfall_id WHERE %s(%s LIKE %s OR %s LIKE %s)',
@@ -934,10 +919,6 @@ SQL, $alias),
 
     private function indexedSearchRankSql(
         EntityManagerInterface $entityManager,
-        string $bucket,
-        ?string $requestedLanguage,
-        array &$params,
-        array &$types,
     ): string {
         $exactSearchConditions = [
             $this->foldedSearchSql('c.normalized_name').' = :queryExactFolded',
@@ -950,21 +931,6 @@ SQL, $alias),
             $this->foldedSearchSql("COALESCE(c.flavor_name, '')").' LIKE :queryPrefixFolded',
         ];
 
-        $exactLocaleScope = $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale_exact');
-        if ($exactLocaleScope !== null) {
-            $exactSearchConditions[] = sprintf(
-                'c.scryfall_id IN (SELECT locale_exact.print_scryfall_id FROM card_print_locale locale_exact WHERE %s AND (%s = :queryExactFolded OR %s = :queryExactFolded))',
-                $exactLocaleScope,
-                $this->foldedSearchSql("COALESCE(locale_exact.name, '')"),
-                $this->foldedSearchSql("COALESCE(locale_exact.printed_name, '')"),
-            );
-            $prefixSearchConditions[] = sprintf(
-                'c.scryfall_id IN (SELECT locale_prefix.print_scryfall_id FROM card_print_locale locale_prefix WHERE %s AND (%s LIKE :queryPrefixFolded OR %s LIKE :queryPrefixFolded))',
-                $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale_prefix'),
-                $this->foldedSearchSql("COALESCE(locale_prefix.name, '')"),
-                $this->foldedSearchSql("COALESCE(locale_prefix.printed_name, '')"),
-            );
-        }
         if ($this->printLocaleTablesAvailable($entityManager)) {
             $exactSearchConditions[] = sprintf(
                 'c.scryfall_id IN (SELECT locale_any_exact.print_scryfall_id FROM card_print_locale locale_any_exact WHERE %s = :queryExactFolded OR %s = :queryExactFolded)',
@@ -985,40 +951,16 @@ SQL, $alias),
         );
     }
 
-    private function localizedBucketScopeSql(
-        EntityManagerInterface $entityManager,
-        string $bucket,
-        ?string $requestedLanguage,
-        array &$params,
-        array &$types,
-        string $alias = 'locale',
-    ): ?string {
-        if (!$this->printLocaleTablesAvailable($entityManager) || $bucket === 'all') {
-            return null;
-        }
-
-        $this->primeBucketParams($bucket, $requestedLanguage, $params, $types);
-
-        return match ($bucket) {
-            'requested' => sprintf('%s.lang = :bucketRequestedLocaleLang', $alias),
-            'english' => sprintf('%s.lang = :bucketEnglishLocaleLang', $alias),
-            'common' => sprintf('%s.lang IN (:bucketCommonLocaleLangs)', $alias),
-            default => null,
-        };
-    }
-
     private function primeBucketParams(string $bucket, ?string $requestedLanguage, array &$params, array &$types): void
     {
         if ($bucket === 'requested' && $requestedLanguage !== null) {
             $params['bucketRequestedLang'] = $requestedLanguage;
-            $params['bucketRequestedLocaleLang'] = $requestedLanguage;
 
             return;
         }
 
         if ($bucket === 'english') {
             $params['bucketEnglishLang'] = LanguageCatalog::DEFAULT_LANGUAGE;
-            $params['bucketEnglishLocaleLang'] = LanguageCatalog::DEFAULT_LANGUAGE;
 
             return;
         }
@@ -1026,8 +968,6 @@ SQL, $alias),
         if ($bucket === 'common') {
             $params['bucketCommonLangs'] = LanguageCatalog::commonPrintLanguages();
             $types['bucketCommonLangs'] = ArrayParameterType::STRING;
-            $params['bucketCommonLocaleLangs'] = LanguageCatalog::commonPrintLanguages();
-            $types['bucketCommonLocaleLangs'] = ArrayParameterType::STRING;
         }
     }
 

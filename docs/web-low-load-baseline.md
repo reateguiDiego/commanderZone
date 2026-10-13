@@ -132,3 +132,46 @@ disposable PostgreSQL 16 test container used `fsync=off` for the latter part
 of the run to reduce table-reset IO; this does not test crash durability.
 Migration down/up and restricted-search-path trigger execution passed, followed
 by all six language cache/revision tests. No production changes were applied.
+
+## Search counting and section localization (October 13)
+
+Production run `czlt-external-2026-10-08T13-32-15Z`, deployed commit
+`96f155a0`, reduced languages p95 to 67 ms and sections p95 to 519 ms.
+Sections, prefix search and filtered page search still failed their thresholds.
+The two supplied slow search samples spent 1147/1181 ms and 2177/2191 ms
+in SQL/request handling respectively. They do not identify individual query
+plans, and the HTTP log alone cannot map either sample to a specific search
+variant. Sections still performed 24 localization queries in these samples.
+
+The local changes remove redundant work without changing the API contract:
+
+- Search counts distinct name/type/mana groups without ranking and sorting
+  representative prints. The result page keeps its existing ranking.
+- Localized matching uses the existing all-language branch once; the additional
+  requested-language branch was a subset of that same match. Card-language
+  buckets, fallback priority, filters and representative selection are retained.
+- Search checks print-table availability once per request, resetting the cached
+  result at the start of every search even in long-lived workers.
+- Sections localize all four card sections and tokens together, then restore
+  each payload to its original position. Card IDs, line metadata, token metadata
+  and canonical English type lines are preserved.
+- Search logs expose `cards.search.selection` (including the existing page cache),
+  `cards.search.payloads` and `cards.search.localization`, without logging query
+  text or user input. Empty result pages only execute selection.
+
+Regression coverage checks filtered prefix/substring searches with duplicate
+prints, distinct mana costs, forbidden cards, multiple pages and a page beyond
+the end. The query budget is at most 12 per search. The 30-card/four-section
+fixture now requires fewer than 20 total queries and at most eight localization
+queries. Localization also checks the same card in all four sections.
+
+No migration, frontend, deck cursor, room or game command changes are needed.
+Repeat the one-user web profile after deployment before increasing load. Local
+query budgets do not establish production p95/p99 improvements; no production
+EXPLAIN plans have yet been collected for the remaining search spikes.
+
+Validation: full backend suite passed with exit 0 (1377 tests, 15640 assertions;
+13 existing PHPUnit deprecations and 80 notices). The run used a disposable
+PostgreSQL 16 database with `fsync=off` for test setup speed, not crash-durability
+validation. Log: `reports/backend-search-localization-tests.log` (local artifact).
+Production was not modified.

@@ -1380,16 +1380,27 @@ class DecksController extends ApiController
      */
     private function localizeSectionsPayload(array $sections, User $user, CardLocalizationService $localization): array
     {
-        foreach ([DeckCard::SECTION_COMMANDER, DeckCard::SECTION_MAIN, DeckCard::SECTION_SIDEBOARD, DeckCard::SECTION_MAYBEBOARD] as $section) {
+        $payloads = [];
+        $locations = [];
+        foreach ([DeckCard::SECTION_COMMANDER, DeckCard::SECTION_MAIN, DeckCard::SECTION_SIDEBOARD, DeckCard::SECTION_MAYBEBOARD, 'tokens'] as $section) {
             if (!is_array($sections[$section] ?? null)) {
                 continue;
             }
 
-            $sections[$section] = $this->localizeDeckCardLines($sections[$section], $user, $localization);
+            $sections[$section] = array_values($sections[$section]);
+            $field = $section === 'tokens' ? 'token' : 'card';
+            foreach ($sections[$section] as $index => $entry) {
+                if (is_array($entry) && is_array($entry[$field] ?? null)) {
+                    $locations[] = [$section, $index, $field];
+                    $payloads[] = $entry[$field];
+                }
+            }
         }
 
-        if (is_array($sections['tokens'] ?? null)) {
-            $sections['tokens'] = $this->localizeTokensData($sections['tokens'], $user, $localization);
+        // One batch also shares canonical English type lookup across all sections.
+        $localizedPayloads = $this->localizeDeckCardPayloads($payloads, $user, $localization);
+        foreach ($locations as $offset => [$section, $index, $field]) {
+            $sections[$section][$index][$field] = $localizedPayloads[$offset] ?? $payloads[$offset];
         }
 
         return $sections;
@@ -1434,36 +1445,6 @@ class DecksController extends ApiController
         }
 
         return array_values($tokens);
-    }
-
-    /**
-     * @param list<mixed> $lines
-     *
-     * @return list<mixed>
-     */
-    private function localizeDeckCardLines(array $lines, User $user, CardLocalizationService $localization): array
-    {
-        $payloads = [];
-        $indexes = [];
-        foreach ($lines as $index => $line) {
-            if (!is_array($line) || !is_array($line['card'] ?? null)) {
-                continue;
-            }
-
-            $indexes[] = $index;
-            $payloads[] = $line['card'];
-        }
-
-        if ($payloads !== []) {
-            $localizedPayloads = $this->localizeDeckCardPayloads($payloads, $user, $localization);
-            foreach ($indexes as $offset => $index) {
-                if (is_array($localizedPayloads[$offset] ?? null) && is_array($lines[$index] ?? null)) {
-                    $lines[$index]['card'] = $localizedPayloads[$offset];
-                }
-            }
-        }
-
-        return array_values($lines);
     }
 
     /**

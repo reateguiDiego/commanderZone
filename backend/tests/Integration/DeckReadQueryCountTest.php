@@ -54,11 +54,11 @@ final class DeckReadQueryCountTest extends ApiTestCase
         ksort($expected);
         ksort($actual);
         self::assertSame($expected, $actual);
-        // Sections also resolve tokens and localize each section independently.
-        // Their fixed work is larger, but neither budget allows 30 lazy card reads.
-        self::assertLessThan($route === 'sections' ? 36 : 20, $metrics['query_count'], 'Reads must batch cards rather than query every card separately.');
+        // Both card hydration and localization are batched across all sections.
+        self::assertLessThan(20, $metrics['query_count'], 'Reads must batch cards rather than query every card or section separately.');
         if ($route === 'sections') {
             self::assertSame(2, $metrics['stages']['deck.sections.cards']['queries']);
+            self::assertLessThanOrEqual(8, $metrics['stages']['deck.sections.localization']['queries']);
             foreach (['load', 'cards', 'tokens', 'localization', 'response'] as $stage) {
                 self::assertSame(1, $metrics['stages']['deck.sections.'.$stage]['calls']);
             }
