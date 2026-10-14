@@ -30,9 +30,46 @@ class CardApiTest extends ApiTestCase
                 }
                 $metrics = static::getContainer()->get(\App\Infrastructure\Observability\RequestPerformanceContext::class)->metrics();
                 self::assertLessThanOrEqual(12, $metrics['query_count'], 'Schema discovery must be bounded once per search, not once per SQL fragment.');
+                self::assertSame(4, $metrics['stages']['cards.search.selection']['queries'], 'Selection must use one count/page statement, two schema checks and SET LOCAL, even beyond the last page.');
             }
             self::assertSame([['Sol Dragon', '{1}'], ['Sol Dragon', '{2}'], ['Solar Dragon', '{1}']], $seen);
         }
+    }
+
+    public function testSearchRanksAllMatchingTranslationsAndKeepsBucketTotalBeyondLastPage(): void
+    {
+        foreach ([['rank-a', 'A Dragon', '{1}'], ['rank-z', 'Z Dragon', '{1}'], ['rank-z-copy', 'Z Dragon', '{1}'], ['rank-b', 'B Dragon', '{2}']] as [$id, $name, $cost]) {
+            $this->seedCard($id, $name, ['lang' => 'en', 'mana_cost' => $cost]);
+        }
+        $connection = $this->entityManager->getConnection();
+        foreach ([['rank-z', 'fr', 'Dragon'], ['rank-z', 'de', 'Dragon Echo'], ['rank-z-copy', 'fr', 'Dragon Echo'], ['rank-b', 'fr', 'Dragon Echo']] as [$id, $lang, $name]) {
+            $connection->executeStatement("INSERT INTO card_print_locale (print_scryfall_id, lang, name, printed_name, image_uris, card_faces, updated_at) VALUES (?, ?, ?, ?, '{}'::jsonb, '[]'::jsonb, NOW())", [$id, $lang, $name, $name]);
+        }
+        // A lower-priority language bucket must not fill an empty page of the English bucket.
+        $this->seedCard('rank-es', 'Dragon Spanish', ['lang' => 'es']);
+        foreach (['dragon', 'drag'] as $query) {
+            $seen = [];
+            for ($page = 1; $page <= 4; ++$page) {
+                $this->jsonRequest('GET', '/cards/search?q='.$query.'&lang=en&limit=1&page='.$page);
+                self::assertResponseIsSuccessful();
+                $payload = $this->jsonResponse();
+                self::assertSame(3, $payload['total']);
+                self::assertSame($page < 3, $payload['hasMore']);
+                self::assertCount($page <= 3 ? 1 : 0, $payload['data']);
+                $seen = [...$seen, ...array_column($payload['data'], 'scryfallId')];
+            }
+            self::assertSame($query === 'dragon' ? ['rank-z', 'rank-b', 'rank-a'] : ['rank-b', 'rank-z', 'rank-a'], $seen);
+        }
+    }
+
+    public function testSearchKeepsExactRankingWithLikeEscapeCharacters(): void
+    {
+        $this->seedCard('escape-exact', 'Z Dragon', ['lang' => 'en', 'flavor_name' => 'Dr\\agon']);
+        $this->seedCard('escape-contains', 'A Dragon', ['lang' => 'en']);
+        $this->jsonRequest('GET', '/cards/search?q='.rawurlencode('dr\\agon').'&lang=en');
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->jsonResponse()['total']);
+        self::assertSame(['escape-exact', 'escape-contains'], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
     public function testSearchShowImageAndResolveCards(): void
