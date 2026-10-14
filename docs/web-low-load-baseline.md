@@ -296,3 +296,42 @@ PostgreSQL 16 database; migration application and rollback also passed. After de
 repeat the same 1-VU web scenario and compare coverage cache misses, token and
 localization stages, fetched rows and endpoint percentiles before increasing
 load. No production changes or Git publication are performed by this task.
+
+## Locale maintenance thresholds
+
+The third coverage plan on October 14 used `idx_card_print_locale_coverage`
+but still made 237205 heap fetches (1097 ms after two earlier scans). The normal
+sequential plan took 2238 ms. These ordered runs are not a controlled cold-cache
+comparison. The covering index avoids temporary sorting, but cannot avoid
+visibility checks on pages that are not all-visible.
+
+The 14:19 UTC maintenance snapshot showed no table overrides, 25247 dead tuples
+and 33651 modifications since analyze. With estimated 460695 rows, inherited
+thresholds were approximately 92189 dead tuples for vacuum and 46120 changes
+for analyze. Neither threshold was reached. No old transactions, prepared
+transactions, vacuum workers or replication slots appeared in that snapshot;
+this does not exclude transient activity at other times.
+
+Migration `Version20261014143000` sets only `card_print_locale` overrides:
+vacuum scale factor 0.01 / threshold 500; analyze scale factor 0.02 / threshold
+500. At the measured size those imply approximately 5107 / 9714 tuples.
+No global settings, worker count, cost limits or delays change. More frequent
+maintenance adds background work. Eligibility does not guarantee immediate
+completion, and concurrent catalog updates can clear visibility bits again.
+The migration does not run VACUUM, rewrite the table or flush application caches.
+Rollback resets these four overrides to inherited defaults, matching the
+observed pre-migration state, and preserves other table options.
+
+After user deployment, check reloptions, last_autovacuum/last_autoanalyze,
+dead tuples and all-visible pages. Once maintenance has completed, repeat the
+read-only coverage diagnostic with the default planner first. Do not install
+enable_seqscan/enable_bitmapscan overrides in the application. If reconstruction
+remains costly, evaluate refreshing coverage outside the HTTP request instead
+of assuming that more frequent vacuum will solve the synchronous cache miss.
+
+Validation: migration application succeeded on disposable PostgreSQL 16; the
+integration test applies and reverses its options while preserving catalog rows
+and an unrelated table setting. Full backend suite passed (exit 0): 1395 tests,
+15829 assertions, 13 existing deprecations and 80 notices. Log:
+`reports/backend-locale-maintenance-tests.log`. No production maintenance or
+configuration change was executed by this task.
