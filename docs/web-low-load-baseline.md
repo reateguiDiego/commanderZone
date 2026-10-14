@@ -206,3 +206,49 @@ Validation: full backend suite passed with exit 0 (1390 tests, 15751 assertions;
 test database used `fsync=off` for fixture setup speed. Log:
 `reports/backend-search-jit-tests.log`. The 13 new tests include same-connection
 setting restoration and cache-hit coverage. No production changes were applied.
+
+## Shared search candidates and relevance (October 14)
+
+The production JIT-off diagnostic captured at 08:32:45 +02:00 measured prefix
+count/page at 54.560/54.617 ms and filtered count/page at 259.901/215.101 ms.
+The filtered queries each repeated 5019 locale-to-card index lookups; page
+ranking also scanned locale exact/prefix matches for 85.738/27.390 ms.
+These diagnostic timings do not reproduce the 1.3–1.7 second selection spikes
+from HTTP logs, and the diagnostic warms data before measuring each statement.
+
+Nonempty bucketed searches now return page IDs and total in one SQL statement.
+Matching name/printed-name/flavor-name branches carry their relevance into a
+grouped candidate set. Matching translations are ranked and grouped by print
+before joining cards, retaining all-language matching. The representative-card
+set is materialized once and reused by the total and page. A left join retains
+the total when the requested page is empty, so language fallback still depends
+on total matches, not the presence of IDs on that page.
+
+Existing filters, grouping keys, representative ordering, sort modes and the
+limit-plus-one pagination contract remain in use. Backslash patterns retain the
+previous ranking expression because LIKE escaping can make a literal exact
+match fall outside the pattern's matches. Set-printing and empty-query search
+paths retain their existing SQL. JIT remains scoped to uncached selection.
+No migration, index, API response, frontend, deck or room changes are included.
+
+Local comparison against the previous committed builders matched counts and
+ordered IDs in 756 combinations on a multilingual duplicate-print fixture
+(seven query patterns, three languages, six sorts, three pages, including
+fallback buckets). The local EXPLAIN confirmed that the candidate and
+representative sets each execute once, with two scans of the materialized
+representatives for total/page. This small fixture validates reuse, not
+production latency or planner choices. Ranking/materialization may have
+different costs for broad searches and still needs production measurement.
+
+Regression tests additionally require one combined selection statement per
+bucket, preserve exact/prefix relevance across multiple translations and check
+out-of-range totals without switching language buckets. The local, untracked
+`scripts/explain-card-search.php` diagnostic now measures `selection` rather
+than separate `count`/`page`; refresh that script before collecting new plans
+after deployment. Its previous count-builder reflection no longer applies.
+
+Validation: full backend suite passed with exit 0 (1392 tests, 15791 assertions;
+13 existing PHPUnit deprecations and 80 notices). Log:
+`reports/backend-search-candidates-tests.log`. Tests used an isolated disposable
+PostgreSQL 16 database with `fsync=off` for fixture setup speed. No production
+configuration or data was modified. Production performance remains unmeasured.

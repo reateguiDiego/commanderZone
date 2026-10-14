@@ -159,20 +159,6 @@ class CardsController extends ApiController
             $total = 0;
 
             foreach ($buckets as $bucket) {
-                [$countSql, $countParams, $countTypes] = $this->buildBucketedSearchCountSql(
-                    $entityManager,
-                    $bucket,
-                    $requestedLanguage,
-                    $filterSet->filters,
-                    $filterSet->params,
-                    $filterSet->types,
-                    $searchPatterns,
-                );
-                $bucketTotal = (int) $entityManager->getConnection()->fetchOne($countSql, $countParams, $countTypes);
-                if ($bucketTotal === 0) {
-                    continue;
-                }
-
                 [$sql, $params, $types] = $this->buildBucketedSearchSql(
                     $entityManager,
                     $bucket,
@@ -186,8 +172,13 @@ class CardsController extends ApiController
                     $page,
                     $sort,
                 );
-                $total = $bucketTotal;
-                $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params, $types);
+                $rows = $entityManager->getConnection()->fetchAllAssociative($sql, $params, $types);
+                $total = (int) $rows[0]['total_count'];
+                if ($total === 0) {
+                    continue;
+                }
+                // The aggregate still returns the total when OFFSET exceeds the last page.
+                $ids = array_column(array_filter($rows, static fn (array $row): bool => $row['id'] !== null), 'id');
                 break;
             }
         } else {
@@ -740,13 +731,12 @@ SQL;
             $where[] = $languageScope;
         }
 
-        $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
-        $searchRankSql = $this->indexedSearchRankSql($entityManager);
+        $candidatesSql = $this->rankedSearchCandidatesSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
+        $searchRankSql = 'matched.search_rank';
         $languageRankSql = $this->searchBucketRankSql($bucket, $requestedLanguage, $params, $types);
 
-        $sql = <<<'SQL'
-SELECT id
-FROM (
+        $sql = 'WITH matched AS MATERIALIZED ('.$candidatesSql.'), distinct_cards AS MATERIALIZED (';
+        $sql .= <<<'SQL'
     SELECT DISTINCT ON (
         c.normalized_name,
         COALESCE(LOWER(c.type_line), ''),
@@ -754,6 +744,7 @@ FROM (
     ) c.id, c.name,
 SQL;
         $sql .= " c.mana_value, c.set_name, c.rarity, {$this->rarityRankSql('c.rarity')} AS rarity_rank, {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank, {$this->colorCountSql('c')} AS color_count, {$this->colorPresenceSql('c', 'W')} AS has_white, {$this->colorPresenceSql('c', 'U')} AS has_blue, {$this->colorPresenceSql('c', 'B')} AS has_black, {$this->colorPresenceSql('c', 'R')} AS has_red, {$this->colorPresenceSql('c', 'G')} AS has_green FROM card c";
+        $sql .= ' INNER JOIN matched ON matched.id = c.id';
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
         }
@@ -767,64 +758,10 @@ SQL;
         c.scryfall_id ASC,
         c.name ASC
 SQL;
-        $sql .= ') AS distinct_cards';
-        $sql .= "\nORDER BY ".$this->searchSortOrderSql($sort)."\n";
+        $order = $this->searchSortOrderSql($sort);
+        $sql .= ") SELECT page_cards.id, totals.total_count FROM (SELECT COUNT(*) AS total_count FROM distinct_cards) totals LEFT JOIN LATERAL (SELECT * FROM distinct_cards ORDER BY ".$order;
         $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $offsetLimit);
-
-        return [$sql, $params, $types];
-    }
-
-    /**
-     * @param list<string> $filters
-     * @param array<string,mixed> $baseParams
-     * @param array<string,mixed> $baseTypes
-     * @param array{exact:string,prefix:string,contains:?string,useContains:bool} $patterns
-     *
-     * @return array{0:string,1:array<string,mixed>,2:array<string,mixed>}
-     */
-    private function buildBucketedSearchCountSql(
-        EntityManagerInterface $entityManager,
-        string $bucket,
-        ?string $requestedLanguage,
-        array $filters,
-        array $baseParams,
-        array $baseTypes,
-        array $patterns,
-    ): array {
-        $params = $baseParams;
-        $types = $baseTypes;
-        $where = $filters;
-
-        $params['queryExactFolded'] = $patterns['exact'];
-        $params['queryPrefixFolded'] = $patterns['prefix'];
-        if (is_string($patterns['contains'])) {
-            $params['queryContainsFolded'] = $patterns['contains'];
-        }
-
-        $languageScope = $this->searchBucketScopeSql($bucket, $requestedLanguage, $params, $types);
-        if ($languageScope !== null) {
-            $where[] = $languageScope;
-        }
-
-        $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
-
-        // Counting groups does not require choosing or ranking their representative print.
-        // Keep the same grouping keys as the page query, including NULL semantics.
-        $sql = <<<'SQL'
-SELECT COUNT(*)
-FROM (
-    SELECT DISTINCT
-        c.normalized_name,
-        COALESCE(LOWER(c.type_line), ''),
-        COALESCE(LOWER(c.mana_cost), '')
-    FROM card c
-SQL;
-        if ($where !== []) {
-            $sql .= ' WHERE '.implode(' AND ', $where);
-        }
-        $sql .= <<<'SQL'
-) AS distinct_cards
-SQL;
+        $sql .= ') page_cards ON true ORDER BY '.$order;
 
         return [$sql, $params, $types];
     }
@@ -869,6 +806,43 @@ SQL, $alias),
         }
 
         return "CASE\n    ".implode("\n    ", $cases)."\n    ELSE ".count(LanguageCatalog::commonPrintLanguages())."\nEND";
+    }
+
+    private function rankedSearchCandidatesSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        bool $useContainsSearch,
+        array &$params,
+        array &$types,
+    ): string {
+        // Preserve the existing LIKE escape semantics: with a backslash, an
+        // exact literal match need not also match the prefix/contains pattern.
+        if (str_contains((string) $params['queryExactFolded'], '\\')) {
+            $candidate = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, $useContainsSearch, $params, $types);
+
+            return 'SELECT c.id, '.$this->indexedSearchRankSql($entityManager).' AS search_rank FROM card c WHERE '.$candidate;
+        }
+        $pattern = $useContainsSearch ? ':queryContainsFolded' : ':queryPrefixFolded';
+        $scope = $this->searchBucketScopeSql($bucket, $requestedLanguage, $params, $types, 'c_search');
+        $scopePrefix = $scope !== null ? $scope.' AND ' : '';
+        $rank = static fn (string $expression): string => "CASE WHEN {$expression} = :queryExactFolded THEN 0 WHEN {$expression} LIKE :queryPrefixFolded THEN 1 ELSE 2 END";
+        $branches = [];
+        foreach (['c_search.normalized_name', "COALESCE(c_search.printed_name, '')", "COALESCE(c_search.flavor_name, '')"] as $field) {
+            $folded = $this->foldedSearchSql($field);
+            $branches[] = 'SELECT c_search.id, '.$rank($folded).' AS search_rank FROM card c_search WHERE '.$scopePrefix.$folded.' LIKE '.$pattern;
+        }
+
+        if ($this->printLocaleTablesAvailable($entityManager)) {
+            $name = $this->foldedSearchSql("COALESCE(locale_any.name, '')");
+            $printed = $this->foldedSearchSql("COALESCE(locale_any.printed_name, '')");
+            // Rank the matching locales once, and join each print only once even
+            // when several translations matched. All languages remain eligible.
+            $locales = 'SELECT locale_any.print_scryfall_id, MIN(LEAST('.$rank($name).', '.$rank($printed).')) AS search_rank FROM card_print_locale locale_any WHERE ('.$name.' LIKE '.$pattern.' OR '.$printed.' LIKE '.$pattern.') GROUP BY locale_any.print_scryfall_id';
+            $branches[] = 'SELECT c_search.id, locale_matches.search_rank FROM ('.$locales.') locale_matches INNER JOIN card c_search ON c_search.scryfall_id = locale_matches.print_scryfall_id'.($scope !== null ? ' WHERE '.$scope : '');
+        }
+
+        return 'SELECT id, MIN(search_rank) AS search_rank FROM ('.implode(' UNION ALL ', $branches).') candidates GROUP BY id';
     }
 
     private function indexedSearchCandidateSql(
