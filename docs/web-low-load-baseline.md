@@ -252,3 +252,47 @@ Validation: full backend suite passed with exit 0 (1392 tests, 15791 assertions;
 `reports/backend-search-candidates-tests.log`. Tests used an isolated disposable
 PostgreSQL 16 database with `fsync=off` for fixture setup speed. No production
 configuration or data was modified. Production performance remains unmeasured.
+
+## Language coverage and section payload reads (October 14)
+
+The following 1-VU production run passed the search gates but still failed
+languages and sections. Languages had one 3395 ms sample (next slowest 153 ms);
+its matching backend log spent 3204.661 ms in SQL. Sections returned roughly
+1.4 MB of JSON, with 23 SQL queries and 1262 rows in the supplied logs. The
+backend samples and endpoint percentiles are not paired measurements, so their
+difference cannot be assigned entirely to network transfer.
+
+Language coverage now deduplicates `(lang, effective name)` before counting
+non-null names. Trimming, printed-name preference, excluded languages, cache
+lifetime and revision invalidation stay unchanged. Migration
+`Version20261014120000` creates a concurrent covering index on the language and
+effective name, including the raw name fields for index-only reads. Deployment
+must apply this migration. The index adds storage and catalog-write overhead;
+its usefulness depends on the planner and visibility map. Application and
+rollback were checked locally. A synthetic 460,000-row probe used an index-only
+scan without heap fetches or temporary sorting; this is not a production speed
+guarantee or a controlled cold-cache A/B benchmark.
+
+Token print selection now filters image eligibility and chooses one random print
+per oracle in PostgreSQL. PHP receives the selected IDs and hydrates only those
+cards, instead of decoding every candidate's image/face JSON. The source-token
+fallback and one-token-per-source selection remain unchanged. Random choices
+remain random but are no longer drawn by PHP for the print pool. Selection still
+examines all prints in each oracle pool; this change reduces transfer/hydration,
+not the number of eligible candidates examined by the database.
+
+Localized payload reads now restrict both print-table and legacy queries to the
+selected `(scryfall ID, language)` pairs, avoiding the cross product of all IDs
+and languages. Candidate precedence, unavailable-image handling, English
+fallback, source identity and returned fields remain unchanged. This does not
+change HTTP response size or cache deck responses. A mixed Spanish/English
+fixture verifies two payload rows instead of four, including placeholder
+fallback; a 30-print token fixture verifies fewer than ten total fetched rows.
+
+Validation: full backend suite passed with exit 0 (1394 tests, 15815 assertions;
+13 existing PHPUnit deprecations and 80 notices). Log:
+`reports/backend-coverage-sections-tests.log`. Tests used the disposable local
+PostgreSQL 16 database; migration application and rollback also passed. After deployment,
+repeat the same 1-VU web scenario and compare coverage cache misses, token and
+localization stages, fetched rows and endpoint percentiles before increasing
+load. No production changes or Git publication are performed by this task.

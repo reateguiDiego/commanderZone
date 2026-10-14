@@ -402,31 +402,39 @@ SQL,
             return [];
         }
 
-        // Read only identity and image eligibility for the candidate pool.
-        // Hydrate complete entities only for the selected prints.
-        $candidates = $this->entityManager->getRepository(Card::class)
-            ->createQueryBuilder('card')
-            ->select('card.id, card.oracleId, card.imageUris, card.cardFaces')
-            ->andWhere('card.oracleId IN (:oracleIds)')
-            ->setParameter('oracleIds', $tokenOracleIds)
-            ->orderBy('card.oracleId', 'ASC')
-            ->addOrderBy('card.scryfallId', 'ASC')
-            ->getQuery()
-            ->getArrayResult();
-
-        $candidatesByOracleId = [];
-        foreach ($candidates as $candidate) {
-            if ($this->hasUsableImages($candidate['imageUris'], $candidate['cardFaces'], 'image_uris')) {
-                $candidatesByOracleId[$candidate['oracleId']][] = $candidate['id'];
-            }
-        }
-        if ($candidatesByOracleId === []) {
+        // Select one eligible print per oracle in PostgreSQL, without transferring
+        // every candidate's image and face payload to PHP. Hydrate only winners.
+        $selectedIds = $this->entityManager->getConnection()->executeQuery(
+            <<<'SQL'
+SELECT DISTINCT ON (oracle_id) id
+FROM card
+WHERE oracle_id IN (:oracleIds)
+  AND (
+    EXISTS (
+        SELECT 1 FROM (VALUES ('normal'), ('large'), ('png'), ('small')) AS formats(format)
+        WHERE jsonb_typeof(image_uris::jsonb -> format) = 'string'
+          AND image_uris::jsonb ->> format <> ''
+    )
+    OR EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(
+            CASE jsonb_typeof(card_faces::jsonb)
+                WHEN 'array' THEN card_faces::jsonb
+                WHEN 'object' THEN jsonb_path_query_array(card_faces::jsonb, '$.*')
+                ELSE '[]'::jsonb
+            END
+        ) AS faces(face)
+        WHERE jsonb_typeof(face -> 'image_uris') IN ('array', 'object')
+          AND face -> 'image_uris' NOT IN ('[]'::jsonb, '{}'::jsonb)
+    )
+  )
+ORDER BY oracle_id, random()
+SQL,
+            ['oracleIds' => $tokenOracleIds],
+            ['oracleIds' => ArrayParameterType::STRING],
+        )->fetchFirstColumn();
+        if ($selectedIds === []) {
             return [];
-        }
-
-        $selectedIds = [];
-        foreach ($candidatesByOracleId as $ids) {
-            $selectedIds[] = $ids[random_int(0, count($ids) - 1)];
         }
         $tokens = $this->entityManager->getRepository(Card::class)
             ->createQueryBuilder('card')

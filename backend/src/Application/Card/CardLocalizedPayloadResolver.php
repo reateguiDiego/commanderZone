@@ -342,11 +342,13 @@ SQL,
 
         $ids = [];
         $languages = [];
+        $pairs = [];
         foreach ($references as $reference) {
             [$scryfallId, $lang] = explode('|', $reference, 2) + [null, null];
             if (is_string($scryfallId) && is_string($lang) && trim($scryfallId) !== '' && trim($lang) !== '') {
                 $ids[$scryfallId] = true;
                 $languages[$lang] = true;
+                $pairs[] = ['id' => $scryfallId, 'lang' => $lang];
             }
         }
 
@@ -372,10 +374,15 @@ FROM card_print p
 INNER JOIN card_print_locale l ON l.print_scryfall_id = p.scryfall_id
 WHERE p.scryfall_id IN (:ids)
   AND l.lang IN (:languages)
+  AND EXISTS (
+      SELECT 1 FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+      WHERE requested.id = p.scryfall_id AND requested.lang = l.lang
+  )
 SQL,
                 [
                     'ids' => array_keys($ids),
                     'languages' => array_keys($languages),
+                    'pairs' => json_encode($pairs, JSON_THROW_ON_ERROR),
                 ],
                 [
                     'ids' => ArrayParameterType::STRING,
@@ -393,11 +400,13 @@ SQL,
         }
 
         $missingById = [];
+        $missingPairs = [];
         foreach ($references as $reference) {
             if (!isset($payloads[$reference])) {
-                [$scryfallId] = explode('|', $reference, 2) + [null, null];
+                [$scryfallId, $lang] = explode('|', $reference, 2) + [null, null];
                 if (is_string($scryfallId) && trim($scryfallId) !== '') {
                     $missingById[$scryfallId] = true;
+                    $missingPairs[] = ['id' => $scryfallId, 'lang' => $lang];
                 }
             }
         }
@@ -420,10 +429,15 @@ SELECT
 FROM card
 WHERE scryfall_id IN (:ids)
   AND lang IN (:languages)
+  AND EXISTS (
+      SELECT 1 FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+      WHERE requested.id = card.scryfall_id AND requested.lang = card.lang
+  )
 SQL,
             [
                 'ids' => array_keys($missingById),
                 'languages' => array_keys($languages),
+                'pairs' => json_encode($missingPairs, JSON_THROW_ON_ERROR),
             ],
             [
                 'ids' => ArrayParameterType::STRING,
