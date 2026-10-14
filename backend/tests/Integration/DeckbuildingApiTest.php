@@ -30,11 +30,14 @@ class DeckbuildingApiTest extends ApiTestCase
         $deckId = $this->jsonResponse()['deck']['id'];
         $this->entityManager->clear();
         $deck = $this->entityManager->find(Deck::class, $deckId);
+        $performance = static::getContainer()->get(\App\Infrastructure\Observability\RequestPerformanceContext::class);
+        $performance->reset();
         $payload = (new \App\Application\Deck\DeckDerivedTokenResolver($this->entityManager))->resolve($deck);
         self::assertCount(1, $payload['data']);
         self::assertContains($payload['data'][0]['token']['scryfallId'], $allowed);
         self::assertSame('Full token text must remain available.', $payload['data'][0]['token']['oracleText']);
         self::assertLessThanOrEqual(2, count($this->entityManager->getUnitOfWork()->getIdentityMap()[Card::class] ?? []));
+        self::assertLessThan(10, $performance->metrics()['rows'], 'The 30 candidate image payloads must stay in PostgreSQL.');
     }
 
     public function testTokenPrintPoolAcceptsFaceImagesAndRejectsMissingImages(): void

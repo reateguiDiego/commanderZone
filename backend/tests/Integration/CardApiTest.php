@@ -278,6 +278,38 @@ SQL,
         self::assertSame('es', $this->jsonResponse()['selectedCardLanguage']);
     }
 
+    public function testLanguageCoveragePreservesTrimmedDistinctNamesAndRefreshesAfterCatalogUpdate(): void
+    {
+        foreach ([
+            ['coverage-a', 'en', ' Ring ', null],
+            ['coverage-b', 'en', 'Ring', '   '],
+            ['coverage-c', 'en', 'Other', ' Signet '],
+            ['coverage-d', 'en', '', null],
+            ['coverage-e', 'es', 'Fallback', ''],
+            ['coverage-f', 'es', 'Different', 'Fallback'],
+            ['coverage-g', 'es', ' Ring ', ' Ring '],
+            ['coverage-h', 'ph', 'Excluded', null],
+        ] as [$id, $lang, $name, $printed]) {
+            $this->seedCard($id, $name, ['lang' => $lang, 'printed_name' => $printed]);
+        }
+        $clock = new \Symfony\Component\Clock\MockClock();
+        $service = new \App\Application\Card\CardsLanguageService(
+            $this->entityManager->getConnection(),
+            new \Symfony\Component\Cache\Adapter\ArrayAdapter(clock: $clock),
+            'prod',
+        );
+        $first = $service->languageCoverage();
+        self::assertSame(['en', 'es'], array_column($first, 'code'));
+        self::assertSame([3, 2], array_column($first, 'distinctCardNames'));
+        self::assertSame([100.0, 66.67], array_column($first, 'percentageOfEnglish'));
+        $this->entityManager->getConnection()->executeStatement("UPDATE card_print_locale SET printed_name = ' Nuevo ' WHERE print_scryfall_id = 'coverage-e'");
+        self::assertSame($first, $service->languageCoverage());
+        $clock->sleep(61);
+        $updated = $service->languageCoverage();
+        self::assertSame([3, 3], array_column($updated, 'distinctCardNames'));
+        self::assertSame([100.0, 100.0], array_column($updated, 'percentageOfEnglish'));
+    }
+
     public function testCardPrintingsEndpointReturnsLocalizedPrintVersions(): void
     {
         $sourcePrint = $this->seedCard('00000000-0000-0000-0000-0000000000e1', 'Sol Ring', [

@@ -66,10 +66,13 @@ final readonly class CardsLanguageService
             <<<'SQL'
 SELECT
     lang,
-    COUNT(DISTINCT COALESCE(NULLIF(BTRIM(printed_name), ''), BTRIM(name))) AS distinct_card_names
-FROM card_print_locale
-WHERE lang IS NOT NULL
-  AND lang NOT IN (:commonPrintLanguages)
+    COUNT(coverage_name) AS distinct_card_names
+FROM (
+    SELECT DISTINCT lang, COALESCE(NULLIF(BTRIM(printed_name), ''), BTRIM(name)) AS coverage_name
+    FROM card_print_locale
+    WHERE lang IS NOT NULL
+      AND lang NOT IN (:commonPrintLanguages)
+) AS names_by_language
 GROUP BY lang
 ORDER BY distinct_card_names DESC, lang ASC
 SQL,
