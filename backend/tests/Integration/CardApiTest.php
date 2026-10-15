@@ -9,6 +9,27 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class CardApiTest extends ApiTestCase
 {
+    public function testLocalizedNameSearchKeepsEnglishMatchesAlongsideLocalMatches(): void
+    {
+        $this->seedCard('seton-protector', 'Seton, Krosan Protector', ['lang' => 'en']);
+        $this->seedCard('seton-desire-en', "Seton's Desire", ['lang' => 'en']);
+        $this->seedCard('seton-desire-es', "Seton's Desire", ['lang' => 'es', 'printed_name' => 'Deseo de Seton']);
+        $this->seedCard('seton-scion-es', "Seton's Scout", ['lang' => 'es', 'printed_name' => 'Setoncio, señor de los brotes']);
+        $this->seedCard('seton-banned', 'Seton Banned', ['lang' => 'en', 'legalities' => ['commander' => 'banned']]);
+
+        $seen = [];
+        for ($page = 1; $page <= 4; ++$page) {
+            $this->jsonRequest('GET', '/cards/search?q=seton&lang=es&commanderLegal=true&limit=1&page='.$page);
+            self::assertResponseIsSuccessful();
+            $payload = $this->jsonResponse();
+            self::assertSame(3, $payload['total']);
+            self::assertSame($page < 3, $payload['hasMore']);
+            self::assertCount($page <= 3 ? 1 : 0, $payload['data']);
+            $seen = [...$seen, ...array_column($payload['data'], 'scryfallId')];
+        }
+        self::assertEqualsCanonicalizing(['seton-protector', 'seton-desire-es', 'seton-scion-es'], $seen);
+    }
+
     public function testFilteredSearchCountsGroupsAcrossPagesWithoutRepeatingSchemaDiscovery(): void
     {
         foreach ([['a', 'Sol Dragon', '{1}'], ['b', 'Sol Dragon', '{1}'], ['c', 'Sol Dragon', '{2}'], ['d', 'Solar Dragon', '{1}']] as [$suffix, $name, $cost]) {
