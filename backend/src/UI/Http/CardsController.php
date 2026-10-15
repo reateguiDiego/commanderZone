@@ -618,7 +618,7 @@ SQL;
         $params = $request->query->all();
         $this->sortCacheKeyParams($params);
 
-        return 'cards.search.page.v6.'.hash('xxh128', json_encode($params) ?: '');
+        return 'cards.search.page.v7.'.hash('xxh128', json_encode($params) ?: '');
     }
 
     /**
@@ -692,7 +692,9 @@ SQL;
             return ['english', 'common', 'all'];
         }
 
-        return ['requested', 'english', 'common', 'all'];
+        // Language is a preference, not a catalog filter. Include English
+        // matches before deduplication and pagination even when local matches exist.
+        return ['preferred', 'common', 'all'];
     }
 
     /**
@@ -772,6 +774,7 @@ SQL;
 
         return match ($bucket) {
             'all' => null,
+            'preferred' => $this->searchLanguageScopeSql($requestedLanguage, $params, $alias),
             'requested' => sprintf('%s.lang = :bucketRequestedLang', $alias),
             'english' => sprintf('(%1$s.lang = :bucketEnglishLang OR %1$s.lang IS NULL)', $alias),
             'common' => sprintf('%s.lang IN (:bucketCommonLangs)', $alias),
@@ -785,7 +788,7 @@ SQL;
 
         return match ($bucket) {
             'requested' => '0',
-            'all' => $this->searchLanguageRankSql($requestedLanguage, $params, $alias),
+            'all', 'preferred' => $this->searchLanguageRankSql($requestedLanguage, $params, $alias),
             'english' => sprintf(<<<'SQL'
 CASE
     WHEN %1$s.lang = :bucketEnglishLang THEN 0

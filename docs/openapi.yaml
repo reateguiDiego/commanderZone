@@ -1158,7 +1158,7 @@ paths:
       tags: [Cards]
       security: []
       summary: Search cards imported from Scryfall.
-      description: Searches canonical card names and localized card names imported from Scryfall, including printed and flavor names where available.
+      description: Searches canonical card names and localized card names imported from Scryfall, including printed and flavor names where available. For non-empty searches without a set filter, a non-English language preference includes both that language and English matches before deduplication and pagination; local matches do not hide other English cards. Common and other print languages remain fallback groups when this combined group has no matches.
       parameters:
         - name: q
           in: query
