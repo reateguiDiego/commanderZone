@@ -297,6 +297,81 @@ repeat the same 1-VU web scenario and compare coverage cache misses, token and
 localization stages, fetched rows and endpoint percentiles before increasing
 load. No production changes or Git publication are performed by this task.
 
+## Web editor scenario v2 and transport diagnostics
+
+`NAVIGATION_MIX=web` now reports `scenarioVersion: web-editor-v2`.
+The deck fixture retains its slug and uses `/decks/by-slug/{slug}`, falling back
+to `/decks/{id}` for legacy fixtures without a slug. Each journey requests
+`/decks/{id}/tokens/editor` once immediately after detail, replacing `/sections`.
+This follows the editor's initial detail/token reads, but is still a paced API
+journey, not a replay of browser concurrency, CORS preflights or in-page caching.
+Other reads keep their existing pacing. Treat it as a new baseline: route and
+pacing changes prevent direct whole-scenario comparison with v1.
+
+The new `deck_editor_tokens` gate keeps p95 < 500 ms and p99 < 1000 ms.
+Completeness checks verify the deck identity and compact token references.
+Web reads record waiting/receiving trends and a bounded content-encoding counter.
+Detail, editor tokens and languages also emit `web_transport` JSON lines to the
+existing `k6-output.log`, including timestamps and sanitized response request IDs
+for correlation with API logs. No credentials, URLs, cookies or bodies are logged.
+Decoded body bytes are not compressed wire bytes. Missing Content-Encoding is
+reported as `absent`, not proof that intermediaries transmitted an uncompressed
+body. Encoding negotiation remains k6's default; it does not emulate the
+browser's zstd preference or change production compression.
+
+`scripts/explain-language-coverage.sql` runs through psql in a read-only
+transaction. It reports index validity/size, visibility estimates and planner
+settings, then EXPLAIN ANALYZE with the default plan and with sequential scans
+discouraged locally. Statement/lock timeouts are 15/1 seconds. The final rollback
+restores settings; disconnect also restores them after an error. This executes
+the reads and warms buffers, so the second timing is not a controlled A/B result.
+It neither runs VACUUM/ANALYZE nor installs planner settings in production.
+
+Validation: 12 Node scenario/gate tests passed; k6 2.1.0 inspect accepted the
+web scenario. The SQL diagnostic executed both plans and rollback against a
+disposable PostgreSQL 16 fixture. Application code was not changed.
+
+### Short default/gzip comparison
+
+`load-tests/commanderzone-transport-ab.k6.js` uses one account and its first deck,
+warms each transport mode, then runs eight alternating-order pairs (16 measured
+GETs). It logs only selected response metadata, decoded body length and timings.
+No request bodies, URLs, cookies or authentication headers are logged. Its gates
+check completion and valid deck responses; nonnegative trend thresholds only
+export mode-specific statistics, not performance acceptance. Eight samples per
+mode are a diagnostic, not a capacity test or reliable tail-latency estimate.
+
+Validated end-to-end with grafana/k6:2.1.0 against a local HTTP fixture. The mock
+server observed no Accept-Encoding in default mode and gzip in explicit mode.
+k6 exposed Content-Encoding gzip and the compressed Content-Length in the latter,
+while both returned identical decoded body lengths. This verifies the behavior
+of this installed runtime with the fixture, not the production proxy chain.
+Production comparison must finish before choosing the encoding policy for the
+10-user baseline. The script writes `transport-ab-summary.json` under `/reports`.
+
+Production comparison `transport-ab-20261014-111825` passed all 16 reads.
+Default/gzip median total latency was 353.3/190.7 ms; median receiving was
+203.6/48.6 ms and waiting 143.3/142.5 ms. Decoded body size was 274765 bytes
+in both modes. This supports explicit compression negotiation for the test,
+not a production application speedup or a zstd-browser equivalence claim.
+The web scenario is now `web-editor-v2-gzip`, with `explicit-gzip` metadata.
+All its requests, including setup, send Accept-Encoding gzip. Other mixes
+keep their existing behavior. Next run: 10 users with the existing supervisor
+and unchanged endpoint gates. Coverage cache reconstruction remains unresolved.
+
+The 10-user run `czlt-external-2026-10-14T11-30-59Z` passed endpoint and server
+gates on deployed commit `93b86ed79ed2e3374f84022dbff45222db6de0b3`.
+Detail p95/p99 was 202/218 ms; editor tokens 91/111 ms; languages 71/77 ms.
+This does not establish the latency of an uncached coverage reconstruction.
+
+Coverage diagnostic `coverage-plan-20261014-115215` chose a sequential scan
+(2483 ms) by default and a bitmap heap scan using `card_print_locale_pkey`
+(2903 ms) with sequential scans discouraged. Neither used the 36 MB coverage
+index. Catalog estimates reported 54072 all-visible pages out of 111075.
+The diagnostic now includes a third plan with bitmap scans also discouraged,
+using SET LOCAL only. Inspect its actual index and heap fetches; it does not
+force the coverage index and is not a recommendation to install these settings.
+
 ## Locale maintenance thresholds
 
 The third coverage plan on October 14 used `idx_card_print_locale_coverage`

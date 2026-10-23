@@ -17,6 +17,10 @@ const duration = new Trend('cz_navigation_endpoint_ms', true);
 const errors = new Rate('cz_navigation_endpoint_errors');
 const requests = new Counter('cz_navigation_requests');
 const bytes = new Counter('cz_navigation_response_bytes');
+const waiting = new Trend('cz_navigation_waiting_ms', true);
+const receiving = new Trend('cz_navigation_receiving_ms', true);
+const encodings = new Counter('cz_navigation_response_encoding');
+const WEB_VERSION = 'web-editor-v2-gzip';
 const incomplete = new Rate('cz_navigation_incomplete');
 const navigation = [
   ['/me', 'me'], ['/rooms', 'rooms'], ['/rooms/current', 'rooms_current'],
@@ -35,7 +39,7 @@ const webReads = [
   ['/cards/search?q=zznomatchzz&lang=en&limit=25', 'cards_search_empty'],
 ];
 if (!['navigation', 'panels', 'basic', 'advanced', 'bracket', 'mixed', 'web'].includes(MIX)) throw new Error('Invalid NAVIGATION_MIX');
-const endpoints = MIX === 'web' ? [...webReads.map(p => p[1]), 'deck_detail', 'deck_sections']
+const endpoints = MIX === 'web' ? [...webReads.map(p => p[1]), 'deck_detail', 'deck_editor_tokens']
   : MIX === 'mixed' ? [...navigation.map(p => p[1]), analyses.basic, analyses.advanced]
   : MIX in analyses ? [analyses[MIX]]
   : [...navigation.map(p => p[1]), ...(MIX === 'panels' ? ['friends', 'messages', 'friends_search'] : [])];
@@ -74,9 +78,14 @@ function phase() {
   return elapsed < milliseconds(RAMP) ? 'ramp_up' : elapsed < milliseconds(RAMP) + milliseconds(HOLD) ? 'stable' : 'ramp_down';
 }
 function params(token, endpoint, stage = phase()) {
-  return { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, tags: { endpoint, phase: stage }, timeout: '15s' };
+  return { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json',
+    ...(MIX === 'web' ? { 'Accept-Encoding': 'gzip' } : {}) }, tags: { endpoint, phase: stage }, timeout: '15s' };
 }
 function body(response) { try { return response.json(); } catch (_) { return null; } }
+function responseHeader(response, name) {
+  const key = Object.keys(response.headers || {}).find(key => key.toLowerCase() === name);
+  return key ? String(response.headers[key]) : '';
+}
 function observe(response, endpoint, stage, analysis = false) {
   const data = body(response);
   const failed = response.status !== 200 || data === null;
@@ -85,6 +94,22 @@ function observe(response, endpoint, stage, analysis = false) {
     visit: execution.vu.iterationInScenario === 0 ? 'first' : 'repeat' };
   duration.add(response.timings.duration, tags); errors.add(failed, tags); requests.add(1, tags);
   bytes.add(unescape(encodeURIComponent(response.body || '')).length, tags);
+  if (MIX === 'web') {
+    const rawEncoding = responseHeader(response, 'content-encoding').trim().toLowerCase();
+    const encoding = !rawEncoding ? 'absent' : ['gzip', 'br', 'zstd', 'deflate', 'identity'].includes(rawEncoding) ? rawEncoding : 'other';
+    waiting.add(response.timings.waiting, tags);
+    receiving.add(response.timings.receiving, tags);
+    encodings.add(1, { ...tags, encoding });
+    if (['deck_detail', 'deck_editor_tokens', 'cards_languages'].includes(endpoint)) {
+      const requestId = responseHeader(response, 'x-request-id');
+      console.log(JSON.stringify({ event: 'web_transport', scenarioVersion: WEB_VERSION,
+        capturedAt: new Date().toISOString(), endpoint, phase: stage, status: response.status,
+        requestId: /^[a-zA-Z0-9_-]{1,100}$/.test(requestId) ? requestId : null,
+        encoding, duration_ms: response.timings.duration, waiting_ms: response.timings.waiting,
+        receiving_ms: response.timings.receiving,
+        decoded_body_bytes: unescape(encodeURIComponent(response.body || '')).length }));
+    }
+  }
   check(response, { [`${endpoint} succeeds`]: () => !failed }, tags);
   return data;
 }
@@ -100,7 +125,7 @@ export function setup() {
   const users = [];
   for (let i = 1; i <= USERS; ++i) {
     const login = http.post(`${API}/auth/login`, JSON.stringify({ email: `test${String(i).padStart(2, '0')}@test.com`, password: __ENV.USER_PASSWORD }), {
-      headers: { 'Content-Type': 'application/json' }, tags: { endpoint: 'auth_login', phase: 'setup' },
+      headers: { 'Content-Type': 'application/json', ...(MIX === 'web' ? { 'Accept-Encoding': 'gzip' } : {}) }, tags: { endpoint: 'auth_login', phase: 'setup' },
     });
     const token = body(login)?.token;
     if (login.status !== 200 || !token) throw new Error(`Test-account login failed (${i}, HTTP ${login.status})`);
@@ -108,6 +133,7 @@ export function setup() {
     if (MIX === 'web') {
       const response = http.get(`${API}/decks?limit=1`, params(token, 'web_fixture', 'setup'));
       user.deckId = body(response)?.data?.[0]?.id;
+      user.deckSlug = body(response)?.data?.[0]?.slug;
       if (response.status !== 200 || !user.deckId) throw new Error(`Web fixture missing for account ${i}`);
     }
     const kind = MIX === 'mixed' ? (i % 10 === 0 ? 'advanced' : i % 10 === 9 ? 'basic' : null) : MIX in analyses ? MIX : null;
@@ -133,15 +159,23 @@ export default function (data) {
   const user = data.users[(__VU - 1) % data.users.length];
   if (MIX === 'web') {
     const paths = [...webReads.slice(0, 3),
-      [`/decks/${user.deckId}`, 'deck_detail'], [`/decks/${user.deckId}/sections`, 'deck_sections'],
+      [user.deckSlug ? `/decks/by-slug/${encodeURIComponent(user.deckSlug)}` : `/decks/${user.deckId}`, 'deck_detail'],
+      [`/decks/${user.deckId}/tokens/editor`, 'deck_editor_tokens'],
       ...webReads.slice(3)];
     for (const [path, endpoint] of paths) {
       const result = read(path, endpoint, user);
+      if (endpoint === 'deck_detail') incomplete.add(result?.deck?.id !== user.deckId);
+      if (endpoint === 'deck_editor_tokens') {
+        incomplete.add(!Array.isArray(result?.data) || !Array.isArray(result?.unresolved) ||
+          !result?.tokens || typeof result.tokens !== 'object' ||
+          (Array.isArray(result?.data) && result.data.some(entry => !result.tokens?.[entry.tokenRef])));
+      }
       if (endpoint.startsWith('cards_search_') && endpoint !== 'cards_search_options') {
         incomplete.add(!Array.isArray(result?.data));
       }
-      // Pace individual actions instead of firing the whole browsing journey at once.
-      sleep(1);
+      // Tokens follow the detail load without a simulated user action between them.
+      // Other actions retain the browsing pace; this is not a browser waterfall replay.
+      if (endpoint !== 'deck_detail') sleep(1);
     }
   } else if (user.kind) {
     if (COLD) user.deckId = user.deckIds[execution.vu.iterationInScenario];
@@ -166,6 +200,7 @@ export default function (data) {
 export function handleSummary(data) {
   return { '/reports/k6-summary.json': JSON.stringify(data, null, 2),
     '/reports/navigation-report.json': JSON.stringify({ generatedAt: new Date().toISOString(), mix: MIX, users: USERS,
+      scenarioVersion: MIX === 'web' ? WEB_VERSION : 'navigation-v1', transportEncodingPolicy: MIX === 'web' ? 'explicit-gzip' : 'k6-default',
       commit: __ENV.DEPLOYED_COMMIT || 'unverified', profile: PROFILE, analysisState: __ENV.ANALYSIS_STATE || 'warm', metrics: data.metrics }, null, 2),
     stdout: `Navigation report: ${MIX}, ${USERS} users; endpoint gates exported to /reports.\n` };
 }
