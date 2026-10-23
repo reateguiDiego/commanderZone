@@ -1,8 +1,15 @@
+# PHP 8.4.27 security update; preserve FrankenPHP 1.13.1 and Debian Bookworm.
+ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1.13.1-php8.4.27-bookworm@sha256:433c1d21d37e256069cd65fbb475cc0d2f75240e49a20584712bbe155b033814
+
 FROM composer:2 AS composer
 
-FROM dunglas/frankenphp:1-php8.4-bookworm
+FROM ${FRANKENPHP_IMAGE}
 
 WORKDIR /app
+
+# Fail before installing dependencies if the base image still contains vulnerable PHP.
+COPY docker/check-php-runtime.php /usr/local/bin/cz-check-php-runtime.php
+RUN php /usr/local/bin/cz-check-php-runtime.php
 
 RUN install-php-extensions \
 	pdo_pgsql \
