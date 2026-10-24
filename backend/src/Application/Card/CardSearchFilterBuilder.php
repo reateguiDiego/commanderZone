@@ -343,14 +343,20 @@ SQL;
         foreach ($texts as $index => $text) {
             $param = 'oracleText'.($index + 1);
             $operator = $exact ? '~' : 'LIKE';
+            // Uncorrelated candidate sets let each text branch use its trigram
+            // index before catalog filtering. Keep one set per term: AND may
+            // match the canonical text and different translations of one card.
             $conditions[] = sprintf(
-                "(%s %s :%s OR EXISTS (
-                    SELECT 1
+                "c.id IN (
+                    SELECT oracle_card.id FROM card oracle_card
+                    WHERE %s %s :%s
+                    UNION
+                    SELECT localized_card.id
                     FROM card_print_locale oracle_locale
-                    WHERE oracle_locale.print_scryfall_id = c.scryfall_id
-                      AND %s %s :%s
-                ))",
-                $this->foldedSearchSql("COALESCE(c.oracle_text, '') || ' ' || COALESCE(c.card_faces::text, '')"),
+                    INNER JOIN card localized_card ON localized_card.scryfall_id = oracle_locale.print_scryfall_id
+                    WHERE %s %s :%s
+                )",
+                $this->foldedSearchSql("COALESCE(oracle_card.oracle_text, '') || ' ' || COALESCE(oracle_card.card_faces::text, '')"),
                 $operator,
                 $param,
                 $this->foldedSearchSql("COALESCE(oracle_locale.oracle_text, '') || ' ' || COALESCE(oracle_locale.card_faces::text, '')"),
