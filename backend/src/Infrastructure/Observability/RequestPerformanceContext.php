@@ -18,16 +18,22 @@ final class RequestPerformanceContext
     private array $queryProfiles = [];
     private int $droppedQueryProfiles = 0;
     private ?string $currentStage = null;
+    private ?string $profileDeck = null;
 
     public function __construct(
         #[Autowire(env: 'default::DECK_DETAIL_SQL_PROFILE_SLUG')]
         private readonly ?string $profileSlug = null,
+        private readonly ?DeckSqlProfileWindow $profileWindow = null,
     ) {
     }
 
-    public function enableDeckSqlProfile(string $slug): void
+    public function enableDeckSqlProfile(string $slug, ?string $userId = null): void
     {
-        $this->profileEnabled = $this->profileSlug !== null && $this->profileSlug !== '' && $slug === $this->profileSlug;
+        // A configured user window takes precedence, including when expired/exhausted.
+        $this->profileEnabled = $this->profileWindow?->configured()
+            ? $this->profileWindow->claim($userId)
+            : ($this->profileSlug !== null && $this->profileSlug !== '' && $slug === $this->profileSlug);
+        $this->profileDeck = $this->profileEnabled ? hash('sha256', $slug) : null;
     }
 
     public function recordQueryProfile(string $sql, float $prepareMs, float $executeMs, int $rows, bool $failed): ?SqlQueryProfile
@@ -59,6 +65,7 @@ final class RequestPerformanceContext
         $this->connectionCount = 0;
         $this->failedConnections = 0;
         $this->profileEnabled = false;
+        $this->profileDeck = null;
         $this->queryProfiles = [];
         $this->droppedQueryProfiles = 0;
         $this->currentStage = null;
@@ -115,6 +122,7 @@ final class RequestPerformanceContext
             'peak_memory_bytes' => memory_get_peak_usage(true),
         ];
         if ($this->profileEnabled) {
+            $metrics['sql_profile_deck'] = $this->profileDeck;
             $metrics['sql_profile'] = array_map(static fn (SqlQueryProfile $profile): array => $profile->metrics(), $this->queryProfiles);
             $metrics['sql_profile_dropped'] = $this->droppedQueryProfiles;
         }
