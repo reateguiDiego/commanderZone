@@ -54,7 +54,9 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
 
     public function prepare(string $sql): Statement
     {
-        return new SqlMetricsStatement(parent::prepare($sql), $this->context);
+        $start = hrtime(true);
+        $statement = parent::prepare($sql);
+        return new SqlMetricsStatement($statement, $this->context, $sql, (hrtime(true) - $start) / 1e6);
     }
 
     public function query(string $sql): Result
@@ -63,12 +65,17 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
         try {
             $result = parent::query($sql);
         } catch (\Throwable $error) {
-            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            $duration = (hrtime(true) - $startedAt) / 1e6;
+            $this->context->recordQuery($duration, 0, true);
+            $this->context->recordQueryProfile($sql, 0, $duration, 0, true);
             throw $error;
         }
-        $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, $result->rowCount());
+        $duration = (hrtime(true) - $startedAt) / 1e6;
+        $rows = (int) $result->rowCount();
+        $this->context->recordQuery($duration, $rows);
+        $profile = $this->context->recordQueryProfile($sql, 0, $duration, $rows, false);
 
-        return $result;
+        return $profile === null ? $result : new SqlProfiledResult($result, $profile);
     }
 
     public function exec(string $sql): int|string
@@ -77,10 +84,14 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
         try {
             $rows = parent::exec($sql);
         } catch (\Throwable $error) {
-            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            $duration = (hrtime(true) - $startedAt) / 1e6;
+            $this->context->recordQuery($duration, 0, true);
+            $this->context->recordQueryProfile($sql, 0, $duration, 0, true);
             throw $error;
         }
-        $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, (int) $rows);
+        $duration = (hrtime(true) - $startedAt) / 1e6;
+        $this->context->recordQuery($duration, (int) $rows);
+        $this->context->recordQueryProfile($sql, 0, $duration, (int) $rows, false);
 
         return $rows;
     }
@@ -88,7 +99,7 @@ final class SqlMetricsConnection extends AbstractConnectionMiddleware
 
 final class SqlMetricsStatement extends AbstractStatementMiddleware
 {
-    public function __construct(Statement $wrappedStatement, private readonly RequestPerformanceContext $context)
+    public function __construct(Statement $wrappedStatement, private readonly RequestPerformanceContext $context, private readonly string $sql, private float $prepareMs)
     {
         parent::__construct($wrappedStatement);
     }
@@ -99,11 +110,18 @@ final class SqlMetricsStatement extends AbstractStatementMiddleware
         try {
             $result = parent::execute();
         } catch (\Throwable $error) {
-            $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, 0, true);
+            $duration = (hrtime(true) - $startedAt) / 1e6;
+            $this->context->recordQuery($duration, 0, true);
+            $this->context->recordQueryProfile($this->sql, $this->prepareMs, $duration, 0, true);
+            $this->prepareMs = 0;
             throw $error;
         }
-        $this->context->recordQuery((hrtime(true) - $startedAt) / 1_000_000, $result->rowCount());
+        $duration = (hrtime(true) - $startedAt) / 1e6;
+        $rows = (int) $result->rowCount();
+        $this->context->recordQuery($duration, $rows);
+        $profile = $this->context->recordQueryProfile($this->sql, $this->prepareMs, $duration, $rows, false);
+        $this->prepareMs = 0;
 
-        return $result;
+        return $profile === null ? $result : new SqlProfiledResult($result, $profile);
     }
 }
