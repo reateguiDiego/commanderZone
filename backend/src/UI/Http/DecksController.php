@@ -175,16 +175,19 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/by-slug/{slug}', methods: ['GET'])]
-    public function showBySlug(string $slug, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function showBySlug(string $slug, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, RequestPerformanceContext $performance): JsonResponse
     {
-        $deck = $this->ownedDeckBySlug($slug, $user, $entityManager);
+        $performance->enableDeckSqlProfile($slug);
+        $deck = $performance->measure('deck.load', fn () => $this->ownedDeckBySlug($slug, $user, $entityManager));
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        $this->preloadDeckCards($deck, $entityManager);
+        $performance->measure('deck.preload', fn () => $this->preloadDeckCards($deck, $entityManager));
+        $payload = $performance->measure('deck.serialize', fn () => $deck->toArray(true));
+        $payload = $performance->measure('deck.localize', fn () => $this->localizeDeckPayload($payload, $user, $localization));
 
-        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
+        return $this->json(['deck' => $payload]);
     }
 
     #[Route('/decks/{id}', methods: ['GET'])]
