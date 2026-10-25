@@ -177,7 +177,7 @@ class DecksController extends ApiController
     #[Route('/decks/by-slug/{slug}', methods: ['GET'])]
     public function showBySlug(string $slug, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, RequestPerformanceContext $performance): JsonResponse
     {
-        $performance->enableDeckSqlProfile($slug);
+        $performance->enableDeckSqlProfile($slug, $user->id());
         $deck = $performance->measure('deck.load', fn () => $this->ownedDeckBySlug($slug, $user, $entityManager));
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
