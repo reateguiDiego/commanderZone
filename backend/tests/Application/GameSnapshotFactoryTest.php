@@ -15,6 +15,18 @@ use PHPUnit\Framework\TestCase;
 
 class GameSnapshotFactoryTest extends TestCase
 {
+    public function testSpacecraftCommanderStartsInCommandZone(): void
+    {
+        $card = new Card('92000000-0000-0000-0000-000000000799');
+        $card->updateFromScryfall([
+            'name' => 'Hearthhull, the Worldseed', 'type_line' => 'Legendary Artifact - Spacecraft',
+            'power' => '6', 'toughness' => '7', 'legalities' => ['commander' => 'legal'],
+        ]);
+        $snapshot = $this->snapshotWithCommander($card);
+        self::assertSame('Hearthhull, the Worldseed', $snapshot['players']['owner-id']['zones']['command'][0]['name']);
+        self::assertCount(1, $snapshot['players']['owner-id']['zones']['command']);
+    }
+
     public function testOmitsChatAndEventLogFromInitialSnapshotWhenStreamsEnabled(): void
     {
         $owner = new User('owner@example.test', 'Owner');

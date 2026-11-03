@@ -4,6 +4,7 @@ namespace App\Application\Deck;
 
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
+use App\Domain\Card\CommanderArtifactEligibility;
 use App\Domain\Deck\DeckCard;
 
 class DecklistPreviewer
@@ -229,7 +230,8 @@ class DecklistPreviewer
 
         $oracleText = mb_strtolower($card->oracleText() ?? '');
 
-        return str_contains($oracleText, 'can be your commander');
+        return str_contains($oracleText, 'can be your commander')
+            || CommanderArtifactEligibility::matches($card->typeLine(), $card->power(), $card->toughness(), $card->cardFaces());
     }
 
     /**

@@ -32,6 +32,13 @@ describe('AddCardToDeckModalComponent', () => {
     component = fixture.componentInstance;
   });
 
+  it('offers the commander section for Hearthhull', () => {
+    component.resolvedCard.set({ ...cardFixture(), name: 'Hearthhull, the Worldseed', typeLine: 'Legendary Artifact - Spacecraft', power: '6', toughness: '7' });
+    expect(component.addToDeckSectionOptions().map((option) => option.id)).toContain('commander');
+    component.resolvedCard.set({ ...cardFixture(), typeLine: 'Legendary Artifact - Spacecraft' });
+    expect(component.addToDeckSectionOptions().map((option) => option.id)).not.toContain('commander');
+  });
+
   it('builds the selected deck preview from commander art and color identity', () => {
     const deck = deckFixture();
     component.decks.set([deck]);
