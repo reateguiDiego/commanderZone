@@ -170,6 +170,26 @@ class CardApiTest extends ApiTestCase
         self::assertSame(0, (int) $storedCard['commander_legal']);
     }
 
+    public function testCommanderCandidateSearchIncludesLegendarySpacecraftAndVehicles(): void
+    {
+        $eligible = [];
+        foreach ([
+            ['Legendary Artifact - Spacecraft', '6', '7', true],
+            ['Legendary Artifact - Vehicle', null, null, true],
+            ['Artifact - Spacecraft', '6', '7', false],
+            ['Legendary Artifact - Spacecraft', null, null, false],
+            ['Legendary Artifact', '6', '7', false],
+        ] as $index => [$type, $power, $toughness, $expected]) {
+            $card = $this->seedCard(sprintf('70000000-0000-0000-0000-%012d', $index + 700), 'Starship '.$index, [
+                'type_line' => $type, 'power' => $power, 'toughness' => $toughness, 'lang' => 'en',
+            ]);
+            if ($expected) { $eligible[] = $card->scryfallId(); }
+        }
+        $this->jsonRequest('GET', '/cards/search?q=starship&lang=en&limit=20&commanderCandidate=true');
+        self::assertResponseIsSuccessful();
+        self::assertEqualsCanonicalizing($eligible, array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
     public function testCommanderCandidateSearchUsesCanonicalCardTextBeforeLocalization(): void
     {
         $commander = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Atraxa, Grand Unifier', [

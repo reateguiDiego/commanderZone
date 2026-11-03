@@ -543,6 +543,31 @@ class CommanderDeckValidatorTest extends TestCase
         }
     }
 
+    public function testLegendarySpacecraftAndVehiclesCanCommandWithoutRelaxingOtherRules(): void
+    {
+        foreach (['Spacecraft', 'Vehicle'] as $subtype) {
+            $overrides = ['type_line' => 'Legendary Artifact - '.$subtype, 'power' => '6', 'toughness' => '7'];
+            $result = (new CommanderDeckValidator())->validate($this->baseMonoWhiteDeck(99, $overrides));
+            self::assertTrue($result['valid'], json_encode($result['errors']));
+            $banned = (new CommanderDeckValidator())->validate($this->baseMonoWhiteDeck(99, $overrides + ['legalities' => ['commander' => 'banned']]));
+            self::assertContains('card.commander_banned', array_column($banned['errors'], 'code'));
+            $wrongColor = (new CommanderDeckValidator())->validate($this->baseMonoWhiteDeck(99, $overrides + ['color_identity' => ['G']]));
+            self::assertContains('card.color_identity_violation', array_column($wrongColor['errors'], 'code'));
+        }
+        foreach ([
+            ['type_line' => 'Legendary Artifact - Spacecraft'],
+            ['type_line' => 'Artifact - Spacecraft', 'power' => '6', 'toughness' => '7'],
+            ['type_line' => 'Legendary Artifact', 'power' => '6', 'toughness' => '7'],
+            ['type_line' => 'Artifact // Legendary Artifact - Spacecraft', 'card_faces' => [
+                ['name' => 'Front', 'type_line' => 'Artifact'],
+                ['name' => 'Back', 'type_line' => 'Legendary Artifact - Spacecraft', 'power' => '6', 'toughness' => '7'],
+            ]],
+        ] as $overrides) {
+            $result = (new CommanderDeckValidator())->validate($this->baseMonoWhiteDeck(99, $overrides));
+            self::assertContains('commander.invalid', array_column($result['errors'], 'code'));
+        }
+    }
+
     private function baseMonoWhiteDeck(int $mainCount, array $commanderOverrides = []): Deck
     {
         $deck = new Deck(new User('base@example.test', 'Base'), 'Base Mono White Deck');

@@ -3,6 +3,7 @@
 namespace App\Application\Deck;
 
 use App\Domain\Card\Card;
+use App\Domain\Card\CommanderArtifactEligibility;
 use App\Domain\Card\CommanderPairingAbility;
 use App\Domain\Card\CommanderPairingCapability;
 use App\Domain\Card\CommanderPairingCapabilityParser;
@@ -141,7 +142,7 @@ class CommanderDeckValidator
                 $errors[] = $this->issue(
                     'commander.invalid',
                     'Commander card is invalid',
-                    sprintf('%s must be a legendary creature or explicitly say it can be your commander.', $commanders[0]->card()->name()),
+                    sprintf('%s must be a legendary creature, legendary Vehicle, legendary Spacecraft with power/toughness, or explicitly say it can be your commander.', $commanders[0]->card()->name()),
                     [$commanders[0]->card()->name()],
                 );
             }
@@ -230,7 +231,8 @@ class CommanderDeckValidator
 
     private function canBeCommander(Card $card): bool
     {
-        return $this->isLegendaryCreature($card) || $this->oracleSaysCanBeCommander($card);
+        return $this->isLegendaryCreature($card) || $this->oracleSaysCanBeCommander($card)
+            || CommanderArtifactEligibility::matches($card->typeLine(), $card->power(), $card->toughness(), $card->cardFaces());
     }
 
     private function isLegendaryCreature(Card $card): bool

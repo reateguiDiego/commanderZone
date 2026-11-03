@@ -1823,6 +1823,36 @@ TXT,
         self::assertSame($arcaneSignetSpanish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
     }
 
+    public function testDecklistImportInfersHearthhullAsCommander(): void
+    {
+        $token = $this->registerAndLogin('import-spacecraft@example.test', 'Spacecraft');
+        $commander = $this->seedCard('92000000-0000-0000-0000-000000000701', 'Hearthhull, the Worldseed', [
+            'type_line' => 'Legendary Artifact - Spacecraft', 'power' => '6', 'toughness' => '7',
+            'set' => 'eoe', 'collector_number' => '1', 'color_identity' => ['B', 'R', 'G'],
+        ]);
+        $this->seedCard('92000000-0000-0000-0000-000000000702', 'Forest', [
+            'type_line' => 'Basic Land - Forest', 'set' => 'eoe', 'collector_number' => '2', 'color_identity' => ['G'],
+        ]);
+        $this->jsonRequest('POST', '/decks', ['name' => 'Hearthhull'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => "1 Hearthhull, the Worldseed (EOE) 1\n99 Forest (EOE) 2",
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(1, $response['summary']['commanderCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $commander->scryfallId(), 'commander')['quantity']);
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', [], $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['valid']);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = $this->jsonResponse()['room']['id'];
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $deckId], $token);
+        self::assertResponseIsSuccessful();
+    }
+
     public function testDecklistImportInfersCommanderFromFirstBoundaryEntryInMoxfieldExports(): void
     {
         $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Mox First');

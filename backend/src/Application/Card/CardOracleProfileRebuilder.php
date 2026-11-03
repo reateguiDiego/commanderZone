@@ -2,6 +2,7 @@
 
 namespace App\Application\Card;
 
+use App\Domain\Card\CommanderArtifactEligibility;
 use App\Domain\Card\CommanderPairingAbility;
 use App\Domain\Card\CommanderPairingCapabilityParser;
 use Doctrine\DBAL\Connection;
@@ -137,7 +138,13 @@ SQL,
             'defense' => $this->stringOrNull($row['defense'] ?? null),
             'commander_legal' => $commanderLegality === 'legal',
             'commander_banned' => $commanderLegality === 'banned',
-            'can_be_commander' => $this->canBeCommander($typeLine, $oracleText),
+            'can_be_commander' => $this->canBeCommander($typeLine, $oracleText)
+                || CommanderArtifactEligibility::matches(
+                    $typeLine,
+                    $this->stringOrNull($row['power'] ?? null),
+                    $this->stringOrNull($row['toughness'] ?? null),
+                    $this->jsonArray($row['card_faces'] ?? []),
+                ),
             'is_land' => $this->hasType($typeLine, 'Land'),
             'is_creature' => $this->hasType($typeLine, 'Creature'),
             'is_artifact' => $this->hasType($typeLine, 'Artifact'),

@@ -31,6 +31,18 @@ final class CardOracleProfileRebuilderTest extends ApiTestCase
         self::assertSame('Canonical Card', $profile['name']);
     }
 
+    public function testProfilesRecognizeLegendarySpacecraftAndVehicles(): void
+    {
+        foreach ([['Legendary Artifact - Spacecraft', '6', '7'], ['Legendary Artifact - Vehicle', null, null], ['Legendary Artifact - Spacecraft', null, null]] as $i => [$type, $power, $toughness]) {
+            $id = sprintf('70000000-0000-0000-0000-%012d', 800 + $i);
+            $this->seedCard($id, 'Ship '.$i, ['oracle_id' => $id, 'type_line' => $type, 'power' => $power, 'toughness' => $toughness]);
+        }
+        $this->rebuilder()->rebuild();
+        foreach ([1, 1, 0] as $i => $expected) {
+            self::assertSame($expected, $this->booleanProfile(sprintf('70000000-0000-0000-0000-%012d', 800 + $i))['can_be_commander']);
+        }
+    }
+
     public function testCalculatesTypeAndCommanderBooleans(): void
     {
         $this->seedCard('70000000-0000-0000-0000-000000000021', 'Everything Type Card', [
