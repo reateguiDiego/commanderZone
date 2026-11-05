@@ -1473,18 +1473,20 @@ class DecksController extends ApiController
             return [];
         }
 
-        $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
-        $canonicalTypeLinesByScryfallId = $this->canonicalDeckTypeLinesByScryfallId($payloads, $localization);
+        return $localization->withCandidateCache(function () use ($payloads, $user, $localization): array {
+            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            $canonicalTypeLinesByScryfallId = $this->canonicalDeckTypeLinesByScryfallId($payloads, $localization);
 
-        return array_values(array_map(
-            fn (array $payload, int $index): array => $this->preserveCanonicalDeckTypeLines(
-                $payload,
-                is_array($localizedPayloads[$index] ?? null) ? $localizedPayloads[$index] : $payload,
-                $canonicalTypeLinesByScryfallId,
-            ),
-            $payloads,
-            array_keys($payloads),
-        ));
+            return array_values(array_map(
+                fn (array $payload, int $index): array => $this->preserveCanonicalDeckTypeLines(
+                    $payload,
+                    is_array($localizedPayloads[$index] ?? null) ? $localizedPayloads[$index] : $payload,
+                    $canonicalTypeLinesByScryfallId,
+                ),
+                $payloads,
+                array_keys($payloads),
+            ));
+        });
     }
 
     /**

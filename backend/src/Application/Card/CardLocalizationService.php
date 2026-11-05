@@ -27,6 +27,12 @@ class CardLocalizationService
         $this->localizedPayloadResolver = $localizedPayloadResolver;
     }
 
+    /** Reuse localization selections across translated text and canonical types. */
+    public function withCandidateCache(callable $operation): mixed
+    {
+        return $this->payloadResolver()->withCandidateCache($operation);
+    }
+
     /**
      * @param list<string> $scryfallIds
      */

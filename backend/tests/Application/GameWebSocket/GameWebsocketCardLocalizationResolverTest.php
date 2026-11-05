@@ -166,14 +166,14 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
                     return $sourceResult;
                 }
 
-                if (str_contains($sql, 'FROM card source') && str_contains($sql, 'candidate.lang IN (:languages)')) {
-                    self::assertSame(['source-2'], $params['sourceIds'] ?? null);
+                if (str_contains($sql, 'INNER JOIN card source') && str_contains($sql, 'candidate.set_code = source.set_code')) {
+                    self::assertSame([['id' => 'source-2', 'lang' => 'es'], ['id' => 'source-2', 'lang' => 'en']], json_decode($params['pairs'], true, 512, JSON_THROW_ON_ERROR));
 
                     return $candidateResult;
                 }
 
                 if (str_contains($sql, 'SELECT DISTINCT ON (source.scryfall_id, candidate.lang)')) {
-                    self::assertSame(['source-2'], $params['sourceIds'] ?? null);
+                    self::assertSame([['id' => 'source-2', 'lang' => 'en']], json_decode($params['pairs'], true, 512, JSON_THROW_ON_ERROR));
 
                     return $fallbackResult;
                 }
@@ -262,7 +262,7 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
                     return $sourceResult;
                 }
 
-                if (str_contains($sql, 'FROM card_print source')) {
+                if (str_contains($sql, 'INNER JOIN card_print source')) {
                     return $printExactResult;
                 }
 

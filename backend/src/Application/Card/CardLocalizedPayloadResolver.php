@@ -29,6 +29,22 @@ final class CardLocalizedPayloadResolver
     ];
 
     private ?bool $printTablesAvailable = null;
+    /** @var array<string,array<string,array<string,mixed>|null>>|null */
+    private ?array $candidateCache = null;
+
+    /** Share positive and negative selections only within one explicit read operation. */
+    public function withCandidateCache(callable $operation): mixed
+    {
+        if ($this->candidateCache !== null) {
+            return $operation();
+        }
+        $this->candidateCache = [];
+        try {
+            return $operation();
+        } finally {
+            $this->candidateCache = null;
+        }
+    }
 
     public function __construct(private readonly Connection $connection)
     {
@@ -187,40 +203,37 @@ SQL,
     private function fetchExactCandidates(array $sourceIds, array $languages): array
     {
         $candidatesBySource = [];
-        if ($this->printTablesAvailable()) {
-            foreach ($this->fetchExactCandidatesFromPrintTables($sourceIds, $languages) as $row) {
+        $pairs = [];
+        foreach ($sourceIds as $sourceId) {
+            foreach ($languages as $language) {
+                if ($this->candidateCache !== null && array_key_exists($language, $this->candidateCache[$sourceId] ?? [])) {
+                    $cached = $this->candidateCache[$sourceId][$language];
+                    if ($cached !== null) {
+                        $this->indexCandidate($candidatesBySource, $cached);
+                    }
+                } else {
+                    $pairs[] = ['id' => $sourceId, 'lang' => $language];
+                }
+            }
+        }
+        $pending = $pairs;
+        $methods = $this->printTablesAvailable()
+            ? ['fetchExactCandidatesFromPrintTables', 'fetchExactCandidatesFromLegacy', 'fetchFallbackCandidatesByNormalizedNameFromPrintTables', 'fetchFallbackCandidatesByNormalizedNameFromLegacy']
+            : ['fetchExactCandidatesFromLegacy', 'fetchFallbackCandidatesByNormalizedNameFromLegacy'];
+        foreach ($methods as $method) {
+            if ($pending === []) {
+                break;
+            }
+            foreach ($this->$method($pending) as $row) {
                 $this->indexCandidate($candidatesBySource, $row);
             }
+            $pending = array_values(array_filter($pending, static fn (array $pair): bool => !isset($candidatesBySource[$pair['id']][$pair['lang']])));
         }
-
-        $missingBySourceLanguage = $this->missingSourceLanguagePairs($sourceIds, $languages, $candidatesBySource);
-        if ($missingBySourceLanguage !== []) {
-            foreach ($this->fetchExactCandidatesFromLegacy(
-                array_keys($missingBySourceLanguage),
-                $this->missingLanguages($missingBySourceLanguage),
-            ) as $row) {
-                $this->indexCandidate($candidatesBySource, $row);
+        if ($this->candidateCache !== null) {
+            foreach ($pairs as $pair) {
+                $this->candidateCache[$pair['id']][$pair['lang']] = $candidatesBySource[$pair['id']][$pair['lang']] ?? null;
             }
         }
-
-        $missingBySourceLanguage = $this->missingSourceLanguagePairs($sourceIds, $languages, $candidatesBySource);
-        if ($missingBySourceLanguage === []) {
-            return $candidatesBySource;
-        }
-
-        foreach ($this->fetchFallbackCandidatesByNormalizedName(
-            array_keys($missingBySourceLanguage),
-            $this->missingLanguages($missingBySourceLanguage),
-        ) as $row) {
-            $sourceScryfallId = trim((string) ($row['source_scryfall_id'] ?? ''));
-            $lang = trim((string) ($row['lang'] ?? ''));
-            if ($sourceScryfallId === '' || $lang === '' || !isset($missingBySourceLanguage[$sourceScryfallId][$lang])) {
-                continue;
-            }
-
-            $candidatesBySource[$sourceScryfallId][$lang] ??= $row;
-        }
-
         return $candidatesBySource;
     }
 
@@ -291,42 +304,6 @@ SQL,
         }
 
         return in_array(strtolower($status), ['missing', 'placeholder'], true);
-    }
-
-    /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
-     *
-     * @return list<array<string,mixed>>
-     */
-    private function fetchFallbackCandidatesByNormalizedName(array $sourceIds, array $languages): array
-    {
-        $rows = [];
-        if ($this->printTablesAvailable()) {
-            $rows = $this->fetchFallbackCandidatesByNormalizedNameFromPrintTables($sourceIds, $languages);
-        }
-
-        $covered = [];
-        foreach ($rows as $row) {
-            $sourceScryfallId = trim((string) ($row['source_scryfall_id'] ?? ''));
-            $lang = trim((string) ($row['lang'] ?? ''));
-            if ($sourceScryfallId !== '' && $lang !== '') {
-                $covered[$sourceScryfallId][$lang] = true;
-            }
-        }
-
-        $missingBySourceLanguage = $this->missingSourceLanguagePairs($sourceIds, $languages, $covered);
-        if ($missingBySourceLanguage === []) {
-            return $rows;
-        }
-
-        return [
-            ...$rows,
-            ...$this->fetchFallbackCandidatesByNormalizedNameFromLegacy(
-                array_keys($missingBySourceLanguage),
-                $this->missingLanguages($missingBySourceLanguage),
-            ),
-        ];
     }
 
     /**
@@ -553,12 +530,11 @@ SQL,
     }
 
     /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
+     * @param list<array{id:string,lang:string}> $pairs
      *
      * @return list<array<string,mixed>>
      */
-    private function fetchExactCandidatesFromPrintTables(array $sourceIds, array $languages): array
+    private function fetchExactCandidatesFromPrintTables(array $pairs): array
     {
         return $this->connection->executeQuery(
             <<<'SQL'
@@ -567,13 +543,13 @@ SELECT DISTINCT ON (source.scryfall_id, l.lang)
     target.scryfall_id AS candidate_scryfall_id,
     l.lang,
     l.image_status
-FROM card_print source
+FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+INNER JOIN card_print source ON source.scryfall_id = requested.id
 INNER JOIN card_print target
     ON target.set_code = source.set_code
    AND target.collector_number = source.collector_number
 INNER JOIN card_print_locale l ON l.print_scryfall_id = target.scryfall_id
-WHERE source.scryfall_id IN (:sourceIds)
-  AND l.lang IN (:languages)
+WHERE l.lang = requested.lang
 ORDER BY
     source.scryfall_id ASC,
     l.lang ASC,
@@ -587,24 +563,16 @@ ORDER BY
     END ASC,
     target.scryfall_id ASC
 SQL,
-            [
-                'sourceIds' => $sourceIds,
-                'languages' => $languages,
-            ],
-            [
-                'sourceIds' => ArrayParameterType::STRING,
-                'languages' => ArrayParameterType::STRING,
-            ],
+            ['pairs' => json_encode($pairs, JSON_THROW_ON_ERROR)],
         )->fetchAllAssociative();
     }
 
     /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
+     * @param list<array{id:string,lang:string}> $pairs
      *
      * @return list<array<string,mixed>>
      */
-    private function fetchExactCandidatesFromLegacy(array $sourceIds, array $languages): array
+    private function fetchExactCandidatesFromLegacy(array $pairs): array
     {
         return $this->connection->executeQuery(
             <<<'SQL'
@@ -613,12 +581,12 @@ SELECT DISTINCT ON (source.scryfall_id, candidate.lang)
     candidate.scryfall_id AS candidate_scryfall_id,
     candidate.lang,
     candidate.image_status
-FROM card source
+FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+INNER JOIN card source ON source.scryfall_id = requested.id
 INNER JOIN card candidate
     ON candidate.set_code = source.set_code
    AND candidate.collector_number = source.collector_number
-WHERE source.scryfall_id IN (:sourceIds)
-  AND candidate.lang IN (:languages)
+WHERE candidate.lang = requested.lang
 ORDER BY
     source.scryfall_id ASC,
     candidate.lang ASC,
@@ -632,66 +600,58 @@ ORDER BY
     END ASC,
     candidate.scryfall_id ASC
 SQL,
-            [
-                'sourceIds' => $sourceIds,
-                'languages' => $languages,
-            ],
-            [
-                'sourceIds' => ArrayParameterType::STRING,
-                'languages' => ArrayParameterType::STRING,
-            ],
+            ['pairs' => json_encode($pairs, JSON_THROW_ON_ERROR)],
         )->fetchAllAssociative();
     }
 
     /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
+     * @param list<array{id:string,lang:string}> $pairs
      *
      * @return list<array<string,mixed>>
      */
-    private function fetchFallbackCandidatesByNormalizedNameFromPrintTables(array $sourceIds, array $languages): array
+    private function fetchFallbackCandidatesByNormalizedNameFromPrintTables(array $pairs): array
     {
+        // Separate quality tiers so the ordered index can stop at the first usable
+        // printing. The unavailable tier runs only when no usable image exists.
         return $this->connection->executeQuery(
             <<<'SQL'
-SELECT DISTINCT ON (source.scryfall_id, l.lang)
-    source.scryfall_id AS source_scryfall_id,
-    candidate.scryfall_id AS candidate_scryfall_id,
-    l.lang,
-    l.image_status
-FROM card_print source
-INNER JOIN card_print candidate
-    ON candidate.normalized_name = source.normalized_name
-INNER JOIN card_print_locale l ON l.print_scryfall_id = candidate.scryfall_id
-WHERE source.scryfall_id IN (:sourceIds)
-  AND l.lang IN (:languages)
-ORDER BY
-    source.scryfall_id ASC,
-    l.lang ASC,
-    CASE
-        WHEN LOWER(COALESCE(l.image_status, '')) IN ('missing', 'placeholder') THEN 1
-        ELSE 0
-    END ASC,
-    candidate.set_code ASC,
-    candidate.collector_number ASC
+SELECT source.scryfall_id AS source_scryfall_id,
+       COALESCE(usable.scryfall_id, unavailable.scryfall_id) AS candidate_scryfall_id,
+       requested.lang,
+       CASE WHEN usable.scryfall_id IS NOT NULL THEN usable.image_status ELSE unavailable.image_status END AS image_status
+FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+INNER JOIN card_print source ON source.scryfall_id = requested.id
+LEFT JOIN LATERAL (
+    SELECT candidate.scryfall_id, l.image_status
+    FROM card_print candidate
+    INNER JOIN card_print_locale l ON l.print_scryfall_id = candidate.scryfall_id AND l.lang = requested.lang
+    WHERE candidate.normalized_name = source.normalized_name
+      AND LOWER(COALESCE(l.image_status, '')) NOT IN ('missing', 'placeholder')
+    ORDER BY candidate.set_code ASC, candidate.collector_number ASC, candidate.scryfall_id ASC
+    LIMIT 1
+) usable ON true
+LEFT JOIN LATERAL (
+    SELECT candidate.scryfall_id, l.image_status
+    FROM card_print candidate
+    INNER JOIN card_print_locale l ON l.print_scryfall_id = candidate.scryfall_id AND l.lang = requested.lang
+    WHERE usable.scryfall_id IS NULL
+      AND candidate.normalized_name = source.normalized_name
+      AND LOWER(COALESCE(l.image_status, '')) IN ('missing', 'placeholder')
+    ORDER BY candidate.set_code ASC, candidate.collector_number ASC, candidate.scryfall_id ASC
+    LIMIT 1
+) unavailable ON true
+WHERE COALESCE(usable.scryfall_id, unavailable.scryfall_id) IS NOT NULL
 SQL,
-            [
-                'sourceIds' => $sourceIds,
-                'languages' => $languages,
-            ],
-            [
-                'sourceIds' => ArrayParameterType::STRING,
-                'languages' => ArrayParameterType::STRING,
-            ],
+            ['pairs' => json_encode($pairs, JSON_THROW_ON_ERROR)],
         )->fetchAllAssociative();
     }
 
     /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
+     * @param list<array{id:string,lang:string}> $pairs
      *
      * @return list<array<string,mixed>>
      */
-    private function fetchFallbackCandidatesByNormalizedNameFromLegacy(array $sourceIds, array $languages): array
+    private function fetchFallbackCandidatesByNormalizedNameFromLegacy(array $pairs): array
     {
         return $this->connection->executeQuery(
             <<<'SQL'
@@ -700,11 +660,11 @@ SELECT DISTINCT ON (source.scryfall_id, candidate.lang)
     candidate.scryfall_id AS candidate_scryfall_id,
     candidate.lang,
     candidate.image_status
-FROM card source
+FROM jsonb_to_recordset(CAST(:pairs AS jsonb)) AS requested(id text, lang text)
+INNER JOIN card source ON source.scryfall_id = requested.id
 INNER JOIN card candidate
     ON candidate.normalized_name = source.normalized_name
-WHERE source.scryfall_id IN (:sourceIds)
-  AND candidate.lang IN (:languages)
+WHERE candidate.lang = requested.lang
 ORDER BY
     source.scryfall_id ASC,
     candidate.lang ASC,
@@ -715,53 +675,8 @@ ORDER BY
     candidate.set_code ASC,
     candidate.collector_number ASC
 SQL,
-            [
-                'sourceIds' => $sourceIds,
-                'languages' => $languages,
-            ],
-            [
-                'sourceIds' => ArrayParameterType::STRING,
-                'languages' => ArrayParameterType::STRING,
-            ],
+            ['pairs' => json_encode($pairs, JSON_THROW_ON_ERROR)],
         )->fetchAllAssociative();
-    }
-
-    /**
-     * @param list<string> $sourceIds
-     * @param list<string> $languages
-     * @param array<string,array<string,mixed>> $candidatesBySource
-     *
-     * @return array<string,array<string,bool>>
-     */
-    private function missingSourceLanguagePairs(array $sourceIds, array $languages, array $candidatesBySource): array
-    {
-        $missing = [];
-        foreach ($sourceIds as $sourceId) {
-            foreach ($languages as $language) {
-                if (!isset($candidatesBySource[$sourceId][$language])) {
-                    $missing[$sourceId][$language] = true;
-                }
-            }
-        }
-
-        return $missing;
-    }
-
-    /**
-     * @param array<string,array<string,bool>> $missingBySourceLanguage
-     *
-     * @return list<string>
-     */
-    private function missingLanguages(array $missingBySourceLanguage): array
-    {
-        $languages = [];
-        foreach ($missingBySourceLanguage as $missingLanguages) {
-            foreach ($missingLanguages as $language => $_) {
-                $languages[$language] = true;
-            }
-        }
-
-        return array_keys($languages);
     }
 
     /**
