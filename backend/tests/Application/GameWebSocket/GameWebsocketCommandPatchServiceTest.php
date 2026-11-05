@@ -3688,7 +3688,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             }
 
             if (str_contains($sql, 'candidate.collector_number')) {
-                $languages = array_flip(array_values(array_filter($params['languages'] ?? [], static fn (mixed $language): bool => is_string($language))));
+                $pairs = json_decode($params['pairs'], true, 512, JSON_THROW_ON_ERROR);
+                $languages = array_flip(array_column($pairs, 'lang'));
                 $rows = [];
                 if (isset($languages['es'])) {
                     $rows[] = [
