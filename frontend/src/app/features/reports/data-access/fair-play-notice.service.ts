@@ -1,20 +1,26 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, untracked } from '@angular/core';
 
 const FAIR_PLAY_NOTICE_STORAGE_PREFIX = 'commanderzone.fair-play-notice';
 
 @Injectable({ providedIn: 'root' })
 export class FairPlayNoticeService {
-  private readonly memoryAcknowledgements = new Set<string>();
+  private readonly memoryShownKeys = new Set<string>();
   private readonly activeKeyState = signal<string | null>(null);
 
   readonly activeKey = this.activeKeyState.asReadonly();
 
   showIfNeeded(userId: string | null | undefined, gameId: string | null | undefined): void {
     const key = this.keyFor(userId, gameId);
-    if (!key || this.isAcknowledged(key)) {
+    const activeKey = untracked(() => this.activeKeyState());
+    if (activeKey !== key) {
+      this.activeKeyState.set(null);
+    }
+
+    if (!key || this.isShown(key)) {
       return;
     }
 
+    this.markAsShown(key);
     this.activeKeyState.set(key);
   }
 
@@ -24,13 +30,16 @@ export class FairPlayNoticeService {
       return;
     }
 
-    this.memoryAcknowledgements.add(key);
+    this.activeKeyState.set(null);
+  }
+
+  private markAsShown(key: string): void {
+    this.memoryShownKeys.add(key);
     try {
       globalThis.localStorage?.setItem(key, '1');
     } catch {
       // Private browsing or strict browser settings still retain this notice in memory.
     }
-    this.activeKeyState.set(null);
   }
 
   private keyFor(userId: string | null | undefined, gameId: string | null | undefined): string | null {
@@ -42,8 +51,8 @@ export class FairPlayNoticeService {
       : null;
   }
 
-  private isAcknowledged(key: string): boolean {
-    if (this.memoryAcknowledgements.has(key)) {
+  private isShown(key: string): boolean {
+    if (this.memoryShownKeys.has(key)) {
       return true;
     }
 

@@ -1244,6 +1244,8 @@
       "scryTitle": "Scry 1",
       "scryDescription": "Tria què vols fer amb la carta superior de la teva biblioteca.",
       "waitingForPlayers": "Esperant els altres jugadors...",
+      "limitReached": "Has arribat al límit de mulligans d'aquesta regla.",
+      "allHandToBottom": "Totes les cartes de la mà aniran al fons de la biblioteca. Confirma per continuar.",
       "currentHand": "Mà actual",
       "emptyHand": "Sense cartes a la mà.",
       "selectedCount": "{{ selected }} / {{ total }} seleccionades",

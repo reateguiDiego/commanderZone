@@ -182,7 +182,7 @@
                         <lucide-icon name="rotate-cw" size="19" aria-hidden="true" />
                       </button>
                     }
-                    @if (bottomSelectionCount() > 0) {
+                    @if (bottomSelectionCount() > 0 && !mustBottomEntireHand()) {
                       <button
                         type="button"
                         czButton="secondary"
@@ -206,15 +206,17 @@
             </section>
 
             <div class="mulligan-actions">
-              <button
-                type="button"
-                czButton="secondary"
-                data-testid="mulligan-take"
-                [disabled]="takeDisabled()"
-                (click)="takeMulligan()"
-              >
-                {{ 'shared.text.mulligan' | runtimeTranslate }}
-              </button>
+              @if (canTakeAnotherMulligan()) {
+                <button
+                  type="button"
+                  czButton="secondary"
+                  data-testid="mulligan-take"
+                  [disabled]="takeDisabled()"
+                  (click)="takeMulligan()"
+                >
+                  {{ 'shared.text.mulligan' | runtimeTranslate }}
+                </button>
+              }
               <div class="mulligan-keep-stack">
                 @if (bottomSelectionCount() > 0) {
                   <section class="bottom-selection" data-testid="mulligan-bottom-selection">
@@ -234,6 +236,14 @@
                 </button>
               </div>
             </div>
+            @if (mulliganLimitReached()) {
+              <p class="mulligan-limit-notice" role="status" data-testid="mulligan-limit-notice">
+                {{ 'game.mulliganOverlay.limitReached' | runtimeTranslate }}
+                @if (mustBottomEntireHand()) {
+                  <span>{{ 'game.mulliganOverlay.allHandToBottom' | runtimeTranslate }}</span>
+                }
+              </p>
+            }
           }
 
           @if (error(); as mulliganError) {

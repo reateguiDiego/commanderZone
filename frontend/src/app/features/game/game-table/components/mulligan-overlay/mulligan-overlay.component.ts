@@ -28,6 +28,7 @@ import { MulliganOverlayAnimations } from './mulligan-overlay.animations';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { calculateMulliganState } from '../../utils/mulligan-rules';
 
 type ScryDestination = 'TOP' | 'BOTTOM';
 type MulliganStatusCandidate = MulliganPlayerStatus | string | null | undefined;
@@ -62,25 +63,56 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   readonly dismissed = signal(false);
   readonly selectedBottomIds = signal<readonly string[]>([]);
   readonly facePreviewIndexes = signal<Readonly<Record<string, number>>>({});
-  readonly selectedBottomIdSet = computed(() => new Set(this.selectedBottomIds()));
+  readonly effectiveSelectedBottomIds = computed(() =>
+    this.mustBottomEntireHand()
+      ? this.hand().map((card) => card.instanceId)
+      : this.selectedBottomIds(),
+  );
+  readonly selectedBottomIdSet = computed(() => new Set(this.effectiveSelectedBottomIds()));
   readonly isOpen = computed(() => this.gamePhase() === 'MULLIGAN' && !this.dismissed());
   readonly rule = computed<MulliganRule>(() => this.config()?.rule ?? this.currentMulligan()?.rule ?? 'LONDON');
   readonly bottomOrderMode = computed<BottomOrderMode>(() => this.currentMulligan()?.bottomOrderMode ?? 'NONE');
   readonly status = computed<MulliganPlayerStatus>(() => this.normalizeStatus(this.currentMulligan()?.status));
   readonly bottomSelectionCount = computed(() => this.currentMulligan()?.bottomSelectionCount ?? 0);
+  readonly canTakeAnotherMulligan = computed(() => {
+    const mulligan = this.currentMulligan();
+    // Runtime patches provide the effective count but may omit the derived availability flag.
+    const allowedByRule = calculateMulliganState({
+      rule: this.rule(),
+      firstMulliganFree: false,
+      mulligansTaken: mulligan?.effectiveMulligans ?? 0,
+    }).canTakeAnotherMulligan;
+
+    return mulligan?.canTakeAnotherMulligan !== false && allowedByRule;
+  });
+  readonly mulliganLimitReached = computed(() =>
+    this.status() === 'DECIDING' && !this.canTakeAnotherMulligan(),
+  );
+  readonly mustBottomEntireHand = computed(() => {
+    const bottomSelectionCount = this.bottomSelectionCount();
+    const handLength = this.hand().length;
+    const drawCount = this.currentMulligan()?.drawCount ?? handLength;
+
+    return bottomSelectionCount > 0
+      && handLength > 0
+      && bottomSelectionCount === handLength
+      && bottomSelectionCount === drawCount;
+  });
   readonly selectedCountParams = computed(() => ({
-    selected: this.selectedBottomIds().length,
+    selected: this.effectiveSelectedBottomIds().length,
     total: this.bottomSelectionCount(),
   }));
-  readonly acceptDisabled = computed(() =>
-    this.pending()
+  readonly acceptDisabled = computed(() => {
+    const bottomSelectionCount = this.bottomSelectionCount();
+
+    return this.pending()
       || !this.canSubmitBottomSelection()
-      || (this.bottomSelectionCount() > 0 && this.selectedBottomIds().length !== this.bottomSelectionCount()),
-  );
+      || (bottomSelectionCount > 0 && this.effectiveSelectedBottomIds().length !== bottomSelectionCount);
+  });
   readonly takeDisabled = computed(() =>
     this.pending()
       || this.status() !== 'DECIDING'
-      || this.currentMulligan()?.canTakeAnotherMulligan === false,
+      || !this.canTakeAnotherMulligan(),
   );
   readonly keepActionLabelKey = computed(() =>
     this.bottomSelectionCount() > 0
@@ -208,8 +240,9 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   bottomCardActionDisabled(card: GameCardInstance): boolean {
     return this.pending()
+      || this.mustBottomEntireHand()
       || !this.canSelectBottomCards()
-      || (!this.selectedCard(card) && this.selectedBottomIds().length >= this.bottomSelectionCount());
+      || (!this.selectedCard(card) && this.effectiveSelectedBottomIds().length >= this.bottomSelectionCount());
   }
 
   toggleBottomSelection(event: MouseEvent, card: GameCardInstance): void {
@@ -227,7 +260,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   takeMulligan(): void {
-    if (this.pending() || this.status() !== 'DECIDING' || this.currentMulligan()?.canTakeAnotherMulligan === false) {
+    if (this.pending() || this.status() !== 'DECIDING' || !this.canTakeAnotherMulligan()) {
       return;
     }
 
@@ -242,7 +275,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
       return;
     }
 
-    const selectedBottomIds = this.bottomSelectionCount() > 0 ? this.selectedBottomIds() : [];
+    const selectedBottomIds = this.bottomSelectionCount() > 0 ? this.effectiveSelectedBottomIds() : [];
     if (selectedBottomIds.length > 0) {
       this.animations.animateSelectedCardsToLibrary(selectedBottomIds, this.rule());
     }
@@ -321,6 +354,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
   private canSelectBottomCards(): boolean {
     return this.canSubmitBottomSelection()
+      && !this.mustBottomEntireHand()
       && this.bottomSelectionCount() > 0
       && (this.rule() === 'LONDON' || this.rule() === 'GENEROUS');
   }
@@ -337,11 +371,11 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private toggleBottomCard(card: GameCardInstance): void {
-    if (this.pending() || !this.canSelectBottomCards()) {
+    if (this.pending() || !this.canSelectBottomCards() || this.mustBottomEntireHand()) {
       return;
     }
 
-    const selected = this.selectedBottomIds();
+    const selected = this.effectiveSelectedBottomIds();
     if (selected.includes(card.instanceId)) {
       this.selectedBottomIds.set(selected.filter((instanceId) => instanceId !== card.instanceId));
       return;

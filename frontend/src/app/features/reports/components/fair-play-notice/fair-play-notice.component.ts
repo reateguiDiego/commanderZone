@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { AppThemeAssetsService } from '../../../../core/theme/app-theme-assets.service';
 import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.component';
 import { FairPlayNoticeService } from '../../data-access/fair-play-notice.service';
@@ -8,7 +9,7 @@ const BALANCE_CARD_IMAGE_URL =
 
 @Component({
   selector: 'app-fair-play-notice',
-  imports: [AppModalComponent],
+  imports: [AppModalComponent, RuntimeTranslatePipe],
   templateUrl: './fair-play-notice.component.html',
   styleUrl: './fair-play-notice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

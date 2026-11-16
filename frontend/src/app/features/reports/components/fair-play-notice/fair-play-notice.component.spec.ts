@@ -37,14 +37,18 @@ describe('FairPlayNoticeComponent', () => {
     const balance = fixture.nativeElement.querySelector(
       '.fair-play-notice__balance-card',
     ) as HTMLImageElement;
+    const message = fixture.nativeElement.querySelector('.fair-play-notice__message') as HTMLElement;
 
     expect(panel.classList).toContain('modal-panel-success');
+    expect(panel.classList).toContain('modal-panel-wide');
     expect(panel.getAttribute('aria-label')).toBe('Play fair');
     expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
     expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
     expect(balance.getAttribute('src')).toBe(
       'https://cards.scryfall.io/normal/front/c/e/ce648aa3-098b-4af0-a433-fd290bc85904.jpg?1783937636',
     );
+    expect(message.textContent?.trim()).not.toBe('');
+    expect(getComputedStyle(message.parentElement!).display).toBe('grid');
     expect(getComputedStyle(balance).borderRadius).toBe('15px');
   });
 

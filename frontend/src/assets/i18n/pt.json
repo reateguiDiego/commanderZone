@@ -1154,6 +1154,8 @@
       "scryTitle": "Vidência 1",
       "scryDescription": "Escolha o que fazer com a carta do topo do seu grimório.",
       "waitingForPlayers": "Esperando pelos outros jogadores...",
+      "limitReached": "Você atingiu o limite de mulligans desta regra.",
+      "allHandToBottom": "Todas as cartas da sua mão irão para o fundo do grimório. Confirme para continuar.",
       "currentHand": "Mão atual",
       "emptyHand": "Sem cartas na mão.",
       "selectedCount": "{{ selected }} / {{ total }} selecionado",

@@ -1154,6 +1154,8 @@
       "scryTitle": "Hellsicht 1",
       "scryDescription": "Wähle, was mit der obersten Karte deiner Bibliothek geschehen soll.",
       "waitingForPlayers": "Warten auf die anderen Spieler...",
+      "limitReached": "Du hast das Mulligan-Limit für diese Regel erreicht.",
+      "allHandToBottom": "Alle Karten deiner Hand kommen unter deine Bibliothek. Bestätige, um fortzufahren.",
       "currentHand": "Aktuelle Hand",
       "emptyHand": "Keine Karten auf der Hand.",
       "selectedCount": "{{ selected }} / {{ total }} ausgewählt",

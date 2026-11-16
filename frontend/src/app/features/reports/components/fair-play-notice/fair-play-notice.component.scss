@@ -6,8 +6,38 @@
   display: block;
   justify-self: center;
   width: auto;
-  height: min(19.2rem, 64vh);
+  height: min(19.2rem, 58dvh);
   max-width: 100%;
   border-radius: 15px;
   object-fit: contain;
+}
+
+.fair-play-notice__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2rem);
+  min-width: 0;
+}
+
+.fair-play-notice__message {
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 620px) {
+  .fair-play-notice__content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fair-play-notice__balance-card {
+    height: min(16rem, 38dvh);
+  }
+}
+
+@media (max-height: 640px) and (min-width: 621px) {
+  .fair-play-notice__balance-card {
+    height: min(16rem, 42dvh);
+  }
 }

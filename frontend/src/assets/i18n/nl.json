@@ -1154,6 +1154,8 @@
       "scryTitle": "Scry 1",
       "scryDescription": "Kies wat je met de bovenste kaart van je library wilt doen.",
       "waitingForPlayers": "Wachten op de andere spelers...",
+      "limitReached": "Je hebt de mulliganlimiet voor deze regel bereikt.",
+      "allHandToBottom": "Alle kaarten in je hand gaan onderop je bibliotheek. Bevestig om door te gaan.",
       "currentHand": "Huidige hand",
       "emptyHand": "Geen kaarten bij de hand.",
       "selectedCount": "{{ selected }} / {{ total }} geselecteerd",
