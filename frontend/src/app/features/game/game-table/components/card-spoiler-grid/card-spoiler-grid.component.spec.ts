@@ -4,13 +4,7 @@ import { LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardSpoilerGridComponent } from './card-spoiler-grid.component';
 
-const LIBRARY_VISIBLE_EAGER_STORAGE_KEY = 'cz_perf_library_visible_eager';
-
 describe('CardSpoilerGridComponent', () => {
-  afterEach(() => {
-    window.localStorage.removeItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY);
-  });
-
   it('renders card spoilers and emits card interactions', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
@@ -61,8 +55,7 @@ describe('CardSpoilerGridComponent', () => {
     expect(grid.querySelectorAll('[data-card-instance-id]').length).toBeLessThan(80);
   });
 
-  it('eagerly loads only the authorized initial library window when the experiment is enabled', async () => {
-    window.localStorage.setItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY, '1');
+  it('eagerly loads only the authorized initial library window', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
       providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
@@ -83,7 +76,6 @@ describe('CardSpoilerGridComponent', () => {
   });
 
   it('keeps lazy image loading when the displayed library order is not authorized', async () => {
-    window.localStorage.setItem(LIBRARY_VISIBLE_EAGER_STORAGE_KEY, '1');
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
       providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],

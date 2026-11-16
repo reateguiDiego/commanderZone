@@ -5,7 +5,7 @@ import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-
 import { GameTableDragService } from '../../services/game-table-drag.service';
 import { GameTableDropActionsService } from '../../services/game-table-drop-actions.service';
 import { GameTablePointerDragActionsService } from '../../services/game-table-pointer-drag-actions.service';
-import { PointerDropTarget } from '../../services/game-table-pointer-drag.service';
+import { GameTablePointerDragService, PointerDropTarget } from '../../services/game-table-pointer-drag.service';
 import { GameTableBattlefieldDragState } from './game-table-battlefield-drag.state';
 import { PlayerView } from '../../game-table.store';
 import {
@@ -15,10 +15,6 @@ import {
 } from './game-table-drag-drop.store';
 import { GameTableDropFeedbackState } from './game-table-drop-feedback.state';
 import { GameTablePendingTransferState } from '../core/game-table-pending-transfer.state';
-
-const SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY = 'cz_perf_skip_drag_drop_feedback';
-const DRAG_RAF_STORAGE_KEY = 'cz_perf_drag_raf';
-const SHARED_HIT_TEST_STORAGE_KEY = 'cz_perf_shared_hit_test';
 
 describe('GameTableDragDropStore', () => {
   let store: GameTableDragDropStore;
@@ -45,9 +41,6 @@ describe('GameTableDragDropStore', () => {
   };
 
   beforeEach(() => {
-    window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
-    window.localStorage.removeItem(DRAG_RAF_STORAGE_KEY);
-    window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
     dropOnZone = vi.fn().mockResolvedValue(undefined);
     updateActiveDropTarget = vi.fn();
     updateBattlefieldDragAid = vi.fn();
@@ -73,6 +66,7 @@ describe('GameTableDragDropStore', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableDragDropStore,
+        GameTablePointerDragService,
         GameTableBattlefieldDragState,
         GameTableDropFeedbackState,
         GameTablePendingTransferState,
@@ -129,9 +123,6 @@ describe('GameTableDragDropStore', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
-    window.localStorage.removeItem(DRAG_RAF_STORAGE_KEY);
-    window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
   });
 
   it('uses the selected group when the dragged card is part of a same-zone selection', () => {
@@ -367,24 +358,8 @@ describe('GameTableDragDropStore', () => {
     expect(dropOnZone).not.toHaveBeenCalled();
   });
 
-  it('keeps transient pointer movement on the existing snapshot path when the feedback flag is disabled', () => {
-    const updateLocalCardPosition = vi.fn();
-    dragService.moveCardPointerDrag.mockImplementation(
-      (_event: PointerEvent, updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void) => {
-        updateLocalPosition('player-1', 'dragged', { x: 180, y: 220 });
-        return null;
-      },
-    );
-    window.localStorage.setItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY, '1');
-
-    store.moveCardPointerDrag({ ...context(), updateLocalCardPosition }, {} as PointerEvent);
-
-    expect(updateLocalCardPosition).toHaveBeenCalledOnce();
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 180, y: 220 });
-  });
-
-  it('marks only transient pointer movement to skip drop feedback when the flag is enabled', () => {
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+  it('uses transient pointer updates to defer drop feedback during a drag', () => {
+    const enabledStore = createStore();
     const updateLocalCardPosition = vi.fn();
     dragService.moveCardPointerDrag.mockImplementation(
       (_event: PointerEvent, updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void) => {
@@ -404,26 +379,8 @@ describe('GameTableDragDropStore', () => {
     );
   });
 
-  it('does not enable skipped feedback when drag RAF is enabled on its own', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
-    const rafOnlyStore = createStoreWithSkipDragDropFeedback(false);
-    const updateLocalCardPosition = vi.fn();
-    dragService.moveCardPointerDrag.mockImplementation(
-      (_event: PointerEvent, updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void) => {
-        updateLocalPosition('player-1', 'dragged', { x: 180, y: 220 });
-        return null;
-      },
-    );
-
-    rafOnlyStore.moveCardPointerDrag({ ...context(), updateLocalCardPosition }, {} as PointerEvent);
-
-    expect(updateLocalCardPosition).toHaveBeenCalledOnce();
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 180, y: 220 });
-  });
-
-  it('keeps transient feedback skipping active when drag RAF and feedback flags are both enabled', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+  it('reconciles deferred drop feedback once when pointerup does not publish a final snapshot', () => {
+    const enabledStore = createStore();
     const updateLocalCardPosition = vi.fn();
     dragService.moveCardPointerDrag.mockImplementation(
       (_event: PointerEvent, updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void) => {
@@ -442,8 +399,8 @@ describe('GameTableDragDropStore', () => {
     );
   });
 
-  it('shares one ordered hit test across pointer drop target and battlefield aid when enabled', () => {
-    const enabledStore = createStoreWithSharedHitTest(true);
+  it('shares one ordered hit test across pointer drop target and battlefield aid', () => {
+    const enabledStore = createStore();
     const dragged = permanent('dragged', 100, 200);
     const ctx = context([playerView([dragged])]);
     const event = { clientX: 180, clientY: 220 } as PointerEvent;
@@ -472,7 +429,7 @@ describe('GameTableDragDropStore', () => {
   });
 
   it('refreshes the shared hit test for each processed pointer move', () => {
-    const enabledStore = createStoreWithSharedHitTest(true);
+    const enabledStore = createStore();
     const dragged = permanent('dragged', 100, 200);
     const ctx = context([playerView([dragged])]);
     const firstHitTestElements = [document.createElement('div')];
@@ -503,46 +460,8 @@ describe('GameTableDragDropStore', () => {
     }
   });
 
-  it('keeps the existing coordinator calls without a shared hit test when disabled', () => {
-    const dragged = permanent('dragged', 100, 200);
-    const ctx = context([playerView([dragged])]);
-    const event = { clientX: 180, clientY: 220 } as PointerEvent;
-    const originalElementsFromPoint = document.elementsFromPoint;
-    const elementsFromPoint = vi.fn(() => []);
-    dragService.moveCardPointerDrag.mockReturnValue('dragged');
-    Object.defineProperty(document, 'elementsFromPoint', {
-      configurable: true,
-      value: elementsFromPoint,
-    });
-
-    try {
-      store.moveCardPointerDrag(ctx, event);
-
-      expect(elementsFromPoint).not.toHaveBeenCalled();
-      expect(updatePointerDropTarget.mock.calls[0]).toHaveLength(2);
-      expect(updateBattlefieldDragAid.mock.calls[0]).toHaveLength(3);
-    } finally {
-      Object.defineProperty(document, 'elementsFromPoint', {
-        configurable: true,
-        value: originalElementsFromPoint,
-      });
-    }
-  });
-
-  it('does not read a snapshot for feedback reconciliation while the flag is disabled', async () => {
-    const snapshot = vi.fn(() => null);
-    endCardPointerDrag.mockResolvedValue(undefined);
-    const ctx = { ...context(), snapshot };
-
-    await store.endCardPointerDrag(ctx, {} as PointerEvent);
-    store.cancelCardPointerDrag(ctx, {} as PointerEvent);
-    store.dragEnd(ctx);
-
-    expect(snapshot).not.toHaveBeenCalled();
-  });
-
-  it('reconciles skipped drop feedback once when pointerup does not publish a final snapshot', async () => {
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+  it('keeps deferred drop feedback when pointerup does not publish a final snapshot', async () => {
+    const enabledStore = createStore();
     let currentSnapshot = gameSnapshot(1);
     const updateLocalCardPosition = vi.fn(() => {
       currentSnapshot = { ...currentSnapshot };
@@ -578,7 +497,7 @@ describe('GameTableDragDropStore', () => {
   });
 
   it('reconciles skipped feedback once on pointer cancellation', () => {
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+    const enabledStore = createStore();
     let currentSnapshot = gameSnapshot(1);
     const updateLocalCardPosition = vi.fn(() => {
       currentSnapshot = { ...currentSnapshot };
@@ -606,7 +525,7 @@ describe('GameTableDragDropStore', () => {
   });
 
   it('reconciles skipped feedback once when the drag ends through the native cleanup path', () => {
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+    const enabledStore = createStore();
     let currentSnapshot = gameSnapshot(1);
     const updateLocalCardPosition = vi.fn(() => {
       currentSnapshot = { ...currentSnapshot };
@@ -634,7 +553,7 @@ describe('GameTableDragDropStore', () => {
   });
 
   it('does not add a reconciliation when final pointerup already publishes a normal snapshot', async () => {
-    const enabledStore = createStoreWithSkipDragDropFeedback(true);
+    const enabledStore = createStore();
     let currentSnapshot = gameSnapshot(1);
     const updateLocalCardPosition = vi.fn(() => {
       currentSnapshot = { ...currentSnapshot };
@@ -1466,23 +1385,7 @@ describe('GameTableDragDropStore', () => {
     };
   }
 
-  function createStoreWithSkipDragDropFeedback(enabled: boolean): GameTableDragDropStore {
-    if (enabled) {
-      window.localStorage.setItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY, '1');
-    } else {
-      window.localStorage.removeItem(SKIP_DRAG_DROP_FEEDBACK_STORAGE_KEY);
-    }
-
-    return TestBed.runInInjectionContext(() => new GameTableDragDropStore());
-  }
-
-  function createStoreWithSharedHitTest(enabled: boolean): GameTableDragDropStore {
-    if (enabled) {
-      window.localStorage.setItem(SHARED_HIT_TEST_STORAGE_KEY, '1');
-    } else {
-      window.localStorage.removeItem(SHARED_HIT_TEST_STORAGE_KEY);
-    }
-
+  function createStore(): GameTableDragDropStore {
     return TestBed.runInInjectionContext(() => new GameTableDragDropStore());
   }
 

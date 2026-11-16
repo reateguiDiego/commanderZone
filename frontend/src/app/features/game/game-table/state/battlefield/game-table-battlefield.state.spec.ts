@@ -7,14 +7,11 @@ import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selector
 import { GameTableLayoutState } from '../../game-table-layout/game-table-layout-state';
 import { GameTableBattlefieldContext, GameTableBattlefieldState } from './game-table-battlefield.state';
 
-const GEOMETRY_FRAME_CACHE_STORAGE_KEY = 'cz_perf_geometry_cache';
-
 describe('GameTableBattlefieldState', () => {
   let state: GameTableBattlefieldState;
   let currentSnapshot: GameSnapshot | null;
 
   beforeEach(() => {
-    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
     TestBed.configureTestingModule({
       providers: [
         GameTableBattlefieldState,
@@ -37,7 +34,6 @@ describe('GameTableBattlefieldState', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
-    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
   });
 
   it('moves local hand cards to battlefield and keeps zone counts in sync', () => {
@@ -219,44 +215,7 @@ describe('GameTableBattlefieldState', () => {
     expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 184, y: 38 });
   });
 
-  it('keeps the original geometry measurements when the local flag is disabled', () => {
-    document.body.innerHTML = `
-      <section class="battlefield" data-player-id="player-1">
-        <div data-testid="game-card" data-card-instance-id="card-1"></div>
-      </section>
-    `;
-    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
-    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
-    const battlefieldBounds = vi.spyOn(battlefield, 'getBoundingClientRect').mockReturnValue({
-      width: 1000,
-      height: 800,
-    } as DOMRect);
-    const cardBounds = vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue({
-      width: 100,
-      height: 200,
-    } as DOMRect);
-    const battlefieldElements = vi.spyOn(document, 'querySelectorAll');
-    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
-
-    try {
-      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
-      window.localStorage.setItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY, '1');
-      state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
-
-      expect(battlefieldBounds).toHaveBeenCalledTimes(2);
-      expect(cardBounds).toHaveBeenCalledTimes(2);
-      expect(battlefieldElements).toHaveBeenCalledTimes(4);
-      expect(animationFrame).not.toHaveBeenCalled();
-    } finally {
-      animationFrame.mockRestore();
-      battlefieldElements.mockRestore();
-      cardBounds.mockRestore();
-      battlefieldBounds.mockRestore();
-    }
-  });
-
   it('reuses measured geometry in one animation frame and keeps the connected battlefield element cached', () => {
-    state = createStateWithGeometryFrameCache(true);
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
         <div data-testid="game-card" data-card-instance-id="card-1"></div>
@@ -305,7 +264,6 @@ describe('GameTableBattlefieldState', () => {
   });
 
   it('replaces a disconnected cached battlefield element', () => {
-    state = createStateWithGeometryFrameCache(true);
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
         <div data-testid="game-card" data-card-instance-id="card-1"></div>
@@ -369,7 +327,6 @@ describe('GameTableBattlefieldState', () => {
   });
 
   it('keeps frame geometry caches independent for each player', () => {
-    state = createStateWithGeometryFrameCache(true);
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
         <div data-testid="game-card" data-card-instance-id="card-1"></div>
@@ -426,7 +383,6 @@ describe('GameTableBattlefieldState', () => {
   });
 
   it('rearms the geometry cache after a synchronous animation-frame callback', () => {
-    state = createStateWithGeometryFrameCache(true);
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
         <div data-testid="game-card" data-card-instance-id="card-1"></div>
@@ -564,16 +520,6 @@ describe('GameTableBattlefieldState', () => {
     };
   }
 });
-
-function createStateWithGeometryFrameCache(enabled: boolean): GameTableBattlefieldState {
-  if (enabled) {
-    window.localStorage.setItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY, '1');
-  } else {
-    window.localStorage.removeItem(GEOMETRY_FRAME_CACHE_STORAGE_KEY);
-  }
-
-  return TestBed.runInInjectionContext(() => new GameTableBattlefieldState());
-}
 
 function snapshot(options: {
   hand: GameCardInstance[];

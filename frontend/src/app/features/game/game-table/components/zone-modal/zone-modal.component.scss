@@ -8,10 +8,6 @@
   background:
     radial-gradient(circle at 18% 10%, rgb(var(--gold-rgb) / 12%), transparent 24rem),
     rgb(var(--shadow-rgb) / 68%);
-  backdrop-filter: blur(6px);
-}
-
-.zone-modal-backdrop--no-blur {
   backdrop-filter: none;
 }
 

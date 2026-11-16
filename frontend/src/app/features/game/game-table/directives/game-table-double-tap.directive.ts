@@ -1,7 +1,5 @@
 import { Directive, ElementRef, HostListener, NgZone, OnDestroy, OnInit, inject, input, output } from '@angular/core';
 
-const LAZY_GESTURE_LISTENERS_STORAGE_KEY = 'cz_perf_lazy_gesture_listeners';
-
 interface ActiveTap {
   readonly pointerId: number;
   readonly pointerType: string;
@@ -27,9 +25,6 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
   private readonly maxTapDurationMs = 280;
   private readonly movementThresholdPx = 12;
   private readonly suppressionClearMs = 600;
-  private readonly lazyGestureListenersEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY) === '1';
   private activeTap: ActiveTap | null = null;
   private lastTap: LastTap | null = null;
   private suppressionTimer: number | null = null;
@@ -56,9 +51,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.host.nativeElement.addEventListener('dblclick', this.captureNativeDoubleClick, true);
-    if (!this.lazyGestureListenersEnabled) {
-      this.attachWindowPointerListeners();
-    }
+    // Pointer listeners are attached only while a tap is being tracked.
   }
 
   ngOnDestroy(): void {
@@ -71,9 +64,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
   start(event: PointerEvent): void {
     if (this.disabled() || this.shouldIgnoreNestedTarget(event) || !this.isTouchLikePointer(event) || event.button !== 0) {
       this.activeTap = null;
-      if (this.lazyGestureListenersEnabled) {
-        this.detachWindowPointerListeners();
-      }
+      this.detachWindowPointerListeners();
       return;
     }
 
@@ -84,9 +75,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
       startY: event.clientY,
       startTime: Date.now(),
     };
-    if (this.lazyGestureListenersEnabled) {
-      this.attachWindowPointerListeners();
-    }
+    this.attachWindowPointerListeners();
   }
 
   private move(event: PointerEvent): void {
@@ -97,9 +86,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
 
     if (this.distance(event.clientX, event.clientY, activeTap.startX, activeTap.startY) > this.movementThresholdPx) {
       this.activeTap = null;
-      if (this.lazyGestureListenersEnabled) {
-        this.detachWindowPointerListeners();
-      }
+      this.detachWindowPointerListeners();
     }
   }
 
@@ -110,9 +97,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
     }
 
     this.activeTap = null;
-    if (this.lazyGestureListenersEnabled) {
-      this.detachWindowPointerListeners();
-    }
+    this.detachWindowPointerListeners();
     if (!this.isValidTap(event, activeTap)) {
       this.lastTap = null;
       return;
@@ -125,11 +110,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
       this.suppressNativeDoubleClick();
       event.preventDefault();
       event.stopPropagation();
-      if (this.lazyGestureListenersEnabled) {
-        this.ngZone.run(() => this.doubleTapped.emit(event));
-      } else {
-        this.doubleTapped.emit(event);
-      }
+      this.ngZone.run(() => this.doubleTapped.emit(event));
       return;
     }
 
@@ -144,9 +125,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
   private cancel(event: PointerEvent): void {
     if (this.activeTap?.pointerId === event.pointerId) {
       this.activeTap = null;
-      if (this.lazyGestureListenersEnabled) {
-        this.detachWindowPointerListeners();
-      }
+      this.detachWindowPointerListeners();
     }
   }
 
@@ -162,12 +141,7 @@ export class GameTableDoubleTapDirective implements OnInit, OnDestroy {
       this.windowPointerListenersAttached = true;
     };
 
-    if (this.lazyGestureListenersEnabled) {
-      this.ngZone.runOutsideAngular(attach);
-      return;
-    }
-
-    attach();
+    this.ngZone.runOutsideAngular(attach);
   }
 
   private detachWindowPointerListeners(): void {

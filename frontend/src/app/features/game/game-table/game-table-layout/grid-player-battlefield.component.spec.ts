@@ -13,22 +13,9 @@ describe('GridPlayerBattlefieldComponent summary collision deferral', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps the existing collision measurement path during a pointer drag when the experiment is off', async () => {
+  it('defers pending and repeated collision checks until an active pointer drag ends', async () => {
     const frameQueue = installAnimationFrameQueue();
     const { fixture, summaryRect, cardRect } = await renderBattlefield({ activePointerDrag: true });
-
-    frameQueue.flushAll();
-
-    expect(summaryRect).toHaveBeenCalledTimes(1);
-    expect(cardRect).toHaveBeenCalledTimes(1);
-    expect(fixture.componentInstance.summaryCompact()).toBe(true);
-  });
-
-  it('defers pending and repeated collision checks until an active pointer drag ends when the experiment is on', async () => {
-    const frameQueue = installAnimationFrameQueue();
-    const { fixture, summaryRect, cardRect } = await renderBattlefield({
-      deferSummaryCollisionDuringPointerDrag: true,
-    });
     const handPreviewQuery = vi.spyOn(document, 'querySelectorAll');
 
     fixture.componentRef.setInput('hasActiveBattlefieldPointerDrag', true);
@@ -50,11 +37,9 @@ describe('GridPlayerBattlefieldComponent summary collision deferral', () => {
     expect(fixture.componentInstance.summaryCompact()).toBe(true);
   });
 
-  it('continues to measure collisions outside a pointer drag when the experiment is on', async () => {
+  it('continues to measure collisions outside a pointer drag', async () => {
     const frameQueue = installAnimationFrameQueue();
-    const { fixture, summaryRect, cardRect } = await renderBattlefield({
-      deferSummaryCollisionDuringPointerDrag: true,
-    });
+    const { fixture, summaryRect, cardRect } = await renderBattlefield();
 
     frameQueue.flushAll();
 
@@ -67,7 +52,6 @@ describe('GridPlayerBattlefieldComponent summary collision deferral', () => {
 async function renderBattlefield(
   options: {
     activePointerDrag?: boolean;
-    deferSummaryCollisionDuringPointerDrag?: boolean;
   } = {},
 ): Promise<{
   fixture: ComponentFixture<GridPlayerBattlefieldComponent>;
@@ -99,10 +83,6 @@ async function renderBattlefield(
   fixture.componentRef.setInput('playerCount', 1);
   fixture.componentRef.setInput('regions', {} as PlayerRegionTemplates);
   fixture.componentRef.setInput('summaryBindings', {} as GridPlayerSummaryBindings);
-  fixture.componentRef.setInput(
-    'deferSummaryCollisionDuringPointerDrag',
-    options.deferSummaryCollisionDuringPointerDrag ?? false,
-  );
   fixture.componentRef.setInput(
     'hasActiveBattlefieldPointerDrag',
     options.activePointerDrag ?? false,

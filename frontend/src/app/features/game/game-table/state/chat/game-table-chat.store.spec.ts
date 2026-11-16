@@ -11,13 +11,7 @@ import { GameTableChatStore } from './game-table-chat.store';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
 
-const EVENT_LOG_MEMO_STORAGE_KEY = 'cz_perf_event_log_memo';
-
 describe('GameTableChatStore', () => {
-  afterEach(() => {
-    window.localStorage.removeItem(EVENT_LOG_MEMO_STORAGE_KEY);
-  });
-
   it('defaults to the opponent in two-player private chat', () => {
     TestBed.configureTestingModule({
       providers: [
@@ -79,21 +73,7 @@ describe('GameTableChatStore', () => {
     ]);
   });
 
-  it('keeps rebuilding the event log after a card position update when the memo experiment is off', () => {
-    const { core, chatLogState, store } = configureChatStore();
-    const initial = snapshotWithLoggedBattlefieldCard();
-    core.snapshot.set(initial);
-    const eventLogView = vi.spyOn(chatLogState, 'eventLogView');
-
-    store.eventLog();
-    core.snapshot.set(snapshotWithCardPosition(initial, { x: 220, y: 140 }));
-    store.eventLog();
-
-    expect(eventLogView).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not rebuild the expensive event log view for a card position update when enabled', () => {
-    window.localStorage.setItem(EVENT_LOG_MEMO_STORAGE_KEY, '1');
+  it('does not rebuild the expensive event log view for a card position update', () => {
     const { core, chatLogState, store } = configureChatStore();
     const initial = snapshotWithLoggedBattlefieldCard();
     core.snapshot.set(initial);
@@ -106,8 +86,7 @@ describe('GameTableChatStore', () => {
     expect(eventLogView).toHaveBeenCalledTimes(1);
   });
 
-  it('rebuilds the event log view when its entries change with the memo experiment enabled', () => {
-    window.localStorage.setItem(EVENT_LOG_MEMO_STORAGE_KEY, '1');
+  it('rebuilds the event log view when its entries change', () => {
     const { core, chatLogState, store } = configureChatStore();
     const initial = snapshotWithLoggedBattlefieldCard();
     core.snapshot.set(initial);
@@ -132,8 +111,7 @@ describe('GameTableChatStore', () => {
     expect(eventLogView).toHaveBeenCalledTimes(2);
   });
 
-  it('rebuilds the event log view when the runtime language changes with the memo experiment enabled', () => {
-    window.localStorage.setItem(EVENT_LOG_MEMO_STORAGE_KEY, '1');
+  it('rebuilds the event log view when the runtime language changes', () => {
     const language = signal<SupportedLanguageCode>('en');
     const { core, chatLogState, store } = configureChatStore(language);
     core.snapshot.set(snapshotWithLoggedBattlefieldCard());
@@ -146,8 +124,7 @@ describe('GameTableChatStore', () => {
     expect(eventLogView).toHaveBeenCalledTimes(2);
   });
 
-  it('rebuilds the event log view when a card change affects a visible entry with the memo experiment enabled', () => {
-    window.localStorage.setItem(EVENT_LOG_MEMO_STORAGE_KEY, '1');
+  it('rebuilds the event log view when a card change affects a visible entry', () => {
     const { core, chatLogState, store } = configureChatStore();
     const initial = snapshotWithLoggedBattlefieldCard();
     core.snapshot.set(initial);

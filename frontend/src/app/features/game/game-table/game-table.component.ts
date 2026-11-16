@@ -5,7 +5,6 @@ import {
 } from './utils/battlefield-position';
 import { GameTableLayoutState } from './game-table-layout/game-table-layout-state';
 import { GameTableGridLayoutComponent } from './game-table-layout/game-table-grid-layout.component';
-import { GRID_RENDER_MEMO_STORAGE_KEY } from './game-table-layout/game-table-grid-render-memo';
 import { BattlefieldConcedeButtonComponent } from './components/battlefield-concede-button/battlefield-concede-button.component';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -693,15 +692,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly mobileScrollLockQuery =
     '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
-  private readonly dragRafEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('cz_perf_drag_raf') === '1';
-  readonly deferSummaryCollisionDuringPointerDragEnabled =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem('cz_perf_defer_summary_collision') === '1';
-  readonly gridRenderMemoEnabled =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem(GRID_RENDER_MEMO_STORAGE_KEY) === '1';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
@@ -2015,11 +2005,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointermove', ['$event'])
   handlePointerMove(event: PointerEvent): void {
     this.store.moveFloatingPanel(event);
-
-    if (!this.dragRafEnabled) {
-      this.store.moveCardPointerDrag(event);
-      return;
-    }
 
     if (!this.store.hasActivePointerDrag()) {
       return;

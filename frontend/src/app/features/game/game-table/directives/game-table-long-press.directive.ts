@@ -1,7 +1,5 @@
 import { Directive, ElementRef, HostListener, NgZone, OnDestroy, OnInit, inject, input, output } from '@angular/core';
 
-const LAZY_GESTURE_LISTENERS_STORAGE_KEY = 'cz_perf_lazy_gesture_listeners';
-
 interface ActiveLongPress {
   readonly pointerId: number;
   readonly startX: number;
@@ -19,9 +17,6 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
   private readonly delayMs = 540;
   private readonly movementThresholdPx = 10;
   private readonly suppressionClearMs = 900;
-  private readonly lazyGestureListenersEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY) === '1';
   private activePress: ActiveLongPress | null = null;
   private timer: number | null = null;
   private suppressionTimer: number | null = null;
@@ -61,9 +56,6 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
     const element = this.host.nativeElement;
     element.addEventListener('click', this.captureClick, true);
     element.addEventListener('contextmenu', this.captureContextMenu, true);
-    if (!this.lazyGestureListenersEnabled) {
-      this.attachWindowPointerListeners();
-    }
   }
 
   ngOnDestroy(): void {
@@ -89,15 +81,10 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
       startY: event.clientY,
       event,
     };
-    if (this.lazyGestureListenersEnabled) {
-      this.attachWindowPointerListeners();
-      this.ngZone.runOutsideAngular(() => {
-        this.timer = window.setTimeout(() => this.ngZone.run(() => this.fire(event.pointerId)), this.delayMs);
-      });
-      return;
-    }
-
-    this.timer = window.setTimeout(() => this.fire(event.pointerId), this.delayMs);
+    this.attachWindowPointerListeners();
+    this.ngZone.runOutsideAngular(() => {
+      this.timer = window.setTimeout(() => this.ngZone.run(() => this.fire(event.pointerId)), this.delayMs);
+    });
   }
 
   private move(event: PointerEvent): void {
@@ -132,9 +119,7 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
     this.timer = null;
     this.activePress = null;
     this.host.nativeElement.classList.remove(this.activeClass);
-    if (this.lazyGestureListenersEnabled) {
-      this.detachWindowPointerListeners();
-    }
+    this.detachWindowPointerListeners();
     this.suppressFollowUpMouseEvents();
     activePress.event.preventDefault();
     activePress.event.stopPropagation();
@@ -159,9 +144,7 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
     }
     this.host.nativeElement.classList.remove(this.activeClass);
     this.activePress = null;
-    if (this.lazyGestureListenersEnabled) {
-      this.detachWindowPointerListeners();
-    }
+    this.detachWindowPointerListeners();
   }
 
   private attachWindowPointerListeners(): void {
@@ -176,12 +159,7 @@ export class GameTableLongPressDirective implements OnInit, OnDestroy {
       this.windowPointerListenersAttached = true;
     };
 
-    if (this.lazyGestureListenersEnabled) {
-      this.ngZone.runOutsideAngular(attach);
-      return;
-    }
-
-    attach();
+    this.ngZone.runOutsideAngular(attach);
   }
 
   private detachWindowPointerListeners(): void {

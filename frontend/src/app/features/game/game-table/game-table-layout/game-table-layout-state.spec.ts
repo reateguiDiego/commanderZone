@@ -1,7 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { PlayerView } from '../game-table.store';
-import { GRID_RENDER_MEMO_STORAGE_KEY } from './game-table-grid-render-memo';
 import {
   GameTableLayoutState,
   pruneInactiveBattlefieldLayoutRectangles,
@@ -35,8 +34,7 @@ describe('GameTableLayoutState', () => {
     expect([...pruned.entries()]).toEqual([['local', localRect]]);
   });
 
-  it('retains untouched GridSeat references only when the experiment is enabled', () => {
-    localStorage.setItem(GRID_RENDER_MEMO_STORAGE_KEY, '1');
+  it('retains untouched GridSeat references when another player changes', () => {
     TestBed.configureTestingModule({ providers: [GameTableLayoutState] });
     const layout = TestBed.inject(GameTableLayoutState);
     const local = player('local');
@@ -60,26 +58,6 @@ describe('GameTableLayoutState', () => {
     );
   });
 
-  it('keeps the original fresh GridSeat allocation while the experiment is disabled', () => {
-    TestBed.configureTestingModule({ providers: [GameTableLayoutState] });
-    const layout = TestBed.inject(GameTableLayoutState);
-    const local = player('local');
-    const opponent = player('opponent');
-    const players = signal<readonly PlayerView[]>([local, opponent]);
-    layout.connect({
-      gameId: () => 'game-1',
-      players,
-      currentPlayer: () => players()[0] ?? null,
-    });
-    const previousSeats = layout.seats();
-
-    players.set([withLife(local, 39), opponent]);
-    const nextSeats = layout.seats();
-
-    expect(nextSeats.find((seat) => seat.player.id === 'opponent')).not.toBe(
-      previousSeats.find((seat) => seat.player.id === 'opponent'),
-    );
-  });
 });
 
 function player(id: string): PlayerView {

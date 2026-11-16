@@ -10,8 +10,6 @@ import { PlayerView, GameTableSnapshotSelectors } from '../state/core/game-table
 import { GameTablePlayersStore } from '../state/players/game-table-players.store';
 import { GameTableLibraryImagePreloadService } from './game-table-library-image-preload.service';
 
-const LIBRARY_PRELOAD_STORAGE_KEY = 'cz_perf_library_preload';
-
 describe('GameTableLibraryImagePreloadService', () => {
   const currentPlayer = signal<PlayerView | null>({ id: 'viewer' } as PlayerView);
   const requests: Array<{
@@ -31,7 +29,6 @@ describe('GameTableLibraryImagePreloadService', () => {
   const publicCardImage = vi.fn((card: GameCardInstance) => card.imageUris?.['normal'] ?? null);
 
   beforeEach(() => {
-    window.localStorage.removeItem(LIBRARY_PRELOAD_STORAGE_KEY);
     currentPlayer.set({ id: 'viewer' } as PlayerView);
     requests.length = 0;
     request.mockClear();
@@ -55,22 +52,8 @@ describe('GameTableLibraryImagePreloadService', () => {
     });
   });
 
-  afterEach(() => {
-    window.localStorage.removeItem(LIBRARY_PRELOAD_STORAGE_KEY);
-  });
-
-  it('does nothing unless the library preload experiment is enabled', () => {
-    const service = TestBed.inject(GameTableLibraryImagePreloadService);
-
-    service.sync(snapshot({
-      opponent: player('opponent', cards(3), { revealedLibraryTo: ['viewer'] }),
-    }));
-
-    expect(request).not.toHaveBeenCalled();
-  });
-
   it('prioritizes an authorized revealed library as visible, overscan, then background work', () => {
-    const service = enabledService();
+    const service = TestBed.inject(GameTableLibraryImagePreloadService);
 
     service.sync(snapshot({
       opponent: player('opponent', cards(20), { revealedLibraryTo: ['viewer'] }),
@@ -83,7 +66,7 @@ describe('GameTableLibraryImagePreloadService', () => {
   });
 
   it('preloads known own-library identities in a neutral background order without using its secret order', () => {
-    const service = enabledService();
+    const service = TestBed.inject(GameTableLibraryImagePreloadService);
     const ownLibrary = [
       card('third', '/images/z.jpg'),
       card('first', '/images/a.jpg'),
@@ -109,7 +92,7 @@ describe('GameTableLibraryImagePreloadService', () => {
   });
 
   it('does not request opponent card identities until they are explicitly revealed to this viewer', () => {
-    const service = enabledService();
+    const service = TestBed.inject(GameTableLibraryImagePreloadService);
 
     service.sync(snapshot({
       opponent: player('opponent', [
@@ -122,7 +105,7 @@ describe('GameTableLibraryImagePreloadService', () => {
   });
 
   it('preloads individually revealed opponent cards only as neutral background work', () => {
-    const service = enabledService();
+    const service = TestBed.inject(GameTableLibraryImagePreloadService);
 
     service.sync(snapshot({
       opponent: player('opponent', [
@@ -138,7 +121,7 @@ describe('GameTableLibraryImagePreloadService', () => {
   });
 
   it('cancels pending work and advances to a new plan when an authorized library order changes', () => {
-    const service = enabledService();
+    const service = TestBed.inject(GameTableLibraryImagePreloadService);
     const firstCards = [card('first', '/images/a.jpg'), card('second', '/images/b.jpg')];
 
     service.sync(snapshot({
@@ -160,11 +143,6 @@ describe('GameTableLibraryImagePreloadService', () => {
     ]);
   });
 
-  function enabledService(): GameTableLibraryImagePreloadService {
-    window.localStorage.setItem(LIBRARY_PRELOAD_STORAGE_KEY, '1');
-
-    return TestBed.inject(GameTableLibraryImagePreloadService);
-  }
 });
 
 function snapshot(players: Record<string, GamePlayerState>): GameSnapshot {

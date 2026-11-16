@@ -50,7 +50,6 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
   readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
   readonly canConcede = input<(playerId: string) => boolean>(() => false);
-  readonly deferSummaryCollisionDuringPointerDrag = input(false);
   readonly hasActiveBattlefieldPointerDrag = input(false);
   readonly summaryCompact = signal(false);
   readonly useSquareZonePresentation = signal(false);
@@ -336,7 +335,7 @@ export class GridPlayerBattlefieldComponent implements AfterViewInit, OnChanges,
   }
 
   private shouldDeferSummaryCollisionCheck(): boolean {
-    return this.deferSummaryCollisionDuringPointerDrag() && this.hasActiveBattlefieldPointerDrag();
+    return this.hasActiveBattlefieldPointerDrag();
   }
 
   private deferSummaryCollisionCheckUntilPointerDragEnds(): void {

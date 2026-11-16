@@ -12,8 +12,6 @@ import {
 import { GameTableSnapshotSelectors } from '../state/core/game-table-snapshot-selectors';
 import { GameTablePlayersStore } from '../state/players/game-table-players.store';
 
-const LIBRARY_PRELOAD_STORAGE_KEY = 'cz_perf_library_preload';
-
 interface KnownLibraryImage {
   readonly instanceId: string;
   readonly url: string;
@@ -40,9 +38,6 @@ interface PlannedLibraryImagePreload {
  */
 @Injectable()
 export class GameTableLibraryImagePreloadService implements OnDestroy {
-  private readonly preloadEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem(LIBRARY_PRELOAD_STORAGE_KEY) === '1';
   private readonly pendingRequests = new Set<ImagePreloadRequest>();
   private readonly requestGenerations = new Map<ImagePreloadRequest, number>();
   private activePlanFingerprint: string | null = null;
@@ -55,11 +50,6 @@ export class GameTableLibraryImagePreloadService implements OnDestroy {
   ) {}
 
   sync(snapshot: GameSnapshot | null): void {
-    if (!this.preloadEnabled) {
-      this.invalidatePlan();
-      return;
-    }
-
     const currentPlayerId = this.playersStore.currentPlayer()?.id ?? null;
     const plan = this.planFor(snapshot, currentPlayerId);
     if (plan.fingerprint === this.activePlanFingerprint) {

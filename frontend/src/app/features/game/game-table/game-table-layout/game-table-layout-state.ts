@@ -8,10 +8,7 @@ import {
   type GridSeat,
   type PlayerBattlefieldSize,
 } from './game-table-grid-seat.model';
-import {
-  GRID_RENDER_MEMO_STORAGE_KEY,
-  reuseGridSeatReferences,
-} from './game-table-grid-render-memo';
+import { reuseGridSeatReferences } from './game-table-grid-render-memo';
 
 interface LayoutPlayers {
   readonly gameId: () => string | null;
@@ -60,17 +57,10 @@ export class GameTableLayoutState {
   private observedViewport: HTMLElement | null = null;
   private viewportResizeListener: (() => void) | null = null;
   private activeGameId: string | null = null;
-  private readonly gridRenderMemoEnabled =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem(GRID_RENDER_MEMO_STORAGE_KEY) === '1';
   private previousGridSeats: readonly GridSeat[] = [];
   readonly seats = computed(() => {
     const source = this.source();
     const nextSeats = source ? buildGridSeats(source.players(), source.currentPlayer()) : [];
-    if (!this.gridRenderMemoEnabled) {
-      return nextSeats;
-    }
-
     this.previousGridSeats = reuseGridSeatReferences(this.previousGridSeats, nextSeats);
     return this.previousGridSeats;
   });

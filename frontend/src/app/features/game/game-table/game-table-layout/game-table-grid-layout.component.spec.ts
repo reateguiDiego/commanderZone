@@ -19,7 +19,6 @@ import { GameTableSessionPreferencesStore } from '../state/core/game-table-sessi
       [activePlayerId]="'local'"
       [regions]="{ battlefield: region, hand: region, zones: region }"
       [summaryBindings]="summaryBindings()"
-      [renderMemoEnabled]="renderMemoEnabled()"
       [playmatImage]="playmatImage"
       [canConcede]="canConcede"
     />
@@ -28,7 +27,6 @@ import { GameTableSessionPreferencesStore } from '../state/core/game-table-sessi
 class GridHost {
   readonly seats = signal(buildGridSeats([player('local')], player('local')));
   readonly concedePlayerId = signal<string | null>(null);
-  readonly renderMemoEnabled = signal(false);
   readonly canConcede = (playerId: string): boolean => this.concedePlayerId() === playerId;
   readonly summaryBindings = signal<GridPlayerSummaryBindings>({
     players: [],
@@ -183,54 +181,31 @@ describe('GameTable grid layout', () => {
     expect(localPanel?.querySelector('[data-testid="battlefield-concede"]')).not.toBeNull();
   });
 
-  it('forwards fresh summary bindings unchanged while the render memo experiment is off', async () => {
+  it('keeps the prior summary PlayerView for position-only updates', async () => {
     await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
+
     const fixture = TestBed.createComponent(GridHost);
-    fixture.detectChanges();
-    const grid = fixture.debugElement.query(By.directive(GameTableGridLayoutComponent))
-      .componentInstance as GameTableGridLayoutComponent;
-    const initialBindings = fixture.componentInstance.summaryBindings();
-
-    expect(grid.renderedSummaryBindings()).toBe(initialBindings);
-
-    const nextBindings: GridPlayerSummaryBindings = {
-      ...initialBindings,
-      autoApplyCommanderDamageToLife: false,
-    };
-    fixture.componentInstance.summaryBindings.set(nextBindings);
+    const local = player('local', 0.2);
+    const opponent = player('opponent', 0.4);
+    fixture.componentInstance.seats.set(buildGridSeats([local, opponent], local));
+    fixture.componentInstance.summaryBindings.update((bindings) => ({
+      ...bindings,
+      players: [local, opponent],
+    }));
     fixture.detectChanges();
 
-    expect(grid.renderedSummaryBindings()).toBe(nextBindings);
-  });
+    const localBattlefield = gridBattlefieldFor(fixture, 'local');
+    const movedLocal = withBattlefieldPosition(local, 0.6);
+    fixture.componentInstance.seats.set(buildGridSeats([movedLocal, opponent], movedLocal));
+    fixture.componentInstance.summaryBindings.update((bindings) => ({
+      ...bindings,
+      players: [movedLocal, opponent],
+    }));
+    fixture.detectChanges();
 
-  it('keeps the prior summary PlayerView only for position-only updates when the experiment is enabled', async () => {
-    await TestBed.configureTestingModule({ imports: [GridHost] }).compileComponents();
-
-    for (const renderMemoEnabled of [false, true]) {
-      const fixture = TestBed.createComponent(GridHost);
-      const local = player('local', 0.2);
-      const opponent = player('opponent', 0.4);
-      fixture.componentInstance.renderMemoEnabled.set(renderMemoEnabled);
-      fixture.componentInstance.seats.set(buildGridSeats([local, opponent], local));
-      fixture.componentInstance.summaryBindings.update((bindings) => ({
-        ...bindings,
-        players: [local, opponent],
-      }));
-      fixture.detectChanges();
-
-      const localBattlefield = gridBattlefieldFor(fixture, 'local');
-      const movedLocal = withBattlefieldPosition(local, 0.6);
-      fixture.componentInstance.seats.set(buildGridSeats([movedLocal, opponent], movedLocal));
-      fixture.componentInstance.summaryBindings.update((bindings) => ({
-        ...bindings,
-        players: [movedLocal, opponent],
-      }));
-      fixture.detectChanges();
-
-      expect(localBattlefield.playerSeat().player).toBe(movedLocal);
-      expect(localBattlefield.summaryPlayer()).toBe(renderMemoEnabled ? local : movedLocal);
-      fixture.destroy();
-    }
+    expect(localBattlefield.playerSeat().player).toBe(movedLocal);
+    expect(localBattlefield.summaryPlayer()).toBe(local);
+    fixture.destroy();
   });
 
   it('shows the defeated overlay while keeping the player summary mounted', async () => {
