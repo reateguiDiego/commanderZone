@@ -730,6 +730,15 @@ describe('API services', () => {
     expect(nextCursor).toBeNull();
   });
 
+  it('can load the current room without showing the global loader', () => {
+    TestBed.inject(RoomsApi).current(true).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/rooms/current`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: null, player: null, turn: null, viewerRole: null });
+  });
+
   it('handles room invites through existing room endpoints', () => {
     const rooms = TestBed.inject(RoomsApi);
 

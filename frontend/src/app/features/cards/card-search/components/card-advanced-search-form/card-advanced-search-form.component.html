@@ -1,5 +1,5 @@
 <form class="advanced-card-search" (ngSubmit)="submit()">
-  <div class="search-panel search-panel--primary" [class.search-panel--disabled]="!filterEnabled('name')">
+  <div class="search-panel search-panel--primary" [class.search-panel--enabled]="filterEnabled('name')">
     <div class="filter-panel__header">
       <div class="filter-panel__title">
         <span class="filter-panel__kicker">01</span>
@@ -23,7 +23,7 @@
     </div>
   </div>
 
-  <div class="search-panel search-panel--primary" [class.search-panel--disabled]="!filterEnabled('text')">
+  <div class="search-panel search-panel--primary" [class.search-panel--enabled]="filterEnabled('text')">
     <div class="filter-panel__header">
       <div class="filter-panel__title">
         <span class="filter-panel__kicker">02</span>
@@ -83,7 +83,7 @@
   </div>
 
   <div class="search-grid">
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('types')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('types')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">03</span>
@@ -139,7 +139,7 @@
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('subtypes')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('subtypes')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">04</span>
@@ -168,7 +168,7 @@
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('sets')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('sets')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">05</span>
@@ -197,7 +197,7 @@
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('rarities')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('rarities')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">06</span>
@@ -230,7 +230,7 @@
       </div>
     </section>
 
-    <section class="search-panel search-panel--accent" [class.search-panel--disabled]="!filterEnabled('colors')">
+    <section class="search-panel search-panel--accent" [class.search-panel--enabled]="filterEnabled('colors')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">07</span>
@@ -334,7 +334,7 @@
       </div>
     </section>
 
-    <section class="search-panel search-panel--costs" [class.search-panel--disabled]="!filterEnabled('costs')">
+    <section class="search-panel search-panel--costs" [class.search-panel--enabled]="filterEnabled('costs')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">08</span>
@@ -379,7 +379,7 @@
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('stats')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('stats')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">09</span>
@@ -431,7 +431,7 @@
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('formats')">
+    <section class="search-panel" [class.search-panel--enabled]="filterEnabled('formats')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">10</span>

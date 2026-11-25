@@ -1,7 +1,8 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { map, of, switchMap, timer } from 'rxjs';
 import { AuthStore } from '../core/auth/auth.store';
 import { ContentSafetyService } from '../core/content-safety/content-safety.service';
 import { AdsenseService } from '../core/ads/adsense.service';
@@ -19,6 +20,8 @@ import { AppModalComponent } from '../shared/ui/app-modal/app-modal.component';
 import { AppThemeService } from '../core/theme/app-theme.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { RouteStylesService } from '../core/ui/route-styles.service';
+
+const GLOBAL_LOADING_DISPLAY_DELAY_MS = 250;
 
 @Component({
   selector: 'app-root',
@@ -50,10 +53,12 @@ export class App {
   private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.initialPath());
-  private readonly navigationLoading = signal(this.shouldShowInitialNavigationLoading(this.currentPath()));
+  private readonly initialNavigationRequired = this.shouldShowInitialNavigationLoading(this.currentPath());
+  private readonly navigationLoading = signal(this.initialNavigationRequired);
+  private readonly initialNavigationFallback = signal(this.initialNavigationRequired);
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
   readonly showNoindexDisclaimer = computed(() => this.isNoindexFooterDisclaimerPath(this.currentPath()));
-  readonly showGlobalLoading = computed(
+  private readonly globalLoadingRequested = computed(
     () => this.navigationLoading()
       || (
         this.loading.active()
@@ -61,8 +66,25 @@ export class App {
         && !this.globalLoadingFeaturePolicy.skipsFeatureForUrl(this.currentPath())
       ),
   );
-  readonly showFooterDisclaimer = computed(() => this.showDisclaimer() && !this.showGlobalLoading());
-  readonly showNoindexFooterDisclaimer = computed(() => this.showNoindexDisclaimer() && !this.showGlobalLoading());
+  private readonly delayedGlobalLoading = isPlatformBrowser(this.platformId)
+    ? toSignal(
+      toObservable(this.globalLoadingRequested).pipe(
+        switchMap((requested) => requested
+          ? timer(GLOBAL_LOADING_DISPLAY_DELAY_MS).pipe(map(() => true))
+          : of(false)),
+        ),
+        { initialValue: false },
+      )
+    : this.globalLoadingRequested;
+  readonly showGlobalLoading = computed(
+    () => this.initialNavigationFallback() || this.delayedGlobalLoading(),
+  );
+  readonly showFooterDisclaimer = computed(
+    () => this.showDisclaimer() && !this.globalLoadingRequested() && !this.initialNavigationFallback(),
+  );
+  readonly showNoindexFooterDisclaimer = computed(
+    () => this.showNoindexDisclaimer() && !this.globalLoadingRequested() && !this.initialNavigationFallback(),
+  );
 
   constructor() {
     this.theme.initialize();
@@ -86,11 +108,13 @@ export class App {
           this.syncRouteState(event.urlAfterRedirects);
           this.notFoundNavigation.recordNavigationEnd(event.urlAfterRedirects, this.isCurrentNotFoundRoute());
           this.navigationLoading.set(false);
+          this.initialNavigationFallback.set(false);
           return;
         }
 
         if (event instanceof NavigationCancel || event instanceof NavigationError) {
           this.navigationLoading.set(false);
+          this.initialNavigationFallback.set(false);
           this.syncRouteState(this.router.url);
         }
       });

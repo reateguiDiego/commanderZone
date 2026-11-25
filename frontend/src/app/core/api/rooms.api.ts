@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withoutGlobalLoading } from '../loading/loading-context';
 import { CurrentRoomResponse, DataResponse, LeaveRoomResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
 import { Room, RoomFormat, RoomMulliganRule, RoomTimerMode, RoomVisibility } from '../models/room.model';
@@ -34,8 +35,12 @@ export class RoomsApi {
     return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`);
   }
 
-  current(_skipGlobalLoading = false): Observable<CurrentRoomResponse> {
-    return this.http.get<CurrentRoomResponse>(`${API_BASE_URL}/rooms/current`);
+  current(skipGlobalLoading = false): Observable<CurrentRoomResponse> {
+    const url = `${API_BASE_URL}/rooms/current`;
+
+    return skipGlobalLoading
+      ? this.http.get<CurrentRoomResponse>(url, { context: withoutGlobalLoading() })
+      : this.http.get<CurrentRoomResponse>(url);
   }
 
   create(

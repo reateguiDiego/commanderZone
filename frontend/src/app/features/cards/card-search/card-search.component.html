@@ -1,18 +1,21 @@
 <section class="page-stack">
   <app-card-search-help class="cards-header-help-popover" [triggerVisible]="false" [open]="searchHelpOpen()" (openChange)="searchHelpOpen.set($event)" />
 
-  @if (filtersExpanded()) {
+  @if (isFiltersModalViewport() && filtersExpanded()) {
     <div class="cards-filters-backdrop" aria-hidden="true"></div>
   }
 
   <div class="cards-shell">
-    <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" [attr.aria-label]="'deckBuilder.cards.cardSearch.filtersAriaLabel' | runtimeTranslate">
+    <aside class="cards-aside" [class.cards-aside--expanded]="isFiltersModalViewport() && filtersExpanded()" [class.cards-aside--collapsed]="isFiltersModalViewport() && !filtersExpanded()" [attr.aria-label]="'deckBuilder.cards.cardSearch.filtersAriaLabel' | runtimeTranslate">
       <h2 class="cards-advanced-search-modal-title">{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</h2>
 
       <app-card-advanced-search-form
         #advancedSearchForm
         [options]="options()"
         [loadingOptions]="loadingOptions()"
+        (click)="markSearchFormInteracted()"
+        (input)="markSearchFormInteracted()"
+        (change)="markSearchFormInteracted()"
         (searchSubmitted)="search($event)"
         (cleared)="clear()"
       />
@@ -22,11 +25,11 @@
           <lucide-icon name="x" size="16" aria-hidden="true" />
           <span>{{ 'shared.text.close' | runtimeTranslate }}</span>
         </button>
-        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasClearableState()" (click)="advancedSearchForm.clear()">
+        <button type="button" disabled czButton="secondary" czButtonSize="sm" [disabled]="!searchFormInteracted() || loadingOptions() || !advancedSearchForm.hasClearableState()" (click)="advancedSearchForm.clear()">
           <lucide-icon name="rotate-ccw" size="16" aria-hidden="true" />
           <span>{{ 'shared.text.clear' | runtimeTranslate }}</span>
         </button>
-        <button type="button" czButton="primary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
+        <button type="button" disabled czButton="primary" czButtonSize="sm" [disabled]="!searchFormInteracted() || loadingOptions() || !advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
           <lucide-icon name="search" size="16" aria-hidden="true" />
           <span>{{ 'shared.text.search' | runtimeTranslate }}</span>
         </button>

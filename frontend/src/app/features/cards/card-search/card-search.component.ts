@@ -79,7 +79,8 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   readonly options = signal<CardSearchOptionsResponse | null>(null);
   readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
   readonly loading = signal(false);
-  readonly loadingOptions = signal(false);
+  readonly loadingOptions = signal(true);
+  readonly searchFormInteracted = signal(false);
   readonly error = signal<string | null>(null);
   readonly searched = signal(false);
   readonly viewMode = signal<CardSearchViewMode>('list');
@@ -90,7 +91,11 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   readonly formattedTotalResults = computed(() => this.formatCount(this.totalResults()));
   readonly filterPills = signal<CardSearchFilterPill[]>([]);
   readonly searchHelpOpen = signal(false);
-  readonly filtersExpanded = signal(true);
+  readonly isFiltersModalViewport = computed(() => {
+    const width = this.device.profile().width;
+    return width > 0 && width <= CARD_FILTERS_MODAL_MAX_WIDTH;
+  });
+  readonly filtersExpanded = signal(this.device.isMobile() || this.isFiltersModalViewport());
   readonly detailsCard = signal<Card | null>(null);
   readonly addToDeckCard = signal<Card | null>(null);
   readonly printingsCard = signal<Card | null>(null);
@@ -169,7 +174,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   });
   private filtersScrollLocked = false;
   private readonly syncFiltersScrollLock = effect(() => {
-    this.setFiltersScrollLock(this.filtersExpanded() && this.device.profile().width <= CARD_FILTERS_MODAL_MAX_WIDTH);
+    this.setFiltersScrollLock(this.filtersExpanded() && this.isFiltersModalViewport());
   });
 
   ngOnInit(): void {
@@ -321,6 +326,10 @@ export class CardSearchComponent implements OnInit, OnDestroy {
     this.filtersExpanded.set(false);
   }
 
+  markSearchFormInteracted(): void {
+    this.searchFormInteracted.set(true);
+  }
+
   private setFiltersScrollLock(shouldLock: boolean): void {
     if (shouldLock === this.filtersScrollLocked) {
       return;
@@ -375,7 +384,6 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   }
 
   private async loadOptions(): Promise<void> {
-    this.loadingOptions.set(true);
     try {
       this.options.set(await firstValueFrom(this.cardsApi.searchOptions()));
     } catch {

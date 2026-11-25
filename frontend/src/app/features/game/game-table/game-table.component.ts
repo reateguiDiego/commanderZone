@@ -82,6 +82,7 @@ import { ImagePreloadQueueService } from '../../../shared/services/image-preload
 import { GameScheduledImageDirective } from './directives/game-scheduled-image.directive';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableRematchVoteService } from './services/game-table-rematch-vote.service';
+import { GameTableRematchSyncService } from './services/game-table-rematch-sync.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
@@ -641,6 +642,7 @@ const DICE_RESULT_REVEAL_DELAY_MS = 3_000;
     GameTableGameRealtimeService,
     GameTableDisconnectVoteService,
     GameTableRematchVoteService,
+    GameTableRematchSyncService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,
     GameTableCommandService,
@@ -697,6 +699,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly cardsApi = inject(CardsApi);
   private readonly rematchVotes = inject(GameTableRematchVoteService);
+  private readonly rematchSync = inject(GameTableRematchSyncService);
   private readonly router = inject(Router);
   private readonly authStore = inject(AuthStore);
   readonly fairPlayUserId = computed(() => this.authStore.user()?.id ?? null);
@@ -1354,6 +1357,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private rematchCountdownDeadlineMs: number | null = null;
   private chatReactionClockTimer: number | null = null;
   private rematchCountdownKey = '';
+  private stopRematchSync: (() => void) | null = null;
+  private rematchSyncGameId: string | null = null;
   private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
   private lastObservedChatKey: string | null = null;
@@ -1446,6 +1451,43 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       // countdown.
       const deadlineAt = this.gameFinished() ? (snapshot?.rematch?.deadlineAt ?? null) : null;
       queueMicrotask(() => this.syncRematchCountdown(deadlineAt));
+    });
+
+    effect(() => {
+      const gameId = this.store.gameId();
+      const snapshot = this.store.snapshot();
+      const shouldSyncRematch = this.gameFinished()
+        && this.rematchPromptKind() !== null
+        && !this.tableExitPending();
+
+      if (!gameId || !snapshot || !shouldSyncRematch) {
+        this.stopRematchSync?.();
+        this.stopRematchSync = null;
+        this.rematchSyncGameId = null;
+        return;
+      }
+      if (this.rematchSyncGameId === gameId) {
+        return;
+      }
+
+      this.stopRematchSync?.();
+      this.rematchSyncGameId = gameId;
+      this.stopRematchSync = this.rematchSync.watch(
+        gameId,
+        Object.keys(snapshot.players),
+        snapshot.controlPlaneRevision ?? 0,
+        {
+          applyControlPlane: (controlPlane) => this.store.applyControlPlaneAcknowledgement(controlPlane),
+          navigateToRooms: () => {
+            this.rematchModalOpen.set(false);
+            void this.router.navigate(['/rooms']);
+          },
+          navigateToWaitingRoom: (roomId) => {
+            this.rematchModalOpen.set(false);
+            void this.router.navigate(['/rooms', roomId, 'waiting']);
+          },
+        },
+      );
     });
 
     effect(() => {
@@ -1580,6 +1622,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.stopRematchSync?.();
+    this.stopRematchSync = null;
     this.cancelPendingDragPointerMove();
     this.realtimeAnimationSubscriptions.unsubscribe();
     this.destroyMobileScrollLock();

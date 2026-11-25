@@ -93,6 +93,7 @@ describe('CardSearchComponent', () => {
         {
           provide: DeviceProfileService,
           useValue: {
+            isMobile: () => !isDesktop(),
             isDesktop,
             isDesktopLayout,
             hasHover,
@@ -249,22 +250,27 @@ describe('CardSearchComponent', () => {
   });
 
   it('renders a mobile filters backdrop only while the filters are expanded', () => {
+    profile.set({ width: 921 });
     const fixture = TestBed.createComponent(CardSearchComponent);
     fixture.componentInstance.filtersExpanded.set(true);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.cards-filters-backdrop')).not.toBeNull();
-    expect(bodyScrollLock.lock).not.toHaveBeenCalled();
+    expect(bodyScrollLock.lock).toHaveBeenCalledTimes(1);
 
     fixture.componentInstance.collapseFilters();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.cards-filters-backdrop')).toBeNull();
+    expect(bodyScrollLock.unlock).toHaveBeenCalledTimes(1);
   });
 
   it('locks the page scroll while the mobile filters dialog is open', () => {
     profile.set({ width: 921 });
     const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.expandFilters();
     fixture.detectChanges();
 
     expect(bodyScrollLock.lock).toHaveBeenCalledTimes(1);

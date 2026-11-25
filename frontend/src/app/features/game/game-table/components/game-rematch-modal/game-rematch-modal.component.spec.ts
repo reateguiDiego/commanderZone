@@ -30,19 +30,28 @@ describe('GameRematchModalComponent', () => {
     expect(rows.length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Play again');
     expect(fixture.nativeElement.textContent).toContain('No vote');
-    expect(fixture.nativeElement.querySelector('.modal-close-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-close-button')).not.toBeNull();
   });
 
-  it('shows a close button after the current player has voted', () => {
+  it('allows closing the vote panel before the current player votes', () => {
     const closed = vi.fn();
-    fixture.componentRef.setInput('currentVote', 'play_again');
+    fixture.componentRef.setInput('players', [
+      { playerId: 'player-1', displayName: 'Winner', winner: true, life: 12, defeated: false, vote: null },
+      { playerId: 'player-2', displayName: 'Defeated', winner: false, life: 0, defeated: true, vote: 'leave_room' },
+    ]);
+    fixture.componentRef.setInput('playAgainDisabled', true);
     fixture.componentInstance.closed.subscribe(closed);
     fixture.detectChanges();
 
     const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement | null;
+    const playAgainButton = Array.from(
+      fixture.nativeElement.querySelectorAll('footer button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.trim() === 'Play again');
     closeButton?.click();
 
     expect(closeButton).not.toBeNull();
+    expect(playAgainButton).toBeDefined();
+    expect(playAgainButton?.disabled).toBe(true);
     expect(closed).toHaveBeenCalledOnce();
   });
 
@@ -84,7 +93,7 @@ describe('GameRematchModalComponent', () => {
     expect(fixture.nativeElement.querySelector('.vote-pill[data-vote="leave_room"]')).not.toBeNull();
   });
 
-  it('hides play again when the room can only be abandoned', () => {
+  it('keeps play again visible but disabled when the room can only be abandoned', () => {
     fixture.componentRef.setInput('playAgainDisabled', true);
     fixture.detectChanges();
 
@@ -94,7 +103,8 @@ describe('GameRematchModalComponent', () => {
     const leaveButton = Array.from(buttons)
       .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Leave room');
 
-    expect(playAgainButton).toBeUndefined();
+    expect(playAgainButton).toBeDefined();
+    expect(playAgainButton?.disabled).toBe(true);
     expect(leaveButton).toBeDefined();
     expect(fixture.nativeElement.textContent).toContain('The rest of the players have already voted to leave the room.');
   });

@@ -98,7 +98,7 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
   }
 });
 
-test('rematch vote ACK updates its voter and Mercure updates the other player without a gameplay snapshot', async ({ browser, request, baseURL }) => {
+test('rematch votes sync, then both players enter the rematch waiting room without a gameplay snapshot', async ({ browser, request, baseURL }) => {
   test.setTimeout(180_000);
   if (!baseURL) {
     throw new Error('Playwright baseURL is required.');
@@ -122,6 +122,7 @@ test('rematch vote ACK updates its voter and Mercure updates the other player wi
     storageState: authStorageState(baseURL, playerB.user, playerB.refreshToken),
   });
   await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
+  await Promise.all([trackMercureConnections(contextA), trackMercureConnections(contextB)]);
 
   try {
     const pageA = await contextA.newPage();
@@ -144,6 +145,12 @@ test('rematch vote ACK updates its voter and Mercure updates the other player wi
       expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
       waitForGameplayConnection(framesA),
       waitForGameplayConnection(framesB),
+      waitForMercureGameConnection(pageA, gameId),
+      waitForMercureGameConnection(pageB, gameId),
+    ]);
+    await Promise.all([
+      pageA.getByRole('button', { name: /Understood|Entendido/i }).click(),
+      pageB.getByRole('button', { name: /Understood|Entendido/i }).click(),
     ]);
     const snapshotBaseline = gameplaySnapshotRequests;
 
@@ -162,26 +169,53 @@ test('rematch vote ACK updates its voter and Mercure updates the other player wi
       expect(pageB.getByRole('button', { name: playAgain })).toBeVisible({ timeout: 30_000 }),
     ]);
 
-    const voteResponse = pageB.waitForResponse((response) =>
+    const firstVoteResponse = pageA.waitForResponse((response) =>
       response.request().method() === 'POST' && response.url().includes(`/games/${gameId}/rematch-vote`),
     );
-    await pageB.getByRole('button', { name: playAgain }).click();
-    const response = await voteResponse;
-    expect(response.ok()).toBe(true);
-    const responseBody = await response.json() as {
+    await pageA.getByRole('button', { name: playAgain }).click();
+    const firstResponse = await firstVoteResponse;
+    expect(firstResponse.ok()).toBe(true);
+    const firstResponseBody = await firstResponse.json() as {
+      status?: string;
       clientActionId?: unknown;
       controlPlane?: { controlPlaneRevision?: unknown };
       snapshot?: unknown;
     };
+    expect(firstResponseBody.status).toBe('waiting_for_votes');
+    expect(typeof firstResponseBody.clientActionId).toBe('string');
+    expect(Number(firstResponseBody.controlPlane?.controlPlaneRevision ?? 0)).toBeGreaterThan(0);
+    expect(firstResponseBody.snapshot).toBeUndefined();
+    expect(await gameVersion(request, gameId, playerB.token)).toBe(concede.version);
+
+    const voterRowA = pageA.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerA.user.displayName });
+    const observerRowB = pageB.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerA.user.displayName });
+    await expect(voterRowA.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again');
+    await expect(observerRowB.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again', { timeout: 30_000 });
+
+    const finalVoteResponse = pageB.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes(`/games/${gameId}/rematch-vote`),
+    );
+    await pageB.getByRole('button', { name: playAgain }).click();
+    const response = await finalVoteResponse;
+    expect(response.ok()).toBe(true);
+    const responseBody = await response.json() as {
+      status?: string;
+      clientActionId?: unknown;
+      controlPlane?: { controlPlaneRevision?: unknown };
+      snapshot?: unknown;
+      room?: { id?: unknown };
+    };
+    expect(responseBody.status).toBe('room_ready');
     expect(typeof responseBody.clientActionId).toBe('string');
     expect(Number(responseBody.controlPlane?.controlPlaneRevision ?? 0)).toBeGreaterThan(0);
     expect(responseBody.snapshot).toBeUndefined();
-    expect(await gameVersion(request, gameId, playerA.token)).toBe(concede.version);
+    expect(typeof responseBody.room?.id).toBe('string');
 
-    const voterRow = pageB.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
-    const observerRow = pageA.locator('app-game-rematch-modal .vote-row').filter({ hasText: playerB.user.displayName });
-    await expect(voterRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again');
-    await expect(observerRow.locator('.vote-pill')).toHaveAttribute('data-vote', 'play_again', { timeout: 30_000 });
+    const waitingRoomUrl = new RegExp(`/rooms/${String(responseBody.room?.id)}/waiting$`);
+    await Promise.all([
+      expect(pageA).toHaveURL(waitingRoomUrl, { timeout: 30_000 }),
+      expect(pageB).toHaveURL(waitingRoomUrl, { timeout: 30_000 }),
+    ]);
     expect(gameplaySnapshotRequests).toBe(snapshotBaseline);
   } finally {
     await contextA.close();
@@ -372,6 +406,27 @@ async function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
   await expect.poll(() => frames.some((message) =>
     message['kind'] === 'connection_state' && message['status'] === 'connected',
   ), { timeout: 20_000 }).toBe(true);
+}
+
+async function trackMercureConnections(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    const NativeEventSource = window.EventSource;
+    window.__czMercureOpenUrls = [];
+    window.EventSource = class extends NativeEventSource {
+      constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
+        super(url, eventSourceInitDict);
+        this.addEventListener('open', () => {
+          window.__czMercureOpenUrls?.push(String(url));
+        }, { once: true });
+      }
+    };
+  });
+}
+
+async function waitForMercureGameConnection(page: Page, gameId: string): Promise<void> {
+  await page.waitForFunction((topic) =>
+    window.__czMercureOpenUrls?.some((url) => url.includes(topic)) === true,
+  `topic=${encodeURIComponent(`games/${gameId}`)}`);
 }
 
 async function waitForActionPhases(frames: JsonObject[], action: string, metric: string): Promise<JsonObject | null> {
@@ -578,5 +633,6 @@ async function gameSnapshot(request: APIRequestContext, gameId: string, token: s
 declare global {
   interface Window {
     __czLifecycleSockets?: Record<string, { socket: WebSocket; frames: string[] }>;
+    __czMercureOpenUrls?: string[];
   }
 }

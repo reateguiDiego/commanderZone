@@ -115,6 +115,7 @@
               [czButton]="secondaryVariant"
               [class.primary-button]="secondaryVariant === 'primary'"
               [class.secondary-button]="secondaryVariant === 'secondary'"
+              [disabled]="secondaryDisabled"
               type="button"
               (click)="secondary.emit()"
             >

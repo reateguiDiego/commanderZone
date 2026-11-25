@@ -111,6 +111,29 @@ describe('TokenSearchModalComponent', () => {
     }
   });
 
+  it('keeps a leading special character in the input and token search query', async () => {
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    try {
+      const query = "!Squirrel // Food & Clue #2";
+      const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+      input.value = query;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+
+      expect(input.value).toBe(query);
+      await vi.advanceTimersByTimeAsync(320);
+
+      expect(fixture.componentInstance.query()).toBe(query);
+      expect(cardsApi.search).toHaveBeenCalledWith(query, 1, 500, { tokenOnly: true });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('excludes The Ring from token search results', async () => {
     cardsApi.search.mockReturnValue(of({
       data: [theRingFixture(), cardFixture('token-2', 'Goblin Token')],
