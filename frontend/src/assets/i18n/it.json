@@ -1154,6 +1154,8 @@
       "scryTitle": "Profetizza 1",
       "scryDescription": "Scegli cosa fare con la prima carta del tuo grimorio.",
       "waitingForPlayers": "Aspettando gli altri giocatori...",
+      "limitReached": "Hai raggiunto il limite di mulligan per questa regola.",
+      "allHandToBottom": "Tutte le carte della tua mano andranno in fondo al grimorio. Conferma per continuare.",
       "currentHand": "Lancetta corrente",
       "emptyHand": "Nessuna carta in mano.",
       "selectedCount": "{{selected}} / {{total}} selezionato",

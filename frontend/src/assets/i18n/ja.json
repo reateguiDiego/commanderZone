@@ -1154,6 +1154,8 @@
       "scryTitle": "占術1",
       "scryDescription": "ライブラリーの一番上のカードをどうするか選択します。",
       "waitingForPlayers": "他のプレイヤーを待っています...",
+      "limitReached": "このルールのマリガン上限に達しました。",
+      "allHandToBottom": "手札のすべてのカードをライブラリーの一番下に置きます。確認して続行してください。",
       "currentHand": "現在の手札",
       "emptyHand": "手札にカードがありません。",
       "selectedCount": "{{ selected }} / {{ total }} が選択されました",

@@ -13,10 +13,31 @@
     </a>
 
     <nav
+      #primaryNavigation
       class="nav-list"
+      [class.entering-from-left]="navigationIndicatorEnteringFromLeft()"
       [attr.aria-label]="'navigation.dashboard.dashboardShell.primary' | runtimeTranslate"
     >
-      <a routerLink="/decks" routerLinkActive="active">
+      <span
+        #activeNavigationIndicator
+        class="nav-active-indicator"
+        (transitionend)="onNavigationIndicatorTransitionEnd($event)"
+        [class.is-animated]="navigationIndicatorMotionEnabled()"
+        [class.visible]="navigationIndicator().visible"
+        [style.width.px]="navigationIndicator().width"
+        [style.height.px]="navigationIndicator().height"
+        [style.transform]="
+          'translate3d(' + navigationIndicator().x + 'px, ' + navigationIndicator().y + 'px, 0)'
+        "
+        aria-hidden="true"
+      ></span>
+      <a
+        #navigationItem
+        data-navigation-item="decks"
+        routerLink="/decks"
+        [class.active]="activeNavigationItem() === 'decks'"
+        [attr.aria-current]="activeNavigationItem() === 'decks' ? 'page' : null"
+      >
         <img
           class="nav-icon"
           src="/assets/icons/CZ/CZ_decks_menu.webp"
@@ -28,7 +49,13 @@
         <span class="nav-label">{{ 'shared.text.decks' | runtimeTranslate }}</span>
       </a>
       @if (device.isDesktop() && device.isDesktopLayout()) {
-        <a routerLink="/rooms" routerLinkActive="active">
+        <a
+          #navigationItem
+          data-navigation-item="rooms"
+          routerLink="/rooms"
+          [class.active]="activeNavigationItem() === 'rooms'"
+          [attr.aria-current]="activeNavigationItem() === 'rooms' ? 'page' : null"
+        >
           <img
             class="nav-icon"
             src="/assets/icons/CZ/CZ_rooms_menu.webp"
@@ -40,7 +67,13 @@
           <span class="nav-label">{{ 'shared.text.rooms' | runtimeTranslate }}</span>
         </a>
       }
-      <a routerLink="/cards" routerLinkActive="active">
+      <a
+        #navigationItem
+        data-navigation-item="cards"
+        routerLink="/cards"
+        [class.active]="activeNavigationItem() === 'cards'"
+        [attr.aria-current]="activeNavigationItem() === 'cards' ? 'page' : null"
+      >
         <img
           class="nav-icon"
           src="/assets/icons/CZ/CZ_cards_menu.webp"
@@ -51,7 +84,13 @@
         />
         <span class="nav-label">{{ 'shared.text.cards' | runtimeTranslate }}</span>
       </a>
-      <a routerLink="/community" routerLinkActive="active">
+      <a
+        #navigationItem
+        data-navigation-item="community"
+        routerLink="/community"
+        [class.active]="activeNavigationItem() === 'community'"
+        [attr.aria-current]="activeNavigationItem() === 'community' ? 'page' : null"
+      >
         <img
           class="nav-icon"
           src="/assets/icons/CZ/CZ_comunity_menu.webp"
@@ -64,7 +103,13 @@
           'navigation.dashboard.dashboardShell.community' | runtimeTranslate
         }}</span>
       </a>
-      <a routerLink="/table-assistant" routerLinkActive="active">
+      <a
+        #navigationItem
+        data-navigation-item="table-assistant"
+        routerLink="/table-assistant"
+        [class.active]="activeNavigationItem() === 'table-assistant'"
+        [attr.aria-current]="activeNavigationItem() === 'table-assistant' ? 'page' : null"
+      >
         <img
           class="nav-icon"
           src="/assets/icons/CZ/CZ_table_menu.webp"

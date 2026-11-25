@@ -41,8 +41,7 @@ describe('app routes', () => {
   });
 
   it('keeps /admin inside the authenticated shell behind adminAccessGuard', async () => {
-    const shellRoute = routes.find((route) => route.path === '' && route.children && route.canActivate?.includes(authGuard));
-    const adminRoute = shellRoute?.children?.find((route) => route.path === 'admin');
+    const adminRoute = authenticatedDashboardRouteGroup()?.children?.find((route) => route.path === 'admin');
     const componentLoader = adminRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
     const component = componentLoader ? await componentLoader() : undefined;
 
@@ -54,11 +53,11 @@ describe('app routes', () => {
   });
 
   it('registers advanced deck analysis before the generic deck detail route', async () => {
-    const shellRoute = routes.find((route) => route.path === '' && route.children && route.canActivate?.includes(authGuard));
-    const advancedRoute = shellRoute?.children?.find((route) => route.path === 'decks/:slug/analysis');
-    const detailRoute = shellRoute?.children?.find((route) => route.path === 'decks/:slug');
-    const advancedRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'decks/:slug/analysis') ?? -1;
-    const detailRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'decks/:slug') ?? -1;
+    const authenticatedRoutes = authenticatedDashboardRouteGroup()?.children;
+    const advancedRoute = authenticatedRoutes?.find((route) => route.path === 'decks/:slug/analysis');
+    const detailRoute = authenticatedRoutes?.find((route) => route.path === 'decks/:slug');
+    const advancedRouteIndex = authenticatedRoutes?.findIndex((route) => route.path === 'decks/:slug/analysis') ?? -1;
+    const detailRouteIndex = authenticatedRoutes?.findIndex((route) => route.path === 'decks/:slug') ?? -1;
     const componentLoader = advancedRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
     const component = componentLoader ? await componentLoader() : undefined;
 
@@ -71,18 +70,20 @@ describe('app routes', () => {
     expect(component?.name).toMatch(/DeckAdvancedAnalysisPageComponent$/);
   });
 
-  it('keeps /community inside a public app shell without authGuard', () => {
-    const shellRoute = routes.find((route) => route.path === '' && route.children && !route.canActivate?.includes(authGuard));
+  it('keeps /community public inside the same shell used by authenticated app routes', () => {
+    const shellRoute = dashboardShellRoute();
     const communityRoute = shellRoute?.children?.find((route) => route.path === 'community');
+    const authenticatedRouteGroup = authenticatedDashboardRouteGroup();
 
     expect(shellRoute).toBeDefined();
     expect(shellRoute?.canActivate).toBeUndefined();
     expect(communityRoute).toBeDefined();
     expect(communityRoute?.data?.['pageKey']).toBe('publicCommunity');
+    expect(authenticatedRouteGroup?.canActivate).toEqual([authGuard]);
   });
 
   it('registers community advanced deck analysis before the generic community deck detail route', async () => {
-    const shellRoute = routes.find((route) => route.path === '' && route.children && !route.canActivate?.includes(authGuard));
+    const shellRoute = dashboardShellRoute();
     const advancedRoute = shellRoute?.children?.find((route) => route.path === 'community/decks/:slug/analysis');
     const detailRoute = shellRoute?.children?.find((route) => route.path === 'community/decks/:id');
     const advancedRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'community/decks/:slug/analysis') ?? -1;
@@ -129,6 +130,18 @@ function flattenRoutes(routeList: readonly Route[]): Route[] {
     route,
     ...flattenRoutes(route.children ?? []),
   ]);
+}
+
+function dashboardShellRoute(): Route | undefined {
+  return routes.find(
+    (route) => route.path === '' && route.children?.some((child) => child.path === 'community'),
+  );
+}
+
+function authenticatedDashboardRouteGroup(): Route | undefined {
+  return dashboardShellRoute()?.children?.find(
+    (route) => route.path === '' && route.canActivate?.includes(authGuard),
+  );
 }
 
 function isPageKey(value: unknown): value is PageKey {

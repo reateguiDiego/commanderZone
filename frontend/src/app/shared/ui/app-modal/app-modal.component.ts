@@ -52,6 +52,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() showPrimary = true;
   @Input() showSecondary = true;
   @Input() primaryDisabled = false;
+  @Input() secondaryDisabled = false;
   @Input() secondaryVariant: 'primary' | 'secondary' = 'secondary';
   @Input() showBackButton = false;
   @Input() showHeaderAction = false;

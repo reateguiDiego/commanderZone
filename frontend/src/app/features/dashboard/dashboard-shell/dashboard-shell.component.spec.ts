@@ -29,6 +29,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { AppThemeService } from '../../../core/theme/app-theme.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
+import { MessagesStore } from '../../messages/data-access/messages.store';
 import { ModerationSummaryStore } from '../../reports/data-access/moderation-summary.store';
 import { DashboardShellComponent } from './dashboard-shell.component';
 
@@ -239,6 +240,23 @@ describe('DashboardShellComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Cards');
     expect(fixture.nativeElement.textContent).toContain('Community');
     expect(fixture.nativeElement.textContent).toContain('Player');
+  });
+
+  it('keeps the messages control slot stable while its summary loads', async () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const messagesSlot = fixture.nativeElement.querySelector('.messages-dropdown');
+    expect(messagesSlot).not.toBeNull();
+    expect(messagesSlot.querySelector('.messages-action')).toBeNull();
+
+    TestBed.inject(MessagesStore).totalCount.set(2);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.messages-dropdown')).toBe(messagesSlot);
+    expect(messagesSlot.querySelector('.messages-action')).not.toBeNull();
   });
 
   it('does not render dashboard header controls without an authenticated session', () => {

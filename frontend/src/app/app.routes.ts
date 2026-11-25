@@ -1,7 +1,78 @@
-﻿import { Routes } from '@angular/router';
+﻿import { Route, Routes } from '@angular/router';
 import { adminAccessGuard, authGuard, guestGuard } from './core/auth/auth.guard';
 import { SEO_LANDING_ROUTES } from './features/seo-landings/seo-landing.routes';
 import { LEGAL_ROUTES } from './features/legal/legal.routes';
+
+const AUTHENTICATED_DASHBOARD_ROUTE_GROUP: Route = {
+  path: '',
+  canActivate: [authGuard],
+  data: { pageKey: 'app' },
+  children: [
+    {
+      path: 'admin',
+      loadComponent: () => import('./features/admin/admin-page/admin-page.component')
+        .then((component) => component.AdminPageComponent),
+      canActivate: [adminAccessGuard],
+      data: { pageKey: 'admin' },
+      title: 'Admin | CommanderZone',
+    },
+    {
+      path: 'dashboard',
+      loadComponent: () => import('./features/dashboard/dashboard-home/dashboard-home.component')
+        .then((component) => component.DashboardHomeComponent),
+      data: { pageKey: 'dashboard' },
+    },
+    {
+      path: 'cards',
+      loadComponent: () => import('./features/cards/card-search/card-search.component')
+        .then((component) => component.CardSearchComponent),
+      data: { pageKey: 'cards' },
+    },
+    {
+      path: 'decks',
+      loadComponent: () => import('./features/decks/deck-list/deck-list.component')
+        .then((component) => component.DeckListComponent),
+      data: { pageKey: 'decks' },
+    },
+    {
+      path: 'decks/:slug/analysis',
+      loadComponent: () => import('./features/decks/deck-advanced-analysis/deck-advanced-analysis-page.component')
+        .then((component) => component.DeckAdvancedAnalysisPageComponent),
+      data: { pageKey: 'deckEditor' },
+    },
+    {
+      path: 'decks/:slug',
+      loadComponent: () => import('./features/decks/deck-editor/deck-editor.component')
+        .then((component) => component.DeckEditorComponent),
+      data: { pageKey: 'deckEditor' },
+    },
+    {
+      path: 'rooms',
+      loadComponent: () => import('./features/rooms/rooms/rooms.component')
+        .then((component) => component.RoomsComponent),
+      data: { pageKey: 'rooms' },
+    },
+    {
+      path: 'rooms/:id/waiting',
+      loadComponent: () => import('./features/rooms/waiting-room/waiting-room.component')
+        .then((component) => component.WaitingRoomComponent),
+      data: { pageKey: 'waitingRoom' },
+    },
+    {
+      path: 'table-assistant',
+      loadComponent: () => import('./features/table-assistant/table-assistant-page/table-assistant-page.component')
+        .then((component) => component.TableAssistantPageComponent),
+      data: { pageKey: 'tableAssistantApp' },
+    },
+    {
+      path: 'table-assistant/:id',
+      loadComponent: () => import('./features/table-assistant/table-assistant-room/table-assistant-room.component')
+        .then((component) => component.TableAssistantRoomComponent),
+      data: { pageKey: 'tableAssistantApp' },
+    },
+    { path: '', pathMatch: 'full', redirectTo: 'dashboard', data: { pageKey: 'dashboard' } },
+  ],
+};
 
 export const routes: Routes = [
   ...SEO_LANDING_ROUTES,
@@ -101,6 +172,7 @@ export const routes: Routes = [
           .then((component) => component.CommunityDiscoveryDetailPageComponent),
         data: { pageKey: 'publicCommunity', kind: 'card' },
       },
+      AUTHENTICATED_DASHBOARD_ROUTE_GROUP,
     ],
   },
   {
@@ -147,78 +219,6 @@ export const routes: Routes = [
     canActivate: [authGuard],
     data: { pageKey: 'game' },
     title: 'CommanderZone',
-  },
-  {
-    path: '',
-    loadComponent: () => import('./features/dashboard/dashboard-shell/dashboard-shell.component')
-      .then((component) => component.DashboardShellComponent),
-    canActivate: [authGuard],
-    data: { pageKey: 'app' },
-    children: [
-      {
-        path: 'admin',
-        loadComponent: () => import('./features/admin/admin-page/admin-page.component')
-          .then((component) => component.AdminPageComponent),
-        canActivate: [adminAccessGuard],
-        data: { pageKey: 'admin' },
-        title: 'Admin | CommanderZone',
-      },
-      {
-        path: 'dashboard',
-        loadComponent: () => import('./features/dashboard/dashboard-home/dashboard-home.component')
-          .then((component) => component.DashboardHomeComponent),
-        data: { pageKey: 'dashboard' },
-      },
-      {
-        path: 'cards',
-        loadComponent: () => import('./features/cards/card-search/card-search.component')
-          .then((component) => component.CardSearchComponent),
-        data: { pageKey: 'cards' },
-      },
-      {
-        path: 'decks',
-        loadComponent: () => import('./features/decks/deck-list/deck-list.component')
-          .then((component) => component.DeckListComponent),
-        data: { pageKey: 'decks' },
-      },
-      {
-        path: 'decks/:slug/analysis',
-        loadComponent: () => import('./features/decks/deck-advanced-analysis/deck-advanced-analysis-page.component')
-          .then((component) => component.DeckAdvancedAnalysisPageComponent),
-        data: { pageKey: 'deckEditor' },
-      },
-      {
-        path: 'decks/:slug',
-        loadComponent: () => import('./features/decks/deck-editor/deck-editor.component')
-          .then((component) => component.DeckEditorComponent),
-        data: { pageKey: 'deckEditor' },
-      },
-      {
-        path: 'rooms',
-        loadComponent: () => import('./features/rooms/rooms/rooms.component')
-          .then((component) => component.RoomsComponent),
-        data: { pageKey: 'rooms' },
-      },
-      {
-        path: 'rooms/:id/waiting',
-        loadComponent: () => import('./features/rooms/waiting-room/waiting-room.component')
-          .then((component) => component.WaitingRoomComponent),
-        data: { pageKey: 'waitingRoom' },
-      },
-      {
-        path: 'table-assistant',
-        loadComponent: () => import('./features/table-assistant/table-assistant-page/table-assistant-page.component')
-          .then((component) => component.TableAssistantPageComponent),
-        data: { pageKey: 'tableAssistantApp' },
-      },
-      {
-        path: 'table-assistant/:id',
-        loadComponent: () => import('./features/table-assistant/table-assistant-room/table-assistant-room.component')
-          .then((component) => component.TableAssistantRoomComponent),
-        data: { pageKey: 'tableAssistantApp' },
-      },
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard', data: { pageKey: 'dashboard' } },
-    ],
   },
   {
     path: '**',

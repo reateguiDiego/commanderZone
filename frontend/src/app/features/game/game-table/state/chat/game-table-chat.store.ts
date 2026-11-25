@@ -7,7 +7,6 @@ import { GameLogEntryView, GameTableChatLogState } from './game-table-chat-log.s
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 
-const EVENT_LOG_MEMO_STORAGE_KEY = 'cz_perf_event_log_memo';
 const EVENT_LOG_PRESENTATION_ZONES = [
   'library',
   'hand',
@@ -23,21 +22,17 @@ export class GameTableChatStore {
   private readonly chatLogState = inject(GameTableChatLogState);
   private readonly core = inject(GameTableCoreState);
   private readonly selectors = inject(GameTableSnapshotSelectors);
-  private readonly eventLogMemoEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem(EVENT_LOG_MEMO_STORAGE_KEY) === '1';
   private readonly eventLogPresentationSnapshot = computed(
     () => this.core.snapshot(),
     {
-      equal: (previous, next) => this.eventLogMemoEnabled
-        && sameEventLogPresentationSnapshot(previous, next),
+      equal: sameEventLogPresentationSnapshot,
     },
   );
 
   readonly chatMessage = this.chatLogState.chatMessage;
   readonly chatTargetPlayerId = this.chatLogState.chatTargetPlayerId;
   readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLogView(
-    this.eventLogMemoEnabled ? this.eventLogPresentationSnapshot() : this.core.snapshot(),
+    this.eventLogPresentationSnapshot(),
     this.core.zones,
   ));
   readonly chatRecipients = computed<ChatRecipientOption[]>(() => this.chatRecipientOptions());

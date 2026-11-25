@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GameTableLongPressDirective } from './game-table-long-press.directive';
 
-const LAZY_GESTURE_LISTENERS_STORAGE_KEY = 'cz_perf_lazy_gesture_listeners';
 const WINDOW_POINTER_LISTENER_TYPES = ['pointermove', 'pointerup', 'pointercancel'];
 
 @Component({
@@ -64,7 +63,6 @@ describe('GameTableLongPressDirective', () => {
   let button: HTMLButtonElement;
 
   beforeEach(async () => {
-    window.localStorage.removeItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY);
     await TestBed.configureTestingModule({
       imports: [HostComponent],
     }).compileComponents();
@@ -76,7 +74,6 @@ describe('GameTableLongPressDirective', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY);
     vi.useRealTimers();
   });
 
@@ -105,13 +102,12 @@ describe('GameTableLongPressDirective', () => {
     expect(fixture.componentInstance.longPressed).not.toHaveBeenCalled();
   });
 
-  it('registers global listeners only for an active touch gesture when lazy listeners are enabled', () => {
+  it('registers global listeners only for an active touch gesture', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener');
     const removeEventListener = vi.spyOn(window, 'removeEventListener');
     let lazyFixture: ComponentFixture<HostComponent> | null = null;
 
     try {
-      window.localStorage.setItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY, '1');
       lazyFixture = TestBed.createComponent(HostComponent);
       lazyFixture.detectChanges();
       const lazyButton = lazyFixture.nativeElement.querySelector('button') as HTMLButtonElement;
@@ -173,8 +169,7 @@ describe('GameTableLongPressDirective', () => {
     }
   });
 
-  it('preserves long press output when lazy listeners are enabled', () => {
-    window.localStorage.setItem(LAZY_GESTURE_LISTENERS_STORAGE_KEY, '1');
+  it('preserves long press output with gesture-scoped listeners', () => {
     const lazyFixture = TestBed.createComponent(HostComponent);
     lazyFixture.detectChanges();
     const lazyButton = lazyFixture.nativeElement.querySelector('button') as HTMLButtonElement;

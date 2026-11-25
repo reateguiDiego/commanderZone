@@ -13,7 +13,7 @@ import {
   PendingLibraryMove,
 } from '../../services/game-table-drop-actions.service';
 import { GameTablePointerDragActionContext, GameTablePointerDragActionsService } from '../../services/game-table-pointer-drag-actions.service';
-import { PointerDropTarget } from '../../services/game-table-pointer-drag.service';
+import { GameTablePointerDragService, PointerDropTarget } from '../../services/game-table-pointer-drag.service';
 import { AlignmentGuide, GameTableBattlefieldDragState, LandStackDropPreview } from './game-table-battlefield-drag.state';
 import { GameTableDropFeedbackState } from './game-table-drop-feedback.state';
 import { GameTablePendingTransferState } from '../core/game-table-pending-transfer.state';
@@ -76,18 +76,13 @@ export interface GameTablePendingMoveContext {
 @Injectable()
 export class GameTableDragDropStore {
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
+  private readonly pointerDrag = inject(GameTablePointerDragService);
   private readonly battlefieldDragState = inject(GameTableBattlefieldDragState);
   private readonly drag = inject(GameTableDragService);
   private readonly dropActions = inject(GameTableDropActionsService);
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
   private readonly pendingTransferState = inject(GameTablePendingTransferState);
   private readonly pointerDragActions = inject(GameTablePointerDragActionsService);
-  private readonly skipDragDropFeedbackEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('cz_perf_skip_drag_drop_feedback') === '1';
-  private readonly sharedHitTestEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('cz_perf_shared_hit_test') === '1';
   private hasSkippedPointerDragDropFeedback = false;
   private landStackDropPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingLandStackDropPreview: LandStackDropPreview | null = null;
@@ -227,11 +222,6 @@ export class GameTableDragDropStore {
     }
 
     this.prepareStackDrag(context, playerId, card);
-    if (!this.skipDragDropFeedbackEnabled) {
-      this.drag.startBattlefieldPointerDrag(event, playerId, card);
-      return;
-    }
-
     if (this.drag.startBattlefieldPointerDrag(event, playerId, card)) {
       this.hasSkippedPointerDragDropFeedback = false;
     }
@@ -239,14 +229,9 @@ export class GameTableDragDropStore {
 
   moveCardPointerDrag(context: GameTableDragDropContext, event: PointerEvent): void {
     const draggingInstanceId = this.drag.moveCardPointerDrag(event, (playerId, instanceId, position) => {
-      if (this.skipDragDropFeedbackEnabled) {
-        const previousSnapshot = context.snapshot();
-        context.updateLocalCardPosition(playerId, instanceId, position, { transientPointerDrag: true });
-        this.hasSkippedPointerDragDropFeedback ||= context.snapshot() !== previousSnapshot;
-        return;
-      }
-
-      context.updateLocalCardPosition(playerId, instanceId, position);
+      const previousSnapshot = context.snapshot();
+      context.updateLocalCardPosition(playerId, instanceId, position, { transientPointerDrag: true });
+      this.hasSkippedPointerDragDropFeedback ||= context.snapshot() !== previousSnapshot;
     });
     if (draggingInstanceId && this.draggingCardInstanceId() !== draggingInstanceId) {
       this.beginCardDrag(context, draggingInstanceId);
@@ -256,23 +241,13 @@ export class GameTableDragDropStore {
       this.updatePointerDragPreview(context, draggingInstanceId);
       const draggingWholeLandStack = this.isDraggingWholeLandStack(context, draggingInstanceId);
       // Keep the top-to-bottom DOM result local to this processed pointer move.
-      const hitTestElements = this.sharedHitTestEnabled
-        ? document.elementsFromPoint(event.clientX, event.clientY)
-        : null;
+      const hitTestElements = this.pointerDrag.elementsFromPoint(event.clientX, event.clientY);
       if (draggingWholeLandStack) {
-        if (hitTestElements) {
-          this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId, hitTestElements);
-        } else {
-          this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId);
-        }
+        this.updateWholeLandStackPointerDropTarget(event, context, draggingInstanceId, hitTestElements);
         return;
       }
 
-      if (hitTestElements) {
-        this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext(), hitTestElements);
-      } else {
-        this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
-      }
+      this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext(), hitTestElements);
       if (this.isHandDropTargetActiveForInstance(context, draggingInstanceId)) {
         this.clearLandStackDropPreview();
         this.battlefieldDragState.clearManaLaneAndAlignment();
@@ -294,11 +269,7 @@ export class GameTableDragDropStore {
       }
 
       this.clearLandStackDropPreview();
-      if (hitTestElements) {
-        this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext(), hitTestElements);
-      } else {
-        this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext());
-      }
+      this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, context.battlefieldDragContext(), hitTestElements);
     }
   }
 
@@ -307,28 +278,20 @@ export class GameTableDragDropStore {
     if (draggingInstanceId) {
       this.ensureDraggingBattlefieldSelection(context, draggingInstanceId);
     }
-    const snapshotBeforeFinalization = this.skipDragDropFeedbackEnabled
-      ? context.snapshot()
-      : undefined;
+    const snapshotBeforeFinalization = context.snapshot();
 
     try {
       const completion = this.pointerDragActions.endCardPointerDrag(context.pointerDragActionContext(), event);
-      if (this.skipDragDropFeedbackEnabled) {
-        this.reconcileSkippedPointerDragDropFeedback(context, snapshotBeforeFinalization);
-      }
+      this.reconcileSkippedPointerDragDropFeedback(context, snapshotBeforeFinalization);
       await completion;
     } finally {
-      if (this.skipDragDropFeedbackEnabled) {
-        this.hasSkippedPointerDragDropFeedback = false;
-      }
+      this.hasSkippedPointerDragDropFeedback = false;
     }
   }
 
   cancelCardPointerDrag(context: GameTableDragDropContext, event?: PointerEvent): void {
     this.drag.cancelCardPointerDrag(event);
-    if (this.skipDragDropFeedbackEnabled) {
-      this.reconcileSkippedPointerDragDropFeedback(context);
-    }
+    this.reconcileSkippedPointerDragDropFeedback(context);
     this.endCardDrag(context);
     context.setSelectedCards([]);
     context.applyDeferredRemoteSnapshot();
@@ -354,9 +317,7 @@ export class GameTableDragDropStore {
   }
 
   dragEnd(context: GameTableDragDropContext): void {
-    if (this.skipDragDropFeedbackEnabled) {
-      this.reconcileSkippedPointerDragDropFeedback(context);
-    }
+    this.reconcileSkippedPointerDragDropFeedback(context);
     this.endCardDrag(context);
     context.clearHandDropPreview();
     context.setSelectedCards([]);

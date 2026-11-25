@@ -161,6 +161,18 @@ describe('AppModalComponent', () => {
     expect(emitted).toHaveBeenCalledOnce();
   });
 
+  it('can disable the secondary action while a request is pending', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('secondaryLabel', 'Cancel');
+    fixture.componentRef.setInput('secondaryDisabled', true);
+    fixture.detectChanges();
+
+    const secondaryButton = fixture.nativeElement.querySelector('footer .secondary-button') as HTMLButtonElement;
+
+    expect(secondaryButton.disabled).toBe(true);
+  });
+
   it('can close from the backdrop when enabled', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const emitted = vi.fn();

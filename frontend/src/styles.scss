@@ -69,6 +69,10 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--cz-bg);
   color: var(--cz-text);

@@ -4,29 +4,11 @@ import { LucideAngularModule, X } from 'lucide-angular';
 import { ZoneModalState } from '../../state/zones/game-table-zone-modal.state';
 import { ZoneModalComponent } from './zone-modal.component';
 
-const ZONE_MODAL_NO_BACKDROP_STORAGE_KEY = 'cz_perf_zone_modal_no_backdrop';
-
 describe('ZoneModalComponent', () => {
-  beforeEach(() => {
-    window.localStorage.removeItem(ZONE_MODAL_NO_BACKDROP_STORAGE_KEY);
-  });
-
-  afterEach(() => {
-    window.localStorage.removeItem(ZONE_MODAL_NO_BACKDROP_STORAGE_KEY);
-  });
-
-  it('keeps backdrop blur enabled by default', async () => {
+  it('renders the zone modal without backdrop blur', async () => {
     const fixture = await renderModal();
 
-    expect(backdrop(fixture).classList).not.toContain('zone-modal-backdrop--no-blur');
-  });
-
-  it('disables backdrop blur only when the performance flag is enabled', async () => {
-    window.localStorage.setItem(ZONE_MODAL_NO_BACKDROP_STORAGE_KEY, '1');
-
-    const fixture = await renderModal();
-
-    expect(backdrop(fixture).classList).toContain('zone-modal-backdrop--no-blur');
+    expect(getComputedStyle(backdrop(fixture)).backdropFilter).toBe('none');
   });
 });
 

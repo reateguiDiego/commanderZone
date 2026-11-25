@@ -1,14 +1,6 @@
 import { Card } from '../../core/models/card.model';
 
-const NON_LETTER_PATTERN = /[^a-zA-ZÀ-ÿ\s]/gu;
 const DIACRITIC_PATTERN = /\p{Diacritic}/gu;
-
-export function sanitizeCardSearchQuery(value: string): string {
-  return value
-    .replace(NON_LETTER_PATTERN, ' ')
-    .replace(/\s+/g, ' ')
-    .trimStart();
-}
 
 export function normalizeCardSearch(value: string): string {
   return value

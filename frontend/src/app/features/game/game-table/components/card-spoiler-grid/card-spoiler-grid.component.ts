@@ -115,10 +115,6 @@ export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
   private readonly faceFlipTimers = new Map<string, number>();
   private readonly faceFlipAnimationMs = 620;
   private resizeObserver: ResizeObserver | null = null;
-  private readonly visibleEagerEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('cz_perf_library_visible_eager') === '1';
-
   ngAfterViewInit(): void {
     const grid = this.gridElement();
     if (!grid) {
@@ -179,7 +175,6 @@ export class CardSpoilerGridComponent implements AfterViewInit, OnDestroy {
 
   isInitialImageEager(index: number): boolean {
     return this.prioritizeInitialImages()
-      && this.visibleEagerEnabled
       && index < this.initialVisibleCardCount();
   }
 

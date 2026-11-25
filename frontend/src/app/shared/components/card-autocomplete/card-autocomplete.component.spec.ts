@@ -181,6 +181,29 @@ describe('CardAutocompleteComponent', () => {
     }
   });
 
+  it('keeps a leading special character in the input and search query', async () => {
+    const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
+    const fixture = TestBed.createComponent(CardAutocompleteComponent);
+    fixture.detectChanges();
+
+    vi.useFakeTimers();
+    try {
+      const query = "!Urza's Saga // Fire & Ice #2";
+      const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+      input.value = query;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+
+      expect(input.value).toBe(query);
+      await vi.advanceTimersByTimeAsync(350);
+
+      expect(fixture.componentInstance.query).toBe(query);
+      expect(cardsApi.search).toHaveBeenCalledWith(query, 1, 40, {});
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows a no-results notice after a completed empty search', async () => {
     const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
     cardsApi.search.mockReturnValue(of({ data: [] }));

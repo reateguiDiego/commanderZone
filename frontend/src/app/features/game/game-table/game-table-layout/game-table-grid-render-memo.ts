@@ -2,8 +2,6 @@ import type { GameCardInstance, GameSpecialEntity } from '../../../../core/model
 import type { PlayerView } from '../game-table.store';
 import type { GridPlayerSummaryBindings, GridSeat } from './game-table-grid-seat.model';
 
-export const GRID_RENDER_MEMO_STORAGE_KEY = 'cz_perf_grid_render_memo';
-
 const EMPTY_SPECIAL_ENTITIES: readonly GameSpecialEntity[] = [];
 
 /**

@@ -176,6 +176,62 @@ describe('MulliganOverlayComponent', () => {
     expect(keepSpy).toHaveBeenCalledWith(['card-1', 'card-2']);
   });
 
+  it('automatically sends the whole London hand to the bottom at the mulligan limit', () => {
+    const keepSpy = vi.fn();
+    const finalHand = Array.from({ length: 7 }, (_, index) => card(`card-${index + 1}`, `Card ${index + 1}`));
+    fixture.componentInstance.keep.subscribe(keepSpy);
+    fixture.componentRef.setInput('hand', finalHand);
+    setMulligan('LONDON', {
+      mulligansTaken: 8,
+      effectiveMulligans: 7,
+      drawCount: 7,
+      bottomSelectionCount: 7,
+      finalHandSize: 0,
+      needsBottomSelection: true,
+      canTakeAnotherMulligan: true,
+    });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-take"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-limit-notice"]')?.textContent)
+      .toContain('You have reached the mulligan limit for this rule.');
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-limit-notice"]')?.textContent)
+      .toContain('All cards in your hand will go to the bottom. Confirm to continue.');
+    expect(fixture.nativeElement.querySelectorAll('.mulligan-card[data-selected="true"]')).toHaveLength(7);
+    expect(fixture.nativeElement.querySelectorAll('.bottom-card-action')).toHaveLength(0);
+    expect(fixture.nativeElement.textContent).toContain('7 / 7 selected');
+    expect(acceptButton().disabled).toBe(false);
+
+    acceptButton().click();
+
+    expect(keepSpy).toHaveBeenCalledWith(finalHand.map(({ instanceId }) => instanceId));
+  });
+
+  it.each([
+    { rule: 'VANCOUVER' as const, maxEffectiveMulligans: 7 },
+    { rule: 'PARIS' as const, maxEffectiveMulligans: 7 },
+    { rule: 'GENEROUS' as const, maxEffectiveMulligans: 10 },
+  ])('shows the limit and hides take for $rule when runtime still says it is allowed', ({ rule, maxEffectiveMulligans }) => {
+    setMulligan(rule, {
+      mulligansTaken: maxEffectiveMulligans + 1,
+      effectiveMulligans: maxEffectiveMulligans,
+      drawCount: 0,
+      bottomSelectionCount: 0,
+      finalHandSize: 0,
+      canTakeAnotherMulligan: true,
+    });
+    fixture.componentRef.setInput('config', { rule, firstMulliganFree: true });
+    fixture.componentRef.setInput('hand', []);
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-take"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="mulligan-limit-notice"]')?.textContent)
+      .toContain('You have reached the mulligan limit for this rule.');
+    expect(acceptButton().disabled).toBe(false);
+  });
+
   it('shows selection count for Generous and does not render bottom pills', () => {
     setMulligan('GENEROUS', { drawCount: 10, bottomSelectionCount: 3, bottomOrderMode: 'RANDOM_SERVER_SIDE' });
     fixture.componentRef.setInput('config', { rule: 'GENEROUS', firstMulliganFree: true });

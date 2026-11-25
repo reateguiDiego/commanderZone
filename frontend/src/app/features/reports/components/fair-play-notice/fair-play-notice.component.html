@@ -5,21 +5,23 @@
     ariaLabel="reports.fairPlay.title"
     [headerImageSrc]="themeAssets.czZoneHeaderLogoUrl()"
     headerImageAlt="shared.text.commanderzone"
-    message="reports.fairPlay.message"
     primaryLabel="common.actions.understood"
     [showSecondary]="false"
     [showCloseButton]="true"
     closeLabel="common.modal.close"
     [success]="true"
-    size="narrow"
+    size="wide"
     (primary)="acknowledge()"
     (close)="acknowledge()"
   >
-    <img
-      class="fair-play-notice__balance-card"
-      [src]="balanceCardImageUrl"
-      alt=""
-      aria-hidden="true"
-    />
+    <div class="fair-play-notice__content">
+      <p class="fair-play-notice__message">{{ 'reports.fairPlay.message' | runtimeTranslate }}</p>
+      <img
+        class="fair-play-notice__balance-card"
+        [src]="balanceCardImageUrl"
+        alt=""
+        aria-hidden="true"
+      />
+    </div>
   </app-modal>
 }

@@ -49,9 +49,6 @@ export class GameTableBattlefieldState {
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
-  private readonly geometryFrameCacheEnabled =
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('cz_perf_geometry_cache') === '1';
   private readonly battlefieldElementCache = new Map<string, HTMLElement>();
   private readonly battlefieldSizeFrameCache = new Map<string, BattlefieldSize>();
   private readonly battlefieldCardSizeFrameCache = new Map<string, BattlefieldCardSize>();
@@ -594,15 +591,6 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldElementSize(playerId: string): BattlefieldSize {
-    if (!this.geometryFrameCacheEnabled) {
-      const battlefield = this.battlefieldElement(playerId);
-      const bounds = battlefield ? this.battlefieldLayoutBounds(battlefield) : null;
-
-      return bounds && bounds.width > 0 && bounds.height > 0
-        ? { width: bounds.width, height: bounds.height }
-        : this.layoutSize();
-    }
-
     const cached = this.battlefieldSizeFrameCache.get(playerId);
     if (cached) {
       return cached;
@@ -631,10 +619,6 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldCardSize(playerId: string, instanceId?: string): BattlefieldCardSize {
-    if (!this.geometryFrameCacheEnabled) {
-      return measuredBattlefieldCardSize(this.battlefieldElement(playerId), instanceId);
-    }
-
     const cached = this.battlefieldCardSizeFrameCache.get(playerId);
     if (cached) {
       return cached;
@@ -652,11 +636,6 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldElement(playerId: string): HTMLElement | null {
-    if (!this.geometryFrameCacheEnabled) {
-      return Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
-        .find((element) => element.dataset['playerId'] === playerId) ?? null;
-    }
-
     const cached = this.battlefieldElementCache.get(playerId);
     if (cached?.isConnected && cached.dataset['playerId'] === playerId) {
       return cached;
@@ -675,7 +654,7 @@ export class GameTableBattlefieldState {
   }
 
   private scheduleGeometryCacheClear(): void {
-    if (!this.geometryFrameCacheEnabled || this.geometryCacheClearFrame !== null) {
+    if (this.geometryCacheClearFrame !== null) {
       return;
     }
 

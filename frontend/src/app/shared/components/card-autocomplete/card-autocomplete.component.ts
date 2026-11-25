@@ -8,7 +8,7 @@ import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 import { isCommanderCandidate } from '../../utils/commander-candidate';
-import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../utils/card-search';
+import { filterDistinctCardsByQuery } from '../../utils/card-search';
 import { isEmblemCard, isSchemeCard, isTokenCard } from '../../utils/token-card';
 import { CzButtonDirective } from '../../ui/button/button.directive';
 
@@ -88,15 +88,14 @@ export class CardAutocompleteComponent implements OnDestroy {
       return;
     }
 
-    const sanitized = sanitizeCardSearchQuery(value);
-    this.query = sanitized;
-    this.queryChange.emit(sanitized);
+    this.query = value;
+    this.queryChange.emit(value);
 
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
     }
 
-    const query = sanitized.trim();
+    const query = value.trim();
     if (query.length < this.minQueryLength) {
       this.resetResults();
       return;

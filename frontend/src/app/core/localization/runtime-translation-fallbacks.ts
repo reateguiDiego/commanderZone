@@ -1429,6 +1429,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.mulliganOverlay.actions.keepOnTop': 'Keep on top',
   'game.mulliganOverlay.actions.putOnBottom': 'Put on bottom',
   'game.mulliganOverlay.actions.removeFromBottom': 'Remove from bottom',
+  'game.mulliganOverlay.allHandToBottom': 'All cards in your hand will go to the bottom. Confirm to continue.',
   'game.mulliganOverlay.bottomSelectionHelp':
     'Desktop: right click to put a card on the bottom. Mobile/tablet: use the Put on bottom button.',
   'game.mulliganOverlay.currentHand': 'Current hand',
@@ -1450,6 +1451,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   'game.mulliganOverlay.firstMulliganFree': 'First mulligan is free',
   'game.mulliganOverlay.firstMulliganNotFree': 'First mulligan is not free',
   'game.mulliganOverlay.metaAriaLabel': 'Mulligan status',
+  'game.mulliganOverlay.limitReached': 'You have reached the mulligan limit for this rule.',
   'game.mulliganOverlay.mulligansTakenPrefix': 'You have taken ',
   'game.mulliganOverlay.mulligansTakenSuffix': ' mulligans',
   'game.mulliganOverlay.noOtherPlayers': 'No other players.',

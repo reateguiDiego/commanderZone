@@ -21,10 +21,7 @@ import { Card } from '../../../../../core/models/card.model';
 import { DeckToken } from '../../../../../core/models/deck.model';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import {
-  filterDistinctCardsByQuery,
-  sanitizeCardSearchQuery,
-} from '../../../../../shared/utils/card-search';
+import { filterDistinctCardsByQuery } from '../../../../../shared/utils/card-search';
 import { GameXQuantityStepperComponent } from '../game-x-quantity-stepper/game-x-quantity-stepper.component';
 import { PreloadCardAlternateFaceDirective } from '../../../../../shared/directives/preload-card-alternate-face.directive';
 import { GameScheduledImageDirective } from '../../directives/game-scheduled-image.directive';
@@ -146,11 +143,10 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    const query = sanitizeCardSearchQuery(value);
-    this.query.set(query);
+    this.query.set(value);
     this.clearSearchTimeout();
 
-    const trimmed = query.trim();
+    const trimmed = value.trim();
     const version = ++this.searchVersion;
     if (this.isTheRingSearch()) {
       this.searchResults.set([]);

@@ -1154,6 +1154,8 @@
       "scryTitle": "Adivina 1",
       "scryDescription": "Elige qué hacer con la carta superior de tu biblioteca.",
       "waitingForPlayers": "Esperando a los demás jugadores...",
+      "limitReached": "Has llegado al límite de mulligans de esta regla.",
+      "allHandToBottom": "Toda tu mano irá al fondo de la biblioteca. Confirma para continuar.",
       "currentHand": "Mano actual",
       "emptyHand": "Sin cartas en la mano.",
       "selectedCount": "{{ selected }} / {{ total }} seleccionado",

@@ -1154,6 +1154,8 @@
       "scryTitle": "占卜 1",
       "scryDescription": "选择如何处理牌库顶牌。",
       "waitingForPlayers": "等待其他玩家...",
+      "limitReached": "你已达到此规则的调度次数上限。",
+      "allHandToBottom": "你手牌中的所有牌都会置于牌库底。请确认以继续。",
       "currentHand": "当前手牌",
       "emptyHand": "手上没有牌。",
       "selectedCount": "{{ selected }} / {{ total }} 已选择",

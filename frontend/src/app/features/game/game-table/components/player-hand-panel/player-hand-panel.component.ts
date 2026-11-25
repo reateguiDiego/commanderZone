@@ -129,15 +129,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   private readonly transferVerticalThreshold = 12;
   private readonly ownHandHorizontalRetentionOverlap = 0.4;
   private readonly ownHandTopExitRatio = 0.35;
-  private readonly disableHandFlipDuringBattlefieldDrag =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem('cz_perf_disable_hand_flip_during_battlefield_drag') === '1';
-  private readonly handReorderRafEnabled =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem('cz_perf_hand_reorder_raf') === '1';
-  private readonly handReorderGeometryEnabled =
-    typeof window !== 'undefined' &&
-    window.localStorage.getItem('cz_perf_hand_reorder_geometry') === '1';
   private revealTimer: number | null = null;
   private handHoverTimer: number | null = null;
   private handHoverClearTimer: number | null = null;
@@ -304,22 +295,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
   });
 
   ngDoCheck(): void {
-    if (!this.disableHandFlipDuringBattlefieldDrag) {
-      this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
-
-      const nextLayoutMode = this.handLayoutMode();
-      if (
-        this.renderedHandLayoutMode === null ||
-        this.pendingHandLayoutFlip !== null ||
-        nextLayoutMode === this.renderedHandLayoutMode
-      ) {
-        return;
-      }
-
-      this.pendingHandLayoutFlip = this.prepareHandLayoutFlip();
-      return;
-    }
-
     if (!this.isExternalBattlefieldPointerDrag()) {
       this.pendingExternalBattlefieldReceiverLayoutMode = null;
     }
@@ -457,7 +432,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
       return;
     }
 
-    if (this.handReorderRafEnabled && this.shouldQueueHandReorderMove(event, drag)) {
+    if (this.shouldQueueHandReorderMove(event, drag)) {
       this.queueHandPointerMove(event);
       return;
     }
@@ -1560,7 +1535,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     }
 
     this.handDropReceiverRevealed.set(shouldReveal);
-    if (this.disableHandFlipDuringBattlefieldDrag && this.isExternalBattlefieldPointerDrag()) {
+    if (this.isExternalBattlefieldPointerDrag()) {
       this.pendingExternalBattlefieldReceiverLayoutMode = this.handLayoutMode();
     }
     if (wasRevealed) {
@@ -1646,7 +1621,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
 
   private prepareHandLayoutFlip(): () => void {
     if (
-      this.disableHandFlipDuringBattlefieldDrag &&
       this.isExternalBattlefieldPointerDrag() &&
       this.pendingExternalBattlefieldReceiverLayoutMode === this.handLayoutMode()
     ) {
@@ -1984,9 +1958,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     drag: HandPointerDrag,
     intendedMode: Exclude<HandPointerDragMode, 'pending'>,
   ): ResolvedHandPointerDrag {
-    const elementsAtPointer = this.shouldReuseHandPointerHitTest()
-      ? this.pointerDragService.elementsFromPoint(event.clientX, event.clientY)
-      : undefined;
+    const elementsAtPointer = this.pointerDragService.elementsFromPoint(event.clientX, event.clientY);
     const insideOwnHand = this.isPointerDragInsideRevealedHand(event, drag, elementsAtPointer);
     const target = this.pointerDragService.zoneTargetAt(
       event,
@@ -2034,15 +2006,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, DoCheck, OnCh
     return { mode: 'transfer', target: null, preview: null, overOwnHand: false };
   }
 
-  private shouldReuseHandPointerHitTest(): boolean {
-    return this.handReorderRafEnabled || this.handReorderGeometryEnabled;
-  }
-
-  private handReorderGeometryFor(drag: HandPointerDrag): HandReorderGeometry | undefined {
-    if (!this.handReorderGeometryEnabled) {
-      return undefined;
-    }
-
+  private handReorderGeometryFor(drag: HandPointerDrag): HandReorderGeometry {
     const layoutKey = this.handReorderGeometryLayoutKey(drag.playerId);
     if (this.handReorderGeometry?.layoutKey === layoutKey) {
       return this.handReorderGeometry.value;

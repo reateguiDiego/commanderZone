@@ -1154,6 +1154,8 @@
       "scryTitle": "Scry 1",
       "scryDescription": "Choose what to do with the top card of your library.",
       "waitingForPlayers": "Waiting for the other players...",
+      "limitReached": "You have reached the mulligan limit for this rule.",
+      "allHandToBottom": "All cards in your hand will go to the bottom. Confirm to continue.",
       "currentHand": "Current hand",
       "emptyHand": "No cards in hand.",
       "selectedCount": "{{ selected }} / {{ total }} selected",

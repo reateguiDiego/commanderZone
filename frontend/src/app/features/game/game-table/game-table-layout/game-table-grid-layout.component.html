@@ -13,7 +13,6 @@
         [turnDistance]="entry.turnDistance"
         [isOffline]="entry.seat.player.state.isOnline === false"
         [canConcede]="canConcede()"
-        [deferSummaryCollisionDuringPointerDrag]="deferSummaryCollisionDuringPointerDrag()"
         [hasActiveBattlefieldPointerDrag]="hasActiveBattlefieldPointerDrag()"
         [style.grid-area]="entry.seat.seat"
         (dropAllowed)="dropAllowed.emit($event)"

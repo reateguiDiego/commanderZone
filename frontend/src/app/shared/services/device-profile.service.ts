@@ -100,7 +100,7 @@ export class DeviceProfileService {
     }
 
     const view = this.documentRef.defaultView;
-    const width = Math.round(view?.visualViewport?.width ?? view?.innerWidth ?? 0);
+    const width = Math.round(view?.innerWidth || view?.visualViewport?.width || 0);
     const height = Math.round(view?.visualViewport?.height ?? view?.innerHeight ?? 0);
     const hasCoarsePointer = this.matches('(pointer: coarse)');
     const hasAnyCoarsePointer = this.matches('(any-pointer: coarse)');

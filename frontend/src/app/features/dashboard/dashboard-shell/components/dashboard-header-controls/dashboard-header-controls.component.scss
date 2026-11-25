@@ -1,5 +1,14 @@
 :host {
   --friends-notification-pulse-duration: 2.4s;
+  --cz-header-control-selected-border: rgb(var(--cz-accent-rgb) / 96%);
+  --cz-header-control-selected-background: rgb(var(--cz-primary-rgb) / 30%);
+  --cz-header-control-selected-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 24%),
+    inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 30%),
+    0 0 0 2px rgb(var(--cz-primary-rgb) / 24%),
+    0 0.65rem 1.4rem rgb(var(--cz-bg-rgb) / 34%),
+    0 0 1.2rem rgb(var(--cz-primary-rgb) / 46%);
+  --cz-header-control-selected-icon-glow: drop-shadow(0 0 0.55rem rgb(var(--cz-accent-rgb) / 64%));
 
   display: block;
   border: 0;
@@ -37,6 +46,12 @@ app-player-info {
 .messages-dropdown {
   position: relative;
   flex: 0 0 auto;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.messages-dropdown[aria-hidden='true'] {
+  pointer-events: none;
 }
 
 .admin-action,
@@ -50,9 +65,7 @@ app-player-info {
   min-height: 2.75rem;
   line-height: 0;
   overflow: visible;
-  transform-origin: center;
   transition:
-    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 360ms ease,
     border-color 360ms ease,
     background-color 360ms ease;
@@ -63,20 +76,13 @@ app-player-info {
 .messages-action lucide-icon {
   display: grid;
   place-items: center;
-  transform-origin: center;
   transition:
-    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
     filter 360ms ease,
     color 360ms ease;
 }
 
 .admin-action lucide-icon {
   color: var(--cz-primary);
-}
-
-.admin-action.active {
-  border-color: rgb(var(--cz-primary-rgb) / 45%);
-  background: rgb(var(--cz-primary-rgb) / 12%);
 }
 
 .admin-report-badge {
@@ -120,20 +126,23 @@ app-player-info {
   color: var(--cz-info);
 }
 
+.admin-action.active,
 .friends-dropdown.open .friends-action,
 .messages-dropdown.open .messages-action {
-  border-color: rgb(var(--cz-primary-rgb) / 45%);
-  background: rgb(var(--cz-primary-rgb) / 12%);
-  box-shadow:
-    0 0.72rem 1.4rem rgb(var(--cz-bg-rgb) / 18%),
-    0 0 0 1px rgb(var(--cz-primary-rgb) / 10%);
-  transform: translateY(-0.5px);
+  border-color: var(--cz-header-control-selected-border);
+  background-color: var(--cz-header-control-selected-background);
+  box-shadow: var(--cz-header-control-selected-shadow);
 }
 
+.admin-action.active lucide-icon,
 .friends-dropdown.open .friends-action lucide-icon,
 .messages-dropdown.open .messages-action lucide-icon {
-  filter: drop-shadow(0 0 0.45rem rgb(var(--cz-primary-rgb) / 34%));
-  transform: scale(1.025);
+  color: var(--cz-accent);
+  filter: var(--cz-header-control-selected-icon-glow);
+}
+
+.user-strip .icon-button:active:not(:disabled) {
+  transform: none;
 }
 
 .friends-action.has-notifications,
@@ -335,6 +344,11 @@ app-player-info {
   .admin-action,
   .friends-action,
   .messages-action {
+    min-width: 2.65rem;
+    min-height: 2.65rem;
+  }
+
+  .messages-dropdown {
     min-width: 2.65rem;
     min-height: 2.65rem;
   }

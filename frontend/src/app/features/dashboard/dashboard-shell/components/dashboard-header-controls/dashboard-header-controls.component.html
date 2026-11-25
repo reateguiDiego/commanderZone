@@ -78,8 +78,13 @@
     </div>
   }
 
-  @if (messagesCount() > 0) {
-    <div class="messages-dropdown" [class.open]="messagesOpen()" (click)="$event.stopPropagation()">
+  <div
+    class="messages-dropdown"
+    [class.open]="messagesCount() > 0 && messagesOpen()"
+    [attr.aria-hidden]="messagesCount() === 0 ? 'true' : null"
+    (click)="$event.stopPropagation()"
+  >
+    @if (messagesCount() > 0) {
       <button
         czButton="icon"
         class="icon-button messages-action"
@@ -100,12 +105,12 @@
           >
         }
       </button>
+    }
 
-      @if (messagesOpen()) {
-        <app-messages-dropdown />
-      }
-    </div>
-  }
+    @if (messagesCount() > 0 && messagesOpen()) {
+      <app-messages-dropdown />
+    }
+  </div>
 
   <app-header-user-menu
     (menuOpened)="handleUserMenuOpened()"

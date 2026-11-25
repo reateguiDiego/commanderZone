@@ -260,7 +260,11 @@ describe('App', () => {
     await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    });
+
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(
@@ -273,6 +277,32 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
 
     loading.stop();
+  });
+
+  it('does not show the global loader when a request finishes before the display delay', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/');
+    fixture.detectChanges();
+    vi.useFakeTimers();
+
+    try {
+      loading.start();
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(199);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+
+      loading.stop();
+      await vi.advanceTimersByTimeAsync(1);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('loads theme styles only for private routes', async () => {
@@ -309,9 +339,11 @@ describe('App', () => {
 
     const navigation = router.navigateByUrl('/slow-route');
     await vi.waitFor(() => expect(resolveSlowNavigation).toBeTypeOf('function'));
-    fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    });
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(
@@ -330,9 +362,11 @@ describe('App', () => {
 
     const navigation = router.navigateByUrl('/games/game-1/slow');
     await vi.waitFor(() => expect(resolveSlowNavigation).toBeTypeOf('function'));
-    fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    });
 
     resolveSlowNavigation?.(true);
     await navigation;

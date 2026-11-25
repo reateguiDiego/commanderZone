@@ -114,8 +114,6 @@ import { ReportStore } from '../../reports/data-access/report.store';
 })
 class TestRouteStubComponent {}
 
-const DRAG_RAF_STORAGE_KEY = 'cz_perf_drag_raf';
-
 describe('GameTableComponent', () => {
   const squareGamePreferences = {
     defaultBattlefieldLayout: 'square' as const,
@@ -2453,33 +2451,7 @@ describe('GameTableComponent', () => {
     expect(dropOnHand).toHaveBeenCalledWith(event, 'user-1');
   });
 
-  it('processes card pointer moves immediately when the drag rAF experiment is disabled', () => {
-    const fixture = TestBed.createComponent(GameTableComponent);
-    const moveFloatingPanel = vi.spyOn(fixture.componentInstance.store, 'moveFloatingPanel');
-    const moveCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'moveCardPointerDrag');
-    const animationFrame = vi.spyOn(window, 'requestAnimationFrame');
-    const firstEvent = new PointerEvent('pointermove', { clientX: 120, clientY: 180, cancelable: true });
-    const secondEvent = new PointerEvent('pointermove', { clientX: 240, clientY: 360, cancelable: true });
-
-    try {
-      fixture.componentInstance.handlePointerMove(firstEvent);
-      window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
-      fixture.componentInstance.handlePointerMove(secondEvent);
-
-      expect(moveFloatingPanel).toHaveBeenNthCalledWith(1, firstEvent);
-      expect(moveFloatingPanel).toHaveBeenNthCalledWith(2, secondEvent);
-      expect(moveCardPointerDrag).toHaveBeenNthCalledWith(1, firstEvent);
-      expect(moveCardPointerDrag).toHaveBeenNthCalledWith(2, secondEvent);
-      expect(animationFrame).not.toHaveBeenCalled();
-    } finally {
-      animationFrame.mockRestore();
-      moveCardPointerDrag.mockRestore();
-      moveFloatingPanel.mockRestore();
-    }
-  });
-
   it('coalesces active card pointer moves to the latest event in one frame', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
     const fixture = TestBed.createComponent(GameTableComponent);
     const hasActivePointerDrag = vi
       .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
@@ -2530,7 +2502,6 @@ describe('GameTableComponent', () => {
   });
 
   it('processes a new active card pointer move in the next animation frame', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
     const fixture = TestBed.createComponent(GameTableComponent);
     const hasActivePointerDrag = vi
       .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
@@ -2567,7 +2538,6 @@ describe('GameTableComponent', () => {
   });
 
   it('keeps floating panel movement synchronous without queuing card work when no pointer drag is active', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
     const fixture = TestBed.createComponent(GameTableComponent);
     const hasActivePointerDrag = vi
       .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')
@@ -2595,7 +2565,6 @@ describe('GameTableComponent', () => {
   });
 
   it('flushes and cancels a pending card pointer move before ending the drag on pointerup', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
     const fixture = TestBed.createComponent(GameTableComponent);
     const calls: string[] = [];
     const hasActivePointerDrag = vi
@@ -2643,7 +2612,6 @@ describe('GameTableComponent', () => {
   });
 
   it('discards a pending card pointer move when the pointer drag is cancelled', () => {
-    window.localStorage.setItem(DRAG_RAF_STORAGE_KEY, '1');
     const fixture = TestBed.createComponent(GameTableComponent);
     const hasActivePointerDrag = vi
       .spyOn(fixture.componentInstance.store, 'hasActivePointerDrag')

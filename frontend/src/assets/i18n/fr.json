@@ -1154,6 +1154,8 @@
       "scryTitle": "Regard 1",
       "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothèque.",
       "waitingForPlayers": "En attendant les autres joueurs...",
+      "limitReached": "Vous avez atteint la limite de mulligans pour cette règle.",
+      "allHandToBottom": "Toutes les cartes de votre main iront sous votre bibliothèque. Confirmez pour continuer.",
       "currentHand": "Main actuelle",
       "emptyHand": "Aucune carte en main.",
       "selectedCount": "{{ selected }} / {{ total }} sélectionné",

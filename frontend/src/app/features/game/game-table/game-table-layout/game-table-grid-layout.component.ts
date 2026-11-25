@@ -21,11 +21,9 @@ export class GameTableGridLayoutComponent {
   readonly seats = input.required<readonly GridSeat[]>();
   readonly regions = input.required<PlayerRegionTemplates>();
   readonly summaryBindings = input.required<GridPlayerSummaryBindings>();
-  readonly renderMemoEnabled = input(false);
   readonly playmatImage = input<(player: GridSeat['player']) => string>(() => '');
   readonly activePlayerId = input<string | null>(null);
   readonly canConcede = input<(playerId: string) => boolean>(() => false);
-  readonly deferSummaryCollisionDuringPointerDrag = input(false);
   readonly hasActiveBattlefieldPointerDrag = input(false);
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<{ event: DragEvent; playerId: string }>();
@@ -33,9 +31,7 @@ export class GameTableGridLayoutComponent {
   readonly concedeRequested = output<MouseEvent>();
   readonly playerMenuOpened = output<{ event: MouseEvent; playerId: string }>();
   readonly renderedSummaryBindings = computed(() =>
-    this.renderMemoEnabled()
-      ? this.summaryBindingsMemo.memoize(this.summaryBindings())
-      : this.summaryBindings(),
+    this.summaryBindingsMemo.memoize(this.summaryBindings()),
   );
   readonly seatTurnEntries = computed(() => {
     const summaryPlayers = this.renderedSummaryBindings().players;

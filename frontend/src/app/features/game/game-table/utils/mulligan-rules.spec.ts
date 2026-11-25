@@ -112,6 +112,28 @@ describe('mulligan rules', () => {
       .toBe(false);
   });
 
+  it('enforces each rule limit after accounting for the free first mulligan', () => {
+    const limits = [
+      { rule: 'LONDON' as const, finalAllowedTake: 7 },
+      { rule: 'VANCOUVER' as const, finalAllowedTake: 7 },
+      { rule: 'PARIS' as const, finalAllowedTake: 7 },
+      { rule: 'GENEROUS' as const, finalAllowedTake: 10 },
+    ];
+
+    for (const { rule, finalAllowedTake } of limits) {
+      expect(calculateMulliganState({
+        rule,
+        firstMulliganFree: true,
+        mulligansTaken: finalAllowedTake,
+      }).canTakeAnotherMulligan).toBe(true);
+      expect(calculateMulliganState({
+        rule,
+        firstMulliganFree: true,
+        mulligansTaken: finalAllowedTake + 1,
+      }).canTakeAnotherMulligan).toBe(false);
+    }
+  });
+
   it('validates keep against current hand length for bottom-selection rules', () => {
     const london = calculateMulliganState({ rule: 'LONDON', firstMulliganFree: false, mulligansTaken: 3 });
     const generous = calculateMulliganState({ rule: 'GENEROUS', firstMulliganFree: false, mulligansTaken: 1 });

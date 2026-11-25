@@ -96,6 +96,15 @@ describe('DeviceProfileService', () => {
 
   it('keeps a narrow mouse desktop as desktop form factor with mobile layout', () => {
     setViewport(520, 900);
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: {
+        width: 0,
+        height: 0,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      } as unknown as VisualViewport,
+    });
     installMatchMedia({
       '(pointer: coarse)': false,
       '(pointer: fine)': true,
@@ -112,6 +121,7 @@ describe('DeviceProfileService', () => {
     const service = TestBed.inject(DeviceProfileService);
 
     expect(service.formFactor()).toBe('desktop');
+    expect(service.profile().width).toBe(520);
     expect(service.layoutSize()).toBe('mobile');
     expect(service.isDesktop()).toBe(true);
     expect(service.isDesktopLayout()).toBe(false);
